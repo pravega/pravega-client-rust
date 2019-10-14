@@ -14,9 +14,10 @@ pub mod controller {
     // target folder.
 }
 
-use bytes::IntoBuf;
 use controller::{client::ControllerServiceClient, ScopeInfo};
 
+//TODO: find a way to remove camel case errors for the auto generated
+// file io.pravega.controller .stream.api.grpc.v1.rs
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // start Pravega standalone before invoking this function.
