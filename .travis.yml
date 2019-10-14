@@ -12,7 +12,7 @@ cache: cargo
 matrix:
   include:
 
-  - rust: stable
+  - rust: beta
     before_script:
       - rustup component add rustfmt clippy
       - export PATH=$HOME/.cargo/bin:$PATH
