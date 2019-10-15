@@ -14,15 +14,37 @@ pub mod controller {
     // target folder.
 }
 
-use controller::{client::ControllerServiceClient, ScopeInfo};
+use controller::{client::ControllerServiceClient, CreateScopeStatus, ScopeInfo};
+use std::process::Output;
 
-//TODO: find a way to remove camel case errors for the auto generated
-// file io.pravega.controller .stream.api.grpc.v1.rs
+// establish_connection with the given controller uri.
+
+fn establish_connection(
+    uri: &'static str,
+) -> Result<ControllerServiceClient<tonic::transport::channel::Channel>, tonic::transport::Error> {
+    // retry on errors.
+    ControllerServiceClient::connect(uri)
+}
+
+// TODO: this is not working.
+//async fn create_scope(
+//    client: &ControllerServiceClient<tonic::transport::channel::Channel>,
+//    request: tonic::Request<ScopeInfo>,
+//) -> impl Future<Output = CreateScopeStatus> {
+//    client.create_scope(request).await;
+//}
+
+/* Open Points:
+ 1. find a way to remove camel case errors for the auto generated file io.pravega.controller
+ .stream.api.grpc.v1.rs
+ 2. not able to add tests and remove the main function.
+ 3. Line 23: Need to understand why static is being used.
+*/
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // start Pravega standalone before invoking this function.
-    let mut client1 = ControllerServiceClient::connect("http://[::1]:9090")?;
-
+    //let mut client1 = ControllerServiceClient::connect("http://[::1]:9090")?;
+    let mut client1 = establish_connection("http://[::1]:9090")?;
     // Hard coding the input for testing purposes.
     ScopeInfo {
         scope: "testScope123".into(),
