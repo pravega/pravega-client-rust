@@ -13,7 +13,7 @@ pub mod controller {
     // this is the rs file name generated after compiling the proto file, located inside the target folder.
 }
 
-use controller::{client::ControllerServiceClient, ScopeInfo, CreateScopeStatus};
+use controller::{client::ControllerServiceClient, CreateScopeStatus, ScopeInfo};
 
 // establish_connection with the given controller uri.
 fn establish_connection(
