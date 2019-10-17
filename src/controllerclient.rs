@@ -10,9 +10,7 @@
 pub mod controller {
     #![allow(non_camel_case_types)]
     tonic::include_proto!("io.pravega.controller.stream.api.grpc.v1");
-    //include!()
-    // this is the rs file name generated after compiling the proto file, located inside the
-    // target folder.
+    // this is the rs file name generated after compiling the proto file, located inside the target folder.
 }
 
 use controller::{client::ControllerServiceClient, ScopeInfo, CreateScopeStatus};
@@ -28,22 +26,6 @@ fn establish_connection(
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // start Pravega standalone before invoking this function.
-    //let mut client1 = ControllerServiceClient::connect("http://[::1]:9090")?;
-    //    let mut client1 = establish_connection("http://[::1]:9090")?;
-    //    // Hard coding the input for testing purposes.
-    //    ScopeInfo {
-    //        scope: "testScope123".into(),
-    //    };
-    //
-    //    let request = tonic::Request::new(ScopeInfo {
-    //        scope: "testScope123".into(),
-    //    });
-    //
-    //    let response = client1.create_scope(request).await?;
-    //
-    //    println!("RESPONSE={:?}", response);
-    //
-
     let client = establish_connection("http://[::1]:9090");
     let mut c1 = client.unwrap();
     let request = tonic::Request::new(ScopeInfo {
@@ -60,7 +42,7 @@ mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
     use tokio_test::{
-        assert_pending, assert_ready, assert_ready_ok, async_await, block_on, clock, task::MockTask,
+        assert_pending, assert_ready, assert_ready_ok, block_on, clock, task::MockTask,
     };
 
     #[test]
