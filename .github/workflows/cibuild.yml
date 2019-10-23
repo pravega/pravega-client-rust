@@ -37,6 +37,9 @@ jobs:
           toolchain: beta
           override: true
 
+      - name: Install rustfmt
+        run: rustup component add rustfmt
+
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:

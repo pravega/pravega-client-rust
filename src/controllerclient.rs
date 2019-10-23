@@ -59,7 +59,7 @@ mod tests {
     fn test_create_scope_error() {
         let rt = Runtime::new().unwrap();
 
-        let client = establish_connection("http://[::1]:9090");
+        let mut client = establish_connection("http://[::1]:9090");
         let mut client = client.unwrap();
 
         let request = tonic::Request::new(ScopeInfo {
@@ -69,6 +69,7 @@ mod tests {
 
         let r: Result<tonic::Response<controller::CreateScopeStatus>, tonic::Status> =
             rt.block_on(fut);
+
         assert!(
             r.is_err(),
             "connection should fail since controller is not running"
