@@ -20,20 +20,32 @@ fn establish_connection(
     uri: &'static str,
 ) -> Result<ControllerServiceClient<tonic::transport::channel::Channel>, tonic::transport::Error> {
     // retry on errors.
-    ControllerServiceClient::connect(uri) // lifetime of uri outlives the
+    ControllerServiceClient::connect(uri)
+}
+
+/// Async function to create scope
+async fn create_scope(
+    request: tonic::Request<ScopeInfo>,
+    ch: &mut ControllerServiceClient<tonic::transport::channel::Channel>,
+) -> Result<tonic::Response<CreateScopeStatus>, tonic::Status> {
+    ch.create_scope(request).await
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     // start Pravega standalone before invoking this function.
-    let client = establish_connection("http://[::1]:9090");
-    let mut c1 = client.unwrap();
+    let mut client = establish_connection("http://[::1]:9090")?;
     let request = tonic::Request::new(ScopeInfo {
         scope: "testScope123".into(),
     });
+    let response = create_scope(request, &mut client).await;
+    match response {
+        Err(e) => {
+            println!("Error details {}", e);
+        }
+        Ok(r) => println!("No Error {:?}", r),
+    };
 
-    let response_future = c1.create_scope(request).await?;
-    println!("RESPONSE={:?}", response_future);
     Ok(())
 }
 
@@ -41,20 +53,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
-    use tokio_test::{
-        assert_pending, assert_ready, assert_ready_ok, block_on, clock, task::MockTask,
-    };
-
+    use tokio::runtime::Runtime;
+    // TODO: create a mock controller/*  */
     #[test]
-    fn test_create_scope() {
+    fn test_create_scope_error() {
+        let rt = Runtime::new().unwrap();
+
         let client = establish_connection("http://[::1]:9090");
-        let mut c1 = client.unwrap();
+        let mut client = client.unwrap();
+
         let request = tonic::Request::new(ScopeInfo {
             scope: "testScope124".into(),
         });
-        let response_future = c1.create_scope(request);
-        let resp = block_on(response_future);
-        println!("RESPONSE={:?}", resp);
-        // assert the value returned.
+        let fut = create_scope(request, &mut client);
+
+        let r: Result<tonic::Response<controller::CreateScopeStatus>, tonic::Status> =
+            rt.block_on(fut);
+        assert!(
+            r.is_err(),
+            "connection should fail since controller is not running"
+        );
     }
 }
