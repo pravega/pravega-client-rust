@@ -14,19 +14,19 @@ pub mod controller {
 }
 
 use controller::{client::ControllerServiceClient, CreateScopeStatus, ScopeInfo};
+use tonic::transport::channel::Channel;
 
-// establish_connection with the given controller uri.
-fn establish_connection(
-    uri: &'static str,
-) -> Result<ControllerServiceClient<tonic::transport::channel::Channel>, tonic::transport::Error> {
-    // retry on errors.
-    ControllerServiceClient::connect(uri)
+/// create_connection with the given controller uri.
+fn create_connection(uri: &'static str) -> ControllerServiceClient<Channel> {
+    let connection: ControllerServiceClient<Channel> =
+        ControllerServiceClient::connect(uri).expect("Failed to create a channel");
+    connection
 }
 
 /// Async function to create scope
 async fn create_scope(
     request: tonic::Request<ScopeInfo>,
-    ch: &mut ControllerServiceClient<tonic::transport::channel::Channel>,
+    ch: &mut ControllerServiceClient<Channel>,
 ) -> Result<tonic::Response<CreateScopeStatus>, tonic::Status> {
     ch.create_scope(request).await
 }
@@ -34,18 +34,12 @@ async fn create_scope(
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     // start Pravega standalone before invoking this function.
-    let mut client = establish_connection("http://[::1]:9090")?;
+    let mut client = create_connection("http://[::1]:9090");
     let request = tonic::Request::new(ScopeInfo {
         scope: "testScope123".into(),
     });
-    let response = create_scope(request, &mut client).await;
-    match response {
-        Err(e) => {
-            println!("Error details {}", e);
-        }
-        Ok(r) => println!("No Error {:?}", r),
-    };
-
+    let response = create_scope(request, &mut client).await?;
+    println!("Response for create_scope is {:?}", response);
     Ok(())
 }
 
@@ -54,13 +48,12 @@ mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
     use tokio::runtime::Runtime;
-    // TODO: create a mock controller/*  */
+
     #[test]
     fn test_create_scope_error() {
         let rt = Runtime::new().unwrap();
 
-        let mut client = establish_connection("http://[::1]:9090");
-        let mut client = client.unwrap();
+        let mut client = create_connection("http://[::1]:9090");
 
         let request = tonic::Request::new(ScopeInfo {
             scope: "testScope124".into(),
