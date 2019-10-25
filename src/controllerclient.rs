@@ -14,13 +14,14 @@ pub mod controller {
 }
 
 use controller::{
-    client::ControllerServiceClient, scaling_policy::ScalingPolicyType, CreateScopeStatus,
+    client::ControllerServiceClient, /*scaling_policy::ScalingPolicyType,*/ CreateScopeStatus,
     CreateStreamStatus, ScalingPolicy, ScopeInfo, StreamConfig, StreamInfo,
 };
 use tonic::transport::channel::Channel;
 
 /// create_connection with the given controller uri.
 fn create_connection(uri: &'static str) -> ControllerServiceClient<Channel> {
+    // Placeholder to add authentication headers.
     let connection: ControllerServiceClient<Channel> =
         ControllerServiceClient::connect(uri).expect("Failed to create a channel");
     connection
