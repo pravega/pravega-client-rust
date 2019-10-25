@@ -13,7 +13,10 @@ pub mod controller {
     // this is the rs file name generated after compiling the proto file, located inside the target folder.
 }
 
-use controller::{client::ControllerServiceClient, CreateScopeStatus, ScopeInfo};
+use controller::{
+    client::ControllerServiceClient, scaling_policy::ScalingPolicyType, CreateScopeStatus,
+    CreateStreamStatus, ScalingPolicy, ScopeInfo, StreamConfig, StreamInfo,
+};
 use tonic::transport::channel::Channel;
 
 /// create_connection with the given controller uri.
@@ -31,8 +34,19 @@ async fn create_scope(
     let op_status: tonic::Response<CreateScopeStatus> = ch
         .create_scope(tonic::Request::new(request))
         .await
-        .expect("Failed to CreateScope");
+        .expect("Failed to create Scope");
     op_status.into_inner() // return the scope status
+}
+
+async fn create_stream(
+    request: StreamConfig,
+    ch: &mut ControllerServiceClient<Channel>,
+) -> CreateStreamStatus {
+    let op_status: tonic::Response<CreateStreamStatus> = ch
+        .create_stream(tonic::Request::new(request))
+        .await
+        .expect("Failed to create Stream");
+    op_status.into_inner() // return create Stream status
 }
 
 #[tokio::main]
@@ -44,6 +58,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     };
     let response: CreateScopeStatus = create_scope(request, &mut client).await;
     println!("Response for create_scope is {:?}", response);
+
+    let request2 = StreamConfig {
+        stream_info: Some(StreamInfo {
+            scope: "testScope123".into(),
+            stream: "testStream".into(),
+        }),
+        scaling_policy: Some(ScalingPolicy {
+            scale_type: 0, /* Fixed Segments*/
+            target_rate: 0,
+            scale_factor: 0,
+            min_num_segments: 1,
+        }),
+        retention_policy: None,
+    };
+    let response2: CreateStreamStatus = create_stream(request2, &mut client).await;
+    println!("Response 2 for create_stream is {:?}", response2);
 
     Ok(())
 }
@@ -65,6 +95,31 @@ mod tests {
             scope: "testScope124".into(),
         };
         let fut = create_scope(request, &mut client);
+
+        rt.block_on(fut);
+    }
+
+    #[test]
+    #[should_panic] // since the controller is not running.
+    fn test_create_stream_error() {
+        let rt = Runtime::new().unwrap();
+
+        let mut client = create_connection("http://[::1]:9090");
+
+        let request = StreamConfig {
+            stream_info: Some(StreamInfo {
+                scope: "testScope123".into(),
+                stream: "testStream".into(),
+            }),
+            scaling_policy: Some(ScalingPolicy {
+                scale_type: 0, /* Fixed Segments*/
+                target_rate: 0,
+                scale_factor: 0,
+                min_num_segments: 1,
+            }),
+            retention_policy: None,
+        };
+        let fut = create_stream(request, &mut client);
 
         rt.block_on(fut);
     }
