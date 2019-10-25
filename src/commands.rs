@@ -103,10 +103,10 @@ impl Reply for WrongHostCommand {
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentIsSealedCommand {
-    request_id: i64,
-    segment: String,
-    server_stack_trace: String,
-    offset: i64,
+    pub request_id: i64,
+    pub segment: String,
+    pub server_stack_trace: String,
+    pub offset: i64,
 }
 
 impl SegmentIsSealedCommand {
@@ -132,3 +132,81 @@ impl Reply for SegmentIsSealedCommand {
         true
     }
 }
+
+/**
+ * SegmentIsTruncated Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct SegmentIsTruncatedCommand {
+    pub request_id: i64,
+    pub segment: String,
+    pub start_offset: i64,
+    pub server_stack_trace: String,
+    pub offset: i64,
+
+}
+
+impl SegmentIsTruncatedCommand {
+    pub fn read_from(input: &Vec<u8>) -> SegmentIsTruncatedCommand {
+        let decoded: SegmentIsTruncatedCommand = bincode::deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Command for SegmentIsTruncatedCommand {
+    const TYPE_CODE: i32 = 56;
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = bincode::serialize(&self).unwrap();
+        encoded
+    }
+}
+
+impl Reply for SegmentIsTruncatedCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+    fn is_failure(&self) -> bool {
+        true
+    }
+}
+
+/**
+ * SegmentAlreadyExists Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct SegmentAlreadyExistsCommand {
+    pub request_id: i64,
+    pub segment: String,
+    pub server_stack_trace: String,
+}
+
+impl SegmentAlreadyExistsCommand {
+    pub fn read_from(input: &Vec<u8>) -> SegmentAlreadyExistsCommand {
+        let decoded: SegmentAlreadyExistsCommand = bincode::deserialize(&input[..]).unwrap();
+        decoded
+    }
+    pub fn to_string(&self) -> String {
+        String::from("Segment already exists: " + &self.segment)
+    }
+}
+
+impl Command for SegmentAlreadyExistsCommand {
+    const TYPE_CODE: i32 = 52;
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = bincode::serialize(&self).unwrap();
+        encoded
+    }
+}
+
+impl Reply for SegmentAlreadyExistsCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+    fn is_failure(&self) -> bool {
+        true
+    }
+}
+
+
+
+
