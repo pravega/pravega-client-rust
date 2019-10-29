@@ -7,6 +7,7 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
+mod connection_factory;
 
 fn main() {
     println!("Hello, world!");
@@ -14,9 +15,20 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use tokio::runtime::Runtime;
+    use crate::connection_factory::ConnectionFactory;
 
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn test_send_async() {
+        let rt = Runtime::new().unwrap();
+
+        let connection_factory = connection_factory::ConnectionFactoryImpl {};
+        let connection = connection_factory.establish_connection("127.0.0.1:0").unwrap();
+        let mut data: Vec<u8> = Vec::new();
+        data.push(12);
+        let fut = connection.send_async(&data);
+
+        rt.block_on(fut);
     }
 }
