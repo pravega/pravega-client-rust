@@ -16,7 +16,7 @@ mod tests {
     use crate::wirecommands::WireCommands;
     use crate::wirecommands::Encode;
     use crate::wirecommands::Decode;
-
+    use crate::commands;
     #[test]
     fn test_hello() {
         let hello_command = WireCommands::Hello(commands::HelloCommand{high_version: 9, low_version:5});
@@ -33,16 +33,19 @@ mod tests {
 
     #[test]
     fn test_wrong_host() {
+        let segment_name = commands::JavaString(String::from("segment-1"));
+        let correct_host_name = commands::JavaString(String::from("foo"));
+        let stack_trace = commands::JavaString(String::from("stack_trace"));
         let wrong_host_command = WireCommands::WrongHost(commands::WrongHostCommand{request_id:1,
-            segment: String::from("a"), correct_host:  String::from("b"), server_stack_trace: String::from("c")});
+            segment: segment_name, correct_host:  correct_host_name, server_stack_trace: stack_trace});
         let encoded: Vec<u8> = wrong_host_command.write_fields();
         println!("{:?}", encoded);
         let decoded = WireCommands::read_from(50, &encoded);
         if let WireCommands::WrongHost(wrong_host_cmd) = decoded {
             assert_eq!(wrong_host_cmd.request_id, 1);
-            assert_eq!(wrong_host_cmd.segment, "a");
-            assert_eq!(wrong_host_cmd.correct_host, "b");
-            assert_eq!(wrong_host_cmd.server_stack_trace, "c");
+            assert_eq!(wrong_host_cmd.segment.0, "segment-1");
+            assert_eq!(wrong_host_cmd.correct_host.0, "foo");
+            assert_eq!(wrong_host_cmd.server_stack_trace.0, "stack_trace");
         } else {
             panic!("test failed")
         }
@@ -50,6 +53,5 @@ mod tests {
 
     #[test]
     fn test_segment_is_sealed () {
-
     }
 }

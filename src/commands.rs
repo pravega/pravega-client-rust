@@ -1,9 +1,8 @@
 use serde::{Serialize, Deserialize, Serializer, Deserializer};
 use serde::de::{self, Visitor};
 use uuid::Uuid;
-use uuid::adapter::compact::serialize;
-use serde::de::Unexpected::Str;
-
+use std::fmt;
+use byteorder::{BigEndian, WriteBytesExt};
 /**
  * trait for Command.
  */
@@ -29,19 +28,34 @@ pub trait Request {
  *
  */
 
-struct JavaString(String);
+pub struct JavaString(pub String);
 
 impl Serialize for JavaString {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
             S: Serializer,
     {
-        let length: usize = self.0.len();
-        //serialize the length as u16
-        serializer.serialize_u16(length as u16);
+        // get the length of the String.
+        let length = self.0.len() as u16;
+        // get the content of the String.
         let binary = self.0.as_bytes();
-        serializer.serialize_bytes(binary);
-        Ok(())
+        // Serialize
+        let mut content = vec![];
+        content.write_u16::<BigEndian>(length).unwrap();
+        content.extend(binary);
+        serializer.serialize_bytes(&content)
+    }
+}
+
+impl fmt::Debug for JavaString {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl PartialEq for JavaString {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
     }
 }
 
@@ -51,24 +65,19 @@ struct JavaStringVisitor;
 impl<'de> Visitor<'de> for JavaStringVisitor {
     type Value = JavaString;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> fmt::Result {
         formatter.write_str("A Byte buffer which contains length and content")
     }
 
-    fn visit_bytes(self, value: &Vec<u8>) -> Result<JavaString, E>
+    fn visit_borrowed_bytes<E>(self, value: &'de [u8]) -> Result<Self::Value, E>
         where
-            E: de::Error,
+            E: de::Error
     {
         // get the length
-        let length = ((value[0] as u16) << 8) | value[1] as u16;
+        let _length = ((value[0] as u16) << 8) | value[1] as u16;
         // construct the JavaString
-        // Fixme: If there is a better way to change a &Vec[2..] to String
-        let content = JavaString(String::from_utf8_lossy(&value[2..]).into_owned());
-        if length == content.len() {
-            Ok(content)
-        } else {
-            Err(E::custom("The length and content mismatch"))
-        }
+        let content = String::from_utf8_lossy(&value[2..]).into_owned();
+        Ok(JavaString(content))
     }
 }
 
@@ -77,7 +86,6 @@ impl <'de>Deserialize<'de> for JavaString {
         where
             D: Deserializer<'de>,
     {
-        //FIXME: what should I use deserialize_bytes() or deserialize_byte_buf
         deserializer.deserialize_bytes(JavaStringVisitor)
     }
 }
@@ -91,11 +99,10 @@ pub trait Reply {
     }
 }
 
-
 /**
  * Hello Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug, Display)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct HelloCommand {
     pub high_version: i32,
     pub low_version: i32,
@@ -129,7 +136,7 @@ impl Reply for HelloCommand {
 /**
  * WrongHost Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug, Display)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct WrongHostCommand {
     pub request_id: i64,
     pub segment: JavaString,
@@ -161,7 +168,7 @@ impl Reply for WrongHostCommand {
 /**
  * SegmentIsSealed Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug, Display)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentIsSealedCommand {
     pub request_id: i64,
     pub segment: String,
@@ -194,7 +201,7 @@ impl Reply for SegmentIsSealedCommand {
 /**
  * SegmentIsTruncated Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug, Display)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentIsTruncatedCommand {
     pub request_id: i64,
     pub segment: String,
@@ -229,7 +236,7 @@ impl Reply for SegmentIsTruncatedCommand {
 /**
  * SegmentAlreadyExists Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug, Display)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentAlreadyExistsCommand {
     pub request_id: i64,
     pub segment: String,
@@ -262,7 +269,7 @@ impl Reply for SegmentAlreadyExistsCommand {
 /**
  * NoSuchSegment Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug, Display)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct NoSuchSegmentCommand {
     pub request_id: i64,
     pub segment: String,
@@ -296,7 +303,7 @@ impl Reply for NoSuchSegmentCommand {
 /**
  * TableSegmentNotEmpty Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug, Display)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TableSegmentNotEmptyCommand {
     pub request_id: i64,
     pub segment: String,
@@ -325,9 +332,9 @@ impl Reply for TableSegmentNotEmptyCommand {
     }
 }
 
-/**
- * InvalidEventNumber Command
- */
+// To fix for Serialize and Deserialize for Uuid
+/*
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct InvalidEventNumberCommand {
     pub write_id: Uuid,
     pub event_number: i64,
@@ -355,3 +362,4 @@ impl Reply for InvalidEventNumberCommand {
         true
     }
 }
+*/
