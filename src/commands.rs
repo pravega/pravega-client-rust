@@ -3,6 +3,7 @@ use serde::de::{self, Visitor};
 use uuid::Uuid;
 use std::fmt;
 use byteorder::{BigEndian, WriteBytesExt};
+
 /**
  * trait for Command.
  */
@@ -24,11 +25,38 @@ pub trait Request {
 }
 
 /**
+ * trait for Reply
+ */
+pub trait Reply {
+    fn get_request_id(&self) -> i64;
+    fn is_failure(&self) -> bool {
+        false
+    }
+}
+
+/**
  * Wrap String to follow Java Serialize/Deserialize Style.
  *
  */
-
 pub struct JavaString(pub String);
+
+impl fmt::Debug for JavaString {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl fmt::Display for JavaString {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl PartialEq for JavaString {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
 
 impl Serialize for JavaString {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -46,19 +74,6 @@ impl Serialize for JavaString {
         serializer.serialize_bytes(&content)
     }
 }
-
-impl fmt::Debug for JavaString {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl PartialEq for JavaString {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
 
 struct JavaStringVisitor;
 
@@ -89,15 +104,7 @@ impl <'de>Deserialize<'de> for JavaString {
         deserializer.deserialize_bytes(JavaStringVisitor)
     }
 }
-/**
- * trait for Reply
- */
-pub trait Reply {
-    fn get_request_id(&self) -> i64;
-    fn is_failure(&self) -> bool {
-        false
-    }
-}
+
 
 /**
  * Hello Command
@@ -171,8 +178,8 @@ impl Reply for WrongHostCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentIsSealedCommand {
     pub request_id: i64,
-    pub segment: String,
-    pub server_stack_trace: String,
+    pub segment: JavaString,
+    pub server_stack_trace: JavaString,
     pub offset: i64,
 }
 
@@ -204,9 +211,9 @@ impl Reply for SegmentIsSealedCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentIsTruncatedCommand {
     pub request_id: i64,
-    pub segment: String,
+    pub segment: JavaString,
     pub start_offset: i64,
-    pub server_stack_trace: String,
+    pub server_stack_trace: JavaString,
     pub offset: i64,
 
 }
@@ -239,8 +246,8 @@ impl Reply for SegmentIsTruncatedCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentAlreadyExistsCommand {
     pub request_id: i64,
-    pub segment: String,
-    pub server_stack_trace: String,
+    pub segment: JavaString,
+    pub server_stack_trace: JavaString,
 }
 
 impl Command for SegmentAlreadyExistsCommand {
@@ -272,8 +279,8 @@ impl Reply for SegmentAlreadyExistsCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct NoSuchSegmentCommand {
     pub request_id: i64,
-    pub segment: String,
-    pub server_stack_trace: String,
+    pub segment: JavaString,
+    pub server_stack_trace: JavaString,
     pub offset: i64,
 }
 
@@ -306,8 +313,8 @@ impl Reply for NoSuchSegmentCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TableSegmentNotEmptyCommand {
     pub request_id: i64,
-    pub segment: String,
-    pub server_stack_trace: String,
+    pub segment: JavaString,
+    pub server_stack_trace: JavaString,
 }
 
 impl Command for TableSegmentNotEmptyCommand {

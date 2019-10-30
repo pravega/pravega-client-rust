@@ -52,6 +52,22 @@ mod tests {
     }
 
     #[test]
-    fn test_segment_is_sealed () {
+    fn test_segment_is_sealed() {
+        let segment_name = commands::JavaString(String::from("segment-2"));
+        let stack_trace = commands::JavaString(String::from("stack_trace"));
+        let offset_pos = 100i64;
+        let segment_is_sealed_command = WireCommands::SegmentIsSealed(commands::SegmentIsSealedCommand{
+           request_id:2, segment: segment_name, server_stack_trace: stack_trace, offset: offset_pos
+        });
+        let encoded: Vec<u8> = segment_is_sealed_command.write_fields();
+        let decoded = WireCommands::read_from( 51,&encoded);
+        if let WireCommands::SegmentIsSealed(sealed_cmd) = decoded {
+            assert_eq!(sealed_cmd.request_id, 2);
+            assert_eq!(sealed_cmd.segment.0, "segment-2");
+            assert_eq!(sealed_cmd.server_stack_trace.0, "stack_trace");
+            assert_eq!(sealed_cmd.offset, 100);
+        } else {
+            panic!("test failed");
+        }
     }
 }
