@@ -9,3 +9,4 @@ edition = "2018"
 tokio = "0.2.0-alpha.6"
 tokio-test = "0.2.0-alpha.6"
 futures-preview = { version = "=0.3.0-alpha.19", default-features = false, features = ["alloc", "async-await"]}
+async-trait = "0.1.17"

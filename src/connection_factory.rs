@@ -12,36 +12,45 @@ extern crate tokio;
 use std::{error::Error, net::SocketAddr};
 use tokio::net::TcpStream;
 use tokio::prelude::*;
+use async_trait::async_trait;
+use self::tokio::io::{AsyncWriteExt, AsyncReadExt};
 
+#[async_trait]
 pub trait ConnectionFactory {
-    fn establish_connection(&self, endpoint: &str) -> Result<Connection, Box<dyn Error>> {
-        let address = endpoint.parse()?;
-        Ok(Connection { address })
-    }
+    async fn establish_connection(&self, endpoint: SocketAddr) -> Result<Box<dyn Connection>, Box<dyn Error>>;
+}
+
+#[async_trait]
+pub trait Connection {
+    async fn send_async(&mut self, payload: &[u8]) -> Result<(), Box<dyn Error>>;
+
+    async fn read_async(&mut self, buf: &mut Vec<u8>) -> Result<(), Box<dyn Error>>;
 }
 
 pub struct ConnectionFactoryImpl {}
 
-impl ConnectionFactory for ConnectionFactoryImpl {}
-
-pub struct Connection {
-    pub address: SocketAddr,
+#[async_trait]
+impl ConnectionFactory for ConnectionFactoryImpl {
+    async fn establish_connection(&self, endpoint: SocketAddr) -> Result<Box<dyn Connection>, Box<dyn Error>> {
+        let mut stream = TcpStream::connect(endpoint).await?;
+        Ok(Box::new(ConnectionImpl { endpoint, stream }))
+    }
 }
 
-impl Connection {
-    pub async fn send_async(&self, data: &Vec<u8>) -> Result<(), Box<dyn Error>> {
-        let mut stream = TcpStream::connect(&self.address).await?;
-        stream.write_all(data).await?;
+pub struct ConnectionImpl {
+    pub endpoint: SocketAddr,
+    pub stream: TcpStream,
+}
+
+#[async_trait]
+impl Connection for ConnectionImpl {
+    async fn send_async(&mut self, payload: &[u8]) -> Result<(), Box<dyn Error>> {
+        self.stream.write_all(payload).await?;
         Ok(())
     }
 
-    pub fn send(&self, data: &Vec<u8>) -> Result<(), Box<dyn Error>> {
-        use std::io::prelude::*;
-        use std::net::TcpStream;
-
-        let mut stream = TcpStream::connect(&self.address)?;
-
-        stream.write(data)?;
+    async fn read_async(&mut self, buf: &mut Vec<u8>) -> Result<(), Box<dyn Error>> {
+        self.stream.read_to_end(buf).await?;
         Ok(())
     }
 }
