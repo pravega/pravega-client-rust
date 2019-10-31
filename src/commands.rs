@@ -1,8 +1,8 @@
 use serde::{Serialize, Deserialize, Serializer, Deserializer};
-use serde::de::{self, Visitor};
-use uuid::Uuid;
+use serde::de::{self, Visitor, Unexpected};
 use std::fmt;
 use byteorder::{BigEndian, WriteBytesExt};
+use bincode::Config;
 
 /**
  * trait for Command.
@@ -92,7 +92,13 @@ impl<'de> Visitor<'de> for JavaStringVisitor {
         let _length = ((value[0] as u16) << 8) | value[1] as u16;
         // construct the JavaString
         let content = String::from_utf8_lossy(&value[2..]).into_owned();
-        Ok(JavaString(content))
+
+        if _length == content.len() as u16 {
+            Ok(JavaString(content))
+        } else {
+            Err(de::Error::invalid_value(Unexpected::Bytes(value), &self))
+        }
+
     }
 }
 
@@ -106,8 +112,19 @@ impl <'de>Deserialize<'de> for JavaString {
 }
 
 
+/*
+ * bincode serialize and deserialize config
+ */
+lazy_static! {
+    static ref CONFIG: Config =  {
+        let mut config = bincode::config();
+        config.big_endian();
+        config
+    };
+}
+
 /**
- * Hello Command
+ * 1. Hello Command
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct HelloCommand {
@@ -118,12 +135,12 @@ pub struct HelloCommand {
 impl Command for HelloCommand {
     const TYPE_CODE: i32 = -127;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = bincode::serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).unwrap();
         encoded
     }
 
     fn read_from(input: &Vec<u8>) -> HelloCommand {
-        let decoded: HelloCommand = bincode::deserialize(&input[..]).unwrap();
+        let decoded: HelloCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
 }
@@ -141,7 +158,7 @@ impl Reply for HelloCommand {
 }
 
 /**
- * WrongHost Command
+ * 2. WrongHost Command
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct WrongHostCommand {
@@ -154,11 +171,11 @@ pub struct WrongHostCommand {
 impl Command for WrongHostCommand {
     const TYPE_CODE: i32 = 50;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = bincode::serialize(&self).unwrap();
+        let encoded =CONFIG.serialize(&self).unwrap();
         encoded
     }
     fn read_from(input: &Vec<u8>) -> WrongHostCommand {
-        let decoded: WrongHostCommand = bincode::deserialize(&input[..]).unwrap();
+        let decoded: WrongHostCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
 }
@@ -173,7 +190,7 @@ impl Reply for WrongHostCommand {
 }
 
 /**
- * SegmentIsSealed Command
+ * 3. SegmentIsSealed Command
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentIsSealedCommand {
@@ -186,12 +203,12 @@ pub struct SegmentIsSealedCommand {
 impl Command for SegmentIsSealedCommand {
     const TYPE_CODE: i32 = 51;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = bincode::serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).unwrap();
         encoded
     }
 
     fn read_from(input: &Vec<u8>) -> SegmentIsSealedCommand {
-        let decoded: SegmentIsSealedCommand = bincode::deserialize(&input[..]).unwrap();
+        let decoded: SegmentIsSealedCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
 }
@@ -206,7 +223,7 @@ impl Reply for SegmentIsSealedCommand {
 }
 
 /**
- * SegmentIsTruncated Command
+ * 4. SegmentIsTruncated Command
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentIsTruncatedCommand {
@@ -221,12 +238,12 @@ pub struct SegmentIsTruncatedCommand {
 impl Command for SegmentIsTruncatedCommand {
     const TYPE_CODE: i32 = 56;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = bincode::serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).unwrap();
         encoded
     }
 
     fn read_from(input: &Vec<u8>) -> SegmentIsTruncatedCommand {
-        let decoded: SegmentIsTruncatedCommand = bincode::deserialize(&input[..]).unwrap();
+        let decoded: SegmentIsTruncatedCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
 }
@@ -241,7 +258,7 @@ impl Reply for SegmentIsTruncatedCommand {
 }
 
 /**
- * SegmentAlreadyExists Command
+ * 5. SegmentAlreadyExists Command
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentAlreadyExistsCommand {
@@ -253,12 +270,12 @@ pub struct SegmentAlreadyExistsCommand {
 impl Command for SegmentAlreadyExistsCommand {
     const TYPE_CODE: i32 = 52;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = bincode::serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).unwrap();
         encoded
     }
 
     fn read_from(input: &Vec<u8>) -> SegmentAlreadyExistsCommand {
-        let decoded: SegmentAlreadyExistsCommand = bincode::deserialize(&input[..]).unwrap();
+        let decoded: SegmentAlreadyExistsCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
 }
@@ -272,9 +289,14 @@ impl Reply for SegmentAlreadyExistsCommand {
     }
 }
 
+impl fmt::Display for SegmentAlreadyExistsCommand {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Segment already exists: {}", self.segment)
+    }
+}
 
 /**
- * NoSuchSegment Command
+ * 6. NoSuchSegment Command
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct NoSuchSegmentCommand {
@@ -287,12 +309,12 @@ pub struct NoSuchSegmentCommand {
 impl Command for NoSuchSegmentCommand {
     const TYPE_CODE: i32 = 53;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = bincode::serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).unwrap();
         encoded
     }
 
     fn read_from(input: &Vec<u8>) -> NoSuchSegmentCommand {
-        let decoded: NoSuchSegmentCommand = bincode::deserialize(&input[..]).unwrap();
+        let decoded: NoSuchSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
 
@@ -307,8 +329,15 @@ impl Reply for NoSuchSegmentCommand {
     }
 }
 
+impl fmt::Display for NoSuchSegmentCommand {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "No such segment: {}", self.segment)
+    }
+}
+
+
 /**
- * TableSegmentNotEmpty Command
+ * 7. TableSegmentNotEmpty Command
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TableSegmentNotEmptyCommand {
@@ -320,12 +349,12 @@ pub struct TableSegmentNotEmptyCommand {
 impl Command for TableSegmentNotEmptyCommand {
     const TYPE_CODE: i32 = 80;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = bincode::serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).unwrap();
         encoded
     }
 
     fn read_from(input: &Vec<u8>) -> TableSegmentNotEmptyCommand {
-        let decoded: TableSegmentNotEmptyCommand = bincode::deserialize(&input[..]).unwrap();
+        let decoded: TableSegmentNotEmptyCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
 }
@@ -339,24 +368,31 @@ impl Reply for TableSegmentNotEmptyCommand {
     }
 }
 
-// To fix for Serialize and Deserialize for Uuid
-/*
+impl fmt::Display for TableSegmentNotEmptyCommand {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Table Segment is not empty: {}", self.segment)
+    }
+}
+
+/**
+ * 8. InvalidEventNumber Command
+ */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct InvalidEventNumberCommand {
-    pub write_id: Uuid,
+    pub write_id: u128,
     pub event_number: i64,
-    pub server_stack_trace: String,
+    pub server_stack_trace: JavaString,
 }
 
 impl Command for InvalidEventNumberCommand {
     const TYPE_CODE: i32 = 55;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = bincode::serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).unwrap();
         encoded
     }
 
     fn read_from(input: &Vec<u8>) -> InvalidEventNumberCommand {
-        let decoded: InvalidEventNumberCommand = bincode::deserialize(&input[..]).unwrap();
+        let decoded: InvalidEventNumberCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
 }
@@ -369,4 +405,84 @@ impl Reply for InvalidEventNumberCommand {
         true
     }
 }
-*/
+
+impl fmt::Display for InvalidEventNumberCommand {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Invalid event number: {} for writer: {}", self.event_number, self.write_id)
+    }
+}
+
+/**
+ * 9. OperationUnsupported Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct OperationUnsupportedCommand {
+    pub request_id: i64,
+    pub operation_name: JavaString,
+    pub server_stack_trace: JavaString,
+}
+
+impl Command for OperationUnsupportedCommand {
+    const TYPE_CODE: i32 = 57;
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> OperationUnsupportedCommand {
+        let decoded: OperationUnsupportedCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for OperationUnsupportedCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+    fn is_failure(&self) -> bool {
+        true
+    }
+}
+
+/**
+ * 10. Padding Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct PaddingCommand {
+    pub length: i32,
+}
+
+impl Command for PaddingCommand {
+    const TYPE_CODE: i32 = -1;
+    // TODO: The padding command needs custom serialize and deserialize method
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> PaddingCommand {
+        let decoded: PaddingCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+/**
+ * 11. PartialEvent Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct PartialEventCommand {
+    data: Vec<u8>
+}
+
+impl Command for PartialEventCommand {
+    const TYPE_CODE: i32 = -2;
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> PartialEventCommand {
+        let decoded: PartialEventCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
