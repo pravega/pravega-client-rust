@@ -15,9 +15,13 @@ use tokio::prelude::*;
 use async_trait::async_trait;
 use self::tokio::io::{AsyncWriteExt, AsyncReadExt};
 
+pub enum ConnectionType {
+    Tokio,
+}
+
 #[async_trait]
 pub trait ConnectionFactory {
-    async fn establish_connection(&self, endpoint: SocketAddr) -> Result<Box<dyn Connection>, Box<dyn Error>>;
+    async fn establish_connection(&self, connectionType: ConnectionType, endpoint: SocketAddr) -> Result<Box<dyn Connection>, Box<dyn Error>>;
 }
 
 #[async_trait]
@@ -31,19 +35,23 @@ pub struct ConnectionFactoryImpl {}
 
 #[async_trait]
 impl ConnectionFactory for ConnectionFactoryImpl {
-    async fn establish_connection(&self, endpoint: SocketAddr) -> Result<Box<dyn Connection>, Box<dyn Error>> {
-        let mut stream = TcpStream::connect(endpoint).await?;
-        Ok(Box::new(ConnectionImpl { endpoint, stream }))
+    async fn establish_connection(&self, connectionType: ConnectionType, endpoint: SocketAddr) -> Result<Box<dyn Connection>, Box<dyn Error>> {
+        match connectionType {
+            ConnectionType::Tokio => {
+                let mut stream = TcpStream::connect(endpoint).await?;
+                Ok(Box::new(TokioConnection { endpoint, stream }))
+            }
+        }
     }
 }
 
-pub struct ConnectionImpl {
+pub struct TokioConnection {
     pub endpoint: SocketAddr,
     pub stream: TcpStream,
 }
 
 #[async_trait]
-impl Connection for ConnectionImpl {
+impl Connection for TokioConnection {
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), Box<dyn Error>> {
         self.stream.write_all(payload).await?;
         Ok(())

@@ -53,7 +53,7 @@ mod tests {
         let mut server = server::new();
 
         let connection_factory = connection_factory::ConnectionFactoryImpl {};
-        let connection_future = connection_factory.establish_connection(server.address);
+        let connection_future = connection_factory.establish_connection(connection_factory::ConnectionType::Tokio, server.address);
         let mut connection = rt.block_on(connection_future).unwrap();
         println!("connection established");
 
