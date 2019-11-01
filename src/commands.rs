@@ -889,8 +889,8 @@ impl Command for SegmentAttributeUpdatedCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> SegmentAttributeUpdated {
-        let decoded: SegmentAttributeUpdated = CONFIG.deserialize(&input[..]).unwrap();
+    fn read_from(input: &Vec<u8>) -> SegmentAttributeUpdatedCommand {
+        let decoded: SegmentAttributeUpdatedCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
 }
@@ -966,3 +966,246 @@ impl Reply for StreamSegmentInfoCommand {
     }
 }
 
+/**
+ * 28. CreateSegment Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct CreateSegmentCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+    pub scale_type: u8,
+    pub target_rate: i32,
+    pub delegation_token: JavaString,
+}
+
+impl Command for CreateSegmentCommand {
+    const TYPE_CODE: i32 = 20;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> CreateSegmentCommand {
+        let decoded: CreateSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for CreateSegmentCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 29. CreateTableSegment Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct CreateTableSegmentCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+    pub delegation_token: JavaString,
+}
+
+impl Command for CreateTableSegmentCommand {
+    const TYPE_CODE: i32 = 70;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> CreateTableSegmentCommand {
+        let decoded: CreateTableSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for CreateTableSegmentCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 30. SegmentCreated Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct SegmentCreatedCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+}
+
+impl Command for SegmentCreatedCommand {
+    const TYPE_CODE: i32 = 21;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> SegmentCreatedCommand {
+        let decoded: SegmentCreatedCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for SegmentCreatedCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 31. UpdateSegmentPolicy Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct UpdateSegmentPolicyCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+    pub scale_type: u8,
+    pub target_rate: i32,
+    pub delegation_token: JavaString,
+}
+
+impl Command for UpdateSegmentPolicyCommand {
+    const TYPE_CODE: i32 = 32;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> UpdateSegmentPolicyCommand {
+        let decoded: UpdateSegmentPolicyCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for UpdateSegmentPolicyCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 32. SegmentPolicyUpdated Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct SegmentPolicyUpdatedCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+}
+
+impl Command for SegmentPolicyUpdatedCommand {
+    const TYPE_CODE: i32 = 33;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> SegmentPolicyUpdatedCommand {
+        let decoded: SegmentPolicyUpdatedCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for SegmentPolicyUpdatedCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 33. MergeSegments Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct MergeSegmentsCommand {
+    pub request_id: i64,
+    pub target: JavaString,
+    pub source: JavaString,
+    pub delegation_token: JavaString,
+}
+
+impl Command for MergeSegmentsCommand {
+    const TYPE_CODE: i32 = 58;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> MergeSegmentsCommand {
+        let decoded: MergeSegmentsCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for MergeSegmentsCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+/**
+ * 34. MergeTableSegments Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct MergeTableSegmentsCommand {
+    pub request_id: i64,
+    pub target: JavaString,
+    pub source: JavaString,
+    pub delegation_token: JavaString,
+}
+
+impl Command for MergeTableSegmentsCommand {
+    const TYPE_CODE: i32 = 72;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> MergeTableSegmentsCommand {
+        let decoded: MergeTableSegmentsCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for MergeTableSegmentsCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 35. SegmentsMerged Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct  SegmentsMergedCommand {
+    pub request_id: i64,
+    pub target: JavaString,
+    pub source: JavaString,
+    pub new_target_write_offset: i64,
+}
+
+impl Command for SegmentsMergedCommand {
+    const TYPE_CODE: i32 = 59;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> SegmentsMergedCommand {
+        let decoded: SegmentsMergedCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for SegmentsMergedCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
