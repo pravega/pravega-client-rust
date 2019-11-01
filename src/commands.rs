@@ -490,61 +490,164 @@ impl Command for PartialEventCommand {
 /**
  * 12. Event Command
  */
- #[derive(Serialize, Deserialize, PartialEq, Debug)]
- pub struct EventCommand {
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct EventCommand {
     pub data: Vec<u8>
- }
+}
 
 impl Command for EventCommand {
     const TYPE_CODE: i32 = 0;
-     fn write_fields(&self) -> Vec<u8> {
+    fn write_fields(&self) -> Vec<u8> {
         let encoded = CONFIG.serialize(&self).unwrap();
         encoded
     }
 
     fn read_from(input: &Vec<u8>) -> EventCommand {
         let decoded: EventCommand = CONFIG.deserialize(&input[..]).unwrap();
-       
- }
+    }
+}
 
- /**
-  * 13. SetupAppend Command 
-  */
+/**
+ * 13. SetupAppend Command
+ */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SetupAppendCommand {
     pub request_id: i64,
     pub writer_id: u128,
     pub segment: JavaString,
-    pub delegationToken: JavaString,
+    pub delegation_token: JavaString,
 }
 
 impl Command for SetupAppendCommand {
     const TYPE_CODE: i32 = 1;
-     fn write_fields(&self) -> Vec<u8> {
+    fn write_fields(&self) -> Vec<u8> {
         let encoded = CONFIG.serialize(&self).unwrap();
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> EventCommand {
-        let decoded: EventCommand = CONFIG.deserialize(&input[..]).unwrap();
+    fn read_from(input: &Vec<u8>) -> SetupAppendCommand {
+        let decoded: SetupAppendCommand = CONFIG.deserialize(&input[..]).unwrap();
        
- }
+    }
+}
 
- impl Request for SetupAppendCommand {
+impl Request for SetupAppendCommand {
     fn get_request_id(&self) -> i64  {
         self.request_id
     }
  }
 
 
- /**
-  * 14. AppendBlock Command 
-  */
+/**
+ * 14. AppendBlock Command
+ */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct AppendBlockCommand {
     pub writer_id: u128,
     pub data: Vec<u8>,
+
 }
+
 impl Command for AppendBlockCommand {
-    
+    const TYPE_CODE: i32 = 3;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> AppendBlockCommand {
+        let decoded: AppendBlockCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+/**
+ * 15. AppendBlockEnd Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct AppendBlockEndCommand {
+    pub writer_id: u128,
+    pub size_of_whole_events: i32,
+    pub data: Vec<u8>,
+    pub num_event: i32,
+    pub last_event_number: i64,
+    pub request_id: i64,
+}
+
+impl Command for AppendBlockEndCommand {
+    const TYPE_CODE: i32 = 4;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> AppendBlockEndCommand {
+        let decoded: AppendBlockEndCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+/**
+ * 16.ConditionalAppend Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct ConditionalAppendCommand {
+    pub writer_id: u128,
+    pub event_number: i64,
+    pub expected_offset: i64,
+    pub request_id: i64,
+    pub event: EventCommand
+}
+
+impl Command for ConditionalAppendCommand {
+    const TYPE_CODE: i32 = 5;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> ConditionalAppendCommand {
+        let decoded: ConditionalAppendCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for ConditionalAppendCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ *  17. AppendSetup Command.
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct AppendSetupCommand {
+    pub writer_id: u128,
+    pub request_id: i64,
+    pub last_event_number: i64,
+    pub segment: JavaString,
+}
+
+impl Command for AppendSetupCommand {
+    const TYPE_CODE: i32 = 2;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> Self {
+        let decoded: AppendSetupCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for AppendSetupCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
 }
