@@ -651,3 +651,318 @@ impl Reply for AppendSetupCommand {
         self.request_id
     }
 }
+
+/**
+ * 18. DataAppended Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct DataAppendedCommand {
+    pub writer_id: u128,
+    pub request_id: i64,
+    pub event_number: i64,
+    pub previous_event_number: i64,
+    pub current_segment_write_offset: i64
+}
+
+impl Command for DataAppendedCommand {
+    const TYPE_CODE: i32 = 7;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> DataAppendedCommand {
+        let decoded: DataAppendedCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for DataAppendedCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 19. ConditionalCheckFailed Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct ConditionalCheckFailedCommand {
+    pub writer_id: u128,
+    pub request_id: i64,
+    pub event_number: i64,
+}
+
+impl Command for ConditionalCheckFailedCommand  {
+    const TYPE_CODE: i32 = 8;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> ConditionalCheckFailedCommand {
+        let decoded: ConditionalCheckFailedCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for ConditionalAppendCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 20. ReadSegment Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct ReadSegmentCommand {
+    pub request_id: i64,
+    pub offset: i64,
+    pub segment: JavaString,
+    pub suggested_length: i64,
+    pub delegation_token: JavaString,
+}
+
+impl Command for ReadSegmentCommand  {
+    const TYPE_CODE: i32 = 9;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> ReadSegmentCommand {
+        let decoded: ReadSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for ReadSegmentCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 21. SegmentRead Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct SegmentReadCommand {
+    pub request_id: i64,
+    pub offset: i64,
+    pub segment: JavaString,
+    pub at_tail: bool,
+    pub end_of_segment: bool,
+    pub data: Vec<u8>
+}
+
+impl Command for SegmentReadCommand {
+    const TYPE_CODE: i32 = 10;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> SegmentReadCommand {
+        let decoded: SegmentReadCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for SegmentReadCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 22. GetSegmentAttribute Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct GetSegmentAttributeCommand {
+    pub request_id: i64,
+    pub segment_name: JavaString,
+    pub attribute_id: u128,
+    pub delegation_token: JavaString,
+}
+
+impl Command for GetSegmentAttributeCommand {
+    const TYPE_CODE: i32 = 34;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> GetSegmentAttributeCommand {
+        let decoded: GetSegmentAttributeCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for GetSegmentAttributeCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 23. SegmentAttribute Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct SegmentAttributeCommand {
+    pub request_id: i64,
+    pub value: i64,
+}
+
+impl Command for SegmentAttributeCommand {
+    const TYPE_CODE: i32 = 35;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> SegmentAttributeCommand {
+        let decoded: SegmentAttributeCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for SegmentAttributeCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 24. UpdateSegmentAttribute Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct UpdateSegmentAttributeCommand {
+    pub request_id: i64,
+    pub segment_name: JavaString,
+    pub attribute_id: u128,
+    pub delegation_token: JavaString,
+    pub new_value: i64,
+    pub expected_value: i64,
+}
+
+impl Command for UpdateSegmentAttributeCommand {
+    const TYPE_CODE: i32 = 36;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> UpdateSegmentAttributeCommand {
+        let decoded: UpdateSegmentAttributeCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for UpdateSegmentAttributeCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 25. SegmentAttributeUpdated Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct SegmentAttributeUpdatedCommand {
+    pub request_id: i64,
+    pub success: bool,
+}
+
+impl Command for SegmentAttributeUpdatedCommand {
+    const TYPE_CODE: i32 = 37;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> SegmentAttributeUpdated {
+        let decoded: SegmentAttributeUpdated = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for SegmentAttributeUpdatedCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 26. GetStreamSegmentInfo Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct GetStreamSegmentInfoCommand {
+    pub request_id: i64,
+    pub segment_name: JavaString,
+    pub delegation_token: JavaString,
+}
+
+impl Command for GetStreamSegmentInfoCommand {
+    const TYPE_CODE: i32 = 11;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> GetStreamSegmentInfoCommand {
+        let decoded: GetStreamSegmentInfoCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for GetStreamSegmentInfoCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 27. StreamSegmentInfo Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct StreamSegmentInfoCommand {
+    pub request_id: i64,
+    pub segment_name: JavaString,
+    pub exists: bool,
+    pub is_sealed: bool,
+    pub is_deleted: bool,
+    pub last_modified: i64,
+    pub write_offset: i64,
+    pub start_offset: i64,
+}
+
+impl Command for StreamSegmentInfoCommand {
+    const TYPE_CODE: i32 = 12;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> StreamSegmentInfoCommand {
+        let decoded: StreamSegmentInfoCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for StreamSegmentInfoCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
