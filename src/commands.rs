@@ -379,7 +379,7 @@ impl fmt::Display for TableSegmentNotEmptyCommand {
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct InvalidEventNumberCommand {
-    pub write_id: u128,
+    pub writer_id: u128,
     pub event_number: i64,
     pub server_stack_trace: JavaString,
 }
@@ -408,7 +408,7 @@ impl Reply for InvalidEventNumberCommand {
 
 impl fmt::Display for InvalidEventNumberCommand {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Invalid event number: {} for writer: {}", self.event_number, self.write_id)
+        write!(f, "Invalid event number: {} for writer: {}", self.event_number, self.writer_id)
     }
 }
 
@@ -471,7 +471,7 @@ impl Command for PaddingCommand {
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct PartialEventCommand {
-    data: Vec<u8>
+    pub data: Vec<u8>
 }
 
 impl Command for PartialEventCommand {
@@ -485,4 +485,66 @@ impl Command for PartialEventCommand {
         let decoded: PartialEventCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
+}
+
+/**
+ * 12. Event Command
+ */
+ #[derive(Serialize, Deserialize, PartialEq, Debug)]
+ pub struct EventCommand {
+    pub data: Vec<u8>
+ }
+
+impl Command for EventCommand {
+    const TYPE_CODE: i32 = 0;
+     fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> EventCommand {
+        let decoded: EventCommand = CONFIG.deserialize(&input[..]).unwrap();
+       
+ }
+
+ /**
+  * 13. SetupAppend Command 
+  */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct SetupAppendCommand {
+    pub request_id: i64,
+    pub writer_id: u128,
+    pub segment: JavaString,
+    pub delegationToken: JavaString,
+}
+
+impl Command for SetupAppendCommand {
+    const TYPE_CODE: i32 = 1;
+     fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> EventCommand {
+        let decoded: EventCommand = CONFIG.deserialize(&input[..]).unwrap();
+       
+ }
+
+ impl Request for SetupAppendCommand {
+    fn get_request_id(&self) -> i64  {
+        self.request_id
+    }
+ }
+
+
+ /**
+  * 14. AppendBlock Command 
+  */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct AppendBlockCommand {
+    pub writer_id: u128,
+    pub data: Vec<u8>,
+}
+impl Command for AppendBlockCommand {
+    
 }
