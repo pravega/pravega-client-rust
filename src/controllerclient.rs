@@ -16,6 +16,7 @@ pub mod controller {
 use controller::{
     client::ControllerServiceClient, /*scaling_policy::ScalingPolicyType,*/ CreateScopeStatus,
     CreateStreamStatus, ScalingPolicy, ScopeInfo, StreamConfig, StreamInfo,
+    scaling_policy::ScalingPolicyType,
 };
 use tonic::transport::channel::Channel;
 
@@ -66,7 +67,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
             stream: "testStream".into(),
         }),
         scaling_policy: Some(ScalingPolicy {
-            scale_type: 0, /* Fixed Segments*/
+            scale_type: ScalingPolicyType::FixedNumSegments as i32,
             target_rate: 0,
             scale_factor: 0,
             min_num_segments: 1,
@@ -113,7 +114,7 @@ mod tests {
                 stream: "testStream".into(),
             }),
             scaling_policy: Some(ScalingPolicy {
-                scale_type: 0, /* Fixed Segments*/
+                scale_type: ScalingPolicyType::FixedNumSegments as i32, /* Fixed Segments*/
                 target_rate: 0,
                 scale_factor: 0,
                 min_num_segments: 1,
