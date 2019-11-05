@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize};
 use crate::commands::*;
+use byteorder::{ByteOrder, BigEndian, WriteBytesExt};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub enum  WireCommands {
@@ -18,28 +19,55 @@ pub trait Encode {
 }
 
 pub trait Decode {
-    fn read_from(type_code: i32, input: &Vec<u8>) -> WireCommands;
+    fn read_from(raw_input: &Vec<u8>) -> WireCommands;
 }
 
 
 impl Encode for WireCommands {
     fn write_fields(&self) -> Vec<u8> {
-        //TODO: we need encode type_code here.
+        let mut res = Vec::new();
         match self {
-            WireCommands::Hello(hello_cmd) => hello_cmd.write_fields(),
-            WireCommands::WrongHost(wrong_host_cmd) => wrong_host_cmd.write_fields(),
-            WireCommands::SegmentIsSealed(seg_is_sealed_cmd) => seg_is_sealed_cmd.write_fields(),
-            WireCommands::SegmentAlreadyExists(seg_already_exists_cmd) => seg_already_exists_cmd.write_fields(),
-            WireCommands::SegmentIsTruncated(seg_is_truncated_cmd) => seg_is_truncated_cmd.write_fields(),
-            WireCommands::NoSuchSegment(no_such_seg_cmd) =>no_such_seg_cmd.write_fields(),
-            WireCommands::TableSegmentNotEmpty(table_seg_not_empty_cmd) => table_seg_not_empty_cmd.write_fields(),
-            WireCommands::InvalidEventNumber(invalid_event_num_cmd) => invalid_event_num_cmd.write_fields(),
+            WireCommands::Hello(hello_cmd) => {
+                res.write_i32::<BigEndian>(HelloCommand::TYPE_CODE).unwrap();
+                res.extend(hello_cmd.write_fields());
+            },
+            WireCommands::WrongHost(wrong_host_cmd) => {
+                res.write_i32::<BigEndian>(WrongHostCommand::TYPE_CODE).unwrap();
+                res.extend(wrong_host_cmd.write_fields());
+            },
+            WireCommands::SegmentIsSealed(seg_is_sealed_cmd) => {
+                res.write_i32::<BigEndian>(SegmentIsSealedCommand::TYPE_CODE).unwrap();
+                res.extend(seg_is_sealed_cmd.write_fields());
+            },
+            WireCommands::SegmentAlreadyExists(seg_already_exists_cmd) => {
+                res.write_i32::<BigEndian>(SegmentAlreadyExistsCommand::TYPE_CODE).unwrap();
+                res.extend(seg_already_exists_cmd.write_fields());
+            },
+            WireCommands::SegmentIsTruncated(seg_is_truncated_cmd) => {
+                res.write_i32::<BigEndian>(SegmentIsTruncatedCommand::TYPE_CODE).unwrap();
+                res.extend(seg_is_truncated_cmd.write_fields());
+            },
+            WireCommands::NoSuchSegment(no_such_seg_cmd) =>{
+                res.write_i32::<BigEndian>(NoSuchSegmentCommand::TYPE_CODE).unwrap();
+                res.extend(no_such_seg_cmd.write_fields());
+            },
+            WireCommands::TableSegmentNotEmpty(table_seg_not_empty_cmd) => {
+                res.write_i32::<BigEndian>(TableSegmentNotEmptyCommand::TYPE_CODE).unwrap();
+                res.extend(table_seg_not_empty_cmd.write_fields());
+            },
+            WireCommands::InvalidEventNumber(invalid_event_num_cmd) => {
+                res.write_i32::<BigEndian>(InvalidEventNumberCommand::TYPE_CODE).unwrap();
+                res.extend(invalid_event_num_cmd.write_fields());
+            },
         }
+        res
     }
 }
 
 impl Decode for WireCommands {
-    fn read_from(type_code: i32, input: &Vec<u8>) -> WireCommands {
+    fn read_from(raw_input: &Vec<u8>) -> WireCommands {
+        let type_code = BigEndian::read_i32(raw_input);
+        let input =  &raw_input[4..];
         //TODO: Remove type_code in method parameters, decode from input.
         match type_code {
             HelloCommand::TYPE_CODE => WireCommands::Hello(HelloCommand::read_from(input)),

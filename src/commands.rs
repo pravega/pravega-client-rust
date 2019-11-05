@@ -4,7 +4,6 @@ use std::fmt;
 use std::i64;
 use byteorder::{BigEndian, WriteBytesExt};
 use bincode::Config;
-use std::collections::HashMap;
 
 /**
  * trait for Command.
@@ -12,7 +11,7 @@ use std::collections::HashMap;
 pub trait Command {
     const TYPE_CODE: i32;
     fn write_fields(&self) -> Vec<u8>;
-    fn read_from(input :&Vec<u8>) -> Self;
+    fn read_from(input :&[u8]) -> Self;
 
 }
 
@@ -141,7 +140,7 @@ impl Command for HelloCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> HelloCommand {
+    fn read_from(input: &[u8]) -> HelloCommand {
         let decoded: HelloCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -176,7 +175,7 @@ impl Command for WrongHostCommand {
         let encoded =CONFIG.serialize(&self).unwrap();
         encoded
     }
-    fn read_from(input: &Vec<u8>) -> WrongHostCommand {
+    fn read_from(input: &[u8]) -> WrongHostCommand {
         let decoded: WrongHostCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -209,7 +208,7 @@ impl Command for SegmentIsSealedCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> SegmentIsSealedCommand {
+    fn read_from(input: &[u8]) -> SegmentIsSealedCommand {
         let decoded: SegmentIsSealedCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -244,7 +243,7 @@ impl Command for SegmentIsTruncatedCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> SegmentIsTruncatedCommand {
+    fn read_from(input: &[u8]) -> SegmentIsTruncatedCommand {
         let decoded: SegmentIsTruncatedCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -276,7 +275,7 @@ impl Command for SegmentAlreadyExistsCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> SegmentAlreadyExistsCommand {
+    fn read_from(input: &[u8]) -> SegmentAlreadyExistsCommand {
         let decoded: SegmentAlreadyExistsCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -315,7 +314,7 @@ impl Command for NoSuchSegmentCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> NoSuchSegmentCommand {
+    fn read_from(input: &[u8]) -> NoSuchSegmentCommand {
         let decoded: NoSuchSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -355,7 +354,7 @@ impl Command for TableSegmentNotEmptyCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> TableSegmentNotEmptyCommand {
+    fn read_from(input: &[u8]) -> TableSegmentNotEmptyCommand {
         let decoded: TableSegmentNotEmptyCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -393,7 +392,7 @@ impl Command for InvalidEventNumberCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> InvalidEventNumberCommand {
+    fn read_from(input: &[u8]) -> InvalidEventNumberCommand {
         let decoded: InvalidEventNumberCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -431,7 +430,7 @@ impl Command for OperationUnsupportedCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> OperationUnsupportedCommand {
+    fn read_from(input: &[u8]) -> OperationUnsupportedCommand {
         let decoded: OperationUnsupportedCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -462,7 +461,7 @@ impl Command for PaddingCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> PaddingCommand {
+    fn read_from(input: &[u8]) -> PaddingCommand {
         let decoded: PaddingCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -483,7 +482,7 @@ impl Command for PartialEventCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> PartialEventCommand {
+    fn read_from(input: &[u8]) -> PartialEventCommand {
         let decoded: PartialEventCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -506,8 +505,9 @@ impl Command for EventCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> EventCommand {
+    fn read_from(input: &[u8]) -> EventCommand {
         let decoded: EventCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
     }
 }
 
@@ -529,8 +529,9 @@ impl Command for SetupAppendCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> SetupAppendCommand {
+    fn read_from(input: &[u8]) -> SetupAppendCommand {
         let decoded: SetupAppendCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
        
     }
 }
@@ -561,7 +562,7 @@ impl Command for AppendBlockCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> AppendBlockCommand {
+    fn read_from(input: &[u8]) -> AppendBlockCommand {
         let decoded: AppendBlockCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -588,7 +589,7 @@ impl Command for AppendBlockEndCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> AppendBlockEndCommand {
+    fn read_from(input: &[u8]) -> AppendBlockEndCommand {
         let decoded: AppendBlockEndCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -615,7 +616,7 @@ impl Command for ConditionalAppendCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> ConditionalAppendCommand {
+    fn read_from(input: &[u8]) -> ConditionalAppendCommand {
         let decoded: ConditionalAppendCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -647,7 +648,7 @@ impl Command for AppendSetupCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> Self {
+    fn read_from(input: &[u8]) -> Self {
         let decoded: AppendSetupCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -679,7 +680,7 @@ impl Command for DataAppendedCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> DataAppendedCommand {
+    fn read_from(input: &[u8]) -> DataAppendedCommand {
         let decoded: DataAppendedCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -709,7 +710,7 @@ impl Command for ConditionalCheckFailedCommand  {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> ConditionalCheckFailedCommand {
+    fn read_from(input: &[u8]) -> ConditionalCheckFailedCommand {
         let decoded: ConditionalCheckFailedCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -741,7 +742,7 @@ impl Command for ReadSegmentCommand  {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> ReadSegmentCommand {
+    fn read_from(input: &[u8]) -> ReadSegmentCommand {
         let decoded: ReadSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -774,7 +775,7 @@ impl Command for SegmentReadCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> SegmentReadCommand {
+    fn read_from(input: &[u8]) -> SegmentReadCommand {
         let decoded: SegmentReadCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -805,7 +806,7 @@ impl Command for GetSegmentAttributeCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> GetSegmentAttributeCommand {
+    fn read_from(input: &[u8]) -> GetSegmentAttributeCommand {
         let decoded: GetSegmentAttributeCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -834,7 +835,7 @@ impl Command for SegmentAttributeCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> SegmentAttributeCommand {
+    fn read_from(input: &[u8]) -> SegmentAttributeCommand {
         let decoded: SegmentAttributeCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -867,7 +868,7 @@ impl Command for UpdateSegmentAttributeCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> UpdateSegmentAttributeCommand {
+    fn read_from(input: &[u8]) -> UpdateSegmentAttributeCommand {
         let decoded: UpdateSegmentAttributeCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -896,7 +897,7 @@ impl Command for SegmentAttributeUpdatedCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> SegmentAttributeUpdatedCommand {
+    fn read_from(input: &[u8]) -> SegmentAttributeUpdatedCommand {
         let decoded: SegmentAttributeUpdatedCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -926,7 +927,7 @@ impl Command for GetStreamSegmentInfoCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> GetStreamSegmentInfoCommand {
+    fn read_from(input: &[u8]) -> GetStreamSegmentInfoCommand {
         let decoded: GetStreamSegmentInfoCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -961,7 +962,7 @@ impl Command for StreamSegmentInfoCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> StreamSegmentInfoCommand {
+    fn read_from(input: &[u8]) -> StreamSegmentInfoCommand {
         let decoded: StreamSegmentInfoCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -993,7 +994,7 @@ impl Command for CreateSegmentCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> CreateSegmentCommand {
+    fn read_from(input: &[u8]) -> CreateSegmentCommand {
         let decoded: CreateSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1023,7 +1024,7 @@ impl Command for CreateTableSegmentCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> CreateTableSegmentCommand {
+    fn read_from(input: &[u8]) -> CreateTableSegmentCommand {
         let decoded: CreateTableSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1052,7 +1053,7 @@ impl Command for SegmentCreatedCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> SegmentCreatedCommand {
+    fn read_from(input: &[u8]) -> SegmentCreatedCommand {
         let decoded: SegmentCreatedCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1084,7 +1085,7 @@ impl Command for UpdateSegmentPolicyCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> UpdateSegmentPolicyCommand {
+    fn read_from(input: &[u8]) -> UpdateSegmentPolicyCommand {
         let decoded: UpdateSegmentPolicyCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1113,7 +1114,7 @@ impl Command for SegmentPolicyUpdatedCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> SegmentPolicyUpdatedCommand {
+    fn read_from(input: &[u8]) -> SegmentPolicyUpdatedCommand {
         let decoded: SegmentPolicyUpdatedCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1144,7 +1145,7 @@ impl Command for MergeSegmentsCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> MergeSegmentsCommand {
+    fn read_from(input: &[u8]) -> MergeSegmentsCommand {
         let decoded: MergeSegmentsCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1174,7 +1175,7 @@ impl Command for MergeTableSegmentsCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> MergeTableSegmentsCommand {
+    fn read_from(input: &[u8]) -> MergeTableSegmentsCommand {
         let decoded: MergeTableSegmentsCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1205,7 +1206,7 @@ impl Command for SegmentsMergedCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> SegmentsMergedCommand {
+    fn read_from(input: &[u8]) -> SegmentsMergedCommand {
         let decoded: SegmentsMergedCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1235,7 +1236,7 @@ impl Command for SealSegmentCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> SealSegmentCommand {
+    fn read_from(input: &[u8]) -> SealSegmentCommand {
         let decoded: SealSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1265,7 +1266,7 @@ impl Command for SealTableSegmentCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> SealTableSegmentCommand {
+    fn read_from(input: &[u8]) -> SealTableSegmentCommand {
         let decoded: SealTableSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1294,7 +1295,7 @@ impl Command for SegmentSealedCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> SegmentSealedCommand {
+    fn read_from(input: &[u8]) -> SegmentSealedCommand {
         let decoded: SegmentSealedCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1326,7 +1327,7 @@ impl Command for TruncateSegmentCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> TruncateSegmentCommand {
+    fn read_from(input: &[u8]) -> TruncateSegmentCommand {
         let decoded: TruncateSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1355,7 +1356,7 @@ impl Command for SegmentTruncatedCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> SegmentTruncatedCommand {
+    fn read_from(input: &[u8]) -> SegmentTruncatedCommand {
         let decoded: SegmentTruncatedCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1385,7 +1386,7 @@ impl Command for DeleteSegmentCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> DeleteSegmentCommand {
+    fn read_from(input: &[u8]) -> DeleteSegmentCommand {
         let decoded: DeleteSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1415,7 +1416,7 @@ impl Command for DeleteTableSegmentCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> DeleteTableSegmentCommand {
+    fn read_from(input: &[u8]) -> DeleteTableSegmentCommand {
         let decoded: DeleteTableSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1444,7 +1445,7 @@ impl Command for SegmentDeletedCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> SegmentDeletedCommand {
+    fn read_from(input: &[u8]) -> SegmentDeletedCommand {
         let decoded: SegmentDeletedCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1470,7 +1471,7 @@ impl Command for KeepAliveCommand {
         res
     }
 
-    fn read_from(input: &Vec<u8>) -> Self {
+    fn read_from(input: &[u8]) -> KeepAliveCommand {
         KeepAliveCommand{}
     }
 }
@@ -1497,7 +1498,7 @@ impl Reply for KeepAliveCommand {
 pub struct AuthTokenCheckFailedCommand {
     pub request_id: i64,
     pub server_stack_trace: JavaString,
-    pub error_code: ErrorCode,
+    //pub error_code: ErrorCode,
 }
 //Todo: wait for impl
 pub enum ErrorCode {
@@ -1523,7 +1524,7 @@ impl Command for UpdateTableEntriesCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> UpdateTableEntriesCommand {
+    fn read_from(input: &[u8]) -> UpdateTableEntriesCommand {
         let decoded: UpdateTableEntriesCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1552,7 +1553,7 @@ impl Command for TableEntriesUpdatedCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> TableEntriesUpdatedCommand {
+    fn read_from(input: &[u8]) -> TableEntriesUpdatedCommand {
         let decoded: TableEntriesUpdatedCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1583,7 +1584,7 @@ impl Command for RemoveTableKeysCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> RemoveTableKeysCommand {
+    fn read_from(input: &[u8]) -> RemoveTableKeysCommand {
         let decoded: RemoveTableKeysCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1612,7 +1613,7 @@ impl Command for TableKeysRemovedCommand{
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> TableKeysRemovedCommand {
+    fn read_from(input: &[u8]) -> TableKeysRemovedCommand {
         let decoded: TableKeysRemovedCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1643,7 +1644,7 @@ impl Command for ReadTableCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> ReadTableCommand {
+    fn read_from(input: &[u8]) -> ReadTableCommand {
         let decoded: ReadTableCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1673,7 +1674,7 @@ impl Command for TableReadCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> TableReadCommand {
+    fn read_from(input: &[u8]) -> TableReadCommand {
         let decoded: TableReadCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1705,7 +1706,7 @@ impl Command for ReadTableKeysCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> ReadTableKeysCommand {
+    fn read_from(input: &[u8]) -> ReadTableKeysCommand {
         let decoded: ReadTableKeysCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1736,7 +1737,7 @@ impl Command for TableKeysReadCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> TableKeysReadCommand {
+    fn read_from(input: &[u8]) -> TableKeysReadCommand {
         let decoded: TableKeysReadCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1768,7 +1769,7 @@ impl Command for ReadTableEntriesCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> ReadTableEntriesCommand {
+    fn read_from(input: &[u8]) -> ReadTableEntriesCommand {
         let decoded: ReadTableEntriesCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1799,7 +1800,7 @@ impl Command for TableEntriesReadCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> TableEntriesReadCommand {
+    fn read_from(input: &[u8]) -> TableEntriesReadCommand {
         let decoded: TableEntriesReadCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1829,7 +1830,7 @@ impl Command for TableKeyDoesNotExistCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> TableKeyDoesNotExistCommand {
+    fn read_from(input: &[u8]) -> TableKeyDoesNotExistCommand {
         let decoded: TableKeyDoesNotExistCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1869,7 +1870,7 @@ impl Command for TableKeyBadVersionCommand {
         encoded
     }
 
-    fn read_from(input: &Vec<u8>) -> TableKeyBadVersionCommand {
+    fn read_from(input: &[u8]) -> TableKeyBadVersionCommand {
         let decoded: TableKeyBadVersionCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
@@ -1934,7 +1935,7 @@ impl TableValue {
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TableEntries {
-    // FIXME: if it okay to change Map.Entry<TableKey, TableValue> to tuple?
+    // FIXME: if it is okay to change Map.Entry<TableKey, TableValue> to tuple?
     entries: Vec<(TableKey, TableEntries)>,
 }
 
@@ -1945,6 +1946,6 @@ impl TableEntries {
     }
 
     fn size(&self) -> i32 {
-
+        0
     }
 }
