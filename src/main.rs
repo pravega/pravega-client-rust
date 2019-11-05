@@ -93,11 +93,11 @@ mod tests {
 
     #[test]
     fn test_invalid_event_number() {
-        let write_id_number : u128 = 123;
+        let writer_id_number : u128 = 123;
         let event_num : i64 = 100;
         let stack_trace = JavaString(String::from("some exception"));
         let invalid_event_number_command = WireCommands::InvalidEventNumber(InvalidEventNumberCommand{
-            write_id: write_id_number, server_stack_trace: stack_trace, event_number: event_num
+            writer_id: writer_id_number, server_stack_trace: stack_trace, event_number: event_num
         });
         test_command(InvalidEventNumberCommand::TYPE_CODE, invalid_event_number_command);
     }

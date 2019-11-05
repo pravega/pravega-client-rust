@@ -1,8 +1,10 @@
 use serde::{Serialize, Deserialize, Serializer, Deserializer};
 use serde::de::{self, Visitor, Unexpected};
 use std::fmt;
+use std::i64;
 use byteorder::{BigEndian, WriteBytesExt};
 use bincode::Config;
+use std::collections::HashMap;
 
 /**
  * trait for Command.
@@ -454,7 +456,7 @@ pub struct PaddingCommand {
 
 impl Command for PaddingCommand {
     const TYPE_CODE: i32 = -1;
-    // TODO: The padding command needs custom serialize and deserialize method
+    // FIXME: The padding command needs custom serialize and deserialize method
     fn write_fields(&self) -> Vec<u8> {
         let encoded = CONFIG.serialize(&self).unwrap();
         encoded
@@ -497,6 +499,8 @@ pub struct EventCommand {
 
 impl Command for EventCommand {
     const TYPE_CODE: i32 = 0;
+    //FIXME: The event command needs custom serialize and deseialize methods
+    //In JAVA Code the format is |type_code|length|data|
     fn write_fields(&self) -> Vec<u8> {
         let encoded = CONFIG.serialize(&self).unwrap();
         encoded
@@ -550,7 +554,8 @@ pub struct AppendBlockCommand {
 
 impl Command for AppendBlockCommand {
     const TYPE_CODE: i32 = 3;
-
+    //FIXME: The serialize and deserialize method need to customize.
+    //In JAVA, it doesn't write data(because it'empty), but here it will write the data length(0).
     fn write_fields(&self) -> Vec<u8> {
         let encoded = CONFIG.serialize(&self).unwrap();
         encoded
@@ -597,8 +602,9 @@ pub struct ConditionalAppendCommand {
     pub writer_id: u128,
     pub event_number: i64,
     pub expected_offset: i64,
+    pub event: EventCommand,
     pub request_id: i64,
-    pub event: EventCommand
+
 }
 
 impl Command for ConditionalAppendCommand {
@@ -626,10 +632,11 @@ impl Request for ConditionalAppendCommand {
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct AppendSetupCommand {
-    pub writer_id: u128,
     pub request_id: i64,
-    pub last_event_number: i64,
     pub segment: JavaString,
+    pub writer_id: u128,
+    pub last_event_number: i64,
+
 }
 
 impl Command for AppendSetupCommand {
@@ -657,8 +664,8 @@ impl Reply for AppendSetupCommand {
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct DataAppendedCommand {
-    pub writer_id: u128,
     pub request_id: i64,
+    pub writer_id: u128,
     pub event_number: i64,
     pub previous_event_number: i64,
     pub current_segment_write_offset: i64
@@ -1207,5 +1214,737 @@ impl Command for SegmentsMergedCommand {
 impl Reply for SegmentsMergedCommand {
     fn get_request_id(&self) -> i64 {
         self.request_id
+    }
+}
+
+/**
+ * 36. SealSegment Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct SealSegmentCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+    pub delegation_token: JavaString,
+}
+
+impl Command for SealSegmentCommand {
+    const TYPE_CODE: i32 = 28;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> SealSegmentCommand {
+        let decoded: SealSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for SealSegmentCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 37. SealTableSegment Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct SealTableSegmentCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+    pub delegation_token: JavaString,
+}
+
+impl Command for SealTableSegmentCommand {
+    const TYPE_CODE: i32 = 73;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> SealTableSegmentCommand {
+        let decoded: SealTableSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for SealTableSegmentCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 38. SegmentSealed Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct SegmentSealedCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+}
+
+impl Command for SegmentSealedCommand {
+    const TYPE_CODE: i32 = 29;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> SegmentSealedCommand {
+        let decoded: SegmentSealedCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for SegmentSealedCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 39. TruncateSegment Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct TruncateSegmentCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+    pub truncation_offset: i64,
+    pub delegation_token: JavaString,
+
+}
+
+impl Command for TruncateSegmentCommand {
+    const TYPE_CODE: i32 = 38;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> TruncateSegmentCommand {
+        let decoded: TruncateSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for TruncateSegmentCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 40. SegmentTruncated Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct SegmentTruncatedCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+}
+
+impl Command for SegmentTruncatedCommand {
+    const TYPE_CODE: i32 = 39;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> SegmentTruncatedCommand {
+        let decoded: SegmentTruncatedCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for SegmentTruncatedCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 41. DeleteSegment Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct DeleteSegmentCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+    pub delegation_token: JavaString,
+}
+
+impl Command for DeleteSegmentCommand {
+    const TYPE_CODE: i32 = 30;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> DeleteSegmentCommand {
+        let decoded: DeleteSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for DeleteSegmentCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 42. DeleteTableSegment Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct DeleteTableSegmentCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+    pub must_be_empty: bool, // If true, the Table Segment will only be deleted if it is empty (contains no keys)
+    pub delegation_token: JavaString,
+}
+
+impl Command for DeleteTableSegmentCommand {
+    const TYPE_CODE: i32 = 71;
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> DeleteTableSegmentCommand {
+        let decoded: DeleteTableSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for DeleteTableSegmentCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 43. SegmentDeleted Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct SegmentDeletedCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+}
+
+impl Command for SegmentDeletedCommand {
+    const TYPE_CODE: i32 = 31;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> SegmentDeletedCommand {
+        let decoded: SegmentDeletedCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for SegmentDeletedCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+/**
+ * 44. KeepAlive Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct KeepAliveCommand {}
+
+impl Command for KeepAliveCommand {
+    const TYPE_CODE: i32 = 100;
+
+    //FIXME: The java code doesn't serialize any information, but here we will add the length(0)
+    fn write_fields(&self) -> Vec<u8> {
+        let res: Vec<u8> = Vec::new();
+        res
+    }
+
+    fn read_from(input: &Vec<u8>) -> Self {
+        KeepAliveCommand{}
+    }
+}
+
+impl Request for KeepAliveCommand {
+    fn get_request_id(&self) -> i64 {
+        -1
+    }
+    fn must_log(&self) -> bool {
+        false
+    }
+}
+
+impl Reply for KeepAliveCommand {
+    fn get_request_id(&self) -> i64 {
+        -1
+    }
+}
+
+/**
+ * 45. AuthTokenCheckFailed Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct AuthTokenCheckFailedCommand {
+    pub request_id: i64,
+    pub server_stack_trace: JavaString,
+    pub error_code: ErrorCode,
+}
+//Todo: wait for impl
+pub enum ErrorCode {
+
+}
+
+/**
+ * 46. UpdateTableEntries Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct UpdateTableEntriesCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+    pub delegation_token: JavaString,
+    pub table_entries: TableEntries,
+}
+
+impl Command for UpdateTableEntriesCommand {
+    const TYPE_CODE: i32 =74;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> UpdateTableEntriesCommand {
+        let decoded: UpdateTableEntriesCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for UpdateTableEntriesCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 47. TableEntriesUpdated Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct TableEntriesUpdatedCommand {
+    pub request_id: i64,
+    pub updated_versions: Vec<i64>
+}
+
+impl Command for TableEntriesUpdatedCommand {
+    const TYPE_CODE: i32 = 75;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> TableEntriesUpdatedCommand {
+        let decoded: TableEntriesUpdatedCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for TableEntriesUpdatedCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 48. RemoveTableKeys Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct RemoveTableKeysCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+    pub delegation_token: JavaString,
+    pub keys: Vec<TableKey>
+}
+
+impl Command for RemoveTableKeysCommand {
+    const TYPE_CODE: i32 = 76;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> RemoveTableKeysCommand {
+        let decoded: RemoveTableKeysCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for RemoveTableKeysCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 49. TableKeysRemoved Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct TableKeysRemovedCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+}
+
+impl Command for TableKeysRemovedCommand{
+    const TYPE_CODE: i32 = 77;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> TableKeysRemovedCommand {
+        let decoded: TableKeysRemovedCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for TableKeysRemovedCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 50. ReadTable Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct ReadTableCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+    pub delegation_token: JavaString,
+    pub keys: Vec<TableKey>,
+}
+
+impl Command for ReadTableCommand {
+    const TYPE_CODE: i32 = 78;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> ReadTableCommand {
+        let decoded: ReadTableCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for ReadTableCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 51. TableRead Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct TableReadCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+    pub entries: TableEntries,
+}
+
+impl Command for TableReadCommand {
+    const TYPE_CODE: i32 = 79;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> TableReadCommand {
+        let decoded: TableReadCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for TableReadCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 52. ReadTableKeys Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct ReadTableKeysCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+    pub delegation_token: JavaString,
+    pub suggested_key_count: i32,
+    pub continuation_token: Vec<u8>,
+}
+
+impl Command for ReadTableKeysCommand {
+    const TYPE_CODE: i32 = 83;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> ReadTableKeysCommand {
+        let decoded: ReadTableKeysCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for ReadTableKeysCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 53. TableKeysRead Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct TableKeysReadCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+    pub keys: Vec<TableKey>,
+    pub continuation_token: Vec<u8>, // this is used to indicate the point from which the next keys should be fetched.
+}
+
+impl Command for TableKeysReadCommand {
+    const TYPE_CODE: i32 = 84;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> TableKeysReadCommand {
+        let decoded: TableKeysReadCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for TableKeysReadCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 54. ReadTableEntries Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct ReadTableEntriesCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+    pub delegation_token: JavaString,
+    pub suggested_entry_count: i32,
+    pub continuation_token: Vec<u8>,
+}
+
+impl Command for ReadTableEntriesCommand {
+    const TYPE_CODE: i32 = 85;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> ReadTableEntriesCommand {
+        let decoded: ReadTableEntriesCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Request for ReadTableEntriesCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 55. TableEntriesRead Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct TableEntriesReadCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+    pub entries: TableEntries,
+    pub continuation_token: Vec<u8>,
+}
+
+impl Command for TableEntriesReadCommand {
+    const TYPE_CODE: i32 = 86;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> TableEntriesReadCommand {
+        let decoded: TableEntriesReadCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for TableEntriesReadCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 56. TableKeyDoesNotExist Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct TableKeyDoesNotExistCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+    pub server_stack_trace: JavaString,
+}
+
+impl Command for TableKeyDoesNotExistCommand {
+    const TYPE_CODE: i32 = 81;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> TableKeyDoesNotExistCommand {
+        let decoded: TableKeyDoesNotExistCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for TableKeyDoesNotExistCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+
+    fn is_failure(&self) -> bool {
+        true
+    }
+}
+
+impl fmt::Display for TableKeyDoesNotExistCommand {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Conditional table update failed since the key does not exist : {}", self.segment)
+    }
+}
+
+/**
+ * 57. TableKeyBadVersion Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct TableKeyBadVersionCommand {
+    pub request_id: i64,
+    pub segment: JavaString,
+    pub server_stack_trace: JavaString,
+}
+
+impl Command for TableKeyBadVersionCommand {
+    const TYPE_CODE: i32 = 82;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &Vec<u8>) -> TableKeyBadVersionCommand {
+        let decoded: TableKeyBadVersionCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for TableKeyBadVersionCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+
+    fn is_failure(&self) -> bool {
+        true
+    }
+}
+
+impl fmt::Display for TableKeyBadVersionCommand {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Conditional table update failed since the key version is incorrect : {}", self.segment)
+    }
+}
+
+
+/**
+ * Table Key Struct.
+ * FIXME: Do we need to manually implement serialize and deserialize method for TableKey?
+ * As the Java code serialize this into |payload_size|data_length|data|key_version|?
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct TableKey {
+    data: Vec<u8>,
+    key_version: i64,
+}
+
+impl TableKey {
+    const NO_VERSION: i64 = i64::min_value();
+    const NOT_EXISTS: i64 = -1;
+    //FIXME: the i32 in rust doesn't have byte() method or i32::BYTES
+    const HEADER_BYTES: i32 = 2 * 4;
+    // FIXME: I think we don't need EMPTY variable in rust, because we don't serialize manually.
+    // const EMPTY: TableKey = TableKey{data: Vec::new(), key_version: i64::min_value()};
+}
+
+/**
+ * Table Key Struct.
+ * FIXME: Do we need to manually implement serialize and deserialize method for TableValue?
+ * As the Java code serialize this into |payload_size|data_length|data
+ * And the rust would miss the payload_size
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct TableValue {
+    data: Vec<u8>,
+}
+
+impl TableValue {
+    const HEADER_BYTES: i32 = 2 * 4;
+    // FIXME: I think we don't need EMPTY variable in rust, because we don't serialize manually.
+    // const EMPTY: TableValue = TableValue{data: Vec::new()};
+}
+
+/**
+ * TableEntries Struct.
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct TableEntries {
+    // FIXME: if it okay to change Map.Entry<TableKey, TableValue> to tuple?
+    entries: Vec<(TableKey, TableEntries)>,
+}
+
+impl TableEntries {
+
+    fn get_header_byte(entry_count: i32) -> i32 {
+        4 + entry_count * (TableKey::HEADER_BYTES + TableValue::HEADER_BYTES)
+    }
+
+    fn size(&self) -> i32 {
+
     }
 }
