@@ -20,10 +20,11 @@ use controller::{
 use tonic::transport::channel::Channel;
 
 /// create_connection with the given controller uri.
-fn create_connection(uri: &'static str) -> ControllerServiceClient<Channel> {
+async fn create_connection(uri: &'static str) -> ControllerServiceClient<Channel> {
     // Placeholder to add authentication headers.
-    let connection: ControllerServiceClient<Channel> =
-        ControllerServiceClient::connect(uri).expect("Failed to create a channel");
+    let connection: ControllerServiceClient<Channel> = ControllerServiceClient::connect(uri)
+        .await
+        .expect("Failed to create a channel");
     connection
 }
 
@@ -53,7 +54,7 @@ async fn create_stream(
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     // start Pravega standalone before invoking this function.
-    let mut client = create_connection("http://[::1]:9090");
+    let mut client = create_connection("http://[::1]:9090").await;
     let request = ScopeInfo {
         scope: "testScope123".into(),
     };
@@ -90,7 +91,8 @@ mod tests {
     fn test_create_scope_error() {
         let rt = Runtime::new().unwrap();
 
-        let mut client = create_connection("http://[::1]:9090");
+        let client_future = create_connection("http://[::1]:9090");
+        let mut client = rt.block_on(client_future);
 
         let request = ScopeInfo {
             scope: "testScope124".into(),
@@ -105,7 +107,8 @@ mod tests {
     fn test_create_stream_error() {
         let rt = Runtime::new().unwrap();
 
-        let mut client = create_connection("http://[::1]:9090");
+        let client_future = create_connection("http://[::1]:9090");
+        let mut client = rt.block_on(client_future);
 
         let request = StreamConfig {
             stream_info: Some(StreamInfo {
@@ -113,7 +116,7 @@ mod tests {
                 stream: "testStream".into(),
             }),
             scaling_policy: Some(ScalingPolicy {
-                scale_type: ScalingPolicyType::FixedNumSegments as i32, /* Fixed Segments*/
+                scale_type: ScalingPolicyType::FixedNumSegments as i32,
                 target_rate: 0,
                 scale_factor: 0,
                 min_num_segments: 1,

@@ -7,7 +7,7 @@ build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tonic = "0.1.0-alpha.3" # using a * as per tonic documentation does not work.
+tonic = "0.1.0-alpha.5" # using a * as per tonic documentation does not work.
 bytes = "0.4"
 prost = "0.5"
 prost-derive = "0.5"
@@ -23,7 +23,7 @@ snafu = "0.5.0"
 
 [build-dependencies]
 # star indicates any version is > 0.0.0.
-tonic-build = "0.1.0-alpha.3"
+tonic-build = "0.1.0-alpha.5"
 
 #Simplify running the client. This should be removed.
 [[bin]]
