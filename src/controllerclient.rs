@@ -14,9 +14,8 @@ pub mod controller {
 }
 
 use controller::{
-    client::ControllerServiceClient, /*scaling_policy::ScalingPolicyType,*/ CreateScopeStatus,
+    client::ControllerServiceClient, scaling_policy::ScalingPolicyType, CreateScopeStatus,
     CreateStreamStatus, ScalingPolicy, ScopeInfo, StreamConfig, StreamInfo,
-    scaling_policy::ScalingPolicyType,
 };
 use tonic::transport::channel::Channel;
 
