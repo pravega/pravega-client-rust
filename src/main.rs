@@ -9,6 +9,8 @@
  */
 mod connection_factory;
 
+use log::info;
+
 fn main() {
     println!("Hello, world!");
 }
@@ -18,22 +20,20 @@ mod tests {
     use super::*;
     use tokio::runtime::Runtime;
     use crate::connection_factory::ConnectionFactory;
-    use std::net::{TcpListener, TcpStream, SocketAddr};
-    use std::thread;
-    use std::io::Read;
+    use std::net::{TcpListener, SocketAddr};
     use std::io::Write;
 
-    struct server {
+    struct Server {
         address: SocketAddr,
         listener: TcpListener,
     }
 
-    impl server {
-        pub fn new() -> server {
+    impl Server {
+        pub fn new() -> Server {
             let listener = TcpListener::bind("127.0.0.1:0").expect("local server");
             let address = listener.local_addr().unwrap();
-            println!("server created");
-            server { address, listener }
+            info!("server created");
+            Server { address, listener }
         }
 
         pub fn echo(&mut self) {
@@ -42,7 +42,7 @@ mod tests {
                 stream.write(b"Hello World\r\n").unwrap();
                 break;
             }
-            println!("echo back");
+            info!("echo back");
         }
     }
 
@@ -50,26 +50,28 @@ mod tests {
     fn test_connection() {
         let rt = Runtime::new().unwrap();
 
-        let mut server = server::new();
+        let mut server = Server::new();
 
         let connection_factory = connection_factory::ConnectionFactoryImpl {};
         let connection_future = connection_factory.establish_connection(connection_factory::ConnectionType::Tokio, server.address);
         let mut connection = rt.block_on(connection_future).unwrap();
-        println!("connection established");
+        info!("connection established");
 
-        let mut data: Vec<u8> = Vec::new();
-        data.push(12);
-        let fut = connection.send_async(&data);
+        let mut payload: Vec<u8> = Vec::new();
+        payload.push(12);
+        let fut = connection.send_async(&payload);
 
         rt.block_on(fut);
-        println!("payload sent");
+        info!("payload sent");
 
         server.echo();
-        let mut buf: Vec<u8> = Vec::new();
-        let fut = connection.read_async(&mut buf);
+        let mut buf = [0; 13];
 
-        rt.block_on(fut);
+        let fut = connection.read_async(&mut buf);
+        let res = rt.block_on(fut).unwrap();
+
         let echo = "Hello World\r\n".as_bytes();
         assert_eq!(buf, &echo[..]);
+        info!("Testing connection passed");
     }
 }
