@@ -126,7 +126,7 @@ impl Encode for WireCommands {
             WireCommands::SetupAppend(setup_append_cmd) => {
                 res.write_i32::<BigEndian>(SetupAppendCommand::TYPE_CODE).unwrap();
                 res.extend(setup_append_cmd.write_fields());
-            }
+            },
         }
         res
     }

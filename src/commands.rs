@@ -86,7 +86,7 @@ impl<'de> Visitor<'de> for JavaStringVisitor {
         formatter.write_str("A Byte buffer which contains length and content")
     }
 
-    fn visit_borrowed_bytes<E>(self, value: &'de [u8]) -> Result<Self::Value, E>
+    fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
         where
             E: de::Error
     {
@@ -98,7 +98,7 @@ impl<'de> Visitor<'de> for JavaStringVisitor {
         if _length == content.len() as u16 {
             Ok(JavaString(content))
         } else {
-            Err(de::Error::invalid_value(Unexpected::Bytes(value), &self))
+            Err(de::Error::invalid_value(Unexpected::Bytes(&value), &self))
         }
 
     }
@@ -109,7 +109,7 @@ impl <'de>Deserialize<'de> for JavaString {
         where
             D: Deserializer<'de>,
     {
-        deserializer.deserialize_bytes(JavaStringVisitor)
+        deserializer.deserialize_byte_buf(JavaStringVisitor)
     }
 }
 
@@ -1975,9 +1975,9 @@ impl fmt::Display for TableKeyBadVersionCommand {
 
 /**
  * Table Key Struct.
- *
+ * Need overide the serialize
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(PartialEq, Debug)]
 pub struct TableKey {
     data: Vec<u8>,
     key_version: i64,
@@ -1992,8 +1992,52 @@ impl TableKey {
     // const EMPTY: TableKey = TableKey{data: Vec::new(), key_version: i64::min_value()};
 }
 
+impl Serialize for TableKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+        S: Serializer
+    {
+        let mut res = serializer.serialize_struct("TableKey", 3)?;
+        let payload = (self.data.len() + 4 + 8) as i32;
+        res.serialize_field("payload", payload);
+        res.serialize_field("data", &self.data);
+        res.serialize_file("key_version", &self.key_version);
+        res.end()
+    }
+}
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+struct TableKeyVistor;
+
+impl <'de> Visitor<'de> for TableKeyVistor {
+    type Value = TableKey;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> fmt::Result {
+        formatter.write_str("A Byte buffer for TableKey")
+    }
+
+    fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+    {
+        let mut rdr = Cursor::new(&value);
+        let payload_size = rdr.read_i32().unwrap();
+        let data_length = rdr.read_i32().unwrap();
+        rdr.set_position((8 + data_length) as u64);
+        let version = rdr.read_i64().unwrap();
+        Ok(TableKey{data: value[8..(8+data_length)], key_version: version})
+    }
+}
+
+impl <'de>Deserialize<'de> for TableKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+    {
+        deserializer.deserialize_byte_buf(TableKeyVistor)
+    }
+}
+
+#[derive(PartialEq, Debug)]
 pub struct TableValue {
     data: Vec<u8>,
 }
@@ -2002,6 +2046,46 @@ impl TableValue {
     const HEADER_BYTES: i32 = 2 * 4;
     // FIXME: I think we don't need EMPTY variable in rust, because we don't serialize manually.
     // const EMPTY: TableValue = TableValue{data: Vec::new()};
+}
+
+impl Serialize for TableValue {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        let mut res = serializer.serialize_struct("TableValue", 2)?;
+        let payload = (self.data.len() + 4) as i32;
+        res.serialize_field("payload", payload);
+        res.serialize_field("data", &self.data);
+        res.end()
+    }
+}
+struct TableValueVistor;
+
+impl <'de> Visitor<'de> for TableValueVistor {
+    type Value = TableValue;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> fmt::Result {
+        formatter.write_str("A Byte buffer for TableValue")
+    }
+
+    fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+    {
+        let mut rdr = Cursor::new(&value);
+        let payload_size = rdr.read_i32().unwrap();
+        let data_length = rdr.read_i32().unwrap();
+        Ok(TableValue{data: value[8..(8+data_length)]})
+    }
+}
+impl <'de>Deserialize<'de> for TableValue {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+    {
+        deserializer.deserialize_byte_buf(TableValueVistor)
+    }
 }
 
 /**
