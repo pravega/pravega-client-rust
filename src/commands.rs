@@ -2,9 +2,10 @@ use serde::{Serialize, Deserialize, Serializer, Deserializer};
 use serde::de::{self, Visitor, Unexpected};
 use std::fmt;
 use std::i64;
-use byteorder::{BigEndian, WriteBytesExt};
+use byteorder::{BigEndian, WriteBytesExt, ReadBytesExt};
 use bincode::Config;
-
+use std::io::{Write, Read};
+use std::io::Cursor;
 /**
  * trait for Command.
  */
@@ -111,7 +112,6 @@ impl <'de>Deserialize<'de> for JavaString {
         deserializer.deserialize_bytes(JavaStringVisitor)
     }
 }
-
 
 /*
  * bincode serialize and deserialize config
@@ -448,29 +448,37 @@ impl Reply for OperationUnsupportedCommand {
 /**
  * 10. Padding Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(PartialEq, Debug)]
 pub struct PaddingCommand {
     pub length: i32,
 }
 
 impl Command for PaddingCommand {
     const TYPE_CODE: i32 = -1;
-    // FIXME: The padding command needs custom serialize and deserialize method
+
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        let mut res = Vec::new();
+        for i in 0..(self.length / 8) {
+            res.write_i64::<BigEndian>(0).unwrap();
+        }
+        for i in 0..(self.length % 8) {
+            res.write_u8(0);
+        }
+        res
     }
 
     fn read_from(input: &[u8]) -> PaddingCommand {
-        let decoded: PaddingCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        let skipped = 0;
+        //FIXME: In java we use skipBytes to remove these padding bytes.
+        //FIXME: I think we don't need to do in rust.
+        PaddingCommand{length: input.len() as i32}
     }
 }
 
 /**
  * 11. PartialEvent Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(PartialEq, Debug)]
 pub struct PartialEventCommand {
     pub data: Vec<u8>
 }
@@ -478,13 +486,14 @@ pub struct PartialEventCommand {
 impl Command for PartialEventCommand {
     const TYPE_CODE: i32 = -2;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        //FIXME: In java, we use data.getBytes(data.readerIndex(), (OutputStream) out, data.readableBytes());
+        // which means the result would not contain the prefix length;
+        // so in rust we can directly return data.
+        data
     }
 
     fn read_from(input: &[u8]) -> PartialEventCommand {
-        let decoded: PartialEventCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        PartialEventCommand{data: input.to_vec()}
     }
 }
 
@@ -498,15 +507,18 @@ pub struct EventCommand {
 
 impl Command for EventCommand {
     const TYPE_CODE: i32 = 0;
-    //FIXME: The event command needs custom serialize and deseialize methods
-    //In JAVA Code the format is |type_code|length|data|
     fn write_fields(&self) -> Vec<u8> {
+        let mut res = Vec::new();
+        res.write_i32::<BigEndian>(EventCommand::TYPE_CODE);
         let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        res.extend(encoded);
+        res
     }
 
     fn read_from(input: &[u8]) -> EventCommand {
-        let decoded: EventCommand = CONFIG.deserialize(&input[..]).unwrap();
+        //read the type_code.
+        let _type_code = BigEndian::read_i32(input);
+        let decoded: EventCommand = CONFIG.deserialize(&input[4..]).unwrap();
         decoded
     }
 }
@@ -555,8 +567,8 @@ pub struct AppendBlockCommand {
 
 impl Command for AppendBlockCommand {
     const TYPE_CODE: i32 = 3;
-    //FIXME: The serialize and deserialize method need to customize.
-    //In JAVA, it doesn't write data(because it'empty), but here it will write the data length(0).
+    //FIXME: The serialize and deserialize method need to customize;
+    // In JAVA, it doesn't write data(because it'empty), but here it will write the prefix length(0).
     fn write_fields(&self) -> Vec<u8> {
         let encoded = CONFIG.serialize(&self).unwrap();
         encoded
@@ -598,7 +610,7 @@ impl Command for AppendBlockEndCommand {
 /**
  * 16.ConditionalAppend Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(PartialEq, Debug)]
 pub struct ConditionalAppendCommand {
     pub writer_id: u128,
     pub event_number: i64,
@@ -608,18 +620,41 @@ pub struct ConditionalAppendCommand {
 
 }
 
+impl ConditionalAppendCommand {
+    fn read_event(rdr: &mut Cursor<&[u8]>) -> EventCommand {
+        let type_code = rdr.read_i32::<BigEndian>().unwrap();
+        let event_length = rdr.read_u64::<BigEndian>().unwrap();
+        // read the data in event
+        let mut msg: Vec<u8> = vec![0; event_length as usize];
+        rdr.read_exact(&mut msg);
+        EventCommand{data: msg}
+    }
+}
+
 impl Command for ConditionalAppendCommand {
     const TYPE_CODE: i32 = 5;
-
+    // Customize the serialize and deserialize method.
+    // Because in CondtionalAppend the event should be serialize as |type_code|length|data|
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        let mut res = Vec::new();
+        res.write_u128::<BigEndian>(self.writer_id).unwrap();
+        res.write_i64::<BigEndian>(self.event_number).unwrap();
+        res.write_i64::<BigEndian>(self.expected_offset).unwrap();
+        res.write_all(&self.event.write_fields());
+        res.write_i64::<BigEndian>(self.request_id).unwrap();
+        res
     }
 
     fn read_from(input: &[u8]) -> ConditionalAppendCommand {
-        let decoded: ConditionalAppendCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        let mut rdr = Cursor::new(input);
+        let writer_id = rdr.read_u128::<BigEndian>().unwrap();
+        let event_number = rdr.read_i64::<BigEndian>().unwrap();
+        let expected_offset = rdr.read_i64::<BigEndian>().unwrap();
+        let event = ConditionalAppendCommand::read_event(&mut rdr);
+        let request_id = rdr.read_i64::<BigEndian>().unwrap();
+        ConditionalAppendCommand{writer_id, event_number, expected_offset, event, request_id}
     }
+
 }
 
 impl Request for ConditionalAppendCommand {
@@ -665,10 +700,10 @@ impl Reply for AppendSetupCommand {
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct DataAppendedCommand {
-    pub request_id: i64,
     pub writer_id: u128,
     pub event_number: i64,
     pub previous_event_number: i64,
+    pub request_id: i64,
     pub current_segment_write_offset: i64
 }
 
@@ -698,8 +733,8 @@ impl Reply for DataAppendedCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct ConditionalCheckFailedCommand {
     pub writer_id: u128,
-    pub request_id: i64,
     pub event_number: i64,
+    pub request_id: i64,
 }
 
 impl Command for ConditionalCheckFailedCommand  {
@@ -727,11 +762,11 @@ impl Reply for ConditionalAppendCommand {
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct ReadSegmentCommand {
-    pub request_id: i64,
-    pub offset: i64,
     pub segment: JavaString,
+    pub offset: i64,
     pub suggested_length: i64,
     pub delegation_token: JavaString,
+    pub request_id: i64,
 }
 
 impl Command for ReadSegmentCommand  {
@@ -759,12 +794,12 @@ impl Request for ReadSegmentCommand {
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentReadCommand {
-    pub request_id: i64,
-    pub offset: i64,
     pub segment: JavaString,
+    pub offset: i64,
     pub at_tail: bool,
     pub end_of_segment: bool,
-    pub data: Vec<u8>
+    pub data: Vec<u8>,
+    pub request_id: i64,
 }
 
 impl Command for SegmentReadCommand {
@@ -855,9 +890,9 @@ pub struct UpdateSegmentAttributeCommand {
     pub request_id: i64,
     pub segment_name: JavaString,
     pub attribute_id: u128,
-    pub delegation_token: JavaString,
     pub new_value: i64,
     pub expected_value: i64,
+    pub delegation_token: JavaString,
 }
 
 impl Command for UpdateSegmentAttributeCommand {
@@ -981,8 +1016,8 @@ impl Reply for StreamSegmentInfoCommand {
 pub struct CreateSegmentCommand {
     pub request_id: i64,
     pub segment: JavaString,
-    pub scale_type: u8,
     pub target_rate: i32,
+    pub scale_type: u8,
     pub delegation_token: JavaString,
 }
 
@@ -1072,8 +1107,8 @@ impl Reply for SegmentCreatedCommand {
 pub struct UpdateSegmentPolicyCommand {
     pub request_id: i64,
     pub segment: JavaString,
-    pub scale_type: u8,
     pub target_rate: i32,
+    pub scale_type: u8,
     pub delegation_token: JavaString,
 }
 
@@ -1465,7 +1500,6 @@ pub struct KeepAliveCommand {}
 impl Command for KeepAliveCommand {
     const TYPE_CODE: i32 = 100;
 
-    //FIXME: The java code doesn't serialize any information, but here we will add the length(0)
     fn write_fields(&self) -> Vec<u8> {
         let res: Vec<u8> = Vec::new();
         res
@@ -1498,11 +1532,57 @@ impl Reply for KeepAliveCommand {
 pub struct AuthTokenCheckFailedCommand {
     pub request_id: i64,
     pub server_stack_trace: JavaString,
-    //pub error_code: ErrorCode,
+    pub error_code: int,
 }
-//Todo: wait for impl
-pub enum ErrorCode {
 
+impl AuthTokenCheckFailedCommand {
+    fn is_token_expired(&self) -> bool {
+        ErrorCode::value_of(self.error_code) == ErrorCode::TokenExpired
+    }
+}
+
+impl Command for AuthTokenCheckFailedCommand {
+    const TYPE_CODE: i32 = 60;
+
+    fn write_fields(&self) -> Vec<u8> {
+        let encoded = CONFIG.serialize(&self).unwrap();
+        encoded
+    }
+
+    fn read_from(input: &[u8]) -> AuthTokenCheckFailedCommand {
+        let decoded: AuthTokenCheckFailedCommand = CONFIG.deserialize(&input[..]).unwrap();
+        decoded
+    }
+}
+
+impl Reply for AuthTokenCheckFailedCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+pub enum ErrorCode {
+    Unspecified ,
+    TokenCheckedFailed,
+    TokenExpired,
+}
+
+impl ErrorCode {
+    fn get_code(error_code: &ErrorCode) -> i32 {
+        match error_code {
+            ErrorCode::Unspecified => -1,
+            ErrorCode::TokenCheckedFailed => 0,
+            ErrorCode::TokenExpired => 1
+        }
+    }
+    fn value_of(code: i32) -> ErrorCode {
+        match code {
+            -1 => ErrorCode::Unspecified,
+            0 => ErrorCode::TokenCheckedFailed,
+            1 => ErrorCode::TokenExpired,
+            _ => panic!("Unknown value: {}", value),
+        }
+    }
 }
 
 /**
@@ -1895,8 +1975,7 @@ impl fmt::Display for TableKeyBadVersionCommand {
 
 /**
  * Table Key Struct.
- * FIXME: Do we need to manually implement serialize and deserialize method for TableKey?
- * As the Java code serialize this into |payload_size|data_length|data|key_version|?
+ *
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TableKey {
@@ -1913,12 +1992,7 @@ impl TableKey {
     // const EMPTY: TableKey = TableKey{data: Vec::new(), key_version: i64::min_value()};
 }
 
-/**
- * Table Key Struct.
- * FIXME: Do we need to manually implement serialize and deserialize method for TableValue?
- * As the Java code serialize this into |payload_size|data_length|data
- * And the rust would miss the payload_size
- */
+
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TableValue {
     data: Vec<u8>,
@@ -1935,8 +2009,7 @@ impl TableValue {
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TableEntries {
-    // FIXME: if it is okay to change Map.Entry<TableKey, TableValue> to tuple?
-    entries: Vec<(TableKey, TableEntries)>,
+    entries: Vec<(TableKey, TableValue)>,
 }
 
 impl TableEntries {
