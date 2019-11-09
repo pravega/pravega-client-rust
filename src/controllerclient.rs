@@ -22,9 +22,10 @@ use tonic::transport::channel::Channel;
 /// create_connection with the given controller uri.
 async fn create_connection(uri: &'static str) -> ControllerServiceClient<Channel> {
     // Placeholder to add authentication headers.
-    let connection: ControllerServiceClient<Channel> = ControllerServiceClient::connect(uri)
-        .await
-        .expect("Failed to create a channel");
+    let connection: ControllerServiceClient<Channel> =
+        ControllerServiceClient::connect(uri.to_string())
+            .await
+            .expect("Failed to create a channel");
     connection
 }
 
