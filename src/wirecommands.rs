@@ -127,6 +127,182 @@ impl Encode for WireCommands {
                 res.write_i32::<BigEndian>(SetupAppendCommand::TYPE_CODE).unwrap();
                 res.extend(setup_append_cmd.write_fields());
             },
+            WireCommands::AppendBlock(append_block_cmd) => {
+                res.write_i32::<BigEndian>(AppendBlockCommand::TYPE_CODE).unwrap();
+                res.extend(append_block_cmd.write_fields());
+            },
+            WireCommands::AppendBlockEnd(append_block_end_cmd) => {
+                res.write_i32::<BigEndian>(AppendBlockCommand::TYPE_CODE).unwrap();
+                res.extend(append_block_end_cmd.write_fields());
+            },
+            WireCommands::ConditionalAppend(conditional_append_cmd) => {
+                res.write_i32::<BigEndian>(ConditionalAppendCommand::TYPE_CODE).unwrap();
+                res.extend(conditional_append_cmd.write_fields());
+            },
+            WireCommands::AppendSetup(append_setup_cmd) => {
+                res.write_i32::<BigEndian>(AppendSetupCommand::TYPE_CODE).unwrap();
+                res.extend(append_setup_cmd.write_fields());
+            },
+            WireCommands::DataAppended(data_appended_cmd) => {
+                res.write_i32::<BigEndian>(DataAppendedCommand::TYPE_CODE).unwrap();
+                res.extend(data_appended_cmd.write_fields());
+            },
+            WireCommands::ConditionalCheckFailed(conditional_check_failed_cmd) => {
+                res.write_i32::<BigEndian>(ConditionalCheckFailedCommand::TYPE_CODE).unwrap();
+                res.extend(conditional_check_failed_cmd.write_fields());
+            },
+            WireCommands::ReadSegment(read_segment_cmd) => {
+                res.write_i32::<BigEndian>(ReadSegmentCommand::TYPE_CODE).unwrap();
+                res.extend(read_segment_cmd.write_fields());
+            },
+            WireCommands::SegmentRead(segment_read_cmd) => {
+                res.write_i32::<BigEndian>(SegmentReadCommand::TYPE_CODE).unwrap();
+                res.extend(segment_read_cmd.write_fields());
+            },
+            WireCommands::GetSegmentAttribute(get_segment_attribute_cmd) => {
+                res.write_i32::<BigEndian>(GetSegmentAttributeCommand::TYPE_CODE).unwrap();
+                res.extend(get_segment_attribute_cmd.write_fields());
+            },
+            WireCommands::SegmentAttribute(segment_attribute_cmd) => {
+                res.write_i32::<BigEndian>(SegmentAttributeCommand::TYPE_CODE).unwrap();
+                res.extend(segment_attribute_cmd.write_fields());
+            },
+            WireCommands::UpdateSegmentAttribute(update_segment_attribute_cmd) => {
+                res.write_i32::<BigEndian>(UpdateSegmentAttributeCommand::TYPE_CODE).unwrap();
+                res.extend(update_segment_attribute_cmd.write_fields());
+            },
+            WireCommands::SegmentAttributeUpdated(segment_attribute_updated_cmd) => {
+                res.write_i32::<BigEndian>(SegmentAttributeUpdatedCommand::TYPE_CODE).unwrap();
+                res.extend(segment_attribute_updated_cmd.write_fields());
+            },
+            WireCommands::GetStreamSegmentInfo(get_stream_segment_info_cmd) => {
+                res.write_i32::<BigEndian>(GetStreamSegmentInfoCommand::TYPE_CODE).unwrap();
+                res.extend(get_stream_segment_info_cmd.write_fields());
+            },
+            WireCommands::StreamSegmentInfo(stream_segment_info_cmd) => {
+                res.write_i32::<BigEndian>(StreamSegmentInfoCommand::TYPE_CODE).unwrap();
+                res.extend(stream_segment_info_cmd.write_fields());
+            },
+            WireCommands::CreateSegment(create_segment_cmd) => {
+                res.write_i32::<BigEndian>(CreateSegmentCommand::TYPE_CODE).unwrap();
+                res.extend(create_segment_cmd.write_fields());
+            },
+            WireCommands::CreateTableSegment(create_table_segment_command) => {
+                res.write_i32::<BigEndian>(CreateTableSegmentCommand::TYPE_CODE).unwrap();
+                res.extend(create_table_segment_command.write_fields());
+            },
+            WireCommands::SegmentCreated(segment_created_cmd) => {
+                res.write_i32::<BigEndian>(SegmentCreatedCommand::TYPE_CODE).unwrap();
+                res.extend(segment_created_cmd.write_fields());
+            },
+            WireCommands::UpdateSegmentPolicy(update_segment_policy_cmd) => {
+                res.write_i32::<BigEndian>(UpdateSegmentPolicyCommand::TYPE_CODE).unwrap();
+                res.extend(update_segment_policy_cmd.write_fields());
+            },
+            WireCommands::SegmentPolicyUpdated(segment_policy_updated_cmd) => {
+                res.write_i32::<BigEndian>(SegmentPolicyUpdatedCommand::TYPE_CODE).unwrap();
+                res.extend(segment_policy_updated_cmd.write_fields());
+            },
+            WireCommands::MergeSegments(merge_segments_cmd) => {
+                res.write_i32::<BigEndian>(MergeSegmentsCommand::TYPE_CODE).unwrap();
+                res.extend(merge_segments_cmd.write_fields());
+            },
+            WireCommands::MergeTableSegments(merge_table_segments_cmd) => {
+                res.write_i32::<BigEndian>(MergeTableSegmentsCommand::TYPE_CODE).unwrap();
+                res.extend(merge_table_segments_cmd.write_fields());
+            },
+            WireCommands::SegmentsMerged(segments_merged_cmd) => {
+                res.write_i32::<BigEndian>(SegmentsMergedCommand::TYPE_CODE).unwrap();
+                res.extend(segments_merged_cmd.write_fields());
+            },
+            WireCommands::SealSegment(seal_segment_cmd) => {
+                res.write_i32::<BigEndian>(SealSegmentCommand::TYPE_CODE).unwrap();
+                res.extend(seal_segment_cmd.write_fields());
+            },
+            WireCommands::SealTableSegment(seal_table_segment_cmd) => {
+                res.write_i32::<BigEndian>(SealTableSegmentCommand::TYPE_CODE).unwrap();
+                res.extend(seal_table_segment_cmd.write_fields());
+            },
+            WireCommands::SegmentSealed(segment_sealed_cmd) => {
+                res.write_i32::<BigEndian>(SegmentSealedCommand::TYPE_CODE).unwrap();
+                res.extend(segment_sealed_cmd.write_fields());
+            },
+            WireCommands::TruncateSegment(truncate_segment_cmd) => {
+                res.write_i32::<BigEndian>(TruncateSegmentCommand::TYPE_CODE).unwrap();
+                res.extend(truncate_segment_cmd.write_fields());
+            },
+            WireCommands::SegmentTruncated(segment_truncated_cmd) => {
+                res.write_i32::<BigEndian>(SegmentTruncatedCommand::TYPE_CODE).unwrap();
+                res.extend(segment_truncated_cmd.write_fields());
+            },
+            WireCommands::DeleteSegment(delete_segment_cmd) => {
+                res.write_i32::<BigEndian>(DeleteSegmentCommand::TYPE_CODE).unwrap();
+                res.extend(delete_segment_cmd.write_fields());
+            },
+            WireCommands::DeleteTableSegment(delete_table_segment_cmd) => {
+                res.write_i32::<BigEndian>(DeleteTableSegmentCommand::TYPE_CODE).unwrap();
+                res.extend(delete_table_segment_cmd.write_fields());
+            },
+            WireCommands::SegmentDeleted(segment_deleted_cmd) => {
+                res.write_i32::<BigEndian>(SegmentDeletedCommand::TYPE_CODE).unwrap();
+                res.extend(segment_deleted_cmd.write_fields());
+            },
+            WireCommands::KeepAlive(keep_alive_cmd) => {
+                res.write_i32::<BigEndian>(KeepAliveCommand::TYPE_CODE).unwrap();
+                res.extend(keep_alive_cmd.write_fields());
+            },
+            WireCommands::AuthTokenCheckFailed(auth_token_check_failed_cmd) => {
+                res.write_i32::<BigEndian>(AuthTokenCheckFailedCommand::TYPE_CODE).unwrap();
+                res.extend(auth_token_check_failed_cmd.write_fields());
+            },
+            WireCommands::UpdateTableEntries(update_table_entries_cmd) => {
+                res.write_i32::<BigEndian>(UpdateTableEntriesCommand::TYPE_CODE).unwrap();
+                res.extend(update_table_entries_cmd.write_fields());
+            },
+            WireCommands::TableEntriesUpdated(table_entries_updated_cmd) => {
+                res.write_i32::<BigEndian>(TableEntriesUpdatedCommand::TYPE_CODE).unwrap();
+                res.extend(table_entries_updated_cmd.write_fields());
+            },
+            WireCommands::RemoveTableKeys(remove_table_keys_cmd) => {
+                res.write_i32::<BigEndian>(RemoveTableKeysCommand::TYPE_CODE).unwrap();
+                res.extend(remove_table_keys_cmd.write_fields());
+            },
+            WireCommands::TableKeysRemoved(table_key_removed_cmd) => {
+                res.write_i32::<BigEndian>(AppendBlockCommand::TYPE_CODE).unwrap();
+                res.extend(table_key_removed_cmd.write_fields());
+            },
+            WireCommands::ReadTable(read_table_cmd) => {
+                res.write_i32::<BigEndian>(ReadTableCommand::TYPE_CODE).unwrap();
+                res.extend(read_table_cmd.write_fields());
+            },
+            WireCommands::TableRead(table_read_cmd) => {
+                res.write_i32::<BigEndian>(TableReadCommand::TYPE_CODE).unwrap();
+                res.extend(table_read_cmd.write_fields());
+            },
+            WireCommands::ReadTableKeys(read_table_keys_cmd) => {
+                res.write_i32::<BigEndian>(ReadTableKeysCommand::TYPE_CODE).unwrap();
+                res.extend(read_table_keys_cmd.write_fields());
+            },
+            WireCommands::TableKeysRead(table_keys_read_cmd) => {
+                res.write_i32::<BigEndian>(TableKeysReadCommand::TYPE_CODE).unwrap();
+                res.extend(table_keys_read_cmd.write_fields());
+            },
+            WireCommands::ReadTableEntries(read_table_entries_cmd) => {
+                res.write_i32::<BigEndian>(AppendBlockCommand::TYPE_CODE).unwrap();
+                res.extend(read_table_entries_cmd.write_fields());
+            },
+            WireCommands::TableEntriesRead(table_entries_read_cmd) => {
+                res.write_i32::<BigEndian>(TableEntriesReadCommand::TYPE_CODE).unwrap();
+                res.extend(table_entries_read_cmd.write_fields());
+            },
+            WireCommands::TableKeyDoesNotExist(table_key_does_not_exist_cmd) => {
+                res.write_i32::<BigEndian>(TableKeyDoesNotExistCommand::TYPE_CODE).unwrap();
+                res.extend(table_key_does_not_exist_cmd.write_fields());
+            },
+            WireCommands::TableKeyBadVersion(table_key_bad_version_cmd) => {
+                res.write_i32::<BigEndian>(TableKeyBadVersionCommand::TYPE_CODE).unwrap();
+                res.extend(table_key_bad_version_cmd.write_fields());
+            },
         }
         res
     }
