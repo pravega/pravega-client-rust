@@ -29,6 +29,7 @@ pub trait ConnectionFactory {
      *
      * # Example
      *
+     * ```
      * use std::net::SocketAddr;
      *
      * fn main() {
@@ -37,7 +38,7 @@ pub trait ConnectionFactory {
      *   let connection_future = connection_factory.establish_connection(connection_factory::ConnectionType::Tokio, endpoint);
      *   let mut connection = rt.block_on(connection_future).unwrap();
      * }
-     *
+     * ```
      */
     async fn establish_connection(&self, connection_type: ConnectionType, endpoint: SocketAddr) -> Result<Box<dyn Connection>, Box<dyn Error>>;
 }
@@ -53,9 +54,10 @@ pub trait Connection {
     *
     * # Example
     *
+    * ```
     * let mut payload: Vec<u8> = Vec::new();
     * let fut = connection.send_async(&payload);
-    *
+    * ```
     */
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), Box<dyn Error>>;
 
@@ -64,9 +66,10 @@ pub trait Connection {
      *
      * # Example
      *
+     * ```
      * let mut buf = [0; 10];
      * let fut = connection.read_async(&payload);
-     *
+     * ```
      */
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<usize, Box<dyn Error>>;
 }
