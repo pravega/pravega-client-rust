@@ -1,11 +1,13 @@
-use serde::{Serialize, Deserialize, Serializer, Deserializer};
-use serde::de::{self, Visitor, Unexpected};
+use serde::{Serialize, Deserialize};
+use serde::de::{self, Deserializer, Visitor, Unexpected};
+use serde::ser::{Serializer, SerializeStruct};
 use std::fmt;
 use std::i64;
-use byteorder::{BigEndian, WriteBytesExt, ReadBytesExt};
+use byteorder::{ByteOrder, BigEndian, WriteBytesExt, ReadBytesExt};
 use bincode::Config;
 use std::io::{Write, Read};
 use std::io::Cursor;
+
 /**
  * trait for Command.
  */
@@ -489,7 +491,7 @@ impl Command for PartialEventCommand {
         //FIXME: In java, we use data.getBytes(data.readerIndex(), (OutputStream) out, data.readableBytes());
         // which means the result would not contain the prefix length;
         // so in rust we can directly return data.
-        data
+        self.data.clone()
     }
 
     fn read_from(input: &[u8]) -> PartialEventCommand {
@@ -1532,7 +1534,7 @@ impl Reply for KeepAliveCommand {
 pub struct AuthTokenCheckFailedCommand {
     pub request_id: i64,
     pub server_stack_trace: JavaString,
-    pub error_code: int,
+    pub error_code: i32,
 }
 
 impl AuthTokenCheckFailedCommand {
@@ -1561,6 +1563,7 @@ impl Reply for AuthTokenCheckFailedCommand {
     }
 }
 
+#[derive(PartialEq)]
 pub enum ErrorCode {
     Unspecified ,
     TokenCheckedFailed,
@@ -1580,7 +1583,7 @@ impl ErrorCode {
             -1 => ErrorCode::Unspecified,
             0 => ErrorCode::TokenCheckedFailed,
             1 => ErrorCode::TokenExpired,
-            _ => panic!("Unknown value: {}", value),
+            _ => panic!("Unknown value: {}", code),
         }
     }
 }
@@ -1999,9 +2002,9 @@ impl Serialize for TableKey {
     {
         let mut res = serializer.serialize_struct("TableKey", 3)?;
         let payload = (self.data.len() + 4 + 8) as i32;
-        res.serialize_field("payload", payload);
+        res.serialize_field("payload", &payload);
         res.serialize_field("data", &self.data);
-        res.serialize_file("key_version", &self.key_version);
+        res.serialize_field("key_version", &self.key_version);
         res.end()
     }
 }
@@ -2012,7 +2015,7 @@ impl <'de> Visitor<'de> for TableKeyVistor {
     type Value = TableKey;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> fmt::Result {
-        formatter.write_str("A Byte buffer for TableKey")
+        formatter.write_str("Deserializer for TableKey")
     }
 
     fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
@@ -2020,11 +2023,13 @@ impl <'de> Visitor<'de> for TableKeyVistor {
             E: de::Error,
     {
         let mut rdr = Cursor::new(&value);
-        let payload_size = rdr.read_i32().unwrap();
-        let data_length = rdr.read_i32().unwrap();
+        let payload_size = rdr.read_i32::<BigEndian>().unwrap();
+        let data_length = rdr.read_i32::<BigEndian>().unwrap();
+        let mut data = vec![0; data_length as usize];
+        data.copy_from_slice(&value[8..]);
         rdr.set_position((8 + data_length) as u64);
-        let version = rdr.read_i64().unwrap();
-        Ok(TableKey{data: value[8..(8+data_length)], key_version: version})
+        let key_version = rdr.read_i64::<BigEndian>().unwrap();
+        Ok(TableKey{data, key_version})
     }
 }
 
@@ -2055,7 +2060,7 @@ impl Serialize for TableValue {
     {
         let mut res = serializer.serialize_struct("TableValue", 2)?;
         let payload = (self.data.len() + 4) as i32;
-        res.serialize_field("payload", payload);
+        res.serialize_field("payload", &payload);
         res.serialize_field("data", &self.data);
         res.end()
     }
@@ -2066,7 +2071,7 @@ impl <'de> Visitor<'de> for TableValueVistor {
     type Value = TableValue;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> fmt::Result {
-        formatter.write_str("A Byte buffer for TableValue")
+        formatter.write_str("Deserializer for TableValue")
     }
 
     fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
@@ -2074,9 +2079,11 @@ impl <'de> Visitor<'de> for TableValueVistor {
             E: de::Error,
     {
         let mut rdr = Cursor::new(&value);
-        let payload_size = rdr.read_i32().unwrap();
-        let data_length = rdr.read_i32().unwrap();
-        Ok(TableValue{data: value[8..(8+data_length)]})
+        let payload_size = rdr.read_i32::<BigEndian>().unwrap();
+        let data_length = rdr.read_i32::<BigEndian>().unwrap();
+        let mut data = vec![0; data_length as usize];
+        data.copy_from_slice(&value[8..]);
+        Ok(TableValue{data})
     }
 }
 impl <'de>Deserialize<'de> for TableValue {
