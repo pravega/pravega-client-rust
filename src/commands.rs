@@ -464,7 +464,7 @@ impl Command for PaddingCommand {
             res.write_i64::<BigEndian>(0).unwrap();
         }
         for i in 0..(self.length % 8) {
-            res.write_u8(0);
+            res.write_u8(0).unwrap();
         }
         res
     }
@@ -511,7 +511,7 @@ impl Command for EventCommand {
     const TYPE_CODE: i32 = 0;
     fn write_fields(&self) -> Vec<u8> {
         let mut res = Vec::new();
-        res.write_i32::<BigEndian>(EventCommand::TYPE_CODE);
+        res.write_i32::<BigEndian>(EventCommand::TYPE_CODE).unwrap();
         let encoded = CONFIG.serialize(&self).unwrap();
         res.extend(encoded);
         res
@@ -628,7 +628,7 @@ impl ConditionalAppendCommand {
         let event_length = rdr.read_u64::<BigEndian>().unwrap();
         // read the data in event
         let mut msg: Vec<u8> = vec![0; event_length as usize];
-        rdr.read_exact(&mut msg);
+        rdr.read_exact(&mut msg).unwrap();
         EventCommand{data: msg}
     }
 }
@@ -642,7 +642,7 @@ impl Command for ConditionalAppendCommand {
         res.write_u128::<BigEndian>(self.writer_id).unwrap();
         res.write_i64::<BigEndian>(self.event_number).unwrap();
         res.write_i64::<BigEndian>(self.expected_offset).unwrap();
-        res.write_all(&self.event.write_fields());
+        res.write_all(&self.event.write_fields()).unwrap();
         res.write_i64::<BigEndian>(self.request_id).unwrap();
         res
     }
@@ -2002,9 +2002,9 @@ impl Serialize for TableKey {
     {
         let mut res = serializer.serialize_struct("TableKey", 3)?;
         let payload = (self.data.len() + 4 + 8) as i32;
-        res.serialize_field("payload", &payload);
-        res.serialize_field("data", &self.data);
-        res.serialize_field("key_version", &self.key_version);
+        res.serialize_field("payload", &payload)?;
+        res.serialize_field("data", &self.data)?;
+        res.serialize_field("key_version", &self.key_version)?;
         res.end()
     }
 }
@@ -2060,8 +2060,8 @@ impl Serialize for TableValue {
     {
         let mut res = serializer.serialize_struct("TableValue", 2)?;
         let payload = (self.data.len() + 4) as i32;
-        res.serialize_field("payload", &payload);
-        res.serialize_field("data", &self.data);
+        res.serialize_field("payload", &payload)?;
+        res.serialize_field("data", &self.data)?;
         res.end()
     }
 }
