@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 use serde::de::{self, Deserializer, Visitor, Unexpected};
-use serde::ser::{Serializer, SerializeStruct};
+use serde::ser::{Serializer};
 use std::fmt;
 use std::i64;
 use byteorder::{ByteOrder, BigEndian, WriteBytesExt, ReadBytesExt};
@@ -1980,127 +1980,52 @@ impl fmt::Display for TableKeyBadVersionCommand {
  * Table Key Struct.
  * Need overide the serialize
  */
-#[derive(PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TableKey {
-    data: Vec<u8>,
-    key_version: i64,
+    pub payload: i32,
+    pub data: Vec<u8>,
+    pub key_version: i64,
 }
 
 impl TableKey {
     const NO_VERSION: i64 = i64::min_value();
     const NOT_EXISTS: i64 = -1;
-    //FIXME: the i32 in rust doesn't have byte() method or i32::BYTES
     const HEADER_BYTES: i32 = 2 * 4;
-    // FIXME: I think we don't need EMPTY variable in rust, because we don't serialize manually.
-    // const EMPTY: TableKey = TableKey{data: Vec::new(), key_version: i64::min_value()};
-}
-
-impl Serialize for TableKey {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-        S: Serializer
-    {
-        let mut res = serializer.serialize_struct("TableKey", 3)?;
-        let payload = (self.data.len() + 4 + 8) as i32;
-        res.serialize_field("payload", &payload)?;
-        res.serialize_field("data", &self.data)?;
-        res.serialize_field("key_version", &self.key_version)?;
-        res.end()
+    pub fn new(data: Vec<u8>, key_version: i64) -> TableKey {
+        let payload = (data.len() + 8 + 8 + 4) as i32;
+        TableKey{
+            payload,
+            data,
+            key_version,
+        }
     }
 }
 
-struct TableKeyVistor;
 
-impl <'de> Visitor<'de> for TableKeyVistor {
-    type Value = TableKey;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> fmt::Result {
-        formatter.write_str("Deserializer for TableKey")
-    }
-
-    fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-    {
-        let mut rdr = Cursor::new(&value);
-        let payload_size = rdr.read_i32::<BigEndian>().unwrap();
-        let data_length = rdr.read_i32::<BigEndian>().unwrap();
-        let mut data = vec![0; data_length as usize];
-        data.copy_from_slice(&value[8..]);
-        rdr.set_position((8 + data_length) as u64);
-        let key_version = rdr.read_i64::<BigEndian>().unwrap();
-        Ok(TableKey{data, key_version})
-    }
-}
-
-impl <'de>Deserialize<'de> for TableKey {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
-    {
-        deserializer.deserialize_byte_buf(TableKeyVistor)
-    }
-}
-
-#[derive(PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TableValue {
-    data: Vec<u8>,
+    pub payload: i32,
+    pub data: Vec<u8>,
 }
 
 impl TableValue {
     const HEADER_BYTES: i32 = 2 * 4;
-    // FIXME: I think we don't need EMPTY variable in rust, because we don't serialize manually.
-    // const EMPTY: TableValue = TableValue{data: Vec::new()};
-}
-
-impl Serialize for TableValue {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-    {
-        let mut res = serializer.serialize_struct("TableValue", 2)?;
-        let payload = (self.data.len() + 4) as i32;
-        res.serialize_field("payload", &payload)?;
-        res.serialize_field("data", &self.data)?;
-        res.end()
+    pub fn new(data: Vec<u8>) -> TableValue {
+        let payload = (data.len() + 8 + 8 + 4) as i32;
+        TableValue{
+            payload,
+            data,
+        }
     }
 }
-struct TableValueVistor;
 
-impl <'de> Visitor<'de> for TableValueVistor {
-    type Value = TableValue;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> fmt::Result {
-        formatter.write_str("Deserializer for TableValue")
-    }
-
-    fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-    {
-        let mut rdr = Cursor::new(&value);
-        let payload_size = rdr.read_i32::<BigEndian>().unwrap();
-        let data_length = rdr.read_i32::<BigEndian>().unwrap();
-        let mut data = vec![0; data_length as usize];
-        data.copy_from_slice(&value[8..]);
-        Ok(TableValue{data})
-    }
-}
-impl <'de>Deserialize<'de> for TableValue {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
-    {
-        deserializer.deserialize_byte_buf(TableValueVistor)
-    }
-}
 
 /**
  * TableEntries Struct.
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TableEntries {
-    entries: Vec<(TableKey, TableValue)>,
+    pub entries: Vec<(TableKey, TableValue)>,
 }
 
 impl TableEntries {

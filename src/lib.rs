@@ -11,10 +11,11 @@
 #[macro_use]
 extern crate lazy_static;
 
-mod commands;
-mod wirecommands;
+pub mod commands;
+pub mod wirecommands;
 
 #[cfg(test)]
+#[doc(hidden)]
 mod tests {
     use crate::wirecommands::*;
     use crate::commands::*;
@@ -460,6 +461,256 @@ mod tests {
             segment: segment_name
         });
         test_command(segment_sealed);
+    }
+
+    #[test]
+    fn test_truncate_segment() {
+        let segment_name = JavaString(String::from("segment-1"));
+        let token = JavaString(String::from("delegation_token"));
+        let truncate_segment = WireCommands::TruncateSegment(TruncateSegmentCommand {
+            request_id: 1,
+            segment: segment_name,
+            truncation_offset: 10,
+            delegation_token: token
+        });
+        test_command(truncate_segment);
+    }
+
+    #[test]
+    fn test_segment_truncated() {
+        let segment_name = JavaString(String::from("segment-1"));
+        let segment_truncated = WireCommands::SegmentTruncated(SegmentTruncatedCommand {
+            request_id: 1,
+            segment: segment_name
+        });
+        test_command(segment_truncated);
+    }
+
+    #[test]
+    fn test_delete_segment() {
+        let segment_name = JavaString(String::from("segment-1"));
+        let token = JavaString(String::from("delegation_token"));
+        let delete_segment_command = WireCommands::DeleteSegment(DeleteSegmentCommand {
+            request_id: 1,
+            segment: segment_name,
+            delegation_token: token
+        });
+        test_command(delete_segment_command);
+    }
+
+    #[test]
+    fn test_segment_deleted() {
+        let segment = JavaString(String::from("segment-1"));
+        let segment_deleted = WireCommands::SegmentDeleted(SegmentDeletedCommand {
+            request_id: 1,
+            segment
+        });
+        test_command(segment_deleted);
+    }
+
+    #[test]
+    fn test_delete_table_segment() {
+        let segment_name = JavaString(String::from("segment-1"));
+        let token = JavaString(String::from("delegation_token"));
+        let delete_table_segment = WireCommands::DeleteTableSegment(DeleteTableSegmentCommand {
+            request_id: 0,
+            segment: segment_name,
+            must_be_empty: true,
+            delegation_token: token
+        });
+        test_command(delete_table_segment);
+    }
+
+    #[test]
+    fn test_keep_alive() {
+        let keep_alive = WireCommands::KeepAlive(KeepAliveCommand {});
+        test_command(keep_alive);
+    }
+
+    #[test]
+    fn test_auth_checked_failed() {
+        let stack_trace = JavaString(String::from("some exception"));
+        let auth_checked_failed = WireCommands::AuthTokenCheckFailed(AuthTokenCheckFailedCommand{
+            request_id: 1,
+            server_stack_trace: stack_trace,
+            error_code: -1
+        });
+        test_command(auth_checked_failed);
+    }
+
+    #[test]
+    fn test_update_table_entries() {
+        let mut entries = Vec::<(TableKey, TableValue)>::new();
+        let key_data = String::from("key-1").into_bytes();
+        let value_data = String::from("value-1").into_bytes();
+        entries.push((TableKey::new(key_data, 1), TableValue::new(value_data)));
+        let table_entries = TableEntries { entries };
+        let segment_name = JavaString(String::from("segment-1"));
+        let token = JavaString(String::from("delegation_token"));
+        let update_table_entries = WireCommands::UpdateTableEntries(UpdateTableEntriesCommand {
+            request_id: 1,
+            segment: segment_name,
+            delegation_token: token,
+            table_entries
+        });
+
+        test_command(update_table_entries);
+    }
+
+    #[test]
+    fn test_table_entries_updated() {
+        let updated_versions: Vec<i64> = vec![1, 2, 3, 4];
+        let table_entries_updated = WireCommands::TableEntriesUpdated(TableEntriesUpdatedCommand {
+            request_id: 1,
+            updated_versions
+        });
+        test_command(table_entries_updated);
+    }
+
+    #[test]
+    fn test_remove_table_keys() {
+        let segment = JavaString(String::from("segment-1"));
+        let token = JavaString(String::from("delegation_token"));
+        let mut keys = Vec::<(TableKey)>::new();
+        let key_data = String::from("key-1").into_bytes();
+        keys.push(TableKey::new(key_data, 1));
+        let remove_table_keys_command = WireCommands::RemoveTableKeys(RemoveTableKeysCommand {
+            request_id: 1,
+            segment,
+            delegation_token: token,
+            keys
+        });
+        test_command(remove_table_keys_command);
+    }
+
+    #[test]
+    fn test_table_keys_removed() {
+        let segment = JavaString(String::from("segment-1"));
+        let table_key_removed = WireCommands::TableKeysRemoved(TableKeysRemovedCommand {
+            request_id: 1,
+            segment
+        });
+        test_command(table_key_removed);
+    }
+
+    #[test]
+    fn test_read_table() {
+        let segment = JavaString(String::from("segment-1"));
+        let token = JavaString(String::from("delegation_token"));
+        let mut keys = Vec::<(TableKey)>::new();
+        let key_data = String::from("key-1").into_bytes();
+        keys.push(TableKey::new(key_data, 1));
+        let read_table_command = WireCommands::ReadTable(ReadTableCommand{
+            request_id: 1,
+            segment,
+            delegation_token: token,
+            keys
+        });
+    }
+
+    #[test]
+    fn test_table_read() {
+        let mut entries = Vec::<(TableKey, TableValue)>::new();
+        let key_data = String::from("key-1").into_bytes();
+        let value_data = String::from("value-1").into_bytes();
+        entries.push((TableKey::new(key_data, 1), TableValue::new(value_data)));
+        let table_entries = TableEntries { entries };
+        let segment_name = JavaString(String::from("segment-1"));
+        let table_read = WireCommands::TableRead(TableReadCommand{
+            request_id: 1,
+            segment: segment_name,
+            entries: table_entries
+        });
+
+        test_command(table_read);
+    }
+
+    #[test]
+    fn test_read_table_keys() {
+        let segment_name = JavaString(String::from("segment-1"));
+        let token = JavaString(String::from("delegation_token"));
+        let continuation_token :Vec<u8> = vec![1, 2, 3];
+        let read_table_keys = WireCommands::ReadTableKeys(ReadTableKeysCommand{
+            request_id: 0,
+            segment: segment_name,
+            delegation_token: token,
+            suggested_key_count: 3,
+            continuation_token
+        });
+        test_command(read_table_keys);
+    }
+
+    #[test]
+    fn test_table_keys_read() {
+        let segment = JavaString(String::from("segment-1"));
+        let mut keys = Vec::<(TableKey)>::new();
+        let key_data = String::from("key-1").into_bytes();
+        keys.push(TableKey::new(key_data, 1));
+        let continuation_token :Vec<u8> = vec![1, 2, 3];
+        let table_keys_read_command = WireCommands::TableKeysRead(TableKeysReadCommand{
+            request_id: 1,
+            segment,
+            keys,
+            continuation_token
+        });
+        test_command(table_keys_read_command);
+    }
+
+    #[test]
+    fn test_read_table_entries() {
+        let segment_name = JavaString(String::from("segment-1"));
+        let token = JavaString(String::from("delegation_token"));
+        let continuation_token :Vec<u8> = vec![1, 2, 3];
+        let read_table_entries = WireCommands::ReadTableEntries(ReadTableEntriesCommand{
+            request_id: 0,
+            segment: segment_name,
+            delegation_token: token,
+            suggested_entry_count: 3,
+            continuation_token
+        });
+        test_command(read_table_entries);
+    }
+
+    #[test]
+    fn test_table_entries_read() {
+        let segment_name = JavaString(String::from("segment-1"));
+        let continuation_token :Vec<u8> = vec![1, 2, 3];
+        let mut entries = Vec::<(TableKey, TableValue)>::new();
+        let key_data = String::from("key-1").into_bytes();
+        let value_data = String::from("value-1").into_bytes();
+        entries.push((TableKey::new(key_data, 1), TableValue::new(value_data)));
+        let table_entries = TableEntries { entries };
+        let table_entries_read = WireCommands::TableEntriesRead(TableEntriesReadCommand{
+            request_id: 1,
+            segment: segment_name,
+            entries: table_entries,
+            continuation_token
+        });
+        test_command(table_entries_read);
+    }
+
+    #[test]
+    fn table_key_does_not_exist() {
+        let segment_name = JavaString(String::from("segment-1"));
+        let stack_trace = JavaString(String::from("some exception"));
+        let table_key_does_not_exist = WireCommands::TableKeyDoesNotExist(TableKeyDoesNotExistCommand{
+            request_id: 0,
+            segment: segment_name,
+            server_stack_trace: stack_trace
+        });
+        test_command(table_key_does_not_exist);
+    }
+
+    #[test]
+    fn table_key_bad_version() {
+        let segment_name = JavaString(String::from("segment-1"));
+        let stack_trace = JavaString(String::from("some exception"));
+        let table_key_bad_version = WireCommands::TableKeyBadVersion(TableKeyBadVersionCommand{
+            request_id: 0,
+            segment: segment_name,
+            server_stack_trace: stack_trace
+        });
+        test_command(table_key_bad_version);
     }
 
     fn test_command(command: WireCommands) -> WireCommands {

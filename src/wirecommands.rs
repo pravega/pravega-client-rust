@@ -364,7 +364,7 @@ impl Encode for WireCommands {
                 res.extend(se);
             },
             WireCommands::TableKeysRemoved(table_key_removed_cmd) => {
-                res.write_i32::<BigEndian>(AppendBlockCommand::TYPE_CODE).unwrap();
+                res.write_i32::<BigEndian>(TableKeysRemovedCommand::TYPE_CODE).unwrap();
                 let se = table_key_removed_cmd.write_fields();
                 res.write_i32::<BigEndian>(se.len() as i32).unwrap();
                 res.extend(se);
@@ -394,7 +394,7 @@ impl Encode for WireCommands {
                 res.extend(se);
             },
             WireCommands::ReadTableEntries(read_table_entries_cmd) => {
-                res.write_i32::<BigEndian>(AppendBlockCommand::TYPE_CODE).unwrap();
+                res.write_i32::<BigEndian>(ReadTableEntriesCommand::TYPE_CODE).unwrap();
                 let se = read_table_entries_cmd.write_fields();
                 res.write_i32::<BigEndian>(se.len() as i32).unwrap();
                 res.extend(se);
