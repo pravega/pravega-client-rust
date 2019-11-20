@@ -8,8 +8,7 @@
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
 mod connection_factory;
-
-use log::info;
+//mod decoder;
 
 fn main() {
     println!("Hello, world!");
@@ -17,6 +16,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use log::info;
     use super::*;
     use tokio::runtime::Runtime;
     use crate::connection_factory::ConnectionFactory;

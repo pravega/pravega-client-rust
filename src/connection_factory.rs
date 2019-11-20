@@ -14,6 +14,7 @@ use tokio::net::TcpStream;
 use async_trait::async_trait;
 use self::tokio::io::{AsyncWriteExt, AsyncReadExt};
 
+#[allow(dead_code)]
 pub enum ConnectionType {
     Tokio,
 }
@@ -52,8 +53,7 @@ pub trait Connection {
     /// ```
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), Box<dyn Error>>;
 
-    /// read_async will read data into a byte buffer from the remote server asynchronously and return
-    /// how many bytes it has read.
+    /// read_async will read exactly the amount of data needed to fill the provided buffer asynchronously.
     ///
     /// # Example
     ///
@@ -61,7 +61,7 @@ pub trait Connection {
     /// let mut buf = [0; 10];
     /// let fut = connection.read_async(&payload);
     /// ```
-    async fn read_async(&mut self, buf: &mut [u8]) -> Result<usize, Box<dyn Error>>;
+    async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), Box<dyn Error>>;
 }
 
 pub struct ConnectionFactoryImpl {}
@@ -91,8 +91,8 @@ impl Connection for TokioConnection {
         Ok(())
     }
 
-    async fn read_async(&mut self, buf: &mut [u8]) -> Result<usize, Box<dyn Error>> {
-        let num_bytes = self.stream.read(buf).await?;
-        Ok(num_bytes)
+    async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
+        self.stream.read_exact(buf).await?;
+        Ok(())
     }
 }
