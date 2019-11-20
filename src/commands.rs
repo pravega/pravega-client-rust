@@ -1974,7 +1974,6 @@ impl fmt::Display for TableKeyBadVersionCommand {
     }
 }
 
-
 /**
  * Table Key Struct.
  * Need overide the serialize
@@ -1998,7 +1997,6 @@ impl TableKey {
     }
 }
 
-
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TableValue {
     pub payload: i32,
@@ -2015,7 +2013,6 @@ impl TableValue {
         }
     }
 }
-
 
 /**
  * TableEntries Struct.
