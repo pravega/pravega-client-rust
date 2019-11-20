@@ -3,6 +3,7 @@ use byteorder::{ByteOrder, BigEndian, WriteBytesExt};
 
 #[derive(PartialEq, Debug)]
 pub enum  WireCommands {
+    UnknownCommand,
     Hello(HelloCommand),
     WrongHost(WrongHostCommand),
     SegmentIsSealed(SegmentIsSealedCommand),
@@ -417,6 +418,9 @@ impl Encode for WireCommands {
                 res.write_i32::<BigEndian>(se.len() as i32).unwrap();
                 res.extend(se);
             },
+            _ => {
+                panic!("Unknown WireCommands")
+            }
         }
         res
     }
@@ -425,7 +429,7 @@ impl Encode for WireCommands {
 impl Decode for WireCommands {
     fn read_from(raw_input: &Vec<u8>) -> WireCommands {
         let type_code = BigEndian::read_i32(raw_input);
-        let length = BigEndian::read_i32(&raw_input[4..]);
+        let _length = BigEndian::read_i32(&raw_input[4..]);
         let input =  &raw_input[8..];
         match type_code {
             HelloCommand::TYPE_CODE => WireCommands::Hello(HelloCommand::read_from(input)),
@@ -485,7 +489,7 @@ impl Decode for WireCommands {
             TableEntriesReadCommand::TYPE_CODE => WireCommands::TableEntriesRead(TableEntriesReadCommand::read_from(input)),
             TableKeyDoesNotExistCommand::TYPE_CODE => WireCommands::TableKeyDoesNotExist(TableKeyDoesNotExistCommand::read_from(input)),
             TableKeyBadVersionCommand::TYPE_CODE => WireCommands::TableKeyBadVersion(TableKeyBadVersionCommand::read_from(input)),
-            _ => panic!("Wrong input")
+            _ => WireCommands::UnknownCommand,
         }
     }
 }

@@ -460,17 +460,16 @@ impl Command for PaddingCommand {
 
     fn write_fields(&self) -> Vec<u8> {
         let mut res = Vec::new();
-        for i in 0..(self.length / 8) {
+        for _i in 0..(self.length / 8) {
             res.write_i64::<BigEndian>(0).unwrap();
         }
-        for i in 0..(self.length % 8) {
+        for _i in 0..(self.length % 8) {
             res.write_u8(0).unwrap();
         }
         res
     }
 
     fn read_from(input: &[u8]) -> PaddingCommand {
-        let skipped = 0;
         //FIXME: In java we use skipBytes to remove these padding bytes.
         //FIXME: I think we don't need to do in rust.
         PaddingCommand{length: input.len() as i32}
@@ -624,7 +623,7 @@ pub struct ConditionalAppendCommand {
 
 impl ConditionalAppendCommand {
     fn read_event(rdr: &mut Cursor<&[u8]>) -> EventCommand {
-        let type_code = rdr.read_i32::<BigEndian>().unwrap();
+        let _type_code = rdr.read_i32::<BigEndian>().unwrap();
         let event_length = rdr.read_u64::<BigEndian>().unwrap();
         // read the data in event
         let mut msg: Vec<u8> = vec![0; event_length as usize];
@@ -1507,7 +1506,7 @@ impl Command for KeepAliveCommand {
         res
     }
 
-    fn read_from(input: &[u8]) -> KeepAliveCommand {
+    fn read_from(_input: &[u8]) -> KeepAliveCommand {
         KeepAliveCommand{}
     }
 }
@@ -1988,8 +1987,6 @@ pub struct TableKey {
 }
 
 impl TableKey {
-    const NO_VERSION: i64 = i64::min_value();
-    const NOT_EXISTS: i64 = -1;
     const HEADER_BYTES: i32 = 2 * 4;
     pub fn new(data: Vec<u8>, key_version: i64) -> TableKey {
         let payload = (data.len() + 8 + 8 + 4) as i32;
@@ -2035,6 +2032,11 @@ impl TableEntries {
     }
 
     fn size(&self) -> i32 {
-        0
+        let mut data_bytes = 0;
+        for x in &self.entries {
+            data_bytes += (x.0.data.len() + x.1.data.len()) as i32
+        }
+
+        data_bytes + TableEntries::get_header_byte(self.entries.len() as i32)
     }
 }
