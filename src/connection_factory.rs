@@ -7,18 +7,46 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-extern crate tokio;
-
-use std::{error::Error, net::SocketAddr};
+use std::net::SocketAddr;
 use tokio::net::TcpStream;
 use async_trait::async_trait;
-use self::tokio::io::{AsyncWriteExt, AsyncReadExt};
+use tokio::io::{AsyncWriteExt, AsyncReadExt};
+use snafu::{ResultExt, Snafu};
+use std::fmt;
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub enum ConnectionType {
     Tokio,
 }
 
+impl fmt::Display for ConnectionType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+#[derive(Debug, Snafu)]
+pub enum Error {
+    #[snafu(display("Could not connect to endpoint {} using connection type {}", endpoint, connection_type))]
+    Connect {
+        connection_type: ConnectionType,
+        endpoint: SocketAddr,
+        source: std::io::Error,
+    },
+    #[snafu(display("Could not send data to {} asynchronously", endpoint))]
+    SendData {
+        endpoint: SocketAddr,
+        source: std::io::Error,
+    },
+    #[snafu(display("Could not read data from {} asynchronously", endpoint))]
+    ReadData {
+        endpoint: SocketAddr,
+        source: std::io::Error,
+    },
+}
+
+type Result<T, E = Error> = std::result::Result<T, E>;
 
 /// ConnectionFactory trait is the factory used to establish the TCP connection with remote servers.
 #[async_trait]
@@ -37,7 +65,7 @@ pub trait ConnectionFactory {
     ///   let mut connection = rt.block_on(connection_future).unwrap();
     /// }
     /// ```
-    async fn establish_connection(&self, connection_type: ConnectionType, endpoint: SocketAddr) -> Result<Box<dyn Connection>, Box<dyn Error>>;
+    async fn establish_connection(&self, connection_type: ConnectionType, endpoint: SocketAddr) -> Result<Box<dyn Connection>>;
 }
 
 /// Connection can send and read data using  a TCP connection
@@ -51,7 +79,7 @@ pub trait Connection {
     /// let mut payload: Vec<u8> = Vec::new();
     /// let fut = connection.send_async(&payload);
     /// ```
-    async fn send_async(&mut self, payload: &[u8]) -> Result<(), Box<dyn Error>>;
+    async fn send_async(&mut self, payload: &[u8]) -> Result<()>;
 
     /// read_async will read exactly the amount of data needed to fill the provided buffer asynchronously.
     ///
@@ -61,17 +89,17 @@ pub trait Connection {
     /// let mut buf = [0; 10];
     /// let fut = connection.read_async(&payload);
     /// ```
-    async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), Box<dyn Error>>;
+    async fn read_async(&mut self, buf: &mut [u8]) -> Result<()>;
 }
 
 pub struct ConnectionFactoryImpl {}
 
 #[async_trait]
 impl ConnectionFactory for ConnectionFactoryImpl {
-    async fn establish_connection(&self, connection_type: ConnectionType, endpoint: SocketAddr) -> Result<Box<dyn Connection>, Box<dyn Error>> {
+    async fn establish_connection(&self, connection_type: ConnectionType, endpoint: SocketAddr) -> Result<Box<dyn Connection>> {
         match connection_type {
             ConnectionType::Tokio => {
-                let stream = TcpStream::connect(endpoint).await?;
+                let stream = TcpStream::connect(endpoint).await.context(Connect { connection_type, endpoint })?;
                 let tokio_connection: Box<dyn Connection> = Box::new(TokioConnection { endpoint, stream }) as Box<dyn Connection>;
                 Ok(tokio_connection)
             }
@@ -86,13 +114,16 @@ pub struct TokioConnection {
 
 #[async_trait]
 impl Connection for TokioConnection {
-    async fn send_async(&mut self, payload: &[u8]) -> Result<(), Box<dyn Error>> {
-        self.stream.write_all(payload).await?;
+    async fn send_async(&mut self, payload: &[u8]) -> Result<()> {
+        let endpoint = self.endpoint;
+        self.stream.write_all(payload).await.context(SendData { endpoint })?;
         Ok(())
     }
 
-    async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
-        self.stream.read_exact(buf).await?;
+    async fn read_async(&mut self, buf: &mut [u8]) -> Result<()> {
+        let endpoint = self.endpoint;
+        self.stream.read_exact(buf).await.context(ReadData { endpoint })?;
         Ok(())
     }
 }
+

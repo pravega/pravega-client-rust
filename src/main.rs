@@ -8,7 +8,7 @@
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
 mod connection_factory;
-//mod decoder;
+//mod wirecommand_reader;
 
 fn main() {
     println!("Hello, world!");
@@ -73,5 +73,34 @@ mod tests {
         let echo = "Hello World\r\n".as_bytes();
         assert_eq!(buf, &echo[..]);
         info!("Testing connection passed");
+    }
+
+    #[test]
+    fn test_wirecommand_reader() {
+        let rt = Runtime::new().unwrap();
+
+        let mut server = Server::new();
+
+        let connection_factory = connection_factory::ConnectionFactoryImpl {};
+        let connection_future = connection_factory.establish_connection(connection_factory::ConnectionType::Tokio, server.address);
+        let mut connection = rt.block_on(connection_future).unwrap();
+        info!("connection established");
+
+//        let mut payload: Vec<u8> = Vec::new();
+//        payload.push(12);
+//        let fut = connection.send_async(&payload);
+//
+//        rt.block_on(fut);
+//        info!("payload sent");
+//
+//        server.echo();
+//        let mut buf = [0; 13];
+//
+//        let fut = connection.read_async(&mut buf);
+//        let res = rt.block_on(fut).unwrap();
+//
+//        let echo = "Hello World\r\n".as_bytes();
+//        assert_eq!(buf, &echo[..]);
+//        info!("Testing connection passed");
     }
 }
