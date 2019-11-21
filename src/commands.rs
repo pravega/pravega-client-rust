@@ -1,12 +1,12 @@
-use byteorder::{ByteOrder, BigEndian, WriteBytesExt, ReadBytesExt};
 use bincode::Config;
-use serde::{Serialize, Deserialize};
-use serde::de::{self, Deserializer, Visitor, Unexpected};
-use serde::ser::{Serializer};
+use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
+use serde::de::{self, Deserializer, Unexpected, Visitor};
+use serde::ser::Serializer;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::i64;
 use std::io::Cursor;
-use std::io::{Write, Read};
+use std::io::{Read, Write};
 
 /**
  * trait for Command.
@@ -14,7 +14,7 @@ use std::io::{Write, Read};
 pub trait Command {
     const TYPE_CODE: i32;
     fn write_fields(&self) -> Vec<u8>;
-    fn read_from(input :&[u8]) -> Self;
+    fn read_from(input: &[u8]) -> Self;
 }
 
 /**
@@ -89,7 +89,7 @@ impl<'de> Visitor<'de> for JavaStringVisitor {
 
     fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
     where
-        E: de::Error
+        E: de::Error,
     {
         // get the length
         let _length = ((value[0] as u16) << 8) | value[1] as u16;
@@ -101,11 +101,10 @@ impl<'de> Visitor<'de> for JavaStringVisitor {
         } else {
             Err(de::Error::invalid_value(Unexpected::Bytes(&value), &self))
         }
-
     }
 }
 
-impl <'de>Deserialize<'de> for JavaString {
+impl<'de> Deserialize<'de> for JavaString {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -407,10 +406,10 @@ impl Reply for InvalidEventNumberCommand {
 
 impl fmt::Display for InvalidEventNumberCommand {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "Invalid event number: {} for writer: {}",
-               self.event_number,
-               self.writer_id
+        write!(
+            f,
+            "Invalid event number: {} for writer: {}",
+            self.event_number, self.writer_id,
         )
     }
 }
@@ -472,8 +471,8 @@ impl Command for PaddingCommand {
     fn read_from(input: &[u8]) -> PaddingCommand {
         //FIXME: In java we use skipBytes to remove these padding bytes.
         //FIXME: I think we don't need to do in rust.
-        PaddingCommand{
-            length: input.len() as i32
+        PaddingCommand {
+            length: input.len() as i32,
         }
     }
 }
@@ -496,8 +495,8 @@ impl Command for PartialEventCommand {
     }
 
     fn read_from(input: &[u8]) -> PartialEventCommand {
-        PartialEventCommand{
-            data: input.to_vec()
+        PartialEventCommand {
+            data: input.to_vec(),
         }
     }
 }
@@ -553,10 +552,10 @@ impl Command for SetupAppendCommand {
 }
 
 impl Request for SetupAppendCommand {
-    fn get_request_id(&self) -> i64  {
+    fn get_request_id(&self) -> i64 {
         self.request_id
     }
- }
+}
 
 /**
  * 14. AppendBlock Command
@@ -628,7 +627,7 @@ impl ConditionalAppendCommand {
         // read the data in event
         let mut msg: Vec<u8> = vec![0; event_length as usize];
         rdr.read_exact(&mut msg).unwrap();
-        EventCommand{ data: msg }
+        EventCommand { data: msg }
     }
 }
 
@@ -653,12 +652,12 @@ impl Command for ConditionalAppendCommand {
         let expected_offset = rdr.read_i64::<BigEndian>().unwrap();
         let event = ConditionalAppendCommand::read_event(&mut rdr);
         let request_id = rdr.read_i64::<BigEndian>().unwrap();
-        ConditionalAppendCommand{
+        ConditionalAppendCommand {
             writer_id,
             event_number,
             expected_offset,
             event,
-            request_id
+            request_id,
         }
     }
 }
