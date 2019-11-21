@@ -7,12 +7,12 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-use std::net::SocketAddr;
-use tokio::net::TcpStream;
 use async_trait::async_trait;
-use tokio::io::{AsyncWriteExt, AsyncReadExt};
 use snafu::{ResultExt, Snafu};
 use std::fmt;
+use std::net::SocketAddr;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -28,7 +28,11 @@ impl fmt::Display for ConnectionType {
 
 #[derive(Debug, Snafu)]
 pub enum Error {
-    #[snafu(display("Could not connect to endpoint {} using connection type {}", endpoint, connection_type))]
+    #[snafu(display(
+        "Could not connect to endpoint {} using connection type {}",
+        endpoint,
+        connection_type
+    ))]
     Connect {
         connection_type: ConnectionType,
         endpoint: SocketAddr,
@@ -65,7 +69,11 @@ pub trait ConnectionFactory {
     ///   let mut connection = rt.block_on(connection_future).unwrap();
     /// }
     /// ```
-    async fn establish_connection(&self, connection_type: ConnectionType, endpoint: SocketAddr) -> Result<Box<dyn Connection>>;
+    async fn establish_connection(
+        &self,
+        connection_type: ConnectionType,
+        endpoint: SocketAddr,
+    ) -> Result<Box<dyn Connection>>;
 }
 
 /// Connection can send and read data using  a TCP connection
@@ -96,11 +104,19 @@ pub struct ConnectionFactoryImpl {}
 
 #[async_trait]
 impl ConnectionFactory for ConnectionFactoryImpl {
-    async fn establish_connection(&self, connection_type: ConnectionType, endpoint: SocketAddr) -> Result<Box<dyn Connection>> {
+    async fn establish_connection(
+        &self,
+        connection_type: ConnectionType,
+        endpoint: SocketAddr,
+    ) -> Result<Box<dyn Connection>> {
         match connection_type {
             ConnectionType::Tokio => {
-                let stream = TcpStream::connect(endpoint).await.context(Connect { connection_type, endpoint })?;
-                let tokio_connection: Box<dyn Connection> = Box::new(TokioConnection { endpoint, stream }) as Box<dyn Connection>;
+                let stream = TcpStream::connect(endpoint).await.context(Connect {
+                    connection_type,
+                    endpoint,
+                })?;
+                let tokio_connection: Box<dyn Connection> =
+                    Box::new(TokioConnection { endpoint, stream }) as Box<dyn Connection>;
                 Ok(tokio_connection)
             }
         }
@@ -116,14 +132,19 @@ pub struct TokioConnection {
 impl Connection for TokioConnection {
     async fn send_async(&mut self, payload: &[u8]) -> Result<()> {
         let endpoint = self.endpoint;
-        self.stream.write_all(payload).await.context(SendData { endpoint })?;
+        self.stream
+            .write_all(payload)
+            .await
+            .context(SendData { endpoint })?;
         Ok(())
     }
 
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<()> {
         let endpoint = self.endpoint;
-        self.stream.read_exact(buf).await.context(ReadData { endpoint })?;
+        self.stream
+            .read_exact(buf)
+            .await
+            .context(ReadData { endpoint })?;
         Ok(())
     }
 }
-

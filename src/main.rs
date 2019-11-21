@@ -8,7 +8,6 @@
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
 mod connection_factory;
-//mod wirecommand_reader;
 
 fn main() {
     println!("Hello, world!");
@@ -16,12 +15,12 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use log::info;
     use super::*;
-    use tokio::runtime::Runtime;
     use crate::connection_factory::ConnectionFactory;
-    use std::net::{TcpListener, SocketAddr};
+    use log::info;
     use std::io::Write;
+    use std::net::{SocketAddr, TcpListener};
+    use tokio::runtime::Runtime;
 
     struct Server {
         address: SocketAddr,
@@ -53,7 +52,8 @@ mod tests {
         let mut server = Server::new();
 
         let connection_factory = connection_factory::ConnectionFactoryImpl {};
-        let connection_future = connection_factory.establish_connection(connection_factory::ConnectionType::Tokio, server.address);
+        let connection_future = connection_factory
+            .establish_connection(connection_factory::ConnectionType::Tokio, server.address);
         let mut connection = rt.block_on(connection_future).unwrap();
         info!("connection established");
 
