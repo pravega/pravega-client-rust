@@ -519,7 +519,12 @@ mod tests {
             server_stack_trace: stack_trace,
             error_code: -1
         });
-        test_command(auth_checked_failed);
+
+        let decode_command = test_command(auth_checked_failed);
+        if let WireCommands::AuthTokenCheckFailed(command) = decode_command {
+            assert_eq!(command.is_token_expired(), false);
+            assert_eq!(command.get_error_code(), ErrorCode::Unspecified);
+        }
     }
 
     #[test]
@@ -531,6 +536,7 @@ mod tests {
         let table_entries = TableEntries { entries };
         let segment_name = JavaString(String::from("segment-1"));
         let token = JavaString(String::from("delegation_token"));
+        let size = table_entries.size()
         let update_table_entries = WireCommands::UpdateTableEntries(UpdateTableEntriesCommand {
             request_id: 1,
             segment: segment_name,

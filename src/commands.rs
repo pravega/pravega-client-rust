@@ -1,12 +1,12 @@
+use byteorder::{ByteOrder, BigEndian, WriteBytesExt, ReadBytesExt};
+use bincode::Config;
 use serde::{Serialize, Deserialize};
 use serde::de::{self, Deserializer, Visitor, Unexpected};
 use serde::ser::{Serializer};
 use std::fmt;
 use std::i64;
-use byteorder::{ByteOrder, BigEndian, WriteBytesExt, ReadBytesExt};
-use bincode::Config;
-use std::io::{Write, Read};
 use std::io::Cursor;
+use std::io::{Write, Read};
 
 /**
  * trait for Command.
@@ -15,7 +15,6 @@ pub trait Command {
     const TYPE_CODE: i32;
     fn write_fields(&self) -> Vec<u8>;
     fn read_from(input :&[u8]) -> Self;
-
 }
 
 /**
@@ -64,8 +63,8 @@ impl PartialEq for JavaString {
 
 impl Serialize for JavaString {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    where
+        S: Serializer,
     {
         // get the length of the String.
         let length = self.0.len() as u16;
@@ -89,8 +88,8 @@ impl<'de> Visitor<'de> for JavaStringVisitor {
     }
 
     fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
-        where
-            E: de::Error
+    where
+        E: de::Error
     {
         // get the length
         let _length = ((value[0] as u16) << 8) | value[1] as u16;
@@ -108,8 +107,8 @@ impl<'de> Visitor<'de> for JavaStringVisitor {
 
 impl <'de>Deserialize<'de> for JavaString {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         deserializer.deserialize_byte_buf(JavaStringVisitor)
     }
@@ -119,7 +118,7 @@ impl <'de>Deserialize<'de> for JavaString {
  * bincode serialize and deserialize config
  */
 lazy_static! {
-    static ref CONFIG: Config =  {
+    static ref CONFIG: Config = {
         let mut config = bincode::config();
         config.big_endian();
         config
@@ -174,7 +173,7 @@ pub struct WrongHostCommand {
 impl Command for WrongHostCommand {
     const TYPE_CODE: i32 = 50;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded =CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).unwrap();
         encoded
     }
     fn read_from(input: &[u8]) -> WrongHostCommand {
@@ -235,7 +234,6 @@ pub struct SegmentIsTruncatedCommand {
     pub start_offset: i64,
     pub server_stack_trace: JavaString,
     pub offset: i64,
-
 }
 
 impl Command for SegmentIsTruncatedCommand {
@@ -320,7 +318,6 @@ impl Command for NoSuchSegmentCommand {
         let decoded: NoSuchSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
     }
-
 }
 
 impl Reply for NoSuchSegmentCommand {
@@ -337,7 +334,6 @@ impl fmt::Display for NoSuchSegmentCommand {
         write!(f, "No such segment: {}", self.segment)
     }
 }
-
 
 /**
  * 7. TableSegmentNotEmpty Command
@@ -411,7 +407,11 @@ impl Reply for InvalidEventNumberCommand {
 
 impl fmt::Display for InvalidEventNumberCommand {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Invalid event number: {} for writer: {}", self.event_number, self.writer_id)
+        write!(f,
+               "Invalid event number: {} for writer: {}",
+               self.event_number,
+               self.writer_id
+        )
     }
 }
 
@@ -472,7 +472,9 @@ impl Command for PaddingCommand {
     fn read_from(input: &[u8]) -> PaddingCommand {
         //FIXME: In java we use skipBytes to remove these padding bytes.
         //FIXME: I think we don't need to do in rust.
-        PaddingCommand{length: input.len() as i32}
+        PaddingCommand{
+            length: input.len() as i32
+        }
     }
 }
 
@@ -481,7 +483,7 @@ impl Command for PaddingCommand {
  */
 #[derive(PartialEq, Debug)]
 pub struct PartialEventCommand {
-    pub data: Vec<u8>
+    pub data: Vec<u8>,
 }
 
 impl Command for PartialEventCommand {
@@ -494,7 +496,9 @@ impl Command for PartialEventCommand {
     }
 
     fn read_from(input: &[u8]) -> PartialEventCommand {
-        PartialEventCommand{data: input.to_vec()}
+        PartialEventCommand{
+            data: input.to_vec()
+        }
     }
 }
 
@@ -503,7 +507,7 @@ impl Command for PartialEventCommand {
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct EventCommand {
-    pub data: Vec<u8>
+    pub data: Vec<u8>,
 }
 
 impl Command for EventCommand {
@@ -545,7 +549,6 @@ impl Command for SetupAppendCommand {
     fn read_from(input: &[u8]) -> SetupAppendCommand {
         let decoded: SetupAppendCommand = CONFIG.deserialize(&input[..]).unwrap();
         decoded
-       
     }
 }
 
@@ -555,7 +558,6 @@ impl Request for SetupAppendCommand {
     }
  }
 
-
 /**
  * 14. AppendBlock Command
  */
@@ -563,7 +565,6 @@ impl Request for SetupAppendCommand {
 pub struct AppendBlockCommand {
     pub writer_id: u128,
     pub data: Vec<u8>,
-
 }
 
 impl Command for AppendBlockCommand {
@@ -618,7 +619,6 @@ pub struct ConditionalAppendCommand {
     pub expected_offset: i64,
     pub event: EventCommand,
     pub request_id: i64,
-
 }
 
 impl ConditionalAppendCommand {
@@ -628,7 +628,7 @@ impl ConditionalAppendCommand {
         // read the data in event
         let mut msg: Vec<u8> = vec![0; event_length as usize];
         rdr.read_exact(&mut msg).unwrap();
-        EventCommand{data: msg}
+        EventCommand{ data: msg }
     }
 }
 
@@ -653,9 +653,14 @@ impl Command for ConditionalAppendCommand {
         let expected_offset = rdr.read_i64::<BigEndian>().unwrap();
         let event = ConditionalAppendCommand::read_event(&mut rdr);
         let request_id = rdr.read_i64::<BigEndian>().unwrap();
-        ConditionalAppendCommand{writer_id, event_number, expected_offset, event, request_id}
+        ConditionalAppendCommand{
+            writer_id,
+            event_number,
+            expected_offset,
+            event,
+            request_id
+        }
     }
-
 }
 
 impl Request for ConditionalAppendCommand {
@@ -673,7 +678,6 @@ pub struct AppendSetupCommand {
     pub segment: JavaString,
     pub writer_id: u128,
     pub last_event_number: i64,
-
 }
 
 impl Command for AppendSetupCommand {
@@ -705,7 +709,7 @@ pub struct DataAppendedCommand {
     pub event_number: i64,
     pub previous_event_number: i64,
     pub request_id: i64,
-    pub current_segment_write_offset: i64
+    pub current_segment_write_offset: i64,
 }
 
 impl Command for DataAppendedCommand {
@@ -738,7 +742,7 @@ pub struct ConditionalCheckFailedCommand {
     pub request_id: i64,
 }
 
-impl Command for ConditionalCheckFailedCommand  {
+impl Command for ConditionalCheckFailedCommand {
     const TYPE_CODE: i32 = 8;
 
     fn write_fields(&self) -> Vec<u8> {
@@ -770,7 +774,7 @@ pub struct ReadSegmentCommand {
     pub request_id: i64,
 }
 
-impl Command for ReadSegmentCommand  {
+impl Command for ReadSegmentCommand {
     const TYPE_CODE: i32 = 9;
 
     fn write_fields(&self) -> Vec<u8> {
@@ -1227,7 +1231,7 @@ impl Request for MergeTableSegmentsCommand {
  * 35. SegmentsMerged Command
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
-pub struct  SegmentsMergedCommand {
+pub struct SegmentsMergedCommand {
     pub request_id: i64,
     pub target: JavaString,
     pub source: JavaString,
@@ -1352,7 +1356,6 @@ pub struct TruncateSegmentCommand {
     pub segment: JavaString,
     pub truncation_offset: i64,
     pub delegation_token: JavaString,
-
 }
 
 impl Command for TruncateSegmentCommand {
@@ -1507,7 +1510,7 @@ impl Command for KeepAliveCommand {
     }
 
     fn read_from(_input: &[u8]) -> KeepAliveCommand {
-        KeepAliveCommand{}
+        KeepAliveCommand {}
     }
 }
 
@@ -1537,8 +1540,12 @@ pub struct AuthTokenCheckFailedCommand {
 }
 
 impl AuthTokenCheckFailedCommand {
-    fn is_token_expired(&self) -> bool {
+    pub fn is_token_expired(&self) -> bool {
         ErrorCode::value_of(self.error_code) == ErrorCode::TokenExpired
+    }
+
+    pub fn get_error_code(&self) -> ErrorCode {
+        ErrorCode::value_of(self.error_code)
     }
 }
 
@@ -1562,9 +1569,9 @@ impl Reply for AuthTokenCheckFailedCommand {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum ErrorCode {
-    Unspecified ,
+    Unspecified,
     TokenCheckedFailed,
     TokenExpired,
 }
@@ -1574,7 +1581,7 @@ impl ErrorCode {
         match error_code {
             ErrorCode::Unspecified => -1,
             ErrorCode::TokenCheckedFailed => 0,
-            ErrorCode::TokenExpired => 1
+            ErrorCode::TokenExpired => 1,
         }
     }
     fn value_of(code: i32) -> ErrorCode {
@@ -1599,7 +1606,7 @@ pub struct UpdateTableEntriesCommand {
 }
 
 impl Command for UpdateTableEntriesCommand {
-    const TYPE_CODE: i32 =74;
+    const TYPE_CODE: i32 = 74;
 
     fn write_fields(&self) -> Vec<u8> {
         let encoded = CONFIG.serialize(&self).unwrap();
@@ -1624,7 +1631,7 @@ impl Request for UpdateTableEntriesCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TableEntriesUpdatedCommand {
     pub request_id: i64,
-    pub updated_versions: Vec<i64>
+    pub updated_versions: Vec<i64>,
 }
 
 impl Command for TableEntriesUpdatedCommand {
@@ -1655,7 +1662,7 @@ pub struct RemoveTableKeysCommand {
     pub request_id: i64,
     pub segment: JavaString,
     pub delegation_token: JavaString,
-    pub keys: Vec<TableKey>
+    pub keys: Vec<TableKey>,
 }
 
 impl Command for RemoveTableKeysCommand {
@@ -1687,7 +1694,7 @@ pub struct TableKeysRemovedCommand {
     pub segment: JavaString,
 }
 
-impl Command for TableKeysRemovedCommand{
+impl Command for TableKeysRemovedCommand {
     const TYPE_CODE: i32 = 77;
 
     fn write_fields(&self) -> Vec<u8> {
@@ -1930,7 +1937,11 @@ impl Reply for TableKeyDoesNotExistCommand {
 
 impl fmt::Display for TableKeyDoesNotExistCommand {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Conditional table update failed since the key does not exist : {}", self.segment)
+        write!(
+            f,
+            "Conditional table update failed since the key does not exist : {}",
+            self.segment
+        )
     }
 }
 
@@ -1970,7 +1981,11 @@ impl Reply for TableKeyBadVersionCommand {
 
 impl fmt::Display for TableKeyBadVersionCommand {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Conditional table update failed since the key version is incorrect : {}", self.segment)
+        write!(
+            f,
+            "Conditional table update failed since the key version is incorrect : {}",
+            self.segment
+        )
     }
 }
 
@@ -1989,7 +2004,7 @@ impl TableKey {
     const HEADER_BYTES: i32 = 2 * 4;
     pub fn new(data: Vec<u8>, key_version: i64) -> TableKey {
         let payload = (data.len() + 8 + 8 + 4) as i32;
-        TableKey{
+        TableKey {
             payload,
             data,
             key_version,
@@ -2007,10 +2022,7 @@ impl TableValue {
     const HEADER_BYTES: i32 = 2 * 4;
     pub fn new(data: Vec<u8>) -> TableValue {
         let payload = (data.len() + 8 + 8 + 4) as i32;
-        TableValue{
-            payload,
-            data,
-        }
+        TableValue { payload, data }
     }
 }
 
@@ -2023,12 +2035,11 @@ pub struct TableEntries {
 }
 
 impl TableEntries {
-
     fn get_header_byte(entry_count: i32) -> i32 {
         4 + entry_count * (TableKey::HEADER_BYTES + TableValue::HEADER_BYTES)
     }
 
-    fn size(&self) -> i32 {
+    pub fn size(&self) -> i32 {
         let mut data_bytes = 0;
         for x in &self.entries {
             data_bytes += (x.0.data.len() + x.1.data.len()) as i32
