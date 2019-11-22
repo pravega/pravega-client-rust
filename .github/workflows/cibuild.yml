@@ -1,6 +1,6 @@
 # This file is used to configure CI builds using Github actions ref: https://help.github.com/en/categories/automating-your-workflow-with-github-actions 
 
-on: [push, pull_request]
+on: [push]
 
 name: CIbuild
 
