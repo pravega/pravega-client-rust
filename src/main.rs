@@ -7,6 +7,7 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
+mod connection_factory;
 
 fn main() {
     println!("Hello, world!");
