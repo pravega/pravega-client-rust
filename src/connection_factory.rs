@@ -1,12 +1,12 @@
-/**
- * Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- */
+//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 use async_trait::async_trait;
 use snafu::{ResultExt, Snafu};
 use std::fmt;
@@ -61,11 +61,15 @@ pub trait ConnectionFactory {
     ///
     /// ```no_run
     /// use std::net::SocketAddr;
+    /// use pravega_client_rust::connection_factory;
+    /// use pravega_client_rust::connection_factory::ConnectionFactory;
+    /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
-    ///   let endpoint: SocketAddr = endpoint.parse("127.0.0.1:0").expect("Unable to parse socket address");
-    ///   let connection_factory = connection_factory::ConnectionFactoryImpl {};
-    ///   let connection_future = connection_factory.establish_connection(connection_factory::ConnectionType::Tokio, endpoint);
+    ///   let rt = Runtime::new().unwrap();
+    ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
+    ///   let cf = connection_factory::ConnectionFactoryImpl {};
+    ///   let connection_future = cf.establish_connection(connection_factory::ConnectionType::Tokio, endpoint);
     ///   let mut connection = rt.block_on(connection_future).unwrap();
     /// }
     /// ```
@@ -84,8 +88,20 @@ pub trait Connection {
     /// # Example
     ///
     /// ```no_run
-    /// let mut payload: Vec<u8> = Vec::new();
-    /// let fut = connection.send_async(&payload);
+    /// use std::net::SocketAddr;
+    /// use pravega_client_rust::connection_factory;
+    /// use pravega_client_rust::connection_factory::ConnectionFactory;
+    /// use tokio::runtime::Runtime;
+    ///
+    /// fn main() {
+    ///   let rt = Runtime::new().unwrap();
+    ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
+    ///   let cf = connection_factory::ConnectionFactoryImpl {};
+    ///   let connection_future = cf.establish_connection(connection_factory::ConnectionType::Tokio, endpoint);
+    ///   let mut connection = rt.block_on(connection_future).unwrap();
+    ///   let mut payload: Vec<u8> = Vec::new();
+    ///   let fut = connection.send_async(&payload);
+    /// }
     /// ```
     async fn send_async(&mut self, payload: &[u8]) -> Result<()>;
 
@@ -94,8 +110,20 @@ pub trait Connection {
     /// # Example
     ///
     /// ```no_run
-    /// let mut buf = [0; 10];
-    /// let fut = connection.read_async(&payload);
+    /// use std::net::SocketAddr;
+    /// use pravega_client_rust::connection_factory;
+    /// use pravega_client_rust::connection_factory::ConnectionFactory;
+    /// use tokio::runtime::Runtime;
+    ///
+    /// fn main() {
+    ///   let rt = Runtime::new().unwrap();
+    ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
+    ///   let cf = connection_factory::ConnectionFactoryImpl {};
+    ///   let connection_future = cf.establish_connection(connection_factory::ConnectionType::Tokio, endpoint);
+    ///   let mut connection = rt.block_on(connection_future).unwrap();
+    ///   let mut buf = [0; 10];
+    ///   let fut = connection.read_async(&mut buf);
+    /// }
     /// ```
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<()>;
 }
