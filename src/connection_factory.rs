@@ -197,14 +197,14 @@ mod tests {
         payload.push(12);
         let fut = connection.send_async(&payload);
 
-        rt.block_on(fut);
+        let _res = rt.block_on(fut).unwrap();
         info!("payload sent");
 
         server.echo();
         let mut buf = [0; 13];
 
         let fut = connection.read_async(&mut buf);
-        let res = rt.block_on(fut).unwrap();
+        let _res = rt.block_on(fut).unwrap();
 
         let echo = "Hello World\r\n".as_bytes();
         assert_eq!(buf, &echo[..]);
