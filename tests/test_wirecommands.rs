@@ -131,6 +131,9 @@ mod tests {
         let length = 10;
         let padding_command = WireCommands::Padding(PaddingCommand { length });
         let decoded = test_command(padding_command);
+        if let WireCommands::Padding(command) = decoded {
+            assert_eq!(command.length, 10);
+        }
     }
 
     #[test]
@@ -591,7 +594,7 @@ mod tests {
         let table_entries = TableEntries { entries };
         let segment_name = JavaString(String::from("segment-1"));
         let token = JavaString(String::from("delegation_token"));
-        let size = table_entries.size();
+        let _size = table_entries.size();
         let update_table_entries = WireCommands::UpdateTableEntries(UpdateTableEntriesCommand {
             request_id: 1,
             segment: segment_name,
