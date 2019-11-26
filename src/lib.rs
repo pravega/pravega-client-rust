@@ -11,5 +11,5 @@
 #[macro_use]
 extern crate lazy_static;
 pub mod commands;
-pub mod wirecommands;
 pub mod connection_factory;
+pub mod wirecommands;
