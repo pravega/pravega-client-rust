@@ -17,7 +17,7 @@ mod controller {
 mod test;
 
 pub use controller::{
-    client::ControllerServiceClient as ControllerServiceClient,
+    controller_service_client::ControllerServiceClient as ControllerServiceClient,
     scaling_policy::ScalingPolicyType as ScalingPolicyType,
     CreateScopeStatus, CreateStreamStatus, ScalingPolicy, ScopeInfo, StreamConfig, StreamInfo,
 };
