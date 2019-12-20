@@ -6,7 +6,7 @@ use tokio::runtime::Runtime;
 #[test]
 #[should_panic] // since the controller is not running.
 fn test_create_scope_error() {
-    let rt = Runtime::new().unwrap();
+    let mut rt = Runtime::new().unwrap();
 
     let client_future = create_connection("http://[::1]:9090");
     let mut client = rt.block_on(client_future);
@@ -22,7 +22,7 @@ fn test_create_scope_error() {
 #[test]
 #[should_panic] // since the controller is not running.
 fn test_create_stream_error() {
-    let rt = Runtime::new().unwrap();
+    let mut rt = Runtime::new().unwrap();
 
     let client_future = create_connection("http://[::1]:9090");
     let mut client = rt.block_on(client_future);

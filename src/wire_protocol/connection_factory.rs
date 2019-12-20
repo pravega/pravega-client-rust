@@ -94,7 +94,7 @@ pub trait Connection {
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
-    ///   let rt = Runtime::new().unwrap();
+    ///   let mut rt = Runtime::new().unwrap();
     ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
     ///   let cf = connection_factory::ConnectionFactoryImpl {};
     ///   let connection_future = cf.establish_connection(connection_factory::ConnectionType::Tokio, endpoint);
@@ -116,7 +116,7 @@ pub trait Connection {
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
-    ///   let rt = Runtime::new().unwrap();
+    ///   let mut rt = Runtime::new().unwrap();
     ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
     ///   let cf = connection_factory::ConnectionFactoryImpl {};
     ///   let connection_future = cf.establish_connection(connection_factory::ConnectionType::Tokio, endpoint);
@@ -210,7 +210,7 @@ mod tests {
 
     #[test]
     fn test_connection() {
-        let rt = Runtime::new().unwrap();
+        let mut rt = Runtime::new().unwrap();
 
         let mut server = Server::new();
 
