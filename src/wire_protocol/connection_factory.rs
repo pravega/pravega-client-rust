@@ -180,7 +180,6 @@ impl Connection for TokioConnection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::connection_factory::ConnectionFactory;
     use log::info;
     use std::io::Write;
     use std::net::{SocketAddr, TcpListener};

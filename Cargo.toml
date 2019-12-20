@@ -38,5 +38,5 @@ tonic-build = "0.1.0-alpha.5"
 #Simplify running the client. This should be removed.
 [[bin]]
 name = "controller-client"
-path = "src/controller_client/client/main.rs"
+path = "src/controller_client/client.rs"
 
