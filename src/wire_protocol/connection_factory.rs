@@ -66,7 +66,7 @@ pub trait ConnectionFactory {
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
-    ///   let rt = Runtime::new().unwrap();
+    ///   let mut rt = Runtime::new().unwrap();
     ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
     ///   let cf = connection_factory::ConnectionFactoryImpl {};
     ///   let connection_future = cf.establish_connection(connection_factory::ConnectionType::Tokio, endpoint);
@@ -111,8 +111,8 @@ pub trait Connection {
     ///
     /// ```no_run
     /// use std::net::SocketAddr;
-    /// use pravega_client_rust::connection_factory;
-    /// use pravega_client_rust::connection_factory::ConnectionFactory;
+    /// use pravega_client_rust::wire_protocol::connection_factory;
+    /// use pravega_client_rust::wire_protocol::connection_factory::ConnectionFactory;
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {

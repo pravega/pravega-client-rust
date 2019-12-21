@@ -10,11 +10,11 @@
 
 #[macro_use]
 extern crate lazy_static;
+
 mod wire_protocol {
     mod commands;
     mod wire_commands;
-    mod connection_factory;
-}
-mod controller_client {
-    mod client;
+    pub mod connection_factory;
+    #[cfg(test)]
+    mod tests;
 }
