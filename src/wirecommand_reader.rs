@@ -19,7 +19,7 @@ pub const LENGTH_FIELD_OFFSET: i32 = 4;
 pub const LENGTH_FIELD_LENGTH: i32 = 4;
 
 pub struct WireCommandReader {
-    pub connection: dyn Connection,
+    pub connection: Box<dyn Connection>,
 }
 
 impl WireCommandReader {
@@ -37,5 +37,88 @@ impl WireCommandReader {
         let concatenated = [&header[..], &payload[..]].concat();
 
         Ok(concatenated)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::connection_factory::{ConnectionFactory, ConnectionFactoryImpl, ConnectionType};
+    use byteorder::{BigEndian, WriteBytesExt};
+    use log::info;
+    use std::io::Write;
+    use std::mem;
+    use std::net::{SocketAddr, TcpListener};
+    use tokio::runtime::Runtime;
+
+    struct Server {
+        address: SocketAddr,
+        listener: TcpListener,
+    }
+
+    impl Server {
+        pub fn new() -> Server {
+            let listener = TcpListener::bind("127.0.0.1:0").expect("local server");
+            let address = listener.local_addr().unwrap();
+            info!("server created");
+            Server { address, listener }
+        }
+
+        pub fn send_wirecommand(&mut self) {
+            for stream in self.listener.incoming() {
+                let mut stream = stream.unwrap();
+                // offset is 4 bytes, payload length is 8 bytes and payload is 66.
+                let mut bs = [0u8; 4 * mem::size_of::<i32>()];
+                bs.as_mut()
+                    .write_i32::<BigEndian>(4)
+                    .expect("Unable to write");
+                bs.as_mut()
+                    .write_i32::<BigEndian>(8)
+                    .expect("Unable to write");
+                bs.as_mut()
+                    .write_i32::<BigEndian>(6)
+                    .expect("Unable to write");
+                bs.as_mut()
+                    .write_i32::<BigEndian>(6)
+                    .expect("Unable to write");
+                stream.write(bs.as_ref()).unwrap();
+                break;
+            }
+            info!("sent wirecommand");
+        }
+    }
+    #[test]
+    fn test_wirecommand_reader() {
+        let rt = Runtime::new().unwrap();
+
+        let mut server = Server::new();
+
+        let connection_factory = ConnectionFactoryImpl {};
+        let connection_future =
+            connection_factory.establish_connection(ConnectionType::Tokio, server.address);
+        let mut connection = rt.block_on(connection_future).unwrap();
+        info!("connection established");
+
+        // server send wirecommand
+        server.send_wirecommand();
+
+        // read wirecommand
+        let mut reader = WireCommandReader { connection };
+
+        let fut = reader.read();
+        let byte_buf = rt.block_on(fut).unwrap();
+
+        let mut expected = [0u8; 2 * mem::size_of::<i32>()];
+        expected
+            .as_mut()
+            .write_i32::<BigEndian>(6)
+            .expect("Unable to write");
+        expected
+            .as_mut()
+            .write_i32::<BigEndian>(6)
+            .expect("Unable to write");
+
+        assert_eq!(byte_buf, expected);
+        info!("Testing connection passed");
     }
 }
