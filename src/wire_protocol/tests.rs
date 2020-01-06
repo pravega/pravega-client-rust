@@ -198,14 +198,13 @@ fn test_conditional_append() {
     let writer_id_number: u128 = 123;
     let data = String::from("event-1").into_bytes();
     let event = EventCommand { data };
-    let conditional_append_command =
-        WireCommands::ConditionalAppend(ConditionalAppendCommand {
-            writer_id: writer_id_number,
-            event_number: 1,
-            expected_offset: 0,
-            event,
-            request_id: 1,
-        });
+    let conditional_append_command = WireCommands::ConditionalAppend(ConditionalAppendCommand {
+        writer_id: writer_id_number,
+        event_number: 1,
+        expected_offset: 0,
+        event,
+        request_id: 1,
+    });
 
     let decoded = test_command(conditional_append_command);
     if let WireCommands::ConditionalAppend(command) = decoded {
@@ -338,12 +337,11 @@ fn test_segment_attribute_updated() {
 fn test_get_stream_segment_info() {
     let segment_name = JavaString(String::from("segment-1"));
     let token = JavaString(String::from("delegation_token"));
-    let get_stream_segment_info =
-        WireCommands::GetStreamSegmentInfo(GetStreamSegmentInfoCommand {
-            request_id: 1,
-            segment_name,
-            delegation_token: token,
-        });
+    let get_stream_segment_info = WireCommands::GetStreamSegmentInfo(GetStreamSegmentInfoCommand {
+        request_id: 1,
+        segment_name,
+        delegation_token: token,
+    });
     test_command(get_stream_segment_info);
 }
 
@@ -404,25 +402,23 @@ fn test_segment_created() {
 fn test_update_segment_policy() {
     let segment_name = JavaString(String::from("segment-1"));
     let token = JavaString(String::from("delegation_token"));
-    let update_segment_policy_cmd =
-        WireCommands::UpdateSegmentPolicy(UpdateSegmentPolicyCommand {
-            request_id: 1,
-            segment: segment_name,
-            target_rate: 1,
-            scale_type: 0,
-            delegation_token: token,
-        });
+    let update_segment_policy_cmd = WireCommands::UpdateSegmentPolicy(UpdateSegmentPolicyCommand {
+        request_id: 1,
+        segment: segment_name,
+        target_rate: 1,
+        scale_type: 0,
+        delegation_token: token,
+    });
     test_command(update_segment_policy_cmd);
 }
 
 #[test]
 fn test_segment_policy_updated() {
     let segment_name = JavaString(String::from("segment-1"));
-    let segment_policy_updated =
-        WireCommands::SegmentPolicyUpdated(SegmentPolicyUpdatedCommand {
-            request_id: 0,
-            segment: segment_name,
-        });
+    let segment_policy_updated = WireCommands::SegmentPolicyUpdated(SegmentPolicyUpdatedCommand {
+        request_id: 0,
+        segment: segment_name,
+    });
     test_command(segment_policy_updated);
 }
 
@@ -766,4 +762,3 @@ fn test_command(command: WireCommands) -> WireCommands {
     assert_eq!(command, decoded);
     decoded
 }
-

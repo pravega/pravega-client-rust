@@ -17,8 +17,7 @@ mod controller {
 mod test;
 
 pub use controller::{
-    controller_service_client::ControllerServiceClient as ControllerServiceClient,
-    scaling_policy::ScalingPolicyType as ScalingPolicyType,
+    controller_service_client::ControllerServiceClient, scaling_policy::ScalingPolicyType,
     CreateScopeStatus, CreateStreamStatus, ScalingPolicy, ScopeInfo, StreamConfig, StreamInfo,
 };
 use tonic::transport::channel::Channel;
@@ -55,5 +54,3 @@ pub async fn create_stream(
         .expect("Failed to create Stream");
     op_status.into_inner() // return create Stream status
 }
-
-
