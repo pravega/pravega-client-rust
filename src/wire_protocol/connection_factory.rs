@@ -61,8 +61,8 @@ pub trait ConnectionFactory {
     ///
     /// ```no_run
     /// use std::net::SocketAddr;
-    /// use pravega_client_rust::connection_factory;
-    /// use pravega_client_rust::connection_factory::ConnectionFactory;
+    /// use pravega_client_rust::wire_protocol::connection_factory;
+    /// use pravega_client_rust::wire_protocol::connection_factory::ConnectionFactory;
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
@@ -89,8 +89,8 @@ pub trait Connection {
     ///
     /// ```no_run
     /// use std::net::SocketAddr;
-    /// use pravega_client_rust::connection_factory;
-    /// use pravega_client_rust::connection_factory::ConnectionFactory;
+    /// use pravega_client_rust::wire_protocol::connection_factory;
+    /// use pravega_client_rust::wire_protocol::connection_factory::ConnectionFactory;
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
