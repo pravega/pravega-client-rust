@@ -10,8 +10,13 @@
 
 #[macro_use]
 extern crate lazy_static;
-pub mod commands;
-pub mod wirecommands;
-mod error;
-pub mod connection_factory;
 
+pub mod wire_protocol {
+    mod commands;
+    mod wire_commands;
+    mod error;
+    //Public for docs to build. (TODO: Is there a better way to do this?)
+    pub mod connection_factory;
+    #[cfg(test)]
+    mod tests;
+}

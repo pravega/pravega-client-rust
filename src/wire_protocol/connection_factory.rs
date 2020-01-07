@@ -13,10 +13,10 @@ use std::fmt;
 use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use crate::error::ConnectionError;
-use crate::error::Connect;
-use crate::error::SendData;
-use crate::error::ReadData;
+use super::error::ConnectionError;
+use super::error::Connect;
+use super::error::SendData;
+use super::error::ReadData;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -39,12 +39,12 @@ pub trait ConnectionFactory {
     ///
     /// ```no_run
     /// use std::net::SocketAddr;
-    /// use pravega_client_rust::connection_factory;
-    /// use pravega_client_rust::connection_factory::ConnectionFactory;
+    /// use pravega_client_rust::wire_protocol::connection_factory;
+    /// use pravega_client_rust::wire_protocol::connection_factory::ConnectionFactory;
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
-    ///   let rt = Runtime::new().unwrap();
+    ///   let mut rt = Runtime::new().unwrap();
     ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
     ///   let cf = connection_factory::ConnectionFactoryImpl {};
     ///   let connection_future = cf.establish_connection(connection_factory::ConnectionType::Tokio, endpoint);
@@ -67,12 +67,12 @@ pub trait Connection {
     ///
     /// ```no_run
     /// use std::net::SocketAddr;
-    /// use pravega_client_rust::connection_factory;
-    /// use pravega_client_rust::connection_factory::ConnectionFactory;
+    /// use pravega_client_rust::wire_protocol::connection_factory;
+    /// use pravega_client_rust::wire_protocol::connection_factory::ConnectionFactory;
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
-    ///   let rt = Runtime::new().unwrap();
+    ///   let mut rt = Runtime::new().unwrap();
     ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
     ///   let cf = connection_factory::ConnectionFactoryImpl {};
     ///   let connection_future = cf.establish_connection(connection_factory::ConnectionType::Tokio, endpoint);
@@ -89,12 +89,12 @@ pub trait Connection {
     ///
     /// ```no_run
     /// use std::net::SocketAddr;
-    /// use pravega_client_rust::connection_factory;
-    /// use pravega_client_rust::connection_factory::ConnectionFactory;
+    /// use pravega_client_rust::wire_protocol::connection_factory;
+    /// use pravega_client_rust::wire_protocol::connection_factory::ConnectionFactory;
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
-    ///   let rt = Runtime::new().unwrap();
+    ///   let mut rt = Runtime::new().unwrap();
     ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
     ///   let cf = connection_factory::ConnectionFactoryImpl {};
     ///   let connection_future = cf.establish_connection(connection_factory::ConnectionType::Tokio, endpoint);
@@ -158,7 +158,6 @@ impl Connection for TokioConnection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::connection_factory::ConnectionFactory;
     use log::info;
     use std::io::Write;
     use std::net::{SocketAddr, TcpListener};
@@ -189,7 +188,7 @@ mod tests {
 
     #[test]
     fn test_connection() {
-        let rt = Runtime::new().unwrap();
+        let mut rt = Runtime::new().unwrap();
 
         let mut server = Server::new();
 
