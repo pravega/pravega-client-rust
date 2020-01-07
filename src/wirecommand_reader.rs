@@ -9,30 +9,65 @@
 //
 
 extern crate byteorder;
+use crate::connection_factory;
 use crate::connection_factory::Connection;
 use byteorder::{BigEndian, ReadBytesExt};
-use std::error::Error;
+use snafu::{ensure, ResultExt, Snafu};
 use std::io::Cursor;
 
-pub const MAX_WIRECOMMAND_SIZE: i32 = 0x007FFFFF;
-pub const LENGTH_FIELD_OFFSET: i32 = 4;
-pub const LENGTH_FIELD_LENGTH: i32 = 4;
+pub const MAX_WIRECOMMAND_SIZE: u32 = 0x007FFFFF;
+pub const LENGTH_FIELD_OFFSET: u32 = 4;
+pub const LENGTH_FIELD_LENGTH: u32 = 4;
+
+#[derive(Debug, Snafu)]
+pub enum Error {
+    #[snafu(display("Failed to read wirecommand {}", part))]
+    ReadWirecommand {
+        part: &'static str,
+        source: connection_factory::Error,
+    },
+    #[snafu(display(
+        "The payload size {} exceeds the max wirecommand size {}",
+        payload_size,
+        max_wirecommand_size
+    ))]
+    PayloadLengthTooLong {
+        payload_size: u32,
+        max_wirecommand_size: u32,
+    },
+}
+
+type Result<T, E = Error> = std::result::Result<T, E>;
 
 pub struct WireCommandReader {
     pub connection: Box<dyn Connection>,
 }
 
 impl WireCommandReader {
-    async fn read(&mut self) -> Result<Vec<u8>, Box<dyn Error>> {
+    async fn read(&mut self) -> Result<Vec<u8>> {
         let mut header: Vec<u8> =
             vec![0; LENGTH_FIELD_OFFSET as usize + LENGTH_FIELD_LENGTH as usize];
-        self.connection.read_async(&mut header[..]).await?;
+        self.connection
+            .read_async(&mut header[..])
+            .await
+            .context(ReadWirecommand { part: "header" })?;
 
         let mut rdr = Cursor::new(&header[4..8]);
-        let payload_length = rdr.read_i32::<BigEndian>().unwrap();
+        let payload_length = rdr.read_u32::<BigEndian>().unwrap();
+
+        ensure!(
+            payload_length <= MAX_WIRECOMMAND_SIZE,
+            PayloadLengthTooLong {
+                payload_size: payload_length,
+                max_wirecommand_size: MAX_WIRECOMMAND_SIZE
+            }
+        );
 
         let mut payload: Vec<u8> = vec![0; payload_length as usize];
-        self.connection.read_async(&mut payload[..]).await?;
+        self.connection
+            .read_async(&mut payload[..])
+            .await
+            .context(ReadWirecommand { part: "payload" })?;
 
         let concatenated = [&header[..], &payload[..]].concat();
 
@@ -96,7 +131,7 @@ mod tests {
         let connection_factory = ConnectionFactoryImpl {};
         let connection_future =
             connection_factory.establish_connection(ConnectionType::Tokio, server.address);
-        let mut connection = rt.block_on(connection_future).unwrap();
+        let connection = rt.block_on(connection_future).unwrap();
         info!("connection established");
 
         // server send wirecommand
@@ -119,6 +154,6 @@ mod tests {
             .expect("Unable to write");
 
         assert_eq!(byte_buf, expected);
-        info!("Testing connection passed");
+        info!("Testing wirecommand reader passed");
     }
 }
