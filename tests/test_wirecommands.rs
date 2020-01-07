@@ -619,7 +619,7 @@ mod tests {
     fn test_remove_table_keys() {
         let segment = JavaString(String::from("segment-1"));
         let token = JavaString(String::from("delegation_token"));
-        let mut keys = Vec::<(TableKey)>::new();
+        let mut keys = Vec::<TableKey>::new();
         let key_data = String::from("key-1").into_bytes();
         keys.push(TableKey::new(key_data, 1));
         let remove_table_keys_command = WireCommands::RemoveTableKeys(RemoveTableKeysCommand {
@@ -645,7 +645,7 @@ mod tests {
     fn test_read_table() {
         let segment = JavaString(String::from("segment-1"));
         let token = JavaString(String::from("delegation_token"));
-        let mut keys = Vec::<(TableKey)>::new();
+        let mut keys = Vec::<TableKey>::new();
         let key_data = String::from("key-1").into_bytes();
         keys.push(TableKey::new(key_data, 1));
         let read_table_command = WireCommands::ReadTable(ReadTableCommand {
@@ -693,7 +693,7 @@ mod tests {
     #[test]
     fn test_table_keys_read() {
         let segment = JavaString(String::from("segment-1"));
-        let mut keys = Vec::<(TableKey)>::new();
+        let mut keys = Vec::<TableKey>::new();
         let key_data = String::from("key-1").into_bytes();
         keys.push(TableKey::new(key_data, 1));
         let continuation_token: Vec<u8> = vec![1, 2, 3];

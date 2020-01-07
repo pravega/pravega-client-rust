@@ -8,11 +8,15 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
 use async_trait::async_trait;
-use snafu::{ResultExt, Snafu};
+use snafu::{ResultExt};
 use std::fmt;
 use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
+use crate::error::ConnectionError;
+use crate::error::Connect;
+use crate::error::SendData;
+use crate::error::ReadData;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -25,32 +29,6 @@ impl fmt::Display for ConnectionType {
         write!(f, "{}", self)
     }
 }
-
-#[derive(Debug, Snafu)]
-pub enum Error {
-    #[snafu(display(
-        "Could not connect to endpoint {} using connection type {}",
-        endpoint,
-        connection_type
-    ))]
-    Connect {
-        connection_type: ConnectionType,
-        endpoint: SocketAddr,
-        source: std::io::Error,
-    },
-    #[snafu(display("Could not send data to {} asynchronously", endpoint))]
-    SendData {
-        endpoint: SocketAddr,
-        source: std::io::Error,
-    },
-    #[snafu(display("Could not read data from {} asynchronously", endpoint))]
-    ReadData {
-        endpoint: SocketAddr,
-        source: std::io::Error,
-    },
-}
-
-type Result<T, E = Error> = std::result::Result<T, E>;
 
 /// ConnectionFactory trait is the factory used to establish the TCP connection with remote servers.
 #[async_trait]
@@ -77,7 +55,7 @@ pub trait ConnectionFactory {
         &self,
         connection_type: ConnectionType,
         endpoint: SocketAddr,
-    ) -> Result<Box<dyn Connection>>;
+    ) -> Result<Box<dyn Connection>, ConnectionError>;
 }
 
 /// Connection can send and read data using  a TCP connection
@@ -103,7 +81,7 @@ pub trait Connection {
     ///   let fut = connection.send_async(&payload);
     /// }
     /// ```
-    async fn send_async(&mut self, payload: &[u8]) -> Result<()>;
+    async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError>;
 
     /// read_async will read exactly the amount of data needed to fill the provided buffer asynchronously.
     ///
@@ -125,7 +103,7 @@ pub trait Connection {
     ///   let fut = connection.read_async(&mut buf);
     /// }
     /// ```
-    async fn read_async(&mut self, buf: &mut [u8]) -> Result<()>;
+    async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError>;
 }
 
 pub struct ConnectionFactoryImpl {}
@@ -136,7 +114,7 @@ impl ConnectionFactory for ConnectionFactoryImpl {
         &self,
         connection_type: ConnectionType,
         endpoint: SocketAddr,
-    ) -> Result<Box<dyn Connection>> {
+    ) -> Result<Box<dyn Connection>, ConnectionError> {
         match connection_type {
             ConnectionType::Tokio => {
                 let stream = TcpStream::connect(endpoint).await.context(Connect {
@@ -158,7 +136,7 @@ pub struct TokioConnection {
 
 #[async_trait]
 impl Connection for TokioConnection {
-    async fn send_async(&mut self, payload: &[u8]) -> Result<()> {
+    async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
         let endpoint = self.endpoint;
         self.stream
             .write_all(payload)
@@ -167,7 +145,7 @@ impl Connection for TokioConnection {
         Ok(())
     }
 
-    async fn read_async(&mut self, buf: &mut [u8]) -> Result<()> {
+    async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError> {
         let endpoint = self.endpoint;
         self.stream
             .read_exact(buf)
