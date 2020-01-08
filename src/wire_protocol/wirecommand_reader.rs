@@ -9,8 +9,8 @@
 //
 
 extern crate byteorder;
-use crate::connection_factory;
-use crate::connection_factory::Connection;
+use crate::wire_protocol::connection_factory;
+use crate::wire_protocol::connection_factory::Connection;
 use byteorder::{BigEndian, ReadBytesExt};
 use snafu::{ensure, ResultExt, Snafu};
 use std::io::Cursor;
@@ -78,7 +78,7 @@ impl WireCommandReader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::connection_factory::{ConnectionFactory, ConnectionFactoryImpl, ConnectionType};
+    use crate::wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl, ConnectionType};
     use byteorder::{BigEndian, WriteBytesExt};
     use log::info;
     use std::io::Write;
@@ -124,7 +124,7 @@ mod tests {
     }
     #[test]
     fn test_wirecommand_reader() {
-        let rt = Runtime::new().unwrap();
+        let mut rt = Runtime::new().unwrap();
 
         let mut server = Server::new();
 
