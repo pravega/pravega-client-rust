@@ -18,7 +18,6 @@ use super::error::Connect;
 use super::error::SendData;
 use super::error::ReadData;
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub enum ConnectionType {
     Tokio,

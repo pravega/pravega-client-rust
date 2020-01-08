@@ -611,7 +611,7 @@ fn test_table_entries_updated() {
 fn test_remove_table_keys() {
     let segment = JavaString(String::from("segment-1"));
     let token = JavaString(String::from("delegation_token"));
-    let mut keys = Vec::<(TableKey)>::new();
+    let mut keys = Vec::<TableKey>::new();
     let key_data = String::from("key-1").into_bytes();
     keys.push(TableKey::new(key_data, 1));
     let remove_table_keys_command = WireCommands::RemoveTableKeys(RemoveTableKeysCommand {
@@ -637,7 +637,7 @@ fn test_table_keys_removed() {
 fn test_read_table() {
     let segment = JavaString(String::from("segment-1"));
     let token = JavaString(String::from("delegation_token"));
-    let mut keys = Vec::<(TableKey)>::new();
+    let mut keys = Vec::<TableKey>::new();
     let key_data = String::from("key-1").into_bytes();
     keys.push(TableKey::new(key_data, 1));
     let read_table_command = WireCommands::ReadTable(ReadTableCommand {
@@ -685,7 +685,7 @@ fn test_read_table_keys() {
 #[test]
 fn test_table_keys_read() {
     let segment = JavaString(String::from("segment-1"));
-    let mut keys = Vec::<(TableKey)>::new();
+    let mut keys = Vec::<TableKey>::new();
     let key_data = String::from("key-1").into_bytes();
     keys.push(TableKey::new(key_data, 1));
     let continuation_token: Vec<u8> = vec![1, 2, 3];
@@ -757,7 +757,7 @@ fn table_key_bad_version() {
 }
 
 fn test_command(command: WireCommands) -> WireCommands {
-    let encoded: Vec<u8> = command.write_fields();
+    let encoded: Vec<u8> = command.write_fields().unwrap();
     let decoded = WireCommands::read_from(&encoded);
     assert_eq!(command, decoded);
     decoded

@@ -10,6 +10,7 @@ use std::io::{Read, Write};
 use snafu::ResultExt;
 use super::error::SerializeError;
 use super::error::InvalidData;
+use super::error::Io;
 
 /**
  * trait for Command.
@@ -139,7 +140,7 @@ pub struct HelloCommand {
 impl Command for HelloCommand {
     const TYPE_CODE: i32 = -127;
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).context(InvalidData{TYPE_CODE})?;
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -175,7 +176,7 @@ pub struct WrongHostCommand {
 impl Command for WrongHostCommand {
     const TYPE_CODE: i32 = 50;
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).context(InvalidData{TYPE_CODE})?;
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
     fn read_from(input: &[u8]) -> WrongHostCommand {
@@ -207,7 +208,7 @@ pub struct SegmentIsSealedCommand {
 impl Command for SegmentIsSealedCommand {
     const TYPE_CODE: i32 = 51;
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -241,7 +242,7 @@ pub struct SegmentIsTruncatedCommand {
 impl Command for SegmentIsTruncatedCommand {
     const TYPE_CODE: i32 = 56;
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -273,7 +274,7 @@ pub struct SegmentAlreadyExistsCommand {
 impl Command for SegmentAlreadyExistsCommand {
     const TYPE_CODE: i32 = 52;
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -312,7 +313,7 @@ pub struct NoSuchSegmentCommand {
 impl Command for NoSuchSegmentCommand {
     const TYPE_CODE: i32 = 53;
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -350,7 +351,7 @@ pub struct TableSegmentNotEmptyCommand {
 impl Command for TableSegmentNotEmptyCommand {
     const TYPE_CODE: i32 = 80;
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -388,7 +389,7 @@ pub struct InvalidEventNumberCommand {
 impl Command for InvalidEventNumberCommand {
     const TYPE_CODE: i32 = 55;
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -430,7 +431,7 @@ pub struct OperationUnsupportedCommand {
 impl Command for OperationUnsupportedCommand {
     const TYPE_CODE: i32 = 57;
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -463,10 +464,10 @@ impl Command for PaddingCommand {
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
         let mut res = Vec::new();
         for _i in 0..(self.length / 8) {
-            res.write_i64::<BigEndian>(0).unwrap();
+            res.write_i64::<BigEndian>(0).context(Io{command_type: Self::TYPE_CODE})?;
         }
         for _i in 0..(self.length % 8) {
-            res.write_u8(0).unwrap();
+            res.write_u8(0).context(Io{command_type: Self::TYPE_CODE})?;
         }
         Ok(res)
     }
@@ -516,8 +517,8 @@ impl Command for EventCommand {
     const TYPE_CODE: i32 = 0;
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
         let mut res = Vec::new();
-        res.write_i32::<BigEndian>(EventCommand::TYPE_CODE).unwrap();
-        let encoded = CONFIG.serialize(&self).unwrap();
+        res.write_i32::<BigEndian>(EventCommand::TYPE_CODE).context(Io{command_type: Self::TYPE_CODE})?;
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         res.extend(encoded);
         Ok(res)
     }
@@ -544,7 +545,7 @@ pub struct SetupAppendCommand {
 impl Command for SetupAppendCommand {
     const TYPE_CODE: i32 = 1;
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -574,7 +575,7 @@ impl Command for AppendBlockCommand {
     //FIXME: The serialize and deserialize method need to customize;
     // In JAVA, it doesn't write data(because it'empty), but here it will write the prefix length(0).
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -601,7 +602,7 @@ impl Command for AppendBlockEndCommand {
     const TYPE_CODE: i32 = 4;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -640,11 +641,11 @@ impl Command for ConditionalAppendCommand {
     // Because in CondtionalAppend the event should be serialize as |type_code|length|data|
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
         let mut res = Vec::new();
-        res.write_u128::<BigEndian>(self.writer_id).unwrap();
-        res.write_i64::<BigEndian>(self.event_number).unwrap();
-        res.write_i64::<BigEndian>(self.expected_offset).unwrap();
-        res.write_all(&self.event.write_fields()).unwrap();
-        res.write_i64::<BigEndian>(self.request_id).unwrap();
+        res.write_u128::<BigEndian>(self.writer_id).context(Io{command_type: Self::TYPE_CODE})?;
+        res.write_i64::<BigEndian>(self.event_number).context(Io{command_type: Self::TYPE_CODE})?;
+        res.write_i64::<BigEndian>(self.expected_offset).context(Io{command_type: Self::TYPE_CODE})?;
+        res.write_all(&self.event.write_fields()?).context(Io{command_type: Self::TYPE_CODE})?;
+        res.write_i64::<BigEndian>(self.request_id).context(Io{command_type: Self::TYPE_CODE})?;
         Ok(res)
     }
 
@@ -686,7 +687,7 @@ impl Command for AppendSetupCommand {
     const TYPE_CODE: i32 = 2;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -718,7 +719,7 @@ impl Command for DataAppendedCommand {
     const TYPE_CODE: i32 = 7;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -748,7 +749,7 @@ impl Command for ConditionalCheckFailedCommand {
     const TYPE_CODE: i32 = 8;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -780,7 +781,7 @@ impl Command for ReadSegmentCommand {
     const TYPE_CODE: i32 = 9;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -813,7 +814,7 @@ impl Command for SegmentReadCommand {
     const TYPE_CODE: i32 = 10;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -844,7 +845,7 @@ impl Command for GetSegmentAttributeCommand {
     const TYPE_CODE: i32 = 34;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -873,7 +874,7 @@ impl Command for SegmentAttributeCommand {
     const TYPE_CODE: i32 = 35;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -906,7 +907,7 @@ impl Command for UpdateSegmentAttributeCommand {
     const TYPE_CODE: i32 = 36;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -935,7 +936,7 @@ impl Command for SegmentAttributeUpdatedCommand {
     const TYPE_CODE: i32 = 37;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -965,7 +966,7 @@ impl Command for GetStreamSegmentInfoCommand {
     const TYPE_CODE: i32 = 11;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1000,7 +1001,7 @@ impl Command for StreamSegmentInfoCommand {
     const TYPE_CODE: i32 = 12;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1032,7 +1033,7 @@ impl Command for CreateSegmentCommand {
     const TYPE_CODE: i32 = 20;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1062,7 +1063,7 @@ impl Command for CreateTableSegmentCommand {
     const TYPE_CODE: i32 = 70;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1091,7 +1092,7 @@ impl Command for SegmentCreatedCommand {
     const TYPE_CODE: i32 = 21;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1123,7 +1124,7 @@ impl Command for UpdateSegmentPolicyCommand {
     const TYPE_CODE: i32 = 32;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1152,7 +1153,7 @@ impl Command for SegmentPolicyUpdatedCommand {
     const TYPE_CODE: i32 = 33;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1183,7 +1184,7 @@ impl Command for MergeSegmentsCommand {
     const TYPE_CODE: i32 = 58;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1213,7 +1214,7 @@ impl Command for MergeTableSegmentsCommand {
     const TYPE_CODE: i32 = 72;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1244,7 +1245,7 @@ impl Command for SegmentsMergedCommand {
     const TYPE_CODE: i32 = 59;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1274,7 +1275,7 @@ impl Command for SealSegmentCommand {
     const TYPE_CODE: i32 = 28;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1304,7 +1305,7 @@ impl Command for SealTableSegmentCommand {
     const TYPE_CODE: i32 = 73;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1333,7 +1334,7 @@ impl Command for SegmentSealedCommand {
     const TYPE_CODE: i32 = 29;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1364,7 +1365,7 @@ impl Command for TruncateSegmentCommand {
     const TYPE_CODE: i32 = 38;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1393,7 +1394,7 @@ impl Command for SegmentTruncatedCommand {
     const TYPE_CODE: i32 = 39;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1423,7 +1424,7 @@ impl Command for DeleteSegmentCommand {
     const TYPE_CODE: i32 = 30;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1453,7 +1454,7 @@ pub struct DeleteTableSegmentCommand {
 impl Command for DeleteTableSegmentCommand {
     const TYPE_CODE: i32 = 71;
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1482,7 +1483,7 @@ impl Command for SegmentDeletedCommand {
     const TYPE_CODE: i32 = 31;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1555,7 +1556,7 @@ impl Command for AuthTokenCheckFailedCommand {
     const TYPE_CODE: i32 = 60;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1611,7 +1612,7 @@ impl Command for UpdateTableEntriesCommand {
     const TYPE_CODE: i32 = 74;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1640,7 +1641,7 @@ impl Command for TableEntriesUpdatedCommand {
     const TYPE_CODE: i32 = 75;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1671,7 +1672,7 @@ impl Command for RemoveTableKeysCommand {
     const TYPE_CODE: i32 = 76;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1700,7 +1701,7 @@ impl Command for TableKeysRemovedCommand {
     const TYPE_CODE: i32 = 77;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1731,7 +1732,7 @@ impl Command for ReadTableCommand {
     const TYPE_CODE: i32 = 78;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1761,7 +1762,7 @@ impl Command for TableReadCommand {
     const TYPE_CODE: i32 = 79;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1793,7 +1794,7 @@ impl Command for ReadTableKeysCommand {
     const TYPE_CODE: i32 = 83;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1824,7 +1825,7 @@ impl Command for TableKeysReadCommand {
     const TYPE_CODE: i32 = 84;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1856,7 +1857,7 @@ impl Command for ReadTableEntriesCommand {
     const TYPE_CODE: i32 = 85;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1887,7 +1888,7 @@ impl Command for TableEntriesReadCommand {
     const TYPE_CODE: i32 = 86;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1917,7 +1918,7 @@ impl Command for TableKeyDoesNotExistCommand {
     const TYPE_CODE: i32 = 81;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 
@@ -1961,7 +1962,7 @@ impl Command for TableKeyBadVersionCommand {
     const TYPE_CODE: i32 = 82;
 
     fn write_fields(&self) -> Result<Vec<u8>, SerializeError> {
-        let encoded = CONFIG.serialize(&self).unwrap();
+        let encoded = CONFIG.serialize(&self).context(InvalidData{command_type: Self::TYPE_CODE})?;
         Ok(encoded)
     }
 

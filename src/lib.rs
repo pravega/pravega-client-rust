@@ -11,6 +11,7 @@
 #[macro_use]
 extern crate lazy_static;
 
+#[allow(dead_code)]
 pub mod wire_protocol {
     mod commands;
     mod wire_commands;

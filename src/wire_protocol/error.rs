@@ -1,9 +1,8 @@
 use std::net::SocketAddr;
-use bincode::Error as bincodeError;
-use std::io::Error as IOError;
+use bincode::Error as BincodeError;
+use std::io::Error as IoError;
 use snafu::{Snafu};
-use crate::commands;
-use crate::connection_factory::ConnectionType;
+use super::connection_factory::ConnectionType;
 
 
 /// This kind of error that can be produced during Pravega client connecting to server.
@@ -34,16 +33,17 @@ pub enum ConnectionError {
 
 /// This kind of error that can be produced during Pravega serialize the wire commands.
 #[derive(Debug, Snafu)]
+#[snafu(visibility = "pub(crate)")]
 pub enum SerializeError {
-    #[snafu(display("Could not serialize command {} because of: {}", commandType, source))]
+    #[snafu(display("Could not serialize command {} because of: {}", command_type, source))]
     InvalidData {
-        command_type: u8,
-        source: bincodeError
+        command_type: i32,
+        source: BincodeError,
     },
-    #[snafu(display("Could not serialize command {} because of: {}", commandType, source))]
+    #[snafu(display("Could not serialize command {} because of: {}", command_type, source))]
     Io {
-        command_type: u8,
-        source: IOError
+        command_type: i32,
+        source: IoError,
     }
 }
 
