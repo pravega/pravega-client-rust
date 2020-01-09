@@ -31,10 +31,10 @@ pub enum ConnectionError {
     }
 }
 
-/// This kind of error that can be produced during Pravega serialize the wire commands.
+/// This kind of error that can be produced during Pravega serialize and deserialize the wire commands.
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]
-pub enum SerializeError {
+pub enum CommandError {
     #[snafu(display("Could not serialize command {} because of: {}", command_type, source))]
     InvalidData {
         command_type: i32,
@@ -46,4 +46,7 @@ pub enum SerializeError {
         source: IoError,
     }
 }
+
+
+
 

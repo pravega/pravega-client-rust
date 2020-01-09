@@ -758,7 +758,7 @@ fn table_key_bad_version() {
 
 fn test_command(command: WireCommands) -> WireCommands {
     let encoded: Vec<u8> = command.write_fields().unwrap();
-    let decoded = WireCommands::read_from(&encoded);
+    let decoded = WireCommands::read_from(&encoded).unwrap();
     assert_eq!(command, decoded);
     decoded
 }
