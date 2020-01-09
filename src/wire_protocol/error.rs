@@ -34,11 +34,19 @@ pub enum ConnectionError {
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]
 pub enum CommandError {
-    #[snafu(display("Could not serialize command {} because of: {}", command_type, source))]
+    #[snafu(display(
+        "Could not serialize/deserialize command {} because of: {}",
+        command_type,
+        source
+    ))]
     InvalidData {
         command_type: i32,
         source: BincodeError,
     },
-    #[snafu(display("Could not serialize command {} because of: {}", command_type, source))]
+    #[snafu(display(
+        "Could not serialize/deserialize command {} because of: {}",
+        command_type,
+        source
+    ))]
     Io { command_type: i32, source: IoError },
 }
