@@ -23,7 +23,7 @@ pub const LENGTH_FIELD_LENGTH: u32 = 4;
 pub enum Error {
     #[snafu(display("Failed to read wirecommand {}", part))]
     ReadWirecommand {
-        part: &'static str,
+        part: String,
         source: connection_factory::Error,
     },
     #[snafu(display(
@@ -50,7 +50,9 @@ impl WireCommandReader {
         self.connection
             .read_async(&mut header[..])
             .await
-            .context(ReadWirecommand { part: "header" })?;
+            .context(ReadWirecommand {
+                part: "header".to_string(),
+            })?;
 
         let mut rdr = Cursor::new(&header[4..8]);
         let payload_length = rdr.read_u32::<BigEndian>().unwrap();
@@ -67,7 +69,9 @@ impl WireCommandReader {
         self.connection
             .read_async(&mut payload[..])
             .await
-            .context(ReadWirecommand { part: "payload" })?;
+            .context(ReadWirecommand {
+                part: "payload".to_string(),
+            })?;
 
         let concatenated = [&header[..], &payload[..]].concat();
 
