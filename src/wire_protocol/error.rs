@@ -50,3 +50,23 @@ pub enum CommandError {
     ))]
     Io { command_type: i32, source: IoError },
 }
+
+/// This kind of error that can be produced during Pravega read Wire Commands.
+#[derive(Debug, Snafu)]
+#[snafu(visibility = "pub(crate)")]
+pub enum ReaderError {
+    #[snafu(display("Failed to read wirecommand {}", part))]
+    ReadWirecommand {
+        part: String,
+        source: ConnectionError,
+    },
+    #[snafu(display(
+        "The payload size {} exceeds the max wirecommand size {}",
+        payload_size,
+        max_wirecommand_size
+    ))]
+    PayloadLengthTooLong {
+        payload_size: u32,
+        max_wirecommand_size: u32,
+    },
+}

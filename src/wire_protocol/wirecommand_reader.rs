@@ -9,42 +9,24 @@
 //
 
 extern crate byteorder;
-use crate::wire_protocol::connection_factory;
+use super::error::PayloadLengthTooLong;
+use super::error::ReadWirecommand;
+use super::error::ReaderError;
 use crate::wire_protocol::connection_factory::Connection;
 use byteorder::{BigEndian, ReadBytesExt};
-use snafu::{ensure, ResultExt, Snafu};
+use snafu::{ensure, ResultExt};
 use std::io::Cursor;
 
 pub const MAX_WIRECOMMAND_SIZE: u32 = 0x007FFFFF;
 pub const LENGTH_FIELD_OFFSET: u32 = 4;
 pub const LENGTH_FIELD_LENGTH: u32 = 4;
 
-#[derive(Debug, Snafu)]
-pub enum Error {
-    #[snafu(display("Failed to read wirecommand {}", part))]
-    ReadWirecommand {
-        part: String,
-        source: connection_factory::Error,
-    },
-    #[snafu(display(
-        "The payload size {} exceeds the max wirecommand size {}",
-        payload_size,
-        max_wirecommand_size
-    ))]
-    PayloadLengthTooLong {
-        payload_size: u32,
-        max_wirecommand_size: u32,
-    },
-}
-
-type Result<T, E = Error> = std::result::Result<T, E>;
-
 pub struct WireCommandReader {
     pub connection: Box<dyn Connection>,
 }
 
 impl WireCommandReader {
-    async fn read(&mut self) -> Result<Vec<u8>> {
+    async fn read(&mut self) -> Result<Vec<u8>, ReaderError> {
         let mut header: Vec<u8> =
             vec![0; LENGTH_FIELD_OFFSET as usize + LENGTH_FIELD_LENGTH as usize];
         self.connection
