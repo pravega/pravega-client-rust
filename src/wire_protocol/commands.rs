@@ -136,13 +136,11 @@ pub struct HelloCommand {
 impl Command for HelloCommand {
     const TYPE_CODE: i32 = -127;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> HelloCommand {
-        let decoded: HelloCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -172,12 +170,10 @@ pub struct WrongHostCommand {
 impl Command for WrongHostCommand {
     const TYPE_CODE: i32 = 50;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
     fn read_from(input: &[u8]) -> WrongHostCommand {
-        let decoded: WrongHostCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -204,13 +200,11 @@ pub struct SegmentIsSealedCommand {
 impl Command for SegmentIsSealedCommand {
     const TYPE_CODE: i32 = 51;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> SegmentIsSealedCommand {
-        let decoded: SegmentIsSealedCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -238,13 +232,11 @@ pub struct SegmentIsTruncatedCommand {
 impl Command for SegmentIsTruncatedCommand {
     const TYPE_CODE: i32 = 56;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> SegmentIsTruncatedCommand {
-        let decoded: SegmentIsTruncatedCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -270,13 +262,11 @@ pub struct SegmentAlreadyExistsCommand {
 impl Command for SegmentAlreadyExistsCommand {
     const TYPE_CODE: i32 = 52;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> SegmentAlreadyExistsCommand {
-        let decoded: SegmentAlreadyExistsCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -309,13 +299,11 @@ pub struct NoSuchSegmentCommand {
 impl Command for NoSuchSegmentCommand {
     const TYPE_CODE: i32 = 53;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> NoSuchSegmentCommand {
-        let decoded: NoSuchSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -347,13 +335,11 @@ pub struct TableSegmentNotEmptyCommand {
 impl Command for TableSegmentNotEmptyCommand {
     const TYPE_CODE: i32 = 80;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> TableSegmentNotEmptyCommand {
-        let decoded: TableSegmentNotEmptyCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -385,13 +371,11 @@ pub struct InvalidEventNumberCommand {
 impl Command for InvalidEventNumberCommand {
     const TYPE_CODE: i32 = 55;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> InvalidEventNumberCommand {
-        let decoded: InvalidEventNumberCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -427,13 +411,11 @@ pub struct OperationUnsupportedCommand {
 impl Command for OperationUnsupportedCommand {
     const TYPE_CODE: i32 = 57;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> OperationUnsupportedCommand {
-        let decoded: OperationUnsupportedCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -522,8 +504,7 @@ impl Command for EventCommand {
     fn read_from(input: &[u8]) -> EventCommand {
         //read the type_code.
         let _type_code = BigEndian::read_i32(input);
-        let decoded: EventCommand = CONFIG.deserialize(&input[4..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[4..]).unwrap()
     }
 }
 
@@ -541,13 +522,11 @@ pub struct SetupAppendCommand {
 impl Command for SetupAppendCommand {
     const TYPE_CODE: i32 = 1;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> SetupAppendCommand {
-        let decoded: SetupAppendCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -571,13 +550,11 @@ impl Command for AppendBlockCommand {
     //FIXME: The serialize and deserialize method need to customize;
     // In JAVA, it doesn't write data(because it'empty), but here it will write the prefix length(0).
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> AppendBlockCommand {
-        let decoded: AppendBlockCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -598,13 +575,11 @@ impl Command for AppendBlockEndCommand {
     const TYPE_CODE: i32 = 4;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> AppendBlockEndCommand {
-        let decoded: AppendBlockEndCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -683,13 +658,11 @@ impl Command for AppendSetupCommand {
     const TYPE_CODE: i32 = 2;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> Self {
-        let decoded: AppendSetupCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -715,13 +688,11 @@ impl Command for DataAppendedCommand {
     const TYPE_CODE: i32 = 7;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> DataAppendedCommand {
-        let decoded: DataAppendedCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -745,13 +716,11 @@ impl Command for ConditionalCheckFailedCommand {
     const TYPE_CODE: i32 = 8;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> ConditionalCheckFailedCommand {
-        let decoded: ConditionalCheckFailedCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -777,13 +746,11 @@ impl Command for ReadSegmentCommand {
     const TYPE_CODE: i32 = 9;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> ReadSegmentCommand {
-        let decoded: ReadSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -810,13 +777,11 @@ impl Command for SegmentReadCommand {
     const TYPE_CODE: i32 = 10;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> SegmentReadCommand {
-        let decoded: SegmentReadCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -841,13 +806,11 @@ impl Command for GetSegmentAttributeCommand {
     const TYPE_CODE: i32 = 34;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> GetSegmentAttributeCommand {
-        let decoded: GetSegmentAttributeCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -870,13 +833,11 @@ impl Command for SegmentAttributeCommand {
     const TYPE_CODE: i32 = 35;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> SegmentAttributeCommand {
-        let decoded: SegmentAttributeCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -903,13 +864,11 @@ impl Command for UpdateSegmentAttributeCommand {
     const TYPE_CODE: i32 = 36;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> UpdateSegmentAttributeCommand {
-        let decoded: UpdateSegmentAttributeCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -932,13 +891,11 @@ impl Command for SegmentAttributeUpdatedCommand {
     const TYPE_CODE: i32 = 37;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> SegmentAttributeUpdatedCommand {
-        let decoded: SegmentAttributeUpdatedCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -962,13 +919,11 @@ impl Command for GetStreamSegmentInfoCommand {
     const TYPE_CODE: i32 = 11;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> GetStreamSegmentInfoCommand {
-        let decoded: GetStreamSegmentInfoCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -997,13 +952,11 @@ impl Command for StreamSegmentInfoCommand {
     const TYPE_CODE: i32 = 12;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> StreamSegmentInfoCommand {
-        let decoded: StreamSegmentInfoCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1029,13 +982,11 @@ impl Command for CreateSegmentCommand {
     const TYPE_CODE: i32 = 20;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> CreateSegmentCommand {
-        let decoded: CreateSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1059,13 +1010,11 @@ impl Command for CreateTableSegmentCommand {
     const TYPE_CODE: i32 = 70;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> CreateTableSegmentCommand {
-        let decoded: CreateTableSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1088,13 +1037,11 @@ impl Command for SegmentCreatedCommand {
     const TYPE_CODE: i32 = 21;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> SegmentCreatedCommand {
-        let decoded: SegmentCreatedCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1120,13 +1067,11 @@ impl Command for UpdateSegmentPolicyCommand {
     const TYPE_CODE: i32 = 32;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> UpdateSegmentPolicyCommand {
-        let decoded: UpdateSegmentPolicyCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1149,13 +1094,11 @@ impl Command for SegmentPolicyUpdatedCommand {
     const TYPE_CODE: i32 = 33;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> SegmentPolicyUpdatedCommand {
-        let decoded: SegmentPolicyUpdatedCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1180,13 +1123,11 @@ impl Command for MergeSegmentsCommand {
     const TYPE_CODE: i32 = 58;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> MergeSegmentsCommand {
-        let decoded: MergeSegmentsCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1210,13 +1151,11 @@ impl Command for MergeTableSegmentsCommand {
     const TYPE_CODE: i32 = 72;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> MergeTableSegmentsCommand {
-        let decoded: MergeTableSegmentsCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1241,13 +1180,11 @@ impl Command for SegmentsMergedCommand {
     const TYPE_CODE: i32 = 59;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> SegmentsMergedCommand {
-        let decoded: SegmentsMergedCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1271,13 +1208,11 @@ impl Command for SealSegmentCommand {
     const TYPE_CODE: i32 = 28;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> SealSegmentCommand {
-        let decoded: SealSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1301,13 +1236,11 @@ impl Command for SealTableSegmentCommand {
     const TYPE_CODE: i32 = 73;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> SealTableSegmentCommand {
-        let decoded: SealTableSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1330,13 +1263,11 @@ impl Command for SegmentSealedCommand {
     const TYPE_CODE: i32 = 29;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> SegmentSealedCommand {
-        let decoded: SegmentSealedCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1361,13 +1292,11 @@ impl Command for TruncateSegmentCommand {
     const TYPE_CODE: i32 = 38;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> TruncateSegmentCommand {
-        let decoded: TruncateSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1390,13 +1319,11 @@ impl Command for SegmentTruncatedCommand {
     const TYPE_CODE: i32 = 39;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> SegmentTruncatedCommand {
-        let decoded: SegmentTruncatedCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1420,13 +1347,11 @@ impl Command for DeleteSegmentCommand {
     const TYPE_CODE: i32 = 30;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> DeleteSegmentCommand {
-        let decoded: DeleteSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1450,13 +1375,11 @@ pub struct DeleteTableSegmentCommand {
 impl Command for DeleteTableSegmentCommand {
     const TYPE_CODE: i32 = 71;
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> DeleteTableSegmentCommand {
-        let decoded: DeleteTableSegmentCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1479,13 +1402,11 @@ impl Command for SegmentDeletedCommand {
     const TYPE_CODE: i32 = 31;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> SegmentDeletedCommand {
-        let decoded: SegmentDeletedCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1552,13 +1473,11 @@ impl Command for AuthTokenCheckFailedCommand {
     const TYPE_CODE: i32 = 60;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> AuthTokenCheckFailedCommand {
-        let decoded: AuthTokenCheckFailedCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1608,13 +1527,11 @@ impl Command for UpdateTableEntriesCommand {
     const TYPE_CODE: i32 = 74;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> UpdateTableEntriesCommand {
-        let decoded: UpdateTableEntriesCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1637,13 +1554,11 @@ impl Command for TableEntriesUpdatedCommand {
     const TYPE_CODE: i32 = 75;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> TableEntriesUpdatedCommand {
-        let decoded: TableEntriesUpdatedCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1668,13 +1583,11 @@ impl Command for RemoveTableKeysCommand {
     const TYPE_CODE: i32 = 76;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> RemoveTableKeysCommand {
-        let decoded: RemoveTableKeysCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1697,13 +1610,11 @@ impl Command for TableKeysRemovedCommand {
     const TYPE_CODE: i32 = 77;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> TableKeysRemovedCommand {
-        let decoded: TableKeysRemovedCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1728,13 +1639,11 @@ impl Command for ReadTableCommand {
     const TYPE_CODE: i32 = 78;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> ReadTableCommand {
-        let decoded: ReadTableCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1758,13 +1667,11 @@ impl Command for TableReadCommand {
     const TYPE_CODE: i32 = 79;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> TableReadCommand {
-        let decoded: TableReadCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1790,13 +1697,11 @@ impl Command for ReadTableKeysCommand {
     const TYPE_CODE: i32 = 83;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> ReadTableKeysCommand {
-        let decoded: ReadTableKeysCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1821,13 +1726,11 @@ impl Command for TableKeysReadCommand {
     const TYPE_CODE: i32 = 84;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> TableKeysReadCommand {
-        let decoded: TableKeysReadCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1853,13 +1756,11 @@ impl Command for ReadTableEntriesCommand {
     const TYPE_CODE: i32 = 85;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> ReadTableEntriesCommand {
-        let decoded: ReadTableEntriesCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1884,13 +1785,11 @@ impl Command for TableEntriesReadCommand {
     const TYPE_CODE: i32 = 86;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> TableEntriesReadCommand {
-        let decoded: TableEntriesReadCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1914,13 +1813,11 @@ impl Command for TableKeyDoesNotExistCommand {
     const TYPE_CODE: i32 = 81;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> TableKeyDoesNotExistCommand {
-        let decoded: TableKeyDoesNotExistCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
@@ -1958,13 +1855,11 @@ impl Command for TableKeyBadVersionCommand {
     const TYPE_CODE: i32 = 82;
 
     fn write_fields(&self) -> Vec<u8> {
-        let encoded = CONFIG.serialize(&self).unwrap();
-        encoded
+        CONFIG.serialize(&self).unwrap()
     }
 
     fn read_from(input: &[u8]) -> TableKeyBadVersionCommand {
-        let decoded: TableKeyBadVersionCommand = CONFIG.deserialize(&input[..]).unwrap();
-        decoded
+        CONFIG.deserialize(&input[..]).unwrap()
     }
 }
 
