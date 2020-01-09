@@ -7,16 +7,17 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
+
+use super::error::Connect;
+use super::error::ConnectionError;
+use super::error::ReadData;
+use super::error::SendData;
 use async_trait::async_trait;
-use snafu::{ResultExt};
+use snafu::ResultExt;
 use std::fmt;
 use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use super::error::ConnectionError;
-use super::error::Connect;
-use super::error::SendData;
-use super::error::ReadData;
 
 #[derive(Debug)]
 pub enum ConnectionType {

@@ -14,8 +14,8 @@ extern crate lazy_static;
 #[allow(dead_code)]
 pub mod wire_protocol {
     mod commands;
-    mod wire_commands;
     mod error;
+    mod wire_commands;
     //Public for docs to build. (TODO: Is there a better way to do this?)
     pub mod connection_factory;
     #[cfg(test)]
