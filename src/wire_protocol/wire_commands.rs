@@ -1,6 +1,6 @@
 use super::commands::*;
 use super::error::CommandError;
-use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
+use byteorder::{BigEndian, ByteOrder};
 
 #[derive(PartialEq, Debug)]
 pub enum WireCommands {
@@ -77,459 +77,345 @@ impl Encode for WireCommands {
         let mut res = Vec::new();
         match self {
             WireCommands::Hello(hello_cmd) => {
-                res.write_i32::<BigEndian>(HelloCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&HelloCommand::TYPE_CODE.to_be_bytes());
                 let se = hello_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::WrongHost(wrong_host_cmd) => {
-                res.write_i32::<BigEndian>(WrongHostCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&WrongHostCommand::TYPE_CODE.to_be_bytes());
                 let se = wrong_host_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::SegmentIsSealed(seg_is_sealed_cmd) => {
-                res.write_i32::<BigEndian>(SegmentIsSealedCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&SegmentIsSealedCommand::TYPE_CODE.to_be_bytes());
                 let se = seg_is_sealed_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::SegmentAlreadyExists(seg_already_exists_cmd) => {
-                res.write_i32::<BigEndian>(SegmentAlreadyExistsCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&SegmentAlreadyExistsCommand::TYPE_CODE.to_be_bytes());
                 let se = seg_already_exists_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::SegmentIsTruncated(seg_is_truncated_cmd) => {
-                res.write_i32::<BigEndian>(SegmentIsTruncatedCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&SegmentIsTruncatedCommand::TYPE_CODE.to_be_bytes());
                 let se = seg_is_truncated_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::NoSuchSegment(no_such_seg_cmd) => {
-                res.write_i32::<BigEndian>(NoSuchSegmentCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&NoSuchSegmentCommand::TYPE_CODE.to_be_bytes());
                 let se = no_such_seg_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::TableSegmentNotEmpty(table_seg_not_empty_cmd) => {
-                res.write_i32::<BigEndian>(TableSegmentNotEmptyCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&TableSegmentNotEmptyCommand::TYPE_CODE.to_be_bytes());
                 let se = table_seg_not_empty_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::InvalidEventNumber(invalid_event_num_cmd) => {
-                res.write_i32::<BigEndian>(InvalidEventNumberCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&InvalidEventNumberCommand::TYPE_CODE.to_be_bytes());
                 let se = invalid_event_num_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::OperationUnsupported(operation_unsupported_cmd) => {
-                res.write_i32::<BigEndian>(OperationUnsupportedCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&OperationUnsupportedCommand::TYPE_CODE.to_be_bytes());
                 let se = operation_unsupported_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::Padding(padding_command) => {
-                res.write_i32::<BigEndian>(PaddingCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&PaddingCommand::TYPE_CODE.to_be_bytes());
                 let se = padding_command.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::PartialEvent(partial_event_cmd) => {
-                res.write_i32::<BigEndian>(PartialEventCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&PartialEventCommand::TYPE_CODE.to_be_bytes());
                 let se = partial_event_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::Event(event_cmd) => {
-                res.write_i32::<BigEndian>(EventCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&EventCommand::TYPE_CODE.to_be_bytes());
                 let se = event_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::SetupAppend(setup_append_cmd) => {
-                res.write_i32::<BigEndian>(SetupAppendCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&SetupAppendCommand::TYPE_CODE.to_be_bytes());
                 let se = setup_append_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::AppendBlock(append_block_cmd) => {
-                res.write_i32::<BigEndian>(AppendBlockCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&AppendBlockCommand::TYPE_CODE.to_be_bytes());
                 let se = append_block_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::AppendBlockEnd(append_block_end_cmd) => {
-                res.write_i32::<BigEndian>(AppendBlockEndCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&AppendBlockEndCommand::TYPE_CODE.to_be_bytes());
                 let se = append_block_end_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::ConditionalAppend(conditional_append_cmd) => {
-                res.write_i32::<BigEndian>(ConditionalAppendCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&ConditionalAppendCommand::TYPE_CODE.to_be_bytes());
                 let se = conditional_append_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::AppendSetup(append_setup_cmd) => {
-                res.write_i32::<BigEndian>(AppendSetupCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&AppendSetupCommand::TYPE_CODE.to_be_bytes());
                 let se = append_setup_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::DataAppended(data_appended_cmd) => {
-                res.write_i32::<BigEndian>(DataAppendedCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&DataAppendedCommand::TYPE_CODE.to_be_bytes());
                 let se = data_appended_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::ConditionalCheckFailed(conditional_check_failed_cmd) => {
-                res.write_i32::<BigEndian>(ConditionalCheckFailedCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&ConditionalCheckFailedCommand::TYPE_CODE.to_be_bytes());
                 let se = conditional_check_failed_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::ReadSegment(read_segment_cmd) => {
-                res.write_i32::<BigEndian>(ReadSegmentCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&ReadSegmentCommand::TYPE_CODE.to_be_bytes());
                 let se = read_segment_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::SegmentRead(segment_read_cmd) => {
-                res.write_i32::<BigEndian>(SegmentReadCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&SegmentReadCommand::TYPE_CODE.to_be_bytes());
                 let se = segment_read_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::GetSegmentAttribute(get_segment_attribute_cmd) => {
-                res.write_i32::<BigEndian>(GetSegmentAttributeCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&GetSegmentAttributeCommand::TYPE_CODE.to_be_bytes());
                 let se = get_segment_attribute_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::SegmentAttribute(segment_attribute_cmd) => {
-                res.write_i32::<BigEndian>(SegmentAttributeCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&SegmentAttributeCommand::TYPE_CODE.to_be_bytes());
                 let se = segment_attribute_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::UpdateSegmentAttribute(update_segment_attribute_cmd) => {
-                res.write_i32::<BigEndian>(UpdateSegmentAttributeCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&UpdateSegmentAttributeCommand::TYPE_CODE.to_be_bytes());
                 let se = update_segment_attribute_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::SegmentAttributeUpdated(segment_attribute_updated_cmd) => {
-                res.write_i32::<BigEndian>(SegmentAttributeUpdatedCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&SegmentAttributeUpdatedCommand::TYPE_CODE.to_be_bytes());
                 let se = segment_attribute_updated_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::GetStreamSegmentInfo(get_stream_segment_info_cmd) => {
-                res.write_i32::<BigEndian>(GetStreamSegmentInfoCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&GetStreamSegmentInfoCommand::TYPE_CODE.to_be_bytes());
                 let se = get_stream_segment_info_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::StreamSegmentInfo(stream_segment_info_cmd) => {
-                res.write_i32::<BigEndian>(StreamSegmentInfoCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&StreamSegmentInfoCommand::TYPE_CODE.to_be_bytes());
                 let se = stream_segment_info_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::CreateSegment(create_segment_cmd) => {
-                res.write_i32::<BigEndian>(CreateSegmentCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&CreateSegmentCommand::TYPE_CODE.to_be_bytes());
                 let se = create_segment_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::CreateTableSegment(create_table_segment_command) => {
-                res.write_i32::<BigEndian>(CreateTableSegmentCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&CreateTableSegmentCommand::TYPE_CODE.to_be_bytes());
                 let se = create_table_segment_command.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::SegmentCreated(segment_created_cmd) => {
-                res.write_i32::<BigEndian>(SegmentCreatedCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&SegmentCreatedCommand::TYPE_CODE.to_be_bytes());
                 let se = segment_created_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::UpdateSegmentPolicy(update_segment_policy_cmd) => {
-                res.write_i32::<BigEndian>(UpdateSegmentPolicyCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&UpdateSegmentPolicyCommand::TYPE_CODE.to_be_bytes());
                 let se = update_segment_policy_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::SegmentPolicyUpdated(segment_policy_updated_cmd) => {
-                res.write_i32::<BigEndian>(SegmentPolicyUpdatedCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&SegmentPolicyUpdatedCommand::TYPE_CODE.to_be_bytes());
                 let se = segment_policy_updated_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se)
             }
             WireCommands::MergeSegments(merge_segments_cmd) => {
-                res.write_i32::<BigEndian>(MergeSegmentsCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&MergeSegmentsCommand::TYPE_CODE.to_be_bytes());
                 let se = merge_segments_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::MergeTableSegments(merge_table_segments_cmd) => {
-                res.write_i32::<BigEndian>(MergeTableSegmentsCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&MergeTableSegmentsCommand::TYPE_CODE.to_be_bytes());
                 let se = merge_table_segments_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::SegmentsMerged(segments_merged_cmd) => {
-                res.write_i32::<BigEndian>(SegmentsMergedCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&SegmentsMergedCommand::TYPE_CODE.to_be_bytes());
                 let se = segments_merged_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::SealSegment(seal_segment_cmd) => {
-                res.write_i32::<BigEndian>(SealSegmentCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&SealSegmentCommand::TYPE_CODE.to_be_bytes());
                 let se = seal_segment_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::SealTableSegment(seal_table_segment_cmd) => {
-                res.write_i32::<BigEndian>(SealTableSegmentCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&SealTableSegmentCommand::TYPE_CODE.to_be_bytes());
                 let se = seal_table_segment_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::SegmentSealed(segment_sealed_cmd) => {
-                res.write_i32::<BigEndian>(SegmentSealedCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&SegmentSealedCommand::TYPE_CODE.to_be_bytes());
                 let se = segment_sealed_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::TruncateSegment(truncate_segment_cmd) => {
-                res.write_i32::<BigEndian>(TruncateSegmentCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&TruncateSegmentCommand::TYPE_CODE.to_be_bytes());
                 let se = truncate_segment_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::SegmentTruncated(segment_truncated_cmd) => {
-                res.write_i32::<BigEndian>(SegmentTruncatedCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&SegmentTruncatedCommand::TYPE_CODE.to_be_bytes());
                 let se = segment_truncated_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::DeleteSegment(delete_segment_cmd) => {
-                res.write_i32::<BigEndian>(DeleteSegmentCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&DeleteSegmentCommand::TYPE_CODE.to_be_bytes());
                 let se = delete_segment_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::DeleteTableSegment(delete_table_segment_cmd) => {
-                res.write_i32::<BigEndian>(DeleteTableSegmentCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&DeleteTableSegmentCommand::TYPE_CODE.to_be_bytes());
                 let se = delete_table_segment_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::SegmentDeleted(segment_deleted_cmd) => {
-                res.write_i32::<BigEndian>(SegmentDeletedCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&SegmentDeletedCommand::TYPE_CODE.to_be_bytes());
                 let se = segment_deleted_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::KeepAlive(keep_alive_cmd) => {
-                res.write_i32::<BigEndian>(KeepAliveCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&KeepAliveCommand::TYPE_CODE.to_be_bytes());
                 let se = keep_alive_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::AuthTokenCheckFailed(auth_token_check_failed_cmd) => {
-                res.write_i32::<BigEndian>(AuthTokenCheckFailedCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&AuthTokenCheckFailedCommand::TYPE_CODE.to_be_bytes());
                 let se = auth_token_check_failed_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::UpdateTableEntries(update_table_entries_cmd) => {
-                res.write_i32::<BigEndian>(UpdateTableEntriesCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&UpdateTableEntriesCommand::TYPE_CODE.to_be_bytes());
                 let se = update_table_entries_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::TableEntriesUpdated(table_entries_updated_cmd) => {
-                res.write_i32::<BigEndian>(TableEntriesUpdatedCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&TableEntriesUpdatedCommand::TYPE_CODE.to_be_bytes());
                 let se = table_entries_updated_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::RemoveTableKeys(remove_table_keys_cmd) => {
-                res.write_i32::<BigEndian>(RemoveTableKeysCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&RemoveTableKeysCommand::TYPE_CODE.to_be_bytes());
                 let se = remove_table_keys_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::TableKeysRemoved(table_key_removed_cmd) => {
-                res.write_i32::<BigEndian>(TableKeysRemovedCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&TableKeysRemovedCommand::TYPE_CODE.to_be_bytes());
                 let se = table_key_removed_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::ReadTable(read_table_cmd) => {
-                res.write_i32::<BigEndian>(ReadTableCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&ReadTableCommand::TYPE_CODE.to_be_bytes());
                 let se = read_table_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::TableRead(table_read_cmd) => {
-                res.write_i32::<BigEndian>(TableReadCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&TableReadCommand::TYPE_CODE.to_be_bytes());
                 let se = table_read_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::ReadTableKeys(read_table_keys_cmd) => {
-                res.write_i32::<BigEndian>(ReadTableKeysCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&ReadTableKeysCommand::TYPE_CODE.to_be_bytes());
                 let se = read_table_keys_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::TableKeysRead(table_keys_read_cmd) => {
-                res.write_i32::<BigEndian>(TableKeysReadCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&TableKeysReadCommand::TYPE_CODE.to_be_bytes());
                 let se = table_keys_read_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::ReadTableEntries(read_table_entries_cmd) => {
-                res.write_i32::<BigEndian>(ReadTableEntriesCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&ReadTableEntriesCommand::TYPE_CODE.to_be_bytes());
                 let se = read_table_entries_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::TableEntriesRead(table_entries_read_cmd) => {
-                res.write_i32::<BigEndian>(TableEntriesReadCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&TableEntriesReadCommand::TYPE_CODE.to_be_bytes());
                 let se = table_entries_read_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::TableKeyDoesNotExist(table_key_does_not_exist_cmd) => {
-                res.write_i32::<BigEndian>(TableKeyDoesNotExistCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&TableKeyDoesNotExistCommand::TYPE_CODE.to_be_bytes());
                 let se = table_key_does_not_exist_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             WireCommands::TableKeyBadVersion(table_key_bad_version_cmd) => {
-                res.write_i32::<BigEndian>(TableKeyBadVersionCommand::TYPE_CODE)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&TableKeyBadVersionCommand::TYPE_CODE.to_be_bytes());
                 let se = table_key_bad_version_cmd.write_fields()?;
-                res.write_i32::<BigEndian>(se.len() as i32)
-                    .expect("Writing to an in memory vec");
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
             _ => panic!("Unknown WireCommands"),
