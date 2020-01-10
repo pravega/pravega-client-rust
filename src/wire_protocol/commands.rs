@@ -2,7 +2,7 @@ use super::error::CommandError;
 use super::error::InvalidData;
 use super::error::Io;
 use bincode::Config;
-use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
 use serde::de::{self, Deserializer, Unexpected, Visitor};
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
@@ -507,15 +507,7 @@ impl Command for PaddingCommand {
     const TYPE_CODE: i32 = -1;
 
     fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
-        let mut res = Vec::new();
-        for _i in 0..(self.length / 8) {
-            res.extend_from_slice(&0_i64.to_be_bytes());
-        }
-        for _i in 0..(self.length % 8) {
-            res.write_u8(0).context(Io {
-                command_type: Self::TYPE_CODE,
-            })?;
-        }
+        let res = vec![0; self.length as usize];
         Ok(res)
     }
 
