@@ -78,7 +78,7 @@ impl Serialize for JavaString {
         let binary = self.0.as_bytes();
         // Serialize
         let mut content = vec![];
-        content.write_u16::<BigEndian>(length).unwrap();
+        content.extend_from_slice(&length.to_be_bytes());
         content.extend(binary);
         serializer.serialize_bytes(&content)
     }
@@ -509,9 +509,7 @@ impl Command for PaddingCommand {
     fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
         let mut res = Vec::new();
         for _i in 0..(self.length / 8) {
-            res.write_i64::<BigEndian>(0).context(Io {
-                command_type: Self::TYPE_CODE,
-            })?;
+            res.extend_from_slice(&0_i64.to_be_bytes());
         }
         for _i in 0..(self.length % 8) {
             res.write_u8(0).context(Io {
@@ -566,10 +564,7 @@ impl Command for EventCommand {
     const TYPE_CODE: i32 = 0;
     fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
         let mut res = Vec::new();
-        res.write_i32::<BigEndian>(EventCommand::TYPE_CODE)
-            .context(Io {
-                command_type: Self::TYPE_CODE,
-            })?;
+        res.extend_from_slice(&EventCommand::TYPE_CODE.to_be_bytes());
         let encoded = CONFIG.serialize(&self).context(InvalidData {
             command_type: Self::TYPE_CODE,
         })?;
@@ -710,22 +705,13 @@ impl Command for ConditionalAppendCommand {
     // Because in CondtionalAppend the event should be serialize as |type_code|length|data|
     fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
         let mut res = Vec::new();
-        res.write_u128::<BigEndian>(self.writer_id).context(Io {
-            command_type: Self::TYPE_CODE,
-        })?;
-        res.write_i64::<BigEndian>(self.event_number).context(Io {
-            command_type: Self::TYPE_CODE,
-        })?;
-        res.write_i64::<BigEndian>(self.expected_offset)
-            .context(Io {
-                command_type: Self::TYPE_CODE,
-            })?;
+        res.extend_from_slice(&self.writer_id.to_be_bytes());
+        res.extend_from_slice(&self.event_number.to_be_bytes());
+        res.extend_from_slice(&self.expected_offset.to_be_bytes());
         res.write_all(&self.event.write_fields()?).context(Io {
             command_type: Self::TYPE_CODE,
         })?;
-        res.write_i64::<BigEndian>(self.request_id).context(Io {
-            command_type: Self::TYPE_CODE,
-        })?;
+        res.extend_from_slice(&self.request_id.to_be_bytes());
         Ok(res)
     }
 
