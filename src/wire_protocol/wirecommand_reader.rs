@@ -15,7 +15,7 @@ use byteorder::{BigEndian, ReadBytesExt};
 use snafu::{ensure, ResultExt, Snafu};
 use std::io::Cursor;
 
-pub const MAX_WIRECOMMAND_SIZE: u32 = 0x007FFFFF;
+pub const MAX_WIRECOMMAND_SIZE: u32 = 0x007F_FFFF;
 pub const LENGTH_FIELD_OFFSET: u32 = 4;
 pub const LENGTH_FIELD_LENGTH: u32 = 4;
 
@@ -55,7 +55,7 @@ impl WireCommandReader {
             })?;
 
         let mut rdr = Cursor::new(&header[4..8]);
-        let payload_length = rdr.read_u32::<BigEndian>().unwrap();
+        let payload_length = rdr.read_u32::<BigEndian>().expect("Exact size");
 
         ensure!(
             payload_length <= MAX_WIRECOMMAND_SIZE,
