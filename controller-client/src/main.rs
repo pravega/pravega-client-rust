@@ -7,8 +7,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     let request = ScopeInfo {
         scope: "testScope123".into(),
     };
-    let response: CreateScopeStatus = create_scope(request, &mut client).await;
-    println!("Response for create_scope is {:?}", response);
+    let scope_result = create_scope(request, &mut client).await;
+    println!("Response for create_scope is {:?}", scope_result);
 
     let request2 = StreamConfig {
         stream_info: Some(StreamInfo {
@@ -23,8 +23,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
         }),
         retention_policy: None,
     };
-    let response2: CreateStreamStatus = create_stream(request2, &mut client).await;
-    println!("Response 2 for create_stream is {:?}", response2);
+    let stream_result: Result<bool, ControllerError> = create_stream(request2, &mut client).await;
+    println!("Response for create_stream is {:?}", stream_result);
 
     Ok(())
 }
