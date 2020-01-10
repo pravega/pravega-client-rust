@@ -709,19 +709,14 @@ impl Command for ConditionalAppendCommand {
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
         let mut rdr = Cursor::new(input);
-        let writer_id = rdr.read_u128::<BigEndian>().context(Io {
+        let ctx = Io {
             command_type: Self::TYPE_CODE,
-        })?;
-        let event_number = rdr.read_i64::<BigEndian>().context(Io {
-            command_type: Self::TYPE_CODE,
-        })?;
-        let expected_offset = rdr.read_i64::<BigEndian>().context(Io {
-            command_type: Self::TYPE_CODE,
-        })?;
+        };
+        let writer_id = rdr.read_u128::<BigEndian>().context(ctx)?;
+        let event_number = rdr.read_i64::<BigEndian>().context(ctx)?;
+        let expected_offset = rdr.read_i64::<BigEndian>().context(ctx)?;
         let event = ConditionalAppendCommand::read_event(&mut rdr);
-        let request_id = rdr.read_i64::<BigEndian>().context(Io {
-            command_type: Self::TYPE_CODE,
-        })?;
+        let request_id = rdr.read_i64::<BigEndian>().context(ctx)?;
         Ok(ConditionalAppendCommand {
             writer_id,
             event_number,
