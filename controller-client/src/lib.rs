@@ -17,10 +17,33 @@ mod controller {
 mod test;
 
 pub use controller::{
-    controller_service_client::ControllerServiceClient, scaling_policy::ScalingPolicyType,
-    CreateScopeStatus, CreateStreamStatus, ScalingPolicy, ScopeInfo, StreamConfig, StreamInfo,
+    controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
+    scaling_policy::ScalingPolicyType, CreateScopeStatus, CreateStreamStatus, ScalingPolicy,
+    ScopeInfo, StreamConfig, StreamInfo,
 };
+use snafu::Snafu;
 use tonic::transport::channel::Channel;
+use tonic::{Code, Status};
+
+#[derive(Debug, Snafu)]
+pub enum ControllerError {
+    #[snafu(display(
+        "Controller client failed to perform operation {} due to {}",
+        operation,
+        error_msg,
+    ))]
+    OperationError {
+        can_retry: bool,
+        operation: String,
+        error_msg: String,
+    },
+    #[snafu(display("Could not connect to controller {}", endpoint))]
+    ConnectionError {
+        can_retry: bool,
+        endpoint: String,
+        error_msg: String,
+    },
+}
 
 /// create_connection with the given controller uri.
 pub async fn create_connection(uri: &'static str) -> ControllerServiceClient<Channel> {
@@ -36,21 +59,74 @@ pub async fn create_connection(uri: &'static str) -> ControllerServiceClient<Cha
 pub async fn create_scope(
     request: ScopeInfo,
     ch: &mut ControllerServiceClient<Channel>,
-) -> CreateScopeStatus {
-    let op_status: tonic::Response<CreateScopeStatus> = ch
-        .create_scope(tonic::Request::new(request))
-        .await
-        .expect("Failed to create Scope");
-    op_status.into_inner() // return the scope status
+) -> Result<bool, ControllerError> {
+    let op_status: Result<tonic::Response<CreateScopeStatus>, tonic::Status> =
+        ch.create_scope(tonic::Request::new(request)).await;
+    let operation_name = "CreateScope";
+    match op_status {
+        Ok(code) => match code.into_inner().status() {
+            create_scope_status::Status::Success => Ok(true),
+            create_scope_status::Status::ScopeExists => Ok(false),
+            create_scope_status::Status::InvalidScopeName => Err(ControllerError::OperationError {
+                can_retry: false, // do not retry.
+                operation: operation_name.into(),
+                error_msg: "Invalid scope".into(),
+            }),
+            _ => Err(ControllerError::OperationError {
+                can_retry: true,
+                operation: operation_name.into(),
+                error_msg: "Operation failed".into(),
+            }),
+        },
+        Err(status) => Err(map_grpc_error(operation_name, status)),
+    }
+}
+
+// Method used to translate grpc errors to custom error.
+fn map_grpc_error(operation_name: &str, status: Status) -> ControllerError {
+    match status.code() {
+        Code::InvalidArgument
+        | Code::NotFound
+        | Code::AlreadyExists
+        | Code::PermissionDenied
+        | Code::OutOfRange
+        | Code::Unimplemented
+        | Code::Unauthenticated => ControllerError::OperationError {
+            can_retry: false,
+            operation: operation_name.into(),
+            error_msg: status.to_string(),
+        },
+        _ => ControllerError::OperationError {
+            can_retry: true, // retry is enabled for all other errors
+            operation: operation_name.into(),
+            error_msg: status.to_string(),
+        },
+    }
 }
 
 pub async fn create_stream(
     request: StreamConfig,
     ch: &mut ControllerServiceClient<Channel>,
-) -> CreateStreamStatus {
-    let op_status: tonic::Response<CreateStreamStatus> = ch
-        .create_stream(tonic::Request::new(request))
-        .await
-        .expect("Failed to create Stream");
-    op_status.into_inner() // return create Stream status
+) -> Result<bool, ControllerError> {
+    let op_status: Result<tonic::Response<CreateStreamStatus>, tonic::Status> =
+        ch.create_stream(tonic::Request::new(request)).await;
+    let operation_name = "CreateStream";
+    match op_status {
+        Ok(code) => match code.into_inner().status() {
+            create_stream_status::Status::Success => Ok(true),
+            create_stream_status::Status::StreamExists => Ok(false),
+            create_stream_status::Status::InvalidStreamName
+            | create_stream_status::Status::ScopeNotFound => Err(ControllerError::OperationError {
+                can_retry: false, // do not retry.
+                operation: operation_name.into(),
+                error_msg: "Invalid Stream/Scope Not Found".into(),
+            }),
+            _ => Err(ControllerError::OperationError {
+                can_retry: true, // retry for all other errors
+                operation: operation_name.into(),
+                error_msg: "Operation failed".into(),
+            }),
+        },
+        Err(status) => Err(map_grpc_error(operation_name, status)),
+    }
 }
