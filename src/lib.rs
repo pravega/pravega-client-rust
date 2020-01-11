@@ -20,13 +20,13 @@
 )]
 #![warn(
     clippy::cargo_common_metadata,
-    clippy::multiple_crate_versions,
     clippy::mutex_integer,
     clippy::needless_borrow,
     clippy::option_unwrap_used,
     clippy::result_unwrap_used,
     clippy::similar_names
 )]
+#![allow(clippy::multiple_crate_versions)]
 
 #[macro_use]
 extern crate lazy_static;
