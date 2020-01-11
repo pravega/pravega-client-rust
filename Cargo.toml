@@ -7,7 +7,6 @@ keywords = ["streaming", "client", "pravega"]
 readme = "Readme.md"
 repository = "https://github.com/pravega/pravega-client-rust"
 license = "Apache-2.0"
-license-file = "LICENSE"
 description = "A Rust client for Pravega. (Pravega.io)"
 authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.com>",
            "Sandeep Shridhar <sandeep.shridhar@dell.com>", "Wenxiao Zhang <wenxiao.zhang@dell.com>"]
