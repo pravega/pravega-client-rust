@@ -68,7 +68,7 @@ pub trait Encode {
 }
 
 pub trait Decode {
-    fn read_from(raw_input: &Vec<u8>) -> Result<WireCommands, CommandError>;
+    fn read_from(raw_input: &[u8]) -> Result<WireCommands, CommandError>;
 }
 
 impl Encode for WireCommands {
@@ -423,7 +423,7 @@ impl Encode for WireCommands {
 }
 
 impl Decode for WireCommands {
-    fn read_from(raw_input: &Vec<u8>) -> Result<WireCommands, CommandError> {
+    fn read_from(raw_input: &[u8]) -> Result<WireCommands, CommandError> {
         let type_code = BigEndian::read_i32(raw_input);
         let _length = BigEndian::read_i32(&raw_input[4..]);
         let input = &raw_input[8..];
