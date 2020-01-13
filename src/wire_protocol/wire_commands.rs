@@ -4,7 +4,6 @@ use byteorder::{BigEndian, ByteOrder};
 
 #[derive(PartialEq, Debug)]
 pub enum WireCommands {
-    UnknownCommand,
     Hello(HelloCommand),
     WrongHost(WrongHostCommand),
     SegmentIsSealed(SegmentIsSealedCommand),
@@ -418,7 +417,6 @@ impl Encode for WireCommands {
                 res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
-            _ => panic!("Unknown WireCommands"),
         }
         Ok(res)
     }
@@ -600,7 +598,9 @@ impl Decode for WireCommands {
             TableKeyBadVersionCommand::TYPE_CODE => Ok(WireCommands::TableKeyBadVersion(
                 TableKeyBadVersionCommand::read_from(input)?,
             )),
-            _ => Ok(WireCommands::UnknownCommand),
+            _ => Err(CommandError::InvalidType {
+                command_type: type_code,
+            }),
         }
     }
 }

@@ -681,20 +681,20 @@ pub struct ConditionalAppendCommand {
 }
 
 impl ConditionalAppendCommand {
-    fn read_event(rdr: &mut Cursor<&[u8]>) -> EventCommand {
-        let _type_code = rdr.read_i32::<BigEndian>().unwrap();
-        let event_length = rdr.read_u64::<BigEndian>().unwrap();
+    fn read_event(rdr: &mut Cursor<&[u8]>) -> Result<EventCommand, std::io::Error> {
+        let _type_code = rdr.read_i32::<BigEndian>()?;
+        let event_length = rdr.read_u64::<BigEndian>()?;
         // read the data in event
         let mut msg: Vec<u8> = vec![0; event_length as usize];
-        rdr.read_exact(&mut msg).unwrap();
-        EventCommand { data: msg }
+        rdr.read_exact(&mut msg)?;
+        Ok(EventCommand { data: msg })
     }
 }
 
 impl Command for ConditionalAppendCommand {
     const TYPE_CODE: i32 = 5;
     // Customize the serialize and deserialize method.
-    // Because in CondtionalAppend the event should be serialize as |type_code|length|data|
+    // Because in ConditionalAppend the event should be serialize as |type_code|length|data|
     fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
         let mut res = Vec::new();
         res.extend_from_slice(&self.writer_id.to_be_bytes());
@@ -715,7 +715,7 @@ impl Command for ConditionalAppendCommand {
         let writer_id = rdr.read_u128::<BigEndian>().context(ctx)?;
         let event_number = rdr.read_i64::<BigEndian>().context(ctx)?;
         let expected_offset = rdr.read_i64::<BigEndian>().context(ctx)?;
-        let event = ConditionalAppendCommand::read_event(&mut rdr);
+        let event = ConditionalAppendCommand::read_event(&mut rdr).context(ctx)?;
         let request_id = rdr.read_i64::<BigEndian>().context(ctx)?;
         Ok(ConditionalAppendCommand {
             writer_id,
