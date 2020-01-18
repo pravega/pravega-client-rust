@@ -37,7 +37,7 @@ impl WireCommandReader {
             })?;
 
         let mut rdr = Cursor::new(&header[4..8]);
-        let payload_length = rdr.read_u32::<BigEndian>().unwrap();
+        let payload_length = rdr.read_u32::<BigEndian>().expect("Exact size");
 
         ensure!(
             payload_length <= MAX_WIRECOMMAND_SIZE,

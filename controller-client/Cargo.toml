@@ -3,7 +3,14 @@ name = "pravega-controller-client"
 version = "0.1.0"
 edition = "2018"
 build = "build.rs"
-
+categories = ["Network programming"]
+keywords = ["streaming", "client", "pravega"]
+readme = "Readme.md"
+repository = "https://github.com/pravega/pravega-client-rust"
+license = "Apache-2.0"
+description = "An internal library used by the Rust client for Pravega to talk to the Pravega controller."
+authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.com>",
+           "Sandeep Shridhar <sandeep.shridhar@dell.com>", "Wenxiao Zhang <wenxiao.zhang@dell.com>"]
 
 [dependencies]
 tonic = "0.1.0-beta.1" # using a * as per tonic documentation does not work.

@@ -2,6 +2,14 @@
 name = "pravega-client-rust"
 version = "0.1.0"
 edition = "2018"
+categories = ["Network programming"]
+keywords = ["streaming", "client", "pravega"]
+readme = "Readme.md"
+repository = "https://github.com/pravega/pravega-client-rust"
+license = "Apache-2.0"
+description = "A Rust client for Pravega. (Pravega.io)"
+authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.com>",
+           "Sandeep Shridhar <sandeep.shridhar@dell.com>", "Wenxiao Zhang <wenxiao.zhang@dell.com>"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
