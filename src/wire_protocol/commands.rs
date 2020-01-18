@@ -694,7 +694,7 @@ impl ConditionalAppendCommand {
 impl Command for ConditionalAppendCommand {
     const TYPE_CODE: i32 = 5;
     // Customize the serialize and deserialize method.
-    // Because in CondtionalAppend the event should be serialize as |type_code|length|data|
+    // Because in ConditionalAppend the event should be serialize as |type_code|length|data|
     fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
         let mut res = Vec::new();
         res.extend_from_slice(&self.writer_id.to_be_bytes());

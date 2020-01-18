@@ -49,6 +49,11 @@ pub enum CommandError {
         source
     ))]
     Io { command_type: i32, source: IoError },
+    #[snafu(display(
+        "Could not serialize/deserialize command {} because of: Unknown Command",
+        command_type
+    ))]
+    InvalidType { command_type: i32 },
 }
 
 /// This kind of error that can be produced during Pravega read Wire Commands.
