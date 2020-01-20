@@ -19,4 +19,5 @@ pub mod wire_protocol {
     #[cfg(test)]
     mod tests;
     pub mod wirecommand_reader;
+    pub mod connection_pool;
 }

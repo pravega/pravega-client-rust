@@ -10,9 +10,9 @@
 use async_trait::async_trait;
 use snafu::{ResultExt, Snafu};
 use std::fmt;
-use std::net::SocketAddr;
+use std::net::{SocketAddr, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
+use tokio::net::tcp::stream::TcpStream;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -75,12 +75,12 @@ pub trait ConnectionFactory {
     /// ```
     async fn establish_connection(
         &self,
-        connection_type: ConnectionType,
+        connection_type: Option<ConnectionType>,
         endpoint: SocketAddr,
     ) -> Result<Box<dyn Connection>>;
 }
 
-/// Connection can send and read data using  a TCP connection
+/// Connection can send and read data using a TCP connection
 #[async_trait]
 pub trait Connection {
     /// send_async will send a byte array payload to the remote server asynchronously.
@@ -130,22 +130,37 @@ pub trait Connection {
 
 pub struct ConnectionFactoryImpl {}
 
+impl ConnectionFactoryImpl {
+    fn establish_tokio_connection(&self, endpoint: SocketAddr) -> Result<Box<dyn Connection>> {
+        let stream = TcpStream::connect(endpoint).await.context(Connect {
+            connection_type,
+            endpoint,
+        })?;
+        let tokio_connection: Box<dyn Connection> =
+            Box::new(TokioConnection { endpoint, stream }) as Box<dyn Connection>;
+        Ok(tokio_connection)
+    }
+}
+
 #[async_trait]
 impl ConnectionFactory for ConnectionFactoryImpl {
     async fn establish_connection(
         &self,
-        connection_type: ConnectionType,
+        connection_type: Option<ConnectionType>,
         endpoint: SocketAddr,
     ) -> Result<Box<dyn Connection>> {
-        match connection_type {
-            ConnectionType::Tokio => {
-                let stream = TcpStream::connect(endpoint).await.context(Connect {
-                    connection_type,
-                    endpoint,
-                })?;
-                let tokio_connection: Box<dyn Connection> =
-                    Box::new(TokioConnection { endpoint, stream }) as Box<dyn Connection>;
-                Ok(tokio_connection)
+            match connection_type {
+                Some(conn_type) => {
+                    match conn_type {
+                        ConnectionType::Tokio => {
+                            self.establish_tokio_connection(endpoint)
+                        }
+                    }
+                }
+                None => {
+                    // Use default TokioConnection
+                    self.establish_tokio_connection(endpoint)
+                }
             }
         }
     }
