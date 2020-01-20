@@ -1,7 +1,7 @@
 use super::error::CommandError;
 use super::error::InvalidData;
 use super::error::Io;
-use bincode::Config;
+use bincode2::Config;
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
 use serde::de::{self, Deserializer, Unexpected, Visitor};
 use serde::ser::Serializer;
@@ -124,7 +124,7 @@ impl<'de> Deserialize<'de> for JavaString {
  */
 lazy_static! {
     static ref CONFIG: Config = {
-        let mut config = bincode::config();
+        let mut config = bincode2::config();
         config.big_endian();
         config
     };

@@ -1,5 +1,5 @@
 use super::connection_factory::ConnectionType;
-use bincode::Error as BincodeError;
+use bincode2::Error as BincodeError;
 use snafu::Snafu;
 use std::io::Error as IoError;
 use std::net::SocketAddr;
