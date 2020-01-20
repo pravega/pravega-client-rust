@@ -2,9 +2,8 @@ use super::error::CommandError;
 use super::error::InvalidData;
 use super::error::Io;
 use bincode2::Config;
+use bincode2::LengthOption;
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
-use serde::de::{self, Deserializer, Unexpected, Visitor};
-use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use std::fmt;
@@ -43,82 +42,6 @@ pub trait Reply {
     }
 }
 
-/**
- * Wrap String to follow Java Serialize/Deserialize Style.
- *
- */
-pub struct JavaString(pub String);
-
-impl fmt::Debug for JavaString {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl fmt::Display for JavaString {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl PartialEq for JavaString {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl Serialize for JavaString {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        // get the length of the String.
-        let length = self.0.len() as u16;
-        // get the content of the String.
-        let binary = self.0.as_bytes();
-        // Serialize
-        let mut content = vec![];
-        content.extend_from_slice(&length.to_be_bytes());
-        content.extend(binary);
-        serializer.serialize_bytes(&content)
-    }
-}
-
-struct JavaStringVisitor;
-
-impl<'de> Visitor<'de> for JavaStringVisitor {
-    type Value = JavaString;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> fmt::Result {
-        formatter.write_str("A Byte buffer which contains length and content")
-    }
-
-    fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        // get the length
-        let _length = ((value[0] as u16) << 8) | value[1] as u16;
-        // construct the JavaString
-        let content = String::from_utf8_lossy(&value[2..]).into_owned();
-
-        if _length == content.len() as u16 {
-            Ok(JavaString(content))
-        } else {
-            Err(de::Error::invalid_value(Unexpected::Bytes(&value), &self))
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for JavaString {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_byte_buf(JavaStringVisitor)
-    }
-}
-
 /*
  * bincode serialize and deserialize config
  */
@@ -126,6 +49,9 @@ lazy_static! {
     static ref CONFIG: Config = {
         let mut config = bincode2::config();
         config.big_endian();
+        config.limit(0x007f_ffff);
+        config.array_length(LengthOption::U32);
+        config.string_length(LengthOption::U16);
         config
     };
 }
@@ -174,9 +100,9 @@ impl Reply for HelloCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct WrongHostCommand {
     pub request_id: i64,
-    pub segment: JavaString,
-    pub correct_host: JavaString,
-    pub server_stack_trace: JavaString,
+    pub segment: String,
+    pub correct_host: String,
+    pub server_stack_trace: String,
 }
 
 impl Command for WrongHostCommand {
@@ -210,8 +136,8 @@ impl Reply for WrongHostCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentIsSealedCommand {
     pub request_id: i64,
-    pub segment: JavaString,
-    pub server_stack_trace: JavaString,
+    pub segment: String,
+    pub server_stack_trace: String,
     pub offset: i64,
 }
 
@@ -248,9 +174,9 @@ impl Reply for SegmentIsSealedCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentIsTruncatedCommand {
     pub request_id: i64,
-    pub segment: JavaString,
+    pub segment: String,
     pub start_offset: i64,
-    pub server_stack_trace: JavaString,
+    pub server_stack_trace: String,
     pub offset: i64,
 }
 
@@ -287,8 +213,8 @@ impl Reply for SegmentIsTruncatedCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentAlreadyExistsCommand {
     pub request_id: i64,
-    pub segment: JavaString,
-    pub server_stack_trace: JavaString,
+    pub segment: String,
+    pub server_stack_trace: String,
 }
 
 impl Command for SegmentAlreadyExistsCommand {
@@ -330,8 +256,8 @@ impl fmt::Display for SegmentAlreadyExistsCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct NoSuchSegmentCommand {
     pub request_id: i64,
-    pub segment: JavaString,
-    pub server_stack_trace: JavaString,
+    pub segment: String,
+    pub server_stack_trace: String,
     pub offset: i64,
 }
 
@@ -374,8 +300,8 @@ impl fmt::Display for NoSuchSegmentCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TableSegmentNotEmptyCommand {
     pub request_id: i64,
-    pub segment: JavaString,
-    pub server_stack_trace: JavaString,
+    pub segment: String,
+    pub server_stack_trace: String,
 }
 
 impl Command for TableSegmentNotEmptyCommand {
@@ -418,7 +344,7 @@ impl fmt::Display for TableSegmentNotEmptyCommand {
 pub struct InvalidEventNumberCommand {
     pub writer_id: u128,
     pub event_number: i64,
-    pub server_stack_trace: JavaString,
+    pub server_stack_trace: String,
 }
 
 impl Command for InvalidEventNumberCommand {
@@ -464,8 +390,8 @@ impl fmt::Display for InvalidEventNumberCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct OperationUnsupportedCommand {
     pub request_id: i64,
-    pub operation_name: JavaString,
-    pub server_stack_trace: JavaString,
+    pub operation_name: String,
+    pub server_stack_trace: String,
 }
 
 impl Command for OperationUnsupportedCommand {
@@ -581,8 +507,8 @@ impl Command for EventCommand {
 pub struct SetupAppendCommand {
     pub request_id: i64,
     pub writer_id: u128,
-    pub segment: JavaString,
-    pub delegation_token: JavaString,
+    pub segment: String,
+    pub delegation_token: String,
 }
 
 impl Command for SetupAppendCommand {
@@ -683,7 +609,7 @@ pub struct ConditionalAppendCommand {
 impl ConditionalAppendCommand {
     fn read_event(rdr: &mut Cursor<&[u8]>) -> Result<EventCommand, std::io::Error> {
         let _type_code = rdr.read_i32::<BigEndian>()?;
-        let event_length = rdr.read_u64::<BigEndian>()?;
+        let event_length = rdr.read_u32::<BigEndian>()?;
         // read the data in event
         let mut msg: Vec<u8> = vec![0; event_length as usize];
         rdr.read_exact(&mut msg)?;
@@ -739,7 +665,7 @@ impl Request for ConditionalAppendCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct AppendSetupCommand {
     pub request_id: i64,
-    pub segment: JavaString,
+    pub segment: String,
     pub writer_id: u128,
     pub last_event_number: i64,
 }
@@ -844,10 +770,10 @@ impl Reply for ConditionalAppendCommand {
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct ReadSegmentCommand {
-    pub segment: JavaString,
+    pub segment: String,
     pub offset: i64,
     pub suggested_length: i64,
-    pub delegation_token: JavaString,
+    pub delegation_token: String,
     pub request_id: i64,
 }
 
@@ -880,7 +806,7 @@ impl Request for ReadSegmentCommand {
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentReadCommand {
-    pub segment: JavaString,
+    pub segment: String,
     pub offset: i64,
     pub at_tail: bool,
     pub end_of_segment: bool,
@@ -918,9 +844,9 @@ impl Reply for SegmentReadCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct GetSegmentAttributeCommand {
     pub request_id: i64,
-    pub segment_name: JavaString,
+    pub segment_name: String,
     pub attribute_id: u128,
-    pub delegation_token: JavaString,
+    pub delegation_token: String,
 }
 
 impl Command for GetSegmentAttributeCommand {
@@ -988,11 +914,11 @@ impl Reply for SegmentAttributeCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct UpdateSegmentAttributeCommand {
     pub request_id: i64,
-    pub segment_name: JavaString,
+    pub segment_name: String,
     pub attribute_id: u128,
     pub new_value: i64,
     pub expected_value: i64,
-    pub delegation_token: JavaString,
+    pub delegation_token: String,
 }
 
 impl Command for UpdateSegmentAttributeCommand {
@@ -1060,8 +986,8 @@ impl Reply for SegmentAttributeUpdatedCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct GetStreamSegmentInfoCommand {
     pub request_id: i64,
-    pub segment_name: JavaString,
-    pub delegation_token: JavaString,
+    pub segment_name: String,
+    pub delegation_token: String,
 }
 
 impl Command for GetStreamSegmentInfoCommand {
@@ -1095,7 +1021,7 @@ impl Request for GetStreamSegmentInfoCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct StreamSegmentInfoCommand {
     pub request_id: i64,
-    pub segment_name: JavaString,
+    pub segment_name: String,
     pub exists: bool,
     pub is_sealed: bool,
     pub is_deleted: bool,
@@ -1135,10 +1061,10 @@ impl Reply for StreamSegmentInfoCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct CreateSegmentCommand {
     pub request_id: i64,
-    pub segment: JavaString,
+    pub segment: String,
     pub target_rate: i32,
     pub scale_type: u8,
-    pub delegation_token: JavaString,
+    pub delegation_token: String,
 }
 
 impl Command for CreateSegmentCommand {
@@ -1172,8 +1098,8 @@ impl Request for CreateSegmentCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct CreateTableSegmentCommand {
     pub request_id: i64,
-    pub segment: JavaString,
-    pub delegation_token: JavaString,
+    pub segment: String,
+    pub delegation_token: String,
 }
 
 impl Command for CreateTableSegmentCommand {
@@ -1207,7 +1133,7 @@ impl Request for CreateTableSegmentCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentCreatedCommand {
     pub request_id: i64,
-    pub segment: JavaString,
+    pub segment: String,
 }
 
 impl Command for SegmentCreatedCommand {
@@ -1241,10 +1167,10 @@ impl Reply for SegmentCreatedCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct UpdateSegmentPolicyCommand {
     pub request_id: i64,
-    pub segment: JavaString,
+    pub segment: String,
     pub target_rate: i32,
     pub scale_type: u8,
-    pub delegation_token: JavaString,
+    pub delegation_token: String,
 }
 
 impl Command for UpdateSegmentPolicyCommand {
@@ -1278,7 +1204,7 @@ impl Request for UpdateSegmentPolicyCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentPolicyUpdatedCommand {
     pub request_id: i64,
-    pub segment: JavaString,
+    pub segment: String,
 }
 
 impl Command for SegmentPolicyUpdatedCommand {
@@ -1312,9 +1238,9 @@ impl Reply for SegmentPolicyUpdatedCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct MergeSegmentsCommand {
     pub request_id: i64,
-    pub target: JavaString,
-    pub source: JavaString,
-    pub delegation_token: JavaString,
+    pub target: String,
+    pub source: String,
+    pub delegation_token: String,
 }
 
 impl Command for MergeSegmentsCommand {
@@ -1347,9 +1273,9 @@ impl Request for MergeSegmentsCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct MergeTableSegmentsCommand {
     pub request_id: i64,
-    pub target: JavaString,
-    pub source: JavaString,
-    pub delegation_token: JavaString,
+    pub target: String,
+    pub source: String,
+    pub delegation_token: String,
 }
 
 impl Command for MergeTableSegmentsCommand {
@@ -1383,8 +1309,8 @@ impl Request for MergeTableSegmentsCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentsMergedCommand {
     pub request_id: i64,
-    pub target: JavaString,
-    pub source: JavaString,
+    pub target: String,
+    pub source: String,
     pub new_target_write_offset: i64,
 }
 
@@ -1419,8 +1345,8 @@ impl Reply for SegmentsMergedCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SealSegmentCommand {
     pub request_id: i64,
-    pub segment: JavaString,
-    pub delegation_token: JavaString,
+    pub segment: String,
+    pub delegation_token: String,
 }
 
 impl Command for SealSegmentCommand {
@@ -1453,8 +1379,8 @@ impl Request for SealSegmentCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SealTableSegmentCommand {
     pub request_id: i64,
-    pub segment: JavaString,
-    pub delegation_token: JavaString,
+    pub segment: String,
+    pub delegation_token: String,
 }
 
 impl Command for SealTableSegmentCommand {
@@ -1488,7 +1414,7 @@ impl Request for SealTableSegmentCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentSealedCommand {
     pub request_id: i64,
-    pub segment: JavaString,
+    pub segment: String,
 }
 
 impl Command for SegmentSealedCommand {
@@ -1522,9 +1448,9 @@ impl Reply for SegmentSealedCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TruncateSegmentCommand {
     pub request_id: i64,
-    pub segment: JavaString,
+    pub segment: String,
     pub truncation_offset: i64,
-    pub delegation_token: JavaString,
+    pub delegation_token: String,
 }
 
 impl Command for TruncateSegmentCommand {
@@ -1558,7 +1484,7 @@ impl Request for TruncateSegmentCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentTruncatedCommand {
     pub request_id: i64,
-    pub segment: JavaString,
+    pub segment: String,
 }
 
 impl Command for SegmentTruncatedCommand {
@@ -1592,8 +1518,8 @@ impl Reply for SegmentTruncatedCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct DeleteSegmentCommand {
     pub request_id: i64,
-    pub segment: JavaString,
-    pub delegation_token: JavaString,
+    pub segment: String,
+    pub delegation_token: String,
 }
 
 impl Command for DeleteSegmentCommand {
@@ -1627,9 +1553,9 @@ impl Request for DeleteSegmentCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct DeleteTableSegmentCommand {
     pub request_id: i64,
-    pub segment: JavaString,
+    pub segment: String,
     pub must_be_empty: bool, // If true, the Table Segment will only be deleted if it is empty (contains no keys)
-    pub delegation_token: JavaString,
+    pub delegation_token: String,
 }
 
 impl Command for DeleteTableSegmentCommand {
@@ -1662,7 +1588,7 @@ impl Request for DeleteTableSegmentCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct SegmentDeletedCommand {
     pub request_id: i64,
-    pub segment: JavaString,
+    pub segment: String,
 }
 
 impl Command for SegmentDeletedCommand {
@@ -1729,7 +1655,7 @@ impl Reply for KeepAliveCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct AuthTokenCheckFailedCommand {
     pub request_id: i64,
-    pub server_stack_trace: JavaString,
+    pub server_stack_trace: String,
     pub error_code: i32,
 }
 
@@ -1799,8 +1725,8 @@ impl ErrorCode {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct UpdateTableEntriesCommand {
     pub request_id: i64,
-    pub segment: JavaString,
-    pub delegation_token: JavaString,
+    pub segment: String,
+    pub delegation_token: String,
     pub table_entries: TableEntries,
 }
 
@@ -1869,8 +1795,8 @@ impl Reply for TableEntriesUpdatedCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct RemoveTableKeysCommand {
     pub request_id: i64,
-    pub segment: JavaString,
-    pub delegation_token: JavaString,
+    pub segment: String,
+    pub delegation_token: String,
     pub keys: Vec<TableKey>,
 }
 
@@ -1905,7 +1831,7 @@ impl Request for RemoveTableKeysCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TableKeysRemovedCommand {
     pub request_id: i64,
-    pub segment: JavaString,
+    pub segment: String,
 }
 
 impl Command for TableKeysRemovedCommand {
@@ -1939,8 +1865,8 @@ impl Reply for TableKeysRemovedCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct ReadTableCommand {
     pub request_id: i64,
-    pub segment: JavaString,
-    pub delegation_token: JavaString,
+    pub segment: String,
+    pub delegation_token: String,
     pub keys: Vec<TableKey>,
 }
 
@@ -1974,7 +1900,7 @@ impl Request for ReadTableCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TableReadCommand {
     pub request_id: i64,
-    pub segment: JavaString,
+    pub segment: String,
     pub entries: TableEntries,
 }
 
@@ -2008,8 +1934,8 @@ impl Reply for TableReadCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct ReadTableKeysCommand {
     pub request_id: i64,
-    pub segment: JavaString,
-    pub delegation_token: JavaString,
+    pub segment: String,
+    pub delegation_token: String,
     pub suggested_key_count: i32,
     pub continuation_token: Vec<u8>,
 }
@@ -2045,7 +1971,7 @@ impl Request for ReadTableKeysCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TableKeysReadCommand {
     pub request_id: i64,
-    pub segment: JavaString,
+    pub segment: String,
     pub keys: Vec<TableKey>,
     pub continuation_token: Vec<u8>, // this is used to indicate the point from which the next keys should be fetched.
 }
@@ -2081,8 +2007,8 @@ impl Reply for TableKeysReadCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct ReadTableEntriesCommand {
     pub request_id: i64,
-    pub segment: JavaString,
-    pub delegation_token: JavaString,
+    pub segment: String,
+    pub delegation_token: String,
     pub suggested_entry_count: i32,
     pub continuation_token: Vec<u8>,
 }
@@ -2118,7 +2044,7 @@ impl Request for ReadTableEntriesCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TableEntriesReadCommand {
     pub request_id: i64,
-    pub segment: JavaString,
+    pub segment: String,
     pub entries: TableEntries,
     pub continuation_token: Vec<u8>,
 }
@@ -2154,8 +2080,8 @@ impl Reply for TableEntriesReadCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TableKeyDoesNotExistCommand {
     pub request_id: i64,
-    pub segment: JavaString,
-    pub server_stack_trace: JavaString,
+    pub segment: String,
+    pub server_stack_trace: String,
 }
 
 impl Command for TableKeyDoesNotExistCommand {
@@ -2203,8 +2129,8 @@ impl fmt::Display for TableKeyDoesNotExistCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct TableKeyBadVersionCommand {
     pub request_id: i64,
-    pub segment: JavaString,
-    pub server_stack_trace: JavaString,
+    pub segment: String,
+    pub server_stack_trace: String,
 }
 
 impl Command for TableKeyBadVersionCommand {
