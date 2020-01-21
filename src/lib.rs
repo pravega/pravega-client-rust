@@ -10,6 +10,8 @@
 
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate derive_builder;
 
 pub mod wire_protocol {
     mod commands;
@@ -20,4 +22,5 @@ pub mod wire_protocol {
     mod tests;
     pub mod wirecommand_reader;
     pub mod connection_pool;
+    pub mod client_config;
 }

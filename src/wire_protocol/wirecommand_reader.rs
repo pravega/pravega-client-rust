@@ -24,7 +24,7 @@ pub enum Error {
     #[snafu(display("Failed to read wirecommand {}", part))]
     ReadWirecommand {
         part: String,
-        source: connection_factory::Error,
+        source: connection_factory::ConnectionFactoryError,
     },
     #[snafu(display(
         "The payload size {} exceeds the max wirecommand size {}",
@@ -83,7 +83,7 @@ impl WireCommandReader {
 mod tests {
     use super::*;
     use crate::wire_protocol::connection_factory::{
-        ConnectionFactory, ConnectionFactoryImpl, ConnectionType,
+        ConnectionFactory, ConnectionFactoryImpl
     };
     use byteorder::{BigEndian, WriteBytesExt};
     use log::info;
@@ -136,7 +136,7 @@ mod tests {
 
         let connection_factory = ConnectionFactoryImpl {};
         let connection_future =
-            connection_factory.establish_connection(ConnectionType::Tokio, server.address);
+            connection_factory.establish_connection(server.address, None);
         let connection = rt.block_on(connection_future).unwrap();
         info!("connection established");
 
