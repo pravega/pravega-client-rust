@@ -34,12 +34,23 @@ extern crate lazy_static;
 #[forbid(unsafe_code)]
 #[allow(dead_code)]
 pub mod wire_protocol {
-    mod commands;
-    mod error;
+    pub(crate) mod commands;
+    pub(crate) mod error;
     mod wire_commands;
     //Public for docs to build. (TODO: Is there a better way to do this?)
-    pub mod connection_factory;
+    pub(crate) mod connection_factory;
     #[cfg(test)]
     mod tests;
-    pub mod wirecommand_reader;
+    pub(crate) mod wirecommand_reader;
+}
+
+mod raw_client {
+    mod client;
+}
+
+mod client_factory;
+
+mod byte_stream {
+    mod writer;
+    mod reader;
 }

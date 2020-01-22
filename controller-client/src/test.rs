@@ -1,6 +1,7 @@
+use tokio::runtime::Runtime;
+
 // Note this useful idiom: importing names from outer (for mod tests) scope.
 use super::*;
-use tokio::runtime::Runtime;
 
 #[test]
 #[should_panic] // since the controller is not running.
