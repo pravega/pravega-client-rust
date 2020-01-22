@@ -12,9 +12,9 @@ fn test_hello() {
 
 #[test]
 fn test_wrong_host() {
-    let correct_host_name = JavaString(String::from("foo"));
-    let segment_name = JavaString(String::from("segment-1"));
-    let stack_trace = JavaString(String::from("some exception"));
+    let correct_host_name = String::from("foo");
+    let segment_name = String::from("segment-1");
+    let stack_trace = String::from("some exception");
     let wrong_host_command = WireCommands::WrongHost(WrongHostCommand {
         request_id: 1,
         segment: segment_name,
@@ -26,8 +26,8 @@ fn test_wrong_host() {
 
 #[test]
 fn test_segment_is_sealed() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let stack_trace = JavaString(String::from("some exception"));
+    let segment_name = String::from("segment-1");
+    let stack_trace = String::from("some exception");
     let offset_pos = 100i64;
     let segment_is_sealed_command = WireCommands::SegmentIsSealed(SegmentIsSealedCommand {
         request_id: 1,
@@ -40,8 +40,8 @@ fn test_segment_is_sealed() {
 
 #[test]
 fn test_segment_already_exists() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let stack_trace = JavaString(String::from("some exception"));
+    let segment_name = String::from("segment-1");
+    let stack_trace = String::from("some exception");
     let segment_already_exists_command =
         WireCommands::SegmentAlreadyExists(SegmentAlreadyExistsCommand {
             request_id: 1,
@@ -53,8 +53,8 @@ fn test_segment_already_exists() {
 
 #[test]
 fn test_segment_is_truncated() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let stack_trace = JavaString(String::from("some exception"));
+    let segment_name = String::from("segment-1");
+    let stack_trace = String::from("some exception");
     let start_offset_pos = 0i64;
     let offset_pos = 100i64;
     let segment_is_truncated_command =
@@ -70,8 +70,8 @@ fn test_segment_is_truncated() {
 
 #[test]
 fn test_no_such_segment() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let stack_trace = JavaString(String::from("some exception"));
+    let segment_name = String::from("segment-1");
+    let stack_trace = String::from("some exception");
     let offset_pos = 100i64;
     let no_such_segment_command = WireCommands::NoSuchSegment(NoSuchSegmentCommand {
         request_id: 1,
@@ -84,8 +84,8 @@ fn test_no_such_segment() {
 
 #[test]
 fn test_table_segment_not_empty() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let stack_trace = JavaString(String::from("some exception"));
+    let segment_name = String::from("segment-1");
+    let stack_trace = String::from("some exception");
     let table_segment_not_empty_command =
         WireCommands::TableSegmentNotEmpty(TableSegmentNotEmptyCommand {
             request_id: 1,
@@ -99,7 +99,7 @@ fn test_table_segment_not_empty() {
 fn test_invalid_event_number() {
     let writer_id_number: u128 = 123;
     let event_num: i64 = 100;
-    let stack_trace = JavaString(String::from("some exception"));
+    let stack_trace = String::from("some exception");
     let invalid_event_number_command =
         WireCommands::InvalidEventNumber(InvalidEventNumberCommand {
             writer_id: writer_id_number,
@@ -111,8 +111,8 @@ fn test_invalid_event_number() {
 
 #[test]
 fn test_operation_unsupported() {
-    let name = JavaString(String::from("operation"));
-    let stack_trace = JavaString(String::from("some exception"));
+    let name = String::from("operation");
+    let stack_trace = String::from("some exception");
     let test_operation_unsupported_command =
         WireCommands::OperationUnsupported(OperationUnsupportedCommand {
             request_id: 1,
@@ -154,8 +154,8 @@ fn test_event() {
 #[test]
 fn test_setup_append() {
     let writer_id_number: u128 = 123;
-    let segment_name = JavaString(String::from("segment-1"));
-    let token = JavaString(String::from("delegation_token"));
+    let segment_name = String::from("segment-1");
+    let token = String::from("delegation_token");
     let setup_append_command = WireCommands::SetupAppend(SetupAppendCommand {
         request_id: 1,
         writer_id: writer_id_number,
@@ -218,7 +218,7 @@ fn test_conditional_append() {
 #[test]
 fn test_append_setup() {
     let writer_id_number: u128 = 123;
-    let segment_name = JavaString(String::from("segment-1"));
+    let segment_name = String::from("segment-1");
     let append_setup_cmd = WireCommands::AppendSetup(AppendSetupCommand {
         request_id: 1,
         segment: segment_name,
@@ -255,8 +255,8 @@ fn test_conditional_check_failed() {
 
 #[test]
 fn test_read_segment() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let token = JavaString(String::from("delegation_token"));
+    let segment_name = String::from("segment-1");
+    let token = String::from("delegation_token");
     let read_segment_command = WireCommands::ReadSegment(ReadSegmentCommand {
         segment: segment_name,
         offset: 0,
@@ -269,7 +269,7 @@ fn test_read_segment() {
 
 #[test]
 fn test_segment_read() {
-    let segment_name = JavaString(String::from("segment-1"));
+    let segment_name = String::from("segment-1");
     let data = String::from("event-1").into_bytes();
     let segment_read_command = WireCommands::SegmentRead(SegmentReadCommand {
         segment: segment_name,
@@ -284,8 +284,8 @@ fn test_segment_read() {
 
 #[test]
 fn test_get_segment_attribute() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let token = JavaString(String::from("delegation_token"));
+    let segment_name = String::from("segment-1");
+    let token = String::from("delegation_token");
     let attribute_id: u128 = 123;
     let get_segment_attribute_command =
         WireCommands::GetSegmentAttribute(GetSegmentAttributeCommand {
@@ -308,8 +308,8 @@ fn test_segment_attribute() {
 
 #[test]
 fn test_update_segment_attribute() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let token = JavaString(String::from("delegation_token"));
+    let segment_name = String::from("segment-1");
+    let token = String::from("delegation_token");
     let attribute_id: u128 = 123;
     let update_segment_attribute =
         WireCommands::UpdateSegmentAttribute(UpdateSegmentAttributeCommand {
@@ -335,8 +335,8 @@ fn test_segment_attribute_updated() {
 
 #[test]
 fn test_get_stream_segment_info() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let token = JavaString(String::from("delegation_token"));
+    let segment_name = String::from("segment-1");
+    let token = String::from("delegation_token");
     let get_stream_segment_info = WireCommands::GetStreamSegmentInfo(GetStreamSegmentInfoCommand {
         request_id: 1,
         segment_name,
@@ -347,7 +347,7 @@ fn test_get_stream_segment_info() {
 
 #[test]
 fn test_stream_segment_info() {
-    let segment_name = JavaString(String::from("segment-1"));
+    let segment_name = String::from("segment-1");
     let stream_segment_info = WireCommands::StreamSegmentInfo(StreamSegmentInfoCommand {
         request_id: 0,
         segment_name,
@@ -363,8 +363,8 @@ fn test_stream_segment_info() {
 
 #[test]
 fn test_create_segment() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let token = JavaString(String::from("delegation_token"));
+    let segment_name = String::from("segment-1");
+    let token = String::from("delegation_token");
     let create_segment_command = WireCommands::CreateSegment(CreateSegmentCommand {
         request_id: 1,
         segment: segment_name,
@@ -377,8 +377,8 @@ fn test_create_segment() {
 
 #[test]
 fn test_create_table_segment() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let token = JavaString(String::from("delegation_token"));
+    let segment_name = String::from("segment-1");
+    let token = String::from("delegation_token");
     let create_table_segment_command =
         WireCommands::CreateTableSegment(CreateTableSegmentCommand {
             request_id: 1,
@@ -390,7 +390,7 @@ fn test_create_table_segment() {
 
 #[test]
 fn test_segment_created() {
-    let segment_name = JavaString(String::from("segment-1"));
+    let segment_name = String::from("segment-1");
     let segment_created_cmd = WireCommands::SegmentCreated(SegmentCreatedCommand {
         request_id: 1,
         segment: segment_name,
@@ -400,8 +400,8 @@ fn test_segment_created() {
 
 #[test]
 fn test_update_segment_policy() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let token = JavaString(String::from("delegation_token"));
+    let segment_name = String::from("segment-1");
+    let token = String::from("delegation_token");
     let update_segment_policy_cmd = WireCommands::UpdateSegmentPolicy(UpdateSegmentPolicyCommand {
         request_id: 1,
         segment: segment_name,
@@ -414,7 +414,7 @@ fn test_update_segment_policy() {
 
 #[test]
 fn test_segment_policy_updated() {
-    let segment_name = JavaString(String::from("segment-1"));
+    let segment_name = String::from("segment-1");
     let segment_policy_updated = WireCommands::SegmentPolicyUpdated(SegmentPolicyUpdatedCommand {
         request_id: 0,
         segment: segment_name,
@@ -424,9 +424,9 @@ fn test_segment_policy_updated() {
 
 #[test]
 fn test_merge_segment() {
-    let target = JavaString(String::from("segment-1"));
-    let source = JavaString(String::from("segment-2"));
-    let token = JavaString(String::from("delegation_token"));
+    let target = String::from("segment-1");
+    let source = String::from("segment-2");
+    let token = String::from("delegation_token");
     let merge_segment = WireCommands::MergeSegments(MergeSegmentsCommand {
         request_id: 1,
         target,
@@ -438,9 +438,9 @@ fn test_merge_segment() {
 
 #[test]
 fn test_merge_table_segment() {
-    let target = JavaString(String::from("segment-1"));
-    let source = JavaString(String::from("segment-2"));
-    let token = JavaString(String::from("delegation_token"));
+    let target = String::from("segment-1");
+    let source = String::from("segment-2");
+    let token = String::from("delegation_token");
     let merge_table_segment = WireCommands::MergeTableSegments(MergeTableSegmentsCommand {
         request_id: 1,
         target,
@@ -452,8 +452,8 @@ fn test_merge_table_segment() {
 
 #[test]
 fn test_segment_merged() {
-    let target = JavaString(String::from("segment-1"));
-    let source = JavaString(String::from("segment-2"));
+    let target = String::from("segment-1");
+    let source = String::from("segment-2");
     let segment_merged = WireCommands::SegmentsMerged(SegmentsMergedCommand {
         request_id: 1,
         target,
@@ -465,8 +465,8 @@ fn test_segment_merged() {
 
 #[test]
 fn test_seal_segment() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let token = JavaString(String::from("delegation_token"));
+    let segment_name = String::from("segment-1");
+    let token = String::from("delegation_token");
     let seal_segment = WireCommands::SealSegment(SealSegmentCommand {
         request_id: 1,
         segment: segment_name,
@@ -477,8 +477,8 @@ fn test_seal_segment() {
 
 #[test]
 fn test_seal_table_segment() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let token = JavaString(String::from("delegation_token"));
+    let segment_name = String::from("segment-1");
+    let token = String::from("delegation_token");
     let seal_table_segment = WireCommands::SealTableSegment(SealTableSegmentCommand {
         request_id: 1,
         segment: segment_name,
@@ -489,7 +489,7 @@ fn test_seal_table_segment() {
 
 #[test]
 fn test_segment_sealed() {
-    let segment_name = JavaString(String::from("segment-1"));
+    let segment_name = String::from("segment-1");
     let segment_sealed = WireCommands::SegmentSealed(SegmentSealedCommand {
         request_id: 1,
         segment: segment_name,
@@ -499,8 +499,8 @@ fn test_segment_sealed() {
 
 #[test]
 fn test_truncate_segment() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let token = JavaString(String::from("delegation_token"));
+    let segment_name = String::from("segment-1");
+    let token = String::from("delegation_token");
     let truncate_segment = WireCommands::TruncateSegment(TruncateSegmentCommand {
         request_id: 1,
         segment: segment_name,
@@ -512,7 +512,7 @@ fn test_truncate_segment() {
 
 #[test]
 fn test_segment_truncated() {
-    let segment_name = JavaString(String::from("segment-1"));
+    let segment_name = String::from("segment-1");
     let segment_truncated = WireCommands::SegmentTruncated(SegmentTruncatedCommand {
         request_id: 1,
         segment: segment_name,
@@ -522,8 +522,8 @@ fn test_segment_truncated() {
 
 #[test]
 fn test_delete_segment() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let token = JavaString(String::from("delegation_token"));
+    let segment_name = String::from("segment-1");
+    let token = String::from("delegation_token");
     let delete_segment_command = WireCommands::DeleteSegment(DeleteSegmentCommand {
         request_id: 1,
         segment: segment_name,
@@ -534,7 +534,7 @@ fn test_delete_segment() {
 
 #[test]
 fn test_segment_deleted() {
-    let segment = JavaString(String::from("segment-1"));
+    let segment = String::from("segment-1");
     let segment_deleted = WireCommands::SegmentDeleted(SegmentDeletedCommand {
         request_id: 1,
         segment,
@@ -544,8 +544,8 @@ fn test_segment_deleted() {
 
 #[test]
 fn test_delete_table_segment() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let token = JavaString(String::from("delegation_token"));
+    let segment_name = String::from("segment-1");
+    let token = String::from("delegation_token");
     let delete_table_segment = WireCommands::DeleteTableSegment(DeleteTableSegmentCommand {
         request_id: 0,
         segment: segment_name,
@@ -563,7 +563,7 @@ fn test_keep_alive() {
 
 #[test]
 fn test_auth_checked_failed() {
-    let stack_trace = JavaString(String::from("some exception"));
+    let stack_trace = String::from("some exception");
     let auth_checked_failed = WireCommands::AuthTokenCheckFailed(AuthTokenCheckFailedCommand {
         request_id: 1,
         server_stack_trace: stack_trace,
@@ -584,8 +584,8 @@ fn test_update_table_entries() {
     let value_data = String::from("value-1").into_bytes();
     entries.push((TableKey::new(key_data, 1), TableValue::new(value_data)));
     let table_entries = TableEntries { entries };
-    let segment_name = JavaString(String::from("segment-1"));
-    let token = JavaString(String::from("delegation_token"));
+    let segment_name = String::from("segment-1");
+    let token = String::from("delegation_token");
     let _size = table_entries.size();
     let update_table_entries = WireCommands::UpdateTableEntries(UpdateTableEntriesCommand {
         request_id: 1,
@@ -609,8 +609,8 @@ fn test_table_entries_updated() {
 
 #[test]
 fn test_remove_table_keys() {
-    let segment = JavaString(String::from("segment-1"));
-    let token = JavaString(String::from("delegation_token"));
+    let segment = String::from("segment-1");
+    let token = String::from("delegation_token");
     let mut keys = Vec::<TableKey>::new();
     let key_data = String::from("key-1").into_bytes();
     keys.push(TableKey::new(key_data, 1));
@@ -625,7 +625,7 @@ fn test_remove_table_keys() {
 
 #[test]
 fn test_table_keys_removed() {
-    let segment = JavaString(String::from("segment-1"));
+    let segment = String::from("segment-1");
     let table_key_removed = WireCommands::TableKeysRemoved(TableKeysRemovedCommand {
         request_id: 1,
         segment,
@@ -635,8 +635,8 @@ fn test_table_keys_removed() {
 
 #[test]
 fn test_read_table() {
-    let segment = JavaString(String::from("segment-1"));
-    let token = JavaString(String::from("delegation_token"));
+    let segment = String::from("segment-1");
+    let token = String::from("delegation_token");
     let mut keys = Vec::<TableKey>::new();
     let key_data = String::from("key-1").into_bytes();
     keys.push(TableKey::new(key_data, 1));
@@ -657,7 +657,7 @@ fn test_table_read() {
     let value_data = String::from("value-1").into_bytes();
     entries.push((TableKey::new(key_data, 1), TableValue::new(value_data)));
     let table_entries = TableEntries { entries };
-    let segment_name = JavaString(String::from("segment-1"));
+    let segment_name = String::from("segment-1");
     let table_read = WireCommands::TableRead(TableReadCommand {
         request_id: 1,
         segment: segment_name,
@@ -669,8 +669,8 @@ fn test_table_read() {
 
 #[test]
 fn test_read_table_keys() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let token = JavaString(String::from("delegation_token"));
+    let segment_name = String::from("segment-1");
+    let token = String::from("delegation_token");
     let continuation_token: Vec<u8> = vec![1, 2, 3];
     let read_table_keys = WireCommands::ReadTableKeys(ReadTableKeysCommand {
         request_id: 0,
@@ -684,7 +684,7 @@ fn test_read_table_keys() {
 
 #[test]
 fn test_table_keys_read() {
-    let segment = JavaString(String::from("segment-1"));
+    let segment = String::from("segment-1");
     let mut keys = Vec::<TableKey>::new();
     let key_data = String::from("key-1").into_bytes();
     keys.push(TableKey::new(key_data, 1));
@@ -700,8 +700,8 @@ fn test_table_keys_read() {
 
 #[test]
 fn test_read_table_entries() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let token = JavaString(String::from("delegation_token"));
+    let segment_name = String::from("segment-1");
+    let token = String::from("delegation_token");
     let continuation_token: Vec<u8> = vec![1, 2, 3];
     let read_table_entries = WireCommands::ReadTableEntries(ReadTableEntriesCommand {
         request_id: 0,
@@ -715,7 +715,7 @@ fn test_read_table_entries() {
 
 #[test]
 fn test_table_entries_read() {
-    let segment_name = JavaString(String::from("segment-1"));
+    let segment_name = String::from("segment-1");
     let continuation_token: Vec<u8> = vec![1, 2, 3];
     let mut entries = Vec::<(TableKey, TableValue)>::new();
     let key_data = String::from("key-1").into_bytes();
@@ -733,8 +733,8 @@ fn test_table_entries_read() {
 
 #[test]
 fn table_key_does_not_exist() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let stack_trace = JavaString(String::from("some exception"));
+    let segment_name = String::from("segment-1");
+    let stack_trace = String::from("some exception");
     let table_key_does_not_exist =
         WireCommands::TableKeyDoesNotExist(TableKeyDoesNotExistCommand {
             request_id: 0,
@@ -746,8 +746,8 @@ fn table_key_does_not_exist() {
 
 #[test]
 fn table_key_bad_version() {
-    let segment_name = JavaString(String::from("segment-1"));
-    let stack_trace = JavaString(String::from("some exception"));
+    let segment_name = String::from("segment-1");
+    let stack_trace = String::from("some exception");
     let table_key_bad_version = WireCommands::TableKeyBadVersion(TableKeyBadVersionCommand {
         request_id: 0,
         segment: segment_name,

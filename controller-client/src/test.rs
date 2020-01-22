@@ -15,7 +15,7 @@ fn test_create_scope_error() {
     };
     let fut = create_scope(request, &mut client);
 
-    rt.block_on(fut);
+    rt.block_on(fut).unwrap();
 }
 
 #[test]
@@ -41,5 +41,5 @@ fn test_create_stream_error() {
     };
     let fut = create_stream(request, &mut client);
 
-    rt.block_on(fut);
+    rt.block_on(fut).unwrap();
 }

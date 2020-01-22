@@ -1,6 +1,6 @@
 use super::connection_factory::ConnectionType;
-use bincode::Error as BincodeError;
-use snafu::Snafu;
+use bincode2::Error as BincodeError;
+use snafu::{Backtrace, Snafu};
 use std::io::Error as IoError;
 use std::net::SocketAddr;
 
@@ -17,16 +17,19 @@ pub enum ConnectionError {
         connection_type: ConnectionType,
         endpoint: SocketAddr,
         source: std::io::Error,
+        backtrace: Backtrace,
     },
     #[snafu(display("Could not send data to {} asynchronously", endpoint))]
     SendData {
         endpoint: SocketAddr,
         source: std::io::Error,
+        backtrace: Backtrace,
     },
     #[snafu(display("Could not read data from {} asynchronously", endpoint))]
     ReadData {
         endpoint: SocketAddr,
         source: std::io::Error,
+        backtrace: Backtrace,
     },
 }
 
@@ -42,18 +45,26 @@ pub enum CommandError {
     InvalidData {
         command_type: i32,
         source: BincodeError,
+        backtrace: Backtrace,
     },
     #[snafu(display(
         "Could not serialize/deserialize command {} because of: {}",
         command_type,
         source
     ))]
-    Io { command_type: i32, source: IoError },
+    Io {
+        command_type: i32,
+        source: IoError,
+        backtrace: Backtrace,
+    },
     #[snafu(display(
         "Could not serialize/deserialize command {} because of: Unknown Command",
         command_type
     ))]
-    InvalidType { command_type: i32 },
+    InvalidType {
+        command_type: i32,
+        backtrace: Backtrace,
+    },
 }
 
 /// This kind of error that can be produced during Pravega read Wire Commands.
@@ -64,6 +75,7 @@ pub enum ReaderError {
     ReadWirecommand {
         part: String,
         source: ConnectionError,
+        backtrace: Backtrace,
     },
     #[snafu(display(
         "The payload size {} exceeds the max wirecommand size {}",
@@ -73,5 +85,6 @@ pub enum ReaderError {
     PayloadLengthTooLong {
         payload_size: u32,
         max_wirecommand_size: u32,
+        backtrace: Backtrace,
     },
 }
