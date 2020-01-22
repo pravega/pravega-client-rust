@@ -147,10 +147,7 @@ impl Connection for TokioConnection {
 
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError> {
         let endpoint = self.endpoint;
-        self.stream
-            .read_exact(buf)
-            .await
-            .context(ReadData { endpoint })?;
+        self.stream.read_exact(buf).await.context(ReadData { endpoint })?;
         Ok(())
     }
 }

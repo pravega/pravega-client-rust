@@ -39,10 +39,7 @@ pub enum CommandError {
         command_type,
         source
     ))]
-    InvalidData {
-        command_type: i32,
-        source: BincodeError,
-    },
+    InvalidData { command_type: i32, source: BincodeError },
     #[snafu(display(
         "Could not serialize/deserialize command {} because of: {}",
         command_type,
@@ -61,10 +58,7 @@ pub enum CommandError {
 #[snafu(visibility = "pub(crate)")]
 pub enum ReaderError {
     #[snafu(display("Failed to read wirecommand {}", part))]
-    ReadWirecommand {
-        part: String,
-        source: ConnectionError,
-    },
+    ReadWirecommand { part: String, source: ConnectionError },
     #[snafu(display(
         "The payload size {} exceeds the max wirecommand size {}",
         payload_size,

@@ -429,9 +429,7 @@ impl Decode for WireCommands {
         let input = &raw_input[8..];
         match type_code {
             HelloCommand::TYPE_CODE => Ok(WireCommands::Hello(HelloCommand::read_from(input)?)),
-            WrongHostCommand::TYPE_CODE => {
-                Ok(WireCommands::WrongHost(WrongHostCommand::read_from(input)?))
-            }
+            WrongHostCommand::TYPE_CODE => Ok(WireCommands::WrongHost(WrongHostCommand::read_from(input)?)),
             SegmentIsSealedCommand::TYPE_CODE => Ok(WireCommands::SegmentIsSealed(
                 SegmentIsSealedCommand::read_from(input)?,
             )),
@@ -453,43 +451,41 @@ impl Decode for WireCommands {
             OperationUnsupportedCommand::TYPE_CODE => Ok(WireCommands::OperationUnsupported(
                 OperationUnsupportedCommand::read_from(input)?,
             )),
-            PaddingCommand::TYPE_CODE => {
-                Ok(WireCommands::Padding(PaddingCommand::read_from(input)?))
-            }
+            PaddingCommand::TYPE_CODE => Ok(WireCommands::Padding(PaddingCommand::read_from(input)?)),
 
-            PartialEventCommand::TYPE_CODE => Ok(WireCommands::PartialEvent(
-                PartialEventCommand::read_from(input)?,
-            )),
+            PartialEventCommand::TYPE_CODE => {
+                Ok(WireCommands::PartialEvent(PartialEventCommand::read_from(input)?))
+            }
 
             EventCommand::TYPE_CODE => Ok(WireCommands::Event(EventCommand::read_from(input)?)),
 
-            SetupAppendCommand::TYPE_CODE => Ok(WireCommands::SetupAppend(
-                SetupAppendCommand::read_from(input)?,
-            )),
-            AppendBlockCommand::TYPE_CODE => Ok(WireCommands::AppendBlock(
-                AppendBlockCommand::read_from(input)?,
-            )),
+            SetupAppendCommand::TYPE_CODE => {
+                Ok(WireCommands::SetupAppend(SetupAppendCommand::read_from(input)?))
+            }
+            AppendBlockCommand::TYPE_CODE => {
+                Ok(WireCommands::AppendBlock(AppendBlockCommand::read_from(input)?))
+            }
             AppendBlockEndCommand::TYPE_CODE => Ok(WireCommands::AppendBlockEnd(
                 AppendBlockEndCommand::read_from(input)?,
             )),
             ConditionalAppendCommand::TYPE_CODE => Ok(WireCommands::ConditionalAppend(
                 ConditionalAppendCommand::read_from(input)?,
             )),
-            AppendSetupCommand::TYPE_CODE => Ok(WireCommands::AppendSetup(
-                AppendSetupCommand::read_from(input)?,
-            )),
-            DataAppendedCommand::TYPE_CODE => Ok(WireCommands::DataAppended(
-                DataAppendedCommand::read_from(input)?,
-            )),
+            AppendSetupCommand::TYPE_CODE => {
+                Ok(WireCommands::AppendSetup(AppendSetupCommand::read_from(input)?))
+            }
+            DataAppendedCommand::TYPE_CODE => {
+                Ok(WireCommands::DataAppended(DataAppendedCommand::read_from(input)?))
+            }
             ConditionalCheckFailedCommand::TYPE_CODE => Ok(WireCommands::ConditionalCheckFailed(
                 ConditionalCheckFailedCommand::read_from(input)?,
             )),
-            ReadSegmentCommand::TYPE_CODE => Ok(WireCommands::ReadSegment(
-                ReadSegmentCommand::read_from(input)?,
-            )),
-            SegmentReadCommand::TYPE_CODE => Ok(WireCommands::SegmentRead(
-                SegmentReadCommand::read_from(input)?,
-            )),
+            ReadSegmentCommand::TYPE_CODE => {
+                Ok(WireCommands::ReadSegment(ReadSegmentCommand::read_from(input)?))
+            }
+            SegmentReadCommand::TYPE_CODE => {
+                Ok(WireCommands::SegmentRead(SegmentReadCommand::read_from(input)?))
+            }
             GetSegmentAttributeCommand::TYPE_CODE => Ok(WireCommands::GetSegmentAttribute(
                 GetSegmentAttributeCommand::read_from(input)?,
             )),
@@ -532,9 +528,9 @@ impl Decode for WireCommands {
             SegmentsMergedCommand::TYPE_CODE => Ok(WireCommands::SegmentsMerged(
                 SegmentsMergedCommand::read_from(input)?,
             )),
-            SealSegmentCommand::TYPE_CODE => Ok(WireCommands::SealSegment(
-                SealSegmentCommand::read_from(input)?,
-            )),
+            SealSegmentCommand::TYPE_CODE => {
+                Ok(WireCommands::SealSegment(SealSegmentCommand::read_from(input)?))
+            }
             SealTableSegmentCommand::TYPE_CODE => Ok(WireCommands::SealTableSegment(
                 SealTableSegmentCommand::read_from(input)?,
             )),
@@ -556,9 +552,7 @@ impl Decode for WireCommands {
             SegmentDeletedCommand::TYPE_CODE => Ok(WireCommands::SegmentDeleted(
                 SegmentDeletedCommand::read_from(input)?,
             )),
-            KeepAliveCommand::TYPE_CODE => {
-                Ok(WireCommands::KeepAlive(KeepAliveCommand::read_from(input)?))
-            }
+            KeepAliveCommand::TYPE_CODE => Ok(WireCommands::KeepAlive(KeepAliveCommand::read_from(input)?)),
             AuthTokenCheckFailedCommand::TYPE_CODE => Ok(WireCommands::AuthTokenCheckFailed(
                 AuthTokenCheckFailedCommand::read_from(input)?,
             )),
@@ -574,12 +568,8 @@ impl Decode for WireCommands {
             TableKeysRemovedCommand::TYPE_CODE => Ok(WireCommands::TableKeysRemoved(
                 TableKeysRemovedCommand::read_from(input)?,
             )),
-            ReadTableCommand::TYPE_CODE => {
-                Ok(WireCommands::ReadTable(ReadTableCommand::read_from(input)?))
-            }
-            TableReadCommand::TYPE_CODE => {
-                Ok(WireCommands::TableRead(TableReadCommand::read_from(input)?))
-            }
+            ReadTableCommand::TYPE_CODE => Ok(WireCommands::ReadTable(ReadTableCommand::read_from(input)?)),
+            TableReadCommand::TYPE_CODE => Ok(WireCommands::TableRead(TableReadCommand::read_from(input)?)),
             ReadTableKeysCommand::TYPE_CODE => Ok(WireCommands::ReadTableKeys(
                 ReadTableKeysCommand::read_from(input)?,
             )),

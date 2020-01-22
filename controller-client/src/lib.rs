@@ -17,8 +17,8 @@ use tonic::{Code, Status};
 use async_trait::async_trait;
 pub use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
-    scaling_policy::ScalingPolicyType, CreateScopeStatus, CreateStreamStatus, ScalingPolicy,
-    ScopeInfo, StreamConfig, StreamInfo,
+    scaling_policy::ScalingPolicyType, CreateScopeStatus, CreateStreamStatus, ScalingPolicy, ScopeInfo,
+    StreamConfig, StreamInfo,
 };
 use pravega_rust_client_shared::*;
 
@@ -76,20 +76,14 @@ pub trait ControllerClient {
      * the same stream, the future completes with false to indicate that the stream existed when
      * the controller executed the operation.
      */
-    async fn create_stream(
-        &self,
-        stream: &ScopedStream,
-        stream_config: &StreamConfiguration,
-    ) -> Result<bool>;
+    async fn create_stream(&self, stream: &ScopedStream, stream_config: &StreamConfiguration)
+        -> Result<bool>;
 
     /**
      * API to update the configuration of a stream.
      */
-    async fn update_stream(
-        &self,
-        stream: &ScopedStream,
-        stream_config: &StreamConfiguration,
-    ) -> Result<bool>;
+    async fn update_stream(&self, stream: &ScopedStream, stream_config: &StreamConfiguration)
+        -> Result<bool>;
 
     /**
      * API to Truncate stream. This api takes a stream cut point which corresponds to a cut in
@@ -117,11 +111,7 @@ pub trait ControllerClient {
     /**
      * API to create a new transaction. The transaction timeout is relative to the creation time.
      */
-    async fn create_transaction(
-        &self,
-        stream: &ScopedStream,
-        lease: Duration,
-    ) -> Result<TxnSegments>;
+    async fn create_transaction(&self, stream: &ScopedStream, lease: Duration) -> Result<TxnSegments>;
 
     /**
      * API to send transaction heartbeat and increase the transaction timeout by lease amount of milliseconds.
@@ -158,11 +148,8 @@ pub trait ControllerClient {
     /**
      * Returns the status of the specified transaction.
      */
-    async fn check_transaction_status(
-        &self,
-        stream: &ScopedStream,
-        tx_id: TxId,
-    ) -> Result<TransactionStatus>;
+    async fn check_transaction_status(&self, stream: &ScopedStream, tx_id: TxId)
+        -> Result<TransactionStatus>;
 
     // Controller Apis that are called by readers
     //TODO
@@ -182,19 +169,15 @@ pub trait ControllerClient {
      * @param streamName    Name of the stream.
      * @return              The delegation token for the given stream.
      */
-    async fn get_or_refresh_delegation_token_for(
-        &self,
-        stream: ScopedStream,
-    ) -> Result<DelegationToken>;
+    async fn get_or_refresh_delegation_token_for(&self, stream: ScopedStream) -> Result<DelegationToken>;
 }
 
 /// create_connection with the given controller uri.
 pub async fn create_connection(uri: &'static str) -> ControllerServiceClient<Channel> {
     // Placeholder to add authentication headers.
-    let connection: ControllerServiceClient<Channel> =
-        ControllerServiceClient::connect(uri.to_string())
-            .await
-            .expect("Failed to create a channel");
+    let connection: ControllerServiceClient<Channel> = ControllerServiceClient::connect(uri.to_string())
+        .await
+        .expect("Failed to create a channel");
     connection
 }
 
@@ -258,12 +241,13 @@ pub async fn create_stream(
         Ok(code) => match code.into_inner().status() {
             create_stream_status::Status::Success => Ok(true),
             create_stream_status::Status::StreamExists => Ok(false),
-            create_stream_status::Status::InvalidStreamName
-            | create_stream_status::Status::ScopeNotFound => Err(ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: operation_name.into(),
-                error_msg: "Invalid Stream/Scope Not Found".into(),
-            }),
+            create_stream_status::Status::InvalidStreamName | create_stream_status::Status::ScopeNotFound => {
+                Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Invalid Stream/Scope Not Found".into(),
+                })
+            }
             _ => Err(ControllerError::OperationError {
                 can_retry: true, // retry for all other errors
                 operation: operation_name.into(),

@@ -27,8 +27,7 @@ pub struct WireCommandReader {
 
 impl WireCommandReader {
     async fn read(&mut self) -> Result<Vec<u8>, ReaderError> {
-        let mut header: Vec<u8> =
-            vec![0; LENGTH_FIELD_OFFSET as usize + LENGTH_FIELD_LENGTH as usize];
+        let mut header: Vec<u8> = vec![0; LENGTH_FIELD_OFFSET as usize + LENGTH_FIELD_LENGTH as usize];
         self.connection
             .read_async(&mut header[..])
             .await
@@ -92,18 +91,10 @@ mod tests {
                 let mut stream = stream.unwrap();
                 // offset is 4 bytes, payload length is 8 bytes and payload is 66.
                 let mut bs = [0u8; 4 * mem::size_of::<i32>()];
-                bs.as_mut()
-                    .write_i32::<BigEndian>(4)
-                    .expect("Unable to write");
-                bs.as_mut()
-                    .write_i32::<BigEndian>(8)
-                    .expect("Unable to write");
-                bs.as_mut()
-                    .write_i32::<BigEndian>(6)
-                    .expect("Unable to write");
-                bs.as_mut()
-                    .write_i32::<BigEndian>(6)
-                    .expect("Unable to write");
+                bs.as_mut().write_i32::<BigEndian>(4).expect("Unable to write");
+                bs.as_mut().write_i32::<BigEndian>(8).expect("Unable to write");
+                bs.as_mut().write_i32::<BigEndian>(6).expect("Unable to write");
+                bs.as_mut().write_i32::<BigEndian>(6).expect("Unable to write");
                 stream.write(bs.as_ref()).unwrap();
                 break;
             }

@@ -42,12 +42,11 @@ fn test_segment_is_sealed() {
 fn test_segment_already_exists() {
     let segment_name = JavaString(String::from("segment-1"));
     let stack_trace = JavaString(String::from("some exception"));
-    let segment_already_exists_command =
-        WireCommands::SegmentAlreadyExists(SegmentAlreadyExistsCommand {
-            request_id: 1,
-            segment: segment_name,
-            server_stack_trace: stack_trace,
-        });
+    let segment_already_exists_command = WireCommands::SegmentAlreadyExists(SegmentAlreadyExistsCommand {
+        request_id: 1,
+        segment: segment_name,
+        server_stack_trace: stack_trace,
+    });
     test_command(segment_already_exists_command);
 }
 
@@ -57,14 +56,13 @@ fn test_segment_is_truncated() {
     let stack_trace = JavaString(String::from("some exception"));
     let start_offset_pos = 0i64;
     let offset_pos = 100i64;
-    let segment_is_truncated_command =
-        WireCommands::SegmentIsTruncated(SegmentIsTruncatedCommand {
-            request_id: 1,
-            segment: segment_name,
-            server_stack_trace: stack_trace,
-            start_offset: start_offset_pos,
-            offset: offset_pos,
-        });
+    let segment_is_truncated_command = WireCommands::SegmentIsTruncated(SegmentIsTruncatedCommand {
+        request_id: 1,
+        segment: segment_name,
+        server_stack_trace: stack_trace,
+        start_offset: start_offset_pos,
+        offset: offset_pos,
+    });
     test_command(segment_is_truncated_command);
 }
 
@@ -86,12 +84,11 @@ fn test_no_such_segment() {
 fn test_table_segment_not_empty() {
     let segment_name = JavaString(String::from("segment-1"));
     let stack_trace = JavaString(String::from("some exception"));
-    let table_segment_not_empty_command =
-        WireCommands::TableSegmentNotEmpty(TableSegmentNotEmptyCommand {
-            request_id: 1,
-            segment: segment_name,
-            server_stack_trace: stack_trace,
-        });
+    let table_segment_not_empty_command = WireCommands::TableSegmentNotEmpty(TableSegmentNotEmptyCommand {
+        request_id: 1,
+        segment: segment_name,
+        server_stack_trace: stack_trace,
+    });
     test_command(table_segment_not_empty_command);
 }
 
@@ -100,12 +97,11 @@ fn test_invalid_event_number() {
     let writer_id_number: u128 = 123;
     let event_num: i64 = 100;
     let stack_trace = JavaString(String::from("some exception"));
-    let invalid_event_number_command =
-        WireCommands::InvalidEventNumber(InvalidEventNumberCommand {
-            writer_id: writer_id_number,
-            server_stack_trace: stack_trace,
-            event_number: event_num,
-        });
+    let invalid_event_number_command = WireCommands::InvalidEventNumber(InvalidEventNumberCommand {
+        writer_id: writer_id_number,
+        server_stack_trace: stack_trace,
+        event_number: event_num,
+    });
     test_command(invalid_event_number_command);
 }
 
@@ -244,12 +240,11 @@ fn test_data_appended() {
 #[test]
 fn test_conditional_check_failed() {
     let writer_id_number: u128 = 123;
-    let conditional_check_failed_cmd =
-        WireCommands::ConditionalCheckFailed(ConditionalCheckFailedCommand {
-            writer_id: writer_id_number,
-            event_number: 1,
-            request_id: 1,
-        });
+    let conditional_check_failed_cmd = WireCommands::ConditionalCheckFailed(ConditionalCheckFailedCommand {
+        writer_id: writer_id_number,
+        event_number: 1,
+        request_id: 1,
+    });
     test_command(conditional_check_failed_cmd);
 }
 
@@ -287,13 +282,12 @@ fn test_get_segment_attribute() {
     let segment_name = JavaString(String::from("segment-1"));
     let token = JavaString(String::from("delegation_token"));
     let attribute_id: u128 = 123;
-    let get_segment_attribute_command =
-        WireCommands::GetSegmentAttribute(GetSegmentAttributeCommand {
-            request_id: 1,
-            segment_name,
-            attribute_id,
-            delegation_token: token,
-        });
+    let get_segment_attribute_command = WireCommands::GetSegmentAttribute(GetSegmentAttributeCommand {
+        request_id: 1,
+        segment_name,
+        attribute_id,
+        delegation_token: token,
+    });
     test_command(get_segment_attribute_command);
 }
 
@@ -311,25 +305,23 @@ fn test_update_segment_attribute() {
     let segment_name = JavaString(String::from("segment-1"));
     let token = JavaString(String::from("delegation_token"));
     let attribute_id: u128 = 123;
-    let update_segment_attribute =
-        WireCommands::UpdateSegmentAttribute(UpdateSegmentAttributeCommand {
-            request_id: 1,
-            segment_name,
-            attribute_id,
-            new_value: 2,
-            expected_value: 2,
-            delegation_token: token,
-        });
+    let update_segment_attribute = WireCommands::UpdateSegmentAttribute(UpdateSegmentAttributeCommand {
+        request_id: 1,
+        segment_name,
+        attribute_id,
+        new_value: 2,
+        expected_value: 2,
+        delegation_token: token,
+    });
     test_command(update_segment_attribute);
 }
 
 #[test]
 fn test_segment_attribute_updated() {
-    let segment_attribute_updated =
-        WireCommands::SegmentAttributeUpdated(SegmentAttributeUpdatedCommand {
-            request_id: 1,
-            success: true,
-        });
+    let segment_attribute_updated = WireCommands::SegmentAttributeUpdated(SegmentAttributeUpdatedCommand {
+        request_id: 1,
+        success: true,
+    });
     test_command(segment_attribute_updated);
 }
 
@@ -379,12 +371,11 @@ fn test_create_segment() {
 fn test_create_table_segment() {
     let segment_name = JavaString(String::from("segment-1"));
     let token = JavaString(String::from("delegation_token"));
-    let create_table_segment_command =
-        WireCommands::CreateTableSegment(CreateTableSegmentCommand {
-            request_id: 1,
-            segment: segment_name,
-            delegation_token: token,
-        });
+    let create_table_segment_command = WireCommands::CreateTableSegment(CreateTableSegmentCommand {
+        request_id: 1,
+        segment: segment_name,
+        delegation_token: token,
+    });
     test_command(create_table_segment_command);
 }
 
@@ -735,12 +726,11 @@ fn test_table_entries_read() {
 fn table_key_does_not_exist() {
     let segment_name = JavaString(String::from("segment-1"));
     let stack_trace = JavaString(String::from("some exception"));
-    let table_key_does_not_exist =
-        WireCommands::TableKeyDoesNotExist(TableKeyDoesNotExistCommand {
-            request_id: 0,
-            segment: segment_name,
-            server_stack_trace: stack_trace,
-        });
+    let table_key_does_not_exist = WireCommands::TableKeyDoesNotExist(TableKeyDoesNotExistCommand {
+        request_id: 0,
+        segment: segment_name,
+        server_stack_trace: stack_trace,
+    });
     test_command(table_key_does_not_exist);
 }
 
