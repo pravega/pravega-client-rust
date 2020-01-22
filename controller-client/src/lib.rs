@@ -10,7 +10,7 @@
 use std::result::Result as StdResult;
 use std::time::Duration;
 
-use snafu::{Snafu, Backtrace};
+use snafu::{Backtrace, Snafu};
 use tonic::transport::channel::Channel;
 use tonic::{Code, Status};
 

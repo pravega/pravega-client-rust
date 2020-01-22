@@ -61,10 +61,7 @@ pub enum CommandError {
         "Could not serialize/deserialize command {} because of: Unknown Command",
         command_type
     ))]
-    InvalidType {
-        command_type: i32,
-        backtrace: Backtrace,
-    },
+    InvalidType { command_type: i32, backtrace: Backtrace },
 }
 
 /// This kind of error that can be produced during Pravega read Wire Commands.
