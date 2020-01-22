@@ -1,36 +1,30 @@
-use std::fmt::{Display, Formatter};
-use std::fmt::Write;
 use std::fmt;
+use std::fmt::Write;
+use std::fmt::{Display, Formatter};
 
 #[macro_use]
 extern crate shrinkwraprs;
 
-#[derive(Shrinkwrap)]
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct PravegaNodeUri(String);
 
-#[derive(Shrinkwrap)]
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct DelegationToken(String);
 
-#[derive(Shrinkwrap)]
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Timestamp(u64);
 
-#[derive(Shrinkwrap)]
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Scope {
     name: String,
 }
 
-#[derive(Shrinkwrap)]
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Stream {
     name: String,
 }
 
-#[derive(Shrinkwrap)]
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Segment {
     number: u64,
 }
@@ -38,7 +32,7 @@ pub struct Segment {
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct ScopedStream {
     scope: Scope,
-    stream: Stream
+    stream: Stream,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -103,4 +97,3 @@ pub struct StreamSegments {
 pub struct TxnSegments {
     //TODO
 }
-

@@ -13,6 +13,6 @@ pub enum WriteError {
 }
 
 #[async_trait]
-trait ByteStreamWriter : Sink<Vec<u8>, Error = WriteError> {
+trait ByteStreamWriter: Sink<Vec<u8>, Error = WriteError> {
     async fn open(segment: ScopedSegment, factory: &dyn ClientFactory) -> Self;
 }

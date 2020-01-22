@@ -13,6 +13,6 @@ pub enum ReadError {
 }
 
 #[async_trait]
-trait ByteStreamReader : TryStream<Ok = Vec<u8>, Error = ReadError> {
+trait ByteStreamReader: TryStream<Ok = Vec<u8>, Error = ReadError> {
     async fn open(segment: ScopedSegment, factory: &dyn ClientFactory) -> Self;
 }

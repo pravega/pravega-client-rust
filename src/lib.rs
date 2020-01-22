@@ -51,6 +51,6 @@ mod raw_client {
 mod client_factory;
 
 mod byte_stream {
-    mod writer;
     mod reader;
+    mod writer;
 }

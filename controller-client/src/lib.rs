@@ -11,13 +11,13 @@ use std::result::Result as StdResult;
 use std::time::Duration;
 
 use snafu::Snafu;
-use tonic::{Code, Status};
 use tonic::transport::channel::Channel;
+use tonic::{Code, Status};
 
 use async_trait::async_trait;
 pub use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
-    CreateScopeStatus, CreateStreamStatus, scaling_policy::ScalingPolicyType, ScalingPolicy,
+    scaling_policy::ScalingPolicyType, CreateScopeStatus, CreateStreamStatus, ScalingPolicy,
     ScopeInfo, StreamConfig, StreamInfo,
 };
 use pravega_rust_client_shared::*;
@@ -64,7 +64,6 @@ pub enum TransactionStatus {
 /// Controller Apis for administrative action for streams
 #[async_trait]
 pub trait ControllerClient {
-
     async fn create_scope(&self, scope: &Scope) -> Result<bool>;
 
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>>;
@@ -77,12 +76,20 @@ pub trait ControllerClient {
      * the same stream, the future completes with false to indicate that the stream existed when
      * the controller executed the operation.
      */
-    async fn create_stream(&self, stream: &ScopedStream, stream_config: &StreamConfiguration) -> Result<bool>;
+    async fn create_stream(
+        &self,
+        stream: &ScopedStream,
+        stream_config: &StreamConfiguration,
+    ) -> Result<bool>;
 
     /**
      * API to update the configuration of a stream.
      */
-    async fn update_stream(&self, stream: &ScopedStream, stream_config: &StreamConfiguration) -> Result<bool>;
+    async fn update_stream(
+        &self,
+        stream: &ScopedStream,
+        stream_config: &StreamConfiguration,
+    ) -> Result<bool>;
 
     /**
      * API to Truncate stream. This api takes a stream cut point which corresponds to a cut in
@@ -100,7 +107,6 @@ pub trait ControllerClient {
      */
     async fn delete_stream(&self, stream: &ScopedStream) -> Result<bool>;
 
-
     // Controller Apis called by pravega producers for getting stream specific information
 
     /**
@@ -111,12 +117,21 @@ pub trait ControllerClient {
     /**
      * API to create a new transaction. The transaction timeout is relative to the creation time.
      */
-    async fn create_transaction(&self, stream: &ScopedStream, lease: Duration) -> Result<TxnSegments>;
+    async fn create_transaction(
+        &self,
+        stream: &ScopedStream,
+        lease: Duration,
+    ) -> Result<TxnSegments>;
 
     /**
      * API to send transaction heartbeat and increase the transaction timeout by lease amount of milliseconds.
      */
-    async fn ping_transaction(&self, stream: &ScopedStream, tx_id: TxId, lease: Duration) -> Result<PingStatus>;
+    async fn ping_transaction(
+        &self,
+        stream: &ScopedStream,
+        tx_id: TxId,
+        lease: Duration,
+    ) -> Result<PingStatus>;
 
     /**
      * Commits a transaction, atomically committing all events to the stream, subject to the
@@ -124,7 +139,13 @@ pub trait ControllerClient {
      * //TODO
      * if the transaction has already been committed or aborted.
      */
-    async fn commit_transaction(&self, stream: &ScopedStream, tx_id: TxId, writer_id: WriterId, time: Timestamp) -> Result<()>;
+    async fn commit_transaction(
+        &self,
+        stream: &ScopedStream,
+        tx_id: TxId,
+        writer_id: WriterId,
+        time: Timestamp,
+    ) -> Result<()>;
 
     /**
      * Aborts a transaction. No events written to it may be read, and no further events may be
@@ -137,7 +158,11 @@ pub trait ControllerClient {
     /**
      * Returns the status of the specified transaction.
      */
-    async fn check_transaction_status(&self, stream: &ScopedStream, tx_id: TxId) -> Result<TransactionStatus>;
+    async fn check_transaction_status(
+        &self,
+        stream: &ScopedStream,
+        tx_id: TxId,
+    ) -> Result<TransactionStatus>;
 
     // Controller Apis that are called by readers
     //TODO
@@ -149,7 +174,7 @@ pub trait ControllerClient {
      * read and write, respectively. The result of this function can be cached until the endpoint is
      * unreachable or indicates it is no longer the owner.
      */
-     async fn get_endpoint_for_segment(&self, segment: ScopedSegment) -> Result<PravegaNodeUri>;
+    async fn get_endpoint_for_segment(&self, segment: ScopedSegment) -> Result<PravegaNodeUri>;
 
     /**
      * Refreshes an expired/non-existent delegation token.
@@ -157,7 +182,10 @@ pub trait ControllerClient {
      * @param streamName    Name of the stream.
      * @return              The delegation token for the given stream.
      */
-    async fn get_or_refresh_delegation_token_for(&self, stream: ScopedStream) -> Result<DelegationToken>;
+    async fn get_or_refresh_delegation_token_for(
+        &self,
+        stream: ScopedStream,
+    ) -> Result<DelegationToken>;
 }
 
 /// create_connection with the given controller uri.
