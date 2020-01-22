@@ -83,7 +83,7 @@ impl WireCommandReader {
 mod tests {
     use super::*;
     use crate::wire_protocol::connection_factory::{
-        ConnectionFactory, ConnectionFactoryImpl
+        ConnectionFactory, ConnectionFactoryImpl, ConnectionType,
     };
     use byteorder::{BigEndian, WriteBytesExt};
     use log::info;
@@ -136,7 +136,7 @@ mod tests {
 
         let connection_factory = ConnectionFactoryImpl {};
         let connection_future =
-            connection_factory.establish_connection(server.address, None);
+            connection_factory.establish_connection(server.address, ConnectionType::Tokio);
         let connection = rt.block_on(connection_future).unwrap();
         info!("connection established");
 
