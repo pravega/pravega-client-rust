@@ -10,7 +10,7 @@
 use std::result::Result as StdResult;
 use std::time::Duration;
 
-use snafu::Snafu;
+use snafu::{Snafu, Backtrace};
 use tonic::transport::channel::Channel;
 use tonic::{Code, Status};
 
@@ -42,7 +42,6 @@ pub enum ControllerError {
         can_retry: bool,
         operation: String,
         error_msg: String,
-        backtrace: Backtrace,
     },
     #[snafu(display("Could not connect to controller {}", endpoint))]
     ConnectionError {
