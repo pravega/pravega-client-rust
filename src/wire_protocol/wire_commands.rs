@@ -1,6 +1,7 @@
 use super::commands::*;
 use super::error::CommandError;
 use byteorder::{BigEndian, ByteOrder};
+use snafu::{Backtrace, GenerateBacktrace};
 
 #[derive(PartialEq, Debug)]
 pub enum WireCommands {
@@ -590,6 +591,7 @@ impl Decode for WireCommands {
             )),
             _ => Err(CommandError::InvalidType {
                 command_type: type_code,
+                backtrace: Backtrace::generate(),
             }),
         }
     }

@@ -42,12 +42,14 @@ pub enum ControllerError {
         can_retry: bool,
         operation: String,
         error_msg: String,
+        backtrace: Backtrace,
     },
     #[snafu(display("Could not connect to controller {}", endpoint))]
     ConnectionError {
         can_retry: bool,
         endpoint: String,
         error_msg: String,
+        backtrace: Backtrace,
     },
 }
 
