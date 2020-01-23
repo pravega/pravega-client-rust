@@ -22,8 +22,8 @@ matrix:
     script:
     - cargo fmt --all -- --check
     - cargo clippy -- -D warnings
-    - cargo build --verbose &&
-      cargo test --verbose
+    - cargo build --all --verbose &&
+      cargo test --all --verbose
 
     after_success:
     # measure code coverage and upload to coveralls.io
