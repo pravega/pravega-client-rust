@@ -1,7 +1,7 @@
 use super::commands::*;
 use super::error::CommandError;
+use crate::wire_protocol::error::InvalidType;
 use byteorder::{BigEndian, ByteOrder};
-use snafu::{Backtrace, GenerateBacktrace};
 
 #[derive(PartialEq, Debug)]
 pub enum WireCommands {
@@ -589,10 +589,10 @@ impl Decode for WireCommands {
             TableKeyBadVersionCommand::TYPE_CODE => Ok(WireCommands::TableKeyBadVersion(
                 TableKeyBadVersionCommand::read_from(input)?,
             )),
-            _ => Err(CommandError::InvalidType {
+            _ => InvalidType {
                 command_type: type_code,
-                backtrace: Backtrace::generate(),
-            }),
+            }
+            .fail(),
         }
     }
 }
