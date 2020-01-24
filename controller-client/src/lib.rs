@@ -68,7 +68,6 @@ pub enum ControllerError {
         can_retry: bool,
         endpoint: String,
         error_msg: String,
-        backtrace: Backtrace,
     },
 }
 
