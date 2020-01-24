@@ -21,7 +21,7 @@ pub use controller::{
     scaling_policy::ScalingPolicyType, CreateScopeStatus, CreateStreamStatus, ScalingPolicy,
     ScopeInfo, StreamConfig, StreamInfo,
 };
-use snafu::{Backtrace, Snafu};
+use snafu::Snafu;
 use tonic::transport::channel::Channel;
 use tonic::{Code, Status};
 
@@ -36,14 +36,12 @@ pub enum ControllerError {
         can_retry: bool,
         operation: String,
         error_msg: String,
-        backtrace: Backtrace,
     },
     #[snafu(display("Could not connect to controller {}", endpoint))]
     ConnectionError {
         can_retry: bool,
         endpoint: String,
         error_msg: String,
-        backtrace: Backtrace,
     },
 }
 
