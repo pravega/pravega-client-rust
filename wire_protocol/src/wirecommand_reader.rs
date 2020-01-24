@@ -63,9 +63,7 @@ impl WireCommandReader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::connection_factory::{
-        ConnectionFactory, ConnectionFactoryImpl, ConnectionType,
-    };
+    use crate::connection_factory::{ConnectionFactory, ConnectionFactoryImpl, ConnectionType};
     use byteorder::{BigEndian, WriteBytesExt};
     use log::info;
     use std::io::Write;

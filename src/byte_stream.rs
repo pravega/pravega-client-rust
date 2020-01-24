@@ -1,5 +1,5 @@
-use futures::Sink;
 use futures::stream::TryStream;
+use futures::Sink;
 use snafu::Snafu;
 
 use async_trait::async_trait;
@@ -17,7 +17,6 @@ pub enum WriteError {
 trait ByteStreamWriter: Sink<Vec<u8>, Error = WriteError> {
     async fn open(segment: ScopedSegment, factory: &dyn ClientFactory) -> Self;
 }
-
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]

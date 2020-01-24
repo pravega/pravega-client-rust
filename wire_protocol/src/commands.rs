@@ -4,13 +4,13 @@ use super::error::Io;
 use bincode2::Config;
 use bincode2::LengthOption;
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
+use lazy_static::*;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use std::fmt;
 use std::i64;
 use std::io::Cursor;
 use std::io::{Read, Write};
-use lazy_static::*;
 
 /**
  * trait for Command.

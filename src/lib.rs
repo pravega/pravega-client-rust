@@ -28,7 +28,6 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
-mod raw_client;
-mod client_factory;
 mod byte_stream;
-
+mod client_factory;
+mod raw_client;
