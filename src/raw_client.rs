@@ -1,6 +1,6 @@
-use crate::wire_protocol::commands::*;
-use crate::wire_protocol::connection_factory::ConnectionFactory;
-use crate::wire_protocol::error::ConnectionError;
+use pravega_wire_protocol::commands::*;
+use pravega_wire_protocol::connection_factory::ConnectionFactory;
+use pravega_wire_protocol::error::ConnectionError;
 use async_trait::async_trait;
 use std::net::SocketAddr;
 

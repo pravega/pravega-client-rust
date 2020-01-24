@@ -28,29 +28,7 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
-#[macro_use]
-extern crate lazy_static;
-
-#[forbid(unsafe_code)]
-#[allow(dead_code)]
-pub mod wire_protocol {
-    pub(crate) mod commands;
-    pub(crate) mod error;
-    mod wire_commands;
-    //Public for docs to build. (TODO: Is there a better way to do this?)
-    pub(crate) mod connection_factory;
-    #[cfg(test)]
-    mod tests;
-    pub(crate) mod wirecommand_reader;
-}
-
-mod raw_client {
-    mod client;
-}
-
+mod raw_client;
 mod client_factory;
+mod byte_stream;
 
-mod byte_stream {
-    mod reader;
-    mod writer;
-}

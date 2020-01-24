@@ -1,6 +1,6 @@
 use super::commands::*;
 use super::error::CommandError;
-use crate::wire_protocol::error::InvalidType;
+use crate::error::InvalidType;
 use byteorder::{BigEndian, ByteOrder};
 
 #[derive(PartialEq, Debug)]

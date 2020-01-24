@@ -12,7 +12,7 @@ extern crate byteorder;
 use super::error::PayloadLengthTooLong;
 use super::error::ReadWirecommand;
 use super::error::ReaderError;
-use crate::wire_protocol::connection_factory::Connection;
+use crate::connection_factory::Connection;
 use byteorder::{BigEndian, ReadBytesExt};
 use snafu::{ensure, ResultExt};
 use std::io::Cursor;
@@ -26,7 +26,7 @@ pub struct WireCommandReader {
 }
 
 impl WireCommandReader {
-    async fn read(&mut self) -> Result<Vec<u8>, ReaderError> {
+    pub async fn read(&mut self) -> Result<Vec<u8>, ReaderError> {
         let mut header: Vec<u8> = vec![0; LENGTH_FIELD_OFFSET as usize + LENGTH_FIELD_LENGTH as usize];
         self.connection
             .read_async(&mut header[..])
@@ -63,7 +63,7 @@ impl WireCommandReader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::wire_protocol::connection_factory::{
+    use crate::connection_factory::{
         ConnectionFactory, ConnectionFactoryImpl, ConnectionType,
     };
     use byteorder::{BigEndian, WriteBytesExt};

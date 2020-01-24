@@ -10,6 +10,7 @@ use std::fmt;
 use std::i64;
 use std::io::Cursor;
 use std::io::{Read, Write};
+use lazy_static::*;
 
 /**
  * trait for Command.
@@ -1670,14 +1671,14 @@ pub enum ErrorCode {
 }
 
 impl ErrorCode {
-    fn get_code(error_code: &ErrorCode) -> i32 {
+    pub fn get_code(error_code: &ErrorCode) -> i32 {
         match error_code {
             ErrorCode::Unspecified => -1,
             ErrorCode::TokenCheckedFailed => 0,
             ErrorCode::TokenExpired => 1,
         }
     }
-    fn value_of(code: i32) -> ErrorCode {
+    pub fn value_of(code: i32) -> ErrorCode {
         match code {
             -1 => ErrorCode::Unspecified,
             0 => ErrorCode::TokenCheckedFailed,
