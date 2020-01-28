@@ -13,13 +13,12 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
            "Sandeep Shridhar <sandeep.shridhar@dell.com>", "Wenxiao Zhang <wenxiao.zhang@dell.com>"]
 
 [dependencies]
-tonic = "0.1.1"
-bytes = "0.4"
-http = "0.1"
-log = "0.4"
-prost = "0.6"
+pravega-rust-client-shared = { path = "../shared"}
+async-trait = "0.1.22"
+prost = "0.6.1"
 snafu = "0.6.2"
 tokio = { version = "0.2.8", features = ["full"] }
+tonic = "0.1.1"
 
 [build-dependencies]
 tonic-build = "0.1.1"

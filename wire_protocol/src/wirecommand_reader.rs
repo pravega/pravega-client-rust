@@ -12,7 +12,7 @@ extern crate byteorder;
 use super::error::PayloadLengthTooLong;
 use super::error::ReadWirecommand;
 use super::error::ReaderError;
-use crate::wire_protocol::connection_factory::Connection;
+use crate::connection_factory::Connection;
 use byteorder::{BigEndian, ReadBytesExt};
 use snafu::{ensure, ResultExt};
 use std::io::Cursor;
@@ -26,9 +26,8 @@ pub struct WireCommandReader {
 }
 
 impl WireCommandReader {
-    async fn read(&mut self) -> Result<Vec<u8>, ReaderError> {
-        let mut header: Vec<u8> =
-            vec![0; LENGTH_FIELD_OFFSET as usize + LENGTH_FIELD_LENGTH as usize];
+    pub async fn read(&mut self) -> Result<Vec<u8>, ReaderError> {
+        let mut header: Vec<u8> = vec![0; LENGTH_FIELD_OFFSET as usize + LENGTH_FIELD_LENGTH as usize];
         self.connection
             .read_async(&mut header[..])
             .await
@@ -64,9 +63,7 @@ impl WireCommandReader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::wire_protocol::connection_factory::{
-        ConnectionFactory, ConnectionFactoryImpl, ConnectionType,
-    };
+    use crate::connection_factory::{ConnectionFactory, ConnectionFactoryImpl, ConnectionType};
     use byteorder::{BigEndian, WriteBytesExt};
     use log::info;
     use std::io::Write;
@@ -92,18 +89,10 @@ mod tests {
                 let mut stream = stream.unwrap();
                 // offset is 4 bytes, payload length is 8 bytes and payload is 66.
                 let mut bs = [0u8; 4 * mem::size_of::<i32>()];
-                bs.as_mut()
-                    .write_i32::<BigEndian>(4)
-                    .expect("Unable to write");
-                bs.as_mut()
-                    .write_i32::<BigEndian>(8)
-                    .expect("Unable to write");
-                bs.as_mut()
-                    .write_i32::<BigEndian>(6)
-                    .expect("Unable to write");
-                bs.as_mut()
-                    .write_i32::<BigEndian>(6)
-                    .expect("Unable to write");
+                bs.as_mut().write_i32::<BigEndian>(4).expect("Unable to write");
+                bs.as_mut().write_i32::<BigEndian>(8).expect("Unable to write");
+                bs.as_mut().write_i32::<BigEndian>(6).expect("Unable to write");
+                bs.as_mut().write_i32::<BigEndian>(6).expect("Unable to write");
                 stream.write(bs.as_ref()).unwrap();
                 break;
             }
