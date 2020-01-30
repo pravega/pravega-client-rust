@@ -1,5 +1,5 @@
-use std::time::Duration;
 use futures::future::FutureResult;
+use std::time::Duration;
 use tokio_timer::Delay;
 
 ///
@@ -22,11 +22,9 @@ pub struct RetryError<E> {
     pub tries: u64,
 }
 
-
 /// Keep track of the state of the future
 /// currently sleeping or executing the operation.
 pub enum RetryState<T, E> {
     Running(FutureResult<T, E>),
     Sleeping(Delay),
 }
-

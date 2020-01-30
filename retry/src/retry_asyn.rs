@@ -1,13 +1,17 @@
-use std::time::{Duration, Instant};
-use futures::{Async, IntoFuture, Future, Poll};
-use futures::future::Either;
-use tokio_timer::Delay;
+use super::retry_result::Retry;
 use super::retry_result::RetryError;
 use super::retry_result::RetryState;
-use super::retry_result::Retry;
+use futures::future::Either;
+use futures::{Async, Future, IntoFuture, Poll};
+use std::time::{Duration, Instant};
+use tokio_timer::Delay;
 
 /// Future that drives multiple attempts at an operation.
-pub struct RetryFuture <I, O, T, E> where I: IntoIterator<Item = Duration>, O: FnMut() -> Result<T, Retry<E>>{
+pub struct RetryFuture<I, O, T, E>
+where
+    I: IntoIterator<Item = Duration>,
+    O: FnMut() -> Result<T, Retry<E>>,
+{
     strategy: I::IntoIter,
     state: RetryState<T, Retry<E>>,
     operation: O,
@@ -18,18 +22,20 @@ pub struct RetryFuture <I, O, T, E> where I: IntoIterator<Item = Duration>, O: F
 /// Retry the given operation asynchronously until it succeeds,
 /// or until the given Duration iterator ends.
 pub fn retry_asyn<I, O, T, E>(strategy: I, operation: O) -> RetryFuture<I, O, T, E>
-    where
-        I: IntoIterator<Item = Duration>,
-        O: FnMut() -> Result<T, Retry<E>>
+where
+    I: IntoIterator<Item = Duration>,
+    O: FnMut() -> Result<T, Retry<E>>,
 {
     RetryFuture::spawn(strategy, operation)
 }
 
-
-impl<I, O, T, E> RetryFuture<I, O, T, E>  where I: IntoIterator<Item = Duration>, O: FnMut() -> Result<T, Retry<E>> {
-    fn spawn(iterable: I, mut operation: O)  -> RetryFuture<I, O, T, E> {
-
-        RetryFuture{
+impl<I, O, T, E> RetryFuture<I, O, T, E>
+where
+    I: IntoIterator<Item = Duration>,
+    O: FnMut() -> Result<T, Retry<E>>,
+{
+    fn spawn(iterable: I, mut operation: O) -> RetryFuture<I, O, T, E> {
+        RetryFuture {
             strategy: iterable.into_iter(),
             state: RetryState::Running(operation().into_future()),
             operation: operation,
@@ -46,10 +52,10 @@ impl<I, O, T, E> RetryFuture<I, O, T, E>  where I: IntoIterator<Item = Duration>
 
     fn retry(&mut self, err: E) -> Poll<T, RetryError<E>> {
         match self.strategy.next() {
-            None => Err(RetryError{
+            None => Err(RetryError {
                 error: err,
                 total_delay: self.total_delay,
-                tries: self.tries
+                tries: self.tries,
             }),
             Some(duration) => {
                 let deadline = Instant::now() + duration;
@@ -63,9 +69,11 @@ impl<I, O, T, E> RetryFuture<I, O, T, E>  where I: IntoIterator<Item = Duration>
     }
 }
 
-
-impl<I, O, T, E> Future for RetryFuture<I, O, T, E> where I: IntoIterator<Item = Duration>,
-                                                          O: FnMut() -> Result<T, Retry<E>> {
+impl<I, O, T, E> Future for RetryFuture<I, O, T, E>
+where
+    I: IntoIterator<Item = Duration>,
+    O: FnMut() -> Result<T, Retry<E>>,
+{
     type Item = T;
     type Error = RetryError<E>;
 
@@ -77,33 +85,27 @@ impl<I, O, T, E> Future for RetryFuture<I, O, T, E> where I: IntoIterator<Item =
     /// error to continue polling the future.
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let result = match self.state {
-            RetryState::Running(ref mut future) =>
-                Either::A(future.poll()),
-            RetryState::Sleeping(ref mut future) =>
-                Either::B(future.poll())
+            RetryState::Running(ref mut future) => Either::A(future.poll()),
+            RetryState::Sleeping(ref mut future) => Either::B(future.poll()),
         };
 
         match result {
-            Either::A(poll_result) =>  match poll_result {
+            Either::A(poll_result) => match poll_result {
                 Ok(ok) => Ok(ok),
                 Err(err) => match err {
-                    Retry::Retry(e) => {
-                        self.retry(e)
-                    }
-                    Retry::Err(e) => {
-                        Err(RetryError{
-                            error: e,
-                            total_delay: self.total_delay,
-                            tries: self.tries
-                        })
-                    }
-                }
-            }
-            Either::B(poll_result) =>  match poll_result {
+                    Retry::Retry(e) => self.retry(e),
+                    Retry::Err(e) => Err(RetryError {
+                        error: e,
+                        total_delay: self.total_delay,
+                        tries: self.tries,
+                    }),
+                },
+            },
+            Either::B(poll_result) => match poll_result {
                 Ok(Async::NotReady) => Ok(Async::NotReady),
                 Ok(Async::Ready(_)) => self.attempt(),
-                Err(_) => panic!()
-            }
+                Err(_) => panic!(),
+            },
         }
     }
 }

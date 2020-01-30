@@ -1,5 +1,5 @@
-use std::time::Duration;
 use std::iter::Iterator;
+use std::time::Duration;
 use std::u64::MAX as U64_MAX;
 
 pub struct RetryWithBackoff {
@@ -13,7 +13,7 @@ impl RetryWithBackoff {
     /// using default setting.
     pub fn default() -> RetryWithBackoff {
         let delay = Some(Duration::from_millis(10000));
-        RetryWithBackoff{
+        RetryWithBackoff {
             current: 1,
             base: 10,
             max_delay: delay,
@@ -39,7 +39,6 @@ impl RetryWithBackoff {
     /// Apply a the max number of tries.
     pub fn max_tries(self, tries: i32) -> std::iter::Take<RetryWithBackoff> {
         self.take(tries as usize)
-
     }
 }
 
@@ -94,7 +93,6 @@ fn test_returns_with_finite_retries() {
     assert_eq!(s.next(), Some(Duration::from_millis(10000)));
     assert_eq!(s.next(), Some(Duration::from_millis(100000)));
     assert_eq!(s.next(), None);
-
 }
 #[test]
 fn test_returns_some_exponential_base_2() {
@@ -113,8 +111,6 @@ fn test_saturates_at_maximum_value() {
     assert_eq!(s.next(), Some(Duration::from_millis(U64_MAX)));
     assert_eq!(s.next(), Some(Duration::from_millis(U64_MAX)));
 }
-
-
 
 #[test]
 fn stops_increasing_at_max_delay() {
