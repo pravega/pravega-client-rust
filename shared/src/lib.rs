@@ -101,8 +101,34 @@ impl Display for ScopedSegment {
     }
 }
 
+pub enum ScaleType {
+    FixedNumSegments = 0,
+    ByRateInKbytesPerSec = 1,
+    ByRateInEventsPerSec = 2,
+}
+
+pub struct Scaling {
+    pub scale_type: ScaleType,
+    pub target_rate: i32,
+    pub scale_factor: i32,
+    pub min_num_segments: i32,
+}
+
+pub enum RetentionType {
+    None = 0,
+    Time = 1,
+    Size = 2,
+}
+
+pub struct Retention {
+    pub retention_type: RetentionType,
+    pub retention_param: i64,
+}
+
 pub struct StreamConfiguration {
-    //TODO
+    pub scoped_stream: ScopedStream,
+    pub scaling: Scaling,
+    pub retention: Retention,
 }
 
 pub struct StreamCut {

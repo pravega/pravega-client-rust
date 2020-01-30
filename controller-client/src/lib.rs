@@ -36,8 +36,8 @@ use tonic::{Code, Status};
 use async_trait::async_trait;
 pub use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
-    scaling_policy::ScalingPolicyType, CreateScopeStatus, CreateStreamStatus, NodeUri, ScalingPolicy,
-    ScopeInfo, SegmentId, StreamConfig, StreamInfo,
+    scaling_policy::ScalingPolicyType, CreateScopeStatus, CreateStreamStatus, NodeUri, RetentionPolicy,
+    ScalingPolicy, ScopeInfo, SegmentId, StreamConfig, StreamInfo,
 };
 use pravega_rust_client_shared::*;
 use std::convert::{TryFrom, TryInto};
@@ -84,7 +84,7 @@ pub enum TransactionStatus {
 /// Controller Apis for administrative action for streams
 #[async_trait]
 pub trait ControllerClient {
-    async fn create_scope(&self, scope: &Scope) -> Result<bool>;
+    async fn create_scope(&mut self, scope: Scope) -> Result<bool>;
 
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>>;
 
@@ -96,8 +96,7 @@ pub trait ControllerClient {
      * the same stream, the future completes with false to indicate that the stream existed when
      * the controller executed the operation.
      */
-    async fn create_stream(&self, stream: &ScopedStream, stream_config: &StreamConfiguration)
-        -> Result<bool>;
+    async fn create_stream(&mut self, stream_config: StreamConfiguration) -> Result<bool>;
 
     /**
      * API to update the configuration of a stream.
@@ -198,9 +197,9 @@ pub struct ControllerClientImpl {
 
 #[allow(unused_variables)]
 #[async_trait]
-impl ControllerClient for ControllerClientImpl{
-    async fn create_scope(&self, scope: &Scope) -> Result<bool> {
-        unimplemented!()
+impl ControllerClient for ControllerClientImpl {
+    async fn create_scope(&mut self, scope: Scope) -> Result<bool> {
+        create_scope_top(scope, &mut self.channel).await
     }
 
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>> {
@@ -211,11 +210,15 @@ impl ControllerClient for ControllerClientImpl{
         unimplemented!()
     }
 
-    async fn create_stream(&self, stream: &ScopedStream, stream_config: &StreamConfiguration) -> Result<bool> {
-        unimplemented!()
+    async fn create_stream(&mut self, stream_config: StreamConfiguration) -> Result<bool> {
+        create_stream_top(stream_config, &mut self.channel).await
     }
 
-    async fn update_stream(&self, stream: &ScopedStream, stream_config: &StreamConfiguration) -> Result<bool> {
+    async fn update_stream(
+        &self,
+        stream: &ScopedStream,
+        stream_config: &StreamConfiguration,
+    ) -> Result<bool> {
         unimplemented!()
     }
 
@@ -239,11 +242,22 @@ impl ControllerClient for ControllerClientImpl{
         unimplemented!()
     }
 
-    async fn ping_transaction(&self, stream: &ScopedStream, tx_id: TxId, lease: Duration) -> Result<PingStatus> {
+    async fn ping_transaction(
+        &self,
+        stream: &ScopedStream,
+        tx_id: TxId,
+        lease: Duration,
+    ) -> Result<PingStatus> {
         unimplemented!()
     }
 
-    async fn commit_transaction(&self, stream: &ScopedStream, tx_id: TxId, writer_id: WriterId, time: Timestamp) -> Result<()> {
+    async fn commit_transaction(
+        &self,
+        stream: &ScopedStream,
+        tx_id: TxId,
+        writer_id: WriterId,
+        time: Timestamp,
+    ) -> Result<()> {
         unimplemented!()
     }
 
@@ -251,7 +265,11 @@ impl ControllerClient for ControllerClientImpl{
         unimplemented!()
     }
 
-    async fn check_transaction_status(&self, stream: &ScopedStream, tx_id: TxId) -> Result<TransactionStatus> {
+    async fn check_transaction_status(
+        &self,
+        stream: &ScopedStream,
+        tx_id: TxId,
+    ) -> Result<TransactionStatus> {
         unimplemented!()
     }
 
@@ -321,7 +339,6 @@ impl TryFrom<NodeUri> for PravegaNodeUri {
     }
 }
 
-
 impl TryFrom<Scope> for ScopeInfo {
     type Error = ControllerError;
 
@@ -332,14 +349,34 @@ impl TryFrom<Scope> for ScopeInfo {
         Ok(s)
     }
 }
+impl TryFrom<StreamConfiguration> for StreamConfig {
+    type Error = ControllerError;
+
+    fn try_from(value: StreamConfiguration) -> StdResult<StreamConfig, ControllerError> {
+        let cfg: StreamConfig = StreamConfig {
+            stream_info: Some(StreamInfo {
+                scope: value.scoped_stream.scope.name,
+                stream: value.scoped_stream.stream.name,
+            }),
+            scaling_policy: Some(ScalingPolicy {
+                scale_type: value.scaling.scale_type as i32,
+                target_rate: value.scaling.target_rate,
+                scale_factor: value.scaling.scale_factor,
+                min_num_segments: value.scaling.min_num_segments,
+            }),
+            retention_policy: Some(RetentionPolicy {
+                retention_type: value.retention.retention_type as i32,
+                retention_param: value.retention.retention_param,
+            }),
+        };
+        Ok(cfg)
+    }
+}
 
 /// Async function to create scope
 pub async fn create_scope_top(scope: Scope, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
-    let e1: StdResult<ScopeInfo, ControllerError> = ScopeInfo::try_from(scope);
-    match e1 {
-        Ok(request) => create_scope(request, ch).await,
-        Err(status) => Err(status),
-    }
+    let info: ScopeInfo = ScopeInfo::try_from(scope).unwrap();
+    create_scope(info, ch).await
 }
 
 pub async fn create_scope(request: ScopeInfo, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
@@ -366,6 +403,14 @@ pub async fn create_scope(request: ScopeInfo, ch: &mut ControllerServiceClient<C
 }
 
 /// Async function to create stream.
+pub async fn create_stream_top(
+    request: StreamConfiguration,
+    ch: &mut ControllerServiceClient<Channel>,
+) -> Result<bool> {
+    let cfg: StreamConfig = StreamConfig::try_from(request).unwrap();
+    create_stream(cfg, ch).await
+}
+
 pub async fn create_stream(request: StreamConfig, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
     let op_status: StdResult<tonic::Response<CreateStreamStatus>, tonic::Status> =
         ch.create_stream(tonic::Request::new(request)).await;
