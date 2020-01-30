@@ -37,7 +37,7 @@ impl RetryWithBackoff {
     }
 
     /// Apply a the max number of tries.
-    pub fn max_tries(mut self, tries: i32) -> std::iter::Take<RetryWithBackoff> {
+    pub fn max_tries(self, tries: i32) -> std::iter::Take<RetryWithBackoff> {
         self.take(tries as usize)
 
     }

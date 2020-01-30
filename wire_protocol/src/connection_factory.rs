@@ -39,8 +39,8 @@ pub trait ConnectionFactory {
     ///
     /// ```no_run
     /// use std::net::SocketAddr;
-    /// use pravega_client_rust::wire_protocol::connection_factory;
-    /// use pravega_client_rust::wire_protocol::connection_factory::ConnectionFactory;
+    /// use pravega_wire_protocol::connection_factory;
+    /// use pravega_wire_protocol::connection_factory::ConnectionFactory;
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
@@ -67,8 +67,8 @@ pub trait Connection {
     ///
     /// ```no_run
     /// use std::net::SocketAddr;
-    /// use pravega_client_rust::wire_protocol::connection_factory;
-    /// use pravega_client_rust::wire_protocol::connection_factory::ConnectionFactory;
+    /// use pravega_wire_protocol::connection_factory;
+    /// use pravega_wire_protocol::connection_factory::ConnectionFactory;
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
@@ -89,8 +89,8 @@ pub trait Connection {
     ///
     /// ```no_run
     /// use std::net::SocketAddr;
-    /// use pravega_client_rust::wire_protocol::connection_factory;
-    /// use pravega_client_rust::wire_protocol::connection_factory::ConnectionFactory;
+    /// use pravega_wire_protocol::connection_factory;
+    /// use pravega_wire_protocol::connection_factory::ConnectionFactory;
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
@@ -147,10 +147,7 @@ impl Connection for TokioConnection {
 
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError> {
         let endpoint = self.endpoint;
-        self.stream
-            .read_exact(buf)
-            .await
-            .context(ReadData { endpoint })?;
+        self.stream.read_exact(buf).await.context(ReadData { endpoint })?;
         Ok(())
     }
 }

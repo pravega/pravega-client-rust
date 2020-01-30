@@ -4,6 +4,7 @@ use super::error::Io;
 use bincode2::Config;
 use bincode2::LengthOption;
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
+use lazy_static::*;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use std::fmt;
@@ -151,10 +152,9 @@ impl Command for SegmentIsSealedCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: SegmentIsSealedCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: SegmentIsSealedCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -190,10 +190,9 @@ impl Command for SegmentIsTruncatedCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: SegmentIsTruncatedCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: SegmentIsTruncatedCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -227,10 +226,9 @@ impl Command for SegmentAlreadyExistsCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: SegmentAlreadyExistsCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: SegmentAlreadyExistsCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -271,10 +269,9 @@ impl Command for NoSuchSegmentCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: NoSuchSegmentCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: NoSuchSegmentCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -314,10 +311,9 @@ impl Command for TableSegmentNotEmptyCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: TableSegmentNotEmptyCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: TableSegmentNotEmptyCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -357,10 +353,9 @@ impl Command for InvalidEventNumberCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: InvalidEventNumberCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: InvalidEventNumberCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -404,10 +399,9 @@ impl Command for OperationUnsupportedCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: OperationUnsupportedCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: OperationUnsupportedCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -464,9 +458,7 @@ impl Command for PartialEventCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        Ok(PartialEventCommand {
-            data: input.to_vec(),
-        })
+        Ok(PartialEventCommand { data: input.to_vec() })
     }
 }
 
@@ -586,10 +578,9 @@ impl Command for AppendBlockEndCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: AppendBlockEndCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: AppendBlockEndCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -751,10 +742,9 @@ impl Command for ConditionalCheckFailedCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: ConditionalCheckFailedCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: ConditionalCheckFailedCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -860,10 +850,9 @@ impl Command for GetSegmentAttributeCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: GetSegmentAttributeCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: GetSegmentAttributeCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -894,10 +883,9 @@ impl Command for SegmentAttributeCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: SegmentAttributeCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: SegmentAttributeCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -932,10 +920,9 @@ impl Command for UpdateSegmentAttributeCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: UpdateSegmentAttributeCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: UpdateSegmentAttributeCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1001,10 +988,9 @@ impl Command for GetStreamSegmentInfoCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: GetStreamSegmentInfoCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: GetStreamSegmentInfoCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1041,10 +1027,9 @@ impl Command for StreamSegmentInfoCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: StreamSegmentInfoCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: StreamSegmentInfoCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1078,10 +1063,9 @@ impl Command for CreateSegmentCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: CreateSegmentCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: CreateSegmentCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1113,10 +1097,9 @@ impl Command for CreateTableSegmentCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: CreateTableSegmentCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: CreateTableSegmentCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1147,10 +1130,9 @@ impl Command for SegmentCreatedCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: SegmentCreatedCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: SegmentCreatedCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1184,10 +1166,9 @@ impl Command for UpdateSegmentPolicyCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: UpdateSegmentPolicyCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: UpdateSegmentPolicyCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1218,10 +1199,9 @@ impl Command for SegmentPolicyUpdatedCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: SegmentPolicyUpdatedCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: SegmentPolicyUpdatedCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1254,10 +1234,9 @@ impl Command for MergeSegmentsCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: MergeSegmentsCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: MergeSegmentsCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1289,10 +1268,9 @@ impl Command for MergeTableSegmentsCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: MergeTableSegmentsCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: MergeTableSegmentsCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1325,10 +1303,9 @@ impl Command for SegmentsMergedCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: SegmentsMergedCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: SegmentsMergedCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1394,10 +1371,9 @@ impl Command for SealTableSegmentCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: SealTableSegmentCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: SealTableSegmentCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1428,10 +1404,9 @@ impl Command for SegmentSealedCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: SegmentSealedCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: SegmentSealedCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1464,10 +1439,9 @@ impl Command for TruncateSegmentCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: TruncateSegmentCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: TruncateSegmentCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1498,10 +1472,9 @@ impl Command for SegmentTruncatedCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: SegmentTruncatedCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: SegmentTruncatedCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1533,10 +1506,9 @@ impl Command for DeleteSegmentCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: DeleteSegmentCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: DeleteSegmentCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1568,10 +1540,9 @@ impl Command for DeleteTableSegmentCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: DeleteTableSegmentCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: DeleteTableSegmentCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1602,10 +1573,9 @@ impl Command for SegmentDeletedCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: SegmentDeletedCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: SegmentDeletedCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1680,10 +1650,9 @@ impl Command for AuthTokenCheckFailedCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: AuthTokenCheckFailedCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: AuthTokenCheckFailedCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1702,14 +1671,14 @@ pub enum ErrorCode {
 }
 
 impl ErrorCode {
-    fn get_code(error_code: &ErrorCode) -> i32 {
+    pub fn get_code(error_code: &ErrorCode) -> i32 {
         match error_code {
             ErrorCode::Unspecified => -1,
             ErrorCode::TokenCheckedFailed => 0,
             ErrorCode::TokenExpired => 1,
         }
     }
-    fn value_of(code: i32) -> ErrorCode {
+    pub fn value_of(code: i32) -> ErrorCode {
         match code {
             -1 => ErrorCode::Unspecified,
             0 => ErrorCode::TokenCheckedFailed,
@@ -1741,10 +1710,9 @@ impl Command for UpdateTableEntriesCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: UpdateTableEntriesCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: UpdateTableEntriesCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1775,10 +1743,9 @@ impl Command for TableEntriesUpdatedCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: TableEntriesUpdatedCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: TableEntriesUpdatedCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1811,10 +1778,9 @@ impl Command for RemoveTableKeysCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: RemoveTableKeysCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: RemoveTableKeysCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1845,10 +1811,9 @@ impl Command for TableKeysRemovedCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: TableKeysRemovedCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: TableKeysRemovedCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1951,10 +1916,9 @@ impl Command for ReadTableKeysCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: ReadTableKeysCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: ReadTableKeysCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -1987,10 +1951,9 @@ impl Command for TableKeysReadCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: TableKeysReadCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: TableKeysReadCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -2024,10 +1987,9 @@ impl Command for ReadTableEntriesCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: ReadTableEntriesCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: ReadTableEntriesCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -2060,10 +2022,9 @@ impl Command for TableEntriesReadCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: TableEntriesReadCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: TableEntriesReadCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -2095,10 +2056,9 @@ impl Command for TableKeyDoesNotExistCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: TableKeyDoesNotExistCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: TableKeyDoesNotExistCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
@@ -2144,10 +2104,9 @@ impl Command for TableKeyBadVersionCommand {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: TableKeyBadVersionCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
+        let decoded: TableKeyBadVersionCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
         Ok(decoded)
     }
 }
