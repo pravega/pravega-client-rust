@@ -64,9 +64,9 @@ fn attempts_until_success() {
     let future = retry_asyn(retry_policy, move || {
         let previous = cloned_counter.fetch_add(1, Ordering::SeqCst);
         if previous < 3 {
-            Err::<(i32), Retry<&str>>(Retry::Retry("retry"))
+            Err::<i32, Retry<&str>>(Retry::Retry("retry"))
         } else {
-            Ok::<(i32), Retry<&str>>(previous as i32)
+            Ok::<i32, Retry<&str>>(previous as i32)
         }
     });
     let res = spawn(future, &runtime.executor()).wait();

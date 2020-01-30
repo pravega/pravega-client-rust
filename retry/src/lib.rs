@@ -16,4 +16,5 @@ mod retry;
 mod retry_asyn;
 mod retry_policy;
 mod retry_result;
+#[cfg(test)]
 mod test;
