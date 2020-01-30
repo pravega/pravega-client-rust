@@ -7,13 +7,16 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
+use crate::wire_protocol::connection_factory::ConnectionType::Tokio;
 use async_trait::async_trait;
+use log::error;
+use log::info;
 use snafu::{ResultExt, Snafu};
 use std::fmt;
-use std::net::{SocketAddr};
+use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use crate::wire_protocol::connection_factory::ConnectionType::Tokio;
+use uuid::Uuid;
 
 #[allow(dead_code)]
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -22,7 +25,9 @@ pub enum ConnectionType {
 }
 
 impl Default for ConnectionType {
-    fn default() -> Self { Tokio }
+    fn default() -> Self {
+        Tokio
+    }
 }
 
 impl fmt::Display for ConnectionType {
@@ -131,19 +136,28 @@ pub trait Connection: Send {
     /// }
     /// ```
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<()>;
+
+    fn get_uuid(&self) -> Uuid;
 }
 
 pub struct ConnectionFactoryImpl {}
 
 impl ConnectionFactoryImpl {
-    async fn establish_tokio_connection(&self, endpoint: SocketAddr) -> Result<Box<dyn Connection>> {
+    async fn establish_tokio_connection(
+        &self,
+        endpoint: SocketAddr,
+    ) -> Result<Box<dyn Connection>> {
         let connection_type = ConnectionType::Tokio;
+        let uuid = Uuid::new_v4();
         let stream = TcpStream::connect(endpoint).await.context(Connect {
             connection_type,
             endpoint,
         })?;
-        let tokio_connection: Box<dyn Connection> =
-            Box::new(TokioConnection { endpoint, stream }) as Box<dyn Connection>;
+        let tokio_connection: Box<dyn Connection> = Box::new(TokioConnection {
+            uuid,
+            endpoint,
+            stream,
+        }) as Box<dyn Connection>;
         Ok(tokio_connection)
     }
 }
@@ -156,14 +170,13 @@ impl ConnectionFactory for ConnectionFactoryImpl {
         connection_type: ConnectionType,
     ) -> Result<Box<dyn Connection>> {
         match connection_type {
-            ConnectionType::Tokio => {
-                self.establish_tokio_connection(endpoint).await
-            }
+            ConnectionType::Tokio => self.establish_tokio_connection(endpoint).await,
         }
     }
 }
 
 pub struct TokioConnection {
+    pub uuid: Uuid,
     pub endpoint: SocketAddr,
     pub stream: TcpStream,
 }
@@ -171,11 +184,13 @@ pub struct TokioConnection {
 #[async_trait]
 impl Connection for TokioConnection {
     async fn send_async(&mut self, payload: &[u8]) -> Result<()> {
+        println!("sending message");
         let endpoint = self.endpoint;
         self.stream
             .write_all(payload)
             .await
             .context(SendData { endpoint })?;
+        println!("message sent");
         Ok(())
     }
 
@@ -186,6 +201,10 @@ impl Connection for TokioConnection {
             .await
             .context(ReadData { endpoint })?;
         Ok(())
+    }
+
+    fn get_uuid(&self) -> Uuid {
+        self.uuid
     }
 }
 

@@ -21,9 +21,13 @@ log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_repr = "0.1"
 snafu = "0.5.0"
-tokio = { version = "0.2.8", features = ["full"] }
+tokio = { version = "0.2.11", features = ["full"] }
 r2d2 = "0.8.8"
 chashmap = "2.2.2"
+derive_builder = "0.9.0"
+getset = "0.0.9"
+parking_lot = "0.10.0"
+uuid = {version = "0.8", features = ["v4"]}
 
 [dev-dependencies]
 tokio-test = "0.2"

@@ -17,10 +17,10 @@ pub mod wire_protocol {
     mod commands;
     mod wire_commands;
     //Public for docs to build. (TODO: Is there a better way to do this?)
+    pub mod client_config;
     pub mod connection_factory;
+    pub mod connection_pool;
     #[cfg(test)]
     mod tests;
     pub mod wirecommand_reader;
-    pub mod connection_pool;
-    pub mod client_config;
 }
