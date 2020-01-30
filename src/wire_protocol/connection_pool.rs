@@ -130,7 +130,6 @@ impl r2d2::ManageConnection for PravegaConnectionManager {
 mod tests {
     use super::*;
     use crate::wire_protocol::client_config::ClientConfigBuilder;
-    use futures::executor::block_on;
     use log::info;
     use std::any::Any;
     use std::borrow::BorrowMut;
@@ -187,9 +186,11 @@ mod tests {
 
         let mut v = vec![];
         for i in 1..3 {
+
             let mut shared_pool = shared_pool.clone();
             let shared_address = shared_address.clone();
             let h = thread::spawn(move || {
+                let mut rt = Runtime::new().unwrap();
                 println!("number {} from the spawned thread!", i);
                 let mut guard = shared_pool.lock().unwrap();
                 let mut conn = guard.get_connection(*shared_address).unwrap();
@@ -199,7 +200,7 @@ mod tests {
                 payload.push(42);
                 println!("{:?}", conn.get_uuid());
                 let sent = conn.send_async(&payload);
-                let res = block_on(sent);
+                let res = rt.block_on(sent);
                 match res {
                     Ok(o) => println!("fine"),
                     Err(e) => println!("{:?}", e),
