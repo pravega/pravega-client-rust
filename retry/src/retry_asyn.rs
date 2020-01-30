@@ -107,10 +107,3 @@ impl<I, O, T, E> Future for RetryFuture<I, O, T, E> where I: IntoIterator<Item =
         }
     }
 }
-
-
-
-#[test]
-fn attempts_just_once() {
-    
-}

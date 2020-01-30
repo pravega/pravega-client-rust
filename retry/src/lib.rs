@@ -18,3 +18,4 @@ mod retry;
 mod retry_asyn;
 mod retry_result;
 mod retry_policy;
+mod test;
