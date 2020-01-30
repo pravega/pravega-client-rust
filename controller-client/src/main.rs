@@ -1,7 +1,9 @@
 use pravega_controller_client::*;
+use pravega_rust_client_shared::*;
+use std::convert::TryFrom;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
+async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>> {
     // start Pravega standalone before invoking this function.
     let mut client = create_connection("http://[::1]:9090").await;
     let request = ScopeInfo {
@@ -23,8 +25,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
         }),
         retention_policy: None,
     };
-    let stream_result: Result<bool, ControllerError> = create_stream(request2, &mut client).await;
+    let stream_result: Result<bool> = create_stream(request2, &mut client).await;
     println!("Response for create_stream is {:?}", stream_result);
+
+    let request3 = ScopedSegment {
+        scope: Scope {
+            name: "testScope123".into(),
+        },
+        stream: Stream {
+            name: "testStream".into(),
+        },
+        segment: Segment { number: 0 },
+    };
+    //let get_uri_result = get_endpoint_for_segment_top(request3, &mut client).await;
+    //println!("Response for get_uri is {:?}", get_uri_result);
+
+    let mut controller_client = ControllerClientImpl {
+        channel: client
+    };
+    let result_final = controller_client.get_endpoint_for_segment(request3).await;
+    println!("Final result is {:?}", result_final);
 
     Ok(())
 }

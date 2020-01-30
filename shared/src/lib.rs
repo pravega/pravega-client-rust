@@ -25,7 +25,7 @@ use std::fmt::{Display, Formatter};
 extern crate shrinkwraprs;
 
 #[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
-pub struct PravegaNodeUri(String);
+pub struct PravegaNodeUri(pub String);
 
 #[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct DelegationToken(String);
@@ -35,30 +35,30 @@ pub struct Timestamp(u64);
 
 #[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Scope {
-    name: String,
+    pub name: String,
 }
 
 #[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Stream {
-    name: String,
+    pub name: String,
 }
 
 #[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Segment {
-    number: u64,
+    pub number: i64,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct ScopedStream {
-    scope: Scope,
-    stream: Stream,
+    pub scope: Scope,
+    pub stream: Stream,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct ScopedSegment {
-    scope: Scope,
-    stream: Stream,
-    segment: Segment,
+    pub scope: Scope,
+    pub stream: Stream,
+    pub segment: Segment,
 }
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
