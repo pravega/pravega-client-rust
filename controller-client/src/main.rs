@@ -47,7 +47,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>>
     };
 
     let result_final = controller_client.get_endpoint_for_segment(request3).await;
-    println!("Final result is {:?}", result_final);
+    println!("Response for get_endpoint_for_segment is {:?}", result_final);
 
     Ok(())
 }

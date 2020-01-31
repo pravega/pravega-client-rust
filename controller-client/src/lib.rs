@@ -371,8 +371,8 @@ impl Into<StreamConfig> for StreamConfiguration {
     }
 }
 
-/// Async function to create scope
-pub async fn create_scope(scope: Scope, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
+/// Async helper function to create scope
+async fn create_scope(scope: Scope, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
     let request: ScopeInfo = scope.into();
     let op_status: StdResult<tonic::Response<CreateScopeStatus>, tonic::Status> =
         ch.create_scope(tonic::Request::new(request)).await;
@@ -396,11 +396,8 @@ pub async fn create_scope(scope: Scope, ch: &mut ControllerServiceClient<Channel
     }
 }
 
-/// Async function to create stream.
-pub async fn create_stream(
-    cfg: StreamConfiguration,
-    ch: &mut ControllerServiceClient<Channel>,
-) -> Result<bool> {
+/// Async helper function to create stream.
+async fn create_stream(cfg: StreamConfiguration, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
     let request: StreamConfig = cfg.into();
     let op_status: StdResult<tonic::Response<CreateStreamStatus>, tonic::Status> =
         ch.create_stream(tonic::Request::new(request)).await;
@@ -426,7 +423,8 @@ pub async fn create_stream(
     }
 }
 
-pub async fn get_uri_segment(
+/// Async helper function segment URI.
+async fn get_uri_segment(
     request: ScopedSegment,
     ch: &mut ControllerServiceClient<Channel>,
 ) -> Result<PravegaNodeUri> {
