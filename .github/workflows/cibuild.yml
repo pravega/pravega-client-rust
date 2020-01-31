@@ -11,14 +11,7 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v1
-        
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-          components: rustfmt, clippy
-        
+
       - name: Cache cargo registry
         uses: actions/cache@v1
         with:
@@ -34,6 +27,13 @@ jobs:
         with:	
           path: target	
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
 
       - name: Run cargo clean
         uses: actions-rs/cargo@v1
@@ -48,20 +48,14 @@ jobs:
           args: --workspace
         env:  #Will be handled by clippy
           RUSTFLAGS: -A warnings 
+
   test:
     name: Test Suite
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v1
-        
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-          components: rustfmt, clippy
-        
+
       - name: Cache cargo registry
         uses: actions/cache@v1
         with:
@@ -77,6 +71,13 @@ jobs:
         with:	
           path: target	
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
 
       - name: Run cargo clean
         uses: actions-rs/cargo@v1
@@ -96,14 +97,14 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v1
-        
+
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
           components: rustfmt, clippy
-        
+
       - name: Cache cargo registry
         uses: actions/cache@v1
         with:
@@ -120,12 +121,13 @@ jobs:
           path: target	
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
 
-      - name: Run cargo clean
-        uses: actions-rs/cargo@v1
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
         with:
-          command: clean  
-          args: -p pravega-controller-client -p pravega-wire-protocol -p pravega-client-rust -p pravega-rust-client-shar
-          
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
         with:
@@ -140,14 +142,7 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v1
-        
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-          components: rustfmt, clippy
-        
+
       - name: Cache cargo registry
         uses: actions/cache@v1
         with:
@@ -164,11 +159,12 @@ jobs:
           path: target	
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
 
-      - name: Run cargo clean
-        uses: actions-rs/cargo@v1
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
         with:
-          command: clean  
-          args: -p pravega-controller-client -p pravega-wire-protocol -p pravega-client-rust -p pravega-rust-client-shar
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
 
       - name: Run cargo clean
         uses: actions-rs/cargo@v1
