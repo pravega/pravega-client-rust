@@ -22,7 +22,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --all
+          args: --all -A unused-imports
 
   test:
     name: Test Suite
@@ -44,7 +44,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all
+          args: --all -A warnings
 
   fmt:
     name: Rustfmt
