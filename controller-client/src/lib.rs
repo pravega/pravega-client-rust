@@ -40,7 +40,7 @@ pub use controller::{
     ScalingPolicy, ScopeInfo, SegmentId, StreamConfig, StreamInfo,
 };
 use pravega_rust_client_shared::*;
-use std::convert::{TryFrom, TryInto};
+use std::convert::{From, Into};
 
 #[allow(non_camel_case_types)]
 mod controller {
@@ -312,10 +312,8 @@ fn map_grpc_error(operation_name: &str, status: Status) -> ControllerError {
     }
 }
 
-impl TryInto<SegmentId> for ScopedSegment {
-    type Error = ControllerError;
-
-    fn try_into(self) -> StdResult<SegmentId, ControllerError> {
+impl Into<SegmentId> for ScopedSegment {
+    fn into(self) -> SegmentId {
         let segment_id: SegmentId = SegmentId {
             stream_info: Some(StreamInfo {
                 scope: self.scope.name,
@@ -323,36 +321,31 @@ impl TryInto<SegmentId> for ScopedSegment {
             }),
             segment_id: self.segment.number,
         };
-        Ok(segment_id)
+        segment_id
     }
 }
 
-impl TryFrom<NodeUri> for PravegaNodeUri {
-    type Error = ControllerError;
-
-    fn try_from(value: NodeUri) -> StdResult<PravegaNodeUri, ControllerError> {
+impl From<NodeUri> for PravegaNodeUri {
+    fn from(value: NodeUri) -> PravegaNodeUri {
         let mut uri: String = value.endpoint;
         uri.push_str(":");
         uri.push_str(&value.port.to_string());
         let uri: PravegaNodeUri = PravegaNodeUri(uri);
-        Ok(uri)
+        uri
     }
 }
 
-impl TryFrom<Scope> for ScopeInfo {
-    type Error = ControllerError;
-
-    fn try_from(value: Scope) -> StdResult<ScopeInfo, ControllerError> {
+impl From<Scope> for ScopeInfo {
+    fn from(value: Scope) -> ScopeInfo {
         let s: ScopeInfo = ScopeInfo {
             scope: value.to_string(),
         };
-        Ok(s)
+        s
     }
 }
-impl TryFrom<StreamConfiguration> for StreamConfig {
-    type Error = ControllerError;
+impl From<StreamConfiguration> for StreamConfig {
 
-    fn try_from(value: StreamConfiguration) -> StdResult<StreamConfig, ControllerError> {
+    fn from(value: StreamConfiguration) -> StreamConfig {
         let cfg: StreamConfig = StreamConfig {
             stream_info: Some(StreamInfo {
                 scope: value.scoped_stream.scope.name,
@@ -369,13 +362,13 @@ impl TryFrom<StreamConfiguration> for StreamConfig {
                 retention_param: value.retention.retention_param,
             }),
         };
-        Ok(cfg)
+        cfg
     }
 }
 
 /// Async function to create scope
 pub async fn create_scope_top(scope: Scope, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
-    let info: ScopeInfo = ScopeInfo::try_from(scope).unwrap();
+    let info: ScopeInfo = ScopeInfo::from(scope);
     create_scope(info, ch).await
 }
 
@@ -407,7 +400,7 @@ pub async fn create_stream_top(
     request: StreamConfiguration,
     ch: &mut ControllerServiceClient<Channel>,
 ) -> Result<bool> {
-    let cfg: StreamConfig = StreamConfig::try_from(request).unwrap();
+    let cfg: StreamConfig = StreamConfig::from(request);
     create_stream(cfg, ch).await
 }
 
@@ -440,8 +433,8 @@ pub async fn get_endpoint_for_segment_top(
     request: ScopedSegment,
     ch: &mut ControllerServiceClient<Channel>,
 ) -> Result<PravegaNodeUri> {
-    let result = get_endpoint(request.try_into().unwrap(), ch).await;
-    result.and_then(|node_uri: NodeUri| PravegaNodeUri::try_from(node_uri))
+    let result = get_endpoint(request.into(), ch).await;
+    result.map(  PravegaNodeUri::from)
 }
 
 pub async fn get_endpoint(request: SegmentId, ch: &mut ControllerServiceClient<Channel>) -> Result<NodeUri> {
