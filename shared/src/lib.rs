@@ -101,12 +101,14 @@ impl Display for ScopedSegment {
     }
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum ScaleType {
     FixedNumSegments = 0,
     ByRateInKbytesPerSec = 1,
     ByRateInEventsPerSec = 2,
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Scaling {
     pub scale_type: ScaleType,
     pub target_rate: i32,
@@ -114,17 +116,20 @@ pub struct Scaling {
     pub min_num_segments: i32,
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum RetentionType {
     None = 0,
     Time = 1,
     Size = 2,
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Retention {
     pub retention_type: RetentionType,
     pub retention_param: i64,
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct StreamConfiguration {
     pub scoped_stream: ScopedStream,
     pub scaling: Scaling,
