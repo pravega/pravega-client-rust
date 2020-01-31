@@ -81,9 +81,15 @@ pub enum TransactionStatus {
     //TODO
 }
 
-/// Controller Apis for administrative action for streams
+/// Controller APIs for administrative action for streams
 #[async_trait]
 pub trait ControllerClient {
+    /**
+     * API to create a scope. The future completes with true in the case the scope did not exist
+     * when the controller executed the operation. In the case of a re-attempt to create the
+     * same scope, the future completes with false to indicate that the scope existed when the
+     * controller executed the operation.
+     */
     async fn create_scope(&mut self, scope: Scope) -> Result<bool>;
 
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>>;
@@ -120,7 +126,7 @@ pub trait ControllerClient {
      */
     async fn delete_stream(&self, stream: &ScopedStream) -> Result<bool>;
 
-    // Controller Apis called by pravega producers for getting stream specific information
+    // Controller APIs called by Pravega producers for getting stream specific information
 
     /**
      * API to get list of current segments for the stream to write to.
@@ -170,7 +176,7 @@ pub trait ControllerClient {
     async fn check_transaction_status(&self, stream: &ScopedStream, tx_id: TxId)
         -> Result<TransactionStatus>;
 
-    // Controller Apis that are called by readers
+    // Controller APIs that are called by readers
     //TODO
 
     /**
@@ -199,7 +205,7 @@ pub struct ControllerClientImpl {
 #[async_trait]
 impl ControllerClient for ControllerClientImpl {
     async fn create_scope(&mut self, scope: Scope) -> Result<bool> {
-        create_scope_top(scope, &mut self.channel).await
+        create_scope(scope, &mut self.channel).await
     }
 
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>> {
@@ -211,7 +217,7 @@ impl ControllerClient for ControllerClientImpl {
     }
 
     async fn create_stream(&mut self, stream_config: StreamConfiguration) -> Result<bool> {
-        create_stream_top(stream_config, &mut self.channel).await
+        create_stream(stream_config, &mut self.channel).await
     }
 
     async fn update_stream(
@@ -274,7 +280,7 @@ impl ControllerClient for ControllerClientImpl {
     }
 
     async fn get_endpoint_for_segment(&mut self, segment: ScopedSegment) -> Result<PravegaNodeUri> {
-        get_endpoint_for_segment_top(segment, &mut self.channel).await
+        get_uri_segment(segment, &mut self.channel).await
     }
 
     async fn get_or_refresh_delegation_token_for(&self, stream: ScopedStream) -> Result<DelegationToken> {
@@ -335,31 +341,30 @@ impl From<NodeUri> for PravegaNodeUri {
     }
 }
 
-impl From<Scope> for ScopeInfo {
-    fn from(value: Scope) -> ScopeInfo {
-        let s: ScopeInfo = ScopeInfo {
-            scope: value.to_string(),
+impl Into<ScopeInfo> for Scope {
+    fn into(self) -> ScopeInfo {
+        let scope_info: ScopeInfo = ScopeInfo {
+            scope: self.to_string(),
         };
-        s
+        scope_info
     }
 }
-impl From<StreamConfiguration> for StreamConfig {
-
-    fn from(value: StreamConfiguration) -> StreamConfig {
+impl Into<StreamConfig> for StreamConfiguration {
+    fn into(self) -> StreamConfig {
         let cfg: StreamConfig = StreamConfig {
             stream_info: Some(StreamInfo {
-                scope: value.scoped_stream.scope.name,
-                stream: value.scoped_stream.stream.name,
+                scope: self.scoped_stream.scope.name,
+                stream: self.scoped_stream.stream.name,
             }),
             scaling_policy: Some(ScalingPolicy {
-                scale_type: value.scaling.scale_type as i32,
-                target_rate: value.scaling.target_rate,
-                scale_factor: value.scaling.scale_factor,
-                min_num_segments: value.scaling.min_num_segments,
+                scale_type: self.scaling.scale_type as i32,
+                target_rate: self.scaling.target_rate,
+                scale_factor: self.scaling.scale_factor,
+                min_num_segments: self.scaling.min_num_segments,
             }),
             retention_policy: Some(RetentionPolicy {
-                retention_type: value.retention.retention_type as i32,
-                retention_param: value.retention.retention_param,
+                retention_type: self.retention.retention_type as i32,
+                retention_param: self.retention.retention_param,
             }),
         };
         cfg
@@ -367,12 +372,8 @@ impl From<StreamConfiguration> for StreamConfig {
 }
 
 /// Async function to create scope
-pub async fn create_scope_top(scope: Scope, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
-    let info: ScopeInfo = ScopeInfo::from(scope);
-    create_scope(info, ch).await
-}
-
-pub async fn create_scope(request: ScopeInfo, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
+pub async fn create_scope(scope: Scope, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
+    let request: ScopeInfo = scope.into();
     let op_status: StdResult<tonic::Response<CreateScopeStatus>, tonic::Status> =
         ch.create_scope(tonic::Request::new(request)).await;
     let operation_name = "CreateScope";
@@ -396,15 +397,11 @@ pub async fn create_scope(request: ScopeInfo, ch: &mut ControllerServiceClient<C
 }
 
 /// Async function to create stream.
-pub async fn create_stream_top(
-    request: StreamConfiguration,
+pub async fn create_stream(
+    cfg: StreamConfiguration,
     ch: &mut ControllerServiceClient<Channel>,
 ) -> Result<bool> {
-    let cfg: StreamConfig = StreamConfig::from(request);
-    create_stream(cfg, ch).await
-}
-
-pub async fn create_stream(request: StreamConfig, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
+    let request: StreamConfig = cfg.into();
     let op_status: StdResult<tonic::Response<CreateStreamStatus>, tonic::Status> =
         ch.create_stream(tonic::Request::new(request)).await;
     let operation_name = "CreateStream";
@@ -429,20 +426,16 @@ pub async fn create_stream(request: StreamConfig, ch: &mut ControllerServiceClie
     }
 }
 
-pub async fn get_endpoint_for_segment_top(
+pub async fn get_uri_segment(
     request: ScopedSegment,
     ch: &mut ControllerServiceClient<Channel>,
 ) -> Result<PravegaNodeUri> {
-    let result = get_endpoint(request.into(), ch).await;
-    result.map(  PravegaNodeUri::from)
-}
-
-pub async fn get_endpoint(request: SegmentId, ch: &mut ControllerServiceClient<Channel>) -> Result<NodeUri> {
     let op_status: StdResult<tonic::Response<NodeUri>, tonic::Status> =
-        ch.get_uri(tonic::Request::new(request)).await;
+        ch.get_uri(tonic::Request::new(request.into())).await;
     let operation_name = "get_endpoint";
     match op_status {
         Ok(response) => Ok(response.into_inner()),
         Err(status) => Err(map_grpc_error(operation_name, status)),
     }
+    .map(PravegaNodeUri::from)
 }
