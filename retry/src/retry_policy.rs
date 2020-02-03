@@ -2,10 +2,29 @@ use std::iter::Iterator;
 use std::time::Duration;
 use std::u64::MAX as U64_MAX;
 
+/// The trait for retry schedule. Anyone who implement the BackoffSchedule
+/// must also implement the iterator trait, because we need next() to get the next duration.
+pub trait BackoffSchedule: Iterator<Item = Duration> {
+    type Item;
+}
+
+impl<T> IntoIterator<Item = Duration> for T where T : BackoffSchedule {
+    type Item = Self::Item;
+    type IntoIter = Self;
+    fn into_iter(self) -> T {
+        self
+    }
+}
+
+/// The retry policy that h
 pub struct RetryWithBackoff {
     current: u64,
     base: u64,
     max_delay: Option<Duration>,
+}
+
+impl BackoffSchedule for RetryWithBackoff {
+
 }
 
 impl RetryWithBackoff {
@@ -43,7 +62,7 @@ impl RetryWithBackoff {
 }
 
 impl Iterator for RetryWithBackoff {
-    type Item = Duration;
+    type Item = Self::Item;
 
     fn next(&mut self) -> Option<Duration> {
         // set delay duration by applying factor
@@ -69,6 +88,7 @@ impl Iterator for RetryWithBackoff {
 #[test]
 fn test_uses_default_setting() {
     let mut s = RetryWithBackoff::default();
+
     assert_eq!(s.next(), Some(Duration::from_millis(1)));
     assert_eq!(s.next(), Some(Duration::from_millis(10)));
     assert_eq!(s.next(), Some(Duration::from_millis(100)));
@@ -106,7 +126,6 @@ fn test_returns_some_exponential_base_2() {
 #[test]
 fn test_saturates_at_maximum_value() {
     let mut s = RetryWithBackoff::from_millis(U64_MAX - 1);
-
     assert_eq!(s.next(), Some(Duration::from_millis(U64_MAX - 1)));
     assert_eq!(s.next(), Some(Duration::from_millis(U64_MAX)));
     assert_eq!(s.next(), Some(Duration::from_millis(U64_MAX)));

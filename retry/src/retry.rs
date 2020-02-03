@@ -3,22 +3,23 @@ use super::retry_result::RetryError;
 use std::thread::sleep;
 use std::time::Duration;
 
-/// Retry the given operation synchronously until it succeeds, or until the given `Duration`
-/// iterator ends.
-pub fn retry<I, O, T, E>(iterable: I, mut operation: O) -> Result<T, RetryError<E>>
+/// Retry the given operation synchronously until it succeeds, or until the given `Duration` end.
+///
+
+pub fn retry<I, O, T, E>(retry_schedule: I, mut operation: O) -> Result<T, RetryError<E>>
 where
     I: IntoIterator<Item = Duration>,
     O: FnMut() -> Result<T, Retry<E>>,
 {
-    retry_internal(iterable, |_| operation())
+    retry_internal(retry_schedule, |_| operation())
 }
 
-fn retry_internal<I, O, T, E>(iterable: I, mut operation: O) -> Result<T, RetryError<E>>
+fn retry_internal<I, O, T, E>(retry_schedule: I, mut operation: O) -> Result<T, RetryError<E>>
 where
     I: IntoIterator<Item = Duration>,
     O: FnMut(u64) -> Result<T, Retry<E>>,
 {
-    let mut iterator = iterable.into_iter();
+    let mut iterator = retry_schedule.into_iter();
     let mut current_try = 1;
     let mut total_delay = Duration::default();
     // Must use return(for early return).
