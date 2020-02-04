@@ -34,22 +34,24 @@ use tonic::transport::channel::Channel;
 use tonic::{Code, Status};
 
 use async_trait::async_trait;
-pub use controller::{
+use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
-    scaling_policy::ScalingPolicyType, CreateScopeStatus, CreateStreamStatus, NodeUri, RetentionPolicy,
-    ScalingPolicy, ScopeInfo, SegmentId, StreamConfig, StreamInfo,
+    CreateScopeStatus, CreateStreamStatus, NodeUri, ScopeInfo, StreamConfig,
 };
 use pravega_rust_client_shared::*;
 use std::convert::{From, Into};
 
 #[allow(non_camel_case_types)]
-mod controller {
+pub mod controller {
     tonic::include_proto!("io.pravega.controller.stream.api.grpc.v1");
     // this is the rs file name generated after compiling the proto file, located inside the target folder.
 }
 
 #[cfg(test)]
 mod test;
+
+mod model_helper;
+
 
 #[derive(Debug, Snafu)]
 pub enum ControllerError {
@@ -315,59 +317,6 @@ fn map_grpc_error(operation_name: &str, status: Status) -> ControllerError {
             operation: operation_name.into(),
             error_msg: status.to_string(),
         },
-    }
-}
-
-impl Into<SegmentId> for ScopedSegment {
-    fn into(self) -> SegmentId {
-        let segment_id: SegmentId = SegmentId {
-            stream_info: Some(StreamInfo {
-                scope: self.scope.name,
-                stream: self.stream.name,
-            }),
-            segment_id: self.segment.number,
-        };
-        segment_id
-    }
-}
-
-impl From<NodeUri> for PravegaNodeUri {
-    fn from(value: NodeUri) -> PravegaNodeUri {
-        let mut uri: String = value.endpoint;
-        uri.push_str(":");
-        uri.push_str(&value.port.to_string());
-        let uri: PravegaNodeUri = PravegaNodeUri(uri);
-        uri
-    }
-}
-
-impl Into<ScopeInfo> for Scope {
-    fn into(self) -> ScopeInfo {
-        let scope_info: ScopeInfo = ScopeInfo {
-            scope: self.to_string(),
-        };
-        scope_info
-    }
-}
-impl Into<StreamConfig> for StreamConfiguration {
-    fn into(self) -> StreamConfig {
-        let cfg: StreamConfig = StreamConfig {
-            stream_info: Some(StreamInfo {
-                scope: self.scoped_stream.scope.name,
-                stream: self.scoped_stream.stream.name,
-            }),
-            scaling_policy: Some(ScalingPolicy {
-                scale_type: self.scaling.scale_type as i32,
-                target_rate: self.scaling.target_rate,
-                scale_factor: self.scaling.scale_factor,
-                min_num_segments: self.scaling.min_num_segments,
-            }),
-            retention_policy: Some(RetentionPolicy {
-                retention_type: self.retention.retention_type as i32,
-                retention_param: self.retention.retention_param,
-            }),
-        };
-        cfg
     }
 }
 
