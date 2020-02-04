@@ -24,6 +24,7 @@
     clippy::similar_names
 )]
 #![allow(clippy::multiple_crate_versions)]
+#![allow(dead_code)]
 
 use std::result::Result as StdResult;
 use std::time::Duration;
@@ -35,10 +36,11 @@ use tonic::{Code, Status};
 use async_trait::async_trait;
 pub use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
-    scaling_policy::ScalingPolicyType, CreateScopeStatus, CreateStreamStatus, ScalingPolicy, ScopeInfo,
-    StreamConfig, StreamInfo,
+    scaling_policy::ScalingPolicyType, CreateScopeStatus, CreateStreamStatus, NodeUri, RetentionPolicy,
+    ScalingPolicy, ScopeInfo, SegmentId, StreamConfig, StreamInfo,
 };
 use pravega_rust_client_shared::*;
+use std::convert::{From, Into};
 
 #[allow(non_camel_case_types)]
 mod controller {
@@ -69,7 +71,7 @@ pub enum ControllerError {
     },
 }
 
-type Result<T> = StdResult<T, ControllerError>;
+pub type Result<T> = StdResult<T, ControllerError>;
 
 pub enum PingStatus {
     //TODO
@@ -79,10 +81,16 @@ pub enum TransactionStatus {
     //TODO
 }
 
-/// Controller Apis for administrative action for streams
+/// Controller APIs for administrative action for streams
 #[async_trait]
 pub trait ControllerClient {
-    async fn create_scope(&self, scope: &Scope) -> Result<bool>;
+    /**
+     * API to create a scope. The future completes with true in the case the scope did not exist
+     * when the controller executed the operation. In the case of a re-attempt to create the
+     * same scope, the future completes with false to indicate that the scope existed when the
+     * controller executed the operation.
+     */
+    async fn create_scope(&mut self, scope: Scope) -> Result<bool>;
 
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>>;
 
@@ -94,8 +102,7 @@ pub trait ControllerClient {
      * the same stream, the future completes with false to indicate that the stream existed when
      * the controller executed the operation.
      */
-    async fn create_stream(&self, stream: &ScopedStream, stream_config: &StreamConfiguration)
-        -> Result<bool>;
+    async fn create_stream(&mut self, stream_config: StreamConfiguration) -> Result<bool>;
 
     /**
      * API to update the configuration of a stream.
@@ -119,7 +126,7 @@ pub trait ControllerClient {
      */
     async fn delete_stream(&self, stream: &ScopedStream) -> Result<bool>;
 
-    // Controller Apis called by pravega producers for getting stream specific information
+    // Controller APIs called by Pravega producers for getting stream specific information
 
     /**
      * API to get list of current segments for the stream to write to.
@@ -169,7 +176,7 @@ pub trait ControllerClient {
     async fn check_transaction_status(&self, stream: &ScopedStream, tx_id: TxId)
         -> Result<TransactionStatus>;
 
-    // Controller Apis that are called by readers
+    // Controller APIs that are called by readers
     //TODO
 
     /**
@@ -179,7 +186,7 @@ pub trait ControllerClient {
      * read and write, respectively. The result of this function can be cached until the endpoint is
      * unreachable or indicates it is no longer the owner.
      */
-    async fn get_endpoint_for_segment(&self, segment: ScopedSegment) -> Result<PravegaNodeUri>;
+    async fn get_endpoint_for_segment(&mut self, segment: ScopedSegment) -> Result<PravegaNodeUri>;
 
     /**
      * Refreshes an expired/non-existent delegation token.
@@ -190,6 +197,96 @@ pub trait ControllerClient {
     async fn get_or_refresh_delegation_token_for(&self, stream: ScopedStream) -> Result<DelegationToken>;
 }
 
+pub struct ControllerClientImpl {
+    pub channel: ControllerServiceClient<Channel>,
+}
+
+#[allow(unused_variables)]
+#[async_trait]
+impl ControllerClient for ControllerClientImpl {
+    async fn create_scope(&mut self, scope: Scope) -> Result<bool> {
+        create_scope(scope, &mut self.channel).await
+    }
+
+    async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>> {
+        unimplemented!()
+    }
+
+    async fn delete_scope(&self, scope: &Scope) -> Result<bool> {
+        unimplemented!()
+    }
+
+    async fn create_stream(&mut self, stream_config: StreamConfiguration) -> Result<bool> {
+        create_stream(stream_config, &mut self.channel).await
+    }
+
+    async fn update_stream(
+        &self,
+        stream: &ScopedStream,
+        stream_config: &StreamConfiguration,
+    ) -> Result<bool> {
+        unimplemented!()
+    }
+
+    async fn truncate_stream(&self, stream: &ScopedStream, stream_cut: &StreamCut) -> Result<bool> {
+        unimplemented!()
+    }
+
+    async fn seal_stream(&self, stream: &ScopedStream) -> Result<bool> {
+        unimplemented!()
+    }
+
+    async fn delete_stream(&self, stream: &ScopedStream) -> Result<bool> {
+        unimplemented!()
+    }
+
+    async fn get_current_segments(&self, stream: &ScopedStream) -> Result<StreamSegments> {
+        unimplemented!()
+    }
+
+    async fn create_transaction(&self, stream: &ScopedStream, lease: Duration) -> Result<TxnSegments> {
+        unimplemented!()
+    }
+
+    async fn ping_transaction(
+        &self,
+        stream: &ScopedStream,
+        tx_id: TxId,
+        lease: Duration,
+    ) -> Result<PingStatus> {
+        unimplemented!()
+    }
+
+    async fn commit_transaction(
+        &self,
+        stream: &ScopedStream,
+        tx_id: TxId,
+        writer_id: WriterId,
+        time: Timestamp,
+    ) -> Result<()> {
+        unimplemented!()
+    }
+
+    async fn abort_transaction(&self, stream: &ScopedStream, tx_id: TxId) -> Result<()> {
+        unimplemented!()
+    }
+
+    async fn check_transaction_status(
+        &self,
+        stream: &ScopedStream,
+        tx_id: TxId,
+    ) -> Result<TransactionStatus> {
+        unimplemented!()
+    }
+
+    async fn get_endpoint_for_segment(&mut self, segment: ScopedSegment) -> Result<PravegaNodeUri> {
+        get_uri_segment(segment, &mut self.channel).await
+    }
+
+    async fn get_or_refresh_delegation_token_for(&self, stream: ScopedStream) -> Result<DelegationToken> {
+        unimplemented!()
+    }
+}
 /// create_connection with the given controller uri.
 pub async fn create_connection(uri: &'static str) -> ControllerServiceClient<Channel> {
     // Placeholder to add authentication headers.
@@ -197,33 +294,6 @@ pub async fn create_connection(uri: &'static str) -> ControllerServiceClient<Cha
         .await
         .expect("Failed to create a channel");
     connection
-}
-
-/// Async function to create scope
-pub async fn create_scope(
-    request: ScopeInfo,
-    ch: &mut ControllerServiceClient<Channel>,
-) -> StdResult<bool, ControllerError> {
-    let op_status: StdResult<tonic::Response<CreateScopeStatus>, tonic::Status> =
-        ch.create_scope(tonic::Request::new(request)).await;
-    let operation_name = "CreateScope";
-    match op_status {
-        Ok(code) => match code.into_inner().status() {
-            create_scope_status::Status::Success => Ok(true),
-            create_scope_status::Status::ScopeExists => Ok(false),
-            create_scope_status::Status::InvalidScopeName => Err(ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: operation_name.into(),
-                error_msg: "Invalid scope".into(),
-            }),
-            _ => Err(ControllerError::OperationError {
-                can_retry: true,
-                operation: operation_name.into(),
-                error_msg: "Operation failed".into(),
-            }),
-        },
-        Err(status) => Err(map_grpc_error(operation_name, status)),
-    }
 }
 
 // Method used to translate grpc errors to custom error.
@@ -248,10 +318,87 @@ fn map_grpc_error(operation_name: &str, status: Status) -> ControllerError {
     }
 }
 
-pub async fn create_stream(
-    request: StreamConfig,
-    ch: &mut ControllerServiceClient<Channel>,
-) -> StdResult<bool, ControllerError> {
+impl Into<SegmentId> for ScopedSegment {
+    fn into(self) -> SegmentId {
+        let segment_id: SegmentId = SegmentId {
+            stream_info: Some(StreamInfo {
+                scope: self.scope.name,
+                stream: self.stream.name,
+            }),
+            segment_id: self.segment.number,
+        };
+        segment_id
+    }
+}
+
+impl From<NodeUri> for PravegaNodeUri {
+    fn from(value: NodeUri) -> PravegaNodeUri {
+        let mut uri: String = value.endpoint;
+        uri.push_str(":");
+        uri.push_str(&value.port.to_string());
+        let uri: PravegaNodeUri = PravegaNodeUri(uri);
+        uri
+    }
+}
+
+impl Into<ScopeInfo> for Scope {
+    fn into(self) -> ScopeInfo {
+        let scope_info: ScopeInfo = ScopeInfo {
+            scope: self.to_string(),
+        };
+        scope_info
+    }
+}
+impl Into<StreamConfig> for StreamConfiguration {
+    fn into(self) -> StreamConfig {
+        let cfg: StreamConfig = StreamConfig {
+            stream_info: Some(StreamInfo {
+                scope: self.scoped_stream.scope.name,
+                stream: self.scoped_stream.stream.name,
+            }),
+            scaling_policy: Some(ScalingPolicy {
+                scale_type: self.scaling.scale_type as i32,
+                target_rate: self.scaling.target_rate,
+                scale_factor: self.scaling.scale_factor,
+                min_num_segments: self.scaling.min_num_segments,
+            }),
+            retention_policy: Some(RetentionPolicy {
+                retention_type: self.retention.retention_type as i32,
+                retention_param: self.retention.retention_param,
+            }),
+        };
+        cfg
+    }
+}
+
+/// Async helper function to create scope
+async fn create_scope(scope: Scope, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
+    let request: ScopeInfo = scope.into();
+    let op_status: StdResult<tonic::Response<CreateScopeStatus>, tonic::Status> =
+        ch.create_scope(tonic::Request::new(request)).await;
+    let operation_name = "CreateScope";
+    match op_status {
+        Ok(code) => match code.into_inner().status() {
+            create_scope_status::Status::Success => Ok(true),
+            create_scope_status::Status::ScopeExists => Ok(false),
+            create_scope_status::Status::InvalidScopeName => Err(ControllerError::OperationError {
+                can_retry: false, // do not retry.
+                operation: operation_name.into(),
+                error_msg: "Invalid scope".into(),
+            }),
+            _ => Err(ControllerError::OperationError {
+                can_retry: true,
+                operation: operation_name.into(),
+                error_msg: "Operation failed".into(),
+            }),
+        },
+        Err(status) => Err(map_grpc_error(operation_name, status)),
+    }
+}
+
+/// Async helper function to create stream.
+async fn create_stream(cfg: StreamConfiguration, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
+    let request: StreamConfig = cfg.into();
     let op_status: StdResult<tonic::Response<CreateStreamStatus>, tonic::Status> =
         ch.create_stream(tonic::Request::new(request)).await;
     let operation_name = "CreateStream";
@@ -274,4 +421,19 @@ pub async fn create_stream(
         },
         Err(status) => Err(map_grpc_error(operation_name, status)),
     }
+}
+
+/// Async helper function segment URI.
+async fn get_uri_segment(
+    request: ScopedSegment,
+    ch: &mut ControllerServiceClient<Channel>,
+) -> Result<PravegaNodeUri> {
+    let op_status: StdResult<tonic::Response<NodeUri>, tonic::Status> =
+        ch.get_uri(tonic::Request::new(request.into())).await;
+    let operation_name = "get_endpoint";
+    match op_status {
+        Ok(response) => Ok(response.into_inner()),
+        Err(status) => Err(map_grpc_error(operation_name, status)),
+    }
+    .map(PravegaNodeUri::from)
 }
