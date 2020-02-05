@@ -9,7 +9,7 @@
  */
 use super::PravegaNodeUri;
 use crate::controller::*;
-use pravega_rust_client_shared::{Scope, ScopedSegment, StreamConfiguration};
+use pravega_rust_client_shared::*;
 
 impl From<NodeUri> for PravegaNodeUri {
     fn from(value: NodeUri) -> PravegaNodeUri {
@@ -31,6 +31,16 @@ impl Into<SegmentId> for ScopedSegment {
             segment_id: self.segment.number,
         };
         segment_id
+    }
+}
+
+impl Into<StreamInfo> for ScopedStream {
+    fn into(self) -> StreamInfo {
+        let stream_info = StreamInfo {
+            scope: self.scope.name,
+            stream: self.stream.name
+        };
+        stream_info
     }
 }
 

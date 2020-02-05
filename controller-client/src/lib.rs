@@ -37,6 +37,8 @@ use async_trait::async_trait;
 use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
     CreateScopeStatus, CreateStreamStatus, NodeUri, ScopeInfo, StreamConfig,
+    DeleteScopeStatus, delete_scope_status, update_stream_status, StreamInfo, UpdateStreamStatus,
+    delete_stream_status, DeleteStreamStatus,
 };
 use pravega_rust_client_shared::*;
 use std::convert::{From, Into};
@@ -96,7 +98,7 @@ pub trait ControllerClient {
 
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>>;
 
-    async fn delete_scope(&self, scope: &Scope) -> Result<bool>;
+    async fn delete_scope(&mut self, scope: Scope) -> Result<bool>;
 
     /**
      * API to create a stream. The future completes with true in the case the stream did not
@@ -107,7 +109,7 @@ pub trait ControllerClient {
     async fn create_stream(&mut self, stream_config: StreamConfiguration) -> Result<bool>;
 
     /**
-     * API to update the configuration of a stream.
+     * API to update the configuration of a Stream.
      */
     async fn update_stream(&self, stream: &ScopedStream, stream_config: &StreamConfiguration)
         -> Result<bool>;
@@ -119,14 +121,14 @@ pub trait ControllerClient {
     async fn truncate_stream(&self, stream: &ScopedStream, stream_cut: &StreamCut) -> Result<bool>;
 
     /**
-     * API to seal a stream.
+     * API to seal a Stream.
      */
-    async fn seal_stream(&self, stream: &ScopedStream) -> Result<bool>;
+    async fn seal_stream(&mut self, stream: ScopedStream) -> Result<bool>;
 
     /**
      * API to delete a stream. Only a sealed stream can be deleted.
      */
-    async fn delete_stream(&self, stream: &ScopedStream) -> Result<bool>;
+    async fn delete_stream(&mut self, stream: ScopedStream) -> Result<bool>;
 
     // Controller APIs called by Pravega producers for getting stream specific information
 
@@ -214,8 +216,8 @@ impl ControllerClient for ControllerClientImpl {
         unimplemented!()
     }
 
-    async fn delete_scope(&self, scope: &Scope) -> Result<bool> {
-        unimplemented!()
+    async fn delete_scope(&mut self, scope: Scope) -> Result<bool> {
+       delete_scope(scope, &mut self.channel).await
     }
 
     async fn create_stream(&mut self, stream_config: StreamConfiguration) -> Result<bool> {
@@ -234,12 +236,12 @@ impl ControllerClient for ControllerClientImpl {
         unimplemented!()
     }
 
-    async fn seal_stream(&self, stream: &ScopedStream) -> Result<bool> {
-        unimplemented!()
+    async fn seal_stream(&mut self, stream: ScopedStream) -> Result<bool> {
+        seal_stream(stream, &mut self.channel).await
     }
 
-    async fn delete_stream(&self, stream: &ScopedStream) -> Result<bool> {
-        unimplemented!()
+    async fn delete_stream(&mut self, stream: ScopedStream) -> Result<bool> {
+        delete_stream(stream, &mut self.channel).await
     }
 
     async fn get_current_segments(&self, stream: &ScopedStream) -> Result<StreamSegments> {
@@ -372,7 +374,7 @@ async fn create_stream(cfg: StreamConfiguration, ch: &mut ControllerServiceClien
     }
 }
 
-/// Async helper function segment URI.
+/// Async helper function to get segment URI.
 async fn get_uri_segment(
     request: ScopedSegment,
     ch: &mut ControllerServiceClient<Channel>,
@@ -385,4 +387,82 @@ async fn get_uri_segment(
         Err(status) => Err(map_grpc_error(operation_name, status)),
     }
     .map(PravegaNodeUri::from)
+}
+
+/// Async helper function to delete Stream.
+async fn delete_scope(scope: Scope, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
+    let request: ScopeInfo = scope.into();
+    let op_status: StdResult<tonic::Response<DeleteScopeStatus>, tonic::Status> =
+        ch.delete_scope(tonic::Request::new(request.into())).await;
+    let operation_name = "DeleteScope";
+    match op_status {
+        Ok(code) => match code.into_inner().status() {
+            delete_scope_status::Status::Success => Ok(true),
+            delete_scope_status::Status::ScopeNotFound => Ok(false),
+            delete_scope_status::Status::ScopeNotEmpty => Err(ControllerError::OperationError {
+                can_retry: false, // do not retry.
+                operation: operation_name.into(),
+                error_msg: "Scope not empty".into(),
+            }),
+            _ => Err(ControllerError::OperationError {
+                can_retry: true,
+                operation: operation_name.into(),
+                error_msg: "Operation failed".into(),
+            }),
+        },
+        Err(status) => Err(map_grpc_error(operation_name, status)),
+    }
+}
+
+/// Async helper function to seal Stream.
+async fn seal_stream(stream: ScopedStream, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
+    let request: StreamInfo = stream.into();
+    let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> =
+        ch.seal_stream(tonic::Request::new(request)).await;
+    let operation_name = "SealStream";
+    match op_status {
+        Ok(code) => match code.into_inner().status() {
+            update_stream_status::Status::Success => Ok(true),
+            update_stream_status::Status::StreamNotFound | update_stream_status::Status::ScopeNotFound => {
+                Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Stream/Scope Not Found".into(),
+                })
+            }
+            _ => Err(ControllerError::OperationError {
+                can_retry: true, // retry for all other errors
+                operation: operation_name.into(),
+                error_msg: "Operation failed".into(),
+            }),
+        },
+        Err(status) => Err(map_grpc_error(operation_name, status)),
+    }
+}
+
+/// Async helper function to delete Stream.
+async fn delete_stream(stream: ScopedStream, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
+    let request: StreamInfo = stream.into();
+    let op_status: StdResult<tonic::Response<DeleteStreamStatus>, tonic::Status> =
+        ch.delete_stream(tonic::Request::new(request)).await;
+    let operation_name = "DeleteStream";
+    match op_status {
+        Ok(code) => match code.into_inner().status() {
+            delete_stream_status::Status::Success => Ok(true),
+            delete_stream_status::Status::StreamNotFound => Ok(false),
+            delete_stream_status::Status::StreamNotSealed => {
+                Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Stream Not Sealed".into(),
+                })
+            }
+            _ => Err(ControllerError::OperationError {
+                can_retry: true, // retry for all other errors
+                operation: operation_name.into(),
+                error_msg: "Operation failed".into(),
+            }),
+        },
+        Err(status) => Err(map_grpc_error(operation_name, status)),
+    }
 }

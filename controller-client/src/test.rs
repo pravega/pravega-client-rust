@@ -11,9 +11,7 @@ fn test_create_scope_error() {
     let client_future = create_connection("http://[::1]:9090");
     let mut client = rt.block_on(client_future);
 
-    let request = Scope {
-        name: "testScope124".into(),
-    };
+    let request = Scope::new("testScope124".into());
     let fut = create_scope(request, &mut client);
 
     rt.block_on(fut).unwrap();
@@ -29,9 +27,7 @@ fn test_create_stream_error() {
 
     let request = StreamConfiguration {
         scoped_stream: ScopedStream {
-            scope: Scope {
-                name: "testScope123".into(),
-            },
+            scope: Scope::new("testScope123".into()),
             stream: Stream {
                 name: "testStream".into(),
             },
