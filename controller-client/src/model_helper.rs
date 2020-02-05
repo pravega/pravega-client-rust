@@ -36,7 +36,7 @@ impl Into<SegmentId> for ScopedSegment {
 
 impl Into<StreamInfo> for ScopedStream {
     fn into(self) -> StreamInfo {
-        let stream_info = StreamInfo {
+        let stream_info: StreamInfo = StreamInfo {
             scope: self.scope.name,
             stream: self.stream.name,
         };
