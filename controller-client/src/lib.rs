@@ -389,9 +389,8 @@ async fn get_uri_segment(
 
 /// Async helper function to delete Stream.
 async fn delete_scope(scope: Scope, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
-    let request: ScopeInfo = scope.into();
     let op_status: StdResult<tonic::Response<DeleteScopeStatus>, tonic::Status> =
-        ch.delete_scope(tonic::Request::new(request.into())).await;
+        ch.delete_scope(tonic::Request::new(scope.into())).await;
     let operation_name = "DeleteScope";
     match op_status {
         Ok(code) => match code.into_inner().status() {
