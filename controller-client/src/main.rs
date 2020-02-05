@@ -53,19 +53,27 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>>
     let result_final = controller_client.get_endpoint_for_segment(request3).await;
     println!("Response for get_endpoint_for_segment is {:?}", result_final);
 
-    let request5 = ScopedStream::new(Scope::new("testScope123".into()), Stream::new("testStream".into()));
+    let request5 = ScopedStream::new(
+        Scope::new("testScope123".into()),
+        Stream::new("testStream".into()),
+    );
     let seal_result = controller_client.seal_stream(request5).await;
     println!("Response for seal stream is {:?}", seal_result);
 
-    let request6 = ScopedStream::new(Scope::new("testScope123".into()), Stream::new("testStream".into()));
+    let request6 = ScopedStream::new(
+        Scope::new("testScope123".into()),
+        Stream::new("testStream".into()),
+    );
     let delete_result = controller_client.delete_stream(request6).await;
     println!("Response for delete stream is {:?}", delete_result);
 
-    let request4 =  Scope::new("testScope456".into());
+    let request4 = Scope::new("testScope456".into());
     let scope_result = controller_client.create_scope(request4).await;
     println!("Response for create_scope is {:?}", scope_result);
 
-    let delete_scope_result = controller_client.delete_scope( Scope::new("testScope456".into())).await;
+    let delete_scope_result = controller_client
+        .delete_scope(Scope::new("testScope456".into()))
+        .await;
     println!("Response for delete scope is {:?}", delete_scope_result);
     Ok(())
 }

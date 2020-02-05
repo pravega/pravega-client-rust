@@ -36,9 +36,8 @@ use tonic::{Code, Status};
 use async_trait::async_trait;
 use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
-    CreateScopeStatus, CreateStreamStatus, NodeUri, ScopeInfo, StreamConfig,
-    DeleteScopeStatus, delete_scope_status, update_stream_status, StreamInfo, UpdateStreamStatus,
-    delete_stream_status, DeleteStreamStatus,
+    delete_scope_status, delete_stream_status, update_stream_status, CreateScopeStatus, CreateStreamStatus,
+    DeleteScopeStatus, DeleteStreamStatus, NodeUri, ScopeInfo, StreamConfig, StreamInfo, UpdateStreamStatus,
 };
 use pravega_rust_client_shared::*;
 use std::convert::{From, Into};
@@ -53,7 +52,6 @@ pub mod controller {
 mod test;
 
 mod model_helper;
-
 
 #[derive(Debug, Snafu)]
 pub enum ControllerError {
@@ -217,7 +215,7 @@ impl ControllerClient for ControllerClientImpl {
     }
 
     async fn delete_scope(&mut self, scope: Scope) -> Result<bool> {
-       delete_scope(scope, &mut self.channel).await
+        delete_scope(scope, &mut self.channel).await
     }
 
     async fn create_stream(&mut self, stream_config: StreamConfiguration) -> Result<bool> {

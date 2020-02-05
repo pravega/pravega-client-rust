@@ -38,7 +38,7 @@ impl Into<StreamInfo> for ScopedStream {
     fn into(self) -> StreamInfo {
         let stream_info = StreamInfo {
             scope: self.scope.name,
-            stream: self.stream.name
+            stream: self.stream.name,
         };
         stream_info
     }
