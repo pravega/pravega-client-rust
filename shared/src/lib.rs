@@ -17,6 +17,7 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
@@ -132,15 +133,17 @@ pub struct Retention {
     pub retention_param: i64,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct StreamConfiguration {
     pub scoped_stream: ScopedStream,
     pub scaling: Scaling,
     pub retention: Retention,
 }
 
+#[derive(new, Debug, Clone)]
 pub struct StreamCut {
-    //TODO
+    pub scoped_stream: ScopedStream,
+    pub segment_offset_map: HashMap<i64, i64>,
 }
 
 pub struct StreamSegments {

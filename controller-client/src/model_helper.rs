@@ -52,10 +52,7 @@ impl Into<ScopeInfo> for Scope {
 impl Into<StreamConfig> for StreamConfiguration {
     fn into(self) -> StreamConfig {
         StreamConfig {
-            stream_info: Some(StreamInfo {
-                scope: self.scoped_stream.scope.name,
-                stream: self.scoped_stream.stream.name,
-            }),
+            stream_info: Some(self.scoped_stream.into()),
             scaling_policy: Some(ScalingPolicy {
                 scale_type: self.scaling.scale_type as i32,
                 target_rate: self.scaling.target_rate,
@@ -66,6 +63,15 @@ impl Into<StreamConfig> for StreamConfiguration {
                 retention_type: self.retention.retention_type as i32,
                 retention_param: self.retention.retention_param,
             }),
+        }
+    }
+}
+
+impl Into<crate::controller::StreamCut> for pravega_rust_client_shared::StreamCut {
+    fn into(self) -> crate::controller::StreamCut {
+        crate::controller::StreamCut {
+            stream_info: Some(self.scoped_stream.into()),
+            cut: self.segment_offset_map.to_owned(), // create a clone
         }
     }
 }

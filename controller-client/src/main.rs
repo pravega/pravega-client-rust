@@ -9,6 +9,7 @@
  */
 use pravega_controller_client::*;
 use pravega_rust_client_shared::*;
+use std::collections::HashMap;
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>> {
@@ -74,6 +75,19 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>>
     };
     let result_update_config = controller_client.update_stream(req_new_config).await;
     println!("Response for update_stream is {:?}", result_update_config);
+
+    let request5 = ScopedStream::new(
+        Scope::new("testScope123".into()),
+        Stream::new("testStream".into()),
+    );
+
+    let result_truncate = controller_client
+        .truncate_stream(pravega_rust_client_shared::StreamCut::new(
+            request5,
+            HashMap::new(),
+        ))
+        .await;
+    println!("Response for truncate stream is {:?}", result_truncate);
 
     let request5 = ScopedStream::new(
         Scope::new("testScope123".into()),

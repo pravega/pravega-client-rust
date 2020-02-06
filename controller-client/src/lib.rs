@@ -115,7 +115,7 @@ pub trait ControllerClient {
      * API to Truncate stream. This api takes a stream cut point which corresponds to a cut in
      * the stream segments which is consistent and covers the entire key range space.
      */
-    async fn truncate_stream(&self, stream: &ScopedStream, stream_cut: &StreamCut) -> Result<bool>;
+    async fn truncate_stream(&mut self, stream_cut: StreamCut) -> Result<bool>;
 
     /**
      * API to seal a Stream.
@@ -225,8 +225,8 @@ impl ControllerClient for ControllerClientImpl {
         update_stream(stream_config, &mut self.channel).await
     }
 
-    async fn truncate_stream(&self, stream: &ScopedStream, stream_cut: &StreamCut) -> Result<bool> {
-        unimplemented!()
+    async fn truncate_stream(&mut self, stream_cut: StreamCut) -> Result<bool> {
+        truncate_stream(stream_cut, &mut self.channel).await
     }
 
     async fn seal_stream(&mut self, stream: ScopedStream) -> Result<bool> {
@@ -480,6 +480,34 @@ async fn update_stream(
     let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> =
         ch.update_stream(tonic::Request::new(request)).await;
     let operation_name = "updateStream";
+    match op_status {
+        Ok(code) => match code.into_inner().status() {
+            Status::Success => Ok(true),
+            Status::ScopeNotFound | Status::StreamNotFound => {
+                Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Stream/Scope Not Found".into(),
+                })
+            }
+            _ => Err(ControllerError::OperationError {
+                can_retry: true, // retry for all other errors
+                operation: operation_name.into(),
+                error_msg: "Operation failed".into(),
+            }),
+        },
+        Err(status) => Err(map_grpc_error(operation_name, status)),
+    }
+}
+
+/// Async helper function to truncate Stream.
+async fn truncate_stream(stream_cut: StreamCut, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
+    use update_stream_status::Status;
+
+    let request: controller::StreamCut = stream_cut.into();
+    let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> =
+        ch.truncate_stream(tonic::Request::new(request)).await;
+    let operation_name = "truncateStream";
     match op_status {
         Ok(code) => match code.into_inner().status() {
             Status::Success => Ok(true),
