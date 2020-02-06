@@ -109,8 +109,7 @@ pub trait ControllerClient {
     /**
      * API to update the configuration of a Stream.
      */
-    async fn update_stream(&self, stream: &ScopedStream, stream_config: &StreamConfiguration)
-        -> Result<bool>;
+    async fn update_stream(&mut self, stream_config: StreamConfiguration) -> Result<bool>;
 
     /**
      * API to Truncate stream. This api takes a stream cut point which corresponds to a cut in
@@ -222,12 +221,8 @@ impl ControllerClient for ControllerClientImpl {
         create_stream(stream_config, &mut self.channel).await
     }
 
-    async fn update_stream(
-        &self,
-        stream: &ScopedStream,
-        stream_config: &StreamConfiguration,
-    ) -> Result<bool> {
-        unimplemented!()
+    async fn update_stream(&mut self, stream_config: StreamConfiguration) -> Result<bool> {
+        update_stream(stream_config, &mut self.channel).await
     }
 
     async fn truncate_stream(&self, stream: &ScopedStream, stream_cut: &StreamCut) -> Result<bool> {
@@ -462,6 +457,37 @@ async fn delete_stream(stream: ScopedStream, ch: &mut ControllerServiceClient<Ch
                     can_retry: false, // do not retry.
                     operation: operation_name.into(),
                     error_msg: "Stream Not Sealed".into(),
+                })
+            }
+            _ => Err(ControllerError::OperationError {
+                can_retry: true, // retry for all other errors
+                operation: operation_name.into(),
+                error_msg: "Operation failed".into(),
+            }),
+        },
+        Err(status) => Err(map_grpc_error(operation_name, status)),
+    }
+}
+
+/// Async helper function to update Stream.
+async fn update_stream(
+    stream_config: StreamConfiguration,
+    ch: &mut ControllerServiceClient<Channel>,
+) -> Result<bool> {
+    use update_stream_status::Status;
+
+    let request: StreamConfig = stream_config.into();
+    let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> =
+        ch.update_stream(tonic::Request::new(request)).await;
+    let operation_name = "updateStream";
+    match op_status {
+        Ok(code) => match code.into_inner().status() {
+            Status::Success => Ok(true),
+            Status::ScopeNotFound | Status::StreamNotFound => {
+                Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Stream/Scope Not Found".into(),
                 })
             }
             _ => Err(ControllerError::OperationError {

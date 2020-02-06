@@ -39,6 +39,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>>
             retention_param: 0,
         },
     };
+
     let stream_result = controller_client.create_stream(request2).await;
     println!("Response for create_stream is {:?}", stream_result);
 
@@ -52,6 +53,27 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>>
 
     let result_final = controller_client.get_endpoint_for_segment(request3).await;
     println!("Response for get_endpoint_for_segment is {:?}", result_final);
+
+    let req_new_config = StreamConfiguration {
+        scoped_stream: ScopedStream {
+            scope: Scope::new("testScope123".into()),
+            stream: Stream {
+                name: "testStream".into(),
+            },
+        },
+        scaling: Scaling {
+            scale_type: ScaleType::FixedNumSegments,
+            target_rate: 0,
+            scale_factor: 0,
+            min_num_segments: 1,
+        },
+        retention: Retention {
+            retention_type: RetentionType::Size,
+            retention_param: 100000,
+        },
+    };
+    let result_update_config = controller_client.update_stream(req_new_config).await;
+    println!("Response for update_stream is {:?}", result_update_config);
 
     let request5 = ScopedStream::new(
         Scope::new("testScope123".into()),
