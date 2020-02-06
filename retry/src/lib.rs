@@ -3,14 +3,14 @@
 //! It can be used as follows:
 //! ```
 //! # use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
-//! # use pravega_rust_client_retry::retry_result::Retry;
-//! # use pravega_rust_client_retry::retry_sync::retry;
+//! # use pravega_rust_client_retry::retry_result::RetryResult;
+//! # use pravega_rust_client_retry::retry_sync::retry_sync;
 //! let retry_policy = RetryWithBackoff::default().max_tries(1);
 //! let mut collection = vec![1, 2].into_iter();
-//! let value = retry(retry_policy, || match collection.next() {
-//!     Some(n) if n == 2 => Ok(n),
-//!     Some(_) => Err(Retry::Retry("not 2")),
-//!     None => Err(Retry::Err("to the end")),
+//! let value = retry_sync(retry_policy, || match collection.next() {
+//!     Some(n) if n == 2 => RetryResult::Success(n),
+//!     Some(_) => RetryResult::Retry("not 2"),
+//!     None => RetryResult::Fail("to the end"),
 //! }).unwrap();
 //!
 //! assert_eq!(value, 2);
