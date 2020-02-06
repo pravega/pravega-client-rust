@@ -45,5 +45,3 @@ pub mod retry_async;
 pub mod retry_policy;
 pub mod retry_result;
 pub mod retry_sync;
-#[cfg(test)]
-mod test;

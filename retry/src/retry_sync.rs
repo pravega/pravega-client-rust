@@ -6,8 +6,14 @@ use std::time::Duration;
 
 /// Retry the given operation synchronously until it succeeds, or until the given `Duration` end.
 /// retry_schedule: The retry policy that has max retry times and retry delay.
-/// operation: the operation that needs to be retried.
 /// It can be used as follows:
+/// let retry_policy = RetryWithBackoff::default();
+/// let mut collection = vec![1, 2].into_iter();
+/// let res = retry_sync(retry_policy, || match collection.next() {
+///     Some(n) if n == 3 => RetryResult::Success(n),
+///     Some(_) => RetryResult::Retry(SnafuError::Retryable),
+///     None => RetryResult::Fail(SnafuError::Nonretryable),
+/// });
 
 pub fn retry_sync<O, T, E>(retry_schedule: impl BackoffSchedule, mut operation: O) -> Result<T, RetryError<E>>
 where
