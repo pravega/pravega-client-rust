@@ -15,7 +15,7 @@ pub async fn retry_async<F, T, E>(
 where
     F: Future<Output = RetryResult<T, E>>,
 {
-    let mut iterator = retry_schedule.into_iter();
+    let mut iterator = retry_schedule;
     let mut current_try = 1;
     let mut total_delay = Duration::default();
     loop {
