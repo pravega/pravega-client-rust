@@ -70,7 +70,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>>
         },
         retention: Retention {
             retention_type: RetentionType::Size,
-            retention_param: 100000,
+            retention_param: 100_000,
         },
     };
     let result_update_config = controller_client.update_stream(req_new_config).await;
