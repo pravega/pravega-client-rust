@@ -322,15 +322,17 @@ fn map_grpc_error(operation_name: &str, status: Status) -> ControllerError {
 
 /// Async helper function to create scope
 async fn create_scope(scope: Scope, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
+    use create_scope_status::Status;
+
     let request: ScopeInfo = scope.into();
     let op_status: StdResult<tonic::Response<CreateScopeStatus>, tonic::Status> =
         ch.create_scope(tonic::Request::new(request)).await;
     let operation_name = "CreateScope";
     match op_status {
         Ok(code) => match code.into_inner().status() {
-            create_scope_status::Status::Success => Ok(true),
-            create_scope_status::Status::ScopeExists => Ok(false),
-            create_scope_status::Status::InvalidScopeName => Err(ControllerError::OperationError {
+            Status::Success => Ok(true),
+            Status::ScopeExists => Ok(false),
+            Status::InvalidScopeName => Err(ControllerError::OperationError {
                 can_retry: false, // do not retry.
                 operation: operation_name.into(),
                 error_msg: "Invalid scope".into(),
@@ -347,15 +349,17 @@ async fn create_scope(scope: Scope, ch: &mut ControllerServiceClient<Channel>) -
 
 /// Async helper function to create stream.
 async fn create_stream(cfg: StreamConfiguration, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
+    use create_stream_status::Status;
+
     let request: StreamConfig = cfg.into();
     let op_status: StdResult<tonic::Response<CreateStreamStatus>, tonic::Status> =
         ch.create_stream(tonic::Request::new(request)).await;
     let operation_name = "CreateStream";
     match op_status {
         Ok(code) => match code.into_inner().status() {
-            create_stream_status::Status::Success => Ok(true),
-            create_stream_status::Status::StreamExists => Ok(false),
-            create_stream_status::Status::InvalidStreamName | create_stream_status::Status::ScopeNotFound => {
+            Status::Success => Ok(true),
+            Status::StreamExists => Ok(false),
+            Status::InvalidStreamName | Status::ScopeNotFound => {
                 Err(ControllerError::OperationError {
                     can_retry: false, // do not retry.
                     operation: operation_name.into(),
@@ -389,14 +393,16 @@ async fn get_uri_segment(
 
 /// Async helper function to delete Stream.
 async fn delete_scope(scope: Scope, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
+    use delete_scope_status::Status;
+
     let op_status: StdResult<tonic::Response<DeleteScopeStatus>, tonic::Status> =
         ch.delete_scope(tonic::Request::new(scope.into())).await;
     let operation_name = "DeleteScope";
     match op_status {
         Ok(code) => match code.into_inner().status() {
-            delete_scope_status::Status::Success => Ok(true),
-            delete_scope_status::Status::ScopeNotFound => Ok(false),
-            delete_scope_status::Status::ScopeNotEmpty => Err(ControllerError::OperationError {
+            Status::Success => Ok(true),
+            Status::ScopeNotFound => Ok(false),
+            Status::ScopeNotEmpty => Err(ControllerError::OperationError {
                 can_retry: false, // do not retry.
                 operation: operation_name.into(),
                 error_msg: "Scope not empty".into(),
@@ -413,14 +419,16 @@ async fn delete_scope(scope: Scope, ch: &mut ControllerServiceClient<Channel>) -
 
 /// Async helper function to seal Stream.
 async fn seal_stream(stream: ScopedStream, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
+    use update_stream_status::Status;
+
     let request: StreamInfo = stream.into();
     let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> =
         ch.seal_stream(tonic::Request::new(request)).await;
     let operation_name = "SealStream";
     match op_status {
         Ok(code) => match code.into_inner().status() {
-            update_stream_status::Status::Success => Ok(true),
-            update_stream_status::Status::StreamNotFound | update_stream_status::Status::ScopeNotFound => {
+            Status::Success => Ok(true),
+            Status::StreamNotFound | Status::ScopeNotFound => {
                 Err(ControllerError::OperationError {
                     can_retry: false, // do not retry.
                     operation: operation_name.into(),
@@ -439,15 +447,17 @@ async fn seal_stream(stream: ScopedStream, ch: &mut ControllerServiceClient<Chan
 
 /// Async helper function to delete Stream.
 async fn delete_stream(stream: ScopedStream, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
+    use delete_stream_status::Status;
+
     let request: StreamInfo = stream.into();
     let op_status: StdResult<tonic::Response<DeleteStreamStatus>, tonic::Status> =
         ch.delete_stream(tonic::Request::new(request)).await;
     let operation_name = "DeleteStream";
     match op_status {
         Ok(code) => match code.into_inner().status() {
-            delete_stream_status::Status::Success => Ok(true),
-            delete_stream_status::Status::StreamNotFound => Ok(false),
-            delete_stream_status::Status::StreamNotSealed => {
+            Status::Success => Ok(true),
+            Status::StreamNotFound => Ok(false),
+            Status::StreamNotSealed => {
                 Err(ControllerError::OperationError {
                     can_retry: false, // do not retry.
                     operation: operation_name.into(),

@@ -28,7 +28,7 @@ extern crate shrinkwraprs;
 extern crate derive_new;
 
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
-pub struct PravegaNodeUri(pub String);
+pub struct PravegaNodeUri(String);
 
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct DelegationToken(String);
