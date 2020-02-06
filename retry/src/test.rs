@@ -2,8 +2,6 @@ use super::retry_async::retry_async;
 use super::retry_policy::RetryWithBackoff;
 use super::retry_result::RetryError;
 use super::retry_result::RetryResult;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Runtime;
 
@@ -62,11 +60,12 @@ fn attempts_until_max_retries_exceeded() {
 fn attempts_until_success() {
     let mut runtime = Runtime::new().unwrap();
     let retry_policy = RetryWithBackoff::default().max_tries(3);
-    let counter = Arc::new(AtomicUsize::new(0));
-    let cloned_counter = counter.clone();
+    let mut counter = 0;
+
     let future = retry_async(retry_policy, || {
+        let previous = counter;
+        counter += 1;
         async move {
-            let previous = cloned_counter.fetch_add(1, Ordering::SeqCst);
             if previous < 3 {
                 RetryResult::Retry("retry")
             } else {
@@ -76,5 +75,5 @@ fn attempts_until_success() {
     });
     let res = runtime.block_on(future);
     assert_eq!(res, Ok(3));
-    assert_eq!(counter.load(Ordering::SeqCst), 4);
+    assert_eq!(counter, 4);
 }
