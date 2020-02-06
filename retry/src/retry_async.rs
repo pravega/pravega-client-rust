@@ -58,8 +58,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::retry_async;
     use super::super::retry_policy::RetryWithBackoff;
+    use super::retry_async;
     use super::RetryError;
     use super::RetryResult;
     use std::time::Duration;
