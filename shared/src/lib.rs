@@ -25,7 +25,7 @@ use std::fmt::{Display, Formatter};
 extern crate shrinkwraprs;
 
 #[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
-pub struct PravegaNodeUri(String);
+pub struct PravegaNodeUri(pub String);
 
 #[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct DelegationToken(String);
@@ -35,30 +35,30 @@ pub struct Timestamp(u64);
 
 #[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Scope {
-    name: String,
+    pub name: String,
 }
 
 #[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Stream {
-    name: String,
+    pub name: String,
 }
 
 #[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Segment {
-    number: u64,
+    pub number: i64,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct ScopedStream {
-    scope: Scope,
-    stream: Stream,
+    pub scope: Scope,
+    pub stream: Stream,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct ScopedSegment {
-    scope: Scope,
-    stream: Stream,
-    segment: Segment,
+    pub scope: Scope,
+    pub stream: Stream,
+    pub segment: Segment,
 }
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -101,8 +101,39 @@ impl Display for ScopedSegment {
     }
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum ScaleType {
+    FixedNumSegments = 0,
+    ByRateInKbytesPerSec = 1,
+    ByRateInEventsPerSec = 2,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct Scaling {
+    pub scale_type: ScaleType,
+    pub target_rate: i32,
+    pub scale_factor: i32,
+    pub min_num_segments: i32,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum RetentionType {
+    None = 0,
+    Time = 1,
+    Size = 2,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct Retention {
+    pub retention_type: RetentionType,
+    pub retention_param: i64,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct StreamConfiguration {
-    //TODO
+    pub scoped_stream: ScopedStream,
+    pub scaling: Scaling,
+    pub retention: Retention,
 }
 
 pub struct StreamCut {
