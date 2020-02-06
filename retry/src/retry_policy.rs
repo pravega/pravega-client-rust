@@ -4,14 +4,10 @@ use std::u64::MAX as U64_MAX;
 
 /// The retry policy that can retry something with
 /// backoff policy.
-pub trait BackoffSchedule : Iterator<Item = Duration> {
-
-}
+pub trait BackoffSchedule: Iterator<Item = Duration> {}
 
 /// Any implementation which implements the Iterator trait would also implement BackoffSchedule.
-impl<T> BackoffSchedule for T where T : Iterator<Item = Duration> {
-
-}
+impl<T> BackoffSchedule for T where T: Iterator<Item = Duration> {}
 
 /// The retry policy that can retry something with
 /// exp backoff policy.

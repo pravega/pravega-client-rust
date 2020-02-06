@@ -1,6 +1,6 @@
 use super::retry_policy::BackoffSchedule;
-use super::retry_result::RetryResult;
 use super::retry_result::RetryError;
+use super::retry_result::RetryResult;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -16,7 +16,10 @@ where
     retry_internal(retry_schedule, |_| operation())
 }
 
-pub fn retry_internal<O, T, E>(retry_schedule: impl BackoffSchedule, mut operation: O) -> Result<T, RetryError<E>>
+pub fn retry_internal<O, T, E>(
+    retry_schedule: impl BackoffSchedule,
+    mut operation: O,
+) -> Result<T, RetryError<E>>
 where
     O: FnMut(u64) -> RetryResult<T, E>,
 {
@@ -55,8 +58,8 @@ where
 mod tests {
     use super::super::retry_policy::RetryWithBackoff;
     use super::retry_sync;
-    use super::RetryResult;
     use super::RetryError;
+    use super::RetryResult;
     use snafu::Snafu;
     use std::time::Duration;
 
