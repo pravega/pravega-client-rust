@@ -1,14 +1,14 @@
-use futures::future::FutureResult;
 use std::time::Duration;
-use tokio_timer::Delay;
 
-///
+/// The RetryResult that the operation should return.
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug, Hash)]
-pub enum Retry<E> {
+pub enum RetryResult<T, E> {
+    /// Contains the return value if the operation succeed.
+    Success(T),
     /// Contains the error value if duration is exceeded.
     Retry(E),
     /// Contains an error value to return immediately.
-    Err(E),
+    Fail(E),
 }
 
 /// An error that the Retry function would give.
@@ -20,11 +20,4 @@ pub struct RetryError<E> {
     pub total_delay: Duration,
     /// The total number of times the operation was tried.
     pub tries: u64,
-}
-
-/// Keep track of the state of the future
-/// currently sleeping or executing the operation.
-pub enum RetryState<T, E> {
-    Running(FutureResult<T, E>),
-    Sleeping(Delay),
 }

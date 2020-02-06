@@ -4,7 +4,7 @@
 //! ```
 //! # use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 //! # use pravega_rust_client_retry::retry_result::Retry;
-//! # use pravega_rust_client_retry::retry::retry;
+//! # use pravega_rust_client_retry::retry_sync::retry;
 //! let retry_policy = RetryWithBackoff::default().max_tries(1);
 //! let mut collection = vec![1, 2].into_iter();
 //! let value = retry(retry_policy, || match collection.next() {
@@ -41,8 +41,8 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
-pub mod retry;
-pub mod retry_asyn;
+pub mod retry_sync;
+pub mod retry_async;
 pub mod retry_policy;
 pub mod retry_result;
 #[cfg(test)]

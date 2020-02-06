@@ -1,27 +1,25 @@
-use super::retry_asyn::retry_asyn;
+use super::retry_async::retry_async;
 use super::retry_policy::RetryWithBackoff;
-use super::retry_result::Retry;
+use super::retry_result::RetryResult;
 use super::retry_result::RetryError;
-use futures::sync::oneshot::spawn;
-use futures::Future;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Runtime;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[test]
 fn attempts_just_once() {
-    let runtime = Runtime::new().unwrap();
+    let mut runtime = Runtime::new().unwrap();
     let retry_policy = RetryWithBackoff::default().max_tries(1);
-    let counter = Arc::new(AtomicUsize::new(0));
-    let cloned_counter = counter.clone();
-    let future = retry_asyn(retry_policy, move || {
-        cloned_counter.fetch_add(1, Ordering::SeqCst);
-        Err::<(), Retry<&str>>(Retry::Err("not retry"))
+    let future = retry_async(retry_policy,  || async {
+        let previous = 1;
+        match previous {
+            1 => RetryResult::Fail("not retry"),
+            2 => RetryResult::Success(previous),
+            _ => RetryResult::Retry("retry"),
+        }
     });
-
-    let res = spawn(future, &runtime.executor()).wait();
-    assert_eq!(counter.load(Ordering::SeqCst), 1);
+    let res = runtime.block_on(future);
     assert_eq!(
         res,
         Err(RetryError {
@@ -34,17 +32,18 @@ fn attempts_just_once() {
 
 #[test]
 fn attempts_until_max_retries_exceeded() {
-    let runtime = Runtime::new().unwrap();
+    let mut runtime = Runtime::new().unwrap();
     let retry_policy = RetryWithBackoff::default().max_tries(3);
-    let counter = Arc::new(AtomicUsize::new(0));
-    let cloned_counter = counter.clone();
-    let future = retry_asyn(retry_policy, move || {
-        cloned_counter.fetch_add(1, Ordering::SeqCst);
-        Err::<(), Retry<&str>>(Retry::Retry("retry"))
+    let future = retry_async(retry_policy,  || async {
+        let previous = 3;
+        match previous {
+            1 => RetryResult::Fail("not retry"),
+            2 => RetryResult::Success(previous),
+            _ => RetryResult::Retry("retry"),
+        }
     });
 
-    let res = spawn(future, &runtime.executor()).wait();
-    assert_eq!(counter.load(Ordering::SeqCst), 4);
+    let res = runtime.block_on(future);
     assert_eq!(
         res,
         Err(RetryError {
@@ -57,19 +56,21 @@ fn attempts_until_max_retries_exceeded() {
 
 #[test]
 fn attempts_until_success() {
-    let runtime = Runtime::new().unwrap();
+    let mut runtime = Runtime::new().unwrap();
     let retry_policy = RetryWithBackoff::default().max_tries(3);
     let counter = Arc::new(AtomicUsize::new(0));
     let cloned_counter = counter.clone();
-    let future = retry_asyn(retry_policy, move || {
-        let previous = cloned_counter.fetch_add(1, Ordering::SeqCst);
+    let future =  retry_async(retry_policy,  || async move {
+        let previous  = cloned_counter.fetch_add(1, Ordering::SeqCst);
         if previous < 3 {
-            Err::<i32, Retry<&str>>(Retry::Retry("retry"))
+            RetryResult::Retry("retry")
         } else {
-            Ok::<i32, Retry<&str>>(previous as i32)
+            RetryResult::Success(previous)
         }
     });
-    let res = spawn(future, &runtime.executor()).wait();
+    let res = runtime.block_on(future);
     assert_eq!(res, Ok(3));
     assert_eq!(counter.load(Ordering::SeqCst), 4);
+
 }
+

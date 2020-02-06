@@ -1,23 +1,24 @@
-use super::retry_result::Retry;
+use super::retry_policy::BackoffSchedule;
+use super::retry_result::RetryResult;
 use super::retry_result::RetryError;
 use std::thread::sleep;
 use std::time::Duration;
 
 /// Retry the given operation synchronously until it succeeds, or until the given `Duration` end.
-///
+/// retry_schedule: The retry policy that has max retry times and retry delay.
+/// operation: the operation that needs to be retried.
+/// It can be used as follows:
 
-pub fn retry<I, O, T, E>(retry_schedule: I, mut operation: O) -> Result<T, RetryError<E>>
+pub fn retry_sync<O, T, E>(retry_schedule: impl BackoffSchedule, mut operation: O) -> Result<T, RetryError<E>>
 where
-    I: IntoIterator<Item = Duration>,
-    O: FnMut() -> Result<T, Retry<E>>,
+    O: FnMut() -> RetryResult<T, E>,
 {
     retry_internal(retry_schedule, |_| operation())
 }
 
-fn retry_internal<I, O, T, E>(retry_schedule: I, mut operation: O) -> Result<T, RetryError<E>>
+pub fn retry_internal<O, T, E>(retry_schedule: impl BackoffSchedule, mut operation: O) -> Result<T, RetryError<E>>
 where
-    I: IntoIterator<Item = Duration>,
-    O: FnMut(u64) -> Result<T, Retry<E>>,
+    O: FnMut(u64) -> RetryResult<T, E>,
 {
     let mut iterator = retry_schedule.into_iter();
     let mut current_try = 1;
@@ -25,8 +26,8 @@ where
     // Must use return(for early return).
     loop {
         match operation(current_try) {
-            Ok(value) => return Ok(value),
-            Err(Retry::Retry(error)) => {
+            RetryResult::Success(value) => return Ok(value),
+            RetryResult::Retry(error) => {
                 if let Some(delay) = iterator.next() {
                     sleep(delay);
                     current_try += 1;
@@ -39,7 +40,7 @@ where
                     });
                 }
             }
-            Err(Retry::Err(error)) => {
+            RetryResult::Fail(error) => {
                 return Err(RetryError {
                     error,
                     total_delay,
@@ -53,8 +54,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::super::retry_policy::RetryWithBackoff;
-    use super::retry;
-    use super::Retry;
+    use super::retry_sync;
+    use super::RetryResult;
     use super::RetryError;
     use snafu::Snafu;
     use std::time::Duration;
@@ -71,10 +72,10 @@ mod tests {
     fn test_succeeds_with_default_setting() {
         let retry_policy = RetryWithBackoff::default();
         let mut collection = vec![1, 2, 3, 4, 5].into_iter();
-        let value = retry(retry_policy, || match collection.next() {
-            Some(n) if n == 5 => Ok(n),
-            Some(_) => Err(Retry::Retry("not 5")),
-            None => Err(Retry::Err("to the end")),
+        let value = retry_sync(retry_policy, || match collection.next() {
+            Some(n) if n == 5 => RetryResult::Success(n),
+            Some(_) => RetryResult::Retry("not 5"),
+            None => RetryResult::Fail("to the end"),
         })
         .unwrap();
         assert_eq!(value, 5);
@@ -84,10 +85,10 @@ mod tests {
     fn test_succeeds_with_maximum_retries() {
         let retry_policy = RetryWithBackoff::default().max_tries(1);
         let mut collection = vec![1, 2].into_iter();
-        let value = retry(retry_policy, || match collection.next() {
-            Some(n) if n == 2 => Ok(n),
-            Some(_) => Err(Retry::Retry("not 2")),
-            None => Err(Retry::Err("to the end")),
+        let value = retry_sync(retry_policy, || match collection.next() {
+            Some(n) if n == 2 => RetryResult::Success(n),
+            Some(_) => RetryResult::Retry("not 2"),
+            None => RetryResult::Fail("to the end"),
         })
         .unwrap();
         assert_eq!(value, 2);
@@ -97,10 +98,10 @@ mod tests {
     fn test_fails_after_last_retry() {
         let retry_policy = RetryWithBackoff::default().max_tries(1);
         let mut collection = vec![1, 2].into_iter();
-        let res = retry(retry_policy, || match collection.next() {
-            Some(n) if n == 3 => Ok(n),
-            Some(_) => Err(Retry::Retry("retry")),
-            None => Err(Retry::Err("to the end")),
+        let res = retry_sync(retry_policy, || match collection.next() {
+            Some(n) if n == 3 => RetryResult::Success(n),
+            Some(_) => RetryResult::Retry("retry"),
+            None => RetryResult::Fail("to the end"),
         });
 
         assert_eq!(
@@ -117,10 +118,10 @@ mod tests {
     fn test_fails_with_non_retryable_err() {
         let retry_policy = RetryWithBackoff::default().max_tries(1);
         let mut collection = vec![1].into_iter();
-        let res = retry(retry_policy, || match collection.next() {
-            Some(n) if n == 3 => Ok(n),
-            Some(_) => Err(Retry::Err("non-retry")),
-            None => Err(Retry::Err("to the end")),
+        let res = retry_sync(retry_policy, || match collection.next() {
+            Some(n) if n == 3 => RetryResult::Success(n),
+            Some(_) => RetryResult::Fail("non-retry"),
+            None => RetryResult::Fail("to the end"),
         });
         assert_eq!(
             res,
@@ -136,10 +137,10 @@ mod tests {
     fn test_succeeds_with_snafu_error() {
         let retry_policy = RetryWithBackoff::default().max_tries(1);
         let mut collection = vec![1, 2].into_iter();
-        let res = retry(retry_policy, || match collection.next() {
-            Some(n) if n == 3 => Ok(n),
-            Some(_) => Err(Retry::Retry(SnafuError::Retryable)),
-            None => Err(Retry::Err(SnafuError::Nonretryable)),
+        let res = retry_sync(retry_policy, || match collection.next() {
+            Some(n) if n == 3 => RetryResult::Success(n),
+            Some(_) => RetryResult::Retry(SnafuError::Retryable),
+            None => RetryResult::Fail(SnafuError::Nonretryable),
         });
         assert_eq!(
             res,

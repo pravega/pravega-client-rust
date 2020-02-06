@@ -2,29 +2,23 @@ use std::iter::Iterator;
 use std::time::Duration;
 use std::u64::MAX as U64_MAX;
 
-/// The trait for retry schedule. Anyone who implement the BackoffSchedule
-/// must also implement the iterator trait, because we need next() to get the next duration.
-pub trait BackoffSchedule: Iterator<Item = Duration> {
-    type Item;
+/// The retry policy that can retry something with
+/// backoff policy.
+pub trait BackoffSchedule : Iterator<Item = Duration> {
+
 }
 
-impl<T> IntoIterator<Item = Duration> for T where T : BackoffSchedule {
-    type Item = Self::Item;
-    type IntoIter = Self;
-    fn into_iter(self) -> T {
-        self
-    }
+/// Any implementation which implements the Iterator trait would also implement BackoffSchedule.
+impl<T> BackoffSchedule for T where T : Iterator<Item = Duration> {
+
 }
 
-/// The retry policy that h
+/// The retry policy that can retry something with
+/// exp backoff policy.
 pub struct RetryWithBackoff {
     current: u64,
     base: u64,
     max_delay: Option<Duration>,
-}
-
-impl BackoffSchedule for RetryWithBackoff {
-
 }
 
 impl RetryWithBackoff {
@@ -62,7 +56,7 @@ impl RetryWithBackoff {
 }
 
 impl Iterator for RetryWithBackoff {
-    type Item = Self::Item;
+    type Item = Duration;
 
     fn next(&mut self) -> Option<Duration> {
         // set delay duration by applying factor

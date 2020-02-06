@@ -15,7 +15,4 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 
 [dependencies]
 snafu = "0.6.2"
-futures = "0.1.29"
-tokio-timer = "0.2.12"
-tokio-core = "0.1.17"
-tokio = "0.1.22"
+tokio = { version = "0.2.8", features = ["full"] }
