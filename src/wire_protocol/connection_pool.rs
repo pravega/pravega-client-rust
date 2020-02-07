@@ -19,7 +19,7 @@ use crate::wire_protocol::connection_factory::{
 use async_trait::async_trait;
 use snafu::{ResultExt, Snafu};
 use std::net::SocketAddr;
-use tokio::runtime::Runtime;
+use tokio::runtime;
 //use self::chashmap::CHashMap;
 //use parking_lot::RwLock;
 use std::collections::HashMap;
@@ -27,6 +27,7 @@ use std::collections::HashMap;
 use std::borrow::Borrow;
 use std::sync::Arc;
 use std::sync::RwLock;
+use futures::Future;
 
 #[derive(Debug, Snafu)]
 pub enum ConnectionPoolError {
@@ -58,7 +59,6 @@ impl ConnectionPoolImpl {
     }
 }
 
-//#[async_trait]
 impl ConnectionPool for ConnectionPoolImpl {
     fn get_connection(
         &mut self,
@@ -79,7 +79,7 @@ impl ConnectionPool for ConnectionPoolImpl {
                 Ok(read_guard.get(&endpoint).unwrap().get().unwrap())
             } else {
                 let manager = PravegaConnectionManager::new(endpoint, self.config.connection_type);
-                let pool = r2d2::Pool::builder().max_size(10).build(manager).unwrap();
+                let pool = r2d2::Pool::builder().max_size(2).build(manager).unwrap();
 
                 read_guard.insert(endpoint, pool);
                 Ok(read_guard.get(&endpoint).unwrap().get().unwrap())
@@ -104,24 +104,21 @@ impl PravegaConnectionManager {
         }
     }
 }
+//struct ConnFuture (Box<dyn Future<Output=Result<Box<dyn Connection>, ConnectionFactoryError>> + Send + Unpin>);
 
 impl r2d2::ManageConnection for PravegaConnectionManager {
-    type Connection = Box<dyn Connection>;
+    type Connection = Box<dyn Future<Output=Result<Box<dyn Connection>, ConnectionFactoryError>> + Send + Unpin>;
     type Error = ConnectionPoolError;
 
-    fn connect(&self) -> Result<Box<dyn Connection>, ConnectionPoolError> {
-        let connection_future = self
-            .connection_factory
-            .establish_connection(self.endpoint, self.connection_type);
-        let mut rt = Runtime::new().unwrap();
-        rt.block_on(connection_future).context(Connect {})
+    fn connect(&self) -> Result<Box<dyn Future<Output=Result<Box<dyn Connection>, ConnectionFactoryError>> + Send + Unpin>, ConnectionPoolError> {
+        Ok(Box::new(self.connection_factory.establish_connection(self.endpoint, self.connection_type)))
     }
 
-    fn is_valid(&self, _conn: &mut Box<dyn Connection>) -> Result<(), ConnectionPoolError> {
+    fn is_valid(&self, _conn: &mut Box<dyn Future<Output=Result<Box<dyn Connection>, ConnectionFactoryError>> + Send + Unpin>) -> Result<(), ConnectionPoolError> {
         Ok(())
     }
 
-    fn has_broken(&self, _: &mut Box<dyn Connection>) -> bool {
+    fn has_broken(&self, _: &mut Box<dyn Future<Output=Result<Box<dyn Connection>, ConnectionFactoryError>> + Send + Unpin>) -> bool {
         false
     }
 }
@@ -140,6 +137,7 @@ mod tests {
     use std::thread;
     use std::time;
     use tokio::runtime::Runtime;
+    use std::ops::DerefMut;
 
     struct Server {
         address: SocketAddr,
@@ -182,7 +180,7 @@ mod tests {
             .unwrap();
         let connection_pool =
             crate::wire_protocol::connection_pool::ConnectionPoolImpl::new(config);
-        let shared_pool = Arc::new(Mutex::new(connection_pool));
+        let shared_pool = Arc::new(connection_pool);
 
         let mut v = vec![];
         for i in 1..3 {
@@ -191,15 +189,15 @@ mod tests {
             let shared_address = shared_address.clone();
             let h = thread::spawn(move || {
                 let mut rt = Runtime::new().unwrap();
-                println!("number {} from the spawned thread!", i);
-                let mut guard = shared_pool.lock().unwrap();
-                let mut conn = guard.get_connection(*shared_address).unwrap();
 
-                drop(guard);
+                println!("number {} from the spawned thread!", i);
+                let mut conn = shared_pool.get_connection(*shared_address).unwrap();
+
                 let mut payload: Vec<u8> = Vec::new();
                 payload.push(42);
-                println!("{:?}", conn.get_uuid());
-                let sent = conn.send_async(&payload);
+//                println!("{:?}", conn.get_uuid());
+                let c = rt.block_on(conn.deref_mut()).unwrap();
+                let sent = c.send_async(&payload);
                 let res = rt.block_on(sent);
                 match res {
                     Ok(o) => println!("fine"),
