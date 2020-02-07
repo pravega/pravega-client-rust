@@ -8,26 +8,20 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-extern crate r2d2;
-//extern crate parking_lot;
-//extern crate chashmap;
-use self::r2d2::PooledConnection;
 use crate::wire_protocol::client_config::ClientConfig;
 use crate::wire_protocol::connection_factory::{
-    Connection, ConnectionFactory, ConnectionFactoryError, ConnectionFactoryImpl, ConnectionType,
+    Connection, ConnectionFactory, ConnectionFactoryError, ConnectionFactoryImpl,
 };
 use async_trait::async_trait;
+use parking_lot::Mutex;
 use snafu::{ResultExt, Snafu};
-use std::net::SocketAddr;
-use tokio::runtime;
-//use self::chashmap::CHashMap;
-//use parking_lot::RwLock;
 use std::collections::HashMap;
-//use futures::lock::Mutex;
-use std::borrow::Borrow;
+use std::fmt;
+use std::net::SocketAddr;
+use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use std::sync::RwLock;
-use futures::Future;
+use tokio::runtime::Runtime;
 
 #[derive(Debug, Snafu)]
 pub enum ConnectionPoolError {
@@ -37,89 +31,153 @@ pub enum ConnectionPoolError {
 
 type Result<T, E = ConnectionPoolError> = std::result::Result<T, E>;
 
-//#[async_trait]
-pub trait ConnectionPool {
-    fn get_connection(
-        &mut self,
-        endpoint: SocketAddr,
-    ) -> Result<PooledConnection<PravegaConnectionManager>>;
+pub struct PooledConnection {
+    inner: Option<Box<dyn Connection>>,
+    pool: Arc<Box<dyn ConnectionPool>>,
+}
+
+//impl fmt::Debug for PooledConnection {
+//    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+//        fmt::Debug::fmt(&self.inner.as_ref().unwrap(), fmt)
+//    }
+//}
+
+impl Drop for PooledConnection {
+    fn drop(&mut self) {
+        self.pool.put_back(self.inner.take().unwrap());
+    }
+}
+
+impl Deref for PooledConnection {
+    type Target = Box<dyn Connection>;
+
+    fn deref(&self) -> &Box<dyn Connection> {
+        &self.inner.as_ref().unwrap()
+    }
+}
+
+impl DerefMut for PooledConnection {
+    fn deref_mut(&mut self) -> &mut Box<dyn Connection> {
+        self.inner.as_mut().unwrap()
+    }
+}
+
+struct InternalPool {
+    conns: Vec<Box<dyn Connection>>,
+    num_conns: u32,
+    min_conns: u32,
+}
+
+impl InternalPool {
+    fn add_connection_to_pool(&mut self, connection: Box<dyn Connection>) {
+        self.conns.push(connection);
+        self.num_conns += 1;
+    }
+
+    fn get_connection_from_pool(&mut self) -> Result<Box<dyn Connection>> {
+        if let Some(mut conn) = self.conns.pop() {
+            self.num_conns -= 1;
+            Ok(conn)
+        } else {
+            //            TODO
+            // return an error
+            panic!("to do");
+        }
+    }
+}
+
+pub trait ConnectionPool: Send {
+    fn get_connection(&self, endpoint: SocketAddr) -> Result<PooledConnection>;
+
+    fn put_back(&self, connection: Box<dyn Connection>);
 }
 
 pub struct ConnectionPoolImpl {
-    //    map: chashmap::CHashMap<SocketAddr, r2d2::Pool<PravegaConnectionManager>>,
-    map: Arc<RwLock<HashMap<SocketAddr, r2d2::Pool<PravegaConnectionManager>>>>,
+    rt: Arc<Mutex<Runtime>>,
+    map: Arc<RwLock<HashMap<SocketAddr, Mutex<InternalPool>>>>,
     config: ClientConfig,
+    connection_factory: Box<dyn ConnectionFactory>,
+}
+
+impl Clone for ConnectionPoolImpl {
+    fn clone(&self) -> ConnectionPoolImpl {
+        ConnectionPoolImpl {
+            rt: self.rt.clone(),
+            map: self.map.clone(),
+            config: self.config.clone(),
+            connection_factory: Box::new(ConnectionFactoryImpl {}),
+        }
+    }
 }
 
 impl ConnectionPoolImpl {
     pub fn new(config: ClientConfig) -> Self {
-        //        let map: CHashMap<SocketAddr, r2d2::Pool<PravegaConnectionManager>> = CHashMap::new();
+        let rt = Arc::new(Mutex::new(Runtime::new().unwrap()));
         let map = Arc::new(RwLock::new(HashMap::new()));
-        ConnectionPoolImpl { map, config }
+        let connection_factory = Box::new(ConnectionFactoryImpl {});
+        ConnectionPoolImpl {
+            rt,
+            map,
+            config,
+            connection_factory,
+        }
     }
 }
 
 impl ConnectionPool for ConnectionPoolImpl {
-    fn get_connection(
-        &mut self,
-        endpoint: SocketAddr,
-    ) -> Result<PooledConnection<PravegaConnectionManager>> {
-        //        let borrowed_map = self.map.into_inner();
-        //        println!("{}", borrowed_map.len());
-        let mut read_guard = self.map.write().unwrap();
-        //        let borrowed_map = &self.map.into_inner().unwrap();
+    fn get_connection(&self, endpoint: SocketAddr) -> Result<PooledConnection> {
+        //
+        let mut read_guard = self.map.read().unwrap();
         if read_guard.contains_key(&endpoint) {
-            println!("endpoint exists in the map");
-            Ok(read_guard.get(&endpoint).unwrap().get().unwrap())
-        } else {
-            //            drop(read_guard);
-            println!("endpoint does not exist in the map, inserting now");
-            //            let mut mut_map = self.map.write().unwrap();
-            if read_guard.contains_key(&endpoint) {
-                Ok(read_guard.get(&endpoint).unwrap().get().unwrap())
+            let mut internal = read_guard.get(&endpoint).unwrap().lock();
+            let connection;
+            if internal.num_conns == 0 {
+                let fut = self
+                    .connection_factory
+                    .establish_connection(endpoint, self.config.connection_type);
+                let mut rt_mutex = self.rt.lock();
+                connection = rt_mutex.block_on(fut).unwrap();
             } else {
-                let manager = PravegaConnectionManager::new(endpoint, self.config.connection_type);
-                let pool = r2d2::Pool::builder().max_size(2).build(manager).unwrap();
-
-                read_guard.insert(endpoint, pool);
-                Ok(read_guard.get(&endpoint).unwrap().get().unwrap())
+                connection = internal.get_connection_from_pool().unwrap();
             }
+            Ok(PooledConnection {
+                pool: Arc::new(Box::new(self.clone())),
+                inner: Some(connection),
+            })
+        } else {
+            drop(read_guard);
+            let mut write_guard = self.map.write().unwrap();
+            if !write_guard.contains_key(&endpoint) {
+                let internal = Mutex::new(InternalPool {
+                    conns: vec![],
+                    num_conns: 0,
+                    min_conns: 1,
+                });
+                write_guard.insert(endpoint, internal);
+            }
+            let mut internal = write_guard.get(&endpoint).unwrap().lock();
+            let connection;
+            if internal.num_conns == 0 {
+                let fut = self
+                    .connection_factory
+                    .establish_connection(endpoint, self.config.connection_type);
+                let mut rt_mutex = self.rt.lock();
+                connection = rt_mutex.block_on(fut).unwrap();
+            } else {
+                connection = internal.get_connection_from_pool().unwrap();
+            }
+            Ok(PooledConnection {
+                pool: Arc::new(Box::new(self.clone())),
+                inner: Some(connection),
+            })
         }
     }
-}
 
-pub struct PravegaConnectionManager {
-    connection_factory: Box<dyn ConnectionFactory + Send + Sync>,
-    connection_type: ConnectionType,
-    endpoint: SocketAddr,
-}
-
-impl PravegaConnectionManager {
-    pub fn new(endpoint: SocketAddr, connection_type: ConnectionType) -> PravegaConnectionManager {
-        let connection_factory = Box::new(ConnectionFactoryImpl {});
-        PravegaConnectionManager {
-            connection_factory,
-            endpoint,
-            connection_type,
-        }
-    }
-}
-//struct ConnFuture (Box<dyn Future<Output=Result<Box<dyn Connection>, ConnectionFactoryError>> + Send + Unpin>);
-
-impl r2d2::ManageConnection for PravegaConnectionManager {
-    type Connection = Box<dyn Future<Output=Result<Box<dyn Connection>, ConnectionFactoryError>> + Send + Unpin>;
-    type Error = ConnectionPoolError;
-
-    fn connect(&self) -> Result<Box<dyn Future<Output=Result<Box<dyn Connection>, ConnectionFactoryError>> + Send + Unpin>, ConnectionPoolError> {
-        Ok(Box::new(self.connection_factory.establish_connection(self.endpoint, self.connection_type)))
-    }
-
-    fn is_valid(&self, _conn: &mut Box<dyn Future<Output=Result<Box<dyn Connection>, ConnectionFactoryError>> + Send + Unpin>) -> Result<(), ConnectionPoolError> {
-        Ok(())
-    }
-
-    fn has_broken(&self, _: &mut Box<dyn Future<Output=Result<Box<dyn Connection>, ConnectionFactoryError>> + Send + Unpin>) -> bool {
-        false
+    fn put_back(&self, connection: Box<dyn Connection>) {
+        let write_guard = self.map.write().unwrap();
+        let endpoint = connection.get_endpoint();
+        let mut internal = write_guard.get(&endpoint).unwrap().lock();
+        internal.add_connection_to_pool(connection);
     }
 }
 
@@ -128,16 +186,13 @@ mod tests {
     use super::*;
     use crate::wire_protocol::client_config::ClientConfigBuilder;
     use log::info;
-    use std::any::Any;
-    use std::borrow::BorrowMut;
     use std::io::Read;
     use std::net::{SocketAddr, TcpListener};
+    use std::ops::DerefMut;
     use std::sync::Arc;
-    use std::sync::Mutex;
     use std::thread;
     use std::time;
     use tokio::runtime::Runtime;
-    use std::ops::DerefMut;
 
     struct Server {
         address: SocketAddr,
@@ -183,34 +238,30 @@ mod tests {
         let shared_pool = Arc::new(connection_pool);
 
         let mut v = vec![];
-        for i in 1..3 {
-
+        for i in 1..51 {
             let mut shared_pool = shared_pool.clone();
             let shared_address = shared_address.clone();
             let h = thread::spawn(move || {
                 let mut rt = Runtime::new().unwrap();
 
-                println!("number {} from the spawned thread!", i);
+                let ten_millis = time::Duration::from_millis(100);
+
+                thread::sleep(ten_millis);
                 let mut conn = shared_pool.get_connection(*shared_address).unwrap();
 
                 let mut payload: Vec<u8> = Vec::new();
                 payload.push(42);
-//                println!("{:?}", conn.get_uuid());
-                let c = rt.block_on(conn.deref_mut()).unwrap();
-                let sent = c.send_async(&payload);
-                let res = rt.block_on(sent);
-                match res {
-                    Ok(o) => println!("fine"),
-                    Err(e) => println!("{:?}", e),
-                }
+                println!("{:?}", conn.get_uuid());
+                let res = rt.block_on(conn.deref_mut().send_async(&payload)).unwrap();
             });
             v.push(h);
         }
+
         println!("waiting threads to finish");
         for i in v {
             i.join().unwrap();
         }
         println!("all threads joined");
-        server.receive(2);
+        server.receive(50);
     }
 }

@@ -9,7 +9,6 @@
 //
 use crate::wire_protocol::connection_factory::ConnectionType::Tokio;
 use async_trait::async_trait;
-use log::error;
 use log::info;
 use snafu::{ResultExt, Snafu};
 use std::fmt;
@@ -64,7 +63,7 @@ type Result<T, E = ConnectionFactoryError> = std::result::Result<T, E>;
 
 /// ConnectionFactory trait is the factory used to establish the TCP connection with remote servers.
 #[async_trait]
-pub trait ConnectionFactory {
+pub trait ConnectionFactory: Send + Sync {
     /// establish_connection will return a Connection future that used to send and read data.
     ///
     /// # Example
@@ -138,6 +137,8 @@ pub trait Connection: Send {
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<()>;
 
     fn get_uuid(&self) -> Uuid;
+
+    fn get_endpoint(&self) -> SocketAddr;
 }
 
 pub struct ConnectionFactoryImpl {}
@@ -184,13 +185,11 @@ pub struct TokioConnection {
 #[async_trait]
 impl Connection for TokioConnection {
     async fn send_async(&mut self, payload: &[u8]) -> Result<()> {
-        println!("sending message");
         let endpoint = self.endpoint;
         self.stream
             .write_all(payload)
             .await
             .context(SendData { endpoint })?;
-        println!("message sent");
         Ok(())
     }
 
@@ -205,6 +204,10 @@ impl Connection for TokioConnection {
 
     fn get_uuid(&self) -> Uuid {
         self.uuid
+    }
+
+    fn get_endpoint(&self) -> SocketAddr {
+        self.endpoint
     }
 }
 
