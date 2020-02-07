@@ -43,7 +43,7 @@ fn test_create_stream_error() {
             retention_param: 0,
         },
     };
-    let fut = create_stream(request, &mut client);
+    let fut = create_stream(&request, &mut client);
 
     rt.block_on(fut).unwrap();
 }
