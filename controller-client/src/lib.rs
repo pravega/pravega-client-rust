@@ -92,7 +92,7 @@ pub trait ControllerClient {
      * same scope, the future completes with false to indicate that the scope existed when the
      * controller executed the operation.
      */
-    async fn create_scope(&mut self, scope: Scope) -> Result<bool>;
+    async fn create_scope(&mut self, scope: &Scope) -> Result<bool>;
 
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>>;
 
@@ -205,7 +205,7 @@ pub struct ControllerClientImpl {
 #[allow(unused_variables)]
 #[async_trait]
 impl ControllerClient for ControllerClientImpl {
-    async fn create_scope(&mut self, scope: Scope) -> Result<bool> {
+    async fn create_scope(&mut self, scope: &Scope) -> Result<bool> {
         create_scope(scope, &mut self.channel).await
     }
 
@@ -316,10 +316,10 @@ fn map_grpc_error(operation_name: &str, status: Status) -> ControllerError {
 }
 
 /// Async helper function to create scope
-async fn create_scope(scope: Scope, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
+async fn create_scope(scope: &Scope, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
     use create_scope_status::Status;
 
-    let request: ScopeInfo = scope.into();
+    let request: ScopeInfo = ScopeInfo::from(scope);
     let op_status: StdResult<tonic::Response<CreateScopeStatus>, tonic::Status> =
         ch.create_scope(tonic::Request::new(request)).await;
     let operation_name = "CreateScope";
@@ -527,3 +527,13 @@ async fn truncate_stream(stream_cut: StreamCut, ch: &mut ControllerServiceClient
         Err(status) => Err(map_grpc_error(operation_name, status)),
     }
 }
+
+///// Async helper function to truncate Stream.
+//async fn create_transaction(
+//    stream: ScopedStream,
+//    lease: Duration,
+//    ch: &mut ControllerServiceClient<Channel>,
+//) -> Result<bool> {
+//    // TODO: we need to return all the segments instead of just a boolean.
+//    Ok(true)
+//}

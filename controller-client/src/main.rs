@@ -19,7 +19,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>>
 
     let request1 = Scope::new("testScope123".into());
 
-    let scope_result = controller_client.create_scope(request1).await;
+    let scope_result = controller_client.create_scope(&request1).await;
     println!("Response for create_scope is {:?}", scope_result);
 
     let request2 = StreamConfiguration {
@@ -104,7 +104,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>>
     println!("Response for delete stream is {:?}", delete_result);
 
     let request4 = Scope::new("testScope456".into());
-    let scope_result = controller_client.create_scope(request4).await;
+    let scope_result = controller_client.create_scope(&request4).await;
     println!("Response for create_scope is {:?}", scope_result);
 
     let delete_scope_result = controller_client

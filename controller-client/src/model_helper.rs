@@ -41,6 +41,14 @@ impl Into<StreamInfo> for ScopedStream {
     }
 }
 
+impl<'a> From<&'a Scope> for ScopeInfo {
+    fn from(value: &Scope) -> ScopeInfo {
+        ScopeInfo {
+            scope: value.name.to_owned(),
+        }
+    }
+}
+
 impl Into<ScopeInfo> for Scope {
     fn into(self) -> ScopeInfo {
         ScopeInfo {
