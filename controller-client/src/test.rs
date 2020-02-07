@@ -12,7 +12,7 @@ fn test_create_scope_error() {
     let mut client = rt.block_on(client_future);
 
     let request = Scope::new("testScope124".into());
-    let fut = create_scope(request, &mut client);
+    let fut = create_scope(&request, &mut client);
 
     rt.block_on(fut).unwrap();
 }
