@@ -138,7 +138,7 @@ pub trait ControllerClient {
     /**
      * API to create a new transaction. The transaction timeout is relative to the creation time.
      */
-    async fn create_transaction(&mut self, stream: ScopedStream, lease: Duration) -> Result<TxnSegments>;
+    async fn create_transaction(&mut self, stream: &ScopedStream, lease: Duration) -> Result<TxnSegments>;
 
     /**
      * API to send transaction heartbeat and increase the transaction timeout by lease amount of milliseconds.
@@ -242,7 +242,7 @@ impl ControllerClient for ControllerClientImpl {
         get_current_segments(stream, &mut self.channel).await
     }
 
-    async fn create_transaction(&mut self, stream: ScopedStream, lease: Duration) -> Result<TxnSegments> {
+    async fn create_transaction(&mut self, stream: &ScopedStream, lease: Duration) -> Result<TxnSegments> {
         unimplemented!()
     }
 
