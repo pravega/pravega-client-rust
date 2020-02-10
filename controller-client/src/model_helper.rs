@@ -9,7 +9,9 @@
  */
 use super::PravegaNodeUri;
 use crate::controller::*;
+use ordered_float::OrderedFloat;
 use pravega_rust_client_shared::*;
+use std::collections::BTreeMap;
 
 impl From<NodeUri> for PravegaNodeUri {
     fn from(value: NodeUri) -> PravegaNodeUri {
@@ -121,5 +123,33 @@ impl<'a> From<&'a pravega_rust_client_shared::StreamCut> for crate::controller::
             stream_info: Some(StreamInfo::from(&value.scoped_stream)),
             cut: value.segment_offset_map.to_owned(),
         }
+    }
+}
+
+impl From<SegmentId> for ScopedSegment {
+    fn from(value: SegmentId) -> ScopedSegment {
+        let stream_info: StreamInfo = value.stream_info.unwrap();
+        ScopedSegment {
+            scope: Scope::new(stream_info.scope.to_owned()),
+            stream: Stream::new(stream_info.stream.to_owned()),
+            segment: Segment::new(value.segment_id),
+        }
+    }
+}
+
+impl From<SegmentRanges> for StreamSegments {
+    fn from(ranges: SegmentRanges) -> StreamSegments {
+        let mut segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange> = BTreeMap::new();
+        for range in ranges.segment_ranges {
+            segment_map.insert(
+                OrderedFloat(range.max_key),
+                SegmentWithRange::new(
+                    ScopedSegment::from(range.segment_id.unwrap()),
+                    OrderedFloat(range.min_key),
+                    OrderedFloat(range.max_key),
+                ),
+            );
+        }
+        StreamSegments::new(segment_map)
     }
 }
