@@ -130,8 +130,8 @@ impl From<SegmentId> for ScopedSegment {
     fn from(value: SegmentId) -> ScopedSegment {
         let stream_info: StreamInfo = value.stream_info.unwrap();
         ScopedSegment {
-            scope: Scope::new(stream_info.scope.to_owned()),
-            stream: Stream::new(stream_info.stream.to_owned()),
+            scope: Scope::new(stream_info.scope),
+            stream: Stream::new(stream_info.stream),
             segment: Segment::new(value.segment_id),
         }
     }
