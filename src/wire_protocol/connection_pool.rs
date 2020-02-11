@@ -40,14 +40,14 @@ pub trait ConnectionPool: Send + Sync + 'static {
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use pravega_client_rust::wire_protocol::connection_pool::ConnectionPoolImpl;
-    /// use pravega_client_rust::wire_protocol::client_config::ClientConfig;
+    /// use pravega_client_rust::wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
     ///   use pravega_client_rust::wire_protocol::connection_pool::ConnectionPool;
     ///   let mut rt = Runtime::new().unwrap();
     ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
-    ///   let config = ClientConfigBuilder::default().build();
+    ///   let config = ClientConfigBuilder::default().build().unwrap();
     ///   let pool = ConnectionPoolImpl::new(config);
     ///   let connection = pool.get_connection(endpoint);
     /// }
