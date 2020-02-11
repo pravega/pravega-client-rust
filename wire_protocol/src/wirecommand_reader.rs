@@ -9,44 +9,25 @@
 //
 
 extern crate byteorder;
-use crate::wire_protocol::connection_factory;
-use crate::wire_protocol::connection_factory::Connection;
+use super::error::PayloadLengthTooLong;
+use super::error::ReadWirecommand;
+use super::error::ReaderError;
+use crate::connection_factory::Connection;
 use byteorder::{BigEndian, ReadBytesExt};
-use snafu::{ensure, ResultExt, Snafu};
+use snafu::{ensure, ResultExt};
 use std::io::Cursor;
 
-pub const MAX_WIRECOMMAND_SIZE: u32 = 0x007FFFFF;
+pub const MAX_WIRECOMMAND_SIZE: u32 = 0x007F_FFFF;
 pub const LENGTH_FIELD_OFFSET: u32 = 4;
 pub const LENGTH_FIELD_LENGTH: u32 = 4;
-
-#[derive(Debug, Snafu)]
-pub enum Error {
-    #[snafu(display("Failed to read wirecommand {}", part))]
-    ReadWirecommand {
-        part: String,
-        source: connection_factory::ConnectionFactoryError,
-    },
-    #[snafu(display(
-        "The payload size {} exceeds the max wirecommand size {}",
-        payload_size,
-        max_wirecommand_size
-    ))]
-    PayloadLengthTooLong {
-        payload_size: u32,
-        max_wirecommand_size: u32,
-    },
-}
-
-type Result<T, E = Error> = std::result::Result<T, E>;
 
 pub struct WireCommandReader {
     pub connection: Box<dyn Connection>,
 }
 
 impl WireCommandReader {
-    async fn read(&mut self) -> Result<Vec<u8>> {
-        let mut header: Vec<u8> =
-            vec![0; LENGTH_FIELD_OFFSET as usize + LENGTH_FIELD_LENGTH as usize];
+    pub async fn read(&mut self) -> Result<Vec<u8>, ReaderError> {
+        let mut header: Vec<u8> = vec![0; LENGTH_FIELD_OFFSET as usize + LENGTH_FIELD_LENGTH as usize];
         self.connection
             .read_async(&mut header[..])
             .await
@@ -55,7 +36,7 @@ impl WireCommandReader {
             })?;
 
         let mut rdr = Cursor::new(&header[4..8]);
-        let payload_length = rdr.read_u32::<BigEndian>().unwrap();
+        let payload_length = rdr.read_u32::<BigEndian>().expect("Exact size");
 
         ensure!(
             payload_length <= MAX_WIRECOMMAND_SIZE,
@@ -82,9 +63,7 @@ impl WireCommandReader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::wire_protocol::connection_factory::{
-        ConnectionFactory, ConnectionFactoryImpl, ConnectionType,
-    };
+    use crate::connection_factory::{ConnectionFactory, ConnectionFactoryImpl, ConnectionType};
     use byteorder::{BigEndian, WriteBytesExt};
     use log::info;
     use std::io::Write;
@@ -110,18 +89,10 @@ mod tests {
                 let mut stream = stream.unwrap();
                 // offset is 4 bytes, payload length is 8 bytes and payload is 66.
                 let mut bs = [0u8; 4 * mem::size_of::<i32>()];
-                bs.as_mut()
-                    .write_i32::<BigEndian>(4)
-                    .expect("Unable to write");
-                bs.as_mut()
-                    .write_i32::<BigEndian>(8)
-                    .expect("Unable to write");
-                bs.as_mut()
-                    .write_i32::<BigEndian>(6)
-                    .expect("Unable to write");
-                bs.as_mut()
-                    .write_i32::<BigEndian>(6)
-                    .expect("Unable to write");
+                bs.as_mut().write_i32::<BigEndian>(4).expect("Unable to write");
+                bs.as_mut().write_i32::<BigEndian>(8).expect("Unable to write");
+                bs.as_mut().write_i32::<BigEndian>(6).expect("Unable to write");
+                bs.as_mut().write_i32::<BigEndian>(6).expect("Unable to write");
                 stream.write(bs.as_ref()).unwrap();
                 break;
             }

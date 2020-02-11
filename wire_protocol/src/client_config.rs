@@ -10,6 +10,7 @@
 
 use crate::wire_protocol::connection_factory::ConnectionType;
 use getset::CopyGetters;
+use derive_builder::*;
 
 #[derive(Default, Builder, Debug, CopyGetters, Clone)]
 #[builder(setter(into))]
