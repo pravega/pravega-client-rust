@@ -8,9 +8,9 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::wire_protocol::connection_factory::ConnectionType;
-use getset::CopyGetters;
+use crate::connection_factory::ConnectionType;
 use derive_builder::*;
+use getset::CopyGetters;
 
 #[derive(Default, Builder, Debug, CopyGetters, Clone)]
 #[builder(setter(into))]
@@ -44,10 +44,7 @@ mod tests {
     fn test_get_default() {
         let config = ClientConfigBuilder::default().build().unwrap();
 
-        assert_eq!(
-            config.max_connections_per_segmentstore(),
-            u32::max_value() as u32
-        );
+        assert_eq!(config.max_connections_per_segmentstore(), u32::max_value() as u32);
         assert_eq!(config.connection_type(), ConnectionType::Tokio);
     }
 }

@@ -8,32 +8,17 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::wire_protocol::client_config::ClientConfig;
-use crate::wire_protocol::connection_factory::{
-    Connection, ConnectionFactory, ConnectionFactoryError, ConnectionFactoryImpl,
-};
-use async_trait::async_trait;
+use crate::client_config::ClientConfig;
+use crate::connection_factory::{Connection, ConnectionFactory, ConnectionFactoryImpl};
+use crate::error::{ConnectionError, ConnectionPoolError, GetConnection};
 use parking_lot::Mutex;
-use snafu::{ResultExt, Snafu};
 use std::collections::HashMap;
 use std::fmt;
-use std::io::{Error, ErrorKind};
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use std::sync::RwLock;
 use tokio::runtime::Runtime;
-
-#[derive(Debug, Snafu)]
-pub enum ConnectionPoolError {
-    #[snafu(display("Could not connect to endpoint"))]
-    Connect { source: ConnectionFactoryError },
-
-    #[snafu(display("Could not get connection from internal pool: {}", message))]
-    GetConnection { message: String },
-}
-
-type Result<T, E = ConnectionPoolError> = std::result::Result<T, E>;
 
 /// ConnectionPool can create a pool of threads and let caller to reuse the existing connections from the pool.
 /// It is safe to use across threads
@@ -48,7 +33,7 @@ pub trait ConnectionPool: Send + Sync + 'static {
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
-    ///   use pravega_client_rust::wire_protocol::connection_pool::ConnectionPool;
+    ///   use pravega_client_rust::connection_pool::ConnectionPool;
     ///   let mut rt = Runtime::new().unwrap();
     ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
     ///   let config = ClientConfigBuilder::default().build().unwrap();
@@ -56,7 +41,7 @@ pub trait ConnectionPool: Send + Sync + 'static {
     ///   let connection = pool.get_connection(endpoint);
     /// }
     /// ```
-    fn get_connection(&self, endpoint: SocketAddr) -> Result<PooledConnection>;
+    fn get_connection(&self, endpoint: SocketAddr) -> Result<PooledConnection, ConnectionPoolError>;
 }
 
 // put_back takes a ConnectionPoolImpl instance and a Connection instance.
@@ -84,8 +69,7 @@ impl ConnectionPoolImpl {
     pub fn new(config: ClientConfig) -> Self {
         let rt = Arc::new(Mutex::new(Runtime::new().unwrap()));
         let map = Arc::new(RwLock::new(HashMap::new()));
-        let connection_factory =
-            Arc::new(Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>);
+        let connection_factory = Arc::new(Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>);
         ConnectionPoolImpl {
             rt,
             map,
@@ -100,10 +84,10 @@ impl ConnectionPool for ConnectionPoolImpl {
     /// wrapper that contains a Connection that can be used to send and read.
     ///
     /// This method is thread safe and can be called concurrently
-    fn get_connection(&self, endpoint: SocketAddr) -> Result<PooledConnection> {
+    fn get_connection(&self, endpoint: SocketAddr) -> Result<PooledConnection, ConnectionPoolError> {
         // Get a read lock instead of locking the whole map to allow other threads to get internal pool of
         // different endpoints at the same time.
-        let mut read_guard = self.map.read().unwrap();
+        let read_guard = self.map.read().unwrap();
 
         // If map contains the endpoint, we can get connection from that internal pool
         if read_guard.contains_key(&endpoint) {
@@ -207,8 +191,8 @@ impl InternalPool {
         self.num_conns += 1;
     }
 
-    fn get_connection_from_pool(&mut self) -> Result<Box<dyn Connection>> {
-        if let Some(mut conn) = self.conns.pop() {
+    fn get_connection_from_pool(&mut self) -> Result<Box<dyn Connection>, ConnectionPoolError> {
+        if let Some(conn) = self.conns.pop() {
             self.num_conns -= 1;
             Ok(conn)
         } else {
@@ -221,14 +205,13 @@ impl InternalPool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::wire_protocol::client_config::ClientConfigBuilder;
+    use crate::client_config::ClientConfigBuilder;
     use log::info;
     use std::io::Read;
     use std::net::{SocketAddr, TcpListener};
     use std::ops::DerefMut;
     use std::sync::Arc;
     use std::thread;
-    use std::time;
     use tokio::runtime::Runtime;
 
     struct Server {
@@ -271,6 +254,8 @@ mod tests {
 
     #[test]
     fn test_connection_pool() {
+        println!("test connection pool");
+        info!("test connection pool");
         let mut server = Server::new();
         let shared_address = Arc::new(server.address);
 
@@ -278,31 +263,28 @@ mod tests {
             .max_connections_per_segmentstore(15 as u32)
             .build()
             .unwrap();
-        let connection_pool =
-            crate::wire_protocol::connection_pool::ConnectionPoolImpl::new(config);
+        let connection_pool = ConnectionPoolImpl::new(config);
         let shared_pool = Arc::new(connection_pool);
-        let mut rt = Arc::new(Mutex::new(Runtime::new().unwrap()));
+        let rt = Arc::new(Mutex::new(Runtime::new().unwrap()));
         let mut v = vec![];
-        for i in 1..51 {
-            let mut shared_pool = shared_pool.clone();
+        for _i in 1..51 {
+            let shared_pool = shared_pool.clone();
             let shared_address = shared_address.clone();
-            let mut rt = rt.clone();
+            let rt = rt.clone();
             let h = thread::spawn(move || {
                 let mut conn = shared_pool.get_connection(*shared_address).unwrap();
                 let mut payload: Vec<u8> = Vec::new();
                 payload.push(42);
 
                 let mut rt_mutex = rt.lock();
-                let res = rt_mutex
-                    .block_on(conn.deref_mut().send_async(&payload))
-                    .unwrap();
+                rt_mutex.block_on(conn.deref_mut().send_async(&payload)).unwrap();
             });
             v.push(h);
         }
 
         info!("waiting threads to finish");
-        for i in v {
-            i.join().unwrap();
+        for _i in v {
+            _i.join().unwrap();
         }
         info!("all threads joined");
         server.receive(50);

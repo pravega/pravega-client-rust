@@ -8,26 +8,24 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use super::error::Connect;
-use super::error::ConnectionError;
-use super::error::ReadData;
-use super::error::SendData;
+use crate::error::*;
+
 use async_trait::async_trait;
-use snafu::ResultExt;
 use std::fmt;
 use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use uuid::Uuid;
+use snafu::ResultExt;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ConnectionType {
     Tokio,
 }
 
 impl Default for ConnectionType {
     fn default() -> Self {
-        Tokio
+        ConnectionType::Tokio
     }
 }
 
@@ -61,6 +59,7 @@ pub trait ConnectionFactory: Send + Sync {
     async fn establish_connection(
         &self,
         endpoint: SocketAddr,
+        connection_type: ConnectionType,
     ) -> Result<Box<dyn Connection>, ConnectionError>;
 }
 
@@ -119,7 +118,10 @@ pub trait Connection: Send {
 pub struct ConnectionFactoryImpl {}
 
 impl ConnectionFactoryImpl {
-    async fn establish_tokio_connection(&self, endpoint: SocketAddr) -> Result<Box<dyn Connection>> {
+    async fn establish_tokio_connection(
+        &self,
+        endpoint: SocketAddr,
+    ) -> Result<Box<dyn Connection>, ConnectionError> {
         let connection_type = ConnectionType::Tokio;
         let uuid = Uuid::new_v4();
         let stream = TcpStream::connect(endpoint).await.context(Connect {
@@ -140,6 +142,7 @@ impl ConnectionFactory for ConnectionFactoryImpl {
     async fn establish_connection(
         &self,
         endpoint: SocketAddr,
+        connection_type: ConnectionType,
     ) -> Result<Box<dyn Connection>, ConnectionError> {
         match connection_type {
             ConnectionType::Tokio => self.establish_tokio_connection(endpoint).await,
