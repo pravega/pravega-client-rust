@@ -17,6 +17,7 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
@@ -24,37 +25,40 @@ use std::fmt::{Display, Formatter};
 #[macro_use]
 extern crate shrinkwraprs;
 
-#[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
-pub struct PravegaNodeUri(pub String);
+#[macro_use]
+extern crate derive_new;
 
-#[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+pub struct PravegaNodeUri(String);
+
+#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct DelegationToken(String);
 
-#[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Timestamp(u64);
 
-#[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Scope {
     pub name: String,
 }
 
-#[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Stream {
     pub name: String,
 }
 
-#[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Segment {
     pub number: i64,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct ScopedStream {
     pub scope: Scope,
     pub stream: Stream,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct ScopedSegment {
     pub scope: Scope,
     pub stream: Stream,
@@ -129,15 +133,17 @@ pub struct Retention {
     pub retention_param: i64,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct StreamConfiguration {
     pub scoped_stream: ScopedStream,
     pub scaling: Scaling,
     pub retention: Retention,
 }
 
+#[derive(new, Debug, Clone)]
 pub struct StreamCut {
-    //TODO
+    pub scoped_stream: ScopedStream,
+    pub segment_offset_map: HashMap<i64, i64>,
 }
 
 pub struct StreamSegments {
