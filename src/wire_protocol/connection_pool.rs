@@ -17,6 +17,7 @@ use parking_lot::Mutex;
 use snafu::{ResultExt, Snafu};
 use std::collections::HashMap;
 use std::fmt;
+use std::io::{Error, ErrorKind};
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
@@ -27,6 +28,9 @@ use tokio::runtime::Runtime;
 pub enum ConnectionPoolError {
     #[snafu(display("Could not connect to endpoint"))]
     Connect { source: ConnectionFactoryError },
+
+    #[snafu(display("Could not get connection from internal pool: {}", message))]
+    GetConnection { message: String },
 }
 
 type Result<T, E = ConnectionPoolError> = std::result::Result<T, E>;
@@ -64,6 +68,7 @@ fn put_back(conntion_pool: Arc<ConnectionPoolImpl>, connection: Box<dyn Connecti
     let mut internal = write_guard.get(&endpoint).unwrap().lock();
     internal.add_connection_to_pool(connection);
 }
+
 /// An implementation of the ConnectionPool.
 #[derive(Clone)]
 pub struct ConnectionPoolImpl {
@@ -127,13 +132,12 @@ impl ConnectionPool for ConnectionPoolImpl {
             drop(read_guard);
             let mut write_guard = self.map.write().unwrap();
 
-            // Check again to see if the map contains that endpoint. This could happen if other threads
+            // Check again to see if the map contains that endpoint. This is needed if other threads
             // acquire the write lock before this thread does.
             if !write_guard.contains_key(&endpoint) {
                 let internal = Mutex::new(InternalPool {
                     conns: vec![],
                     num_conns: 0,
-                    min_conns: 1,
                 });
                 write_guard.insert(endpoint, internal);
             }
@@ -148,7 +152,7 @@ impl ConnectionPool for ConnectionPoolImpl {
                 let mut rt_mutex = self.rt.lock();
                 connection = rt_mutex.block_on(fut).unwrap();
             } else {
-                connection = internal.get_connection_from_pool().unwrap();
+                connection = internal.get_connection_from_pool()?;
             }
             Ok(PooledConnection {
                 pool: Arc::new(self.clone()),
@@ -195,7 +199,6 @@ impl DerefMut for PooledConnection {
 struct InternalPool {
     conns: Vec<Box<dyn Connection>>,
     num_conns: u32,
-    min_conns: u32,
 }
 
 impl InternalPool {
@@ -209,9 +212,8 @@ impl InternalPool {
             self.num_conns -= 1;
             Ok(conn)
         } else {
-            // TODO
-            // return an error
-            panic!("to do");
+            let message = String::from("no available connection in the internal pool");
+            Err(ConnectionPoolError::GetConnection { message })
         }
     }
 }

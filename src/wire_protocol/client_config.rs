@@ -15,7 +15,7 @@ use getset::CopyGetters;
 #[builder(setter(into))]
 pub struct ClientConfig {
     #[get_copy = "pub"]
-    #[builder(default = "10")]
+    #[builder(default = "u32::max_value()")]
     pub max_connections_per_segmentstore: u32,
 
     #[get_copy = "pub"]
@@ -34,6 +34,7 @@ mod tests {
             .connection_type(ConnectionType::Tokio)
             .build()
             .unwrap();
+
         assert_eq!(config.max_connections_per_segmentstore(), 15 as u32);
         assert_eq!(config.connection_type(), ConnectionType::Tokio);
     }
@@ -41,7 +42,11 @@ mod tests {
     #[test]
     fn test_get_default() {
         let config = ClientConfigBuilder::default().build().unwrap();
-        assert_eq!(config.max_connections_per_segmentstore(), 10 as u32);
+
+        assert_eq!(
+            config.max_connections_per_segmentstore(),
+            u32::max_value() as u32
+        );
         assert_eq!(config.connection_type(), ConnectionType::Tokio);
     }
 }
