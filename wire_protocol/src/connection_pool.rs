@@ -222,7 +222,7 @@ mod tests {
     use std::net::{SocketAddr, TcpListener};
     use std::ops::DerefMut;
     use std::sync::Arc;
-    use std::thread;
+    use std::{io, thread};
     use tokio::runtime::Runtime;
 
     struct Server {
@@ -233,26 +233,34 @@ mod tests {
     impl Server {
         pub fn new() -> Server {
             let listener = TcpListener::bind("127.0.0.1:0").expect("local server");
+            listener.set_nonblocking(true).expect("Cannot set non-blocking");
             let address = listener.local_addr().unwrap();
             info!("server created");
             Server { address, listener }
         }
 
-        pub fn receive(&mut self, mut num: i32) {
+        pub fn receive(&mut self) -> u32 {
+            let mut connections: u32 = 0;
+
             for stream in self.listener.incoming() {
-                let mut buf = [0; 1024];
-                let mut stream = stream.unwrap();
-                num -= 1;
-                if num <= 0 {
-                    break;
-                }
-                match stream.read(&mut buf) {
-                    Ok(_) => {
-                        info!("received data");
+                match stream {
+                    Ok(mut stream) => {
+                        let mut buf = [0; 1024];
+                        match stream.read(&mut buf) {
+                            Ok(_) => {
+                                info!("received data");
+                            }
+                            Err(e) => panic!("encountered IO error: {}", e),
+                        }
+                        connections += 1;
+                    }
+                    Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                        break;
                     }
                     Err(e) => panic!("encountered IO error: {}", e),
                 }
             }
+            connections
         }
     }
 
@@ -284,12 +292,20 @@ mod tests {
             });
             v.push(h);
         }
-
-        info!("waiting threads to finish");
+        info!("waiting connection threads to finish");
         for _i in v {
             _i.join().unwrap();
         }
-        info!("all threads joined");
-        server.receive(50);
+        info!("connection threads joined");
+        let received = server.receive();
+        let connections = shared_pool
+            .map
+            .write()
+            .unwrap()
+            .get(&server.address)
+            .unwrap()
+            .lock()
+            .num_conns;
+        assert_eq!(received, connections);
     }
 }
