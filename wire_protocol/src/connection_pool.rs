@@ -30,6 +30,7 @@ pub trait ConnectionPool: Send + Sync + 'static {
     ///
     /// ```no_run
     /// use std::net::SocketAddr;
+    /// use pravega_wire_protocol::connection_pool::ConnectionPool;
     /// use pravega_wire_protocol::connection_pool::ConnectionPoolImpl;
     /// use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
     /// use tokio::runtime::Runtime;
