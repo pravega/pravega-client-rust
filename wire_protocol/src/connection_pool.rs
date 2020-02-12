@@ -254,7 +254,6 @@ mod tests {
 
     #[test]
     fn test_connection_pool() {
-        println!("test connection pool");
         info!("test connection pool");
         let mut server = Server::new();
         let shared_address = Arc::new(server.address);

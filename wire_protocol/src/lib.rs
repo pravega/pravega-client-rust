@@ -17,10 +17,10 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
-//pub mod client_config;
+pub mod client_config;
 pub mod commands;
 pub mod connection_factory;
-//pub mod connection_pool;
+pub mod connection_pool;
 pub mod error;
 mod wire_commands;
 pub mod wirecommand_reader;
