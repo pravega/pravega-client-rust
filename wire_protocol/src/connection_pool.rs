@@ -10,7 +10,7 @@
 
 use crate::client_config::ClientConfig;
 use crate::connection_factory::{Connection, ConnectionFactory, ConnectionFactoryImpl};
-use crate::error::{ConnectionError, ConnectionPoolError, GetConnection};
+use crate::error::ConnectionPoolError;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::fmt;
@@ -228,22 +228,15 @@ mod tests {
         }
 
         pub fn receive(&mut self, mut num: i32) {
-            let mut count = 0;
             for stream in self.listener.incoming() {
                 let mut buf = [0; 1024];
                 let mut stream = stream.unwrap();
+                num -= 1;
+                if num <= 0 {
+                    break;
+                }
                 match stream.read(&mut buf) {
                     Ok(_) => {
-                        for ptr in 0..buf.len() {
-                            if buf[ptr] != 0 {
-                                num -= 1;
-                            } else {
-                                break;
-                            }
-                        }
-                        if num <= 0 {
-                            break;
-                        }
                         info!("received data");
                     }
                     Err(e) => panic!("encountered IO error: {}", e),
@@ -255,16 +248,17 @@ mod tests {
     #[test]
     fn test_connection_pool() {
         info!("test connection pool");
+
+        // Create server
         let mut server = Server::new();
         let shared_address = Arc::new(server.address);
 
-        let config = ClientConfigBuilder::default()
-            .max_connections_per_segmentstore(15 as u32)
-            .build()
-            .unwrap();
-        let connection_pool = ConnectionPoolImpl::new(config);
-        let shared_pool = Arc::new(connection_pool);
+        // Create a connection pool and a Runtime
+        let config = ClientConfigBuilder::default().build().unwrap();
+        let shared_pool = Arc::new(ConnectionPoolImpl::new(config));
         let rt = Arc::new(Mutex::new(Runtime::new().unwrap()));
+
+        // Create a number of threads, each thread will use the connection pool to get a connection
         let mut v = vec![];
         for _i in 1..51 {
             let shared_pool = shared_pool.clone();
@@ -274,7 +268,6 @@ mod tests {
                 let mut conn = shared_pool.get_connection(*shared_address).unwrap();
                 let mut payload: Vec<u8> = Vec::new();
                 payload.push(42);
-
                 let mut rt_mutex = rt.lock();
                 rt_mutex.block_on(conn.deref_mut().send_async(&payload)).unwrap();
             });
