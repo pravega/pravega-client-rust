@@ -89,8 +89,9 @@ pub enum ReaderError {
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]
 pub enum ConnectionPoolError {
-    //    #[snafu(display("Could not connect to endpoint"))]
-    //    Connect { source: ConnectionError },
+    #[snafu(display("Could not establish connection to endpoint"))]
+    EstablishConnection { source: ConnectionError },
+
     #[snafu(display("Could not get connection from internal pool: {}", message))]
     GetConnection { message: String },
 }
