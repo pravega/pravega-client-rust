@@ -92,6 +92,6 @@ pub enum ConnectionPoolError {
     #[snafu(display("Could not establish connection to endpoint"))]
     EstablishConnection { source: ConnectionError },
 
-    #[snafu(display("Could not get connection from internal pool: {}", message))]
-    GetConnection { message: String },
+    #[snafu(display("No available connection in the internal pool: {}", message))]
+    NoAvailableConnection { message: String },
 }
