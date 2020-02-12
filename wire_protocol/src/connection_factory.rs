@@ -11,12 +11,12 @@
 use crate::error::*;
 
 use async_trait::async_trait;
+use snafu::ResultExt;
 use std::fmt;
 use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use uuid::Uuid;
-use snafu::ResultExt;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ConnectionType {
