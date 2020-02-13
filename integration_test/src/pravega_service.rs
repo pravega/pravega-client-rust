@@ -73,7 +73,6 @@ impl PravegaService for PravegaStandaloneService {
 
     fn get_grpc_details(&self) -> SocketAddr {
         SocketAddr::new(IpAddr::V4(Self::ADDRESS), Self::CONTROLLER_PORT)
-
     }
 
     fn get_rest_details(&self) -> SocketAddr {
