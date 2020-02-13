@@ -10,88 +10,187 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
+        
+      - name: Cache toolchain
+        uses: actions/cache@v1
+        with:
+          path: /usr/share/rust/.cargo
+          key: ${{ runner.os }}-rustup
+      - name: Cache cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+      - name: Cache cargo index
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
+      - name: Cache cargo build	
+        uses: actions/cache@v1	
+        with:	
+          path: target	
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
+          components: rustfmt, clippy
+
+      - name: Run cargo clean
+        uses: actions-rs/cargo@v1
+        with:
+          command: clean  
+          args: -p pravega-controller-client -p pravega-wire-protocol -p pravega-client-rust -p pravega-rust-client-shared
 
       - name: Run cargo check
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --all
+          args: --workspace
+        env:  #Will be handled by clippy
+          RUSTFLAGS: -A warnings 
 
   test:
     name: Test Suite
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
+        
+      - name: Cache toolchain
+        uses: actions/cache@v1
+        with:
+          path: /usr/share/rust/.cargo
+          key: ${{ runner.os }}-rustup
+      - name: Cache cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+      - name: Cache cargo index
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
+      - name: Cache cargo build	
+        uses: actions/cache@v1	
+        with:	
+          path: target	
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
+          components: rustfmt, clippy
 
-      - name: Install rustfmt
-        run: rustup component add rustfmt
+      - name: Run cargo clean
+        uses: actions-rs/cargo@v1
+        with:
+          command: clean  
+          args: -p pravega-controller-client -p pravega-wire-protocol -p pravega-client-rust -p pravega-rust-client-shared
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all
+          args: --workspace
 
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
+
+      - name: Cache toolchain
+        uses: actions/cache@v1
+        with:
+          path: /usr/share/rust/.cargo
+          key: ${{ runner.os }}-rustup
+      - name: Cache cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+      - name: Cache cargo index
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
+      - name: Cache cargo build	
+        uses: actions/cache@v1	
+        with:	
+          path: target	
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
-
-      - name: Install rustfmt
-        run: rustup component add rustfmt
+          components: rustfmt, clippy
 
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
+        env:  #Will be handled by clippy
+          RUSTFLAGS: -A warnings 
 
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
+
+      - name: Cache toolchain
+        uses: actions/cache@v1
+        with:
+          path: /usr/share/rust/.cargo
+          key: ${{ runner.os }}-rustup
+      - name: Cache cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+      - name: Cache cargo index
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
+      - name: Cache cargo build	
+        uses: actions/cache@v1	
+        with:	
+          path: target	
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
-
-      - name: Install clippy
-        run: rustup component add clippy
+          components: rustfmt, clippy
 
       - name: Run cargo clean
         uses: actions-rs/cargo@v1
         with:
-          command: clean
+          command: clean  
+          args: -p pravega-controller-client -p pravega-wire-protocol -p pravega-client-rust -p pravega-rust-client-shared
 
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: -- -D warnings
+          args: --workspace
+        env:  
+          RUSTFLAGS: -D warnings 
+
 

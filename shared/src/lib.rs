@@ -17,6 +17,8 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
+use ordered_float::OrderedFloat;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
@@ -24,41 +26,44 @@ use std::fmt::{Display, Formatter};
 #[macro_use]
 extern crate shrinkwraprs;
 
-#[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[macro_use]
+extern crate derive_new;
+
+#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct PravegaNodeUri(String);
 
-#[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct DelegationToken(String);
 
-#[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Timestamp(u64);
 
-#[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Scope {
-    name: String,
+    pub name: String,
 }
 
-#[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Stream {
-    name: String,
+    pub name: String,
 }
 
-#[derive(Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Segment {
-    number: u64,
+    pub number: i64,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct ScopedStream {
-    scope: Scope,
-    stream: Stream,
+    pub scope: Scope,
+    pub stream: Stream,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct ScopedSegment {
-    scope: Scope,
-    stream: Stream,
-    segment: Segment,
+    pub scope: Scope,
+    pub stream: Stream,
+    pub segment: Segment,
 }
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -101,16 +106,57 @@ impl Display for ScopedSegment {
     }
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum ScaleType {
+    FixedNumSegments = 0,
+    ByRateInKbytesPerSec = 1,
+    ByRateInEventsPerSec = 2,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct Scaling {
+    pub scale_type: ScaleType,
+    pub target_rate: i32,
+    pub scale_factor: i32,
+    pub min_num_segments: i32,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum RetentionType {
+    None = 0,
+    Time = 1,
+    Size = 2,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct Retention {
+    pub retention_type: RetentionType,
+    pub retention_param: i64,
+}
+
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct StreamConfiguration {
-    //TODO
+    pub scoped_stream: ScopedStream,
+    pub scaling: Scaling,
+    pub retention: Retention,
 }
 
+#[derive(new, Debug, Clone)]
 pub struct StreamCut {
-    //TODO
+    pub scoped_stream: ScopedStream,
+    pub segment_offset_map: HashMap<i64, i64>,
 }
 
+#[derive(new, Debug, Clone, Hash, Eq, PartialEq)]
+pub struct SegmentWithRange {
+    pub scoped_segment: ScopedSegment,
+    pub min_key: OrderedFloat<f64>,
+    pub max_key: OrderedFloat<f64>,
+}
+
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct StreamSegments {
-    //TODO
+    pub key_segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
 }
 
 pub struct TxnSegments {

@@ -14,3 +14,4 @@ Cargo.lock
 *.iml
 .vscode
 /shared/target/
+.gradle

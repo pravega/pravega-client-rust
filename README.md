@@ -1,3 +1,5 @@
+![CIbuild](https://github.com/pravega/pravega-client-rust/workflows/CIbuild/badge.svg)
+
 # Native client for Pravega
 
 This is an experimental repository with the goal of supporting multiple new languages.
