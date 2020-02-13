@@ -6,7 +6,6 @@ categories = ["Network programming"]
 keywords = ["streaming", "client", "pravega"]
 readme = "Readme.md"
 repository = "https://github.com/pravega/pravega-client-rust"
-build = "build.rs"
 license = "Apache-2.0"
 description = "An internal library used by the Rust client."
 authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.com>",
