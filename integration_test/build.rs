@@ -10,6 +10,7 @@ const LIBRARY: &str = "pravega";
 const VERSION: &str = "0.6.2";
 const TAG: &str = "v0.6.2";
 const BASE: &str = "./";
+
 fn main() {
     // first check if the Pravega directory already exists.
     if check_exist() {
