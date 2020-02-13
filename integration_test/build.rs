@@ -21,8 +21,7 @@ fn main() {
 }
 
 fn check_exist() -> bool {
-    let directory = format!("{}", LIBRARY);
-    let path = Path::new(BASE).join(directory);
+    let path = Path::new(BASE).join(LIBRARY);
     if path.exists() {
         return true;
     }
@@ -42,7 +41,7 @@ fn install_prebuilt() {
         "https://github.com/pravega/pravega/releases/download/{}/pravega-{}.tgz",
         TAG, VERSION
     );
-    let short_file_name = url.split("/").last().unwrap();
+    let short_file_name = url.split('/').last().unwrap();
     let mut base_name = short_file_name.to_string();
     remove_suffix(&mut base_name, ".tgz");
 
