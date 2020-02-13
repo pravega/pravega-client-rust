@@ -6,10 +6,10 @@ use std::io;
 use std::path::Path;
 use tar::Archive;
 
-const LIBRARY: &'static str = "pravega";
-const VERSION: &'static str = "0.6.2";
-const TAG: &'static str = "v0.6.2";
-const BASE: &'static str = "./";
+const LIBRARY: &str = "pravega";
+const VERSION: &str = "0.6.2";
+const TAG: &str = "v0.6.2";
+const BASE: &str = "./";
 fn main() {
     // first check if the Pravega directory already exists.
     if check_exist() {
