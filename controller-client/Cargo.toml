@@ -20,6 +20,7 @@ snafu = "0.6.2"
 tokio = { version = "0.2.8", features = ["full"] }
 tonic = "0.1.1"
 derive_more = "0.99.2"
+ordered-float = "1.0.2"
 
 [build-dependencies]
 tonic-build = "0.1.1"

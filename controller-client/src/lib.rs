@@ -37,7 +37,8 @@ use async_trait::async_trait;
 use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
     delete_scope_status, delete_stream_status, update_stream_status, CreateScopeStatus, CreateStreamStatus,
-    DeleteScopeStatus, DeleteStreamStatus, NodeUri, ScopeInfo, StreamConfig, StreamInfo, UpdateStreamStatus,
+    DeleteScopeStatus, DeleteStreamStatus, NodeUri, ScopeInfo, SegmentRanges, StreamConfig, StreamInfo,
+    UpdateStreamStatus,
 };
 use pravega_rust_client_shared::*;
 use std::convert::{From, Into};
@@ -132,12 +133,12 @@ pub trait ControllerClient {
     /**
      * API to get list of current segments for the stream to write to.
      */
-    async fn get_current_segments(&self, stream: &ScopedStream) -> Result<StreamSegments>;
+    async fn get_current_segments(&mut self, stream: &ScopedStream) -> Result<StreamSegments>;
 
     /**
      * API to create a new transaction. The transaction timeout is relative to the creation time.
      */
-    async fn create_transaction(&mut self, stream: ScopedStream, lease: Duration) -> Result<TxnSegments>;
+    async fn create_transaction(&mut self, stream: &ScopedStream, lease: Duration) -> Result<TxnSegments>;
 
     /**
      * API to send transaction heartbeat and increase the transaction timeout by lease amount of milliseconds.
@@ -237,11 +238,11 @@ impl ControllerClient for ControllerClientImpl {
         delete_stream(stream, &mut self.channel).await
     }
 
-    async fn get_current_segments(&self, stream: &ScopedStream) -> Result<StreamSegments> {
-        unimplemented!()
+    async fn get_current_segments(&mut self, stream: &ScopedStream) -> Result<StreamSegments> {
+        get_current_segments(stream, &mut self.channel).await
     }
 
-    async fn create_transaction(&mut self, stream: ScopedStream, lease: Duration) -> Result<TxnSegments> {
+    async fn create_transaction(&mut self, stream: &ScopedStream, lease: Duration) -> Result<TxnSegments> {
         unimplemented!()
     }
 
@@ -525,6 +526,20 @@ async fn truncate_stream(stream_cut: &StreamCut, ch: &mut ControllerServiceClien
                 error_msg: "Operation failed".into(),
             }),
         },
+        Err(status) => Err(map_grpc_error(operation_name, status)),
+    }
+}
+/// Async helper function to get current Segments in a Stream.
+async fn get_current_segments(
+    stream: &ScopedStream,
+    ch: &mut ControllerServiceClient<Channel>,
+) -> Result<StreamSegments> {
+    let request: StreamInfo = StreamInfo::from(stream);
+    let op_status: StdResult<tonic::Response<SegmentRanges>, tonic::Status> =
+        ch.get_current_segments(tonic::Request::new(request)).await;
+    let operation_name = "getCurrentSegments";
+    match op_status {
+        Ok(segment_ranges) => Ok(StreamSegments::from(segment_ranges.into_inner())),
         Err(status) => Err(map_grpc_error(operation_name, status)),
     }
 }

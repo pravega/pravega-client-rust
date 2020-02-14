@@ -17,7 +17,8 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
-use std::collections::HashMap;
+use ordered_float::OrderedFloat;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
@@ -146,8 +147,16 @@ pub struct StreamCut {
     pub segment_offset_map: HashMap<i64, i64>,
 }
 
+#[derive(new, Debug, Clone, Hash, Eq, PartialEq)]
+pub struct SegmentWithRange {
+    pub scoped_segment: ScopedSegment,
+    pub min_key: OrderedFloat<f64>,
+    pub max_key: OrderedFloat<f64>,
+}
+
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct StreamSegments {
-    //TODO
+    pub key_segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
 }
 
 pub struct TxnSegments {
