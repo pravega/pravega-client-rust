@@ -12,9 +12,8 @@ use crate::client_config::ClientConfig;
 use crate::connection_factory::{Connection, ConnectionFactory, ConnectionFactoryImpl};
 use crate::error::*;
 
-use async_std::sync::RwLock;
 use async_trait::async_trait;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use snafu::ResultExt;
 use std::collections::HashMap;
 use std::fmt;
@@ -46,9 +45,8 @@ pub trait ConnectionPool: Send + Sync + 'static {
 }
 
 /// An implementation of the ConnectionPool.
-#[derive(Clone)]
 pub struct ConnectionPoolImpl {
-    map: Arc<RwLock<HashMap<SocketAddr, Arc<InternalPool>>>>,
+    managed_pool: ManagedPool,
     config: ClientConfig,
     connection_factory: Arc<Box<dyn ConnectionFactory>>,
 }
@@ -57,35 +55,17 @@ impl ConnectionPoolImpl {
     /// Create a new ConnectionPoolImpl instances by passing into a ClientConfig. It will create
     /// a Runtime, a map and a ConnectionFactory.
     pub fn new(config: ClientConfig) -> Self {
-        let map = Arc::new(RwLock::new(HashMap::new()));
+        let managed_pool = ManagedPool::new();
         let connection_factory = Arc::new(Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>);
         ConnectionPoolImpl {
-            map,
+            managed_pool,
             config,
             connection_factory,
         }
     }
 
-    async fn get_connection_inner(
-        &self,
-        endpoint: SocketAddr,
-        internal: Arc<InternalPool>,
-    ) -> PooledConnection {
-        match get_connection_from_pool(internal.clone()) {
-            Ok(conn) => conn,
-            Err(_e) => {
-                let connection = self
-                    .connection_factory
-                    .establish_connection(endpoint, self.config.connection_type)
-                    .await
-                    .context(EstablishConnection {})
-                    .expect("establish connection");
-                PooledConnection {
-                    pool: internal.clone(),
-                    inner: Some(connection),
-                }
-            }
-        }
+    pub fn pool_len(&self, endpoint: &SocketAddr) -> usize {
+        self.managed_pool.pool_size(endpoint)
     }
 }
 
@@ -95,45 +75,98 @@ impl ConnectionPool for ConnectionPoolImpl {
     /// wrapper that contains a Connection that can be used to send and read.
     ///
     /// This method is thread safe and can be called concurrently.
-    async fn get_connection(&self, endpoint: SocketAddr) -> Result<PooledConnection, ConnectionPoolError> {
-        // Get a read lock instead of locking the whole map to allow other threads to get internal pool of
-        // different endpoints at the same time.
-        let read_guard = self.map.read().await;
-        // If map contains the endpoint, we can get connection from that internal pool
-        if read_guard.contains_key(&endpoint) {
-            let internal = read_guard.get(&endpoint).unwrap();
-            // If there are no connections in the pool, create one using ConnectionFactory.
-            // Otherwise, get the connection from the pool.
-            Ok(self.get_connection_inner(endpoint, internal.clone()).await)
-        } else {
-            // This is a new endpoint, we will need to create a new internal pool for it.
-            // Drop the read lock and acquire the write lock since we are going to modify the hash map.
-            drop(read_guard);
-            let mut write_guard = self.map.write().await;
-            // Check again to see if the map contains that endpoint. This is needed if other threads
-            // acquire the write lock before this thread does.
-            if !write_guard.contains_key(&endpoint) {
-                let internal = Arc::new(InternalPool {
-                    conns: Mutex::new(vec![]),
-                });
-                write_guard.insert(endpoint, internal);
-            }
+    async fn get_connection(
+        &self,
+        endpoint: SocketAddr,
+    ) -> Result<PooledConnection<'_>, ConnectionPoolError> {
+        match self.managed_pool.get_connection(endpoint) {
+            Ok(conn) => Ok(PooledConnection {
+                inner: Some(conn),
+                pool: &self.managed_pool,
+            }),
 
-            // Get the Connection from the internal pool.
-            let internal = write_guard.get(&endpoint).expect("get internal pool mutex");
-            Ok(self.get_connection_inner(endpoint, internal.clone()).await)
+            Err(_e) => match self
+                .connection_factory
+                .establish_connection(endpoint, self.config.connection_type)
+                .await
+                .context(EstablishConnection {})
+            {
+                Ok(conn) => Ok(PooledConnection {
+                    inner: Some(conn),
+                    pool: &self.managed_pool,
+                }),
+                Err(e) => Err(e),
+            },
+        }
+    }
+}
+
+#[warn(dead_code)]
+struct ManagedPool {
+    map: RwLock<HashMap<SocketAddr, InternalPool>>,
+}
+
+impl ManagedPool {
+    pub fn new() -> Self {
+        let map = RwLock::new(HashMap::new());
+        ManagedPool { map }
+    }
+
+    fn add_connection(&self, connection: Box<dyn Connection>) {
+        let endpoint = connection.get_endpoint();
+        let mut write_guard = self.map.write();
+        if !write_guard.contains_key(&endpoint) {
+            write_guard.insert(endpoint, InternalPool::new());
+        }
+        let internal = write_guard.get(&endpoint).expect("internal pool");
+        internal.conns.lock().push(connection);
+    }
+
+    fn get_connection(&self, endpoint: SocketAddr) -> Result<Box<dyn Connection>, ConnectionPoolError> {
+        let read_guard = self.map.read();
+        if read_guard.contains_key(&endpoint) {
+            let pool = read_guard.get(&endpoint).expect("internal pool");
+            match pool.conns.lock().pop() {
+                Some(conn) => Ok(conn),
+                None => Err(ConnectionPoolError::NoAvailableConnection {}),
+            }
+        } else {
+            drop(read_guard);
+            let mut write_guard = self.map.write();
+            write_guard.insert(endpoint, InternalPool::new());
+            Err(ConnectionPoolError::NoAvailableConnection {})
+        }
+    }
+
+    fn pool_size(&self, endpoint: &SocketAddr) -> usize {
+        let read_guard = self.map.read();
+        let pool = read_guard.get(endpoint).expect("internal pool");
+        let vec = pool.conns.lock();
+        vec.len()
+    }
+}
+
+// An InternalPool that maintains a vector that stores all the connections.
+struct InternalPool {
+    conns: Mutex<Vec<Box<dyn Connection>>>,
+}
+
+impl InternalPool {
+    fn new() -> Self {
+        InternalPool {
+            conns: Mutex::new(vec![]),
         }
     }
 }
 
 /// A smart pointer wrapping a Connection so that the inner Connection can return to the ConnectionPool once
 /// this pointer is dropped.
-pub struct PooledConnection {
+pub struct PooledConnection<'a> {
     inner: Option<Box<dyn Connection>>,
-    pool: Arc<InternalPool>,
+    pool: &'a ManagedPool,
 }
 
-impl fmt::Debug for PooledConnection {
+impl fmt::Debug for PooledConnection<'_> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(
             &self.inner.as_ref().expect("borrow inner connection").get_uuid(),
@@ -142,16 +175,14 @@ impl fmt::Debug for PooledConnection {
     }
 }
 
-impl Drop for PooledConnection {
+impl Drop for PooledConnection<'_> {
     fn drop(&mut self) {
-        add_connection_to_pool(
-            self.pool.clone(),
-            self.inner.take().expect("take ownership of inner connection"),
-        )
+        self.pool
+            .add_connection(self.inner.take().expect("drop connection back to pool"))
     }
 }
 
-impl Deref for PooledConnection {
+impl Deref for PooledConnection<'_> {
     type Target = Box<dyn Connection>;
 
     fn deref(&self) -> &Box<dyn Connection> {
@@ -159,33 +190,9 @@ impl Deref for PooledConnection {
     }
 }
 
-impl DerefMut for PooledConnection {
+impl DerefMut for PooledConnection<'_> {
     fn deref_mut(&mut self) -> &mut Box<dyn Connection> {
         self.inner.as_mut().expect("mutably borrow inner connection")
-    }
-}
-
-// An InternalPool that maintains a vector that stores all the connections.
-pub struct InternalPool {
-    conns: Mutex<Vec<Box<dyn Connection>>>,
-}
-
-pub fn add_connection_to_pool(pool: Arc<InternalPool>, connection: Box<dyn Connection>) {
-    let mut guard = pool.conns.lock();
-    guard.push(connection);
-}
-
-pub fn get_connection_from_pool(pool: Arc<InternalPool>) -> Result<PooledConnection, ConnectionPoolError> {
-    let mut guard = pool.conns.lock();
-    if let Some(conn) = guard.pop() {
-        let pooled_conn = PooledConnection {
-            pool: pool.clone(),
-            inner: Some(conn),
-        };
-        Ok(pooled_conn)
-    } else {
-        let message = String::from("no available connection in the internal pool");
-        Err(ConnectionPoolError::NoAvailableConnection { message })
     }
 }
 
@@ -275,9 +282,7 @@ mod tests {
         }
         info!("connection threads joined");
         let received = server.receive();
-        let mut rt_guard = rt.lock();
-        let map_guard = rt_guard.block_on(shared_pool.map.write());
-        let connections = map_guard.get(&server.address).unwrap().conns.lock().len() as u32;
+        let connections = shared_pool.pool_len(shared_address.deref()) as u32;
         assert_eq!(received, connections);
     }
 }

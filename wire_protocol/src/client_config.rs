@@ -12,7 +12,7 @@ use crate::connection_factory::ConnectionType;
 use derive_builder::*;
 use getset::CopyGetters;
 
-#[derive(Default, Builder, Debug, CopyGetters, Clone)]
+#[derive(Default, Builder, Debug, CopyGetters, Clone, Copy)]
 #[builder(setter(into))]
 pub struct ClientConfig {
     #[get_copy = "pub"]
