@@ -19,10 +19,9 @@ use std::collections::HashMap;
 use std::fmt;
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
-use std::sync::Arc;
 
-/// ConnectionPool can create a pool of threads and let caller to reuse the existing connections from the pool.
-/// It is safe to use across threads
+/// ConnectionPool creates a pool of threads for reuse.
+/// It is thread safe
 #[async_trait]
 pub trait ConnectionPool: Send + Sync + 'static {
     /// get_connection takes an endpoint and returns a PooledConnection.
@@ -46,9 +45,16 @@ pub trait ConnectionPool: Send + Sync + 'static {
 
 /// An implementation of the ConnectionPool.
 pub struct ConnectionPoolImpl {
+    /// managed_pool holds a map that maps endpoint to the internal pool.
+    /// each endpoint has its own internal pool.
     managed_pool: ManagedPool,
+
+    /// The client configuration.
     config: ClientConfig,
-    connection_factory: Arc<Box<dyn ConnectionFactory>>,
+
+    /// connection_factory is used to establish connection to the remote server
+    /// when there is no connection available in the internal pool.
+    connection_factory: Box<dyn ConnectionFactory>,
 }
 
 impl ConnectionPoolImpl {
@@ -56,7 +62,7 @@ impl ConnectionPoolImpl {
     /// a Runtime, a map and a ConnectionFactory.
     pub fn new(config: ClientConfig) -> Self {
         let managed_pool = ManagedPool::new();
-        let connection_factory = Arc::new(Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>);
+        let connection_factory = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
         ConnectionPoolImpl {
             managed_pool,
             config,
@@ -64,8 +70,9 @@ impl ConnectionPoolImpl {
         }
     }
 
+    /// Returns the pool length of a specific internal pool
     pub fn pool_len(&self, endpoint: &SocketAddr) -> usize {
-        self.managed_pool.pool_size(endpoint)
+        self.managed_pool.pool_len(endpoint)
     }
 }
 
@@ -74,7 +81,8 @@ impl ConnectionPool for ConnectionPoolImpl {
     /// get_connection takes an endpoint and returns a PooledConnection. The PooledConnection is a
     /// wrapper that contains a Connection that can be used to send and read.
     ///
-    /// This method is thread safe and can be called concurrently.
+    /// This method is thread safe and can be called concurrently. It will return an error if it fails
+    /// to establish connection to the remote server.
     async fn get_connection(
         &self,
         endpoint: SocketAddr,
@@ -101,7 +109,8 @@ impl ConnectionPool for ConnectionPoolImpl {
     }
 }
 
-#[warn(dead_code)]
+// ManagedPool maintains a map that maps endpoint to InternalPool.
+// The map has a RwLock that ensures thread safety.
 struct ManagedPool {
     map: RwLock<HashMap<SocketAddr, InternalPool>>,
 }
@@ -112,6 +121,7 @@ impl ManagedPool {
         ManagedPool { map }
     }
 
+    // add a connection to the internal pool
     fn add_connection(&self, connection: Box<dyn Connection>) {
         let endpoint = connection.get_endpoint();
         let mut write_guard = self.map.write();
@@ -122,6 +132,7 @@ impl ManagedPool {
         internal.conns.lock().push(connection);
     }
 
+    // get a connection from the internal pool. If there is no available connections, returns an error
     fn get_connection(&self, endpoint: SocketAddr) -> Result<Box<dyn Connection>, ConnectionPoolError> {
         let read_guard = self.map.read();
         if read_guard.contains_key(&endpoint) {
@@ -138,7 +149,8 @@ impl ManagedPool {
         }
     }
 
-    fn pool_size(&self, endpoint: &SocketAddr) -> usize {
+    // return the pool length of the internal pool
+    fn pool_len(&self, endpoint: &SocketAddr) -> usize {
         let read_guard = self.map.read();
         let pool = read_guard.get(endpoint).expect("internal pool");
         let vec = pool.conns.lock();
@@ -250,6 +262,7 @@ mod tests {
     #[test]
     fn test_connection_pool() {
         info!("test connection pool");
+
         // Create server
         let mut server = Server::new();
         let shared_address = Arc::new(server.address);
@@ -276,11 +289,13 @@ mod tests {
             });
             v.push(h);
         }
+
         info!("waiting connection threads to finish");
         for _i in v {
             _i.join().unwrap();
         }
         info!("connection threads joined");
+
         let received = server.receive();
         let connections = shared_pool.pool_len(shared_address.deref()) as u32;
         assert_eq!(received, connections);
