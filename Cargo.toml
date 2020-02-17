@@ -22,10 +22,12 @@ members = [
 pravega-rust-client-shared = { path = "./shared"}
 pravega-controller-client = { path = "./controller-client"}
 pravega-wire-protocol = { path = "./wire_protocol"}
-pravega-rust-client-integration-test = { path = "./integration_test"}
 async-trait = "0.1.22"
 futures = "0.3.1"
 snafu = "0.6.2"
+
+[dev-dependencies]
+pravega-rust-client-integration-test = { path = "./integration_test"}
 
 
 

@@ -25,10 +25,13 @@ pub trait PravegaService {
     fn check_status(&mut self) -> Result<bool, std::io::Error>;
 
     /**
-     * Get Host:port URI where the service is running.
+     * Get grpc host:port URI where the service is running.
      */
     fn get_grpc_details(&self) -> SocketAddr;
 
+    /**
+     * Get rest host:port URI where the service is running.
+     */
     fn get_rest_details(&self) -> SocketAddr;
 }
 
@@ -77,5 +80,11 @@ impl PravegaService for PravegaStandaloneService {
 
     fn get_rest_details(&self) -> SocketAddr {
         SocketAddr::new(IpAddr::V4(Self::ADDRESS), Self::REST_PORT)
+    }
+}
+
+impl Drop for PravegaStandaloneService {
+    fn drop(&mut self) {
+        self.stop();
     }
 }
