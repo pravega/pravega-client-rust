@@ -11,7 +11,6 @@ use std::fmt;
 use std::i64;
 use std::io::Cursor;
 use std::io::{Read, Write};
-
 /**
  * trait for Command.
  */
