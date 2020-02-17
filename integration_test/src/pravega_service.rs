@@ -85,6 +85,6 @@ impl PravegaService for PravegaStandaloneService {
 
 impl Drop for PravegaStandaloneService {
     fn drop(&mut self) {
-        self.stop();
+        self.stop().unwrap();
     }
 }
