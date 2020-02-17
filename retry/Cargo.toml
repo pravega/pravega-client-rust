@@ -1,5 +1,5 @@
 [package]
-name = "pravega-client-rust"
+name = "pravega-rust-client-retry"
 version = "0.1.0"
 edition = "2018"
 categories = ["Network programming"]
@@ -7,24 +7,12 @@ keywords = ["streaming", "client", "pravega"]
 readme = "Readme.md"
 repository = "https://github.com/pravega/pravega-client-rust"
 license = "Apache-2.0"
-description = "A Rust client for Pravega. (Pravega.io)"
+description = "An internal library used by the Rust client for Pravega."
 authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.com>",
            "Sandeep Shridhar <sandeep.shridhar@dell.com>", "Wenxiao Zhang <wenxiao.zhang@dell.com>"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[workspace]
-members = [
-    "controller-client", "shared", "wire_protocol", "retry"
-]
-
 [dependencies]
-pravega-rust-client-shared = { path = "./shared"}
-pravega-controller-client = { path = "./controller-client"}
-pravega-wire-protocol = { path = "./wire_protocol"}
-async-trait = "0.1.22"
-futures = "0.3.1"
 snafu = "0.6.2"
-
-
-
+tokio = { version = "0.2.8", features = ["full"] }

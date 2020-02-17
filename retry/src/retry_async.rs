@@ -1,0 +1,136 @@
+use super::retry_policy::BackoffSchedule;
+use super::retry_result::RetryError;
+use super::retry_result::RetryResult;
+use std::future::Future;
+use std::time::Duration;
+use tokio::time::delay_for;
+
+/// Retry the given operation asynchronously until it succeeds,
+/// or until the given Duration iterator ends.
+/// It can be used as follows:
+/// let retry_policy = RetryWithBackoff::default();
+/// let future = retry_async(retry_policy, || async {
+///     let previous = 1;
+///     match previous {
+///         1 => RetryResult::Fail("not retry"),
+///         2 => RetryResult::Success(previous),
+///         _ => RetryResult::Retry("retry"),
+///     }
+/// });
+pub async fn retry_async<F, T, E>(
+    retry_schedule: impl BackoffSchedule,
+    mut operation: impl FnMut() -> F,
+) -> Result<T, RetryError<E>>
+where
+    F: Future<Output = RetryResult<T, E>>,
+{
+    let mut iterator = retry_schedule;
+    let mut current_try = 1;
+    let mut total_delay = Duration::default();
+    loop {
+        let result: RetryResult<T, E> = operation().await;
+
+        match result {
+            RetryResult::Success(value) => return Ok(value),
+            RetryResult::Retry(error) => {
+                if let Some(delay) = iterator.next() {
+                    delay_for(delay).await;
+                    current_try += 1;
+                    total_delay += delay;
+                } else {
+                    return Err(RetryError {
+                        error,
+                        total_delay,
+                        tries: current_try,
+                    });
+                }
+            }
+            RetryResult::Fail(error) => {
+                return Err(RetryError {
+                    error,
+                    total_delay,
+                    tries: current_try,
+                });
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::retry_policy::RetryWithBackoff;
+    use super::retry_async;
+    use super::RetryError;
+    use super::RetryResult;
+    use std::time::Duration;
+    use tokio::runtime::Runtime;
+
+    #[test]
+    fn attempts_just_once() {
+        let mut runtime = Runtime::new().unwrap();
+        let retry_policy = RetryWithBackoff::default().max_tries(1);
+        let future = retry_async(retry_policy, || async {
+            let previous = 1;
+            match previous {
+                1 => RetryResult::Fail("not retry"),
+                2 => RetryResult::Success(previous),
+                _ => RetryResult::Retry("retry"),
+            }
+        });
+        let res = runtime.block_on(future);
+        assert_eq!(
+            res,
+            Err(RetryError {
+                error: "not retry",
+                tries: 1,
+                total_delay: Duration::from_millis(0)
+            })
+        );
+    }
+
+    #[test]
+    fn attempts_until_max_retries_exceeded() {
+        let mut runtime = Runtime::new().unwrap();
+        let retry_policy = RetryWithBackoff::default().max_tries(3);
+        let future = retry_async(retry_policy, || async {
+            let previous = 3;
+            match previous {
+                1 => RetryResult::Fail("not retry"),
+                2 => RetryResult::Success(previous),
+                _ => RetryResult::Retry("retry"),
+            }
+        });
+
+        let res = runtime.block_on(future);
+        assert_eq!(
+            res,
+            Err(RetryError {
+                error: "retry",
+                tries: 4,
+                total_delay: Duration::from_millis(111)
+            })
+        );
+    }
+
+    #[test]
+    fn attempts_until_success() {
+        let mut runtime = Runtime::new().unwrap();
+        let retry_policy = RetryWithBackoff::default().max_tries(3);
+        let mut counter = 0;
+
+        let future = retry_async(retry_policy, || {
+            let previous = counter;
+            counter += 1;
+            async move {
+                if previous < 3 {
+                    RetryResult::Retry("retry")
+                } else {
+                    RetryResult::Success(previous)
+                }
+            }
+        });
+        let res = runtime.block_on(future);
+        assert_eq!(res, Ok(3));
+        assert_eq!(counter, 4);
+    }
+}
