@@ -15,7 +15,7 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 
 [workspace]
 members = [
-    "controller-client", "shared", "wire_protocol", "integration_test"
+    "controller-client", "shared", "wire_protocol", "retry", "integration_test"
 ]
 
 [dependencies]
