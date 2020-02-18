@@ -15,7 +15,7 @@ pub trait PravegaService {
     fn start() -> Self;
 
     /**
-     * Stop a given service. If the service is already stopped,return an invalid input
+     * Stop a given service. If the service is already stopped,nothing would happen.
      */
     fn stop(&mut self) -> Result<(), std::io::Error>;
 
@@ -57,12 +57,15 @@ impl PravegaService for PravegaStandaloneService {
         let pravega = Command::new(PATH)
             .spawn()
             .expect("failed to start pravega standalone");
-        println!("child pid: {}", pravega.id());
+        info!("child pid: {}", pravega.id());
         PravegaStandaloneService { pravega }
     }
 
     fn stop(&mut self) -> Result<(), std::io::Error> {
-        self.pravega.kill()
+        if self.check_status().unwrap() {
+            return self.pravega.kill();
+        }
+        Ok(())
     }
 
     fn check_status(&mut self) -> Result<bool, std::io::Error> {
