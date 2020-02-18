@@ -69,14 +69,12 @@ mod tests {
     fn attempts_just_once() {
         let mut runtime = Runtime::new().unwrap();
         let retry_policy = RetryWithBackoff::default().max_tries(1);
-        let future = retry_async(retry_policy, || {
-            async {
-                let previous = 1;
-                match previous {
-                    1 => RetryResult::Fail("not retry"),
-                    2 => RetryResult::Success(previous),
-                    _ => RetryResult::Retry("retry"),
-                }
+        let future = retry_async(retry_policy, || async {
+            let previous = 1;
+            match previous {
+                1 => RetryResult::Fail("not retry"),
+                2 => RetryResult::Success(previous),
+                _ => RetryResult::Retry("retry"),
             }
         });
         let res = runtime.block_on(future);
@@ -94,14 +92,12 @@ mod tests {
     fn attempts_until_max_retries_exceeded() {
         let mut runtime = Runtime::new().unwrap();
         let retry_policy = RetryWithBackoff::default().max_tries(3);
-        let future = retry_async(retry_policy, || {
-            async {
-                let previous = 3;
-                match previous {
-                    1 => RetryResult::Fail("not retry"),
-                    2 => RetryResult::Success(previous),
-                    _ => RetryResult::Retry("retry"),
-                }
+        let future = retry_async(retry_policy, || async {
+            let previous = 3;
+            match previous {
+                1 => RetryResult::Fail("not retry"),
+                2 => RetryResult::Success(previous),
+                _ => RetryResult::Retry("retry"),
             }
         });
 
