@@ -15,7 +15,7 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 
 [workspace]
 members = [
-    "controller-client", "shared", "wire_protocol", "retry"
+    "controller-client", "shared", "wire_protocol", "retry", "integration_test"
 ]
 
 [dependencies]
@@ -25,6 +25,9 @@ pravega-wire-protocol = { path = "./wire_protocol"}
 async-trait = "0.1.22"
 futures = "0.3.1"
 snafu = "0.6.2"
+
+[dev-dependencies]
+pravega-rust-client-integration-test = { path = "./integration_test"}
 
 
 

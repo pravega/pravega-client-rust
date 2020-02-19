@@ -1,0 +1,22 @@
+[package]
+name = "pravega-rust-client-integration-test"
+version = "0.1.0"
+edition = "2018"
+categories = ["Network programming"]
+keywords = ["streaming", "client", "pravega"]
+readme = "Readme.md"
+repository = "https://github.com/pravega/pravega-client-rust"
+license = "Apache-2.0"
+description = "The integration test for pravega rust client."
+authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.com>",
+           "Sandeep Shridhar <sandeep.shridhar@dell.com>", "Wenxiao Zhang <wenxiao.zhang@dell.com>"]
+
+[dependencies]
+log = "0.4"
+
+[build-dependencies]
+log = "0.4"
+flate2 = "1.0.12"
+tar = "0.4.26"
+pkg-config = "0.3.16"
+reqwest = {version = "0.10", features = ["blocking"]}
