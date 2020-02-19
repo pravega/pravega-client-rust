@@ -131,7 +131,7 @@ impl ManagedPool {
     // add a connection to the internal pool
     fn add_connection(&self, connection: Box<dyn Connection>) {
         let endpoint = connection.get_endpoint();
-        let mut internal = self.map.entry(endpoint).or_insert(InternalPool::new());
+        let mut internal = self.map.entry(endpoint).or_insert_with(InternalPool::new);
         if self.config.max_connections_per_segmentstore > internal.conns.len() as u32 {
             internal.conns.push(connection);
         }
@@ -139,7 +139,7 @@ impl ManagedPool {
 
     // get a connection from the internal pool. If there is no available connections, returns an error
     fn get_connection(&self, endpoint: SocketAddr) -> Result<Box<dyn Connection>, ConnectionPoolError> {
-        let mut internal = self.map.entry(endpoint).or_insert(InternalPool::new());
+        let mut internal = self.map.entry(endpoint).or_insert_with(InternalPool::new);
         if internal.conns.is_empty() {
             Err(ConnectionPoolError::NoAvailableConnection {})
         } else {
