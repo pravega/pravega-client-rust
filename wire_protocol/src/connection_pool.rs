@@ -208,6 +208,7 @@ mod tests {
     use super::*;
     use crate::client_config::ClientConfigBuilder;
     use log::info;
+    use parking_lot::Mutex;
     use std::io::Read;
     use std::net::{SocketAddr, TcpListener};
     use std::ops::DerefMut;
