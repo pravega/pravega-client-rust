@@ -62,7 +62,7 @@ impl PravegaService for PravegaStandaloneService {
     }
 
     fn stop(&mut self) -> Result<(), std::io::Error> {
-        if self.check_status().unwrap() {
+        if self.check_status()? {
             return self.pravega.kill();
         }
         Ok(())
@@ -88,6 +88,6 @@ impl PravegaService for PravegaStandaloneService {
 
 impl Drop for PravegaStandaloneService {
     fn drop(&mut self) {
-        self.stop().unwrap();
+        self.stop().expect("Failed to stop pravega");
     }
 }
