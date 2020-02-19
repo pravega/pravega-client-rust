@@ -116,7 +116,7 @@ impl ConnectionPool for ConnectionPoolImpl {
 }
 
 // ManagedPool maintains a map that maps endpoint to InternalPool.
-// The map has a RwLock that ensures thread safety.
+// The map is a concurrent map named Dashmap, which supports multi-threading with high performance.
 struct ManagedPool {
     map: DashMap<SocketAddr, InternalPool>,
     config: ClientConfig,
