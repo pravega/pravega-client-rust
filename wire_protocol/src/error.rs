@@ -85,3 +85,13 @@ pub enum ReaderError {
         backtrace: Backtrace,
     },
 }
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility = "pub(crate)")]
+pub enum ConnectionPoolError {
+    #[snafu(display("Could not establish connection to endpoint"))]
+    EstablishConnection { source: ConnectionError },
+
+    #[snafu(display("No available connection in the internal pool"))]
+    NoAvailableConnection {},
+}

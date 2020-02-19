@@ -107,7 +107,7 @@ mod tests {
 
         let connection_factory = ConnectionFactoryImpl {};
         let connection_future =
-            connection_factory.establish_connection(ConnectionType::Tokio, server.address);
+            connection_factory.establish_connection(server.address, ConnectionType::Tokio);
         let connection = rt.block_on(connection_future).unwrap();
         info!("connection established");
 
