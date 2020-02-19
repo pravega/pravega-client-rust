@@ -8,20 +8,25 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use super::error::Connect;
-use super::error::ConnectionError;
-use super::error::ReadData;
-use super::error::SendData;
+use crate::error::*;
+
 use async_trait::async_trait;
 use snafu::ResultExt;
 use std::fmt;
 use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
+use uuid::Uuid;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ConnectionType {
     Tokio,
+}
+
+impl Default for ConnectionType {
+    fn default() -> Self {
+        ConnectionType::Tokio
+    }
 }
 
 impl fmt::Display for ConnectionType {
@@ -32,7 +37,7 @@ impl fmt::Display for ConnectionType {
 
 /// ConnectionFactory trait is the factory used to establish the TCP connection with remote servers.
 #[async_trait]
-pub trait ConnectionFactory {
+pub trait ConnectionFactory: Send + Sync {
     /// establish_connection will return a Connection future that used to send and read data.
     ///
     /// # Example
@@ -47,20 +52,20 @@ pub trait ConnectionFactory {
     ///   let mut rt = Runtime::new().unwrap();
     ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
     ///   let cf = connection_factory::ConnectionFactoryImpl {};
-    ///   let connection_future = cf.establish_connection(connection_factory::ConnectionType::Tokio, endpoint);
+    ///   let connection_future = cf.establish_connection(endpoint, connection_factory::ConnectionType::Tokio);
     ///   let mut connection = rt.block_on(connection_future).unwrap();
     /// }
     /// ```
     async fn establish_connection(
         &self,
-        connection_type: ConnectionType,
         endpoint: SocketAddr,
+        connection_type: ConnectionType,
     ) -> Result<Box<dyn Connection>, ConnectionError>;
 }
 
-/// Connection can send and read data using  a TCP connection
+/// Connection can send and read data using a TCP connection
 #[async_trait]
-pub trait Connection {
+pub trait Connection: Send + Sync {
     /// send_async will send a byte array payload to the remote server asynchronously.
     ///
     /// # Example
@@ -75,7 +80,7 @@ pub trait Connection {
     ///   let mut rt = Runtime::new().unwrap();
     ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
     ///   let cf = connection_factory::ConnectionFactoryImpl {};
-    ///   let connection_future = cf.establish_connection(connection_factory::ConnectionType::Tokio, endpoint);
+    ///   let connection_future = cf.establish_connection(endpoint, connection_factory::ConnectionType::Tokio);
     ///   let mut connection = rt.block_on(connection_future).unwrap();
     ///   let mut payload: Vec<u8> = Vec::new();
     ///   let fut = connection.send_async(&payload);
@@ -97,39 +102,56 @@ pub trait Connection {
     ///   let mut rt = Runtime::new().unwrap();
     ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
     ///   let cf = connection_factory::ConnectionFactoryImpl {};
-    ///   let connection_future = cf.establish_connection(connection_factory::ConnectionType::Tokio, endpoint);
+    ///   let connection_future = cf.establish_connection(endpoint, connection_factory::ConnectionType::Tokio);
     ///   let mut connection = rt.block_on(connection_future).unwrap();
     ///   let mut buf = [0; 10];
     ///   let fut = connection.read_async(&mut buf);
     /// }
     /// ```
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError>;
+
+    fn get_uuid(&self) -> Uuid;
+
+    fn get_endpoint(&self) -> SocketAddr;
 }
 
 pub struct ConnectionFactoryImpl {}
+
+impl ConnectionFactoryImpl {
+    async fn establish_tokio_connection(
+        &self,
+        endpoint: SocketAddr,
+    ) -> Result<Box<dyn Connection>, ConnectionError> {
+        let connection_type = ConnectionType::Tokio;
+        let uuid = Uuid::new_v4();
+        let stream = TcpStream::connect(endpoint).await.context(Connect {
+            connection_type,
+            endpoint,
+        })?;
+        let tokio_connection: Box<dyn Connection> = Box::new(TokioConnection {
+            uuid,
+            endpoint,
+            stream,
+        }) as Box<dyn Connection>;
+        Ok(tokio_connection)
+    }
+}
 
 #[async_trait]
 impl ConnectionFactory for ConnectionFactoryImpl {
     async fn establish_connection(
         &self,
-        connection_type: ConnectionType,
         endpoint: SocketAddr,
+        connection_type: ConnectionType,
     ) -> Result<Box<dyn Connection>, ConnectionError> {
         match connection_type {
-            ConnectionType::Tokio => {
-                let stream = TcpStream::connect(endpoint).await.context(Connect {
-                    connection_type,
-                    endpoint,
-                })?;
-                let tokio_connection: Box<dyn Connection> =
-                    Box::new(TokioConnection { endpoint, stream }) as Box<dyn Connection>;
-                Ok(tokio_connection)
-            }
+            ConnectionType::Tokio => self.establish_tokio_connection(endpoint).await,
         }
     }
 }
 
 pub struct TokioConnection {
+    pub uuid: Uuid,
     pub endpoint: SocketAddr,
     pub stream: TcpStream,
 }
@@ -149,6 +171,14 @@ impl Connection for TokioConnection {
         let endpoint = self.endpoint;
         self.stream.read_exact(buf).await.context(ReadData { endpoint })?;
         Ok(())
+    }
+
+    fn get_uuid(&self) -> Uuid {
+        self.uuid
+    }
+
+    fn get_endpoint(&self) -> SocketAddr {
+        self.endpoint
     }
 }
 
@@ -191,7 +221,7 @@ mod tests {
 
         let connection_factory = self::ConnectionFactoryImpl {};
         let connection_future =
-            connection_factory.establish_connection(self::ConnectionType::Tokio, server.address);
+            connection_factory.establish_connection(server.address, ConnectionType::Tokio);
         let mut connection = rt.block_on(connection_future).unwrap();
         info!("connection established");
 
