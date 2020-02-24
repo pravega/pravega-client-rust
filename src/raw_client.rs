@@ -6,7 +6,7 @@ use pravega_wire_protocol::connection_factory::*;
 use pravega_wire_protocol::error::*;
 use std::net::SocketAddr;
 use pravega_wire_protocol::reply_processor::FailingReplyProcessor;
-use
+use dashmap::DashMap;
 
 #[async_trait]
 trait RawClient {
@@ -25,8 +25,8 @@ trait RawClient {
 }
 
 pub struct RawClientImpl {
-    connection: Box<dyn ClientConnection>
-    map: DashMap;
+    connection: Box<dyn ClientConnection>,
+    map: DashMap,
 }
 
 impl RawClientImpl {}
@@ -36,7 +36,8 @@ impl RawClient for RawClientImpl {
     async fn new(factory: &dyn ConnectionFactory, endpoint: SocketAddr) -> Self {
         let connection = factory.establish_connection(endpoint).await.expect("establish connection");
         let client_connection = ClientConnection::new(factory, connection);
-        RawClientImpl{connection}
+        let map = DashMap::new();
+        RawClientImpl{connection, map}
     }
 
     async fn send_request(&mut self, request: Requests) -> Result<Replies, ConnectionError> {

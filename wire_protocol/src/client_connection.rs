@@ -73,6 +73,7 @@ impl ClientConnection for ClientConnectionImpl {
         let concatenated = [&header[..], &payload[..]].concat();
 
         let reply: Replies = Replies::read_from(&concatenated).expect("decode reply");
+        self.rp.process(&reply);
         Ok(reply)
     }
 
