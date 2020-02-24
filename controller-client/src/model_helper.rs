@@ -12,7 +12,6 @@ use crate::controller::*;
 use ordered_float::OrderedFloat;
 use pravega_rust_client_shared::*;
 use std::collections::BTreeMap;
-use uuid::Uuid;
 
 impl From<NodeUri> for PravegaNodeUri {
     fn from(value: NodeUri) -> PravegaNodeUri {
@@ -167,14 +166,11 @@ impl From<CreateTxnResponse> for TxnSegments {
                 ),
             );
         }
-        let txn_uuid: Uuid = match txn_response.txn_id {
-            Some(x) => {
-                let t: u128 = (x.high_bits as u128) << 64 | (x.low_bits as u128);
-                Uuid::from_u128(t)
-            }
+        let txn_uuid: u128 = match txn_response.txn_id {
+            Some(x) => (x.high_bits as u128) << 64 | (x.low_bits as u128),
             None => panic!("Incorrect response from Controller"),
         };
-        TxnSegments::new(segment_map, txn_uuid)
+        TxnSegments::new(segment_map, TxId::new(txn_uuid))
     }
 }
 /*

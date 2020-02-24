@@ -67,7 +67,7 @@ pub struct ScopedSegment {
     pub segment: Segment,
 }
 
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Shrinkwrap, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct TxId(u128);
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -76,6 +76,20 @@ pub struct WriterId(u64);
 impl Display for Stream {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str(&self.name)?;
+        Ok(())
+    }
+}
+
+impl Display for TxId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(Uuid::from_u128(self.0).to_hyphenated().to_string().as_str())?;
+        Ok(())
+    }
+}
+
+impl fmt::Debug for TxId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(Uuid::from_u128(self.0).to_hyphenated().to_string().as_str())?;
         Ok(())
     }
 }
@@ -163,5 +177,5 @@ pub struct StreamSegments {
 #[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct TxnSegments {
     pub key_segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
-    pub uuid: Uuid,
+    pub tx_id: TxId,
 }
