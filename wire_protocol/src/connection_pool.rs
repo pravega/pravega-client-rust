@@ -60,9 +60,8 @@ pub struct ConnectionPoolImpl {
 impl ConnectionPoolImpl {
     /// Create a new ConnectionPoolImpl instances by passing into a ClientConfig. It will create
     /// a Runtime, a map and a ConnectionFactory.
-    pub fn new(config: ClientConfig) -> Self {
+    pub fn new(connection_factory: Box<dyn ConnectionFactory>, config: ClientConfig) -> Self {
         let managed_pool = ManagedPool::new();
-        let connection_factory = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
         ConnectionPoolImpl {
             managed_pool,
             config,
@@ -110,7 +109,7 @@ impl ConnectionPool for ConnectionPoolImpl {
 }
 
 // ManagedPool maintains a map that maps endpoint to InternalPool.
-// The map has a RwLock that ensures thread safety.
+// The map is a concurrent map named Dashmap, which supports multi-threading with high performance.
 struct ManagedPool {
     map: RwLock<HashMap<SocketAddr, InternalPool>>,
 }
@@ -269,7 +268,8 @@ mod tests {
 
         // Create a connection pool and a Runtime
         let config = ClientConfigBuilder::default().build().unwrap();
-        let shared_pool = Arc::new(ConnectionPoolImpl::new(config));
+        let connection_factory = Box::new(ConnectionFactoryImpl{});
+        let shared_pool = Arc::new(ConnectionPoolImpl::new(connection_factory, config));
         let rt = Arc::new(Mutex::new(Runtime::new().unwrap()));
 
         // Create a number of threads, each thread will use the connection pool to get a connection

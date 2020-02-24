@@ -22,8 +22,9 @@ pub mod commands;
 pub mod connection_factory;
 pub mod connection_pool;
 pub mod error;
-mod wire_commands;
-pub mod wirecommand_reader;
+pub mod wire_commands;
+pub mod client_connection;
+pub mod reply_processor;
 
 #[cfg(test)]
 mod tests;

@@ -11,6 +11,14 @@ use std::fmt;
 use std::i64;
 use std::io::Cursor;
 use std::io::{Read, Write};
+use crate::wire_commands::{WireCommands, Replies, Requests};
+
+pub const WIRE_VERSION: i32 = 9;
+pub const OLDEST_COMPATIBLE_VERSION: i32 = 5;
+pub const TYPE_SIZE: u32 = 4;
+pub const TYPE_PLUS_LENGTH_SIZE: u32 = 8;
+pub const MAX_WIRECOMMAND_SIZE: u32 = 0x00FFFFFF; // 16MB-1
+
 /**
  * trait for Command.
  */
@@ -25,7 +33,7 @@ pub trait Command {
 /**
  * trait for Request
  */
-pub trait Request {
+pub trait Request: Command {
     fn get_request_id(&self) -> i64;
     fn must_log(&self) -> bool {
         true
@@ -35,7 +43,7 @@ pub trait Request {
 /**
  * trait for Reply
  */
-pub trait Reply {
+pub trait Reply: Command {
     fn get_request_id(&self) -> i64;
     fn is_failure(&self) -> bool {
         false
