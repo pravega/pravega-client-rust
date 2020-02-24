@@ -65,7 +65,7 @@ pub trait ConnectionFactory: Send + Sync {
 
 /// Connection can send and read data using a TCP connection
 #[async_trait]
-pub trait Connection: Send {
+pub trait Connection: Send + Sync {
     /// send_async will send a byte array payload to the remote server asynchronously.
     ///
     /// # Example

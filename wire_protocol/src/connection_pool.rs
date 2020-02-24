@@ -13,9 +13,9 @@ use crate::connection_factory::{Connection, ConnectionFactory, ConnectionFactory
 use crate::error::*;
 
 use async_trait::async_trait;
-use parking_lot::{Mutex, RwLock};
+use dashmap::DashMap;
+use log::warn;
 use snafu::ResultExt;
-use std::collections::HashMap;
 use std::fmt;
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
@@ -60,8 +60,9 @@ pub struct ConnectionPoolImpl {
 impl ConnectionPoolImpl {
     /// Create a new ConnectionPoolImpl instances by passing into a ClientConfig. It will create
     /// a Runtime, a map and a ConnectionFactory.
-    pub fn new(connection_factory: Box<dyn ConnectionFactory>, config: ClientConfig) -> Self {
-        let managed_pool = ManagedPool::new();
+    pub fn new(config: ClientConfig) -> Self {
+        let managed_pool = ManagedPool::new(config);
+        let connection_factory = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
         ConnectionPoolImpl {
             managed_pool,
             config,
@@ -92,18 +93,24 @@ impl ConnectionPool for ConnectionPoolImpl {
                 pool: &self.managed_pool,
             }),
 
-            Err(_e) => match self
+            Err(_e) => self
                 .connection_factory
                 .establish_connection(endpoint, self.config.connection_type)
                 .await
                 .context(EstablishConnection {})
-            {
-                Ok(conn) => Ok(PooledConnection {
-                    inner: Some(conn),
-                    pool: &self.managed_pool,
-                }),
-                Err(e) => Err(e),
-            },
+                .map_or_else(
+                    // track clippy issue https://github.com/rust-lang/rust-clippy/issues/3071
+                    |e| {
+                        warn!("connection failed to establish");
+                        Err(e)
+                    },
+                    |conn| {
+                        Ok(PooledConnection {
+                            inner: Some(conn),
+                            pool: &self.managed_pool,
+                        })
+                    },
+                ),
         }
     }
 }
@@ -111,62 +118,51 @@ impl ConnectionPool for ConnectionPoolImpl {
 // ManagedPool maintains a map that maps endpoint to InternalPool.
 // The map is a concurrent map named Dashmap, which supports multi-threading with high performance.
 struct ManagedPool {
-    map: RwLock<HashMap<SocketAddr, InternalPool>>,
+    map: DashMap<SocketAddr, InternalPool>,
+    config: ClientConfig,
 }
 
 impl ManagedPool {
-    pub fn new() -> Self {
-        let map = RwLock::new(HashMap::new());
-        ManagedPool { map }
+    pub fn new(config: ClientConfig) -> Self {
+        let map = DashMap::new();
+        ManagedPool { map, config }
     }
 
     // add a connection to the internal pool
     fn add_connection(&self, connection: Box<dyn Connection>) {
         let endpoint = connection.get_endpoint();
-        let mut write_guard = self.map.write();
-        if !write_guard.contains_key(&endpoint) {
-            write_guard.insert(endpoint, InternalPool::new());
+        let mut internal = self.map.entry(endpoint).or_insert_with(InternalPool::new);
+        if self.config.max_connections_per_segmentstore > internal.conns.len() as u32 {
+            internal.conns.push(connection);
         }
-        let internal = write_guard.get(&endpoint).expect("internal pool");
-        internal.conns.lock().push(connection);
     }
 
     // get a connection from the internal pool. If there is no available connections, returns an error
     fn get_connection(&self, endpoint: SocketAddr) -> Result<Box<dyn Connection>, ConnectionPoolError> {
-        let read_guard = self.map.read();
-        if read_guard.contains_key(&endpoint) {
-            let pool = read_guard.get(&endpoint).expect("internal pool");
-            match pool.conns.lock().pop() {
-                Some(conn) => Ok(conn),
-                None => Err(ConnectionPoolError::NoAvailableConnection {}),
-            }
-        } else {
-            drop(read_guard);
-            let mut write_guard = self.map.write();
-            write_guard.insert(endpoint, InternalPool::new());
+        let mut internal = self.map.entry(endpoint).or_insert_with(InternalPool::new);
+        if internal.conns.is_empty() {
             Err(ConnectionPoolError::NoAvailableConnection {})
+        } else {
+            let conn = internal.conns.pop().expect("pop connection from vec");
+            Ok(conn)
         }
     }
 
     // return the pool length of the internal pool
     fn pool_len(&self, endpoint: &SocketAddr) -> usize {
-        let read_guard = self.map.read();
-        let pool = read_guard.get(endpoint).expect("internal pool");
-        let vec = pool.conns.lock();
-        vec.len()
+        let pool = self.map.get(endpoint).expect("internal pool");
+        pool.conns.len()
     }
 }
 
 // An InternalPool that maintains a vector that stores all the connections.
 struct InternalPool {
-    conns: Mutex<Vec<Box<dyn Connection>>>,
+    conns: Vec<Box<dyn Connection>>,
 }
 
 impl InternalPool {
     fn new() -> Self {
-        InternalPool {
-            conns: Mutex::new(vec![]),
-        }
+        InternalPool { conns: vec![] }
     }
 }
 
@@ -212,6 +208,7 @@ mod tests {
     use super::*;
     use crate::client_config::ClientConfigBuilder;
     use log::info;
+    use parking_lot::Mutex;
     use std::io::Read;
     use std::net::{SocketAddr, TcpListener};
     use std::ops::DerefMut;
@@ -268,8 +265,7 @@ mod tests {
 
         // Create a connection pool and a Runtime
         let config = ClientConfigBuilder::default().build().unwrap();
-        let connection_factory = Box::new(ConnectionFactoryImpl{});
-        let shared_pool = Arc::new(ConnectionPoolImpl::new(connection_factory, config));
+        let shared_pool = Arc::new(ConnectionPoolImpl::new(config));
         let rt = Arc::new(Mutex::new(Runtime::new().unwrap()));
 
         // Create a number of threads, each thread will use the connection pool to get a connection
