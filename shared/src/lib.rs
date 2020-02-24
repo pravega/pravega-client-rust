@@ -68,7 +68,7 @@ pub struct ScopedSegment {
 }
 
 #[derive(new, Shrinkwrap, Copy, Clone, Hash, PartialEq, Eq)]
-pub struct TxId(u128);
+pub struct TxId(pub u128);
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct WriterId(u64);
@@ -141,6 +141,22 @@ pub enum RetentionType {
     None = 0,
     Time = 1,
     Size = 2,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum PingStatus {
+    Ok = 0,
+    Committed = 1,
+    Aborted = 2,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum TransactionStatus {
+    Open = 0,
+    Committing = 1,
+    Committed = 2,
+    Aborting = 3,
+    Aborted = 4,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]

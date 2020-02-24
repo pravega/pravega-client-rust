@@ -22,6 +22,15 @@ impl From<NodeUri> for PravegaNodeUri {
     }
 }
 
+impl From<TxId> for TxnId {
+    fn from(value: TxId) -> TxnId {
+        TxnId {
+            high_bits: (value.0 >> 64) as i64,
+            low_bits: value.0 as i64,
+        }
+    }
+}
+
 impl Into<SegmentId> for ScopedSegment {
     fn into(self) -> SegmentId {
         SegmentId {
@@ -173,19 +182,3 @@ impl From<CreateTxnResponse> for TxnSegments {
         TxnSegments::new(segment_map, TxId::new(txn_uuid))
     }
 }
-/*
-pub struct CreateTxnResponse {
-    #[prost(message, optional, tag = "1")]
-    pub txn_id: ::std::option::Option<TxnId>,
-    i64
-
-    #[prost(message, repeated, tag = "2")]
-    pub active_segments: ::std::vec::Vec<SegmentRange>,
-    #[prost(string, tag = "3")]
-    pub delegation_token: std::string::String,
-}
-pub struct TxnSegments {
-    pub key_segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
-    pub uuid: Uuid,
-}
-*/

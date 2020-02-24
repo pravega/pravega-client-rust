@@ -36,9 +36,10 @@ use tonic::{Code, Status};
 use async_trait::async_trait;
 use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
-    delete_scope_status, delete_stream_status, update_stream_status, CreateScopeStatus, CreateStreamStatus,
-    CreateTxnRequest, CreateTxnResponse, DeleteScopeStatus, DeleteStreamStatus, NodeUri, ScopeInfo,
-    SegmentRanges, StreamConfig, StreamInfo, UpdateStreamStatus,
+    delete_scope_status, delete_stream_status, ping_txn_status, update_stream_status, CreateScopeStatus,
+    CreateStreamStatus, CreateTxnRequest, CreateTxnResponse, DeleteScopeStatus, DeleteStreamStatus, NodeUri,
+    PingTxnRequest, PingTxnStatus, ScopeInfo, SegmentRanges, StreamConfig, StreamInfo, TxnId,
+    UpdateStreamStatus,
 };
 use pravega_rust_client_shared::*;
 use std::convert::{From, Into};
@@ -75,14 +76,6 @@ pub enum ControllerError {
 }
 
 pub type Result<T> = StdResult<T, ControllerError>;
-
-pub enum PingStatus {
-    //TODO
-}
-
-pub enum TransactionStatus {
-    //TODO
-}
 
 /// Controller APIs for administrative action for streams
 #[async_trait]
@@ -144,7 +137,7 @@ pub trait ControllerClient {
      * API to send transaction heartbeat and increase the transaction timeout by lease amount of milliseconds.
      */
     async fn ping_transaction(
-        &self,
+        &mut self,
         stream: &ScopedStream,
         tx_id: TxId,
         lease: Duration,
@@ -170,7 +163,7 @@ pub trait ControllerClient {
      * //TODO
      * if the transaction has already been committed or aborted.
      */
-    async fn abort_transaction(&self, stream: &ScopedStream, tx_id: TxId) -> Result<()>;
+    async fn abort_transaction(&mut self, stream: &ScopedStream, tx_id: TxId) -> Result<()>;
 
     /**
      * Returns the status of the specified transaction.
@@ -247,12 +240,12 @@ impl ControllerClient for ControllerClientImpl {
     }
 
     async fn ping_transaction(
-        &self,
+        &mut self,
         stream: &ScopedStream,
         tx_id: TxId,
         lease: Duration,
     ) -> Result<PingStatus> {
-        unimplemented!()
+        ping_transaction(stream, tx_id, lease, &mut self.channel).await
     }
 
     async fn commit_transaction(
@@ -265,7 +258,7 @@ impl ControllerClient for ControllerClientImpl {
         unimplemented!()
     }
 
-    async fn abort_transaction(&self, stream: &ScopedStream, tx_id: TxId) -> Result<()> {
+    async fn abort_transaction(&mut self, stream: &ScopedStream, tx_id: TxId) -> Result<()> {
         unimplemented!()
     }
 
@@ -561,6 +554,47 @@ async fn create_transaction(
     let operation_name = "createTransaction";
     match op_status {
         Ok(create_txn_response) => Ok(TxnSegments::from(create_txn_response.into_inner())),
+        Err(status) => Err(map_grpc_error(operation_name, status)),
+    }
+}
+
+/// Async helper function to ping a Transaction.
+async fn ping_transaction(
+    stream: &ScopedStream,
+    tx_id: TxId,
+    lease: Duration,
+    ch: &mut ControllerServiceClient<Channel>,
+) -> Result<PingStatus> {
+    use ping_txn_status::Status;
+    let request = PingTxnRequest {
+        stream_info: Some(StreamInfo::from(stream)),
+        txn_id: Some(TxnId::from(tx_id)),
+        lease: lease.as_millis() as i64,
+    };
+    let op_status: StdResult<tonic::Response<PingTxnStatus>, tonic::Status> =
+        ch.ping_transaction(tonic::Request::new(request)).await;
+    let operation_name = "pingTransaction";
+    match op_status {
+        Ok(code) => match code.into_inner().status() {
+            Status::Ok => Ok(PingStatus::Ok),
+            Status::Committed => Ok(PingStatus::Committed),
+            Status::Aborted => Ok(PingStatus::Aborted),
+            Status::LeaseTooLarge
+            | Status::MaxExecutionTimeExceeded
+            | Status::ScaleGraceTimeExceeded
+            | Status::Disconnected => {
+                Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Ping transaction failed".into(),
+                })
+            }
+            _ => Err(ControllerError::OperationError {
+                can_retry: true, // retry for all other errors
+                operation: operation_name.into(),
+                error_msg: "Operation failed".into(),
+            }),
+        },
         Err(status) => Err(map_grpc_error(operation_name, status)),
     }
 }

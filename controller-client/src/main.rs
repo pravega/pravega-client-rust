@@ -96,6 +96,15 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>>
         .await;
     println!("Response for create transaction is {:?}", create_txn_result);
 
+    let ping_txn_result = controller_client
+        .ping_transaction(
+            &scoped_stream,
+            create_txn_result.unwrap().tx_id,
+            Duration::from_secs(1000),
+        )
+        .await;
+    println!("Response for ping transaction is {:?}", ping_txn_result);
+
     let seal_result = controller_client.seal_stream(&scoped_stream).await;
     println!("Response for seal stream is {:?}", seal_result);
 
