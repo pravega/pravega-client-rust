@@ -10,6 +10,7 @@
 use pravega_controller_client::*;
 use pravega_rust_client_shared::*;
 use std::collections::HashMap;
+use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>> {
@@ -89,6 +90,11 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>>
         ))
         .await;
     println!("Response for truncate stream is {:?}", result_truncate);
+
+    let create_txn_result = controller_client
+        .create_transaction(&scoped_stream, Duration::from_secs(100))
+        .await;
+    println!("Response for create transaction is {:?}", create_txn_result);
 
     let seal_result = controller_client.seal_stream(&scoped_stream).await;
     println!("Response for seal stream is {:?}", seal_result);

@@ -12,6 +12,7 @@ use crate::controller::*;
 use ordered_float::OrderedFloat;
 use pravega_rust_client_shared::*;
 use std::collections::BTreeMap;
+use uuid::Uuid;
 
 impl From<NodeUri> for PravegaNodeUri {
     fn from(value: NodeUri) -> PravegaNodeUri {
@@ -153,3 +154,42 @@ impl From<SegmentRanges> for StreamSegments {
         StreamSegments::new(segment_map)
     }
 }
+impl From<CreateTxnResponse> for TxnSegments {
+    fn from(txn_response: CreateTxnResponse) -> TxnSegments {
+        let mut segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange> = BTreeMap::new();
+        for range in txn_response.active_segments {
+            segment_map.insert(
+                OrderedFloat(range.max_key),
+                SegmentWithRange::new(
+                    ScopedSegment::from(range.segment_id.unwrap()),
+                    OrderedFloat(range.min_key),
+                    OrderedFloat(range.max_key),
+                ),
+            );
+        }
+        let txn_uuid: Uuid = match txn_response.txn_id {
+            Some(x) => {
+                let t: u128 = (x.high_bits as u128) << 64 | (x.low_bits as u128);
+                Uuid::from_u128(t)
+            }
+            None => panic!("Incorrect response from Controller"),
+        };
+        TxnSegments::new(segment_map, txn_uuid)
+    }
+}
+/*
+pub struct CreateTxnResponse {
+    #[prost(message, optional, tag = "1")]
+    pub txn_id: ::std::option::Option<TxnId>,
+    i64
+
+    #[prost(message, repeated, tag = "2")]
+    pub active_segments: ::std::vec::Vec<SegmentRange>,
+    #[prost(string, tag = "3")]
+    pub delegation_token: std::string::String,
+}
+pub struct TxnSegments {
+    pub key_segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
+    pub uuid: Uuid,
+}
+*/

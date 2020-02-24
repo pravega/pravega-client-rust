@@ -37,8 +37,8 @@ use async_trait::async_trait;
 use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
     delete_scope_status, delete_stream_status, update_stream_status, CreateScopeStatus, CreateStreamStatus,
-    DeleteScopeStatus, DeleteStreamStatus, NodeUri, ScopeInfo, SegmentRanges, StreamConfig, StreamInfo,
-    UpdateStreamStatus,
+    CreateTxnRequest, CreateTxnResponse, DeleteScopeStatus, DeleteStreamStatus, NodeUri, ScopeInfo,
+    SegmentRanges, StreamConfig, StreamInfo, UpdateStreamStatus,
 };
 use pravega_rust_client_shared::*;
 use std::convert::{From, Into};
@@ -243,7 +243,7 @@ impl ControllerClient for ControllerClientImpl {
     }
 
     async fn create_transaction(&mut self, stream: &ScopedStream, lease: Duration) -> Result<TxnSegments> {
-        unimplemented!()
+        create_transaction(stream, lease, &mut self.channel).await
     }
 
     async fn ping_transaction(
@@ -529,6 +529,7 @@ async fn truncate_stream(stream_cut: &StreamCut, ch: &mut ControllerServiceClien
         Err(status) => Err(map_grpc_error(operation_name, status)),
     }
 }
+
 /// Async helper function to get current Segments in a Stream.
 async fn get_current_segments(
     stream: &ScopedStream,
@@ -540,6 +541,26 @@ async fn get_current_segments(
     let operation_name = "getCurrentSegments";
     match op_status {
         Ok(segment_ranges) => Ok(StreamSegments::from(segment_ranges.into_inner())),
+        Err(status) => Err(map_grpc_error(operation_name, status)),
+    }
+}
+
+/// Async helper function to create a Transaction.
+async fn create_transaction(
+    stream: &ScopedStream,
+    lease: Duration,
+    ch: &mut ControllerServiceClient<Channel>,
+) -> Result<TxnSegments> {
+    let request = CreateTxnRequest {
+        stream_info: Some(StreamInfo::from(stream)),
+        lease: lease.as_millis() as i64,
+        scale_grace_period: 0,
+    };
+    let op_status: StdResult<tonic::Response<CreateTxnResponse>, tonic::Status> =
+        ch.create_transaction(tonic::Request::new(request)).await;
+    let operation_name = "createTransaction";
+    match op_status {
+        Ok(create_txn_response) => Ok(TxnSegments::from(create_txn_response.into_inner())),
         Err(status) => Err(map_grpc_error(operation_name, status)),
     }
 }

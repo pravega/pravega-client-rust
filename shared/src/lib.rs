@@ -22,6 +22,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
+use uuid::Uuid;
 
 #[macro_use]
 extern crate shrinkwraprs;
@@ -159,6 +160,8 @@ pub struct StreamSegments {
     pub key_segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
 }
 
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct TxnSegments {
-    //TODO
+    pub key_segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
+    pub uuid: Uuid,
 }
