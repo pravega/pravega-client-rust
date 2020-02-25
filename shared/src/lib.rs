@@ -30,10 +30,10 @@ extern crate shrinkwraprs;
 extern crate derive_new;
 
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
-pub struct PravegaNodeUri(String);
+pub struct PravegaNodeUri(pub String);
 
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
-pub struct DelegationToken(String);
+pub struct DelegationToken(pub String);
 
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Timestamp(u64);
@@ -67,10 +67,10 @@ pub struct ScopedSegment {
 }
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub struct TxId(u128);
+pub struct TxId(pub u128);
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub struct WriterId(u64);
+pub struct WriterId(pub u64);
 
 impl Display for Stream {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -160,5 +160,13 @@ pub struct StreamSegments {
 }
 
 pub struct TxnSegments {
+    //TODO
+}
+
+pub enum PingStatus {
+    //TODO
+}
+
+pub enum TransactionStatus {
     //TODO
 }
