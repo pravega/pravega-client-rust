@@ -692,7 +692,7 @@ async fn abort_transaction(
     }
 }
 
-/// Async helper function to check transaction status.
+/// Async helper function to check Transaction status.
 async fn check_transaction_status(
     stream: &ScopedStream,
     tx_id: TxId,
