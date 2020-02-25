@@ -37,7 +37,7 @@ pub struct PravegaNodeUri(String);
 pub struct DelegationToken(String);
 
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
-pub struct Timestamp(u64);
+pub struct Timestamp(pub u64);
 
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Scope {
@@ -71,7 +71,7 @@ pub struct ScopedSegment {
 pub struct TxId(pub u128);
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub struct WriterId(u64);
+pub struct WriterId(pub u64);
 
 impl Display for Stream {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
