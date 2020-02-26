@@ -22,6 +22,15 @@ impl From<NodeUri> for PravegaNodeUri {
     }
 }
 
+impl From<TxId> for TxnId {
+    fn from(value: TxId) -> TxnId {
+        TxnId {
+            high_bits: (value.0 >> 64) as i64,
+            low_bits: value.0 as i64,
+        }
+    }
+}
+
 impl Into<SegmentId> for ScopedSegment {
     fn into(self) -> SegmentId {
         SegmentId {
@@ -151,5 +160,25 @@ impl From<SegmentRanges> for StreamSegments {
             );
         }
         StreamSegments::new(segment_map)
+    }
+}
+impl From<CreateTxnResponse> for TxnSegments {
+    fn from(txn_response: CreateTxnResponse) -> TxnSegments {
+        let mut segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange> = BTreeMap::new();
+        for range in txn_response.active_segments {
+            segment_map.insert(
+                OrderedFloat(range.max_key),
+                SegmentWithRange::new(
+                    ScopedSegment::from(range.segment_id.unwrap()),
+                    OrderedFloat(range.min_key),
+                    OrderedFloat(range.max_key),
+                ),
+            );
+        }
+        let txn_uuid: u128 = match txn_response.txn_id {
+            Some(x) => (x.high_bits as u128) << 64 | (x.low_bits as u128),
+            None => panic!("Incorrect response from Controller"),
+        };
+        TxnSegments::new(segment_map, TxId::new(txn_uuid))
     }
 }
