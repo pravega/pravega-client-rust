@@ -22,7 +22,7 @@ tonic = "0.1.1"
 derive_more = "0.99.2"
 ordered-float = "1.0.2"
 uuid = "0.8"
-clap = {version = "2.33.0", features = ["yaml"]}
+clap = {version = "2.33.0", features = ["yaml"], optional = true}
 
 [build-dependencies]
 tonic-build = "0.1.1"
@@ -30,6 +30,9 @@ tonic-build = "0.1.1"
 [[bin]]
 name = "controller-cli"
 path = "src/cli.rs"
+#Work around for issue  https://github.com/rust-lang/cargo/issues/1982
+required-features = ["cli"]
 
-#[bin.dependencies]
-#clap = {version = "2.33.0", features = ["yaml"]}
+[features]
+default = ["cli"]
+cli = ["clap"]
