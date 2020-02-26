@@ -22,6 +22,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
+use uuid::Uuid;
 
 #[macro_use]
 extern crate shrinkwraprs;
@@ -36,7 +37,7 @@ pub struct PravegaNodeUri(pub String);
 pub struct DelegationToken(pub String);
 
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
-pub struct Timestamp(u64);
+pub struct Timestamp(pub u64);
 
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Scope {
@@ -66,7 +67,7 @@ pub struct ScopedSegment {
     pub segment: Segment,
 }
 
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Shrinkwrap, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct TxId(pub u128);
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -75,6 +76,20 @@ pub struct WriterId(pub u64);
 impl Display for Stream {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str(&self.name)?;
+        Ok(())
+    }
+}
+
+impl Display for TxId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(Uuid::from_u128(self.0).to_hyphenated().to_string().as_str())?;
+        Ok(())
+    }
+}
+
+impl fmt::Debug for TxId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(Uuid::from_u128(self.0).to_hyphenated().to_string().as_str())?;
         Ok(())
     }
 }
@@ -129,6 +144,22 @@ pub enum RetentionType {
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum PingStatus {
+    Ok = 0,
+    Committed = 1,
+    Aborted = 2,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum TransactionStatus {
+    Open = 0,
+    Committing = 1,
+    Committed = 2,
+    Aborting = 3,
+    Aborted = 4,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Retention {
     pub retention_type: RetentionType,
     pub retention_param: i64,
@@ -159,8 +190,10 @@ pub struct StreamSegments {
     pub key_segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
 }
 
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct TxnSegments {
-    //TODO
+    pub key_segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
+    pub tx_id: TxId,
 }
 
 pub enum PingStatus {

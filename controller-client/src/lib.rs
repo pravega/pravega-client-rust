@@ -36,9 +36,10 @@ use tonic::{Code, Status};
 use async_trait::async_trait;
 use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
-    delete_scope_status, delete_stream_status, update_stream_status, CreateScopeStatus, CreateStreamStatus,
-    DeleteScopeStatus, DeleteStreamStatus, NodeUri, ScopeInfo, SegmentRanges, StreamConfig, StreamInfo,
-    UpdateStreamStatus,
+    delete_scope_status, delete_stream_status, ping_txn_status, txn_state, txn_status, update_stream_status,
+    CreateScopeStatus, CreateStreamStatus, CreateTxnRequest, CreateTxnResponse, DeleteScopeStatus,
+    DeleteStreamStatus, NodeUri, PingTxnRequest, PingTxnStatus, ScopeInfo, SegmentRanges, StreamConfig,
+    StreamInfo, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
 };
 use pravega_rust_client_shared::*;
 use std::convert::{From, Into};
@@ -89,6 +90,10 @@ pub trait ControllerClient {
 
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>>;
 
+    /**
+     * API to delete a scope. Note that a scope can only be deleted in the case is it empty. If
+     * the scope contains at least one stream, then the delete request will fail.
+     */
     async fn delete_scope(&mut self, scope: &Scope) -> Result<bool>;
 
     /**
@@ -136,7 +141,7 @@ pub trait ControllerClient {
      * API to send transaction heartbeat and increase the transaction timeout by lease amount of milliseconds.
      */
     async fn ping_transaction(
-        &self,
+        &mut self,
         stream: &ScopedStream,
         tx_id: TxId,
         lease: Duration,
@@ -144,12 +149,11 @@ pub trait ControllerClient {
 
     /**
      * Commits a transaction, atomically committing all events to the stream, subject to the
-     * ordering guarantees specified in {@link EventStreamWriter}. Will fail with
-     * //TODO
-     * if the transaction has already been committed or aborted.
+     * ordering guarantees specified in {@link EventStreamWriter}. Will fail if the transaction has
+     * already been committed or aborted.
      */
     async fn commit_transaction(
-        &self,
+        &mut self,
         stream: &ScopedStream,
         tx_id: TxId,
         writer_id: WriterId,
@@ -158,20 +162,20 @@ pub trait ControllerClient {
 
     /**
      * Aborts a transaction. No events written to it may be read, and no further events may be
-     * written. Will fail with
-     * //TODO
-     * if the transaction has already been committed or aborted.
+     * written. Will fail with if the transaction has already been committed or aborted.
      */
-    async fn abort_transaction(&self, stream: &ScopedStream, tx_id: TxId) -> Result<()>;
+    async fn abort_transaction(&mut self, stream: &ScopedStream, tx_id: TxId) -> Result<()>;
 
     /**
      * Returns the status of the specified transaction.
      */
-    async fn check_transaction_status(&self, stream: &ScopedStream, tx_id: TxId)
-        -> Result<TransactionStatus>;
+    async fn check_transaction_status(
+        &mut self,
+        stream: &ScopedStream,
+        tx_id: TxId,
+    ) -> Result<TransactionStatus>;
 
     // Controller APIs that are called by readers
-    //TODO
 
     /**
      * Given a segment return the endpoint that currently is the owner of that segment.
@@ -235,38 +239,38 @@ impl ControllerClient for ControllerClientImpl {
     }
 
     async fn create_transaction(&mut self, stream: &ScopedStream, lease: Duration) -> Result<TxnSegments> {
-        unimplemented!()
+        create_transaction(stream, lease, &mut self.channel).await
     }
 
     async fn ping_transaction(
-        &self,
+        &mut self,
         stream: &ScopedStream,
         tx_id: TxId,
         lease: Duration,
     ) -> Result<PingStatus> {
-        unimplemented!()
+        ping_transaction(stream, tx_id, lease, &mut self.channel).await
     }
 
     async fn commit_transaction(
-        &self,
+        &mut self,
         stream: &ScopedStream,
         tx_id: TxId,
         writer_id: WriterId,
         time: Timestamp,
     ) -> Result<()> {
-        unimplemented!()
+        commit_transaction(stream, tx_id, writer_id, time, &mut self.channel).await
     }
 
-    async fn abort_transaction(&self, stream: &ScopedStream, tx_id: TxId) -> Result<()> {
-        unimplemented!()
+    async fn abort_transaction(&mut self, stream: &ScopedStream, tx_id: TxId) -> Result<()> {
+        abort_transaction(stream, tx_id, &mut self.channel).await
     }
 
     async fn check_transaction_status(
-        &self,
+        &mut self,
         stream: &ScopedStream,
         tx_id: TxId,
     ) -> Result<TransactionStatus> {
-        unimplemented!()
+        check_transaction_status(stream, tx_id, &mut self.channel).await
     }
 
     async fn get_endpoint_for_segment(&mut self, segment: &ScopedSegment) -> Result<PravegaNodeUri> {
@@ -521,6 +525,7 @@ async fn truncate_stream(stream_cut: &StreamCut, ch: &mut ControllerServiceClien
         Err(status) => Err(map_grpc_error(operation_name, status)),
     }
 }
+
 /// Async helper function to get current Segments in a Stream.
 async fn get_current_segments(
     stream: &ScopedStream,
@@ -532,6 +537,190 @@ async fn get_current_segments(
     let operation_name = "getCurrentSegments";
     match op_status {
         Ok(segment_ranges) => Ok(StreamSegments::from(segment_ranges.into_inner())),
+        Err(status) => Err(map_grpc_error(operation_name, status)),
+    }
+}
+
+/// Async helper function to create a Transaction.
+async fn create_transaction(
+    stream: &ScopedStream,
+    lease: Duration,
+    ch: &mut ControllerServiceClient<Channel>,
+) -> Result<TxnSegments> {
+    let request = CreateTxnRequest {
+        stream_info: Some(StreamInfo::from(stream)),
+        lease: lease.as_millis() as i64,
+        scale_grace_period: 0,
+    };
+    let op_status: StdResult<tonic::Response<CreateTxnResponse>, tonic::Status> =
+        ch.create_transaction(tonic::Request::new(request)).await;
+    let operation_name = "createTransaction";
+    match op_status {
+        Ok(create_txn_response) => Ok(TxnSegments::from(create_txn_response.into_inner())),
+        Err(status) => Err(map_grpc_error(operation_name, status)),
+    }
+}
+
+/// Async helper function to ping a Transaction.
+async fn ping_transaction(
+    stream: &ScopedStream,
+    tx_id: TxId,
+    lease: Duration,
+    ch: &mut ControllerServiceClient<Channel>,
+) -> Result<PingStatus> {
+    use ping_txn_status::Status;
+    let request = PingTxnRequest {
+        stream_info: Some(StreamInfo::from(stream)),
+        txn_id: Some(TxnId::from(tx_id)),
+        lease: lease.as_millis() as i64,
+    };
+    let op_status: StdResult<tonic::Response<PingTxnStatus>, tonic::Status> =
+        ch.ping_transaction(tonic::Request::new(request)).await;
+    let operation_name = "pingTransaction";
+    match op_status {
+        Ok(code) => match code.into_inner().status() {
+            Status::Ok => Ok(PingStatus::Ok),
+            Status::Committed => Ok(PingStatus::Committed),
+            Status::Aborted => Ok(PingStatus::Aborted),
+            Status::LeaseTooLarge => Err(ControllerError::OperationError {
+                can_retry: false, // do not retry.
+                operation: operation_name.into(),
+                error_msg: "Ping transaction failed, Reason:LeaseTooLarge".into(),
+            }),
+            Status::MaxExecutionTimeExceeded => Err(ControllerError::OperationError {
+                can_retry: false, // do not retry.
+                operation: operation_name.into(),
+                error_msg: "Ping transaction failed, Reason:MaxExecutionTimeExceeded".into(),
+            }),
+            Status::ScaleGraceTimeExceeded => Err(ControllerError::OperationError {
+                can_retry: false, // do not retry.
+                operation: operation_name.into(),
+                error_msg: "Ping transaction failed, Reason:ScaleGraceTimeExceeded".into(),
+            }),
+            Status::Disconnected => Err(ControllerError::OperationError {
+                can_retry: false, // do not retry.
+                operation: operation_name.into(),
+                error_msg: "Ping transaction failed, Reason:ScaleGraceTimeExceeded".into(),
+            }),
+            _ => Err(ControllerError::OperationError {
+                can_retry: true, // retry for all other errors
+                operation: operation_name.into(),
+                error_msg: "Operation failed".into(),
+            }),
+        },
+        Err(status) => Err(map_grpc_error(operation_name, status)),
+    }
+}
+
+/// Async helper function to commit a Transaction.
+async fn commit_transaction(
+    stream: &ScopedStream,
+    tx_id: TxId,
+    writerid: WriterId,
+    time: Timestamp,
+    ch: &mut ControllerServiceClient<Channel>,
+) -> Result<()> {
+    use txn_status::Status;
+    let request = TxnRequest {
+        stream_info: Some(StreamInfo::from(stream)),
+        txn_id: Some(TxnId::from(tx_id)),
+        writer_id: writerid.0.to_string(),
+        timestamp: time.0 as i64,
+    };
+    let op_status: StdResult<tonic::Response<TxnStatus>, tonic::Status> =
+        ch.commit_transaction(tonic::Request::new(request)).await;
+    let operation_name = "commitTransaction";
+    match op_status {
+        Ok(code) => match code.into_inner().status() {
+            Status::Success => Ok(()),
+            Status::TransactionNotFound => Err(ControllerError::OperationError {
+                can_retry: false, // do not retry.
+                operation: operation_name.into(),
+                error_msg: "Commit transaction failed, Reason:TransactionNotFound".into(),
+            }),
+            Status::StreamNotFound => Err(ControllerError::OperationError {
+                can_retry: false, // do not retry.
+                operation: operation_name.into(),
+                error_msg: "Commit transaction failed, Reason:StreamNotFound".into(),
+            }),
+            _ => Err(ControllerError::OperationError {
+                can_retry: true, // retry for all other errors
+                operation: operation_name.into(),
+                error_msg: "Operation failed".into(),
+            }),
+        },
+        Err(status) => Err(map_grpc_error(operation_name, status)),
+    }
+}
+
+/// Async helper function to abort a Transaction.
+async fn abort_transaction(
+    stream: &ScopedStream,
+    tx_id: TxId,
+    ch: &mut ControllerServiceClient<Channel>,
+) -> Result<()> {
+    use txn_status::Status;
+    let request = TxnRequest {
+        stream_info: Some(StreamInfo::from(stream)),
+        txn_id: Some(TxnId::from(tx_id)),
+        writer_id: "".to_string(),
+        timestamp: 0,
+    };
+    let op_status: StdResult<tonic::Response<TxnStatus>, tonic::Status> =
+        ch.commit_transaction(tonic::Request::new(request)).await;
+    let operation_name = "abortTransaction";
+    match op_status {
+        Ok(code) => match code.into_inner().status() {
+            Status::Success => Ok(()),
+            Status::TransactionNotFound => Err(ControllerError::OperationError {
+                can_retry: false, // do not retry.
+                operation: operation_name.into(),
+                error_msg: "Abort transaction failed, Reason:TransactionNotFound".into(),
+            }),
+            Status::StreamNotFound => Err(ControllerError::OperationError {
+                can_retry: false, // do not retry.
+                operation: operation_name.into(),
+                error_msg: "Abort transaction failed, Reason:StreamNotFound".into(),
+            }),
+            _ => Err(ControllerError::OperationError {
+                can_retry: true, // retry for all other errors
+                operation: operation_name.into(),
+                error_msg: "Operation failed".into(),
+            }),
+        },
+        Err(status) => Err(map_grpc_error(operation_name, status)),
+    }
+}
+
+/// Async helper function to check Transaction status.
+async fn check_transaction_status(
+    stream: &ScopedStream,
+    tx_id: TxId,
+    ch: &mut ControllerServiceClient<Channel>,
+) -> Result<TransactionStatus> {
+    use txn_state::State;
+    let request = TxnRequest {
+        stream_info: Some(StreamInfo::from(stream)),
+        txn_id: Some(TxnId::from(tx_id)),
+        writer_id: "".to_string(),
+        timestamp: 0,
+    };
+    let op_status: StdResult<tonic::Response<TxnState>, tonic::Status> =
+        ch.check_transaction_state(tonic::Request::new(request)).await;
+    let operation_name = "checkTransactionStatus";
+    match op_status {
+        Ok(code) => match code.into_inner().state() {
+            State::Open => Ok(TransactionStatus::Open),
+            State::Committing => Ok(TransactionStatus::Committing),
+            State::Committed => Ok(TransactionStatus::Committed),
+            State::Aborting => Ok(TransactionStatus::Aborting),
+            State::Aborted => Ok(TransactionStatus::Aborted),
+            _ => Err(ControllerError::OperationError {
+                can_retry: true, // retry for all other errors
+                operation: operation_name.into(),
+                error_msg: "Operation failed".into(),
+            }),
+        },
         Err(status) => Err(map_grpc_error(operation_name, status)),
     }
 }
