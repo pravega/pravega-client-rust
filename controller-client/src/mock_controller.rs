@@ -20,7 +20,7 @@ pub struct MockController {
 
 #[async_trait]
 impl ControllerClient for MockController {
-    //Thread safe
+
     async fn create_scope(&mut self, scope: &Scope) -> Result<bool, ControllerError> {
         let scope_name = scope.name.clone();
         let mut successful = false;
@@ -31,7 +31,6 @@ impl ControllerClient for MockController {
         Ok(successful)
     }
 
-    //Thread safe
     // One problem.
     // Rust has an unstable feature that allows ? works on option. And since we use stable Rust,
     // it is not allowed us to use unstable feature.
@@ -44,7 +43,6 @@ impl ControllerClient for MockController {
         Ok(result)
     }
 
-    //Thread safe
     async fn delete_scope(&mut self, scope: &Scope) -> Result<bool, ControllerError> {
         let scope_name = scope.name.clone();
         let scope_entry = self.created_scopes.entry(scope_name);
@@ -69,7 +67,6 @@ impl ControllerClient for MockController {
         Ok(true)
     }
 
-    //Thread safe
     async fn create_stream(&mut self, stream_config: &StreamConfiguration) -> Result<bool, ControllerError> {
         let stream = stream_config.scoped_stream.clone();
         // if stream already exists
@@ -99,7 +96,7 @@ impl ControllerClient for MockController {
         }
         return Ok(true);
     }
-    //Thread safe
+
     async fn update_stream(&mut self, stream_config: &StreamConfiguration) -> Result<bool, ControllerError> {
         Err(ControllerError::OperationError {
             can_retry: false, // do not retry.
@@ -107,7 +104,7 @@ impl ControllerClient for MockController {
             error_msg: "unsupported operation.".into(),
         })
     }
-    //Thread safe
+
     async fn truncate_stream(&mut self, stream_cut: &StreamCut) -> Result<bool, ControllerError> {
         Err(ControllerError::OperationError {
             can_retry: false, // do not retry.
@@ -115,7 +112,7 @@ impl ControllerClient for MockController {
             error_msg: "unsupported operation.".into(),
         })
     }
-    //Thread safe
+
     async fn seal_stream(&mut self, stream: &ScopedStream) -> Result<bool, ControllerError> {
         Err(ControllerError::OperationError {
             can_retry: false, // do not retry.
@@ -123,7 +120,7 @@ impl ControllerClient for MockController {
             error_msg: "unsupported operation.".into(),
         })
     }
-    //Thread safe
+
     async fn delete_stream(&mut self, stream: &ScopedStream) -> Result<bool, ControllerError> {
         // if stream doesn't exists
         if let None = self.created_streams.get(stream) {
@@ -143,7 +140,7 @@ impl ControllerClient for MockController {
             .remove(stream);
         Ok(true)
     }
-    //Thread safe
+
     async fn get_current_segments(
         &mut self,
         stream: &ScopedStream,
