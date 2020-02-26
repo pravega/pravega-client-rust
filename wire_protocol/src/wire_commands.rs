@@ -1,3 +1,13 @@
+//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+
 use super::commands::*;
 use super::error::CommandError;
 use crate::error::InvalidType;
@@ -45,7 +55,7 @@ pub enum Requests {
 }
 
 // 30 replies
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Replies {
     Hello(HelloCommand),
     WrongHost(WrongHostCommand),
@@ -86,6 +96,108 @@ impl fmt::Display for Replies {
     }
 }
 
+impl Request for Requests {
+    fn get_request_id(&self) -> i64 {
+        match self {
+            Requests::Hello(hello_cmd) => Request::get_request_id(hello_cmd),
+            Requests::SetupAppend(setup_append_cmd) => setup_append_cmd.get_request_id(),
+            Requests::ConditionalAppend(conditional_append_cmd) => conditional_append_cmd.get_request_id(),
+            Requests::ReadSegment(read_segment_cmd) => read_segment_cmd.get_request_id(),
+            Requests::GetSegmentAttribute(get_segment_attribute_cmd) => {
+                get_segment_attribute_cmd.get_request_id()
+            }
+            Requests::UpdateSegmentAttribute(update_segment_attribute_cmd) => {
+                update_segment_attribute_cmd.get_request_id()
+            }
+            Requests::GetStreamSegmentInfo(get_stream_segment_info_cmd) => {
+                get_stream_segment_info_cmd.get_request_id()
+            }
+            Requests::CreateSegment(create_segment_cmd) => create_segment_cmd.get_request_id(),
+            Requests::CreateTableSegment(create_table_segment_command) => {
+                create_table_segment_command.get_request_id()
+            }
+            Requests::UpdateSegmentPolicy(update_segment_policy_cmd) => {
+                update_segment_policy_cmd.get_request_id()
+            }
+            Requests::MergeSegments(merge_segments_cmd) => merge_segments_cmd.get_request_id(),
+            Requests::MergeTableSegments(merge_table_segments_cmd) => {
+                merge_table_segments_cmd.get_request_id()
+            }
+            Requests::SealSegment(seal_segment_cmd) => seal_segment_cmd.get_request_id(),
+            Requests::SealTableSegment(seal_table_segment_cmd) => seal_table_segment_cmd.get_request_id(),
+            Requests::TruncateSegment(truncate_segment_cmd) => truncate_segment_cmd.get_request_id(),
+            Requests::DeleteSegment(delete_segment_cmd) => delete_segment_cmd.get_request_id(),
+            Requests::DeleteTableSegment(delete_table_segment_cmd) => {
+                delete_table_segment_cmd.get_request_id()
+            }
+            Requests::KeepAlive(keep_alive_cmd) => Request::get_request_id(keep_alive_cmd),
+            Requests::UpdateTableEntries(update_table_entries_cmd) => {
+                update_table_entries_cmd.get_request_id()
+            }
+            Requests::RemoveTableKeys(remove_table_keys_cmd) => remove_table_keys_cmd.get_request_id(),
+            Requests::ReadTable(read_table_cmd) => read_table_cmd.get_request_id(),
+            Requests::ReadTableKeys(read_table_keys_cmd) => read_table_keys_cmd.get_request_id(),
+            Requests::ReadTableEntries(read_table_entries_cmd) => read_table_entries_cmd.get_request_id(),
+        }
+    }
+}
+
+impl Reply for Replies {
+    fn get_request_id(&self) -> i64 {
+        match self {
+            Replies::Hello(hello_cmd) => Reply::get_request_id(hello_cmd),
+            Replies::WrongHost(wrong_host_cmd) => wrong_host_cmd.get_request_id(),
+            Replies::SegmentIsSealed(seg_is_sealed_cmd) => seg_is_sealed_cmd.get_request_id(),
+            Replies::SegmentAlreadyExists(seg_already_exists_cmd) => seg_already_exists_cmd.get_request_id(),
+            Replies::SegmentIsTruncated(seg_is_truncated_cmd) => seg_is_truncated_cmd.get_request_id(),
+            Replies::NoSuchSegment(no_such_seg_cmd) => no_such_seg_cmd.get_request_id(),
+            Replies::TableSegmentNotEmpty(table_seg_not_empty_cmd) => {
+                table_seg_not_empty_cmd.get_request_id()
+            }
+            Replies::InvalidEventNumber(invalid_event_num_cmd) => invalid_event_num_cmd.get_request_id(),
+            Replies::OperationUnsupported(operation_unsupported_cmd) => {
+                operation_unsupported_cmd.get_request_id()
+            }
+            Replies::AppendSetup(append_setup_cmd) => append_setup_cmd.get_request_id(),
+            Replies::DataAppended(data_appended_cmd) => data_appended_cmd.get_request_id(),
+            Replies::ConditionalCheckFailed(conditional_check_failed_cmd) => {
+                conditional_check_failed_cmd.get_request_id()
+            }
+            Replies::SegmentRead(segment_read_cmd) => segment_read_cmd.get_request_id(),
+            Replies::SegmentAttribute(segment_attribute_cmd) => segment_attribute_cmd.get_request_id(),
+            Replies::SegmentAttributeUpdated(segment_attribute_updated_cmd) => {
+                segment_attribute_updated_cmd.get_request_id()
+            }
+            Replies::StreamSegmentInfo(stream_segment_info_cmd) => stream_segment_info_cmd.get_request_id(),
+            Replies::SegmentCreated(segment_created_cmd) => segment_created_cmd.get_request_id(),
+            Replies::SegmentPolicyUpdated(segment_policy_updated_cmd) => {
+                segment_policy_updated_cmd.get_request_id()
+            }
+            Replies::SegmentsMerged(segments_merged_cmd) => segments_merged_cmd.get_request_id(),
+            Replies::SegmentSealed(segment_sealed_cmd) => segment_sealed_cmd.get_request_id(),
+            Replies::SegmentTruncated(segment_truncated_cmd) => segment_truncated_cmd.get_request_id(),
+            Replies::SegmentDeleted(segment_deleted_cmd) => segment_deleted_cmd.get_request_id(),
+            Replies::KeepAlive(keep_alive_cmd) => Reply::get_request_id(keep_alive_cmd),
+            Replies::AuthTokenCheckFailed(auth_token_check_failed_cmd) => {
+                auth_token_check_failed_cmd.get_request_id()
+            }
+            Replies::TableEntriesUpdated(table_entries_updated_cmd) => {
+                table_entries_updated_cmd.get_request_id()
+            }
+            Replies::TableKeysRemoved(table_key_removed_cmd) => table_key_removed_cmd.get_request_id(),
+            Replies::TableRead(table_read_cmd) => table_read_cmd.get_request_id(),
+            Replies::TableKeysRead(table_keys_read_cmd) => table_keys_read_cmd.get_request_id(),
+            Replies::TableEntriesRead(table_entries_read_cmd) => table_entries_read_cmd.get_request_id(),
+            Replies::TableKeyDoesNotExist(table_key_does_not_exist_cmd) => {
+                table_key_does_not_exist_cmd.get_request_id()
+            }
+            Replies::TableKeyBadVersion(table_key_bad_version_cmd) => {
+                table_key_bad_version_cmd.get_request_id()
+            }
+        }
+    }
+}
+
 pub trait Encode {
     fn write_fields(&self) -> Result<Vec<u8>, CommandError>;
 }
@@ -94,10 +206,6 @@ pub trait Decode {
     type Item;
     fn read_from(raw_input: &[u8]) -> Result<Self::Item, CommandError>;
 }
-
-//pub trait WireCommand: Encode + Decode{}
-
-//impl <WireCommands: Encode + Decode>WireCommand for WireCommands {}
 
 impl Encode for Requests {
     fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
@@ -441,16 +549,15 @@ impl Encode for Replies {
     }
 }
 
-
 impl Encode for WireCommands {
     fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
         let mut res = Vec::new();
         match self {
             WireCommands::Requests(request) => {
-                let res = request.write_fields()?;
+                res = request.write_fields()?;
             }
             WireCommands::Replies(reply) => {
-                let res = reply.write_fields()?;
+                res = reply.write_fields()?;
             }
             WireCommands::Padding(padding_command) => {
                 res.extend_from_slice(&PaddingCommand::TYPE_CODE.to_be_bytes());
@@ -495,15 +602,11 @@ impl Decode for Requests {
         let input = &raw_input[8..];
         match type_code {
             HelloCommand::TYPE_CODE => Ok(Requests::Hello(HelloCommand::read_from(input)?)),
-            SetupAppendCommand::TYPE_CODE => {
-                Ok(Requests::SetupAppend(SetupAppendCommand::read_from(input)?))
-            }
+            SetupAppendCommand::TYPE_CODE => Ok(Requests::SetupAppend(SetupAppendCommand::read_from(input)?)),
             ConditionalAppendCommand::TYPE_CODE => Ok(Requests::ConditionalAppend(
                 ConditionalAppendCommand::read_from(input)?,
             )),
-            ReadSegmentCommand::TYPE_CODE => {
-                Ok(Requests::ReadSegment(ReadSegmentCommand::read_from(input)?))
-            }
+            ReadSegmentCommand::TYPE_CODE => Ok(Requests::ReadSegment(ReadSegmentCommand::read_from(input)?)),
             GetSegmentAttributeCommand::TYPE_CODE => Ok(Requests::GetSegmentAttribute(
                 GetSegmentAttributeCommand::read_from(input)?,
             )),
@@ -513,33 +616,31 @@ impl Decode for Requests {
             GetStreamSegmentInfoCommand::TYPE_CODE => Ok(Requests::GetStreamSegmentInfo(
                 GetStreamSegmentInfoCommand::read_from(input)?,
             )),
-            CreateSegmentCommand::TYPE_CODE => Ok(Requests::CreateSegment(
-                CreateSegmentCommand::read_from(input)?,
-            )),
+            CreateSegmentCommand::TYPE_CODE => {
+                Ok(Requests::CreateSegment(CreateSegmentCommand::read_from(input)?))
+            }
             CreateTableSegmentCommand::TYPE_CODE => Ok(Requests::CreateTableSegment(
                 CreateTableSegmentCommand::read_from(input)?,
             )),
             UpdateSegmentPolicyCommand::TYPE_CODE => Ok(Requests::UpdateSegmentPolicy(
                 UpdateSegmentPolicyCommand::read_from(input)?,
             )),
-            MergeSegmentsCommand::TYPE_CODE => Ok(Requests::MergeSegments(
-                MergeSegmentsCommand::read_from(input)?,
-            )),
+            MergeSegmentsCommand::TYPE_CODE => {
+                Ok(Requests::MergeSegments(MergeSegmentsCommand::read_from(input)?))
+            }
             MergeTableSegmentsCommand::TYPE_CODE => Ok(Requests::MergeTableSegments(
                 MergeTableSegmentsCommand::read_from(input)?,
             )),
-            SealSegmentCommand::TYPE_CODE => {
-                Ok(Requests::SealSegment(SealSegmentCommand::read_from(input)?))
-            }
+            SealSegmentCommand::TYPE_CODE => Ok(Requests::SealSegment(SealSegmentCommand::read_from(input)?)),
             SealTableSegmentCommand::TYPE_CODE => Ok(Requests::SealTableSegment(
                 SealTableSegmentCommand::read_from(input)?,
             )),
             TruncateSegmentCommand::TYPE_CODE => Ok(Requests::TruncateSegment(
                 TruncateSegmentCommand::read_from(input)?,
             )),
-            DeleteSegmentCommand::TYPE_CODE => Ok(Requests::DeleteSegment(
-                DeleteSegmentCommand::read_from(input)?,
-            )),
+            DeleteSegmentCommand::TYPE_CODE => {
+                Ok(Requests::DeleteSegment(DeleteSegmentCommand::read_from(input)?))
+            }
             DeleteTableSegmentCommand::TYPE_CODE => Ok(Requests::DeleteTableSegment(
                 DeleteTableSegmentCommand::read_from(input)?,
             )),
@@ -551,16 +652,16 @@ impl Decode for Requests {
                 RemoveTableKeysCommand::read_from(input)?,
             )),
             ReadTableCommand::TYPE_CODE => Ok(Requests::ReadTable(ReadTableCommand::read_from(input)?)),
-            ReadTableKeysCommand::TYPE_CODE => Ok(Requests::ReadTableKeys(
-                ReadTableKeysCommand::read_from(input)?,
-            )),
+            ReadTableKeysCommand::TYPE_CODE => {
+                Ok(Requests::ReadTableKeys(ReadTableKeysCommand::read_from(input)?))
+            }
             ReadTableEntriesCommand::TYPE_CODE => Ok(Requests::ReadTableEntries(
                 ReadTableEntriesCommand::read_from(input)?,
             )),
             _ => InvalidType {
                 command_type: type_code,
             }
-                .fail(),
+            .fail(),
         }
     }
 }
@@ -583,9 +684,9 @@ impl Decode for Replies {
             SegmentIsTruncatedCommand::TYPE_CODE => Ok(Replies::SegmentIsTruncated(
                 SegmentIsTruncatedCommand::read_from(input)?,
             )),
-            NoSuchSegmentCommand::TYPE_CODE => Ok(Replies::NoSuchSegment(
-                NoSuchSegmentCommand::read_from(input)?,
-            )),
+            NoSuchSegmentCommand::TYPE_CODE => {
+                Ok(Replies::NoSuchSegment(NoSuchSegmentCommand::read_from(input)?))
+            }
             TableSegmentNotEmptyCommand::TYPE_CODE => Ok(Replies::TableSegmentNotEmpty(
                 TableSegmentNotEmptyCommand::read_from(input)?,
             )),
@@ -595,18 +696,14 @@ impl Decode for Replies {
             OperationUnsupportedCommand::TYPE_CODE => Ok(Replies::OperationUnsupported(
                 OperationUnsupportedCommand::read_from(input)?,
             )),
-            AppendSetupCommand::TYPE_CODE => {
-                Ok(Replies::AppendSetup(AppendSetupCommand::read_from(input)?))
-            }
+            AppendSetupCommand::TYPE_CODE => Ok(Replies::AppendSetup(AppendSetupCommand::read_from(input)?)),
             DataAppendedCommand::TYPE_CODE => {
                 Ok(Replies::DataAppended(DataAppendedCommand::read_from(input)?))
             }
             ConditionalCheckFailedCommand::TYPE_CODE => Ok(Replies::ConditionalCheckFailed(
                 ConditionalCheckFailedCommand::read_from(input)?,
             )),
-            SegmentReadCommand::TYPE_CODE => {
-                Ok(Replies::SegmentRead(SegmentReadCommand::read_from(input)?))
-            }
+            SegmentReadCommand::TYPE_CODE => Ok(Replies::SegmentRead(SegmentReadCommand::read_from(input)?)),
             SegmentAttributeCommand::TYPE_CODE => Ok(Replies::SegmentAttribute(
                 SegmentAttributeCommand::read_from(input)?,
             )),
@@ -616,24 +713,24 @@ impl Decode for Replies {
             StreamSegmentInfoCommand::TYPE_CODE => Ok(Replies::StreamSegmentInfo(
                 StreamSegmentInfoCommand::read_from(input)?,
             )),
-            SegmentCreatedCommand::TYPE_CODE => Ok(Replies::SegmentCreated(
-                SegmentCreatedCommand::read_from(input)?,
-            )),
+            SegmentCreatedCommand::TYPE_CODE => {
+                Ok(Replies::SegmentCreated(SegmentCreatedCommand::read_from(input)?))
+            }
             SegmentPolicyUpdatedCommand::TYPE_CODE => Ok(Replies::SegmentPolicyUpdated(
                 SegmentPolicyUpdatedCommand::read_from(input)?,
             )),
-            SegmentsMergedCommand::TYPE_CODE => Ok(Replies::SegmentsMerged(
-                SegmentsMergedCommand::read_from(input)?,
-            )),
-            SegmentSealedCommand::TYPE_CODE => Ok(Replies::SegmentSealed(
-                SegmentSealedCommand::read_from(input)?,
-            )),
+            SegmentsMergedCommand::TYPE_CODE => {
+                Ok(Replies::SegmentsMerged(SegmentsMergedCommand::read_from(input)?))
+            }
+            SegmentSealedCommand::TYPE_CODE => {
+                Ok(Replies::SegmentSealed(SegmentSealedCommand::read_from(input)?))
+            }
             SegmentTruncatedCommand::TYPE_CODE => Ok(Replies::SegmentTruncated(
                 SegmentTruncatedCommand::read_from(input)?,
             )),
-            SegmentDeletedCommand::TYPE_CODE => Ok(Replies::SegmentDeleted(
-                SegmentDeletedCommand::read_from(input)?,
-            )),
+            SegmentDeletedCommand::TYPE_CODE => {
+                Ok(Replies::SegmentDeleted(SegmentDeletedCommand::read_from(input)?))
+            }
             KeepAliveCommand::TYPE_CODE => Ok(Replies::KeepAlive(KeepAliveCommand::read_from(input)?)),
             AuthTokenCheckFailedCommand::TYPE_CODE => Ok(Replies::AuthTokenCheckFailed(
                 AuthTokenCheckFailedCommand::read_from(input)?,
@@ -645,9 +742,9 @@ impl Decode for Replies {
                 TableKeysRemovedCommand::read_from(input)?,
             )),
             TableReadCommand::TYPE_CODE => Ok(Replies::TableRead(TableReadCommand::read_from(input)?)),
-            TableKeysReadCommand::TYPE_CODE => Ok(Replies::TableKeysRead(
-                TableKeysReadCommand::read_from(input)?,
-            )),
+            TableKeysReadCommand::TYPE_CODE => {
+                Ok(Replies::TableKeysRead(TableKeysReadCommand::read_from(input)?))
+            }
             TableEntriesReadCommand::TYPE_CODE => Ok(Replies::TableEntriesRead(
                 TableEntriesReadCommand::read_from(input)?,
             )),
@@ -660,7 +757,7 @@ impl Decode for Replies {
             _ => InvalidType {
                 command_type: type_code,
             }
-                .fail(),
+            .fail(),
         }
     }
 }

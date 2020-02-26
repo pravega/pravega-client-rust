@@ -9,7 +9,6 @@
 //
 
 use crate::error::*;
-
 use async_trait::async_trait;
 use snafu::ResultExt;
 use std::fmt;

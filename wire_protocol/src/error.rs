@@ -1,10 +1,19 @@
+//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+
 use super::connection_factory::ConnectionType;
+use crate::wire_commands::Replies;
 use bincode2::Error as BincodeError;
 use snafu::{Backtrace, Snafu};
 use std::io::Error as IoError;
 use std::net::SocketAddr;
-use crate::wire_commands::Replies;
-use crate::commands::Command;
 
 /// This kind of error that can be produced during Pravega client connecting to server.
 #[derive(Debug, Snafu)]
@@ -99,21 +108,27 @@ pub enum ClientConnectionError {
 #[snafu(visibility = "pub(crate)")]
 pub enum ConnectionPoolError {
     #[snafu(display("Could not establish connection to endpoint"))]
-    EstablishConnection { source: ConnectionError, backtrace: Backtrace},
+    EstablishConnection {
+        source: ConnectionError,
+        backtrace: Backtrace,
+    },
 
     #[snafu(display("No available connection in the internal pool"))]
     NoAvailableConnection {},
 }
 
-#[derive(Debug, Snafu)]
+#[derive(Debug, Snafu, Clone)]
 #[snafu(visibility = "pub(crate)")]
 pub enum ReplyError {
     #[snafu(display("Reply incompatible wirecommand version: low {}, high {}", low, high))]
-    IncompatibleVersion {low: i32, high: i32},
+    IncompatibleVersion { low: i32, high: i32 },
 
     #[snafu(display("Reply has illegal state: {}", state))]
-    IllegalState {state: Replies},
+    IllegalState { state: Replies },
 
     #[snafu(display("Connection failed: {}", state))]
-    ConnectionFailed {state: Replies},
+    ConnectionFailed { state: Replies },
+
+    #[snafu(display("Connection closed: {}", state))]
+    ConnectionClosed { state: Replies },
 }

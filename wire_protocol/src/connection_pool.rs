@@ -9,7 +9,7 @@
 //
 
 use crate::client_config::ClientConfig;
-use crate::connection_factory::{Connection, ConnectionFactory, ConnectionFactoryImpl};
+use crate::connection_factory::{Connection, ConnectionFactory};
 use crate::error::*;
 
 use async_trait::async_trait;
@@ -23,7 +23,7 @@ use std::ops::{Deref, DerefMut};
 /// ConnectionPool creates a pool of threads for reuse.
 /// It is thread safe
 #[async_trait]
-pub trait ConnectionPool: Send + Sync + 'static {
+pub trait ConnectionPool: Send + Sync {
     /// get_connection takes an endpoint and returns a PooledConnection.
     /// # Example
     ///
@@ -31,13 +31,15 @@ pub trait ConnectionPool: Send + Sync + 'static {
     /// use std::net::SocketAddr;
     /// use pravega_wire_protocol::connection_pool::ConnectionPool;
     /// use pravega_wire_protocol::connection_pool::ConnectionPoolImpl;
+    /// use pravega_wire_protocol::connection_factory::ConnectionFactoryImpl;
     /// use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
     /// use tokio::runtime::Runtime;
     ///
     /// let mut rt = Runtime::new().unwrap();
     /// let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
     /// let config = ClientConfigBuilder::default().build().unwrap();
-    /// let pool = ConnectionPoolImpl::new(config);
+    /// let factory = ConnectionFactoryImpl{};
+    /// let pool = ConnectionPoolImpl::new(factory, config);
     /// let connection = rt.block_on(pool.get_connection(endpoint));
     /// ```
     async fn get_connection(&self, endpoint: SocketAddr) -> Result<PooledConnection, ConnectionPoolError>;
@@ -60,13 +62,12 @@ pub struct ConnectionPoolImpl {
 impl ConnectionPoolImpl {
     /// Create a new ConnectionPoolImpl instances by passing into a ClientConfig. It will create
     /// a Runtime, a map and a ConnectionFactory.
-    pub fn new(config: ClientConfig) -> Self {
+    pub fn new(factory: Box<dyn ConnectionFactory>, config: ClientConfig) -> Self {
         let managed_pool = ManagedPool::new(config);
-        let connection_factory = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
         ConnectionPoolImpl {
             managed_pool,
             config,
-            connection_factory,
+            connection_factory: factory,
         }
     }
 
@@ -207,6 +208,7 @@ impl DerefMut for PooledConnection<'_> {
 mod tests {
     use super::*;
     use crate::client_config::ClientConfigBuilder;
+    use crate::connection_factory::ConnectionFactoryImpl;
     use log::info;
     use parking_lot::Mutex;
     use std::io::Read;
@@ -265,7 +267,8 @@ mod tests {
 
         // Create a connection pool and a Runtime
         let config = ClientConfigBuilder::default().build().unwrap();
-        let shared_pool = Arc::new(ConnectionPoolImpl::new(config));
+        let factory = Box::new(ConnectionFactoryImpl {});
+        let shared_pool = Arc::new(ConnectionPoolImpl::new(factory, config));
         let rt = Arc::new(Mutex::new(Runtime::new().unwrap()));
 
         // Create a number of threads, each thread will use the connection pool to get a connection

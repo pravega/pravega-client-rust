@@ -1,3 +1,13 @@
+//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+
 use super::error::CommandError;
 use super::error::InvalidData;
 use super::error::Io;
@@ -11,13 +21,12 @@ use std::fmt;
 use std::i64;
 use std::io::Cursor;
 use std::io::{Read, Write};
-use crate::wire_commands::{WireCommands, Replies, Requests};
 
 pub const WIRE_VERSION: i32 = 9;
 pub const OLDEST_COMPATIBLE_VERSION: i32 = 5;
 pub const TYPE_SIZE: u32 = 4;
 pub const TYPE_PLUS_LENGTH_SIZE: u32 = 8;
-pub const MAX_WIRECOMMAND_SIZE: u32 = 0x00FFFFFF; // 16MB-1
+pub const MAX_WIRECOMMAND_SIZE: u32 = 0x00FF_FFFF; // 16MB-1
 
 /**
  * trait for Command.
@@ -33,7 +42,7 @@ pub trait Command {
 /**
  * trait for Request
  */
-pub trait Request: Command {
+pub trait Request {
     fn get_request_id(&self) -> i64;
     fn must_log(&self) -> bool {
         true
@@ -43,7 +52,7 @@ pub trait Request: Command {
 /**
  * trait for Reply
  */
-pub trait Reply: Command {
+pub trait Reply {
     fn get_request_id(&self) -> i64;
     fn is_failure(&self) -> bool {
         false
@@ -67,7 +76,7 @@ lazy_static! {
 /**
  * 1. Hello Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct HelloCommand {
     pub high_version: i32,
     pub low_version: i32,
@@ -105,7 +114,7 @@ impl Reply for HelloCommand {
 /**
  * 2. WrongHost Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct WrongHostCommand {
     pub request_id: i64,
     pub segment: String,
@@ -141,7 +150,7 @@ impl Reply for WrongHostCommand {
 /**
  * 3. SegmentIsSealed Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SegmentIsSealedCommand {
     pub request_id: i64,
     pub segment: String,
@@ -178,7 +187,7 @@ impl Reply for SegmentIsSealedCommand {
 /**
  * 4. SegmentIsTruncated Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SegmentIsTruncatedCommand {
     pub request_id: i64,
     pub segment: String,
@@ -216,7 +225,7 @@ impl Reply for SegmentIsTruncatedCommand {
 /**
  * 5. SegmentAlreadyExists Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SegmentAlreadyExistsCommand {
     pub request_id: i64,
     pub segment: String,
@@ -258,7 +267,7 @@ impl fmt::Display for SegmentAlreadyExistsCommand {
 /**
  * 6. NoSuchSegment Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct NoSuchSegmentCommand {
     pub request_id: i64,
     pub segment: String,
@@ -301,7 +310,7 @@ impl fmt::Display for NoSuchSegmentCommand {
 /**
  * 7. TableSegmentNotEmpty Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct TableSegmentNotEmptyCommand {
     pub request_id: i64,
     pub segment: String,
@@ -343,7 +352,7 @@ impl fmt::Display for TableSegmentNotEmptyCommand {
 /**
  * 8. InvalidEventNumber Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct InvalidEventNumberCommand {
     pub writer_id: u128,
     pub event_number: i64,
@@ -389,7 +398,7 @@ impl fmt::Display for InvalidEventNumberCommand {
 /**
  * 9. OperationUnsupported Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct OperationUnsupportedCommand {
     pub request_id: i64,
     pub operation_name: String,
@@ -425,7 +434,7 @@ impl Reply for OperationUnsupportedCommand {
 /**
  * 10. Padding Command
  */
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct PaddingCommand {
     pub length: i32,
 }
@@ -450,7 +459,7 @@ impl Command for PaddingCommand {
 /**
  * 11. PartialEvent Command
  */
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct PartialEventCommand {
     pub data: Vec<u8>,
 }
@@ -472,7 +481,7 @@ impl Command for PartialEventCommand {
 /**
  * 12. Event Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct EventCommand {
     pub data: Vec<u8>,
 }
@@ -502,7 +511,7 @@ impl Command for EventCommand {
 /**
  * 13. SetupAppend Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SetupAppendCommand {
     pub request_id: i64,
     pub writer_id: u128,
@@ -536,7 +545,7 @@ impl Request for SetupAppendCommand {
 /**
  * 14. AppendBlock Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct AppendBlockCommand {
     pub writer_id: u128,
     pub data: Vec<u8>,
@@ -564,7 +573,7 @@ impl Command for AppendBlockCommand {
 /**
  * 15. AppendBlockEnd Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct AppendBlockEndCommand {
     pub writer_id: u128,
     pub size_of_whole_events: i32,
@@ -595,7 +604,7 @@ impl Command for AppendBlockEndCommand {
 /**
  * 16.ConditionalAppend Command
  */
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct ConditionalAppendCommand {
     pub writer_id: u128,
     pub event_number: i64,
@@ -660,7 +669,7 @@ impl Request for ConditionalAppendCommand {
 /**
  *  17. AppendSetup Command.
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct AppendSetupCommand {
     pub request_id: i64,
     pub segment: String,
@@ -695,7 +704,7 @@ impl Reply for AppendSetupCommand {
 /**
  * 18. DataAppended Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct DataAppendedCommand {
     pub writer_id: u128,
     pub event_number: i64,
@@ -731,7 +740,7 @@ impl Reply for DataAppendedCommand {
 /**
  * 19. ConditionalCheckFailed Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct ConditionalCheckFailedCommand {
     pub writer_id: u128,
     pub event_number: i64,
@@ -756,7 +765,7 @@ impl Command for ConditionalCheckFailedCommand {
     }
 }
 
-impl Reply for ConditionalAppendCommand {
+impl Reply for ConditionalCheckFailedCommand {
     fn get_request_id(&self) -> i64 {
         self.request_id
     }
@@ -765,7 +774,7 @@ impl Reply for ConditionalAppendCommand {
 /**
  * 20. ReadSegment Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct ReadSegmentCommand {
     pub segment: String,
     pub offset: i64,
@@ -801,7 +810,7 @@ impl Request for ReadSegmentCommand {
 /**
  * 21. SegmentRead Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SegmentReadCommand {
     pub segment: String,
     pub offset: i64,
@@ -838,7 +847,7 @@ impl Reply for SegmentReadCommand {
 /**
  * 22. GetSegmentAttribute Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct GetSegmentAttributeCommand {
     pub request_id: i64,
     pub segment_name: String,
@@ -873,7 +882,7 @@ impl Request for GetSegmentAttributeCommand {
 /**
  * 23. SegmentAttribute Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SegmentAttributeCommand {
     pub request_id: i64,
     pub value: i64,
@@ -906,7 +915,7 @@ impl Reply for SegmentAttributeCommand {
 /**
  * 24. UpdateSegmentAttribute Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct UpdateSegmentAttributeCommand {
     pub request_id: i64,
     pub segment_name: String,
@@ -943,7 +952,7 @@ impl Request for UpdateSegmentAttributeCommand {
 /**
  * 25. SegmentAttributeUpdated Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SegmentAttributeUpdatedCommand {
     pub request_id: i64,
     pub success: bool,
@@ -977,7 +986,7 @@ impl Reply for SegmentAttributeUpdatedCommand {
 /**
  * 26. GetStreamSegmentInfo Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct GetStreamSegmentInfoCommand {
     pub request_id: i64,
     pub segment_name: String,
@@ -1011,7 +1020,7 @@ impl Request for GetStreamSegmentInfoCommand {
 /**
  * 27. StreamSegmentInfo Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct StreamSegmentInfoCommand {
     pub request_id: i64,
     pub segment_name: String,
@@ -1050,7 +1059,7 @@ impl Reply for StreamSegmentInfoCommand {
 /**
  * 28. CreateSegment Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct CreateSegmentCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1086,7 +1095,7 @@ impl Request for CreateSegmentCommand {
 /**
  * 29. CreateTableSegment Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct CreateTableSegmentCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1120,7 +1129,7 @@ impl Request for CreateTableSegmentCommand {
 /**
  * 30. SegmentCreated Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SegmentCreatedCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1153,7 +1162,7 @@ impl Reply for SegmentCreatedCommand {
 /**
  * 31. UpdateSegmentPolicy Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct UpdateSegmentPolicyCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1189,7 +1198,7 @@ impl Request for UpdateSegmentPolicyCommand {
 /**
  * 32. SegmentPolicyUpdated Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SegmentPolicyUpdatedCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1222,7 +1231,7 @@ impl Reply for SegmentPolicyUpdatedCommand {
 /**
  * 33. MergeSegments Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct MergeSegmentsCommand {
     pub request_id: i64,
     pub target: String,
@@ -1256,7 +1265,7 @@ impl Request for MergeSegmentsCommand {
 /**
  * 34. MergeTableSegments Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct MergeTableSegmentsCommand {
     pub request_id: i64,
     pub target: String,
@@ -1291,7 +1300,7 @@ impl Request for MergeTableSegmentsCommand {
 /**
  * 35. SegmentsMerged Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SegmentsMergedCommand {
     pub request_id: i64,
     pub target: String,
@@ -1326,7 +1335,7 @@ impl Reply for SegmentsMergedCommand {
 /**
  * 36. SealSegment Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SealSegmentCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1360,7 +1369,7 @@ impl Request for SealSegmentCommand {
 /**
  * 37. SealTableSegment Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SealTableSegmentCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1394,7 +1403,7 @@ impl Request for SealTableSegmentCommand {
 /**
  * 38. SegmentSealed Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SegmentSealedCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1427,7 +1436,7 @@ impl Reply for SegmentSealedCommand {
 /**
  * 39. TruncateSegment Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct TruncateSegmentCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1462,7 +1471,7 @@ impl Request for TruncateSegmentCommand {
 /**
  * 40. SegmentTruncated Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SegmentTruncatedCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1495,7 +1504,7 @@ impl Reply for SegmentTruncatedCommand {
 /**
  * 41. DeleteSegment Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct DeleteSegmentCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1529,7 +1538,7 @@ impl Request for DeleteSegmentCommand {
 /**
  * 42. DeleteTableSegment Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct DeleteTableSegmentCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1563,7 +1572,7 @@ impl Request for DeleteTableSegmentCommand {
 /**
  * 43. SegmentDeleted Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SegmentDeletedCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1595,7 +1604,7 @@ impl Reply for SegmentDeletedCommand {
 /**
  * 44. KeepAlive Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct KeepAliveCommand {}
 
 impl Command for KeepAliveCommand {
@@ -1629,7 +1638,7 @@ impl Reply for KeepAliveCommand {
 /**
  * 45. AuthTokenCheckFailed Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct AuthTokenCheckFailedCommand {
     pub request_id: i64,
     pub server_stack_trace: String,
@@ -1670,7 +1679,7 @@ impl Reply for AuthTokenCheckFailedCommand {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum ErrorCode {
     Unspecified,
     TokenCheckedFailed,
@@ -1698,7 +1707,7 @@ impl ErrorCode {
 /**
  * 46. UpdateTableEntries Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct UpdateTableEntriesCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1733,7 +1742,7 @@ impl Request for UpdateTableEntriesCommand {
 /**
  * 47. TableEntriesUpdated Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct TableEntriesUpdatedCommand {
     pub request_id: i64,
     pub updated_versions: Vec<i64>,
@@ -1766,7 +1775,7 @@ impl Reply for TableEntriesUpdatedCommand {
 /**
  * 48. RemoveTableKeys Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct RemoveTableKeysCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1801,7 +1810,7 @@ impl Request for RemoveTableKeysCommand {
 /**
  * 49. TableKeysRemoved Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct TableKeysRemovedCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1834,7 +1843,7 @@ impl Reply for TableKeysRemovedCommand {
 /**
  * 50. ReadTable Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct ReadTableCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1869,7 +1878,7 @@ impl Request for ReadTableCommand {
 /**
  * 51. TableRead Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct TableReadCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1903,7 +1912,7 @@ impl Reply for TableReadCommand {
 /**
  * 52. ReadTableKeys Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct ReadTableKeysCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1939,7 +1948,7 @@ impl Request for ReadTableKeysCommand {
 /**
  * 53. TableKeysRead Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct TableKeysReadCommand {
     pub request_id: i64,
     pub segment: String,
@@ -1974,7 +1983,7 @@ impl Reply for TableKeysReadCommand {
 /**
  * 54. ReadTableEntries Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct ReadTableEntriesCommand {
     pub request_id: i64,
     pub segment: String,
@@ -2010,7 +2019,7 @@ impl Request for ReadTableEntriesCommand {
 /**
  * 55. TableEntriesRead Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct TableEntriesReadCommand {
     pub request_id: i64,
     pub segment: String,
@@ -2045,7 +2054,7 @@ impl Reply for TableEntriesReadCommand {
 /**
  * 56. TableKeyDoesNotExist Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct TableKeyDoesNotExistCommand {
     pub request_id: i64,
     pub segment: String,
@@ -2093,7 +2102,7 @@ impl fmt::Display for TableKeyDoesNotExistCommand {
 /**
  * 57. TableKeyBadVersion Command
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct TableKeyBadVersionCommand {
     pub request_id: i64,
     pub segment: String,
@@ -2142,7 +2151,7 @@ impl fmt::Display for TableKeyBadVersionCommand {
  * Table Key Struct.
  * Need overide the serialize
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct TableKey {
     pub payload: i32,
     pub data: Vec<u8>,
@@ -2161,7 +2170,7 @@ impl TableKey {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct TableValue {
     pub payload: i32,
     pub data: Vec<u8>,
@@ -2178,7 +2187,7 @@ impl TableValue {
 /**
  * TableEntries Struct.
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct TableEntries {
     pub entries: Vec<(TableKey, TableValue)>,
 }
