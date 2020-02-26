@@ -67,7 +67,8 @@ pub struct ScopedSegment {
     pub segment: Segment,
 }
 
-#[derive(new, Shrinkwrap, Copy, Clone, Hash, PartialEq, Eq)]
+
+#[derive(new, Shrinkwrap, Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct TxId(pub u128);
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]

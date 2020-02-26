@@ -21,7 +21,6 @@ tokio = { version = "0.2.8", features = ["full"] }
 tonic = "0.1.1"
 derive_more = "0.99.2"
 ordered-float = "1.0.2"
-
 dashmap = "3.4.4"
 uuid = {version = "0.8", features = ["v4"]}
 futures = "0.3.4"
