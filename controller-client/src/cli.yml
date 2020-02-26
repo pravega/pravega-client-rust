@@ -1,0 +1,82 @@
+#
+# Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+name: Controller CLI
+version: "0.1"
+about: Controller CLI used to perform operations on the controller.
+
+# AppSettings can be defined as a list and are **not** ascii case sensitive
+settings:
+  - ArgRequiredElseHelp
+
+# All Args must be defined in the 'args:' list where the name of the arg, is the
+# key to a Hash object
+args:
+  # The name of this argument, is 'opt' which will be used to access the value
+  # later in your Rust code
+  - controller_uri:
+      help: used to configure controller grpc uri tcp://127.0.0.1:9090
+      short: u
+      long: uri
+      takes_value: true
+      global: true
+      empty_values: false
+
+# All subcommands must be listed in the 'subcommand:' object, where the key to
+# the list is the name of the subcommand, and all settings for that command are
+# are part of a Hash object
+subcommands:
+  - create-scope:
+      about: Create a scope
+      version: "0.1"
+      # Subcommand args are exactly like App args
+      args:
+        - param1:
+            help: controller-cli create-scope scope-name
+            index: 1
+  - delete-scope:
+      about: Delete a Scope
+      version: "0.1"
+      args:
+        - param1:
+            help: controller-cli delete-scope scope-name
+            index: 1
+  - create-stream:
+      about: Create a fixed segment count stream with no retention policy.
+      version: "0.1"
+      args:
+        - param1:
+            help: controller-cli create-stream scope-name stream-name segment-count
+            index: 1
+        - param2:
+            help: controller-cli create-stream scope-name stream-name segment-count
+            index: 2
+        - param3:
+            help: controller-cli create-stream scope-name stream-name segment-count
+            index: 3
+  - seal-stream:
+      about: Seal a Stream.
+      version: "0.1"
+      args:
+        - param1:
+            help: controller-cli seal-stream scope-name stream-name
+            index: 1
+        - param2:
+            help: controller-cli seal-stream scope-name stream-name
+            index: 2
+  - delete-stream:
+      about: Delete a Stream.
+      version: "0.1"
+      args:
+        - param1:
+            help: controller-cli delete-stream scope-name stream-name
+            index: 1
+        - param2:
+            help: controller-cli delete-stream scope-name stream-name
+            index: 2
