@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use super::ControllerClient;
 use super::ControllerError;
 use async_trait::async_trait;
@@ -44,7 +45,7 @@ impl ControllerClient for MockController {
 
     async fn delete_scope(&mut self, scope: &Scope) -> Result<bool, ControllerError> {
         let scope_name = scope.name.clone();
-        if let None = self.created_scopes.get(&scope_name) {
+        if self.created_scopes.get(&scope_name).is_none() {
             return Ok(false);
         }
 
@@ -63,19 +64,16 @@ impl ControllerClient for MockController {
 
     async fn create_stream(&mut self, stream_config: &StreamConfiguration) -> Result<bool, ControllerError> {
         let stream = stream_config.scoped_stream.clone();
-
         if self.created_streams.contains_key(&stream) {
             return Ok(false);
         }
-
-        if let None = self.created_scopes.get(&stream.scope.name) {
+        if self.created_scopes.get(&stream.scope.name).is_none() {
             return Err(ControllerError::OperationError {
                 can_retry: false,
                 operation: "create stream".into(),
                 error_msg: "Scope does not exist.".into(),
             });
         }
-
         self.created_streams.insert(stream.clone(), stream_config.clone());
         self.created_scopes
             .get_mut(&stream.scope.name)
@@ -114,7 +112,7 @@ impl ControllerClient for MockController {
     }
 
     async fn delete_stream(&mut self, stream: &ScopedStream) -> Result<bool, ControllerError> {
-        if let None = self.created_streams.get(stream) {
+        if self.created_streams.get(stream).is_none() {
             return Ok(false);
         }
 
@@ -138,14 +136,12 @@ impl ControllerClient for MockController {
         let segments_in_stream = get_segments_for_stream(stream, &self.created_streams)?;
         let mut segments = BTreeMap::new();
         let increment = 1.0 / segments_in_stream.len() as f64;
-        let mut number = 0;
-        for segment in segments_in_stream {
+        for (number, segment) in segments_in_stream.into_iter().enumerate() {
             let segment_with_range = SegmentWithRange {
                 scoped_segment: segment,
                 min_key: OrderedFloat(number as f64 * increment),
                 max_key: OrderedFloat((number + 1) as f64 * increment),
             };
-            number = number + 1;
             segments.insert(segment_with_range.max_key, segment_with_range);
         }
 
@@ -239,7 +235,7 @@ fn get_segments_for_stream(
     created_streams: &HashMap<ScopedStream, StreamConfiguration>,
 ) -> Result<Vec<ScopedSegment>, ControllerError> {
     let stream_config = created_streams.get(stream);
-    if let None = stream_config {
+    if stream_config.is_none() {
         return Err(ControllerError::OperationError {
             can_retry: false, // do not retry.
             operation: "get segments for stream".into(),
