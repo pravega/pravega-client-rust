@@ -768,25 +768,31 @@ impl Decode for WireCommands {
         let type_code = BigEndian::read_i32(raw_input);
         let _length = BigEndian::read_i32(&raw_input[4..]);
         let input = &raw_input[8..];
-        match type_code {
-            PaddingCommand::TYPE_CODE => Ok(WireCommands::Padding(PaddingCommand::read_from(input)?)),
+        if let Ok(r) = Replies::read_from(raw_input) {
+            Ok(WireCommands::Replies(r))
+        } else if let Ok(r) = Requests::read_from(raw_input) {
+            Ok(WireCommands::Requests(r))
+        } else {
+            match type_code {
+                PaddingCommand::TYPE_CODE => Ok(WireCommands::Padding(PaddingCommand::read_from(input)?)),
 
-            PartialEventCommand::TYPE_CODE => {
-                Ok(WireCommands::PartialEvent(PartialEventCommand::read_from(input)?))
-            }
+                PartialEventCommand::TYPE_CODE => {
+                    Ok(WireCommands::PartialEvent(PartialEventCommand::read_from(input)?))
+                }
 
-            EventCommand::TYPE_CODE => Ok(WireCommands::Event(EventCommand::read_from(input)?)),
+                EventCommand::TYPE_CODE => Ok(WireCommands::Event(EventCommand::read_from(input)?)),
 
-            AppendBlockCommand::TYPE_CODE => {
-                Ok(WireCommands::AppendBlock(AppendBlockCommand::read_from(input)?))
+                AppendBlockCommand::TYPE_CODE => {
+                    Ok(WireCommands::AppendBlock(AppendBlockCommand::read_from(input)?))
+                }
+                AppendBlockEndCommand::TYPE_CODE => Ok(WireCommands::AppendBlockEnd(
+                    AppendBlockEndCommand::read_from(input)?,
+                )),
+                _ => InvalidType {
+                    command_type: type_code,
+                }
+                .fail(),
             }
-            AppendBlockEndCommand::TYPE_CODE => Ok(WireCommands::AppendBlockEnd(
-                AppendBlockEndCommand::read_from(input)?,
-            )),
-            _ => InvalidType {
-                command_type: type_code,
-            }
-            .fail(),
         }
     }
 }
