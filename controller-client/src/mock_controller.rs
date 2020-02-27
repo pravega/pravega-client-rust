@@ -1,7 +1,6 @@
 use super::ControllerClient;
 use super::ControllerError;
 use async_trait::async_trait;
-use futures::future::join_all;
 use ordered_float::OrderedFloat;
 use pravega_rust_client_shared::*;
 use std::collections::HashSet;
@@ -169,7 +168,7 @@ impl ControllerClient for MockController {
         Ok(TxnSegments {
             key_segment_map: current_segments.key_segment_map,
             tx_id: TxId(uuid),
-        });
+        })
     }
 
     async fn ping_transaction(
@@ -200,7 +199,6 @@ impl ControllerClient for MockController {
     }
 
     async fn abort_transaction(&mut self, stream: &ScopedStream, tx_id: TxId) -> Result<(), ControllerError> {
-        let mut all_futures = Vec::new();
         let current_segments = get_segments_for_stream(stream, &self.created_streams)?;
         for segment in current_segments {
             abort_tx_segment(tx_id, segment, false).await?;
