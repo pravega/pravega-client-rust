@@ -17,11 +17,15 @@ use pravega_wire_protocol::error::ReplyError;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
 
+/// RawClient is on top of the ClientConnection. It provides methods that take
+/// Request enums and return Reply enums asynchronously. It has logic to process some of the replies from
+/// server and return the processed result to caller.
 #[async_trait]
 trait RawClient<'a> {
-    ///Asynchronously send a request to the server and receive a response.
+    /// Asynchronously send a request to the server and receive a response.
     async fn send_request(&self, request: Requests) -> Result<Replies, ReplyError>;
 
+    /// Asynchronously send a request to the server and receive a response and return the connection to the caller.
     async fn send_setup_request(
         &self,
         request: Requests,
@@ -112,12 +116,32 @@ mod tests {
     use pravega_wire_protocol::client_config::ClientConfigBuilder;
     use pravega_wire_protocol::commands::HelloCommand;
     use pravega_wire_protocol::connection_factory::ConnectionFactoryImpl;
-    use pravega_wire_protocol::wire_commands::{Decode, Encode};
-    use std::io::{Read, Write};
+    use pravega_wire_protocol::wire_commands::Encode;
+    use std::io::Write;
     use std::net::{SocketAddr, TcpListener};
-    use std::sync::Arc;
-    use std::{io, thread};
+    use std::thread;
     use tokio::runtime::Runtime;
+
+    struct Common {
+        rt: Runtime,
+        server: Server,
+        pool: Box<dyn ConnectionPool>,
+    }
+
+    impl Common {
+        fn new() -> Self {
+            let rt = Runtime::new().expect("create tokio Runtime");
+            let server = Server::new();
+            let connection_factory = ConnectionFactoryImpl {};
+            let pool = Box::new(ConnectionPoolImpl::new(
+                Box::new(connection_factory),
+                ClientConfigBuilder::default()
+                    .build()
+                    .expect("build client config"),
+            ));
+            Common { rt, server, pool }
+        }
+    }
 
     struct Server {
         address: SocketAddr,
@@ -132,36 +156,42 @@ mod tests {
             Server { address, listener }
         }
 
-        pub fn receive(&mut self) {
+        pub fn send_hello(&mut self) {
             let reply = Replies::Hello(HelloCommand {
                 high_version: 9,
                 low_version: 5,
             })
             .write_fields()
-            .unwrap();
+            .expect("serialize hello wirecommand");
 
             for stream in self.listener.incoming() {
-                let mut stream = stream.unwrap();
-                stream.write_all(&reply).unwrap();
+                let mut stream = stream.expect("get tcp stream");
+                stream.write_all(&reply).expect("reply with hello wirecommand");
+            }
+        }
+
+        pub fn send_hello_wrong_version(&mut self) {
+            let reply = Replies::Hello(HelloCommand {
+                high_version: 10,
+                low_version: 5,
+            })
+            .write_fields()
+            .expect("serialize hello wirecommand");
+
+            for stream in self.listener.incoming() {
+                let mut stream = stream.expect("get tcp stream");
+                stream.write_all(&reply).expect("reply with hello wirecommand");
             }
         }
     }
 
     #[test]
     fn test_hello() {
-        let mut rt = Runtime::new().unwrap();
-
-        let mut server = Server::new();
-
-        let connection_factory = ConnectionFactoryImpl {};
-        let pool = ConnectionPoolImpl::new(
-            Box::new(connection_factory),
-            ClientConfigBuilder::default().build().unwrap(),
-        );
-        let raw_client_fut = RawClientImpl::new(&pool, server.address);
-        let raw_client = rt.block_on(raw_client_fut);
+        let mut common = Common::new();
+        let raw_client_fut = RawClientImpl::new(&*common.pool, common.server.address);
+        let raw_client = common.rt.block_on(raw_client_fut);
         let h = thread::spawn(move || {
-            server.receive();
+            common.server.send_hello();
         });
 
         let request = Requests::Hello(HelloCommand {
@@ -169,7 +199,10 @@ mod tests {
             high_version: 9,
         });
 
-        let reply = rt.block_on(raw_client.send_request(request)).expect("get reply");
+        let reply = common
+            .rt
+            .block_on(raw_client.send_request(request))
+            .expect("get reply");
 
         assert_eq!(
             reply,
@@ -178,6 +211,31 @@ mod tests {
                 low_version: 5,
             })
         );
+        h.join();
+        info!("Testing raw client hello passed");
+    }
+
+    #[test]
+    fn test_hello_failed() {
+        let mut common = Common::new();
+
+        let raw_client_fut = RawClientImpl::new(&*common.pool, common.server.address);
+        let raw_client = common.rt.block_on(raw_client_fut);
+        let h = thread::spawn(move || {
+            common.server.send_hello_wrong_version();
+        });
+
+        let request = Requests::Hello(HelloCommand {
+            low_version: 5,
+            high_version: 9,
+        });
+
+        let reply = common.rt.block_on(raw_client.send_request(request));
+        assert_eq!(
+            reply.err().expect("has error"),
+            ReplyError::IncompatibleVersion { low: 5, high: 10 }
+        );
+        h.join();
         info!("Testing raw client hello passed");
     }
 }
