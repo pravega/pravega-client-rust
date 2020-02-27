@@ -26,21 +26,25 @@ enum Command {
     },
     /// Create Stream with a fixed segment count.
     CreateStream {
-        #[structopt(help = "controller-cli create-stream scope-name stream-name segment-count")]
+        #[structopt(help = "Scope Name")]
         scope_name: String,
+        #[structopt(help = "Stream Name")]
         stream_name: String,
+        #[structopt(help = "Segment Count")]
         segment_count: i32,
     },
     /// Seal a Stream.
     SealStream {
-        #[structopt(help = "controller-cli seal-stream scope-name stream-name")]
+        #[structopt(help = "Scope Name")]
         scope_name: String,
+        #[structopt(help = "Stream Name")]
         stream_name: String,
     },
     /// Delete a Stream.
     DeleteStream {
-        #[structopt(help = "controller-cli delete-stream scope-name stream-name")]
+        #[structopt(help = "Scope Name")]
         scope_name: String,
+        #[structopt(help = "Stream Name")]
         stream_name: String,
     },
 }
