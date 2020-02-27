@@ -71,14 +71,11 @@ impl ClientConnection for ClientConnectionImpl<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::client_config::ClientConfig;
     use crate::client_config::ClientConfigBuilder;
     use crate::commands::HelloCommand;
-    use crate::connection_factory::{ConnectionFactory, ConnectionFactoryImpl, ConnectionType};
+    use crate::connection_factory::ConnectionFactoryImpl;
     use crate::connection_pool::{ConnectionPool, ConnectionPoolImpl};
-    use crate::reply_processor::FailingReplyProcessorImpl;
-    use crate::wire_commands::{Decode, Encode, Replies, Requests};
-    use byteorder::{BigEndian, WriteBytesExt};
+    use crate::wire_commands::{Encode, Replies};
     use log::info;
     use std::io::Write;
     use std::net::{SocketAddr, TcpListener};
