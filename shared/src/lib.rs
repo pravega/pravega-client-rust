@@ -67,8 +67,7 @@ pub struct ScopedSegment {
     pub segment: Segment,
 }
 
-
-#[derive(new, Shrinkwrap, Debug, Copy, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Shrinkwrap, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct TxId(pub u128);
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -195,12 +194,4 @@ pub struct StreamSegments {
 pub struct TxnSegments {
     pub key_segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
     pub tx_id: TxId,
-}
-
-pub enum PingStatus {
-    //TODO
-}
-
-pub enum TransactionStatus {
-    //TODO
 }

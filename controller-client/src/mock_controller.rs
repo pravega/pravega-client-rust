@@ -1,41 +1,41 @@
 use super::ControllerClient;
 use super::ControllerError;
 use async_trait::async_trait;
-use dashmap::mapref::entry::Entry;
-use dashmap::DashMap;
 use futures::future::join_all;
 use ordered_float::OrderedFloat;
 use pravega_rust_client_shared::*;
-use std::collections::BTreeMap;
 use std::collections::HashSet;
+use std::collections::{BTreeMap, HashMap};
 use std::time::Duration;
 use uuid::Uuid;
 
-pub struct MockController {
+struct MockController {
     endpoint: String,
     port: i32,
-    created_scopes: DashMap<String, HashSet<ScopedStream>>,
-    created_streams: DashMap<ScopedStream, StreamConfiguration>,
+    created_scopes: HashMap<String, HashSet<ScopedStream>>,
+    created_streams: HashMap<ScopedStream, StreamConfiguration>,
 }
 
 #[async_trait]
 impl ControllerClient for MockController {
-
     async fn create_scope(&mut self, scope: &Scope) -> Result<bool, ControllerError> {
         let scope_name = scope.name.clone();
-        let mut successful = false;
-        self.created_scopes.entry(scope_name).or_insert_with(|| {
-            successful = true;
-            HashSet::new()
-        });
-        Ok(successful)
+        if self.created_scopes.contains_key(&scope_name) {
+            return Ok(false);
+        }
+        self.created_scopes.insert(scope_name, HashSet::new());
+        Ok(true)
     }
 
-    // One problem.
-    // Rust has an unstable feature that allows ? works on option. And since we use stable Rust,
-    // it is not allowed us to use unstable feature.
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>, ControllerError> {
-        let streams_set = &*self.created_scopes.get(&scope.name).unwrap();
+        let streams_set = self
+            .created_scopes
+            .get(&scope.name)
+            .ok_or(ControllerError::OperationError {
+                can_retry: false,
+                operation: "listStreams".into(),
+                error_msg: "Scope not exist".into(),
+            })?;
         let mut result = Vec::new();
         for stream in streams_set {
             result.push(stream.stream.name.clone())
@@ -45,51 +45,44 @@ impl ControllerClient for MockController {
 
     async fn delete_scope(&mut self, scope: &Scope) -> Result<bool, ControllerError> {
         let scope_name = scope.name.clone();
-        let scope_entry = self.created_scopes.entry(scope_name);
-
-        if let Entry::Vacant(_entry) = scope_entry {
+        if let None = self.created_scopes.get(&scope_name) {
             return Ok(false);
         }
 
-        if let Entry::Occupied(mut entry) = scope_entry {
-            let streams_set = entry.get_mut();
-            if !streams_set.is_empty() {
-                return Err(ControllerError::OperationError {
-                    can_retry: false, // do not retry.
-                    operation: "DeleteScope".into(),
-                    error_msg: "Scope not empty".into(),
-                });
-            } else {
-                entry.remove_entry();
-                return Ok(true);
-            }
+        let streams_set = self.created_scopes.get(&scope_name).unwrap();
+        if !streams_set.is_empty() {
+            Err(ControllerError::OperationError {
+                can_retry: false,
+                operation: "DeleteScope".into(),
+                error_msg: "Scope not empty".into(),
+            })
+        } else {
+            self.created_scopes.remove(&scope_name);
+            Ok(true)
         }
-        Ok(true)
     }
 
     async fn create_stream(&mut self, stream_config: &StreamConfiguration) -> Result<bool, ControllerError> {
         let stream = stream_config.scoped_stream.clone();
-        // if stream already exists
-        if let Some(_r) = self.created_streams.get(&stream) {
+
+        if self.created_streams.contains_key(&stream) {
             return Ok(false);
         }
-        // if scope doesn't exist.
+
         if let None = self.created_scopes.get(&stream.scope.name) {
             return Err(ControllerError::OperationError {
-                can_retry: false, // do not retry.
+                can_retry: false,
                 operation: "create stream".into(),
                 error_msg: "Scope does not exist.".into(),
             });
         }
-        // Fixme: at line 65, we have the read shard of key. Will it upgrade to write shard here?
+
         self.created_streams.insert(stream.clone(), stream_config.clone());
-        // Fixme: Same as above. compared with 69.
         self.created_scopes
             .get_mut(&stream.scope.name)
             .unwrap()
             .insert(stream.clone());
 
-        // create all segments of stream
         for segment in get_segments_for_stream(&stream, &self.created_streams)? {
             let segment_name = segment.to_string();
             create_segment(segment_name, false);
@@ -99,7 +92,7 @@ impl ControllerClient for MockController {
 
     async fn update_stream(&mut self, stream_config: &StreamConfiguration) -> Result<bool, ControllerError> {
         Err(ControllerError::OperationError {
-            can_retry: false, // do not retry.
+            can_retry: false,
             operation: "update stream".into(),
             error_msg: "unsupported operation.".into(),
         })
@@ -107,7 +100,7 @@ impl ControllerClient for MockController {
 
     async fn truncate_stream(&mut self, stream_cut: &StreamCut) -> Result<bool, ControllerError> {
         Err(ControllerError::OperationError {
-            can_retry: false, // do not retry.
+            can_retry: false,
             operation: "truncate stream".into(),
             error_msg: "unsupported operation.".into(),
         })
@@ -115,19 +108,17 @@ impl ControllerClient for MockController {
 
     async fn seal_stream(&mut self, stream: &ScopedStream) -> Result<bool, ControllerError> {
         Err(ControllerError::OperationError {
-            can_retry: false, // do not retry.
+            can_retry: false,
             operation: "seal stream".into(),
             error_msg: "unsupported operation.".into(),
         })
     }
 
     async fn delete_stream(&mut self, stream: &ScopedStream) -> Result<bool, ControllerError> {
-        // if stream doesn't exists
         if let None = self.created_streams.get(stream) {
             return Ok(false);
         }
 
-        // delete all segments for this stream
         for segment in get_segments_for_stream(stream, &self.created_streams)? {
             let segment_name = segment.to_string();
             delete_segment(segment_name, false);
@@ -170,20 +161,22 @@ impl ControllerClient for MockController {
         lease: Duration,
     ) -> Result<TxnSegments, ControllerError> {
         let uuid = Uuid::new_v4().as_u128();
-        let current_segments = get_segments_for_stream(stream, &self.created_streams)?;
+        let current_segments = self.get_current_segments(stream).await?;
         let mut all_futures = Vec::new();
-        for segment in current_segments {
-            let f = create_tx_segment(TxId(uuid), segment, false);
+        for segment in current_segments.key_segment_map.values() {
+            let f = create_tx_segment(TxId(uuid), segment.scoped_segment.clone(), false);
             all_futures.push(f);
         }
-        //FIXME: If this is the right way for Futures.allOf(futures).thenApply(v -> new TxnSegments(currentSegments, txId));
         let f = join_all(all_futures).await;
-        //TODO: wait for TxnSegments finishing.
-        return Ok(TxnSegments{})
+
+        return Ok(TxnSegments {
+            key_segment_map: current_segments.key_segment_map,
+            tx_id: TxId(uuid),
+        });
     }
 
     async fn ping_transaction(
-        &self,
+        &mut self,
         stream: &ScopedStream,
         tx_id: TxId,
         lease: Duration,
@@ -196,7 +189,7 @@ impl ControllerClient for MockController {
     }
 
     async fn commit_transaction(
-        &self,
+        &mut self,
         stream: &ScopedStream,
         tx_id: TxId,
         writer_id: WriterId,
@@ -212,7 +205,7 @@ impl ControllerClient for MockController {
         Ok(())
     }
 
-    async fn abort_transaction(&self, stream: &ScopedStream, tx_id: TxId) -> Result<(), ControllerError> {
+    async fn abort_transaction(&mut self, stream: &ScopedStream, tx_id: TxId) -> Result<(), ControllerError> {
         let mut all_futures = Vec::new();
         let current_segments = get_segments_for_stream(stream, &self.created_streams)?;
         for segment in current_segments {
@@ -224,7 +217,7 @@ impl ControllerClient for MockController {
     }
 
     async fn check_transaction_status(
-        &self,
+        &mut self,
         stream: &ScopedStream,
         tx_id: TxId,
     ) -> Result<TransactionStatus, ControllerError> {
@@ -251,10 +244,9 @@ impl ControllerClient for MockController {
     }
 }
 
-// Fixme: the private function(helper function) doesn't need to be async, since the caller is already async.
 fn get_segments_for_stream(
     stream: &ScopedStream,
-    created_streams: &DashMap<ScopedStream, StreamConfiguration>,
+    created_streams: &HashMap<ScopedStream, StreamConfiguration>,
 ) -> Result<Vec<ScopedSegment>, ControllerError> {
     let stream_config = created_streams.get(stream);
     if let None = stream_config {
@@ -290,7 +282,7 @@ fn create_segment(name: String, call_server: bool) -> bool {
     if !call_server {
         return true;
     }
-    //TODO: Mock the create segment.
+    //TODO: After the RawClient finish, mock the create segment.
     return false;
 }
 
@@ -298,7 +290,7 @@ fn delete_segment(name: String, call_server: bool) -> bool {
     if !call_server {
         return true;
     }
-    //TODO: Mock the create segment.
+    //TODO: After the RawClient finish, mock the delete segment.
     return false;
 }
 
@@ -310,7 +302,7 @@ async fn commit_tx_segment(
     if !call_server {
         return Ok(());
     }
-    //TODO: Mock the commit tx segment.
+    //TODO: After the RawClient finish, mock the commit segment.
     Err(ControllerError::OperationError {
         can_retry: false, // do not retry.
         operation: "commit tx segment".into(),
