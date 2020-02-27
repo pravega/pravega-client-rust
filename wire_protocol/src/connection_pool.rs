@@ -38,7 +38,7 @@ pub trait ConnectionPool: Send + Sync {
     /// let mut rt = Runtime::new().unwrap();
     /// let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
     /// let config = ClientConfigBuilder::default().build().unwrap();
-    /// let factory = ConnectionFactoryImpl{};
+    /// let factory = Box::new(ConnectionFactoryImpl{});
     /// let pool = ConnectionPoolImpl::new(factory, config);
     /// let connection = rt.block_on(pool.get_connection(endpoint));
     /// ```

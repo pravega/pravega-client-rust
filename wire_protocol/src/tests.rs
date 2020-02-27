@@ -13,7 +13,7 @@ use super::wire_commands::*;
 
 #[test]
 fn test_hello() {
-    let hello_command = WireCommands::Requests(Requests::Hello(HelloCommand {
+    let hello_command = WireCommands::Replies(Replies::Hello(HelloCommand {
         high_version: 9,
         low_version: 5,
     }));
@@ -574,7 +574,7 @@ fn test_delete_table_segment() {
 
 #[test]
 fn test_keep_alive() {
-    let keep_alive = WireCommands::Requests(Requests::KeepAlive(KeepAliveCommand {}));
+    let keep_alive = WireCommands::Replies(Replies::KeepAlive(KeepAliveCommand {}));
     test_command(keep_alive);
 }
 
