@@ -10,6 +10,7 @@
 use pravega_controller_client::*;
 use pravega_rust_client_shared::*;
 use std::collections::HashMap;
+use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>> {
@@ -89,6 +90,41 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>>
         ))
         .await;
     println!("Response for truncate stream is {:?}", result_truncate);
+
+    let create_txn_result = controller_client
+        .create_transaction(&scoped_stream, Duration::from_secs(100))
+        .await;
+    println!("Response for create transaction is {:?}", create_txn_result);
+
+    let txn = create_txn_result.unwrap().tx_id;
+    let ping_txn_result = controller_client
+        .ping_transaction(&scoped_stream, txn, Duration::from_secs(10))
+        .await;
+    println!("Response for ping transaction is {:?}", ping_txn_result);
+
+    let commit_txn_result = controller_client
+        .commit_transaction(&scoped_stream, txn, WriterId(100), Timestamp(123))
+        .await;
+    println!("Response for commit transaction is {:?}", commit_txn_result);
+
+    let txn_state_result = controller_client
+        .check_transaction_status(&scoped_stream, txn)
+        .await;
+    println!("Response of check txn status is {:?}", txn_state_result);
+
+    let create_txn_result1 = controller_client
+        .create_transaction(&scoped_stream, Duration::from_secs(100))
+        .await;
+    println!("Response for create transaction is {:?}", create_txn_result1);
+
+    let txn1 = create_txn_result1.unwrap().tx_id;
+    let txn_state_result1 = controller_client
+        .check_transaction_status(&scoped_stream, txn1)
+        .await;
+    println!("Response of transaction status is {:?}", txn_state_result1);
+
+    let abort_txn_result = controller_client.abort_transaction(&scoped_stream, txn1).await;
+    println!("Response for abort transaction is {:?}", abort_txn_result);
 
     let seal_result = controller_client.seal_stream(&scoped_stream).await;
     println!("Response for seal stream is {:?}", seal_result);
