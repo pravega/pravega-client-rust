@@ -162,14 +162,11 @@ impl ControllerClient for MockController {
     ) -> Result<TxnSegments, ControllerError> {
         let uuid = Uuid::new_v4().as_u128();
         let current_segments = self.get_current_segments(stream).await?;
-        let mut all_futures = Vec::new();
         for segment in current_segments.key_segment_map.values() {
-            let f = create_tx_segment(TxId(uuid), segment.scoped_segment.clone(), false);
-            all_futures.push(f);
+            create_tx_segment(TxId(uuid), segment.scoped_segment.clone(), false).await?;
         }
-        let f = join_all(all_futures).await;
 
-        return Ok(TxnSegments {
+        Ok(TxnSegments {
             key_segment_map: current_segments.key_segment_map,
             tx_id: TxId(uuid),
         });
@@ -195,13 +192,10 @@ impl ControllerClient for MockController {
         writer_id: WriterId,
         time: Timestamp,
     ) -> Result<(), ControllerError> {
-        let mut all_futures = Vec::new();
         let current_segments = get_segments_for_stream(stream, &self.created_streams)?;
         for segment in current_segments {
-            let f = commit_tx_segment(tx_id, segment, false);
-            all_futures.push(f);
+            commit_tx_segment(tx_id, segment, false).await?;
         }
-        join_all(all_futures).await;
         Ok(())
     }
 
@@ -209,10 +203,8 @@ impl ControllerClient for MockController {
         let mut all_futures = Vec::new();
         let current_segments = get_segments_for_stream(stream, &self.created_streams)?;
         for segment in current_segments {
-            let f = abort_tx_segment(tx_id, segment, false);
-            all_futures.push(f);
+            abort_tx_segment(tx_id, segment, false).await?;
         }
-        join_all(all_futures).await;
         Ok(())
     }
 
@@ -283,7 +275,7 @@ fn create_segment(name: String, call_server: bool) -> bool {
         return true;
     }
     //TODO: After the RawClient finish, mock the create segment.
-    return false;
+    false
 }
 
 fn delete_segment(name: String, call_server: bool) -> bool {
@@ -291,7 +283,7 @@ fn delete_segment(name: String, call_server: bool) -> bool {
         return true;
     }
     //TODO: After the RawClient finish, mock the delete segment.
-    return false;
+    false
 }
 
 async fn commit_tx_segment(
