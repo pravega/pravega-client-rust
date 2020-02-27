@@ -86,7 +86,7 @@ impl ControllerClient for MockController {
             let segment_name = segment.to_string();
             create_segment(segment_name, false);
         }
-        return Ok(true);
+        Ok(true)
     }
 
     async fn update_stream(&mut self, stream_config: &StreamConfiguration) -> Result<bool, ControllerError> {
