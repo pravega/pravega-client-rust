@@ -33,7 +33,6 @@ pub mod commands;
 pub mod connection_factory;
 pub mod connection_pool;
 pub mod error;
-pub mod reply_processor;
 pub mod wire_commands;
 
 #[cfg(test)]
