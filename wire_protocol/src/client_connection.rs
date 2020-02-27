@@ -21,6 +21,7 @@ use std::io::Cursor;
 pub const LENGTH_FIELD_OFFSET: u32 = 4;
 pub const LENGTH_FIELD_LENGTH: u32 = 4;
 
+/// ClientConnection is on top of the Connection. It can read or write wirecommand instead of raw bytes.
 #[async_trait]
 pub trait ClientConnection: Send + Sync {
     async fn read(&mut self) -> Result<Replies, ClientConnectionError>;
@@ -89,7 +90,7 @@ mod tests {
     impl Server {
         pub fn new() -> Server {
             let listener = TcpListener::bind("127.0.0.1:0").expect("local server");
-            let address = listener.local_addr().unwrap();
+            let address = listener.local_addr().expect("get listener address");
             info!("server created");
             Server { address, listener }
         }
@@ -100,10 +101,10 @@ mod tests {
                 low_version: 5,
             })
             .write_fields()
-            .unwrap();
+            .expect("serialize wirecommand");
             for stream in self.listener.incoming() {
-                let mut stream = stream.unwrap();
-                stream.write(&hello).unwrap();
+                let mut stream = stream.expect("get tcp stream");
+                stream.write(&hello).expect("reply with hello wirecommand");
                 break;
             }
             info!("sent wirecommand");
@@ -111,16 +112,20 @@ mod tests {
     }
     #[test]
     fn client_connection_read() {
-        let mut rt = Runtime::new().unwrap();
+        let mut rt = Runtime::new().expect("create tokio Runtime");
 
         let mut server = Server::new();
 
         let connection_factory = ConnectionFactoryImpl {};
         let pool = ConnectionPoolImpl::new(
             Box::new(connection_factory),
-            ClientConfigBuilder::default().build().unwrap(),
+            ClientConfigBuilder::default()
+                .build()
+                .expect("build client config"),
         );
-        let connection = rt.block_on(pool.get_connection(server.address)).unwrap();
+        let connection = rt
+            .block_on(pool.get_connection(server.address))
+            .expect("get connection from pool");
         info!("connection established");
 
         // server send wirecommand
@@ -130,7 +135,7 @@ mod tests {
         let mut reader = ClientConnectionImpl { connection };
 
         let fut = reader.read();
-        let reply = rt.block_on(fut).unwrap();
+        let reply = rt.block_on(fut).expect("get reply from server");
 
         assert_eq!(
             reply,

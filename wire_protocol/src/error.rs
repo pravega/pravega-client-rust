@@ -117,7 +117,7 @@ pub enum ConnectionPoolError {
     NoAvailableConnection {},
 }
 
-#[derive(Debug, Snafu, Clone)]
+#[derive(Debug, Snafu, Clone, PartialEq)]
 #[snafu(visibility = "pub(crate)")]
 pub enum ReplyError {
     #[snafu(display("Reply incompatible wirecommand version: low {}, high {}", low, high))]
