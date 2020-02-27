@@ -9,42 +9,79 @@
  */
 use pravega_controller_client::*;
 use pravega_rust_client_shared::*;
+use structopt::StructOpt;
 use tokio::runtime::Runtime;
 
-#[macro_use]
-extern crate clap;
-use clap::App;
+#[derive(StructOpt, Debug)]
+enum Command {
+    /// Create Scope    
+    CreateScope {
+        #[structopt(help = "controller-cli create-scope scope-name")]
+        scope_name: String,
+    },
+    /// Delete Scope    
+    DeleteScope {
+        #[structopt(help = "controller-cli delete-scope scope-name")]
+        scope_name: String,
+    },
+    /// Create Stream with a fixed segment count.
+    CreateStream {
+        #[structopt(help = "controller-cli create-stream scope-name stream-name segment-count")]
+        scope_name: String,
+        stream_name: String,
+        segment_count: i32,
+    },
+    /// Seal a Stream.
+    SealStream {
+        #[structopt(help = "controller-cli seal-stream scope-name stream-name")]
+        scope_name: String,
+        stream_name: String,
+    },
+    /// Delete a Stream.
+    DeleteStream {
+        #[structopt(help = "controller-cli delete-stream scope-name stream-name")]
+        scope_name: String,
+        stream_name: String,
+    },
+}
+
+#[derive(StructOpt, Debug)]
+#[structopt(
+    name = "Controller CLI",
+    about = "Command line used to perform operations on the Pravega controller",
+    version = "0.1"
+)]
+struct Opt {
+    /// Used to configure controller grpc, default uri http://127.0.0.1:9090
+    #[structopt(short = "uri", long, default_value = "http://[::1]:9090")]
+    controller_uri: String,
+
+    #[structopt(subcommand)] // Note that we mark a field as a subcommand
+    cmd: Command,
+}
 
 fn main() {
+    let opt = Opt::from_args();
     let mut rt = Runtime::new().unwrap();
 
-    // Load the yaml.
-    let yml = load_yaml!("cli.yml");
-    let m = App::from(yml).get_matches();
-
-    // fetch the controller URI.
-    let controller_uri = m.value_of("controller_uri").unwrap_or("http://[::1]:9090");
-
     // create a controller client.
-    let client = rt.block_on(create_connection(controller_uri));
+    let client = rt.block_on(create_connection(&opt.controller_uri));
     let mut controller_client = ControllerClientImpl { channel: client };
-
-    match m.subcommand() {
-        ("create-scope", Some(sub_cmd)) => {
-            let scope_name = sub_cmd.value_of("param1").unwrap();
+    // let command: &Command = &opt.cmd;
+    match opt.cmd {
+        Command::CreateScope { scope_name } => {
             let scope_result = rt.block_on(controller_client.create_scope(&Scope::new(scope_name.into())));
             println!("Scope creation status {:?}", scope_result);
         }
-        ("delete-scope", Some(sub_cmd)) => {
-            let scope_name = sub_cmd.value_of("param1").unwrap();
+        Command::DeleteScope { scope_name } => {
             let scope_result = rt.block_on(controller_client.delete_scope(&Scope::new(scope_name.into())));
             println!("Scope deletion status {:?}", scope_result);
         }
-        ("create-stream", Some(sub_cmd)) => {
-            let scope_name = sub_cmd.value_of("param1").unwrap();
-            let stream_name = sub_cmd.value_of("param2").unwrap();
-            let segment_count = sub_cmd.value_of("param3").unwrap();
-
+        Command::CreateStream {
+            scope_name,
+            stream_name,
+            segment_count,
+        } => {
             let stream_cfg = StreamConfiguration {
                 scoped_stream: ScopedStream {
                     scope: Scope::new(scope_name.into()),
@@ -54,7 +91,7 @@ fn main() {
                     scale_type: ScaleType::FixedNumSegments,
                     target_rate: 0,
                     scale_factor: 0,
-                    min_num_segments: segment_count.parse::<i32>().unwrap(),
+                    min_num_segments: segment_count,
                 },
                 retention: Retention {
                     retention_type: RetentionType::None,
@@ -64,26 +101,25 @@ fn main() {
             let result = rt.block_on(controller_client.create_stream(&stream_cfg));
             println!("Stream creation status {:?}", result);
         }
-        ("seal-stream", Some(sub_cmd)) => {
-            let scope_name = sub_cmd.value_of("param1").unwrap();
-            let stream_name = sub_cmd.value_of("param2").unwrap();
-
+        Command::SealStream {
+            scope_name,
+            stream_name,
+        } => {
             let scoped_stream =
                 ScopedStream::new(Scope::new(scope_name.into()), Stream::new(stream_name.into()));
 
             let result = rt.block_on(controller_client.seal_stream(&scoped_stream));
             println!("Seal stream status {:?}", result);
         }
-        ("delete-stream", Some(sub_cmd)) => {
-            let scope_name = sub_cmd.value_of("param1").unwrap();
-            let stream_name = sub_cmd.value_of("param2").unwrap();
-
+        Command::DeleteStream {
+            scope_name,
+            stream_name,
+        } => {
             let scoped_stream =
                 ScopedStream::new(Scope::new(scope_name.into()), Stream::new(stream_name.into()));
 
             let result = rt.block_on(controller_client.delete_stream(&scoped_stream));
             println!("Delete stream status {:?}", result);
         }
-        _ => println!("No sub-command / invalid sub-command used"), // Either no subcommand or one not tested for...
-    };
+    }
 }

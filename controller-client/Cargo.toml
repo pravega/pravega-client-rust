@@ -23,6 +23,7 @@ derive_more = "0.99.2"
 ordered-float = "1.0.2"
 uuid = "0.8"
 clap = {version = "2.33.0", features = ["yaml"], optional = true}
+structopt = {version = "0.3", optional = true}
 
 [build-dependencies]
 tonic-build = "0.1.1"
@@ -35,4 +36,4 @@ required-features = ["cli"]
 
 [features]
 default = ["cli"]
-cli = ["clap"]
+cli = ["clap", "structopt"]
