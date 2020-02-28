@@ -9,7 +9,6 @@
 //
 
 use super::connection_factory::ConnectionType;
-use crate::wire_commands::Replies;
 use bincode2::Error as BincodeError;
 use snafu::{Backtrace, Snafu};
 use std::io::Error as IoError;
@@ -117,18 +116,18 @@ pub enum ConnectionPoolError {
     NoAvailableConnection {},
 }
 
-#[derive(Debug, Snafu, Clone, PartialEq)]
-#[snafu(visibility = "pub(crate)")]
-pub enum ReplyError {
+#[derive(Debug, Snafu)]
+#[snafu(visibility = "pub")]
+pub enum RawClientError {
+    #[snafu(display("Failed to get connection from connection pool"))]
+    GetConnectionFromPool { source: ConnectionPoolError },
+
+    #[snafu(display("Failed to write request"))]
+    WriteRequest { source: ClientConnectionError },
+
+    #[snafu(display("Failed to read reply"))]
+    ReadReply { source: ClientConnectionError },
+
     #[snafu(display("Reply incompatible wirecommand version: low {}, high {}", low, high))]
     IncompatibleVersion { low: i32, high: i32 },
-
-    #[snafu(display("Reply has illegal state: {}", state))]
-    IllegalState { state: Replies },
-
-    #[snafu(display("Connection failed: {}", state))]
-    ConnectionFailed { state: Replies },
-
-    #[snafu(display("Connection closed: {}", state))]
-    ConnectionClosed { state: Replies },
 }

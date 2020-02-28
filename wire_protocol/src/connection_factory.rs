@@ -114,6 +114,7 @@ pub trait Connection: Send + Sync {
     fn get_endpoint(&self) -> SocketAddr;
 }
 
+#[derive(Debug)]
 pub struct ConnectionFactoryImpl {}
 
 impl ConnectionFactoryImpl {

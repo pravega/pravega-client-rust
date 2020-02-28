@@ -9,13 +9,16 @@
 //
 
 use async_trait::async_trait;
-use log::{info, warn};
+use log::info;
 use pravega_wire_protocol::client_connection::*;
 use pravega_wire_protocol::commands::{OLDEST_COMPATIBLE_VERSION, WIRE_VERSION};
 use pravega_wire_protocol::connection_pool::*;
-use pravega_wire_protocol::error::ReplyError;
+use pravega_wire_protocol::error::*;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
+use snafu::ResultExt;
+use std::fmt;
 use std::net::SocketAddr;
+use tracing::{event, span, Level};
 
 /// RawClient is on top of the ClientConnection. It provides methods that take
 /// Request enums and return Reply enums asynchronously. It has logic to process some of the replies from
@@ -23,18 +26,24 @@ use std::net::SocketAddr;
 #[async_trait]
 trait RawClient<'a> {
     /// Asynchronously send a request to the server and receive a response.
-    async fn send_request(&self, request: Requests) -> Result<Replies, ReplyError>;
+    async fn send_request(&self, request: Requests) -> Result<Replies, RawClientError>;
 
     /// Asynchronously send a request to the server and receive a response and return the connection to the caller.
     async fn send_setup_request(
         &self,
         request: Requests,
-    ) -> Result<(Replies, Box<dyn ClientConnection + 'a>), ReplyError>;
+    ) -> Result<(Replies, Box<dyn ClientConnection + 'a>), RawClientError>;
 }
 
 pub struct RawClientImpl<'a> {
     pool: &'a dyn ConnectionPool,
     endpoint: SocketAddr,
+}
+
+impl<'a> fmt::Debug for RawClientImpl<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "RawClient endpoint: {:?}", self.endpoint)
+    }
 }
 
 impl<'a> RawClientImpl<'a> {
@@ -43,12 +52,12 @@ impl<'a> RawClientImpl<'a> {
         Box::new(RawClientImpl { pool, endpoint })
     }
 
-    fn process(&self, reply: Replies) -> Result<Replies, ReplyError> {
+    fn process(&self, reply: Replies) -> Result<Replies, RawClientError> {
         match reply {
             Replies::Hello(hello) => {
                 info!("Received hello: {:?}", hello);
                 if hello.low_version > WIRE_VERSION || hello.high_version < OLDEST_COMPATIBLE_VERSION {
-                    Err(ReplyError::IncompatibleVersion {
+                    Err(RawClientError::IncompatibleVersion {
                         low: hello.low_version,
                         high: hello.high_version,
                     })
@@ -56,9 +65,6 @@ impl<'a> RawClientImpl<'a> {
                     Ok(Replies::Hello(hello))
                 }
             }
-            Replies::WrongHost(wrong_host) => Err(ReplyError::ConnectionFailed {
-                state: Replies::WrongHost(wrong_host),
-            }),
             _ => Ok(reply),
         }
     }
@@ -66,18 +72,15 @@ impl<'a> RawClientImpl<'a> {
 #[allow(clippy::needless_lifetimes)]
 #[async_trait]
 impl<'a> RawClient<'a> for RawClientImpl<'a> {
-    async fn send_request(&self, request: Requests) -> Result<Replies, ReplyError> {
+    async fn send_request(&self, request: Requests) -> Result<Replies, RawClientError> {
         let connection = self
             .pool
             .get_connection(self.endpoint)
             .await
-            .expect("get connection");
+            .context(GetConnectionFromPool {})?;
         let mut client_connection = ClientConnectionImpl::new(connection);
-        client_connection
-            .write(&request)
-            .await
-            .expect("write successfully");
-        let reply = client_connection.read().await.expect("read reply wirecommand");
+        client_connection.write(&request).await.context(WriteRequest {})?;
+        let reply = client_connection.read().await.context(ReadReply {})?;
 
         self.process(reply)
     }
@@ -85,23 +88,22 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
     async fn send_setup_request(
         &self,
         request: Requests,
-    ) -> Result<(Replies, Box<dyn ClientConnection + 'a>), ReplyError> {
+    ) -> Result<(Replies, Box<dyn ClientConnection + 'a>), RawClientError> {
+        let span = span!(Level::DEBUG, "send_setup_request");
+        let _guard = span.enter();
         let connection = self
             .pool
             .get_connection(self.endpoint)
             .await
-            .expect("get connection");
+            .context(GetConnectionFromPool {})?;
         let mut client_connection = ClientConnectionImpl::new(connection);
-        client_connection
-            .write(&request)
-            .await
-            .expect("write successfully");
+        client_connection.write(&request).await.context(WriteRequest {})?;
 
-        let reply = client_connection.read().await.expect("read reply wirecommand");
+        let reply = client_connection.read().await.context(ReadReply {})?;
 
         self.process(reply).map_or_else(
             |e| {
-                warn!("error when procssing reply");
+                event!(Level::ERROR, "error when processing reply");
                 Err(e)
             },
             |r| Ok((r, Box::new(client_connection) as Box<dyn ClientConnection>)),
@@ -234,10 +236,8 @@ mod tests {
         });
 
         let reply = common.rt.block_on(raw_client.send_request(request));
-        assert_eq!(
-            reply.err().expect("has error"),
-            ReplyError::IncompatibleVersion { low: 10, high: 10 }
-        );
+        assert!(reply.is_err(), "wrong wirecommand version");
+
         h.join().expect("thread finished");
         info!("Testing raw client hello passed");
     }
