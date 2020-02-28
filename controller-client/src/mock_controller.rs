@@ -87,7 +87,7 @@ impl ControllerClient for MockController {
         Ok(true)
     }
 
-    async fn update_stream(&mut self, stream_config: &StreamConfiguration) -> Result<bool, ControllerError> {
+    async fn update_stream(&mut self, _stream_config: &StreamConfiguration) -> Result<bool, ControllerError> {
         Err(ControllerError::OperationError {
             can_retry: false,
             operation: "update stream".into(),
@@ -95,7 +95,7 @@ impl ControllerClient for MockController {
         })
     }
 
-    async fn truncate_stream(&mut self, stream_cut: &StreamCut) -> Result<bool, ControllerError> {
+    async fn truncate_stream(&mut self, _stream_cut: &StreamCut) -> Result<bool, ControllerError> {
         Err(ControllerError::OperationError {
             can_retry: false,
             operation: "truncate stream".into(),
@@ -103,7 +103,7 @@ impl ControllerClient for MockController {
         })
     }
 
-    async fn seal_stream(&mut self, stream: &ScopedStream) -> Result<bool, ControllerError> {
+    async fn seal_stream(&mut self, _stream: &ScopedStream) -> Result<bool, ControllerError> {
         Err(ControllerError::OperationError {
             can_retry: false,
             operation: "seal stream".into(),
@@ -153,7 +153,7 @@ impl ControllerClient for MockController {
     async fn create_transaction(
         &mut self,
         stream: &ScopedStream,
-        lease: Duration,
+        _lease: Duration,
     ) -> Result<TxnSegments, ControllerError> {
         let uuid = Uuid::new_v4().as_u128();
         let current_segments = self.get_current_segments(stream).await?;
@@ -169,9 +169,9 @@ impl ControllerClient for MockController {
 
     async fn ping_transaction(
         &mut self,
-        stream: &ScopedStream,
-        tx_id: TxId,
-        lease: Duration,
+        _stream: &ScopedStream,
+        _tx_id: TxId,
+        _lease: Duration,
     ) -> Result<PingStatus, ControllerError> {
         Err(ControllerError::OperationError {
             can_retry: false, // do not retry.
@@ -184,8 +184,8 @@ impl ControllerClient for MockController {
         &mut self,
         stream: &ScopedStream,
         tx_id: TxId,
-        writer_id: WriterId,
-        time: Timestamp,
+        _writer_id: WriterId,
+        _time: Timestamp,
     ) -> Result<(), ControllerError> {
         let current_segments = get_segments_for_stream(stream, &self.created_streams)?;
         for segment in current_segments {
@@ -204,8 +204,8 @@ impl ControllerClient for MockController {
 
     async fn check_transaction_status(
         &mut self,
-        stream: &ScopedStream,
-        tx_id: TxId,
+        _stream: &ScopedStream,
+        _tx_id: TxId,
     ) -> Result<TransactionStatus, ControllerError> {
         Err(ControllerError::OperationError {
             can_retry: false, // do not retry.
@@ -216,7 +216,7 @@ impl ControllerClient for MockController {
 
     async fn get_endpoint_for_segment(
         &mut self,
-        segment: &ScopedSegment,
+        _segment: &ScopedSegment,
     ) -> Result<PravegaNodeUri, ControllerError> {
         let uri = self.endpoint.clone() + ":" + &self.port.to_string();
         Ok(PravegaNodeUri(uri))
@@ -224,7 +224,7 @@ impl ControllerClient for MockController {
 
     async fn get_or_refresh_delegation_token_for(
         &self,
-        stream: ScopedStream,
+        _stream: ScopedStream,
     ) -> Result<DelegationToken, ControllerError> {
         Ok(DelegationToken(String::from("")))
     }
@@ -264,7 +264,7 @@ fn get_segments_for_stream(
     Ok(result)
 }
 
-fn create_segment(name: String, call_server: bool) -> bool {
+fn create_segment(_name: String, call_server: bool) -> bool {
     if !call_server {
         return true;
     }
@@ -272,7 +272,7 @@ fn create_segment(name: String, call_server: bool) -> bool {
     false
 }
 
-fn delete_segment(name: String, call_server: bool) -> bool {
+fn delete_segment(_name: String, call_server: bool) -> bool {
     if !call_server {
         return true;
     }
@@ -281,8 +281,8 @@ fn delete_segment(name: String, call_server: bool) -> bool {
 }
 
 async fn commit_tx_segment(
-    uuid: TxId,
-    segment: ScopedSegment,
+    _uuid: TxId,
+    _segment: ScopedSegment,
     call_server: bool,
 ) -> Result<(), ControllerError> {
     if !call_server {
@@ -297,8 +297,8 @@ async fn commit_tx_segment(
 }
 
 async fn abort_tx_segment(
-    uuid: TxId,
-    segment: ScopedSegment,
+    _uuid: TxId,
+    _segment: ScopedSegment,
     call_server: bool,
 ) -> Result<(), ControllerError> {
     if !call_server {
@@ -313,8 +313,8 @@ async fn abort_tx_segment(
 }
 
 async fn create_tx_segment(
-    uuid: TxId,
-    segment: ScopedSegment,
+    _uuid: TxId,
+    _segment: ScopedSegment,
     call_server: bool,
 ) -> Result<(), ControllerError> {
     if !call_server {

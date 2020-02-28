@@ -282,7 +282,7 @@ impl ControllerClient for ControllerClientImpl {
     }
 }
 /// create_connection with the given controller uri.
-pub async fn create_connection(uri: &'static str) -> ControllerServiceClient<Channel> {
+pub async fn create_connection(uri: &str) -> ControllerServiceClient<Channel> {
     // Placeholder to add authentication headers.
     let connection: ControllerServiceClient<Channel> = ControllerServiceClient::connect(uri.to_string())
         .await
