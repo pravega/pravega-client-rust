@@ -62,7 +62,7 @@ jobs:
       - name: codecov
         uses: Quadriphobs1/rust-codecov-action@v1.2
         env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          CODECOV_TOKEN: 6af47fa4-eed7-4fce-adbd-77291bc74cac
   
   test:
     name: Test Suite
