@@ -81,7 +81,7 @@ fn test_raw_client() {
     let pool = ConnectionPoolImpl::new(cf, config);
     let raw_client = rt.block_on(RawClientImpl::new(&pool, endpoint));
 
-    // write hello to standalone controller
+    // send hello wirecommand to standalone segmentstore
     let request = Requests::Hello(HelloCommand {
         low_version: 5,
         high_version: 9,
