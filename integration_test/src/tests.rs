@@ -12,16 +12,17 @@ use std::net::SocketAddr;
 use std::{thread, time};
 use tokio::runtime::Runtime;
 
-#[test]
-fn test_start_pravega_standalone() {
-    let mut pravega = PravegaStandaloneService::start();
-    let two_secs = time::Duration::from_secs(20);
-    thread::sleep(two_secs);
-    assert_eq!(true, pravega.check_status().unwrap());
-    pravega.stop().unwrap();
-    thread::sleep(two_secs);
-    assert_eq!(false, pravega.check_status().unwrap());
-}
+//#[test]
+//fn test_start_pravega_standalone() {
+//    let mut pravega = PravegaStandaloneService::start();
+//    let two_secs = time::Duration::from_secs(20);
+//    thread::sleep(two_secs);
+//    assert_eq!(true, pravega.check_status().unwrap());
+//    pravega.stop().unwrap();
+//    thread::sleep(two_secs);
+//    assert_eq!(false, pravega.check_status().unwrap());
+//    thread::sleep(time::Duration::from_secs(5));
+//}
 
 #[test]
 fn test_raw_client() {
