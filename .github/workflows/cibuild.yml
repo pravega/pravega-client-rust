@@ -54,6 +54,16 @@ jobs:
         env:  #Will be handled by clippy
           RUSTFLAGS: -A warnings 
 
+  build:
+    name: Code Cov
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: codecov
+        uses: Quadriphobs1/rust-codecov-action@v1.2
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+  
   test:
     name: Test Suite
     runs-on: ubuntu-latest
