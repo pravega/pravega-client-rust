@@ -13,6 +13,11 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 
 [dependencies]
 log = "0.4"
+pravega-client-rust = { path = "../" }
+pravega-wire-protocol = { path = "../wire_protocol"}
+pravega-controller-client = { path = "../controller-client"}
+pravega-rust-client-shared = { path = "../shared"}
+tokio = { version = "0.2.8", features = ["full"] }
 
 [build-dependencies]
 log = "0.4"

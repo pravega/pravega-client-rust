@@ -9,21 +9,21 @@
 //
 
 use crate::client_config::ClientConfig;
-use crate::connection_factory::{Connection, ConnectionFactory, ConnectionFactoryImpl};
+use crate::connection_factory::{Connection, ConnectionFactory};
 use crate::error::*;
 
 use async_trait::async_trait;
 use dashmap::DashMap;
-use log::warn;
 use snafu::ResultExt;
 use std::fmt;
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
+use tracing::{event, span, Level};
 
 /// ConnectionPool creates a pool of threads for reuse.
 /// It is thread safe
 #[async_trait]
-pub trait ConnectionPool: Send + Sync + 'static {
+pub trait ConnectionPool: Send + Sync {
     /// get_connection takes an endpoint and returns a PooledConnection.
     /// # Example
     ///
@@ -31,13 +31,15 @@ pub trait ConnectionPool: Send + Sync + 'static {
     /// use std::net::SocketAddr;
     /// use pravega_wire_protocol::connection_pool::ConnectionPool;
     /// use pravega_wire_protocol::connection_pool::ConnectionPoolImpl;
+    /// use pravega_wire_protocol::connection_factory::ConnectionFactoryImpl;
     /// use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
     /// use tokio::runtime::Runtime;
     ///
     /// let mut rt = Runtime::new().unwrap();
     /// let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
     /// let config = ClientConfigBuilder::default().build().unwrap();
-    /// let pool = ConnectionPoolImpl::new(config);
+    /// let factory = Box::new(ConnectionFactoryImpl{});
+    /// let pool = ConnectionPoolImpl::new(factory, config);
     /// let connection = rt.block_on(pool.get_connection(endpoint));
     /// ```
     async fn get_connection(&self, endpoint: SocketAddr) -> Result<PooledConnection, ConnectionPoolError>;
@@ -60,13 +62,12 @@ pub struct ConnectionPoolImpl {
 impl ConnectionPoolImpl {
     /// Create a new ConnectionPoolImpl instances by passing into a ClientConfig. It will create
     /// a Runtime, a map and a ConnectionFactory.
-    pub fn new(config: ClientConfig) -> Self {
+    pub fn new(factory: Box<dyn ConnectionFactory>, config: ClientConfig) -> Self {
         let managed_pool = ManagedPool::new(config);
-        let connection_factory = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
         ConnectionPoolImpl {
             managed_pool,
             config,
-            connection_factory,
+            connection_factory: factory,
         }
     }
 
@@ -87,6 +88,8 @@ impl ConnectionPool for ConnectionPoolImpl {
         &self,
         endpoint: SocketAddr,
     ) -> Result<PooledConnection<'_>, ConnectionPoolError> {
+        let span = span!(Level::DEBUG, "send_setup_request");
+        let _guard = span.enter();
         match self.managed_pool.get_connection(endpoint) {
             Ok(conn) => Ok(PooledConnection {
                 inner: Some(conn),
@@ -101,7 +104,7 @@ impl ConnectionPool for ConnectionPoolImpl {
                 .map_or_else(
                     // track clippy issue https://github.com/rust-lang/rust-clippy/issues/3071
                     |e| {
-                        warn!("connection failed to establish");
+                        event!(Level::WARN, "connection failed to establish {:?}", e);
                         Err(e)
                     },
                     |conn| {
@@ -207,7 +210,7 @@ impl DerefMut for PooledConnection<'_> {
 mod tests {
     use super::*;
     use crate::client_config::ClientConfigBuilder;
-    use log::info;
+    use crate::connection_factory::ConnectionFactoryImpl;
     use parking_lot::Mutex;
     use std::io::Read;
     use std::net::{SocketAddr, TcpListener};
@@ -226,7 +229,6 @@ mod tests {
             let listener = TcpListener::bind("127.0.0.1:0").expect("local server");
             listener.set_nonblocking(true).expect("Cannot set non-blocking");
             let address = listener.local_addr().unwrap();
-            info!("server created");
             Server { address, listener }
         }
 
@@ -238,9 +240,7 @@ mod tests {
                     Ok(mut stream) => {
                         let mut buf = [0; 1024];
                         match stream.read(&mut buf) {
-                            Ok(_) => {
-                                info!("received data");
-                            }
+                            Ok(_) => {}
                             Err(e) => panic!("encountered IO error: {}", e),
                         }
                         connections += 1;
@@ -257,15 +257,14 @@ mod tests {
 
     #[test]
     fn test_connection_pool() {
-        info!("test connection pool");
-
         // Create server
         let mut server = Server::new();
         let shared_address = Arc::new(server.address);
 
         // Create a connection pool and a Runtime
         let config = ClientConfigBuilder::default().build().unwrap();
-        let shared_pool = Arc::new(ConnectionPoolImpl::new(config));
+        let factory = Box::new(ConnectionFactoryImpl {});
+        let shared_pool = Arc::new(ConnectionPoolImpl::new(factory, config));
         let rt = Arc::new(Mutex::new(Runtime::new().unwrap()));
 
         // Create a number of threads, each thread will use the connection pool to get a connection
@@ -286,11 +285,9 @@ mod tests {
             v.push(h);
         }
 
-        info!("waiting connection threads to finish");
         for _i in v {
             _i.join().unwrap();
         }
-        info!("connection threads joined");
 
         let received = server.receive();
         let connections = shared_pool.pool_len(shared_address.deref()) as u32;

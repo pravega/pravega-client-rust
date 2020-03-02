@@ -43,7 +43,7 @@ pub struct PravegaStandaloneService {
 }
 
 impl PravegaStandaloneService {
-    const CONTROLLER_PORT: u16 = 9098;
+    const CONTROLLER_PORT: u16 = 9090;
     const REST_PORT: u16 = 10080;
     const ADDRESS: Ipv4Addr = Ipv4Addr::new(127, 0, 0, 1);
 }

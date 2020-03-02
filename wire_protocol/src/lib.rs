@@ -1,3 +1,13 @@
+//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+
 #![deny(
     clippy::all,
     clippy::cargo,
@@ -18,12 +28,12 @@
 #![allow(clippy::multiple_crate_versions)]
 
 pub mod client_config;
+pub mod client_connection;
 pub mod commands;
 pub mod connection_factory;
 pub mod connection_pool;
 pub mod error;
-mod wire_commands;
-pub mod wirecommand_reader;
+pub mod wire_commands;
 
 #[cfg(test)]
 mod tests;
