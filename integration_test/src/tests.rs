@@ -13,7 +13,7 @@ use std::process::Command;
 use std::{thread, time};
 use tokio::runtime::Runtime;
 
-fn check_standalone_status(running: bool, timeout: i32) {
+fn wait_for_standalone_with_timeout(running: bool, timeout: i32) {
     for _i in 0..timeout {
         let output = Command::new("sh")
             .arg("-c")
@@ -36,9 +36,9 @@ fn check_standalone_status(running: bool, timeout: i32) {
 #[test]
 fn test_start_pravega_standalone() {
     let mut pravega = PravegaStandaloneService::start();
-    check_standalone_status(true, 5);
+    wait_for_standalone_with_timeout(true, 5);
     pravega.stop().unwrap();
-    check_standalone_status(false, 5);
+    wait_for_standalone_with_timeout(false, 5);
 }
 
 #[test]
@@ -50,7 +50,7 @@ fn test_raw_client() {
     let stream_name = Stream::new("testStream".into());
 
     let mut pravega = PravegaStandaloneService::start();
-    check_standalone_status(true, 20);
+    wait_for_standalone_with_timeout(true, 20);
 
     // Create scope and stream
     let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
@@ -111,5 +111,5 @@ fn test_raw_client() {
     rt.block_on(raw_client.send_request(request))
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
     pravega.stop().unwrap();
-    check_standalone_status(false, 5);
+    wait_for_standalone_with_timeout(false, 5);
 }
