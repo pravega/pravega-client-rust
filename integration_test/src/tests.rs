@@ -9,29 +9,36 @@ use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFac
 use pravega_wire_protocol::connection_pool::ConnectionPoolImpl;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
+use std::process::Command;
 use std::{thread, time};
 use tokio::runtime::Runtime;
 
-fn check_standalone_status(running: bool, pravega: &mut PravegaStandaloneService, timeout: i32) {
-    let mut count = 0;
-    while !(running == pravega.check_status().expect("get standalone status")) {
-        if count == timeout {
-            panic!(
-                "timeout {} exceeded, Pravega standalone is in status {} while expected {}",
-                timeout, running, !running
-            );
+fn check_standalone_status(running: bool, timeout: i32) {
+    for _i in 0..timeout {
+        let output = Command::new("sh")
+            .arg("-c")
+            .arg("netstat -ltn 2> /dev/null | grep 9090 || ss -ltn 2> /dev/null | grep 9090")
+            .output()
+            .expect("failed to execute process");
+        // if length not zero, controller is listening on port 9090
+        let listening = output.stdout.len() != 0;
+        if !(running ^ listening) {
+            return;
         }
-        count += 1;
         thread::sleep(time::Duration::from_secs(1));
     }
+    panic!(
+        "timeout {} exceeded, Pravega standalone is in status {} while expected {}",
+        timeout, running, !running
+    );
 }
 
 #[test]
 fn test_start_pravega_standalone() {
     let mut pravega = PravegaStandaloneService::start();
-    check_standalone_status(true, &mut pravega, 5);
+    check_standalone_status(true, 5);
     pravega.stop().unwrap();
-    check_standalone_status(false, &mut pravega, 5);
+    check_standalone_status(false, 5);
 }
 
 #[test]
@@ -43,7 +50,7 @@ fn test_raw_client() {
     let stream_name = Stream::new("testStream".into());
 
     let mut pravega = PravegaStandaloneService::start();
-    check_standalone_status(true, &mut pravega, 20);
+    check_standalone_status(true, 20);
     thread::sleep(time::Duration::from_secs(10));
 
     // Create scope and stream
@@ -105,5 +112,5 @@ fn test_raw_client() {
     rt.block_on(raw_client.send_request(request))
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
     pravega.stop().unwrap();
-    check_standalone_status(false, &mut pravega, 5);
+    check_standalone_status(false, 5);
 }
