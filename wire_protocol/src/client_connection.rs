@@ -77,7 +77,6 @@ mod tests {
     use crate::connection_factory::ConnectionFactoryImpl;
     use crate::connection_pool::{ConnectionPool, ConnectionPoolImpl};
     use crate::wire_commands::{Encode, Replies};
-    use log::info;
     use std::io::Write;
     use std::net::{SocketAddr, TcpListener};
     use tokio::runtime::Runtime;
@@ -91,7 +90,6 @@ mod tests {
         pub fn new() -> Server {
             let listener = TcpListener::bind("127.0.0.1:0").expect("local server");
             let address = listener.local_addr().expect("get listener address");
-            info!("server created");
             Server { address, listener }
         }
 
@@ -107,7 +105,6 @@ mod tests {
                 stream.write(&hello).expect("reply with hello wirecommand");
                 break;
             }
-            info!("sent wirecommand");
         }
     }
     #[test]
@@ -126,7 +123,6 @@ mod tests {
         let connection = rt
             .block_on(pool.get_connection(server.address))
             .expect("get connection from pool");
-        info!("connection established");
 
         // server send wirecommand
         server.send_hello_wirecommand();
@@ -144,6 +140,5 @@ mod tests {
                 low_version: 5,
             })
         );
-        info!("Testing wirecommand reader passed");
     }
 }

@@ -185,7 +185,6 @@ impl Connection for TokioConnection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use log::info;
     use std::io::Write;
     use std::net::{SocketAddr, TcpListener};
     use tokio::runtime::Runtime;
@@ -199,7 +198,6 @@ mod tests {
         pub fn new() -> Server {
             let listener = TcpListener::bind("127.0.0.1:0").expect("local server");
             let address = listener.local_addr().unwrap();
-            info!("server created");
             Server { address, listener }
         }
 
@@ -209,7 +207,6 @@ mod tests {
                 stream.write(b"Hello World\r\n").unwrap();
                 break;
             }
-            info!("echo back");
         }
     }
 
@@ -223,14 +220,12 @@ mod tests {
         let connection_future =
             connection_factory.establish_connection(server.address, ConnectionType::Tokio);
         let mut connection = rt.block_on(connection_future).unwrap();
-        info!("connection established");
 
         let mut payload: Vec<u8> = Vec::new();
         payload.push(12);
         let fut = connection.send_async(&payload);
 
         let _res = rt.block_on(fut).unwrap();
-        info!("payload sent");
 
         server.echo();
         let mut buf = [0; 13];
@@ -240,6 +235,5 @@ mod tests {
 
         let echo = "Hello World\r\n".as_bytes();
         assert_eq!(buf, &echo[..]);
-        info!("Testing connection passed");
     }
 }

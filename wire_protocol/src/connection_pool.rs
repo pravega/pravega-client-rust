@@ -211,7 +211,6 @@ mod tests {
     use super::*;
     use crate::client_config::ClientConfigBuilder;
     use crate::connection_factory::ConnectionFactoryImpl;
-    use log::info;
     use parking_lot::Mutex;
     use std::io::Read;
     use std::net::{SocketAddr, TcpListener};
@@ -230,7 +229,6 @@ mod tests {
             let listener = TcpListener::bind("127.0.0.1:0").expect("local server");
             listener.set_nonblocking(true).expect("Cannot set non-blocking");
             let address = listener.local_addr().unwrap();
-            info!("server created");
             Server { address, listener }
         }
 
@@ -242,9 +240,7 @@ mod tests {
                     Ok(mut stream) => {
                         let mut buf = [0; 1024];
                         match stream.read(&mut buf) {
-                            Ok(_) => {
-                                info!("received data");
-                            }
+                            Ok(_) => {}
                             Err(e) => panic!("encountered IO error: {}", e),
                         }
                         connections += 1;
@@ -261,8 +257,6 @@ mod tests {
 
     #[test]
     fn test_connection_pool() {
-        info!("test connection pool");
-
         // Create server
         let mut server = Server::new();
         let shared_address = Arc::new(server.address);
@@ -291,11 +285,9 @@ mod tests {
             v.push(h);
         }
 
-        info!("waiting connection threads to finish");
         for _i in v {
             _i.join().unwrap();
         }
-        info!("connection threads joined");
 
         let received = server.receive();
         let connections = shared_pool.pool_len(shared_address.deref()) as u32;
