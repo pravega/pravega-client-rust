@@ -12,16 +12,35 @@ use std::net::SocketAddr;
 use std::{thread, time};
 use tokio::runtime::Runtime;
 
+macro_rules! assert_eventually_eq {
+    ($left:expr, $right:expr, $timeout:expr) => {{
+        match (&$left, &$right, &$timeout) {
+            (left_val, right_val, timeout_val) => {
+                let mut count = 0;
+                while !(*left_val == *right_val) {
+                    count += 1;
+                    thread::sleep(time::Duration::from_secs(1));
+                    if count == *timeout_val {
+                        panic!(
+                            r#"assertion failed: `(left == right)`
+  left: `{:?}`,
+ right: `{:?}`
+ timeout: `{:?}`,"#,
+                            &*left_val, &*right_val, &*timeout_val
+                        )
+                    }
+                }
+            }
+        }
+    }};
+}
+
 #[test]
 fn test_start_pravega_standalone() {
     let mut pravega = PravegaStandaloneService::start();
-    let two_secs = time::Duration::from_secs(20);
-    thread::sleep(two_secs);
-    assert_eq!(true, pravega.check_status().unwrap());
+    assert_eventually_eq!(true, pravega.check_status().unwrap(), 5);
     pravega.stop().unwrap();
-    thread::sleep(two_secs);
-    assert_eq!(false, pravega.check_status().unwrap());
-    thread::sleep(time::Duration::from_secs(5));
+    assert_eventually_eq!(true, pravega.check_status().unwrap(), 5);
 }
 
 #[test]
@@ -33,8 +52,7 @@ fn test_raw_client() {
     let stream_name = Stream::new("testStream".into());
 
     let mut pravega = PravegaStandaloneService::start();
-    thread::sleep(time::Duration::from_secs(20));
-    assert_eq!(true, pravega.check_status().unwrap());
+    assert_eventually_eq!(true, pravega.check_status().unwrap(), 20);
 
     // Create scope and stream
     let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
@@ -95,6 +113,6 @@ fn test_raw_client() {
     rt.block_on(raw_client.send_request(request))
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
     pravega.stop().unwrap();
-    thread::sleep(time::Duration::from_secs(5));
+    assert_eventually_eq!(true, pravega.check_status().unwrap(), 5);
     assert_eq!(false, pravega.check_status().unwrap());
 }
