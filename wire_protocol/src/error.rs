@@ -102,6 +102,18 @@ pub enum ClientConnectionError {
         max_wirecommand_size: u32,
         backtrace: Backtrace,
     },
+
+    #[snafu(display("Failed to encode wirecommand: {}", source))]
+    EncodeCommand {
+        source: CommandError,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Failed to decode wirecommand: {}", source))]
+    DecodeCommand {
+        source: CommandError,
+        backtrace: Backtrace,
+    },
 }
 
 #[derive(Debug, Snafu)]

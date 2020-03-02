@@ -14,11 +14,11 @@ use crate::error::*;
 
 use async_trait::async_trait;
 use dashmap::DashMap;
-use log::warn;
 use snafu::ResultExt;
 use std::fmt;
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
+use tracing::{event, span, Level};
 
 /// ConnectionPool creates a pool of threads for reuse.
 /// It is thread safe
@@ -88,6 +88,8 @@ impl ConnectionPool for ConnectionPoolImpl {
         &self,
         endpoint: SocketAddr,
     ) -> Result<PooledConnection<'_>, ConnectionPoolError> {
+        let span = span!(Level::DEBUG, "send_setup_request");
+        let _guard = span.enter();
         match self.managed_pool.get_connection(endpoint) {
             Ok(conn) => Ok(PooledConnection {
                 inner: Some(conn),
@@ -102,7 +104,7 @@ impl ConnectionPool for ConnectionPoolImpl {
                 .map_or_else(
                     // track clippy issue https://github.com/rust-lang/rust-clippy/issues/3071
                     |e| {
-                        println!("connection failed to establish {:?}", e);
+                        event!(Level::WARN, "connection failed to establish {:?}", e);
                         Err(e)
                     },
                     |conn| {

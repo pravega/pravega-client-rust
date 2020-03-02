@@ -9,16 +9,14 @@
 //
 
 use async_trait::async_trait;
-use log::info;
 use pravega_wire_protocol::client_connection::*;
-use pravega_wire_protocol::commands::{OLDEST_COMPATIBLE_VERSION, WIRE_VERSION};
 use pravega_wire_protocol::connection_pool::*;
 use pravega_wire_protocol::error::*;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use snafu::ResultExt;
 use std::fmt;
 use std::net::SocketAddr;
-use tracing::{event, span, Level};
+use tracing::{span, Level};
 
 /// RawClient is on top of the ClientConnection. It provides methods that take
 /// Request enums and return Reply enums asynchronously. It has logic to process some of the replies from
@@ -51,23 +49,6 @@ impl<'a> RawClientImpl<'a> {
     pub async fn new(pool: &'a dyn ConnectionPool, endpoint: SocketAddr) -> Box<dyn RawClient<'a> + 'a> {
         Box::new(RawClientImpl { pool, endpoint })
     }
-
-    fn process(&self, reply: Replies) -> Result<Replies, RawClientError> {
-        match reply {
-            Replies::Hello(hello) => {
-                info!("Received hello: {:?}", hello);
-                if hello.low_version > WIRE_VERSION || hello.high_version < OLDEST_COMPATIBLE_VERSION {
-                    Err(RawClientError::IncompatibleVersion {
-                        low: hello.low_version,
-                        high: hello.high_version,
-                    })
-                } else {
-                    Ok(Replies::Hello(hello))
-                }
-            }
-            _ => Ok(reply),
-        }
-    }
 }
 #[allow(clippy::needless_lifetimes)]
 #[async_trait]
@@ -81,7 +62,7 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
         let mut client_connection = ClientConnectionImpl::new(connection);
         client_connection.write(&request).await.context(WriteRequest {})?;
         let reply = client_connection.read().await.context(ReadReply {})?;
-        self.process(reply)
+        Ok(reply)
     }
 
     async fn send_setup_request(
@@ -100,20 +81,13 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
 
         let reply = client_connection.read().await.context(ReadReply {})?;
 
-        self.process(reply).map_or_else(
-            |e| {
-                event!(Level::ERROR, "error when processing reply");
-                Err(e)
-            },
-            |r| Ok((r, Box::new(client_connection) as Box<dyn ClientConnection>)),
-        )
+        Ok((reply, Box::new(client_connection) as Box<dyn ClientConnection>))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use log::info;
     use pravega_wire_protocol::client_config::ClientConfigBuilder;
     use pravega_wire_protocol::commands::HelloCommand;
     use pravega_wire_protocol::connection_factory::ConnectionFactoryImpl;
@@ -151,7 +125,6 @@ mod tests {
         pub fn new() -> Server {
             let listener = TcpListener::bind("127.0.0.1:0").expect("local server");
             let address = listener.local_addr().unwrap();
-            info!("server created");
             Server { address, listener }
         }
 
@@ -215,29 +188,5 @@ mod tests {
             })
         );
         h.join().expect("thread finished");
-        info!("Testing raw client hello passed");
-    }
-
-    #[test]
-    fn test_hello_failed() {
-        let mut common = Common::new();
-        let mut server = Server::new();
-
-        let raw_client_fut = RawClientImpl::new(&*common.pool, server.address);
-        let raw_client = common.rt.block_on(raw_client_fut);
-        let h = thread::spawn(move || {
-            server.send_hello_wrong_version();
-        });
-
-        let request = Requests::Hello(HelloCommand {
-            low_version: 5,
-            high_version: 9,
-        });
-
-        let reply = common.rt.block_on(raw_client.send_request(request));
-        assert!(reply.is_err(), "wrong wirecommand version");
-
-        h.join().expect("thread finished");
-        info!("Testing raw client hello passed");
     }
 }

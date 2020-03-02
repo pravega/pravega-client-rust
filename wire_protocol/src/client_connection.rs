@@ -59,12 +59,12 @@ impl ClientConnection for ClientConnectionImpl<'_> {
             part: "payload".to_string(),
         })?;
         let concatenated = [&header[..], &payload[..]].concat();
-        let reply: Replies = Replies::read_from(&concatenated).expect("decode reply");
+        let reply: Replies = Replies::read_from(&concatenated).context(DecodeCommand {})?;
         Ok(reply)
     }
 
     async fn write(&mut self, request: &Requests) -> Result<(), ClientConnectionError> {
-        let payload = request.write_fields().expect("encode request");
+        let payload = request.write_fields().context(EncodeCommand {})?;
         self.connection.send_async(&payload).await.context(Write {})
     }
 }
