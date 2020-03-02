@@ -102,7 +102,7 @@ impl ConnectionPool for ConnectionPoolImpl {
                 .map_or_else(
                     // track clippy issue https://github.com/rust-lang/rust-clippy/issues/3071
                     |e| {
-                        warn!("connection failed to establish");
+                        println!("connection failed to establish {:?}", e);
                         Err(e)
                     },
                     |conn| {

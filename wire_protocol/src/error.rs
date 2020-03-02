@@ -19,9 +19,10 @@ use std::net::SocketAddr;
 #[snafu(visibility = "pub(crate)")]
 pub enum ConnectionError {
     #[snafu(display(
-        "Could not connect to endpoint {} using connection type {}",
+        "Could not connect to endpoint {} using connection type {}: {}",
         endpoint,
-        connection_type
+        connection_type,
+        source
     ))]
     Connect {
         connection_type: ConnectionType,
@@ -29,13 +30,13 @@ pub enum ConnectionError {
         source: std::io::Error,
         backtrace: Backtrace,
     },
-    #[snafu(display("Could not send data to {} asynchronously", endpoint))]
+    #[snafu(display("Could not send data to {} asynchronously: {}", endpoint, source))]
     SendData {
         endpoint: SocketAddr,
         source: std::io::Error,
         backtrace: Backtrace,
     },
-    #[snafu(display("Could not read data from {} asynchronously", endpoint))]
+    #[snafu(display("Could not read data from {} asynchronously: {}", endpoint, source))]
     ReadData {
         endpoint: SocketAddr,
         source: std::io::Error,
@@ -78,14 +79,14 @@ pub enum CommandError {
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]
 pub enum ClientConnectionError {
-    #[snafu(display("Failed to read wirecommand {}", part))]
+    #[snafu(display("Failed to read wirecommand {} : {}", part, source))]
     Read {
         part: String,
         source: ConnectionError,
         backtrace: Backtrace,
     },
 
-    #[snafu(display("Failed to write wirecommand"))]
+    #[snafu(display("Failed to write wirecommand: {}", source))]
     Write {
         source: ConnectionError,
         backtrace: Backtrace,
@@ -106,7 +107,7 @@ pub enum ClientConnectionError {
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]
 pub enum ConnectionPoolError {
-    #[snafu(display("Could not establish connection to endpoint"))]
+    #[snafu(display("Could not establish connection to endpoint: {}", source))]
     EstablishConnection {
         source: ConnectionError,
         backtrace: Backtrace,
@@ -119,13 +120,13 @@ pub enum ConnectionPoolError {
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
 pub enum RawClientError {
-    #[snafu(display("Failed to get connection from connection pool"))]
+    #[snafu(display("Failed to get connection from connection pool: {}", source))]
     GetConnectionFromPool { source: ConnectionPoolError },
 
-    #[snafu(display("Failed to write request"))]
+    #[snafu(display("Failed to write request: {}", source))]
     WriteRequest { source: ClientConnectionError },
 
-    #[snafu(display("Failed to read reply"))]
+    #[snafu(display("Failed to read reply: {}", source))]
     ReadReply { source: ClientConnectionError },
 
     #[snafu(display("Reply incompatible wirecommand version: low {}, high {}", low, high))]

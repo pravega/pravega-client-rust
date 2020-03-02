@@ -24,7 +24,7 @@ use tracing::{event, span, Level};
 /// Request enums and return Reply enums asynchronously. It has logic to process some of the replies from
 /// server and return the processed result to caller.
 #[async_trait]
-trait RawClient<'a> {
+pub trait RawClient<'a> {
     /// Asynchronously send a request to the server and receive a response.
     async fn send_request(&self, request: Requests) -> Result<Replies, RawClientError>;
 
@@ -48,7 +48,7 @@ impl<'a> fmt::Debug for RawClientImpl<'a> {
 
 impl<'a> RawClientImpl<'a> {
     #[allow(clippy::new_ret_no_self)]
-    async fn new(pool: &'a dyn ConnectionPool, endpoint: SocketAddr) -> Box<dyn RawClient<'a> + 'a> {
+    pub async fn new(pool: &'a dyn ConnectionPool, endpoint: SocketAddr) -> Box<dyn RawClient<'a> + 'a> {
         Box::new(RawClientImpl { pool, endpoint })
     }
 
@@ -81,7 +81,6 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
         let mut client_connection = ClientConnectionImpl::new(connection);
         client_connection.write(&request).await.context(WriteRequest {})?;
         let reply = client_connection.read().await.context(ReadReply {})?;
-
         self.process(reply)
     }
 
