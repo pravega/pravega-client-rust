@@ -51,7 +51,6 @@ fn test_raw_client() {
 
     let mut pravega = PravegaStandaloneService::start();
     check_standalone_status(true, 20);
-    thread::sleep(time::Duration::from_secs(10));
 
     // Create scope and stream
     let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
