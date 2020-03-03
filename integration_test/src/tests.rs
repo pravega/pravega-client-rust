@@ -40,7 +40,6 @@ fn test_start_pravega_standalone() {
     wait_for_standalone_with_timeout(true, 5);
     pravega.stop().unwrap();
     wait_for_standalone_with_timeout(false, 5);
-
 }
 
 #[test]

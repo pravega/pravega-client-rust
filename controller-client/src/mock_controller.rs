@@ -10,8 +10,11 @@ use pravega_wire_protocol::error::ClientConnectionError;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::collections::HashSet;
 use std::collections::{BTreeMap, HashMap};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use uuid::Uuid;
+
+static ID_GENERATOR: AtomicUsize = AtomicUsize::new(0);
 
 struct MockController {
     endpoint: String,
@@ -28,6 +31,7 @@ impl ControllerClient for MockController {
         if self.created_scopes.contains_key(&scope_name) {
             return Ok(false);
         }
+
         self.created_scopes.insert(scope_name, HashSet::new());
         Ok(true)
     }
@@ -278,8 +282,9 @@ async fn create_segment(
         return Ok(true);
     }
     let scale_type = SegmentScaleType::NoScaling;
+    let id = ID_GENERATOR.fetch_add(1, Ordering::SeqCst) as i64;
     let command = Requests::CreateSegment(CreateSegmentCommand {
-        request_id: 0,
+        request_id: id,
         segment: name,
         target_rate: 0,
         scale_type: scale_type.to_u8(),
@@ -324,8 +329,9 @@ async fn delete_segment(
     if !call_server {
         return Ok(true);
     }
+    let id = ID_GENERATOR.fetch_add(1, Ordering::SeqCst) as i64;
     let command = Requests::DeleteSegment(DeleteSegmentCommand {
-        request_id: 1,
+        request_id: id,
         segment: name,
         delegation_token: String::from(""),
     });
@@ -370,8 +376,9 @@ async fn commit_tx_segment(
         return Ok(());
     }
     let source_name = segment.scope.name.clone() + &uuid.to_string();
+    let id = ID_GENERATOR.fetch_add(1, Ordering::SeqCst) as i64;
     let command = Requests::MergeSegments(MergeSegmentsCommand {
-        request_id: 2,
+        request_id: id,
         target: segment.to_string(),
         source: source_name,
         delegation_token: String::from(""),
@@ -421,8 +428,9 @@ async fn abort_tx_segment(
         return Ok(());
     }
     let transaction_name = segment.scope.name.clone() + &uuid.to_string();
+    let id = ID_GENERATOR.fetch_add(1, Ordering::SeqCst) as i64;
     let command = Requests::DeleteSegment(DeleteSegmentCommand {
-        request_id: 1,
+        request_id: id,
         segment: transaction_name,
         delegation_token: String::from(""),
     });
@@ -472,8 +480,9 @@ async fn create_tx_segment(
     }
     let transaction_name = segment.scope.name.clone() + &uuid.to_string();
     let scale_type = SegmentScaleType::NoScaling;
+    let id = ID_GENERATOR.fetch_add(1, Ordering::SeqCst) as i64;
     let command = Requests::CreateSegment(CreateSegmentCommand {
-        request_id: 0,
+        request_id: id,
         segment: transaction_name,
         target_rate: 0,
         scale_type: scale_type.to_u8(),
