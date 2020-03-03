@@ -185,9 +185,47 @@ pub struct SegmentWithRange {
     pub max_key: OrderedFloat<f64>,
 }
 
-#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct StreamSegments {
     pub key_segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
+}
+
+impl StreamSegments {
+    pub fn new(map_key_segment: BTreeMap<OrderedFloat<f64>, SegmentWithRange>) -> StreamSegments {
+        StreamSegments::is_valid(&map_key_segment).expect("Invalid key segment map");
+        StreamSegments {
+            key_segment_map: map_key_segment,
+        }
+    }
+
+    fn is_valid(map: &BTreeMap<OrderedFloat<f64>, SegmentWithRange>) -> Result<(), String> {
+        println!("Validation invoked");
+        if !map.is_empty() {
+            let (min_key, _min_seg) = map.iter().next().expect("Error reading min key");
+            let (max_key, _max_seg) = map.iter().next_back().expect("Error read max key");
+            assert!(
+                min_key.gt(&OrderedFloat(0.0)),
+                "Min key is expected to be greater than 0.0"
+            );
+            assert!(max_key.ge(&OrderedFloat(1.0)), "Last Key is missing");
+            assert!(
+                max_key.lt(&OrderedFloat(1.0001)),
+                "Segments should have values only upto 1.0"
+            );
+        }
+        Ok(())
+    }
+
+    pub fn get_segment(&self, key: f64) -> ScopedSegment {
+        assert!(OrderedFloat(key).ge(&OrderedFloat(0.0)), "Key should be >= 0.0");
+        assert!(OrderedFloat(key).le(&OrderedFloat(1.0)), "Key should be <= 1.0");
+        let r = self
+            .key_segment_map
+            .range(&OrderedFloat(key)..)
+            .next()
+            .expect("No matching segment found for the given key");
+        r.1.scoped_segment.to_owned()
+    }
 }
 
 #[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
@@ -195,3 +233,6 @@ pub struct TxnSegments {
     pub key_segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
     pub tx_id: TxId,
 }
+
+#[cfg(test)]
+mod test;
