@@ -4,6 +4,10 @@ use super::ControllerError;
 use async_trait::async_trait;
 use ordered_float::OrderedFloat;
 use pravega_rust_client_shared::*;
+use pravega_wire_protocol::client_connection::ClientConnection;
+use pravega_wire_protocol::commands::{CreateSegmentCommand, DeleteSegmentCommand, MergeSegmentsCommand};
+use pravega_wire_protocol::error::ClientConnectionError;
+use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::collections::HashSet;
 use std::collections::{BTreeMap, HashMap};
 use std::time::Duration;
@@ -12,6 +16,7 @@ use uuid::Uuid;
 struct MockController {
     endpoint: String,
     port: i32,
+    connection: Box<dyn ClientConnection>, // a fake client connection to send wire command.
     created_scopes: HashMap<String, HashSet<ScopedStream>>,
     created_streams: HashMap<ScopedStream, StreamConfiguration>,
 }
@@ -82,7 +87,7 @@ impl ControllerClient for MockController {
 
         for segment in get_segments_for_stream(&stream, &self.created_streams)? {
             let segment_name = segment.to_string();
-            create_segment(segment_name, false);
+            create_segment(segment_name, self, false).await?;
         }
         Ok(true)
     }
@@ -118,7 +123,7 @@ impl ControllerClient for MockController {
 
         for segment in get_segments_for_stream(stream, &self.created_streams)? {
             let segment_name = segment.to_string();
-            delete_segment(segment_name, false);
+            delete_segment(segment_name, self, false).await?;
         }
 
         self.created_streams.remove(stream);
@@ -158,7 +163,7 @@ impl ControllerClient for MockController {
         let uuid = Uuid::new_v4().as_u128();
         let current_segments = self.get_current_segments(stream).await?;
         for segment in current_segments.key_segment_map.values() {
-            create_tx_segment(TxId(uuid), segment.scoped_segment.clone(), false).await?;
+            create_tx_segment(TxId(uuid), segment.scoped_segment.clone(), self, false).await?;
         }
 
         Ok(TxnSegments {
@@ -189,7 +194,7 @@ impl ControllerClient for MockController {
     ) -> Result<(), ControllerError> {
         let current_segments = get_segments_for_stream(stream, &self.created_streams)?;
         for segment in current_segments {
-            commit_tx_segment(tx_id, segment, false).await?;
+            commit_tx_segment(tx_id, segment, self, false).await?;
         }
         Ok(())
     }
@@ -197,7 +202,7 @@ impl ControllerClient for MockController {
     async fn abort_transaction(&mut self, stream: &ScopedStream, tx_id: TxId) -> Result<(), ControllerError> {
         let current_segments = get_segments_for_stream(stream, &self.created_streams)?;
         for segment in current_segments {
-            abort_tx_segment(tx_id, segment, false).await?;
+            abort_tx_segment(tx_id, segment, self, false).await?;
         }
         Ok(())
     }
@@ -264,66 +269,250 @@ fn get_segments_for_stream(
     Ok(result)
 }
 
-fn create_segment(_name: String, call_server: bool) -> bool {
+async fn create_segment(
+    name: String,
+    controller: &mut MockController,
+    call_server: bool,
+) -> Result<bool, ControllerError> {
     if !call_server {
-        return true;
+        return Ok(true);
     }
-    //TODO: After the RawClient finish, mock the create segment.
-    false
+    let scale_type = SegmentScaleType::NoScaling;
+    let command = Requests::CreateSegment(CreateSegmentCommand {
+        request_id: 0,
+        segment: name,
+        target_rate: 0,
+        scale_type: scale_type.to_u8(),
+        delegation_token: String::from(""),
+    });
+    let reply = send_request_over_connection(&command, controller).await;
+    match reply {
+        Ok(r) => {
+            match r {
+                Replies::WrongHost(_) => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: "create segment".into(),
+                    error_msg: "Wrong host.".into(),
+                }),
+                Replies::SegmentCreated(_) => Ok(true),
+                Replies::SegmentAlreadyExists(_) => Ok(false),
+                Replies::AuthTokenCheckFailed(_) => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: "create segment".into(),
+                    error_msg: "authToken check failed,".into(),
+                }),
+                _ => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: "create segment".into(),
+                    error_msg: "Unsupported Command".into(),
+                }),
+            }
+        }
+        Err(_e) => Err(ControllerError::OperationError {
+            can_retry: false, // do not retry.
+            operation: "create segment".into(),
+            error_msg: "Connection Error".into(),
+        }),
+    }
 }
 
-fn delete_segment(_name: String, call_server: bool) -> bool {
+async fn delete_segment(
+    name: String,
+    controller: &mut MockController,
+    call_server: bool,
+) -> Result<bool, ControllerError> {
     if !call_server {
-        return true;
+        return Ok(true);
     }
-    //TODO: After the RawClient finish, mock the delete segment.
-    false
+    let command = Requests::DeleteSegment(DeleteSegmentCommand {
+        request_id: 1,
+        segment: name,
+        delegation_token: String::from(""),
+    });
+    let reply = send_request_over_connection(&command, controller).await;
+    match reply {
+        Err(_e) => Err(ControllerError::OperationError {
+            can_retry: false, // do not retry.
+            operation: "delete segment".into(),
+            error_msg: "Connection Error".into(),
+        }),
+        Ok(r) => {
+            match r {
+                Replies::WrongHost(_) => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: "delete segment".into(),
+                    error_msg: "Wrong host.".into(),
+                }),
+                Replies::SegmentDeleted(_) => Ok(true),
+                Replies::NoSuchSegment(_) => Ok(false),
+                Replies::AuthTokenCheckFailed(_) => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: "delete segment".into(),
+                    error_msg: "authToken check failed,".into(),
+                }),
+                _ => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: "delete segment".into(),
+                    error_msg: "Unsupported Command.".into(),
+                }),
+            }
+        }
+    }
 }
 
 async fn commit_tx_segment(
-    _uuid: TxId,
-    _segment: ScopedSegment,
+    uuid: TxId,
+    segment: ScopedSegment,
+    controller: &mut MockController,
     call_server: bool,
 ) -> Result<(), ControllerError> {
     if !call_server {
         return Ok(());
     }
-    //TODO: After the RawClient finish, mock the commit segment.
-    Err(ControllerError::OperationError {
-        can_retry: false, // do not retry.
-        operation: "commit tx segment".into(),
-        error_msg: "unsupported operation.".into(),
-    })
+    let source_name = segment.scope.name.clone() + &uuid.to_string();
+    let command = Requests::MergeSegments(MergeSegmentsCommand {
+        request_id: 2,
+        target: segment.to_string(),
+        source: source_name,
+        delegation_token: String::from(""),
+    });
+    let reply = send_request_over_connection(&command, controller).await;
+    match reply {
+        Err(_e) => Err(ControllerError::OperationError {
+            can_retry: false, // do not retry.
+            operation: "commit tx segment".into(),
+            error_msg: "Connection Error".into(),
+        }),
+        Ok(r) => {
+            match r {
+                Replies::SegmentsMerged(_) => Ok(()),
+                Replies::WrongHost(_) => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: "commit tx segment".into(),
+                    error_msg: "Wrong host.".into(),
+                }),
+                Replies::SegmentDeleted(_) => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: "commit tx segment".into(),
+                    error_msg: "Transaction already aborted.".into(),
+                }),
+                Replies::AuthTokenCheckFailed(_) => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: "commit tx segment".into(),
+                    error_msg: "authToken check failed,".into(),
+                }),
+                _ => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: "commit tx segment".into(),
+                    error_msg: "Unsupported Command,".into(),
+                }),
+            }
+        }
+    }
 }
 
 async fn abort_tx_segment(
-    _uuid: TxId,
-    _segment: ScopedSegment,
+    uuid: TxId,
+    segment: ScopedSegment,
+    controller: &mut MockController,
     call_server: bool,
 ) -> Result<(), ControllerError> {
     if !call_server {
         return Ok(());
     }
-    //TODO: Mock the abort tx segment.
-    Err(ControllerError::OperationError {
-        can_retry: false, // do not retry.
-        operation: "abort tx segment".into(),
-        error_msg: "unsupported operation.".into(),
-    })
+    let transaction_name = segment.scope.name.clone() + &uuid.to_string();
+    let command = Requests::DeleteSegment(DeleteSegmentCommand {
+        request_id: 1,
+        segment: transaction_name,
+        delegation_token: String::from(""),
+    });
+    let reply = send_request_over_connection(&command, controller).await;
+    match reply {
+        Err(_e) => Err(ControllerError::OperationError {
+            can_retry: false, // do not retry.
+            operation: "abort tx segment".into(),
+            error_msg: "Connection Error".into(),
+        }),
+        Ok(r) => {
+            match r {
+                Replies::SegmentsMerged(_) => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: "abort tx segment".into(),
+                    error_msg: "Transaction already committed.".into(),
+                }),
+                Replies::WrongHost(_) => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: "abort tx segment".into(),
+                    error_msg: "Wrong host.".into(),
+                }),
+                Replies::AuthTokenCheckFailed(_) => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: "abort tx segment".into(),
+                    error_msg: "authToken check failed,".into(),
+                }),
+                Replies::SegmentDeleted(_) => Ok(()),
+                _ => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: "abort tx segment".into(),
+                    error_msg: "Unsupported Command,".into(),
+                }),
+            }
+        }
+    }
 }
 
 async fn create_tx_segment(
-    _uuid: TxId,
-    _segment: ScopedSegment,
+    uuid: TxId,
+    segment: ScopedSegment,
+    controller: &mut MockController,
     call_server: bool,
 ) -> Result<(), ControllerError> {
     if !call_server {
         return Ok(());
     }
-    //TODO: Mock the create tx segment.
-    Err(ControllerError::OperationError {
-        can_retry: false, // do not retry.
-        operation: "create tx segment".into(),
-        error_msg: "unsupported operation.".into(),
-    })
+    let transaction_name = segment.scope.name.clone() + &uuid.to_string();
+    let scale_type = SegmentScaleType::NoScaling;
+    let command = Requests::CreateSegment(CreateSegmentCommand {
+        request_id: 0,
+        segment: transaction_name,
+        target_rate: 0,
+        scale_type: scale_type.to_u8(),
+        delegation_token: String::from(""),
+    });
+    let reply = send_request_over_connection(&command, controller).await;
+    match reply {
+        Err(_e) => Err(ControllerError::OperationError {
+            can_retry: false, // do not retry.
+            operation: "abort tx segment".into(),
+            error_msg: "Connection Error".into(),
+        }),
+        Ok(r) => {
+            match r {
+                Replies::SegmentCreated(_) => Ok(()),
+                Replies::WrongHost(_) => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: "create tx segment".into(),
+                    error_msg: "Wrong host.".into(),
+                }),
+                Replies::AuthTokenCheckFailed(_) => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: "create tx segment".into(),
+                    error_msg: "authToken check failed,".into(),
+                }),
+                _ => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: "create tx segment".into(),
+                    error_msg: "Unsupported Command,".into(),
+                }),
+            }
+        }
+    }
+}
+
+async fn send_request_over_connection(
+    command: &Requests,
+    controller: &mut MockController,
+) -> Result<Replies, ClientConnectionError> {
+    controller.connection.write(command).await?;
+    controller.connection.read().await
 }
