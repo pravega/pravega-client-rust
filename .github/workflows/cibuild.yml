@@ -58,9 +58,10 @@ jobs:
     name: Code Cov
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
-      - name: codecov
-        uses: Quadriphobs1/rust-codecov-action@v1.6
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Hello world action step
+        uses: ./actions/codecov
         env:
           CODECOV_TOKEN: 6af47fa4-eed7-4fce-adbd-77291bc74cac
   
