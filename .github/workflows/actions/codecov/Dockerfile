@@ -1,11 +1,41 @@
-FROM spritsail/alpine-cmake:latest
+FROM debian:stable-slim AS builder
 
-LABEL "com.github.actions.name"="rust-codecov-action"
-LABEL "com.github.actions.description"="Uploading rust codecoverage to github action"
-LABEL "com.github.actions.icon"="umbrella"
-LABEL "com.github.actions.color"="red"
+RUN apt-get update && \
+    apt-get install -y \
+        binutils-dev \
+        build-essential \
+        cmake \
+        git \
+        libcurl4-openssl-dev \
+        libdw-dev \
+        libiberty-dev \
+        ninja-build \
+        python3 \
+        zlib1g-dev \
+        ;
 
-RUN apk add --no-cache ca-certificates wget zlib-dev binutils-dev curl-dev libelf-dev elfutils-dev && update-ca-certificates
+ADD . /src/
+
+RUN mkdir /src/build && \
+    cd /src/build && \
+    cmake -G 'Ninja' .. && \
+    cmake --build . && \
+    cmake --build . --target install
+
+FROM debian:stable-slim
+
+RUN apt-get update && \
+    apt-get install -y \
+        binutils \
+        libcurl4 \
+        libdw1 \
+        zlib1g \
+        && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /usr/local/bin/kcov* /usr/local/bin/
+COPY --from=builder /usr/local/share/doc/kcov /usr/local/share/doc/kcov
 
 ADD entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
