@@ -52,18 +52,7 @@ jobs:
           command: check
           args: --workspace
         env:  #Will be handled by clippy
-          RUSTFLAGS: -A warnings 
-
-  build:
-    name: Code Cov
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Code cov action step
-        uses: ./.github/workflows/actions/codecov
-        env:
-          CODECOV_TOKEN: 6af47fa4-eed7-4fce-adbd-77291bc74cac
+          RUSTFLAGS: -A warnings
   
   test:
     name: Test Suite
@@ -111,6 +100,9 @@ jobs:
         with:
           command: test
           args: --workspace -- --test-threads 1
+
+      - name: Run code cov
+        run: ./.github/workflows/codecov/codecov.sh
 
   fmt:
     name: Rustfmt
