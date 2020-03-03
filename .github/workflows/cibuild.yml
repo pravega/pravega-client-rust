@@ -61,7 +61,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Code cov action step
-        uses: ./.github/actions/codecov
+        uses: ./.github/workflows/actions/codecov
         env:
           CODECOV_TOKEN: 6af47fa4-eed7-4fce-adbd-77291bc74cac
   
