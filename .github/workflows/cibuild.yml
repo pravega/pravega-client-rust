@@ -60,7 +60,7 @@ jobs:
     steps:
       - uses: actions/checkout@v1
       - name: codecov
-        uses: Quadriphobs1/rust-codecov-action@v1.2
+        uses: Quadriphobs1/rust-codecov-action@v1.6
         env:
           CODECOV_TOKEN: 6af47fa4-eed7-4fce-adbd-77291bc74cac
   
