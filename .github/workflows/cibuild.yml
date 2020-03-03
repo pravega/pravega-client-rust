@@ -60,8 +60,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Hello world action step
-        uses: ./actions/codecov
+      - name: Code cov action step
+        uses: ./.github/actions/codecov
         env:
           CODECOV_TOKEN: 6af47fa4-eed7-4fce-adbd-77291bc74cac
   
