@@ -102,7 +102,9 @@ jobs:
           args: --workspace -- --test-threads 1
 
       - name: Run code cov
-        run: ./.github/workflows/codecov/codecov.sh
+        run: |
+          chmod +x ./.github/workflows/codecov/codecov.sh
+          ./.github/workflows/codecov/codecov.sh
 
   fmt:
     name: Rustfmt
