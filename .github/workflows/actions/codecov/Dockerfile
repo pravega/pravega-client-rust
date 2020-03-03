@@ -5,7 +5,7 @@ LABEL "com.github.actions.description"="Uploading rust codecoverage to github ac
 LABEL "com.github.actions.icon"="umbrella"
 LABEL "com.github.actions.color"="red"
 
-RUN apk add --no-cache ca-certificates wget zlib-dev binutils-dev && update-ca-certificates
+RUN apk add --no-cache ca-certificates wget zlib-dev binutils-dev curl-dev libelf-dev elfutils-dev && update-ca-certificates
 
 ADD entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

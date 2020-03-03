@@ -8,7 +8,6 @@ KCOVMASTER="kcov-master"
 
 echo "Getting kcov files"
 sh -c "wget -nv https://github.com/SimonKagstrom/kcov/archive/master.tar.gz"
-
 echo "Extracting kcov content"
 tar -xzf master.tar.gz
 
