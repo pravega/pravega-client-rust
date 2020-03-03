@@ -1,11 +1,11 @@
-FROM alpine
+FROM spritsail/alpine-cmake:latest
 
 LABEL "com.github.actions.name"="rust-codecov-action"
 LABEL "com.github.actions.description"="Uploading rust codecoverage to github action"
 LABEL "com.github.actions.icon"="umbrella"
 LABEL "com.github.actions.color"="red"
 
-RUN apk add --no-cache ca-certificates wget cmake make && update-ca-certificates
+RUN apk add --no-cache ca-certificates wget && update-ca-certificates
 
 ADD entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
