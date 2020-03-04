@@ -287,7 +287,7 @@ async fn create_segment(
         request_id: id,
         segment: name,
         target_rate: 0,
-        scale_type: scale_type.to_u8(),
+        scale_type: scale_type as u8,
         delegation_token: String::from(""),
     });
     let reply = send_request_over_connection(&command, controller).await;
@@ -485,7 +485,7 @@ async fn create_tx_segment(
         request_id: id,
         segment: transaction_name,
         target_rate: 0,
-        scale_type: scale_type.to_u8(),
+        scale_type: scale_type as u8,
         delegation_token: String::from(""),
     });
     let reply = send_request_over_connection(&command, controller).await;

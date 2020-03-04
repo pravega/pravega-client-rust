@@ -128,16 +128,6 @@ pub enum ScaleType {
     ByRateInEventsPerSec = 2,
 }
 
-impl ScaleType {
-    pub fn to_u8(&self) -> u8 {
-        match self {
-            ScaleType::FixedNumSegments => 0 as u8,
-            ScaleType::ByRateInKbytesPerSec => 1 as u8,
-            ScaleType::ByRateInEventsPerSec => 2 as u8,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Scaling {
     pub scale_type: ScaleType,
