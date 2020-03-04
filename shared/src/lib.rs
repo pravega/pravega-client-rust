@@ -31,10 +31,10 @@ extern crate shrinkwraprs;
 extern crate derive_new;
 
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
-pub struct PravegaNodeUri(String);
+pub struct PravegaNodeUri(pub String);
 
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
-pub struct DelegationToken(String);
+pub struct DelegationToken(pub String);
 
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Timestamp(pub u64);

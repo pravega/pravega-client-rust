@@ -50,10 +50,10 @@ pub mod controller {
     // this is the rs file name generated after compiling the proto file, located inside the target folder.
 }
 
+mod mock_controller;
+mod model_helper;
 #[cfg(test)]
 mod test;
-
-mod model_helper;
 
 #[derive(Debug, Snafu)]
 pub enum ControllerError {
