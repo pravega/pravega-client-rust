@@ -106,6 +106,21 @@ jobs:
 #          chmod +x ./.github/workflows/codecov/codecov.sh
 #          ./.github/workflows/codecov/codecov.sh
 
+  codecov:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Push to codecov.io
+        env:
+          CODECOV_TOKEN: 6af47fa4-eed7-4fce-adbd-77291bc74cac
+        run: |
+          cargo install cargo-tarpaulin
+          cargo tarpaulin --out Xml
+          bash <(curl -s https://codecov.io/bash) -X gcov -t $CODECOV_TOKEN
+          
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest
@@ -196,19 +211,4 @@ jobs:
           command: clippy
           args: --workspace
         env:  
-          RUSTFLAGS: -D warnings 
-
-  codecov:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - name: Push to codecov.io
-        env:
-          CODECOV_TOKEN: 6af47fa4-eed7-4fce-adbd-77291bc74cac
-        run: |
-          cargo install cargo-tarpaulin
-          cargo tarpaulin --out Xml
-          bash <(curl -s https://codecov.io/bash) -X gcov -t $CODECOV_TOKEN
+          RUSTFLAGS: -D warnings
