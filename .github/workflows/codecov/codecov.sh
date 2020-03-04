@@ -28,6 +28,6 @@ make install DESTDIR=../../kcov-build &&
 cd ../.. &&
 ls &&
 rm -rf kcov-master &&
-for file in target/debug/pravega_client_rust-*; do [ -x "${file}" ] || continue; mkdir -p "target/cov/$(basename $file)"; sudo ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/$(basename $file)" "$file"; done &&
+for file in target/debug/pravega_client_rust-*; do [ -x "${file}" ] || continue; mkdir -p "target/cov/$(basename $file)"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/$(basename $file)" "$file"; done &&
 bash <(curl -s https://codecov.io/bash) -t 6af47fa4-eed7-4fce-adbd-77291bc74cac &&
 echo "Uploaded code coverage"
