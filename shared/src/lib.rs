@@ -234,5 +234,22 @@ pub struct TxnSegments {
     pub tx_id: TxId,
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct StreamSegmentsWithPredecessors {
+    pub segment_with_predecessors: HashMap<SegmentWithRange, Vec<Segment>>,
+    // pub replacement_segments: HashMap<Segment, Vec<SegmentWithRange>>, // inverse lookup
+}
+
+// impl StreamSegmentsWithPredecessors {
+//     pub fn new(
+//         segment_with_predecessor: HashMap<SegmentWithRange, Vec<Segment>>,
+//     ) -> StreamSegmentsWithPredecessors {
+//         StreamSegmentsWithPredecessors {
+//             segment_with_predecessors: segment_with_predecessor,
+//             replacement_segments: HashMap::new(),
+//         }
+//     }
+// }
+
 #[cfg(test)]
 mod test;

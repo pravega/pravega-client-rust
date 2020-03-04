@@ -20,9 +20,7 @@ fn test_valid_segments() {
     assert_eq!(s.key_segment_map.len(), 2);
     assert_eq!(segment_1.clone(), s.get_segment(0.75));
     assert_eq!(segment_1.clone(), s.get_segment(1.0));
-    // TODO: This fails need to find a solution for this.
-    // assert_eq!(segment_1.clone(), s.get_segment(0.5));
-
+    assert_eq!(segment_0.clone(), s.get_segment(0.5));
     assert_eq!(segment_0.clone(), s.get_segment(0.4));
     assert_eq!(segment_0.clone(), s.get_segment(0.499));
 }
@@ -64,6 +62,22 @@ fn test_invalid_segments_missing_range() {
         SegmentWithRange::new(segment_0, OrderedFloat(0.0), OrderedFloat(0.5)),
     );
     let _s = StreamSegments::new(segment_map);
+}
+
+#[test]
+fn test_get_key_invalid_key_greaterthanone() {
+    let segment_0 = create_segment(0);
+
+    let mut segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange> = BTreeMap::new();
+    segment_map.insert(
+        OrderedFloat(1.0),
+        SegmentWithRange::new(segment_0, OrderedFloat(0.0), OrderedFloat(1.0)),
+    );
+    let s = StreamSegments::new(segment_map);
+    let result = std::panic::catch_unwind(|| s.get_segment(1.1));
+    assert!(result.is_err());
+    let result = std::panic::catch_unwind(|| s.get_segment(-0.1));
+    assert!(result.is_err());
 }
 
 fn create_segment(segment_number: i64) -> ScopedSegment {

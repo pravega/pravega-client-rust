@@ -11,7 +11,7 @@ use super::PravegaNodeUri;
 use crate::controller::*;
 use ordered_float::OrderedFloat;
 use pravega_rust_client_shared::*;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 impl From<NodeUri> for PravegaNodeUri {
     fn from(value: NodeUri) -> PravegaNodeUri {
@@ -135,6 +135,23 @@ impl<'a> From<&'a pravega_rust_client_shared::StreamCut> for crate::controller::
     }
 }
 
+impl<'a> From<&'a SegmentRange> for SegmentWithRange {
+    fn from(value: &'a SegmentRange) -> SegmentWithRange {
+        SegmentWithRange::new(
+            ScopedSegment::from(value.segment_id.unwrap()),
+            OrderedFloat(value.min_key),
+            OrderedFloat(value.max_key),
+        )
+    }
+}
+    // fn from(value: &'a pravega_rust_client_shared::StreamCut) -> crate::controller::StreamCut {
+    //     crate::controller::StreamCut {
+    //         stream_info: Some(StreamInfo::from(&value.scoped_stream)),
+    //         cut: value.segment_offset_map.to_owned(),
+    //     }
+    // }
+}
+
 impl From<SegmentId> for ScopedSegment {
     fn from(value: SegmentId) -> ScopedSegment {
         let stream_info: StreamInfo = value.stream_info.unwrap();
@@ -162,6 +179,7 @@ impl From<SegmentRanges> for StreamSegments {
         StreamSegments::new(segment_map)
     }
 }
+
 impl From<CreateTxnResponse> for TxnSegments {
     fn from(txn_response: CreateTxnResponse) -> TxnSegments {
         let mut segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange> = BTreeMap::new();
@@ -182,3 +200,19 @@ impl From<CreateTxnResponse> for TxnSegments {
         TxnSegments::new(segment_map, TxId::new(txn_uuid))
     }
 }
+
+// impl From<SuccessorResponse> for StreamSegmentsWithPredecessors {
+//     fn from(successor_response: SuccessorResponse) -> StreamSegmentsWithPredecessors {
+//         let successors: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+//         for x in &successor_response.segments {
+//             let s: SegmentWithRange = x.segment.unwrap().into();
+//             let p: Vec<Segment> = Vec::new(&successor_response.value.len());
+//             for y in &successor_response.value {
+// p.push(y.into())
+// }
+//             successor.insert(s, p);
+// }
+//
+// StreamSegmentsWithPredecessors::new(successors)
+// }
+//         }
