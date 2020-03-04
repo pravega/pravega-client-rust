@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-apt-get update && \
-apt-get install -y \
+sudo apt-get update && \
+sudo apt-get install -y \
 curl \
 libcurl4-openssl-dev \
 libelf-dev \
