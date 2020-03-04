@@ -128,6 +128,16 @@ pub enum ScaleType {
     ByRateInEventsPerSec = 2,
 }
 
+impl ScaleType {
+    pub fn to_u8(&self) -> u8 {
+        match self {
+            SegmentScaleType::NoScaling => 0 as u8,
+            SegmentScaleType::Throughput => 1 as u8,
+            SegmentScaleType::EventRate => 2 as u8,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Scaling {
     pub scale_type: ScaleType,
@@ -194,20 +204,4 @@ pub struct StreamSegments {
 pub struct TxnSegments {
     pub key_segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
     pub tx_id: TxId,
-}
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub enum SegmentScaleType {
-    NoScaling = 0,
-    Throughput = 1,
-    EventRate = 2,
-}
-
-impl SegmentScaleType {
-    pub fn to_u8(&self) -> u8 {
-        match self {
-            SegmentScaleType::NoScaling => 0 as u8,
-            SegmentScaleType::Throughput => 1 as u8,
-            SegmentScaleType::EventRate => 2 as u8,
-        }
-    }
 }

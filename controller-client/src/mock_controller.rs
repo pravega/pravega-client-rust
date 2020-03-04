@@ -281,7 +281,7 @@ async fn create_segment(
     if !call_server {
         return Ok(true);
     }
-    let scale_type = SegmentScaleType::NoScaling;
+    let scale_type = ScaleType::FixedNumSegments;
     let id = ID_GENERATOR.fetch_add(1, Ordering::SeqCst) as i64;
     let command = Requests::CreateSegment(CreateSegmentCommand {
         request_id: id,
@@ -479,7 +479,7 @@ async fn create_tx_segment(
         return Ok(());
     }
     let transaction_name = segment.scope.name.clone() + &uuid.to_string();
-    let scale_type = SegmentScaleType::NoScaling;
+    let scale_type = ScaleType::FixedNumSegments;
     let id = ID_GENERATOR.fetch_add(1, Ordering::SeqCst) as i64;
     let command = Requests::CreateSegment(CreateSegmentCommand {
         request_id: id,
