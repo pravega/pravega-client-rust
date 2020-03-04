@@ -9,6 +9,7 @@ use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFac
 use pravega_wire_protocol::connection_pool::ConnectionPoolImpl;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
+
 use std::process::Command;
 use std::{thread, time};
 use tokio::runtime::Runtime;
@@ -50,6 +51,7 @@ fn test_raw_client() {
     let stream_name = Stream::new("testStream".into());
 
     let mut pravega = PravegaStandaloneService::start();
+
     wait_for_standalone_with_timeout(true, 20);
 
     // Create scope and stream
