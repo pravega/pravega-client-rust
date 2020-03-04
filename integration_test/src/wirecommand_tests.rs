@@ -12,6 +12,7 @@ use std::net::SocketAddr;
 use std::process::Command;
 use std::{thread, time};
 use tokio::runtime::Runtime;
+use std::panic::catch_unwind;
 
 fn wait_for_standalone_with_timeout(running: bool, timeout: i32) {
     for _i in 0..timeout {
@@ -34,24 +35,32 @@ fn wait_for_standalone_with_timeout(running: bool, timeout: i32) {
 }
 
 #[test]
-fn test_start_pravega_standalone() {
+fn test_wirecommand() {
     let mut pravega = PravegaStandaloneService::start();
-    wait_for_standalone_with_timeout(true, 5);
+    wait_for_standalone_with_timeout(true, 20);
+    let result = catch_unwind(||{test_raw_client()});
+    assert!(result.is_ok());
     pravega.stop().unwrap();
-    wait_for_standalone_with_timeout(false, 5);
+    wait_for_standalone_with_timeout(false, 10);
+}
+/*
+fn test_hello() {
+
 }
 
-#[test]
+fn test_setup_append() {
+
+}
+
+fn test_conditional_append() {
+
+}
+*/
 fn test_raw_client() {
     let mut rt = Runtime::new().expect("create runtime");
 
-    // spin up Pravega standalone
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
-
-    let mut pravega = PravegaStandaloneService::start();
-    wait_for_standalone_with_timeout(true, 20);
-
     // Create scope and stream
     let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
     let mut controller_client = ControllerClientImpl { channel: client };
@@ -110,6 +119,4 @@ fn test_raw_client() {
     });
     rt.block_on(raw_client.send_request(request))
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
-    pravega.stop().unwrap();
-    wait_for_standalone_with_timeout(false, 5);
 }
