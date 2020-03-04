@@ -13,7 +13,9 @@ binutils-dev \
 libiberty-dev \
 build-essential \
 zlib1g-dev \
-git
+git \
+elfutils
+echo "Dependencies installed"
 
 wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
 tar xzf master.tar.gz &&
