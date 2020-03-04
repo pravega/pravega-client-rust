@@ -131,9 +131,9 @@ pub enum ScaleType {
 impl ScaleType {
     pub fn to_u8(&self) -> u8 {
         match self {
-            SegmentScaleType::NoScaling => 0 as u8,
-            SegmentScaleType::Throughput => 1 as u8,
-            SegmentScaleType::EventRate => 2 as u8,
+            ScaleType::FixedNumSegments => 0 as u8,
+            ScaleType::ByRateInKbytesPerSec => 1 as u8,
+            ScaleType::ByRateInEventsPerSec => 2 as u8,
         }
     }
 }
