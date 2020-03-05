@@ -138,18 +138,11 @@ impl<'a> From<&'a pravega_rust_client_shared::StreamCut> for crate::controller::
 impl<'a> From<&'a SegmentRange> for SegmentWithRange {
     fn from(value: &'a SegmentRange) -> SegmentWithRange {
         SegmentWithRange::new(
-            ScopedSegment::from(value.segment_id.unwrap()),
+            ScopedSegment::from(value.segment_id.clone().unwrap()),
             OrderedFloat(value.min_key),
             OrderedFloat(value.max_key),
         )
     }
-}
-    // fn from(value: &'a pravega_rust_client_shared::StreamCut) -> crate::controller::StreamCut {
-    //     crate::controller::StreamCut {
-    //         stream_info: Some(StreamInfo::from(&value.scoped_stream)),
-    //         cut: value.segment_offset_map.to_owned(),
-    //     }
-    // }
 }
 
 impl From<SegmentId> for ScopedSegment {
@@ -201,18 +194,16 @@ impl From<CreateTxnResponse> for TxnSegments {
     }
 }
 
-// impl From<SuccessorResponse> for StreamSegmentsWithPredecessors {
-//     fn from(successor_response: SuccessorResponse) -> StreamSegmentsWithPredecessors {
-//         let successors: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
-//         for x in &successor_response.segments {
-//             let s: SegmentWithRange = x.segment.unwrap().into();
-//             let p: Vec<Segment> = Vec::new(&successor_response.value.len());
-//             for y in &successor_response.value {
-// p.push(y.into())
-// }
-//             successor.insert(s, p);
-// }
-//
-// StreamSegmentsWithPredecessors::new(successors)
-// }
-//         }
+impl From<SuccessorResponse> for StreamSegmentsWithPredecessors {
+    fn from(successor_response: SuccessorResponse) -> StreamSegmentsWithPredecessors {
+        let s: Vec<successor_response::SegmentEntry> = successor_response.segments;
+        let mut successor_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+        for e in &s {
+            let seg_range: SegmentWithRange = SegmentWithRange::from(&e.segment.clone().unwrap());
+            let pred_segm: Vec<Segment> = e.value.iter().map(|&x| Segment::new(x)).collect::<Vec<Segment>>();
+            successor_map.insert(seg_range, pred_segm);
+        }
+        // convert std::collections::HashMap to im::hashmap::HashMap
+        StreamSegmentsWithPredecessors::new(successor_map.into())
+    }
+}

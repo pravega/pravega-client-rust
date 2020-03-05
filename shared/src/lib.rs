@@ -17,6 +17,7 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
+use im::HashMap as ImHashMap;
 use ordered_float::OrderedFloat;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
@@ -236,20 +237,32 @@ pub struct TxnSegments {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct StreamSegmentsWithPredecessors {
-    pub segment_with_predecessors: HashMap<SegmentWithRange, Vec<Segment>>,
-    // pub replacement_segments: HashMap<Segment, Vec<SegmentWithRange>>, // inverse lookup
+    pub segment_with_predecessors: ImHashMap<SegmentWithRange, Vec<Segment>>,
+    pub replacement_segments: ImHashMap<Segment, Vec<SegmentWithRange>>, // inverse lookup
 }
 
-// impl StreamSegmentsWithPredecessors {
-//     pub fn new(
-//         segment_with_predecessor: HashMap<SegmentWithRange, Vec<Segment>>,
-//     ) -> StreamSegmentsWithPredecessors {
-//         StreamSegmentsWithPredecessors {
-//             segment_with_predecessors: segment_with_predecessor,
-//             replacement_segments: HashMap::new(),
-//         }
-//     }
-// }
+impl StreamSegmentsWithPredecessors {
+    pub fn new(
+        segment_with_predecessor: ImHashMap<SegmentWithRange, Vec<Segment>>,
+    ) -> StreamSegmentsWithPredecessors {
+        let mut replacement_map: HashMap<Segment, Vec<SegmentWithRange>> = HashMap::new();
+        for (segment, predecessor) in &segment_with_predecessor {
+            for predecessor_segment in predecessor {
+                let predecessor = predecessor_segment.clone();
+                let mut replacement_segments = replacement_map
+                    .get(&predecessor)
+                    .get_or_insert(&Vec::new())
+                    .clone();
+                replacement_segments.push((*segment).clone());
+                replacement_map.insert(predecessor, replacement_segments.to_vec());
+            }
+        }
+        StreamSegmentsWithPredecessors {
+            segment_with_predecessors: segment_with_predecessor,
+            replacement_segments: replacement_map.into(),
+        }
+    }
+}
 
 #[cfg(test)]
 mod test;

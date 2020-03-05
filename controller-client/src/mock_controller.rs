@@ -237,6 +237,17 @@ impl ControllerClient for MockController {
     ) -> Result<DelegationToken, ControllerError> {
         Ok(DelegationToken(String::from("")))
     }
+
+    async fn get_successors(
+        &mut self,
+        _segment: &ScopedSegment,
+    ) -> Result<StreamSegmentsWithPredecessors, ControllerError> {
+        Err(ControllerError::OperationError {
+            can_retry: false, // do not retry.
+            operation: "get successors".into(),
+            error_msg: "unsupported operation.".into(),
+        })
+    }
 }
 
 fn get_segments_for_stream(

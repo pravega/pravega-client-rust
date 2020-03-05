@@ -39,14 +39,18 @@ use controller::{
     delete_scope_status, delete_stream_status, ping_txn_status, txn_state, txn_status, update_stream_status,
     CreateScopeStatus, CreateStreamStatus, CreateTxnRequest, CreateTxnResponse, DeleteScopeStatus,
     DeleteStreamStatus, NodeUri, PingTxnRequest, PingTxnStatus, ScopeInfo, SegmentRanges, StreamConfig,
-    StreamInfo, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
+    StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
 };
 use pravega_rust_client_shared::*;
 use std::convert::{From, Into};
 
 #[allow(non_camel_case_types)]
 pub mod controller {
-    tonic::include_proto!("io.pravega.controller.stream.api.grpc.v1");
+    // tonic::include_proto!("io.pravega.controller.stream.api.grpc.v1");
+    include!(concat!(
+        env!("OUT_DIR"),
+        concat!("/", "io.pravega.controller.stream.api.grpc.v1", ".rs")
+    ));
     // this is the rs file name generated after compiling the proto file, located inside the target folder.
 }
 
@@ -733,21 +737,17 @@ async fn check_transaction_status(
 }
 
 /// Async helper function to get segment URI.
-// async fn get_successors(
-//     request: &ScopedSegment,
-//     ch: &mut ControllerServiceClient<Channel>,
-// ) -> Result<StreamSegmentsWithPredecessors> {
-//     let op_status: StdResult<tonic::Response<SuccessorResponse>, tonic::Status> = ch
-//         .get_segments_immediately_following(tonic::Request::new(request.into()))
-//         .await;
-//     let operation_name = "get_successors_segment";
-//     let _temp = match op_status {
-//         Ok(response) => Ok(response.segments),
-//         Err(status) => Err(map_grpc_error(operation_name, status)),
-//     };
-//     Err(ControllerError::OperationError {
-//         can_retry: false,
-//         operation: operation_name.into(),
-//         error_msg: status.to_string(),
-//     })
-// }
+async fn get_successors(
+    request: &ScopedSegment,
+    ch: &mut ControllerServiceClient<Channel>,
+) -> Result<StreamSegmentsWithPredecessors> {
+    let op_status: StdResult<tonic::Response<SuccessorResponse>, tonic::Status> = ch
+        .get_segments_immediately_following(tonic::Request::new(request.into()))
+        .await;
+    let operation_name = "get_successors_segment";
+    match op_status {
+        Ok(response) => Ok(response.into_inner()),
+        Err(status) => Err(map_grpc_error(operation_name, status)),
+    }
+    .map(StreamSegmentsWithPredecessors::from)
+}
