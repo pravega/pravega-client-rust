@@ -239,7 +239,7 @@ impl StreamSegments {
         let mut replaced_ranges = replacement_ranges
             .replacement_segments
             .get(segment_replace)
-            .expect(format!("Empty set of replacements for {:?}", segment_replace).as_ref())
+            .unwrap_or_else(|| panic!("Empty set of replacements"))
             .clone();
 
         replaced_ranges.sort_by_key(|k| Reverse(k.max_key));
@@ -255,16 +255,14 @@ impl StreamSegments {
                     let lower_bound = self.key_segment_map.range(key..).next_back();
                     match lower_bound {
                         None => {
-                            result.insert(min(new_segment.max_key, key.clone()), new_segment.clone());
-                            ()
+                            result.insert(min(new_segment.max_key, *key), new_segment.clone());
                         }
                         Some(lower_bound_value) => {
                             if new_segment.max_key.ge(lower_bound_value.0) {
-                                result.insert(min(new_segment.max_key, key.clone()), new_segment.clone());
+                                result.insert(min(new_segment.max_key, *key), new_segment.clone());
                             }
-                            ()
                         }
-                    }
+                    };
                 }
             } else {
                 result.insert(*key, seg.clone());
@@ -274,7 +272,7 @@ impl StreamSegments {
         Err("Not Implemented".to_string())
     }
 
-    fn verify_continuous(segment_replace_ranges: &Vec<SegmentWithRange>) -> Result<(), String> {
+    fn verify_continuous(segment_replace_ranges: &[SegmentWithRange]) -> Result<(), String> {
         let mut previous = segment_replace_ranges.index(0).max_key;
         for x in segment_replace_ranges {
             if x.max_key.0.eq(&previous.0) {
