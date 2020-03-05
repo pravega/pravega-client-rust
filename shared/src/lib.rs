@@ -19,10 +19,12 @@
 
 use im::HashMap as ImHashMap;
 use ordered_float::OrderedFloat;
+use std::cmp::{min, Reverse};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
+use std::ops::Index;
 use uuid::Uuid;
 
 #[macro_use]
@@ -226,6 +228,61 @@ impl StreamSegments {
             .next()
             .expect("No matching segment found for the given key");
         r.1.scoped_segment.to_owned()
+    }
+
+    pub fn apply_replacement_range(
+        &self,
+        segment_replace: &Segment,
+        replacement_ranges: &StreamSegmentsWithPredecessors,
+    ) -> Result<StreamSegments, String> {
+        //let segment_to_replace = self.find_segment(segment);
+        let mut replaced_ranges = replacement_ranges
+            .replacement_segments
+            .get(segment_replace)
+            .expect(format!("Empty set of replacements for {:?}", segment_replace).as_ref())
+            .clone();
+
+        replaced_ranges.sort_by_key(|k| Reverse(k.max_key));
+        let replaced_ranges_ref = &replaced_ranges;
+        StreamSegments::verify_continuous(replaced_ranges_ref)
+            .expect("Replacement ranges are not continuous");
+
+        let mut result: BTreeMap<OrderedFloat<f64>, SegmentWithRange> = BTreeMap::new();
+        for (key, seg) in self.key_segment_map.iter().rev() {
+            if segment_replace.number == seg.scoped_segment.segment.number {
+                // segment should be replaced.
+                for new_segment in replaced_ranges_ref {
+                    let lower_bound = self.key_segment_map.range(key..).next_back();
+                    match lower_bound {
+                        None => {
+                            result.insert(min(new_segment.max_key, key.clone()), new_segment.clone());
+                            ()
+                        }
+                        Some(lower_bound_value) => {
+                            if new_segment.max_key.ge(lower_bound_value.0) {
+                                result.insert(min(new_segment.max_key, key.clone()), new_segment.clone());
+                            }
+                            ()
+                        }
+                    }
+                }
+            } else {
+                result.insert(*key, seg.clone());
+            }
+        }
+
+        Err("Not Implemented".to_string())
+    }
+
+    fn verify_continuous(segment_replace_ranges: &Vec<SegmentWithRange>) -> Result<(), String> {
+        let mut previous = segment_replace_ranges.index(0).max_key;
+        for x in segment_replace_ranges {
+            if x.max_key.0.eq(&previous.0) {
+                return Err("Replacement segments are not continious".to_string());
+            }
+            previous = x.min_key;
+        }
+        Ok(())
     }
 }
 
