@@ -171,6 +171,173 @@ fn test_replace_range_for_merge() {
     assert_eq!(create_segment(51), updated_range.get_segment(0.8));
 }
 
+#[test]
+fn test_replace_range_for_merge_multiple() {
+    let mut segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange> = BTreeMap::new();
+    add_segment_entry(&mut segment_map, 0, 0.0, 0.25);
+    add_segment_entry(&mut segment_map, 1, 0.25, 0.5);
+    add_segment_entry(&mut segment_map, 2, 0.5, 0.75);
+    add_segment_entry(&mut segment_map, 3, 0.75, 1.0);
+    let orig_segment_map = StreamSegments::new(segment_map);
+
+    // all segments merged to a single segment.
+    //simulate successors for segment 0
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 41, 0.0, 1.0, [3, 1, 0, 2].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = orig_segment_map
+        .apply_replacement_range(&Segment::new(0), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(41), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(1), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(2), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(3), updated_range.get_segment(0.8));
+}
+
+#[test]
+fn test_replace_range_multiple_order() {
+    let mut segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange> = BTreeMap::new();
+    add_segment_entry(&mut segment_map, 0, 0.0, 0.33);
+    add_segment_entry(&mut segment_map, 1, 0.33, 0.66);
+    add_segment_entry(&mut segment_map, 2, 0.66, 1.0);
+    let orig_segment_map = StreamSegments::new(segment_map);
+
+    // all segments merged to a single segment.
+    //simulate successors for segment 2
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 31, 0.0, 1.0, [1, 0, 2].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = orig_segment_map
+        .apply_replacement_range(&Segment::new(2), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(0), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(1), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(31), updated_range.get_segment(0.8));
+
+    // simulate successors for segment 0
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(0), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(31), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(1), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(31), updated_range.get_segment(0.8));
+
+    // simulate successors for segment 1
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(1), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(31), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(31), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(31), updated_range.get_segment(0.8));
+}
+
+/**
+Segment Map used by the test.
+       ^
+       |
+   1.0 +---------+---------+-------->
+       |         |         |
+       |    2    |         |    5
+       |         |    3    |
+   0.66+---------|         +-------->
+       |         |         |
+       |    1    |---------+    6
+       |         |         |
+   0.33+---------|         |-------->
+       |         |    4    |
+       |    0    |         |    7
+       |         |         |
+       +-------------------+-------->
+       +         1         2
+ */
+#[test]
+fn test_replace_range_uneven_range() {
+    let mut segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange> = BTreeMap::new();
+    add_segment_entry(&mut segment_map, 0, 0.0, 0.33);
+    add_segment_entry(&mut segment_map, 1, 0.33, 0.66);
+    add_segment_entry(&mut segment_map, 2, 0.66, 1.0);
+    let orig_segment_map = StreamSegments::new(segment_map);
+
+    assert_eq!(create_segment(0), orig_segment_map.get_segment(0.2));
+    assert_eq!(create_segment(1), orig_segment_map.get_segment(0.4));
+    assert_eq!(create_segment(1), orig_segment_map.get_segment(0.6));
+    assert_eq!(create_segment(2), orig_segment_map.get_segment(0.8));
+
+    //simulate successors for segment 1
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 31, 0.5, 1.0, [1, 2].to_vec());
+    add_replacement_segment(&mut segment_map, 41, 0.0, 0.5, [1, 0].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = orig_segment_map
+        .apply_replacement_range(&Segment::new(1), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(0), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(41), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(31), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(2), updated_range.get_segment(0.8));
+
+    //simulate successor for segment 0
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 41, 0.0, 0.5, [1, 0].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(0), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(41), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(41), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(31), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(2), updated_range.get_segment(0.8));
+
+    //simulate successor for segment 2
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 31, 0.5, 1.0, [1, 2].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(2), &successor_for_segment)
+        .unwrap();
+    assert_eq!(create_segment(41), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(41), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(31), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(31), updated_range.get_segment(0.8));
+
+    //simulate successor for segment 31
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 52, 0.66, 1.0, [31].to_vec());
+    add_replacement_segment(&mut segment_map, 62, 0.33, 0.66, [31, 41].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(31), &successor_for_segment)
+        .unwrap();
+    assert_eq!(create_segment(41), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(41), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(62), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(52), updated_range.get_segment(0.8));
+
+    //simulate successor for segment 41
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 72, 0.0, 0.33, [41].to_vec());
+    add_replacement_segment(&mut segment_map, 62, 0.33, 0.66, [31, 41].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(41), &successor_for_segment)
+        .unwrap();
+    assert_eq!(create_segment(72), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(62), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(62), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(52), updated_range.get_segment(0.8));
+}
+
 fn add_segment_entry(
     segment_map: &mut BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
     segment: i64,
