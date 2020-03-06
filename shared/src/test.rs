@@ -114,6 +114,63 @@ fn test_replace_range_for_split() {
     assert_eq!(create_segment(5), updated_range.get_segment(0.8));
 }
 
+#[test]
+fn test_replace_range_for_merge() {
+    let mut segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange> = BTreeMap::new();
+    add_segment_entry(&mut segment_map, 0, 0.0, 0.25);
+    add_segment_entry(&mut segment_map, 1, 0.25, 0.5);
+    add_segment_entry(&mut segment_map, 2, 0.5, 0.75);
+    add_segment_entry(&mut segment_map, 3, 0.75, 1.0);
+    let orig_segment_map = StreamSegments::new(segment_map);
+
+    //simulate successors for segment 0
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 41, 0.0, 0.5, [0, 1].to_vec());
+    let successor_for_segment_0_1 = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = orig_segment_map
+        .apply_replacement_range(&Segment::new(0), &successor_for_segment_0_1)
+        .unwrap();
+
+    assert_eq!(create_segment(41), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(1), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(2), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(3), updated_range.get_segment(0.8));
+
+    //simulate successors for segment 1
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(1), &successor_for_segment_0_1)
+        .unwrap();
+
+    assert_eq!(create_segment(41), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(41), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(2), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(3), updated_range.get_segment(0.8));
+
+    // simulate successors for segment 2
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 51, 0.5, 1.0, [2, 3].to_vec());
+    let successor_for_segment_2_3 = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(2), &successor_for_segment_2_3)
+        .unwrap();
+
+    assert_eq!(create_segment(41), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(41), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(51), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(3), updated_range.get_segment(0.8));
+
+    // simulate successors for segment 3
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(3), &successor_for_segment_2_3)
+        .unwrap();
+    assert_eq!(create_segment(41), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(41), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(51), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(51), updated_range.get_segment(0.8));
+}
+
 fn add_segment_entry(
     segment_map: &mut BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
     segment: i64,
