@@ -736,7 +736,7 @@ async fn check_transaction_status(
     }
 }
 
-/// Async helper function to get segment URI.
+/// Async helper function to get successors
 async fn get_successors(
     request: &ScopedSegment,
     ch: &mut ControllerServiceClient<Channel>,
