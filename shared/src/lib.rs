@@ -202,7 +202,6 @@ impl StreamSegments {
     }
 
     fn is_valid(map: &BTreeMap<OrderedFloat<f64>, SegmentWithRange>) -> Result<(), String> {
-        println!("Validation invoked");
         if !map.is_empty() {
             let (min_key, _min_seg) = map.iter().next().expect("Error reading min key");
             let (max_key, _max_seg) = map.iter().next_back().expect("Error read max key");
@@ -252,7 +251,7 @@ impl StreamSegments {
             if segment_replace.number == seg.scoped_segment.segment.number {
                 // segment should be replaced.
                 for new_segment in replaced_ranges_ref {
-                    let lower_bound = self.key_segment_map.range(key..).next_back();
+                    let lower_bound = self.key_segment_map.range(..key).next_back();
                     match lower_bound {
                         None => {
                             result.insert(min(new_segment.max_key, *key), new_segment.clone());
@@ -269,14 +268,14 @@ impl StreamSegments {
             }
         }
 
-        Err("Not Implemented".to_string())
+        Ok(StreamSegments::new(result))
     }
 
     fn verify_continuous(segment_replace_ranges: &[SegmentWithRange]) -> Result<(), String> {
         let mut previous = segment_replace_ranges.index(0).max_key;
         for x in segment_replace_ranges {
-            if x.max_key.0.eq(&previous.0) {
-                return Err("Replacement segments are not continious".to_string());
+            if x.max_key.0.ne(&previous.0) {
+                return Err("Replacement segments are not continuous".to_string());
             }
             previous = x.min_key;
         }
@@ -314,7 +313,7 @@ impl StreamSegmentsWithPredecessors {
         }
         StreamSegmentsWithPredecessors {
             segment_with_predecessors: segment_with_predecessor,
-            replacement_segments: replacement_map.into(),
+            replacement_segments: replacement_map.into(), // convert to immutable map.
         }
     }
 }
