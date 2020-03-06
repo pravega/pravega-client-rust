@@ -1,4 +1,12 @@
-// Note this useful idiom: importing names from outer (for mod tests) scope.
+/*
+ * Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ */
 use super::*;
 
 #[test]
@@ -684,6 +692,324 @@ fn test_replace_range_double_merge_out_of_order() {
     assert_eq!(create_segment(52), updated_range.get_segment(0.4));
     assert_eq!(create_segment(52), updated_range.get_segment(0.6));
     assert_eq!(create_segment(3), updated_range.get_segment(0.8));
+}
+
+/**
+*
+      ^
+      |
+  1.0 +---------+---------+-------->
+      |         |         |
+      |    2    |         |    5
+      |         |    3    |
+  0.66+---------|         +-------->
+      |         |         |
+      |    1    |---------+    6
+      |         |         |
+  0.33+---------|         |-------->
+      |         |    4    |
+      |    0    |         |    7
+      |         |         |
+      +-------------------+-------->
+      +         1         2
+*/
+#[test]
+fn test_replace_range_uneven_out_of_order() {
+    let mut segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange> = BTreeMap::new();
+    add_segment_entry(&mut segment_map, 0, 0.0, 0.33);
+    add_segment_entry(&mut segment_map, 1, 0.33, 0.66);
+    add_segment_entry(&mut segment_map, 2, 0.66, 1.0);
+    let orig_segment_map = StreamSegments::new(segment_map);
+
+    //simulate successors for segment 1
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 41, 0.0, 0.5, [1, 0].to_vec());
+    add_replacement_segment(&mut segment_map, 31, 0.5, 1.0, [1, 2].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = orig_segment_map
+        .apply_replacement_range(&Segment::new(1), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(0), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(41), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(31), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(2), updated_range.get_segment(0.8));
+
+    //simulate successors for segment 3
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 62, 0.33, 0.66, [31, 41].to_vec());
+    add_replacement_segment(&mut segment_map, 52, 0.66, 1.0, [31].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(31), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(0), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(41), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(62), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(2), updated_range.get_segment(0.8));
+
+    //simulate successors for segment 0
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 41, 0.0, 0.5, [0, 1].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(0), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(41), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(41), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(62), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(2), updated_range.get_segment(0.8));
+
+    //simulate successors for segment 41
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 62, 0.33, 0.66, [31, 41].to_vec());
+    add_replacement_segment(&mut segment_map, 72, 0.0, 0.33, [41].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(41), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(72), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(62), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(62), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(2), updated_range.get_segment(0.8));
+
+    //simulate successors for segment 2
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 31, 0.5, 1.0, [1, 2].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(2), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(72), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(62), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(62), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(31), updated_range.get_segment(0.8));
+
+    //simulate successors for segment 31
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 52, 0.66, 1.0, [31].to_vec());
+    add_replacement_segment(&mut segment_map, 62, 0.33, 0.66, [31, 41].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(31), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(72), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(62), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(62), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(52), updated_range.get_segment(0.8));
+}
+
+/**
+*       ^
+        |
+    1.0 +---------+---------+-------->
+        |         |         |
+        |    2    |         |    5
+        |         |    3    |
+    0.66+---------|         +-------->
+        |         |         |
+        |    1    |         |    6
+        |         |         |
+    0.33+---------+---------+-------->
+        |
+        |    0
+        |
+        +-------------------+-------->
+                  1         2
+*/
+#[test]
+fn test_replace_range_uneven_out_of_order_even_split() {
+    let mut segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange> = BTreeMap::new();
+    add_segment_entry(&mut segment_map, 0, 0.0, 0.33);
+    add_segment_entry(&mut segment_map, 1, 0.33, 0.66);
+    add_segment_entry(&mut segment_map, 2, 0.66, 1.0);
+    let orig_segment_map = StreamSegments::new(segment_map);
+
+    //simulate successors for segment 1
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 31, 0.33, 1.0, [1, 2].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = orig_segment_map
+        .apply_replacement_range(&Segment::new(1), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(0), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(31), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(31), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(2), updated_range.get_segment(0.8));
+
+    //simulate successors for segment 3`
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 52, 0.66, 1.0, [31].to_vec());
+    add_replacement_segment(&mut segment_map, 62, 0.33, 0.66, [31].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(31), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(0), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(62), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(62), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(2), updated_range.get_segment(0.8));
+
+    //simulate successors for segment 2
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 31, 0.33, 1.0, [1, 2].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(2), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(0), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(62), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(62), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(31), updated_range.get_segment(0.8));
+
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 52, 0.66, 1.0, [31].to_vec());
+    add_replacement_segment(&mut segment_map, 62, 0.33, 0.66, [31].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(31), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(0), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(62), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(62), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(52), updated_range.get_segment(0.8));
+}
+
+/**
+* Out of order re-split
+        ^
+        |
+    1.0 +---------+---------+-------+-------->
+        |         |    5    |       |
+        |         |         |       |   9
+        |    1    +---------+       |
+    0.66|         |    4    |       +-------->
+        |         |         |       |
+        |---------+---------+   6   |   8
+        |         |    3    |       |
+    0.33|         |         |       +-------->
+        |    0    +---------+       |
+        |         |    2    |       |   7
+        |         |         |       |
+        +---------+---------+-------+-------->
+                  1         2       3
+   When end of segments are encountered on 0, 2, and 6 followed by 1, 4, and 6.
+*/
+#[test]
+fn test_replace_range_uneven_out_of_order_split() {
+    let mut segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange> = BTreeMap::new();
+    add_segment_entry(&mut segment_map, 0, 0.0, 0.5);
+    add_segment_entry(&mut segment_map, 1, 0.5, 1.0);
+    let orig_segment_map = StreamSegments::new(segment_map);
+
+    //simulate successors for segment 0
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 31, 0.25, 0.5, [0].to_vec());
+    add_replacement_segment(&mut segment_map, 21, 0.0, 0.25, [0].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = orig_segment_map
+        .apply_replacement_range(&Segment::new(0), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(21), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(31), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(1), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(1), updated_range.get_segment(0.8));
+
+    //simulate successors for segment 21
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 62, 0.0, 1.0, [21, 31, 41, 51].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(21), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(62), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(31), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(1), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(1), updated_range.get_segment(0.8));
+
+    //simulate successors for segment 62
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 73, 0.0, 0.33, [62].to_vec());
+    add_replacement_segment(&mut segment_map, 83, 0.33, 0.66, [62].to_vec());
+    add_replacement_segment(&mut segment_map, 93, 0.66, 1.0, [62].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(62), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(73), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(31), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(1), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(1), updated_range.get_segment(0.8));
+
+    //simulate successors for segment 1
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 41, 0.5, 0.75, [1].to_vec());
+    add_replacement_segment(&mut segment_map, 51, 0.75, 1.0, [1].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(1), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(73), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(31), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(41), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(51), updated_range.get_segment(0.8));
+
+    //simulate successors for segment 41
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 62, 0.0, 1.0, [21, 31, 41, 51].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(41), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(73), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(31), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(62), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(51), updated_range.get_segment(0.8));
+
+    //simulate successors for segment 62
+    let mut segment_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+    add_replacement_segment(&mut segment_map, 73, 0.0, 0.33, [62].to_vec());
+    add_replacement_segment(&mut segment_map, 83, 0.33, 0.66, [62].to_vec());
+    add_replacement_segment(&mut segment_map, 93, 0.66, 1.0, [62].to_vec());
+    let successor_for_segment = StreamSegmentsWithPredecessors::new(segment_map.into());
+
+    let updated_range = updated_range
+        .apply_replacement_range(&Segment::new(62), &successor_for_segment)
+        .unwrap();
+
+    assert_eq!(create_segment(73), updated_range.get_segment(0.2));
+    assert_eq!(create_segment(31), updated_range.get_segment(0.4));
+    assert_eq!(create_segment(83), updated_range.get_segment(0.6));
+    assert_eq!(create_segment(51), updated_range.get_segment(0.8));
 }
 
 fn add_segment_entry(
