@@ -778,7 +778,7 @@ impl Reply for ConditionalCheckFailedCommand {
 pub struct ReadSegmentCommand {
     pub segment: String,
     pub offset: i64,
-    pub suggested_length: i64,
+    pub suggested_length: i32,
     pub delegation_token: String,
     pub request_id: i64,
 }
@@ -2161,7 +2161,7 @@ pub struct TableKey {
 impl TableKey {
     const HEADER_BYTES: i32 = 2 * 4;
     pub fn new(data: Vec<u8>, key_version: i64) -> TableKey {
-        let payload = (data.len() + 8 + 8 + 4) as i32;
+        let payload = (4 + data.len() + 8) as i32;
         TableKey {
             payload,
             data,
@@ -2179,7 +2179,7 @@ pub struct TableValue {
 impl TableValue {
     const HEADER_BYTES: i32 = 2 * 4;
     pub fn new(data: Vec<u8>) -> TableValue {
-        let payload = (data.len() + 8 + 8 + 4) as i32;
+        let payload = (data.len() + 4) as i32;
         TableValue { payload, data }
     }
 }
@@ -2200,7 +2200,7 @@ impl TableEntries {
     pub fn size(&self) -> i32 {
         let mut data_bytes = 0;
         for x in &self.entries {
-            data_bytes += (x.0.data.len() + x.1.data.len()) as i32
+            data_bytes += (x.0.data.len() + 8 + x.1.data.len()) as i32
         }
 
         data_bytes + TableEntries::get_header_byte(self.entries.len() as i32)
