@@ -27,6 +27,7 @@
 #![allow(clippy::multiple_crate_versions)]
 
 use im::HashMap as ImHashMap;
+use im::OrdMap;
 use ordered_float::OrderedFloat;
 use std::cmp::{min, Reverse};
 use std::collections::{BTreeMap, HashMap};
@@ -199,14 +200,14 @@ pub struct SegmentWithRange {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct StreamSegments {
-    pub key_segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
+    pub key_segment_map: OrdMap<OrderedFloat<f64>, SegmentWithRange>,
 }
 
 impl StreamSegments {
     pub fn new(map_key_segment: BTreeMap<OrderedFloat<f64>, SegmentWithRange>) -> StreamSegments {
         StreamSegments::is_valid(&map_key_segment).expect("Invalid key segment map");
         StreamSegments {
-            key_segment_map: map_key_segment,
+            key_segment_map: map_key_segment.into(),
         }
     }
 
@@ -266,7 +267,7 @@ impl StreamSegments {
                             result.insert(min(new_segment.max_key, *key), new_segment.clone());
                         }
                         Some(lower_bound_value) => {
-                            if new_segment.max_key.ge(lower_bound_value.0) {
+                            if new_segment.max_key.ge(&lower_bound_value.0) {
                                 result.insert(min(new_segment.max_key, *key), new_segment.clone());
                             }
                         }

@@ -164,7 +164,7 @@ impl ControllerClient for MockController {
         }
 
         Ok(StreamSegments {
-            key_segment_map: segments,
+            key_segment_map: segments.into(),
         })
     }
 
