@@ -180,7 +180,7 @@ impl ControllerClient for MockController {
         }
 
         Ok(TxnSegments {
-            key_segment_map: current_segments.key_segment_map,
+            stream_segments: current_segments,
             tx_id: TxId(uuid),
         })
     }

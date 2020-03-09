@@ -190,7 +190,7 @@ impl From<CreateTxnResponse> for TxnSegments {
             Some(x) => (x.high_bits as u128) << 64 | (x.low_bits as u128),
             None => panic!("Incorrect response from Controller"),
         };
-        TxnSegments::new(segment_map, TxId::new(txn_uuid))
+        TxnSegments::new(StreamSegments::new(segment_map), TxId::new(txn_uuid))
     }
 }
 
