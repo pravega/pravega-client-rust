@@ -1,6 +1,15 @@
 # This file is used to configure CI builds using Github actions ref: https://help.github.com/en/categories/automating-your-workflow-with-github-actions 
 
-on: [push, pull_request]
+on:
+  # Trigger the workflow on push or pull request,
+  # but only for the master branch
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
 
 name: CIbuild
 
