@@ -15,6 +15,7 @@ use std::fmt;
 use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
+use tokio::net::tcp::{ReadHalf, WriteHalf};
 use uuid::Uuid;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -109,10 +110,53 @@ pub trait Connection: Send + Sync {
     /// ```
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError>;
 
+    fn split<'a>(&'a mut self) -> (Box<dyn ReadingConnection + 'a>, Box<dyn WritingConnection + 'a>);
+
     fn get_uuid(&self) -> Uuid;
 
     fn get_endpoint(&self) -> SocketAddr;
 }
+
+#[async_trait]
+pub trait ReadingConnection: Send + Sync {
+    async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError>;
+}
+
+struct ReadingConnectionImpl<'a> {
+    endpoint: SocketAddr,
+    read_half: ReadHalf<'a>,
+}
+
+#[async_trait]
+impl ReadingConnection for ReadingConnectionImpl<'_> {
+    async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError> {
+        let endpoint = self.endpoint;
+        self.read_half.read_exact(buf).await.context(ReadData { endpoint })?;
+        Ok(())
+    }
+}
+#[async_trait]
+pub trait WritingConnection: Send + Sync {
+    async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError>;
+}
+
+struct WritingConnectionImpl<'a> {
+    endpoint: SocketAddr,
+    write_half: WriteHalf<'a>,
+}
+
+#[async_trait]
+impl WritingConnection for WritingConnectionImpl<'_> {
+    async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
+        let endpoint = self.endpoint;
+        self.write_half
+            .write_all(payload)
+            .await
+            .context(SendData { endpoint })?;
+        Ok(())
+    }
+}
+
 
 #[derive(Debug)]
 pub struct ConnectionFactoryImpl {}
@@ -171,6 +215,13 @@ impl Connection for TokioConnection {
         let endpoint = self.endpoint;
         self.stream.read_exact(buf).await.context(ReadData { endpoint })?;
         Ok(())
+    }
+
+    fn split<'a>(&'a mut self) -> (Box<dyn ReadingConnection + 'a>, Box<dyn WritingConnection + 'a>) {
+        let (read_half, write_half): (ReadHalf<'a>, WriteHalf<'a>) = self.stream.split();
+        let read = Box::new(ReadingConnectionImpl{endpoint: self.endpoint.clone(), read_half}) as Box<dyn ReadingConnection + 'a>;
+        let write = Box::new(WritingConnectionImpl{endpoint: self.endpoint.clone(), write_half}) as Box<dyn WritingConnection + 'a>;
+        (read, write)
     }
 
     fn get_uuid(&self) -> Uuid {

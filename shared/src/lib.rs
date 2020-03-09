@@ -190,6 +190,12 @@ pub struct StreamSegments {
     pub key_segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
 }
 
+impl StreamSegments {
+    pub fn get_segment_for_key(&self, key: f64) -> Segment {
+        // wait for segment range query to merge.
+    }
+}
+
 #[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct TxnSegments {
     pub key_segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange>,

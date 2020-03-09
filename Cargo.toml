@@ -25,8 +25,9 @@ pravega-wire-protocol = { path = "./wire_protocol"}
 async-trait = "0.1.22"
 futures = "0.3.1"
 snafu = "0.6.2"
-tokio = { version = "0.2.8", features = ["full"] }
+tokio = { version = "0.2.13", features = ["full"] }
 tracing = "0.1"
+rand = "0.7.3"
 
 [dev-dependencies]
 pravega-rust-client-integration-test = { path = "./integration_test"}
