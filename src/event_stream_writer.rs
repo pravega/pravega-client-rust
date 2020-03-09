@@ -13,7 +13,7 @@ use pravega_wire_protocol::client_connection::*;
 use pravega_wire_protocol::connection_pool::*;
 use pravega_wire_protocol::error::*;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
-use pravega_wire_protocol::commands::{EventCommand, Command};
+use pravega_wire_protocol::commands::{EventCommand, Command, SetupAppendCommand};
 use snafu::ResultExt;
 use std::fmt;
 use std::net::SocketAddr;
@@ -27,6 +27,8 @@ extern crate rand;
 use rand::Rng;
 use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
+use pravega_wire_protocol::connection_factory::ConnectionFactoryImpl;
+use uuid::Uuid;
 
 trait EventStreamWriter<T> {
     fn write_event(&self, event: T );
@@ -102,16 +104,23 @@ struct ServerReply {
 }
 
 struct EventSegmentWriter {
+    /// unique id for each EventSegmentWriter
+    writer_id: Uuid,
+
+    /// connection that is used to communicate with segment
     client_connection: Option<Box<dyn ClientConnection>>,
+
+    /// events that are sent but yet acknowledged
     inflight: Vec<PendingEvent>,
+
+    /// events that are waiting to be sent
     waiting: Vec<PendingEvent>,
 }
 
 #[async_trait]
 impl EventSegmentWriter {
-
-    fn new() -> Self {
-
+    fn new(connection: Box<dyn ClientConnection>) -> Self {
+        EventSegmentWriter{writer_id: Uuid::new_v4(), client_connection: Option::Some(connection), inflight: vec!{}, waiting: vec!{}}
     }
 
     pub fn get_segment_name(&self) -> String{}
@@ -150,6 +159,9 @@ struct SegmentSelector {
 
     /// the controller instance that is used to get updated segment information from controller
     controller: Box<dyn ControllerClient>,
+
+    // TODO it will be replaced by client factory
+    connection_pool: Box<dyn ConnectionPool>,
 }
 
 #[async_trait]
@@ -157,7 +169,12 @@ impl SegmentSelector {
     async fn new(mut controller: Box<dyn ControllerClient>) -> Self {
         let writers = HashMap::new();
         let current_segments = controller.get_current_segments().await.expect("TODO");
-        SegmentSelector{writers, current_segments, controller}
+
+        // TODO: replace the following with client factory
+        let config = ClientConfigBuilder::default().build().unwrap();
+        let factory = Box::new(ConnectionFactoryImpl{});
+        let connection_pool = Box::new(ConnectionPoolImpl::new(factory, config));
+        SegmentSelector{writers, current_segments, controller, connection_pool}
     }
 
     /// get the segment writer by passing a routing key
@@ -202,16 +219,25 @@ impl SegmentSelector {
     }
 
     /// create missing EventSegmentWriter and set up the connections for ready to use
-    fn create_missing_writers(&self) {
-        for segment in self.current_segments.getSegments() {
+    async fn create_missing_writers(&mut self) {
+        for scoped_segment in self.current_segments.get_scoped_segments() {
             if !self.writers.containsKey(segment) {
-                // TODO: wait for client connection
-                // set up connection
-
-                writers.put(segment, writer);
+                // TODO: use client factory
+                let uri = self.controller.get_endpoint_for_segment(&scoped_segment).await.expect("TODO");
+                let connection = self.connection_pool.get_connection(uri.0.into()).await.expect("TODO");
+                let client_connection = Box::new(ClientConnectionImpl::new(connection));
+                let writer = EventSegmentWriter::new(client_connection);
+                self.writers.put(scoped_segment.segment, writer);
             }
         }
     }
+}
+
+async fn setup_append(connection: Box<dyn ClientConnection>) -> Result<Box<dyn ClientConnection>, Error> {
+    let request_id =
+    SetupAppendCommand cmd = SetupAppendCommand(requestId, writerId, segmentName, token);
+    connection.write()
+
 }
 
 struct PendingEvent {

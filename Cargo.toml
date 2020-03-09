@@ -28,6 +28,7 @@ snafu = "0.6.2"
 tokio = { version = "0.2.13", features = ["full"] }
 tracing = "0.1"
 rand = "0.7.3"
+uuid = {version = "0.8", features = ["v4"]}
 
 [dev-dependencies]
 pravega-rust-client-integration-test = { path = "./integration_test"}

@@ -194,6 +194,14 @@ impl StreamSegments {
     pub fn get_segment_for_key(&self, key: f64) -> Segment {
         // wait for segment range query to merge.
     }
+
+    pub fn get_scoped_segments(&self) -> Vec<ScopedSegment> {
+        let mut vec = vec!{};
+        for (_, v) in self.key_segment_map {
+            vec.push(v.scoped_segment)
+        }
+        vec
+    }
 }
 
 #[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
