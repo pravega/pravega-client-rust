@@ -11,7 +11,7 @@ use pravega_wire_protocol::commands::*;
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl};
 use pravega_wire_protocol::connection_pool::ConnectionPool;
 use pravega_wire_protocol::connection_pool::ConnectionPoolImpl;
-use pravega_wire_protocol::wire_commands::{Encode, Replies, Requests};
+use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
 use std::process::Command;
 use std::sync::Mutex;
@@ -789,9 +789,6 @@ fn test_keep_alive() {
     let mut rt = RUNTIME.lock().unwrap();
     let endpoint: SocketAddr = "127.0.1.1:6000".parse().expect("fail to parse uri");
     let request = Requests::KeepAlive(KeepAliveCommand {});
-    dbg!(Requests::KeepAlive(KeepAliveCommand {}));
-    let test_request = Requests::KeepAlive(KeepAliveCommand {}).write_fields();
-    dbg!(test_request);
     let connection = rt
         .block_on((&*CONNECTION_POOL).get_connection(endpoint))
         .expect("get connection");
