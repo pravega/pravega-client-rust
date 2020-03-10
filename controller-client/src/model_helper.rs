@@ -11,7 +11,7 @@ use super::PravegaNodeUri;
 use crate::controller::*;
 use ordered_float::OrderedFloat;
 use pravega_rust_client_shared::*;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 impl From<NodeUri> for PravegaNodeUri {
     fn from(value: NodeUri) -> PravegaNodeUri {
@@ -135,6 +135,16 @@ impl<'a> From<&'a pravega_rust_client_shared::StreamCut> for crate::controller::
     }
 }
 
+impl<'a> From<&'a SegmentRange> for SegmentWithRange {
+    fn from(value: &'a SegmentRange) -> SegmentWithRange {
+        SegmentWithRange::new(
+            ScopedSegment::from(value.segment_id.clone().unwrap()),
+            OrderedFloat(value.min_key),
+            OrderedFloat(value.max_key),
+        )
+    }
+}
+
 impl From<SegmentId> for ScopedSegment {
     fn from(value: SegmentId) -> ScopedSegment {
         let stream_info: StreamInfo = value.stream_info.unwrap();
@@ -162,6 +172,7 @@ impl From<SegmentRanges> for StreamSegments {
         StreamSegments::new(segment_map)
     }
 }
+
 impl From<CreateTxnResponse> for TxnSegments {
     fn from(txn_response: CreateTxnResponse) -> TxnSegments {
         let mut segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange> = BTreeMap::new();
@@ -179,6 +190,20 @@ impl From<CreateTxnResponse> for TxnSegments {
             Some(x) => (x.high_bits as u128) << 64 | (x.low_bits as u128),
             None => panic!("Incorrect response from Controller"),
         };
-        TxnSegments::new(segment_map, TxId::new(txn_uuid))
+        TxnSegments::new(StreamSegments::new(segment_map), TxId::new(txn_uuid))
+    }
+}
+
+impl From<SuccessorResponse> for StreamSegmentsWithPredecessors {
+    fn from(successor_response: SuccessorResponse) -> StreamSegmentsWithPredecessors {
+        let s: Vec<successor_response::SegmentEntry> = successor_response.segments;
+        let mut successor_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
+        for e in &s {
+            let seg_range: SegmentWithRange = SegmentWithRange::from(&e.segment.clone().unwrap());
+            let pred_segm: Vec<Segment> = e.value.iter().map(|&x| Segment::new(x)).collect::<Vec<Segment>>();
+            successor_map.insert(seg_range, pred_segm);
+        }
+        // convert std::collections::HashMap to im::hashmap::HashMap
+        StreamSegmentsWithPredecessors::new(successor_map.into())
     }
 }
