@@ -1,4 +1,5 @@
 ![CIbuild](https://github.com/pravega/pravega-client-rust/workflows/CIbuild/badge.svg)
+[![codecov](https://codecov.io/gh/pravega/pravega-client-rust/branch/master/graph/badge.svg?token=XEjqMkINCV)](https://codecov.io/gh/pravega/pravega-client-rust)
 
 # Native client for Pravega
 
