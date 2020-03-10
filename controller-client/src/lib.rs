@@ -46,11 +46,7 @@ use std::convert::{From, Into};
 
 #[allow(non_camel_case_types)]
 pub mod controller {
-    // tonic::include_proto!("io.pravega.controller.stream.api.grpc.v1");
-    include!(concat!(
-        env!("OUT_DIR"),
-        concat!("/", "io.pravega.controller.stream.api.grpc.v1", ".rs")
-    ));
+    tonic::include_proto!("io.pravega.controller.stream.api.grpc.v1");
     // this is the rs file name generated after compiling the proto file, located inside the target folder.
 }
 
