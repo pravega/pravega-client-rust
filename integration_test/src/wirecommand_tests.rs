@@ -18,6 +18,7 @@ use std::sync::Mutex;
 use std::{thread, time};
 use tokio::runtime::Runtime;
 use uuid::Uuid;
+
 // create a static connection pool for using through tests.
 lazy_static! {
     static ref CONNECTION_POOL: ConnectionPoolImpl = {
@@ -101,8 +102,21 @@ fn test_hello() {
             retention_param: 0,
         },
     };
+
     let fut = controller_client.create_stream(&request);
     rt.block_on(fut).expect("create stream");
+
+    let segment_name = ScopedSegment {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+        segment: Segment { number: 0 },
+    };
+    let fut = controller_client.get_endpoint_for_segment(&segment_name);
+    let endpoint = rt
+        .block_on(fut)
+        .expect("get segment endpoint")
+        .parse::<SocketAddr>()
+        .expect("convert to socketaddr");
 
     // send hello wirecommand to standalone segmentstore
     let request = Requests::Hello(HelloCommand {
@@ -115,10 +129,38 @@ fn test_hello() {
         high_version: 9,
     });
 
-    let endpoint: SocketAddr = "127.0.1.1:6000".parse().expect("fail to parse uri");
     let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
     rt.block_on(raw_client.send_request(request))
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
+}
+
+// KeepALive would not send back reply.
+fn test_keep_alive() {
+    let mut rt = RUNTIME.lock().unwrap();
+    let scope_name = Scope::new("testScope".into());
+    let stream_name = Stream::new("testStream".into());
+    let segment_name = ScopedSegment {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+        segment: Segment { number: 0 },
+    };
+
+    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let mut controller_client = ControllerClientImpl { channel: client };
+    let fut = controller_client.get_endpoint_for_segment(&segment_name);
+    let endpoint = rt
+        .block_on(fut)
+        .expect("get segment endpoint")
+        .parse::<SocketAddr>()
+        .expect("convert to socketaddr");
+
+    let request = Requests::KeepAlive(KeepAliveCommand {});
+    let connection = rt
+        .block_on((&*CONNECTION_POOL).get_connection(endpoint))
+        .expect("get connection");
+    let mut client_connection = ClientConnectionImpl::new(connection);
+    rt.block_on(client_connection.write(&request))
+        .expect("send request");
 }
 
 fn test_setup_append() {
@@ -130,6 +172,16 @@ fn test_setup_append() {
         stream: stream_name.clone(),
         segment: Segment { number: 0 },
     };
+
+    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let mut controller_client = ControllerClientImpl { channel: client };
+    let fut = controller_client.get_endpoint_for_segment(&segment_name);
+    let endpoint = rt
+        .block_on(fut)
+        .expect("get segment endpoint")
+        .parse::<SocketAddr>()
+        .expect("convert to socketaddr");
+
     // send setup_append to standalone SegmentStore
     let sname = segment_name.to_string() + ".#epoch.0";
     let request = Requests::SetupAppend(SetupAppendCommand {
@@ -146,7 +198,6 @@ fn test_setup_append() {
         last_event_number: i64::min_value(),
     });
 
-    let endpoint: SocketAddr = "127.0.1.1:6000".parse().expect("fail to parse uri");
     let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
     rt.block_on(raw_client.send_request(request))
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
@@ -171,10 +222,6 @@ fn test_setup_append() {
 
 fn test_create_segment() {
     let mut rt = RUNTIME.lock().unwrap();
-    //directly create the segment through raw client.
-    let endpoint: SocketAddr = "127.0.1.1:6000".parse().expect("fail to parse uri");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
-
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     let segment_name = ScopedSegment {
@@ -182,6 +229,17 @@ fn test_create_segment() {
         stream: stream_name.clone(),
         segment: Segment { number: 0 },
     };
+
+    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let mut controller_client = ControllerClientImpl { channel: client };
+    let fut = controller_client.get_endpoint_for_segment(&segment_name);
+    let endpoint = rt
+        .block_on(fut)
+        .expect("get segment endpoint")
+        .parse::<SocketAddr>()
+        .expect("convert to socketaddr");
+    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
+
     let request = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 2,
         segment: segment_name.to_string(),
@@ -196,16 +254,6 @@ fn test_create_segment() {
 
     rt.block_on(raw_client.send_request(request))
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
-
-    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
-    let mut controller_client = ControllerClientImpl { channel: client };
-    let fut = controller_client.get_endpoint_for_segment(&segment_name);
-    let endpoint2 = rt
-        .block_on(fut)
-        .expect("get segment endpoint")
-        .parse::<SocketAddr>()
-        .expect("convert to socketaddr");
-    assert_eq!(endpoint, endpoint2);
 }
 
 fn test_seal_segment() {
@@ -218,6 +266,16 @@ fn test_seal_segment() {
         segment: Segment { number: 0 },
     };
 
+    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let mut controller_client = ControllerClientImpl { channel: client };
+    let fut = controller_client.get_endpoint_for_segment(&segment_name);
+    let endpoint = rt
+        .block_on(fut)
+        .expect("get segment endpoint")
+        .parse::<SocketAddr>()
+        .expect("convert to socketaddr");
+    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
+
     let request = Requests::SealSegment(SealSegmentCommand {
         segment: segment_name.to_string(),
         request_id: 3,
@@ -229,16 +287,12 @@ fn test_seal_segment() {
         segment: segment_name.to_string(),
     });
 
-    let endpoint: SocketAddr = "127.0.1.1:6000".parse().expect("fail to parse uri");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
     rt.block_on(raw_client.send_request(request))
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
 fn test_update_and_get_segment_attribute() {
     let mut rt = RUNTIME.lock().unwrap();
-    let endpoint: SocketAddr = "127.0.1.1:6000".parse().expect("fail to parse uri");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
 
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
@@ -247,8 +301,17 @@ fn test_update_and_get_segment_attribute() {
         stream: stream_name.clone(),
         segment: Segment { number: 0 },
     };
-    let sname = segment_name.to_string() + ".#epoch.0";
+    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let mut controller_client = ControllerClientImpl { channel: client };
+    let fut = controller_client.get_endpoint_for_segment(&segment_name);
+    let endpoint = rt
+        .block_on(fut)
+        .expect("get segment endpoint")
+        .parse::<SocketAddr>()
+        .expect("convert to socketaddr");
+    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
 
+    let sname = segment_name.to_string() + ".#epoch.0";
     let uid = Uuid::new_v4().as_u128();
     let request = Requests::UpdateSegmentAttribute(UpdateSegmentAttributeCommand {
         request_id: 4,
@@ -300,16 +363,21 @@ fn test_get_stream_segment_info() {
         stream: stream_name.clone(),
         segment: Segment { number: 0 },
     };
-    let sname = segment_name.to_string() + ".#epoch.0";
 
+    let fut = controller_client.get_endpoint_for_segment(&segment_name);
+    let endpoint = rt
+        .block_on(fut)
+        .expect("get segment endpoint")
+        .parse::<SocketAddr>()
+        .expect("convert to socketaddr");
+    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
+
+    let sname = segment_name.to_string() + ".#epoch.0";
     let request = Requests::GetStreamSegmentInfo(GetStreamSegmentInfoCommand {
         request_id: 6,
         segment_name: sname.clone(),
         delegation_token: String::from(""),
     });
-
-    let endpoint: SocketAddr = "127.0.1.1:6000".parse().expect("fail to parse uri");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
     let reply = rt
         .block_on(raw_client.send_request(request))
         .expect("fail to get reply");
@@ -330,6 +398,16 @@ fn test_delete_segment() {
         segment: Segment { number: 0 },
     };
 
+    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let mut controller_client = ControllerClientImpl { channel: client };
+    let fut = controller_client.get_endpoint_for_segment(&segment_name);
+    let endpoint = rt
+        .block_on(fut)
+        .expect("get segment endpoint")
+        .parse::<SocketAddr>()
+        .expect("convert to socketaddr");
+    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
+
     let request = Requests::DeleteSegment(DeleteSegmentCommand {
         request_id: 7,
         segment: segment_name.to_string(),
@@ -339,16 +417,12 @@ fn test_delete_segment() {
         request_id: 7,
         segment: segment_name.to_string(),
     });
-    let endpoint: SocketAddr = "127.0.1.1:6000".parse().expect("fail to parse uri");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
     rt.block_on(raw_client.send_request(request))
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
 fn test_conditional_append_and_read_segment() {
     let mut rt = RUNTIME.lock().unwrap();
-    let endpoint: SocketAddr = "127.0.1.1:6000".parse().expect("fail to parse uri");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
 
     // create a segment.
     let scope_name = Scope::new("scope".into());
@@ -359,6 +433,16 @@ fn test_conditional_append_and_read_segment() {
         stream: stream_name,
         segment: Segment { number: 0 },
     };
+
+    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let mut controller_client = ControllerClientImpl { channel: client };
+    let fut = controller_client.get_endpoint_for_segment(&segment_name);
+    let endpoint = rt
+        .block_on(fut)
+        .expect("get segment endpoint")
+        .parse::<SocketAddr>()
+        .expect("convert to socketaddr");
+    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 8,
@@ -426,8 +510,6 @@ fn test_conditional_append_and_read_segment() {
 
 fn test_update_segment_policy() {
     let mut rt = RUNTIME.lock().unwrap();
-    let endpoint: SocketAddr = "127.0.1.1:6000".parse().expect("fail to parse uri");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
 
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
@@ -437,6 +519,16 @@ fn test_update_segment_policy() {
         stream: stream_name,
         segment: Segment { number: 0 },
     };
+
+    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let mut controller_client = ControllerClientImpl { channel: client };
+    let fut = controller_client.get_endpoint_for_segment(&segment_name);
+    let endpoint = rt
+        .block_on(fut)
+        .expect("get segment endpoint")
+        .parse::<SocketAddr>()
+        .expect("convert to socketaddr");
+    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
 
     let request = Requests::UpdateSegmentPolicy(UpdateSegmentPolicyCommand {
         request_id: 12,
@@ -456,8 +548,6 @@ fn test_update_segment_policy() {
 
 fn test_merge_segment() {
     let mut rt = RUNTIME.lock().unwrap();
-    let endpoint: SocketAddr = "127.0.1.1:6000".parse().expect("fail to parse uri");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
 
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
@@ -467,6 +557,16 @@ fn test_merge_segment() {
         stream: stream_name,
         segment: Segment { number: 1 },
     };
+
+    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let mut controller_client = ControllerClientImpl { channel: client };
+    let fut = controller_client.get_endpoint_for_segment(&segment_name);
+    let endpoint = rt
+        .block_on(fut)
+        .expect("get segment endpoint")
+        .parse::<SocketAddr>()
+        .expect("convert to socketaddr");
+    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 13,
@@ -538,8 +638,6 @@ fn test_merge_segment() {
 
 fn test_truncate_segment() {
     let mut rt = RUNTIME.lock().unwrap();
-    let endpoint: SocketAddr = "127.0.1.1:6000".parse().expect("fail to parse uri");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
 
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
@@ -549,6 +647,17 @@ fn test_truncate_segment() {
         stream: stream_name,
         segment: Segment { number: 0 },
     };
+
+    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let mut controller_client = ControllerClientImpl { channel: client };
+    let fut = controller_client.get_endpoint_for_segment(&segment_name);
+    let endpoint = rt
+        .block_on(fut)
+        .expect("get segment endpoint")
+        .parse::<SocketAddr>()
+        .expect("convert to socketaddr");
+    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
+
     // truncate the first event1.
     let request = Requests::TruncateSegment(TruncateSegmentCommand {
         request_id: 17,
@@ -556,6 +665,7 @@ fn test_truncate_segment() {
         truncation_offset: 14,
         delegation_token: String::from(""),
     });
+
     let reply = Replies::SegmentTruncated(SegmentTruncatedCommand {
         request_id: 17,
         segment: segment_name.to_string(),
@@ -566,8 +676,6 @@ fn test_truncate_segment() {
 
 fn test_update_table_entries() {
     let mut rt = RUNTIME.lock().unwrap();
-    let endpoint: SocketAddr = "127.0.1.1:6000".parse().expect("fail to parse uri");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
 
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
@@ -577,6 +685,16 @@ fn test_update_table_entries() {
         stream: stream_name,
         segment: Segment { number: 2 },
     };
+
+    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let mut controller_client = ControllerClientImpl { channel: client };
+    let fut = controller_client.get_endpoint_for_segment(&segment_name);
+    let endpoint = rt
+        .block_on(fut)
+        .expect("get segment endpoint")
+        .parse::<SocketAddr>()
+        .expect("convert to socketaddr");
+    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 18,
@@ -662,8 +780,6 @@ fn test_update_table_entries() {
 
 fn test_read_table_key() {
     let mut rt = RUNTIME.lock().unwrap();
-    let endpoint: SocketAddr = "127.0.1.1:6000".parse().expect("fail to parse uri");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
 
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
@@ -672,6 +788,16 @@ fn test_read_table_key() {
         stream: stream_name,
         segment: Segment { number: 2 },
     };
+
+    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let mut controller_client = ControllerClientImpl { channel: client };
+    let fut = controller_client.get_endpoint_for_segment(&segment_name);
+    let endpoint = rt
+        .block_on(fut)
+        .expect("get segment endpoint")
+        .parse::<SocketAddr>()
+        .expect("convert to socketaddr");
+    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
 
     let request = Requests::ReadTableKeys(ReadTableKeysCommand {
         request_id: 22,
@@ -699,8 +825,6 @@ fn test_read_table_key() {
 
 fn test_read_table() {
     let mut rt = RUNTIME.lock().unwrap();
-    let endpoint: SocketAddr = "127.0.1.1:6000".parse().expect("fail to parse uri");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
 
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
@@ -709,6 +833,17 @@ fn test_read_table() {
         stream: stream_name,
         segment: Segment { number: 2 },
     };
+
+    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let mut controller_client = ControllerClientImpl { channel: client };
+    let fut = controller_client.get_endpoint_for_segment(&segment_name);
+    let endpoint = rt
+        .block_on(fut)
+        .expect("get segment endpoint")
+        .parse::<SocketAddr>()
+        .expect("convert to socketaddr");
+    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
+
     let mut keys = Vec::new();
     keys.push(TableKey::new(String::from("key1").into_bytes(), i64::min_value()));
     keys.push(TableKey::new(String::from("key2").into_bytes(), i64::min_value()));
@@ -743,8 +878,6 @@ fn test_read_table() {
 
 fn test_read_table_entries() {
     let mut rt = RUNTIME.lock().unwrap();
-    let endpoint: SocketAddr = "127.0.1.1:6000".parse().expect("fail to parse uri");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
 
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
@@ -753,6 +886,16 @@ fn test_read_table_entries() {
         stream: stream_name,
         segment: Segment { number: 2 },
     };
+
+    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let mut controller_client = ControllerClientImpl { channel: client };
+    let fut = controller_client.get_endpoint_for_segment(&segment_name);
+    let endpoint = rt
+        .block_on(fut)
+        .expect("get segment endpoint")
+        .parse::<SocketAddr>()
+        .expect("convert to socketaddr");
+    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
 
     let request = Requests::ReadTableEntries(ReadTableEntriesCommand {
         request_id: 22,
@@ -782,17 +925,4 @@ fn test_read_table_entries() {
     } else {
         panic!("Wrong reply type");
     }
-}
-
-// KeepALive would not send back reply.
-fn test_keep_alive() {
-    let mut rt = RUNTIME.lock().unwrap();
-    let endpoint: SocketAddr = "127.0.1.1:6000".parse().expect("fail to parse uri");
-    let request = Requests::KeepAlive(KeepAliveCommand {});
-    let connection = rt
-        .block_on((&*CONNECTION_POOL).get_connection(endpoint))
-        .expect("get connection");
-    let mut client_connection = ClientConnectionImpl::new(connection);
-    rt.block_on(client_connection.write(&request))
-        .expect("send request");
 }
