@@ -5,18 +5,19 @@ use pravega_client_rust::raw_client::RawClientImpl;
 use pravega_controller_client::{create_connection, ControllerClient, ControllerClientImpl};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfigBuilder;
+use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::Command as WireCommand;
 use pravega_wire_protocol::commands::*;
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl};
+use pravega_wire_protocol::connection_pool::ConnectionPool;
 use pravega_wire_protocol::connection_pool::ConnectionPoolImpl;
-use pravega_wire_protocol::wire_commands::{Replies, Requests};
+use pravega_wire_protocol::wire_commands::{Encode, Replies, Requests};
 use std::net::SocketAddr;
 use std::process::Command;
 use std::sync::Mutex;
 use std::{thread, time};
 use tokio::runtime::Runtime;
 use uuid::Uuid;
-
 // create a static connection pool for using through tests.
 lazy_static! {
     static ref CONNECTION_POOL: ConnectionPoolImpl = {
@@ -56,6 +57,7 @@ fn test_wirecommand() {
     wait_for_standalone_with_timeout(true, 20);
 
     test_hello();
+    test_keep_alive();
     test_setup_append();
     test_create_segment();
     test_seal_segment();
@@ -70,7 +72,6 @@ fn test_wirecommand() {
     test_read_table_key();
     test_read_table();
     test_read_table_entries();
-    //test_keep_alive();
     pravega.stop().unwrap();
     wait_for_standalone_with_timeout(false, 10);
 }
@@ -783,14 +784,18 @@ fn test_read_table_entries() {
     }
 }
 
-/* Will make pravega standalone segmentstore crash.
+// KeepALive would not send back reply.
 fn test_keep_alive() {
     let mut rt = RUNTIME.lock().unwrap();
     let endpoint: SocketAddr = "127.0.1.1:6000".parse().expect("fail to parse uri");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
-    let request = Requests::KeepAlive(KeepAliveCommand{});
-    let reply = Replies::KeepAlive(KeepAliveCommand{});
-    rt.block_on(raw_client.send_request(request))
-        .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
+    let request = Requests::KeepAlive(KeepAliveCommand {});
+    dbg!(Requests::KeepAlive(KeepAliveCommand {}));
+    let test_request = Requests::KeepAlive(KeepAliveCommand {}).write_fields();
+    dbg!(test_request);
+    let connection = rt
+        .block_on((&*CONNECTION_POOL).get_connection(endpoint))
+        .expect("get connection");
+    let mut client_connection = ClientConnectionImpl::new(connection);
+    rt.block_on(client_connection.write(&request))
+        .expect("send request");
 }
-*/
