@@ -39,7 +39,7 @@ use controller::{
     delete_scope_status, delete_stream_status, ping_txn_status, txn_state, txn_status, update_stream_status,
     CreateScopeStatus, CreateStreamStatus, CreateTxnRequest, CreateTxnResponse, DeleteScopeStatus,
     DeleteStreamStatus, NodeUri, PingTxnRequest, PingTxnStatus, ScopeInfo, SegmentRanges, StreamConfig,
-    StreamInfo, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
+    StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
 };
 use pravega_rust_client_shared::*;
 use std::convert::{From, Into};
@@ -193,6 +193,8 @@ pub trait ControllerClient {
      * @return              The delegation token for the given stream.
      */
     async fn get_or_refresh_delegation_token_for(&self, stream: ScopedStream) -> Result<DelegationToken>;
+
+    async fn get_successors(&mut self, segment: &ScopedSegment) -> Result<StreamSegmentsWithPredecessors>;
 }
 
 pub struct ControllerClientImpl {
@@ -280,7 +282,12 @@ impl ControllerClient for ControllerClientImpl {
     async fn get_or_refresh_delegation_token_for(&self, stream: ScopedStream) -> Result<DelegationToken> {
         unimplemented!()
     }
+
+    async fn get_successors(&mut self, segment: &ScopedSegment) -> Result<StreamSegmentsWithPredecessors> {
+        get_successors(segment, &mut self.channel).await
+    }
 }
+
 /// create_connection with the given controller uri.
 pub async fn create_connection(uri: &str) -> ControllerServiceClient<Channel> {
     // Placeholder to add authentication headers.
@@ -723,4 +730,20 @@ async fn check_transaction_status(
         },
         Err(status) => Err(map_grpc_error(operation_name, status)),
     }
+}
+
+/// Async helper function to get successors
+async fn get_successors(
+    request: &ScopedSegment,
+    ch: &mut ControllerServiceClient<Channel>,
+) -> Result<StreamSegmentsWithPredecessors> {
+    let op_status: StdResult<tonic::Response<SuccessorResponse>, tonic::Status> = ch
+        .get_segments_immediately_following(tonic::Request::new(request.into()))
+        .await;
+    let operation_name = "get_successors_segment";
+    match op_status {
+        Ok(response) => Ok(response.into_inner()),
+        Err(status) => Err(map_grpc_error(operation_name, status)),
+    }
+    .map(StreamSegmentsWithPredecessors::from)
 }

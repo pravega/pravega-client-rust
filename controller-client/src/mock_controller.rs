@@ -1,3 +1,12 @@
+/*
+ * Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ */
 #![allow(dead_code)]
 use super::ControllerClient;
 use super::ControllerError;
@@ -155,7 +164,7 @@ impl ControllerClient for MockController {
         }
 
         Ok(StreamSegments {
-            key_segment_map: segments,
+            key_segment_map: segments.into(),
         })
     }
 
@@ -171,7 +180,7 @@ impl ControllerClient for MockController {
         }
 
         Ok(TxnSegments {
-            key_segment_map: current_segments.key_segment_map,
+            stream_segments: current_segments,
             tx_id: TxId(uuid),
         })
     }
@@ -236,6 +245,17 @@ impl ControllerClient for MockController {
         _stream: ScopedStream,
     ) -> Result<DelegationToken, ControllerError> {
         Ok(DelegationToken(String::from("")))
+    }
+
+    async fn get_successors(
+        &mut self,
+        _segment: &ScopedSegment,
+    ) -> Result<StreamSegmentsWithPredecessors, ControllerError> {
+        Err(ControllerError::OperationError {
+            can_retry: false, // do not retry.
+            operation: "get successors".into(),
+            error_msg: "unsupported operation.".into(),
+        })
     }
 }
 
