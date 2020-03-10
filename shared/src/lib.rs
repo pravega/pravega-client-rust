@@ -17,12 +17,15 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
+mod naming_utils;
+
 use ordered_float::OrderedFloat;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
 use uuid::Uuid;
+use crate::naming_utils::NameUtils;
 
 #[macro_use]
 extern crate shrinkwraprs;
@@ -51,7 +54,7 @@ pub struct Stream {
 
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Segment {
-    pub number: i64,
+    pub segment_id: i64,
 }
 
 #[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
@@ -191,7 +194,7 @@ pub struct StreamSegments {
 }
 
 impl StreamSegments {
-    pub fn get_segment_for_key(&self, key: f64) -> Segment {
+    pub fn get_segment_for_key(&self, key: f64) -> ScopedSegment {
         // wait for segment range query to merge.
     }
 

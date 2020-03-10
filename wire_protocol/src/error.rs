@@ -114,6 +114,9 @@ pub enum ClientConnectionError {
         source: CommandError,
         backtrace: Backtrace,
     },
+
+    #[snafu(display("Failed to write/read since connection is split"))]
+    ConnectionIsSplit {},
 }
 
 #[derive(Debug, Snafu)]

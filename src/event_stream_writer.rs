@@ -45,7 +45,7 @@ pub struct EventStreamWriterImpl<T> {
 impl<T> EventStreamWriterImpl<T> {
     pub async fn new(stream: Stream, writer_id: String, controller: Box<dyn ControllerClient>) -> Self {
         let (tx, rx) = channel();
-        let selector = SegmentSelector::new(controller).await;
+        let selector = SegmentSelector::new(controller, tx.clone()).await;
         let processor = Processor{};
         processor.run(tx.clone(), rx, selector).await;
         EventStreamWriterImpl{stream, writer_id, tx}
@@ -69,7 +69,7 @@ struct Processor {}
 
 #[async_trait]
 impl Processor {
-    async fn run<T>(tx: Sender<Event<T>>, rx: Receiver<Event<T>>, mut selector: SegmentSelector) {
+    async fn run<T>(tx: Sender<Event<T>>, rx: Receiver<Event<T>>, mut selector: SegmentSelector<T>) {
         tokio::spawn(async move {
             loop {
                 // listen to the receiver channel
@@ -100,27 +100,38 @@ struct AppendEvent<T> {
 }
 
 struct ServerReply {
-
+    reply: Replies,
 }
 
-struct EventSegmentWriter {
+struct EventSegmentWriter<T> {
     /// unique id for each EventSegmentWriter
     writer_id: Uuid,
 
+    /// the segment that this writer is writing to
+    segment: ScopedSegment,
+
     /// connection that is used to communicate with segment
-    client_connection: Option<Box<dyn ClientConnection>>,
+    client_connection: Box<dyn ClientConnection>,
+
+    writer: Option<Box<dyn WritingClientConnection>>,
+
+    /// indicates that the client connection has been setup and ready to use
+    connection_setup: bool,
 
     /// events that are sent but yet acknowledged
     inflight: Vec<PendingEvent>,
 
     /// events that are waiting to be sent
     waiting: Vec<PendingEvent>,
+
+    /// used to send server reply to Processor
+    tx: Sender<Event<T>>
 }
 
 #[async_trait]
-impl EventSegmentWriter {
-    fn new(connection: Box<dyn ClientConnection>) -> Self {
-        EventSegmentWriter{writer_id: Uuid::new_v4(), client_connection: Option::Some(connection), inflight: vec!{}, waiting: vec!{}}
+impl<T> EventSegmentWriter<T> {
+    fn new(connection: Box<dyn ClientConnection>, segment: ScopedSegment, tx: Sender<Event<T>>) -> Self {
+        EventSegmentWriter{writer_id: Uuid::new_v4(), segment, client_connection: connection, writer: None, connection_setup: false, inflight: vec!{}, waiting: vec!{}, tx}
     }
 
     pub fn get_segment_name(&self) -> String{}
@@ -137,22 +148,30 @@ impl EventSegmentWriter {
     pub fn get_unacked_events_on_seal(&self) -> Vec<PendingEvent>{}
 
     pub fn get_last_observed_write_offset(&self){}
-}
 
-struct ConnectionListener {
+    async fn setup_append(&mut self) -> Result<Box<dyn ClientConnection>, Error> {
+        let mut connection = self.client_connection.expect("client connection should not be empty when setup append is called");
+        // TODO: implement token related feature
+        let token = String::from("");
+        let cmd = Requests::SetupAppend(SetupAppendCommand::new(connection.get_uuid().as_u128(), self.writer_id.as_u128(), self.segment_name.clone(), token));
+        self.writer.expect("should have writer").connection.write(&cmd).await.expect("TODO")
+    }
 
-}
+    fn split(&mut self) {
+        let (mut r, w) = self.client_connection.split();
+        self.writer = Some(w);
 
-#[async_trait]
-impl ConnectionListener {
-    fn run(tx: Sender<Event<T>>) {
-
+        tokio::spawn(async move {
+            let reply = r.read().await.expect("TODO");
+            let server_reply = Event(ServerReply{reply});
+            self.tx.clone().send(server_reply).expect("TODO");
+        })
     }
 }
 
-struct SegmentSelector {
+struct SegmentSelector<T> {
     /// mapping each segment in this stream to it's EventSegmentWriter
-    writers: HashMap<Segment, EventSegmentWriter>,
+    writers: HashMap<ScopedSegment, EventSegmentWriter<T>>,
 
     /// the current segments in this stream
     current_segments: StreamSegments,
@@ -162,11 +181,14 @@ struct SegmentSelector {
 
     // TODO it will be replaced by client factory
     connection_pool: Box<dyn ConnectionPool>,
+
+    /// used to pass to EventSegmentWriter that it creates
+    tx: Sender<Event<T>>,
 }
 
 #[async_trait]
-impl SegmentSelector {
-    async fn new(mut controller: Box<dyn ControllerClient>) -> Self {
+impl<T> SegmentSelector<T> {
+    async fn new(mut controller: Box<dyn ControllerClient>, tx: Sender<Event<T>>) -> Self {
         let writers = HashMap::new();
         let current_segments = controller.get_current_segments().await.expect("TODO");
 
@@ -174,11 +196,11 @@ impl SegmentSelector {
         let config = ClientConfigBuilder::default().build().unwrap();
         let factory = Box::new(ConnectionFactoryImpl{});
         let connection_pool = Box::new(ConnectionPoolImpl::new(factory, config));
-        SegmentSelector{writers, current_segments, controller, connection_pool}
+        SegmentSelector{writers, current_segments, controller, connection_pool, tx}
     }
 
     /// get the segment writer by passing a routing key
-    async fn get_segment_writer_for_key(&mut self, routing_key: Option<String>) -> &EventSegmentWriter {
+    async fn get_segment_writer_for_key(&mut self, routing_key: Option<String>) -> &EventSegmentWriter<T> {
         let event_segment_writer = self.writers.get(&self.get_segment_for_event(routing_key));
 
         // update the segment information
@@ -190,7 +212,7 @@ impl SegmentSelector {
     }
 
     /// get the Segment by passing a routing key
-    fn get_segment_for_event(&self, routing_key: Option<String>) -> Segment {
+    fn get_segment_for_event(&self, routing_key: Option<String>) -> ScopedSegment {
         if routing_key.is_none() {
             self.current_segments.get_segment_for_key(rng.gen::<f64>())
         } else {
@@ -221,24 +243,21 @@ impl SegmentSelector {
     /// create missing EventSegmentWriter and set up the connections for ready to use
     async fn create_missing_writers(&mut self) {
         for scoped_segment in self.current_segments.get_scoped_segments() {
-            if !self.writers.containsKey(segment) {
+            if !self.writers.containsKey(scoped_segment) {
                 // TODO: use client factory
                 let uri = self.controller.get_endpoint_for_segment(&scoped_segment).await.expect("TODO");
                 let connection = self.connection_pool.get_connection(uri.0.into()).await.expect("TODO");
                 let client_connection = Box::new(ClientConnectionImpl::new(connection));
-                let writer = EventSegmentWriter::new(client_connection);
-                self.writers.put(scoped_segment.segment, writer);
+
+                let writer = EventSegmentWriter::new(client_connection, scoped_segment.clone(), tx.clone());
+                self.writers.put(scoped_segment.clone(), writer);
+                // set up append for the new connection
+                self.writers.get(&scoped_segment).unwrap().setup_append().await;
             }
         }
     }
 }
 
-async fn setup_append(connection: Box<dyn ClientConnection>) -> Result<Box<dyn ClientConnection>, Error> {
-    let request_id =
-    SetupAppendCommand cmd = SetupAppendCommand(requestId, writerId, segmentName, token);
-    connection.write()
-
-}
 
 struct PendingEvent {
     routing_key:  Option<String>,
@@ -275,4 +294,33 @@ fn hash_string_to_f64(s: String) -> f64 {
     let hash_u64 = hasher.finish();
     let shifted = (hash_u64 >> 12) & 0x000fffffffffffffu64;
     f64::from_bits(0x3ff0000000000000u64 + shifted) - 1.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::client_config::ClientConfigBuilder;
+    use crate::commands::HelloCommand;
+    use crate::connection_factory::ConnectionFactoryImpl;
+    use crate::connection_pool::{ConnectionPool, ConnectionPoolImpl};
+    use crate::wire_commands::{Encode, Replies};
+    use std::io::Write;
+    use std::net::{SocketAddr, TcpListener};
+    use tokio::runtime::Runtime;
+
+    struct Server {
+        address: SocketAddr,
+        listener: TcpListener,
+    }
+
+    impl Server {
+        pub fn new() -> Server {
+            let listener = TcpListener::bind("127.0.0.1:0").expect("local server");
+            let address = listener.local_addr().expect("get listener address");
+            Server { address, listener }
+        }
+    }
+
+    #[test]
+    fn client_connection_read() {}
 }
