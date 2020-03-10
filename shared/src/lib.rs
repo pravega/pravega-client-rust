@@ -1,3 +1,12 @@
+/*
+ * Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ */
 #![deny(
     clippy::all,
     clippy::cargo,
@@ -19,11 +28,15 @@
 
 mod naming_utils;
 
+use im::HashMap as ImHashMap;
+use im::OrdMap;
 use ordered_float::OrderedFloat;
+use std::cmp::{min, Reverse};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
+use std::ops::Index;
 use uuid::Uuid;
 use crate::naming_utils::NameUtils;
 
@@ -188,9 +201,99 @@ pub struct SegmentWithRange {
     pub max_key: OrderedFloat<f64>,
 }
 
-#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct StreamSegments {
-    pub key_segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
+    pub key_segment_map: OrdMap<OrderedFloat<f64>, SegmentWithRange>,
+}
+
+impl StreamSegments {
+    pub fn new(map_key_segment: BTreeMap<OrderedFloat<f64>, SegmentWithRange>) -> StreamSegments {
+        StreamSegments::is_valid(&map_key_segment).expect("Invalid key segment map");
+        StreamSegments {
+            key_segment_map: map_key_segment.into(),
+        }
+    }
+
+    fn is_valid(map: &BTreeMap<OrderedFloat<f64>, SegmentWithRange>) -> Result<(), String> {
+        if !map.is_empty() {
+            let (min_key, _min_seg) = map.iter().next().expect("Error reading min key");
+            let (max_key, _max_seg) = map.iter().next_back().expect("Error read max key");
+            assert!(
+                min_key.gt(&OrderedFloat(0.0)),
+                "Min key is expected to be greater than 0.0"
+            );
+            assert!(max_key.ge(&OrderedFloat(1.0)), "Last Key is missing");
+            assert!(
+                max_key.lt(&OrderedFloat(1.0001)),
+                "Segments should have values only upto 1.0"
+            );
+        }
+        Ok(())
+    }
+
+    pub fn get_segment(&self, key: f64) -> ScopedSegment {
+        assert!(OrderedFloat(key).ge(&OrderedFloat(0.0)), "Key should be >= 0.0");
+        assert!(OrderedFloat(key).le(&OrderedFloat(1.0)), "Key should be <= 1.0");
+        let r = self
+            .key_segment_map
+            .range(&OrderedFloat(key)..)
+            .next()
+            .expect("No matching segment found for the given key");
+        r.1.scoped_segment.to_owned()
+    }
+
+    pub fn apply_replacement_range(
+        &self,
+        segment_replace: &Segment,
+        replacement_ranges: &StreamSegmentsWithPredecessors,
+    ) -> Result<StreamSegments, String> {
+        //let segment_to_replace = self.find_segment(segment);
+        let mut replaced_ranges = replacement_ranges
+            .replacement_segments
+            .get(segment_replace)
+            .unwrap_or_else(|| panic!("Empty set of replacements"))
+            .clone();
+
+        replaced_ranges.sort_by_key(|k| Reverse(k.max_key));
+        let replaced_ranges_ref = &replaced_ranges;
+        StreamSegments::verify_continuous(replaced_ranges_ref)
+            .expect("Replacement ranges are not continuous");
+
+        let mut result: BTreeMap<OrderedFloat<f64>, SegmentWithRange> = BTreeMap::new();
+        for (key, seg) in self.key_segment_map.iter().rev() {
+            if segment_replace.number == seg.scoped_segment.segment.number {
+                // segment should be replaced.
+                for new_segment in replaced_ranges_ref {
+                    let lower_bound = self.key_segment_map.range(..key).next_back();
+                    match lower_bound {
+                        None => {
+                            result.insert(min(new_segment.max_key, *key), new_segment.clone());
+                        }
+                        Some(lower_bound_value) => {
+                            if new_segment.max_key.ge(&lower_bound_value.0) {
+                                result.insert(min(new_segment.max_key, *key), new_segment.clone());
+                            }
+                        }
+                    };
+                }
+            } else {
+                result.insert(*key, seg.clone());
+            }
+        }
+
+        Ok(StreamSegments::new(result))
+    }
+
+    fn verify_continuous(segment_replace_ranges: &[SegmentWithRange]) -> Result<(), String> {
+        let mut previous = segment_replace_ranges.index(0).max_key;
+        for x in segment_replace_ranges {
+            if x.max_key.0.ne(&previous.0) {
+                return Err("Replacement segments are not continuous".to_string());
+            }
+            previous = x.min_key;
+        }
+        Ok(())
+    }
 }
 
 impl StreamSegments {
@@ -209,6 +312,38 @@ impl StreamSegments {
 
 #[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct TxnSegments {
-    pub key_segment_map: BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
+    pub stream_segments: StreamSegments,
     pub tx_id: TxId,
 }
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct StreamSegmentsWithPredecessors {
+    pub segment_with_predecessors: ImHashMap<SegmentWithRange, Vec<Segment>>,
+    pub replacement_segments: ImHashMap<Segment, Vec<SegmentWithRange>>, // inverse lookup
+}
+
+impl StreamSegmentsWithPredecessors {
+    pub fn new(
+        segment_with_predecessor: ImHashMap<SegmentWithRange, Vec<Segment>>,
+    ) -> StreamSegmentsWithPredecessors {
+        let mut replacement_map: HashMap<Segment, Vec<SegmentWithRange>> = HashMap::new();
+        for (segment, predecessor) in &segment_with_predecessor {
+            for predecessor_segment in predecessor {
+                let predecessor = predecessor_segment.clone();
+                let mut replacement_segments = replacement_map
+                    .get(&predecessor)
+                    .get_or_insert(&Vec::new())
+                    .clone();
+                replacement_segments.push((*segment).clone());
+                replacement_map.insert(predecessor, replacement_segments.to_vec());
+            }
+        }
+        StreamSegmentsWithPredecessors {
+            segment_with_predecessors: segment_with_predecessor,
+            replacement_segments: replacement_map.into(), // convert to immutable map.
+        }
+    }
+}
+
+#[cfg(test)]
+mod test;
