@@ -14,9 +14,9 @@ use pravega_wire_protocol::connection_pool::ConnectionPoolImpl;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
 use std::process::Command;
-use std::sync::Mutex;
 use std::{thread, time};
 use tokio::runtime::Runtime;
+use tokio::time::timeout;
 use uuid::Uuid;
 
 // create a static connection pool for using through tests.
@@ -29,11 +29,10 @@ lazy_static! {
         let pool = ConnectionPoolImpl::new(cf, config);
         pool
     };
-    static ref RUNTIME: Mutex<Runtime> = Mutex::new(Runtime::new().expect("create integration_test runtime"));
 }
 
-fn wait_for_standalone_with_timeout(running: bool, timeout: i32) {
-    for _i in 0..timeout {
+fn wait_for_standalone_with_timeout(running: bool, timeout_second: i32) {
+    for _i in 0..timeout_second {
         let output = Command::new("sh")
             .arg("-c")
             .arg("netstat -ltn 2> /dev/null | grep 9090 || ss -ltn 2> /dev/null | grep 9090")
@@ -48,44 +47,111 @@ fn wait_for_standalone_with_timeout(running: bool, timeout: i32) {
     }
     panic!(
         "timeout {} exceeded, Pravega standalone is in status {} while expected {}",
-        timeout, running, !running
+        timeout_second, running, !running
     );
 }
-
+async fn test_with_timeout(timeout_second: u64) {
+    let res = timeout(time::Duration::from_secs(timeout_second), test_hello()).await;
+    if res.is_err() {
+        panic!("test_hello() failed! {:?}", res);
+    }
+    let res = timeout(time::Duration::from_secs(timeout_second), test_keep_alive()).await;
+    if res.is_err() {
+        panic!("test_keep_alive() failed!");
+    }
+    let res = timeout(time::Duration::from_secs(timeout_second), test_setup_append()).await;
+    if res.is_err() {
+        panic!("test_setup_append() failed!");
+    }
+    let res = timeout(time::Duration::from_secs(timeout_second), test_create_segment()).await;
+    if res.is_err() {
+        panic!("test_create_segment() failed!");
+    }
+    let res = timeout(time::Duration::from_secs(timeout_second), test_seal_segment()).await;
+    if res.is_err() {
+        panic!("test_seal_segment() failed!");
+    }
+    let res = timeout(time::Duration::from_secs(timeout_second), test_update_and_get_segment_attribute()).await;
+    if res.is_err() {
+        panic!("test_update_and_get_segment_attribute() failed!");
+    }
+    let res = timeout(time::Duration::from_secs(timeout_second), test_get_stream_segment_info()).await;
+    if res.is_err() {
+        panic!("test_get_stream_segment_info() failed!");
+    }
+    let res = timeout(time::Duration::from_secs(timeout_second), test_delete_segment()).await;
+    if res.is_err() {
+        panic!("test_delete_segment() failed!");
+    }
+    let res = timeout(time::Duration::from_secs(timeout_second), test_conditional_append_and_read_segment()).await;
+    if res.is_err() {
+        panic!("test_conditional_append_and_read_segment() failed!");
+    }
+    let res = timeout(time::Duration::from_secs(timeout_second), test_update_segment_policy()).await;
+    if res.is_err() {
+        panic!("test_update_segment_policy() failed!");
+    }
+    let res = timeout(time::Duration::from_secs(timeout_second), test_merge_segment()).await;
+    if res.is_err() {
+        panic!("test_merge_segment() failed!");
+    }
+    let res = timeout(time::Duration::from_secs(timeout_second), test_truncate_segment()).await;
+    if res.is_err() {
+        panic!("test_truncate_segment() failed!");
+    }
+    let res = timeout(time::Duration::from_secs(timeout_second), test_update_table_entries()).await;
+    if res.is_err() {
+        panic!("test_update_table_entries() failed!");
+    }
+    let res = timeout(time::Duration::from_secs(timeout_second), test_read_table_key()).await;
+    if res.is_err() {
+        panic!("test_read_table_key() failed!");
+    }
+    let res = timeout(time::Duration::from_secs(timeout_second), test_read_table()).await;
+    if res.is_err() {
+        panic!("test_read_table() failed!");
+    }
+    let res = timeout(time::Duration::from_secs(timeout_second), test_read_table_entries()).await;
+    if res.is_err() {
+        panic!("test_read_table_entries() failed!");
+    }
+}
 #[test]
 fn test_wirecommand() {
     let mut pravega = PravegaStandaloneService::start();
     wait_for_standalone_with_timeout(true, 20);
-
-    test_hello();
-    test_keep_alive();
-    test_setup_append();
-    test_create_segment();
-    test_seal_segment();
-    test_update_and_get_segment_attribute();
-    test_get_stream_segment_info();
-    test_delete_segment();
-    test_conditional_append_and_read_segment();
-    test_update_segment_policy();
-    test_merge_segment();
-    test_truncate_segment();
-    test_update_table_entries();
-    test_read_table_key();
-    test_read_table();
-    test_read_table_entries();
+    let mut rt =  Runtime::new().unwrap();
+    rt.block_on(test_with_timeout(30));
+    /*
+    rt.block_on(test_hello());
+    rt.block_on(test_keep_alive());
+    rt.block_on(test_setup_append());
+    rt.block_on(test_create_segment());
+    rt.block_on(test_seal_segment());
+    rt.block_on(test_update_and_get_segment_attribute());
+    rt.block_on(test_get_stream_segment_info());
+    rt.block_on(test_delete_segment());
+    rt.block_on(test_conditional_append_and_read_segment());
+    rt.block_on(test_update_segment_policy());
+    rt.block_on(test_merge_segment());
+    rt.block_on(test_truncate_segment());
+    rt.block_on(test_update_table_entries());
+    rt.block_on(test_read_table_key());
+    rt.block_on(test_read_table());
+    rt.block_on(test_read_table_entries());
+    */
     pravega.stop().unwrap();
     wait_for_standalone_with_timeout(false, 10);
 }
 
-fn test_hello() {
-    let mut rt = RUNTIME.lock().unwrap();
+async fn test_hello() {
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     // Create scope and stream
-    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let client = create_connection("http://127.0.0.1:9090").await;
     let mut controller_client = ControllerClientImpl { channel: client };
-    let fut = controller_client.create_scope(&scope_name);
-    rt.block_on(fut).expect("create scope");
+    controller_client.create_scope(&scope_name).await.expect("create scope");
+
     let request = StreamConfiguration {
         scoped_stream: ScopedStream {
             scope: scope_name.clone(),
@@ -102,23 +168,20 @@ fn test_hello() {
             retention_param: 0,
         },
     };
-
-    let fut = controller_client.create_stream(&request);
-    rt.block_on(fut).expect("create stream");
-
+    controller_client.create_stream(&request).await.expect("create stream");
+    //Get the endpoint.
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
         segment: Segment { number: 0 },
     };
-    let fut = controller_client.get_endpoint_for_segment(&segment_name);
-    let endpoint = rt
-        .block_on(fut)
-        .expect("get segment endpoint")
+    let endpoint = controller_client.get_endpoint_for_segment(&segment_name)
+        .await
+        .expect("get endpoint for segment")
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
 
-    // send hello wirecommand to standalone segmentstore
+    // send hello to Pravega standalone
     let request = Requests::Hello(HelloCommand {
         low_version: 5,
         high_version: 9,
@@ -129,14 +192,14 @@ fn test_hello() {
         high_version: 9,
     });
 
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
-    rt.block_on(raw_client.send_request(request))
-        .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+    raw_client.send_request(request)
+            .await
+            .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-// KeepALive would not send back reply.
-fn test_keep_alive() {
-    let mut rt = RUNTIME.lock().unwrap();
+// KeepAlive would not send back reply.
+async fn test_keep_alive() {
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     let segment_name = ScopedSegment {
@@ -145,26 +208,21 @@ fn test_keep_alive() {
         segment: Segment { number: 0 },
     };
 
-    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let client = create_connection("http://127.0.0.1:9090").await;
     let mut controller_client = ControllerClientImpl { channel: client };
-    let fut = controller_client.get_endpoint_for_segment(&segment_name);
-    let endpoint = rt
-        .block_on(fut)
-        .expect("get segment endpoint")
+    let endpoint = controller_client.get_endpoint_for_segment(&segment_name)
+        .await
+        .expect("get endpoint for segment")
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
 
     let request = Requests::KeepAlive(KeepAliveCommand {});
-    let connection = rt
-        .block_on((&*CONNECTION_POOL).get_connection(endpoint))
-        .expect("get connection");
+    let connection = (&*CONNECTION_POOL).get_connection(endpoint).await.expect("get connection");
     let mut client_connection = ClientConnectionImpl::new(connection);
-    rt.block_on(client_connection.write(&request))
-        .expect("send request");
+    client_connection.write(&request).await.expect("send request");
 }
 
-fn test_setup_append() {
-    let mut rt = RUNTIME.lock().unwrap();
+async fn test_setup_append() {
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     let segment_name = ScopedSegment {
@@ -173,12 +231,11 @@ fn test_setup_append() {
         segment: Segment { number: 0 },
     };
 
-    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let client = create_connection("http://127.0.0.1:9090").await;
     let mut controller_client = ControllerClientImpl { channel: client };
-    let fut = controller_client.get_endpoint_for_segment(&segment_name);
-    let endpoint = rt
-        .block_on(fut)
-        .expect("get segment endpoint")
+    let endpoint = controller_client.get_endpoint_for_segment(&segment_name)
+        .await
+        .expect("get endpoint for segment")
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
 
@@ -198,8 +255,8 @@ fn test_setup_append() {
         last_event_number: i64::min_value(),
     });
 
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
-    rt.block_on(raw_client.send_request(request))
+    let raw_client =RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+    raw_client.send_request(request).await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 
     // A wrong segment name.
@@ -216,12 +273,11 @@ fn test_setup_append() {
         server_stack_trace: String::from(""),
         offset: -1,
     });
-    rt.block_on(raw_client.send_request(request))
+    raw_client.send_request(request).await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-fn test_create_segment() {
-    let mut rt = RUNTIME.lock().unwrap();
+async fn test_create_segment() {
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     let segment_name = ScopedSegment {
@@ -230,15 +286,15 @@ fn test_create_segment() {
         segment: Segment { number: 0 },
     };
 
-    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let client = create_connection("http://127.0.0.1:9090").await;
     let mut controller_client = ControllerClientImpl { channel: client };
-    let fut = controller_client.get_endpoint_for_segment(&segment_name);
-    let endpoint = rt
-        .block_on(fut)
-        .expect("get segment endpoint")
+    let endpoint = controller_client.get_endpoint_for_segment(&segment_name)
+        .await
+        .expect("get endpoint for segment")
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
+
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 2,
@@ -252,12 +308,11 @@ fn test_create_segment() {
         segment: segment_name.to_string(),
     });
 
-    rt.block_on(raw_client.send_request(request))
+    raw_client.send_request(request).await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-fn test_seal_segment() {
-    let mut rt = RUNTIME.lock().unwrap();
+async fn test_seal_segment() {
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     let segment_name = ScopedSegment {
@@ -266,15 +321,15 @@ fn test_seal_segment() {
         segment: Segment { number: 0 },
     };
 
-    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let client = create_connection("http://127.0.0.1:9090").await;
     let mut controller_client = ControllerClientImpl { channel: client };
-    let fut = controller_client.get_endpoint_for_segment(&segment_name);
-    let endpoint = rt
-        .block_on(fut)
-        .expect("get segment endpoint")
+    let endpoint = controller_client.get_endpoint_for_segment(&segment_name)
+        .await
+        .expect("get endpoint for segment")
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
+
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
 
     let request = Requests::SealSegment(SealSegmentCommand {
         segment: segment_name.to_string(),
@@ -287,13 +342,11 @@ fn test_seal_segment() {
         segment: segment_name.to_string(),
     });
 
-    rt.block_on(raw_client.send_request(request))
+    raw_client.send_request(request).await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-fn test_update_and_get_segment_attribute() {
-    let mut rt = RUNTIME.lock().unwrap();
-
+async fn test_update_and_get_segment_attribute() {
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     let segment_name = ScopedSegment {
@@ -301,15 +354,15 @@ fn test_update_and_get_segment_attribute() {
         stream: stream_name.clone(),
         segment: Segment { number: 0 },
     };
-    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let client = create_connection("http://127.0.0.1:9090").await;
     let mut controller_client = ControllerClientImpl { channel: client };
-    let fut = controller_client.get_endpoint_for_segment(&segment_name);
-    let endpoint = rt
-        .block_on(fut)
-        .expect("get segment endpoint")
+    let endpoint = controller_client.get_endpoint_for_segment(&segment_name)
+        .await
+        .expect("get endpoint for segment")
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
+
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
 
     let sname = segment_name.to_string() + ".#epoch.0";
     let uid = Uuid::new_v4().as_u128();
@@ -325,7 +378,7 @@ fn test_update_and_get_segment_attribute() {
         request_id: 4,
         success: true,
     });
-    rt.block_on(raw_client.send_request(request))
+    raw_client.send_request(request).await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 
     let request = Requests::GetSegmentAttribute(GetSegmentAttributeCommand {
@@ -339,12 +392,11 @@ fn test_update_and_get_segment_attribute() {
         request_id: 5,
         value: 1,
     });
-    rt.block_on(raw_client.send_request(request))
+    raw_client.send_request(request).await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-fn test_get_stream_segment_info() {
-    let mut rt = RUNTIME.lock().unwrap();
+async fn test_get_stream_segment_info() {
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     let stream = ScopedStream {
@@ -353,10 +405,9 @@ fn test_get_stream_segment_info() {
     };
 
     //seal this stream.
-    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let client = create_connection("http://127.0.0.1:9090").await;
     let mut controller_client = ControllerClientImpl { channel: client };
-    let fut = controller_client.seal_stream(&stream);
-    rt.block_on(fut).expect("seal stream");
+    controller_client.seal_stream(&stream).await.expect("seal stream");
 
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
@@ -364,13 +415,13 @@ fn test_get_stream_segment_info() {
         segment: Segment { number: 0 },
     };
 
-    let fut = controller_client.get_endpoint_for_segment(&segment_name);
-    let endpoint = rt
-        .block_on(fut)
-        .expect("get segment endpoint")
+    let endpoint = controller_client.get_endpoint_for_segment(&segment_name)
+        .await
+        .expect("get endpoint for segment")
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
+
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
 
     let sname = segment_name.to_string() + ".#epoch.0";
     let request = Requests::GetStreamSegmentInfo(GetStreamSegmentInfoCommand {
@@ -378,9 +429,7 @@ fn test_get_stream_segment_info() {
         segment_name: sname.clone(),
         delegation_token: String::from(""),
     });
-    let reply = rt
-        .block_on(raw_client.send_request(request))
-        .expect("fail to get reply");
+    let reply = raw_client.send_request(request).await.expect("fail to get reply");
     if let Replies::StreamSegmentInfo(info) = reply {
         assert!(info.is_sealed, true);
     } else {
@@ -388,8 +437,7 @@ fn test_get_stream_segment_info() {
     }
 }
 
-fn test_delete_segment() {
-    let mut rt = RUNTIME.lock().unwrap();
+async fn test_delete_segment() {
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     let segment_name = ScopedSegment {
@@ -398,15 +446,15 @@ fn test_delete_segment() {
         segment: Segment { number: 0 },
     };
 
-    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let client = create_connection("http://127.0.0.1:9090").await;
     let mut controller_client = ControllerClientImpl { channel: client };
-    let fut = controller_client.get_endpoint_for_segment(&segment_name);
-    let endpoint = rt
-        .block_on(fut)
-        .expect("get segment endpoint")
+    let endpoint = controller_client.get_endpoint_for_segment(&segment_name)
+        .await
+        .expect("get endpoint for segment")
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
+
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
 
     let request = Requests::DeleteSegment(DeleteSegmentCommand {
         request_id: 7,
@@ -417,13 +465,11 @@ fn test_delete_segment() {
         request_id: 7,
         segment: segment_name.to_string(),
     });
-    rt.block_on(raw_client.send_request(request))
+    raw_client.send_request(request).await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-fn test_conditional_append_and_read_segment() {
-    let mut rt = RUNTIME.lock().unwrap();
-
+async fn test_conditional_append_and_read_segment() {
     // create a segment.
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
@@ -434,15 +480,15 @@ fn test_conditional_append_and_read_segment() {
         segment: Segment { number: 0 },
     };
 
-    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let client = create_connection("http://127.0.0.1:9090").await;
     let mut controller_client = ControllerClientImpl { channel: client };
-    let fut = controller_client.get_endpoint_for_segment(&segment_name);
-    let endpoint = rt
-        .block_on(fut)
-        .expect("get segment endpoint")
+    let endpoint = controller_client.get_endpoint_for_segment(&segment_name)
+        .await
+        .expect("get endpoint for segment")
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
+
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 8,
@@ -451,8 +497,7 @@ fn test_conditional_append_and_read_segment() {
         scale_type: ScaleType::FixedNumSegments as u8,
         delegation_token: String::from(""),
     });
-    rt.block_on(raw_client.send_request(request))
-        .expect("create segment");
+    raw_client.send_request(request).await.expect("create segment");
 
     // Setup Append.
     let request = Requests::SetupAppend(SetupAppendCommand {
@@ -461,8 +506,7 @@ fn test_conditional_append_and_read_segment() {
         segment: segment_name.to_string(),
         delegation_token: String::from(""),
     });
-    rt.block_on(raw_client.send_request(request))
-        .expect("setup append");
+    raw_client.send_request(request).await.expect("setup append");
 
     // Conditional Append.
     let data = String::from("event1").into_bytes();
@@ -481,7 +525,7 @@ fn test_conditional_append_and_read_segment() {
         request_id: 10,
         current_segment_write_offset: 14,
     });
-    rt.block_on(raw_client.send_request(request))
+    raw_client.send_request(request).await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 
     //read the event.
@@ -504,13 +548,11 @@ fn test_conditional_append_and_read_segment() {
         request_id: 11,
     });
 
-    rt.block_on(raw_client.send_request(request))
+    raw_client.send_request(request).await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-fn test_update_segment_policy() {
-    let mut rt = RUNTIME.lock().unwrap();
-
+async fn test_update_segment_policy() {
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
 
@@ -520,15 +562,15 @@ fn test_update_segment_policy() {
         segment: Segment { number: 0 },
     };
 
-    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let client = create_connection("http://127.0.0.1:9090").await;
     let mut controller_client = ControllerClientImpl { channel: client };
-    let fut = controller_client.get_endpoint_for_segment(&segment_name);
-    let endpoint = rt
-        .block_on(fut)
-        .expect("get segment endpoint")
+    let endpoint = controller_client.get_endpoint_for_segment(&segment_name)
+        .await
+        .expect("get endpoint for segment")
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
+
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
 
     let request = Requests::UpdateSegmentPolicy(UpdateSegmentPolicyCommand {
         request_id: 12,
@@ -542,13 +584,11 @@ fn test_update_segment_policy() {
         request_id: 12,
         segment: segment_name.to_string(),
     });
-    rt.block_on(raw_client.send_request(request))
+    raw_client.send_request(request).await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-fn test_merge_segment() {
-    let mut rt = RUNTIME.lock().unwrap();
-
+async fn test_merge_segment() {
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
 
@@ -558,15 +598,15 @@ fn test_merge_segment() {
         segment: Segment { number: 1 },
     };
 
-    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let client = create_connection("http://127.0.0.1:9090").await;
     let mut controller_client = ControllerClientImpl { channel: client };
-    let fut = controller_client.get_endpoint_for_segment(&segment_name);
-    let endpoint = rt
-        .block_on(fut)
-        .expect("get segment endpoint")
+    let endpoint = controller_client.get_endpoint_for_segment(&segment_name)
+        .await
+        .expect("get endpoint for segment")
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
+
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 13,
@@ -575,8 +615,8 @@ fn test_merge_segment() {
         scale_type: ScaleType::FixedNumSegments as u8,
         delegation_token: String::from(""),
     });
-    rt.block_on(raw_client.send_request(request))
-        .expect("create segment");
+
+    raw_client.send_request(request).await.expect("create segment");
 
     // Setup Append.
     let request = Requests::SetupAppend(SetupAppendCommand {
@@ -585,8 +625,7 @@ fn test_merge_segment() {
         segment: segment_name.to_string(),
         delegation_token: String::from(""),
     });
-    rt.block_on(raw_client.send_request(request))
-        .expect("setup append");
+    raw_client.send_request(request).await.expect("setup append");
 
     // Conditional Append.
     let data = String::from("event2").into_bytes();
@@ -605,7 +644,7 @@ fn test_merge_segment() {
         request_id: 15,
         current_segment_write_offset: 14,
     });
-    rt.block_on(raw_client.send_request(request))
+    raw_client.send_request(request).await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 
     // Merge with scope/stream/0.
@@ -632,13 +671,11 @@ fn test_merge_segment() {
         new_target_write_offset: 28,
     });
 
-    rt.block_on(raw_client.send_request(request))
+    raw_client.send_request(request).await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-fn test_truncate_segment() {
-    let mut rt = RUNTIME.lock().unwrap();
-
+async fn test_truncate_segment() {
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
 
@@ -648,15 +685,15 @@ fn test_truncate_segment() {
         segment: Segment { number: 0 },
     };
 
-    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let client = create_connection("http://127.0.0.1:9090").await;
     let mut controller_client = ControllerClientImpl { channel: client };
-    let fut = controller_client.get_endpoint_for_segment(&segment_name);
-    let endpoint = rt
-        .block_on(fut)
-        .expect("get segment endpoint")
+    let endpoint = controller_client.get_endpoint_for_segment(&segment_name)
+        .await
+        .expect("get endpoint for segment")
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
+
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
 
     // truncate the first event1.
     let request = Requests::TruncateSegment(TruncateSegmentCommand {
@@ -670,13 +707,11 @@ fn test_truncate_segment() {
         request_id: 17,
         segment: segment_name.to_string(),
     });
-    rt.block_on(raw_client.send_request(request))
+    raw_client.send_request(request).await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-fn test_update_table_entries() {
-    let mut rt = RUNTIME.lock().unwrap();
-
+async fn test_update_table_entries() {
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
     // create a new segment.
@@ -686,15 +721,15 @@ fn test_update_table_entries() {
         segment: Segment { number: 2 },
     };
 
-    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let client = create_connection("http://127.0.0.1:9090").await;
     let mut controller_client = ControllerClientImpl { channel: client };
-    let fut = controller_client.get_endpoint_for_segment(&segment_name);
-    let endpoint = rt
-        .block_on(fut)
-        .expect("get segment endpoint")
+    let endpoint = controller_client.get_endpoint_for_segment(&segment_name)
+        .await
+        .expect("get endpoint for segment")
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
+
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 18,
@@ -704,8 +739,7 @@ fn test_update_table_entries() {
         delegation_token: String::from(""),
     });
 
-    rt.block_on(raw_client.send_request(request))
-        .expect("create segment");
+    raw_client.send_request(request).await.expect("create segment");
 
     //create a table.
     let mut entries = Vec::new();
@@ -732,7 +766,7 @@ fn test_update_table_entries() {
         updated_versions: versions,
     });
 
-    rt.block_on(raw_client.send_request(request))
+    raw_client.send_request(request).await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 
     //test table key not exist.
@@ -753,7 +787,7 @@ fn test_update_table_entries() {
         segment: segment_name.to_string(),
         server_stack_trace: String::from(""),
     });
-    rt.block_on(raw_client.send_request(request))
+    raw_client.send_request(request).await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 
     //test table key bad version.
@@ -774,13 +808,11 @@ fn test_update_table_entries() {
         segment: segment_name.to_string(),
         server_stack_trace: String::from(""),
     });
-    rt.block_on(raw_client.send_request(request))
+    raw_client.send_request(request).await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-fn test_read_table_key() {
-    let mut rt = RUNTIME.lock().unwrap();
-
+async fn test_read_table_key() {
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
     let segment_name = ScopedSegment {
@@ -789,15 +821,15 @@ fn test_read_table_key() {
         segment: Segment { number: 2 },
     };
 
-    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let client = create_connection("http://127.0.0.1:9090").await;
     let mut controller_client = ControllerClientImpl { channel: client };
-    let fut = controller_client.get_endpoint_for_segment(&segment_name);
-    let endpoint = rt
-        .block_on(fut)
-        .expect("get segment endpoint")
+    let endpoint = controller_client.get_endpoint_for_segment(&segment_name)
+        .await
+        .expect("get endpoint for segment")
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
+
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
 
     let request = Requests::ReadTableKeys(ReadTableKeysCommand {
         request_id: 22,
@@ -811,9 +843,7 @@ fn test_read_table_key() {
     keys.push(TableKey::new(String::from("key1").into_bytes(), 0));
     keys.push(TableKey::new(String::from("key2").into_bytes(), 27));
 
-    let reply = rt
-        .block_on(raw_client.send_request(request))
-        .expect("read table key");
+    let reply= raw_client.send_request(request).await.expect("read table key");
 
     if let Replies::TableKeysRead(t) = reply {
         assert_eq!(t.segment, segment_name.to_string());
@@ -823,9 +853,7 @@ fn test_read_table_key() {
     }
 }
 
-fn test_read_table() {
-    let mut rt = RUNTIME.lock().unwrap();
-
+async fn test_read_table() {
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
     let segment_name = ScopedSegment {
@@ -834,15 +862,15 @@ fn test_read_table() {
         segment: Segment { number: 2 },
     };
 
-    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let client = create_connection("http://127.0.0.1:9090").await;
     let mut controller_client = ControllerClientImpl { channel: client };
-    let fut = controller_client.get_endpoint_for_segment(&segment_name);
-    let endpoint = rt
-        .block_on(fut)
-        .expect("get segment endpoint")
+    let endpoint = controller_client.get_endpoint_for_segment(&segment_name)
+        .await
+        .expect("get endpoint for segment")
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
+
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
 
     let mut keys = Vec::new();
     keys.push(TableKey::new(String::from("key1").into_bytes(), i64::min_value()));
@@ -872,13 +900,11 @@ fn test_read_table() {
         entries: table,
     });
 
-    rt.block_on(raw_client.send_request(request))
+    raw_client.send_request(request).await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-fn test_read_table_entries() {
-    let mut rt = RUNTIME.lock().unwrap();
-
+async fn test_read_table_entries() {
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
     let segment_name = ScopedSegment {
@@ -887,15 +913,15 @@ fn test_read_table_entries() {
         segment: Segment { number: 2 },
     };
 
-    let client = rt.block_on(create_connection("http://127.0.0.1:9090"));
+    let client = create_connection("http://127.0.0.1:9090").await;
     let mut controller_client = ControllerClientImpl { channel: client };
-    let fut = controller_client.get_endpoint_for_segment(&segment_name);
-    let endpoint = rt
-        .block_on(fut)
-        .expect("get segment endpoint")
+    let endpoint = controller_client.get_endpoint_for_segment(&segment_name)
+        .await
+        .expect("get endpoint for segment")
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
-    let raw_client = rt.block_on(RawClientImpl::new(&*CONNECTION_POOL, endpoint));
+
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
 
     let request = Requests::ReadTableEntries(ReadTableEntriesCommand {
         request_id: 22,
@@ -916,9 +942,7 @@ fn test_read_table_entries() {
     ));
     let table = TableEntries { entries };
 
-    let reply = rt
-        .block_on(raw_client.send_request(request))
-        .expect("read table entries");
+    let reply = raw_client.send_request(request).await.expect("read table entries");
     if let Replies::TableEntriesRead(t) = reply {
         assert_eq!(t.segment, segment_name.to_string());
         assert_eq!(table, t.entries);
