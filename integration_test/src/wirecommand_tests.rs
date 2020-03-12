@@ -31,26 +31,28 @@ lazy_static! {
     };
 }
 
-fn wait_for_standalone_with_timeout(running: bool, timeout_second: i32) {
+fn wait_for_standalone_with_timeout(expected_status: bool, timeout_second: i32) {
     for _i in 0..timeout_second {
-        let output = Command::new("sh")
-            .arg("-c")
-            .arg("netstat -ltn 2> /dev/null | grep 9090 || ss -ltn 2> /dev/null | grep 9090")
-            .output()
-            .expect("failed to execute process");
-        // if length not zero, controller is listening on port 9090
-        let listening = output.stdout.len() != 0;
-        if !(running ^ listening) {
+        if expected_status == check_standalone_status() {
             return;
         }
         thread::sleep(time::Duration::from_secs(1));
     }
     panic!(
         "timeout {} exceeded, Pravega standalone is in status {} while expected {}",
-        timeout_second, running, !running
+        timeout_second, !expected_status, expected_status
     );
 }
-
+fn check_standalone_status() -> bool {
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg("netstat -ltn 2> /dev/null | grep 9090 || ss -ltn 2> /dev/null | grep 9090")
+        .output()
+        .expect("failed to execute process");
+    // if length not zero, controller is listening on port 9090
+    let listening = output.stdout.len() != 0;
+    listening
+}
 #[test]
 fn test_wirecommand() {
     let mut pravega = PravegaStandaloneService::start();
