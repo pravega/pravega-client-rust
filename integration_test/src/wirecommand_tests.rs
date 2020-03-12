@@ -56,106 +56,66 @@ fn test_wirecommand() {
     let mut pravega = PravegaStandaloneService::start();
     wait_for_standalone_with_timeout(true, 20);
     let mut rt = Runtime::new().unwrap();
-    let timeout_second = 30;
+    let timeout_second = time::Duration::from_secs(30);
     rt.block_on(async {
-        timeout(time::Duration::from_secs(timeout_second), test_hello())
-            .await
-            .unwrap();
+        timeout(timeout_second, test_hello()).await.unwrap();
     });
     rt.block_on(async {
-        timeout(time::Duration::from_secs(timeout_second), test_keep_alive())
-            .await
-            .unwrap();
+        timeout(timeout_second, test_keep_alive()).await.unwrap();
     });
     rt.block_on(async {
-        timeout(time::Duration::from_secs(timeout_second), test_setup_append())
-            .await
-            .unwrap();
+        timeout(timeout_second, test_setup_append()).await.unwrap();
     });
     rt.block_on(async {
-        timeout(time::Duration::from_secs(timeout_second), test_create_segment())
-            .await
-            .unwrap();
+        timeout(timeout_second, test_create_segment()).await.unwrap();
     });
     rt.block_on(async {
-        timeout(time::Duration::from_secs(timeout_second), test_seal_segment())
-            .await
-            .unwrap();
+        timeout(timeout_second, test_seal_segment()).await.unwrap();
     });
     rt.block_on(async {
-        timeout(
-            time::Duration::from_secs(timeout_second),
-            test_update_and_get_segment_attribute(),
-        )
-        .await
-        .unwrap();
+        timeout(timeout_second, test_update_and_get_segment_attribute())
+            .await
+            .unwrap();
     });
 
     rt.block_on(async {
-        timeout(
-            time::Duration::from_secs(timeout_second),
-            test_get_stream_segment_info(),
-        )
-        .await
-        .unwrap();
+        timeout(timeout_second, test_get_stream_segment_info())
+            .await
+            .unwrap();
     });
 
     rt.block_on(async {
-        timeout(time::Duration::from_secs(timeout_second), test_delete_segment())
+        timeout(timeout_second, test_delete_segment()).await.unwrap();
+    });
+    rt.block_on(async {
+        timeout(timeout_second, test_conditional_append_and_read_segment())
             .await
             .unwrap();
     });
     rt.block_on(async {
-        timeout(
-            time::Duration::from_secs(timeout_second),
-            test_conditional_append_and_read_segment(),
-        )
-        .await
-        .unwrap();
-    });
-    rt.block_on(async {
-        timeout(
-            time::Duration::from_secs(timeout_second),
-            test_update_segment_policy(),
-        )
-        .await
-        .unwrap();
-    });
-    rt.block_on(async {
-        timeout(time::Duration::from_secs(timeout_second), test_merge_segment())
+        timeout(timeout_second, test_update_segment_policy())
             .await
             .unwrap();
     });
     rt.block_on(async {
-        timeout(time::Duration::from_secs(timeout_second), test_truncate_segment())
+        timeout(timeout_second, test_merge_segment()).await.unwrap();
+    });
+    rt.block_on(async {
+        timeout(timeout_second, test_truncate_segment()).await.unwrap();
+    });
+    rt.block_on(async {
+        timeout(timeout_second, test_update_table_entries())
             .await
             .unwrap();
     });
     rt.block_on(async {
-        timeout(
-            time::Duration::from_secs(timeout_second),
-            test_update_table_entries(),
-        )
-        .await
-        .unwrap();
+        timeout(timeout_second, test_read_table_key()).await.unwrap();
     });
     rt.block_on(async {
-        timeout(time::Duration::from_secs(timeout_second), test_read_table_key())
-            .await
-            .unwrap();
+        timeout(timeout_second, test_read_table()).await.unwrap();
     });
     rt.block_on(async {
-        timeout(time::Duration::from_secs(timeout_second), test_read_table())
-            .await
-            .unwrap();
-    });
-    rt.block_on(async {
-        timeout(
-            time::Duration::from_secs(timeout_second),
-            test_read_table_entries(),
-        )
-        .await
-        .unwrap();
+        timeout(timeout_second, test_read_table_entries()).await.unwrap();
     });
     pravega.stop().unwrap();
     wait_for_standalone_with_timeout(false, 10);
