@@ -27,7 +27,10 @@
     clippy::similar_names
 )]
 #![allow(clippy::multiple_crate_versions)]
+#[macro_use]
+extern crate derive_new;
 
 pub mod byte_stream;
 pub mod client_factory;
 pub mod raw_client;
+pub mod segment_reader;

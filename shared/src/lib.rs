@@ -328,5 +328,10 @@ impl StreamSegmentsWithPredecessors {
     }
 }
 
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
+pub struct EventRead {
+    pub event: Vec<u8>,
+}
+
 #[cfg(test)]
 mod test;
