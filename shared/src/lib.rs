@@ -129,7 +129,9 @@ impl Display for ScopedSegment {
         f.write_char('/')?;
         f.write_str(&self.stream.name)?;
         f.write_char('/')?;
-        f.write_fmt(format_args!("{}", self.segment.number))?;
+        let segment_num: i32 = self.segment.number as i32;
+        let epoch: i32 = (self.segment.number >> 32) as i32;
+        f.write_fmt(format_args!("{}.#epoch.{}", segment_num, epoch))?;
         Ok(())
     }
 }
