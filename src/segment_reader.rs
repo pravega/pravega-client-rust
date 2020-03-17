@@ -40,15 +40,15 @@ pub trait AsyncSegmentReader {
 
 struct AsyncSegmentReaderImpl<'a> {
     segment: &'a ScopedSegment,
-    raw_client: Box<dyn RawClient<'a>>,
+    raw_client: &'a dyn RawClient<'a>,
 }
 
 impl<'a> AsyncSegmentReaderImpl<'a> {
     pub async fn new(
-        segment: &ScopedSegment,
-        connection_pool: &ConnectionPoolImpl,
-        controller_uri: &str,
-    ) -> AsyncSegmentReaderImpl {
+        segment: &'a ScopedSegment,
+        connection_pool: &'a ConnectionPoolImpl,
+        controller_uri: &'a str,
+    ) -> AsyncSegmentReaderImpl<'a> {
         let mut controller_client = ControllerClientImpl {
             channel: create_connection(controller_uri.into()).await,
         };
@@ -59,11 +59,11 @@ impl<'a> AsyncSegmentReaderImpl<'a> {
             .parse::<SocketAddr>()
             .expect("Invalid end point returned");
 
-        let s = RawClientImpl::new(&*connection_pool, endpoint).await;
+        let s = &*RawClientImpl::new(&*connection_pool, endpoint).await;
 
         return AsyncSegmentReaderImpl {
             segment,
-            raw_client: s,
+            raw_client: s, // the object should be moved here right ?
         };
     }
 }
