@@ -120,7 +120,6 @@ mod tests {
 
         let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
 
-        let segment_string: String = "examples/someStream/0.#epoch.0".to_string();
         let request = Requests::ReadSegment(ReadSegmentCommand {
             segment: segment_name.to_string(),
             offset: 0,
@@ -137,10 +136,11 @@ mod tests {
             Replies::SegmentRead(cmd) => {
                 assert_eq!(cmd.segment, "examples/someStream/0.#epoch.0".to_string());
                 assert_eq!(cmd.offset, 0);
+                // TODO: modify EventCommand to and array instead of Vec.
                 let er = EventCommand::read_from(cmd.data.as_slice()).expect("Invalid msg");
                 println!("Event Command {:?}", er);
                 let data = std::str::from_utf8(er.data.as_slice()).unwrap();
-                assert_eq!("abc", data);
+                assert_eq!("abc", data); // read from the standalone.
                 println!("result data {:?}", data);
             }
             _ => assert!(false, "Invalid response"),
