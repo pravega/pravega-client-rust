@@ -21,6 +21,7 @@ use std::net::SocketAddr;
 use std::result::Result as StdResult;
 
 #[derive(Debug, Snafu)]
+//TODO: Improve error handling.
 pub enum ReaderError {
     #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
     SegmentTruncated {
