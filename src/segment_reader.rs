@@ -12,7 +12,9 @@ use crate::raw_client::{RawClient, RawClientImpl};
 use async_trait::async_trait;
 use pravega_controller_client::*;
 use pravega_rust_client_shared::{EventRead, ScopedSegment};
+use pravega_wire_protocol::commands::{Command, EventCommand, ReadSegmentCommand};
 use pravega_wire_protocol::connection_pool::ConnectionPoolImpl;
+use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use snafu::Snafu;
 use std::net::SocketAddr;
 use std::result::Result as StdResult;
@@ -35,12 +37,12 @@ pub enum ClientError {
 
 #[async_trait]
 pub trait AsyncSegmentReader {
-    async fn read(offset: i64) -> StdResult<EventRead, ClientError>;
+    async fn read(&self, offset: i64) -> StdResult<EventCommand, ClientError>;
 }
 
 struct AsyncSegmentReaderImpl<'a> {
     segment: &'a ScopedSegment,
-    raw_client: &'a dyn RawClient<'a>,
+    raw_client: Box<dyn RawClient<'a> + 'a>,
 }
 
 impl<'a> AsyncSegmentReaderImpl<'a> {
@@ -50,7 +52,7 @@ impl<'a> AsyncSegmentReaderImpl<'a> {
         controller_uri: &'a str,
     ) -> AsyncSegmentReaderImpl<'a> {
         let mut controller_client = ControllerClientImpl {
-            channel: create_connection(controller_uri.into()).await,
+            channel: create_connection(controller_uri).await,
         };
         let endpoint = controller_client
             .get_endpoint_for_segment(&segment)
@@ -59,35 +61,59 @@ impl<'a> AsyncSegmentReaderImpl<'a> {
             .parse::<SocketAddr>()
             .expect("Invalid end point returned");
 
-        let s = &*RawClientImpl::new(&*connection_pool, endpoint).await;
+        // let s = &*RawClientImpl::new(&*connection_pool, endpoint).await;
 
-        return AsyncSegmentReaderImpl {
+        AsyncSegmentReaderImpl {
             segment,
-            raw_client: s, // the object should be moved here right ?
-        };
+            raw_client: RawClientImpl::new(&*connection_pool, endpoint).await, // the object should be moved here right ?
+        }
     }
 }
 
 #[async_trait]
-impl<'a> AsyncSegmentReader for AsyncSegmentReaderImpl<'a> {
-    async fn read(offset: i64) -> StdResult<EventRead, ClientError> {
-        Ok(EventRead::new(Vec::new()))
+impl AsyncSegmentReader for AsyncSegmentReaderImpl<'_> {
+    async fn read(&self, offset: i64) -> StdResult<EventCommand, ClientError> {
+        let request = Requests::ReadSegment(ReadSegmentCommand {
+            segment: self.segment.to_string(),
+            offset,
+            suggested_length: 14,
+            delegation_token: String::from(""),
+            request_id: 11,
+        });
+
+        let s = self.raw_client.as_ref().send_request(request).await;
+        assert!(s.is_ok(), "Error response from server");
+        let s1 = s.unwrap();
+        println!("{:?}", s1);
+
+        match s1 {
+            Replies::SegmentRead(cmd) => {
+                assert_eq!(cmd.segment, "examples/someStream/0.#epoch.0".to_string());
+                assert_eq!(cmd.offset, 0);
+                // TODO: modify EventCommand to and array instead of Vec.
+                let er = EventCommand::read_from(cmd.data.as_slice()).expect("Invalid msg");
+                println!("Event Command {:?}", er);
+                Ok(er)
+                // let data = std::str::from_utf8(er.data.as_slice()).unwrap();
+                // assert_eq!("abc", data); // read from the standalone.
+                // println!("result data {:?}", data);
+            }
+            _ => Err(ClientError::OperationError {
+                can_retry: false,
+                operation: "".to_string(),
+                error_msg: "".to_string(),
+            }),
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::raw_client::RawClientImpl;
-    use pravega_controller_client::*;
+    use pravega_rust_client_shared::Segment;
     use pravega_rust_client_shared::*;
     use pravega_wire_protocol::client_config::ClientConfigBuilder;
-    use pravega_wire_protocol::commands::*;
-    use pravega_wire_protocol::connection_factory::*;
-    use pravega_wire_protocol::connection_pool::ConnectionPoolImpl;
-    use pravega_wire_protocol::wire_commands::*;
-    use pravega_wire_protocol::*;
-    use std::net::SocketAddr;
+    use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl};
 
     #[tokio::test]
     async fn test_read() {
@@ -109,41 +135,49 @@ mod tests {
             segment: Segment { number: 0 },
         };
 
-        let client = create_connection("http://127.0.0.1:9090").await;
-        let mut controller_client = ControllerClientImpl { channel: client };
-        let endpoint = controller_client
-            .get_endpoint_for_segment(&segment_name)
-            .await
-            .expect("get endpoint for segment")
-            .parse::<SocketAddr>()
-            .expect("convert to socketaddr");
+        let reader =
+            AsyncSegmentReaderImpl::new(&segment_name, CONNECTION_POOL, "http://127.0.0.1:9090").await;
+        let result = reader.read(0).await;
+        let result = result.unwrap();
+        let data = std::str::from_utf8(result.data.as_slice()).unwrap();
+        assert_eq!("abc", data); // read from the standalone.
+        println!("result data {:?}", data);
 
-        let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+        // let client = create_connection("http://127.0.0.1:9090").await;
+        // let mut controller_client = ControllerClientImpl { channel: client };
+        // let endpoint = controller_client
+        //     .get_endpoint_for_segment(&segment_name)
+        //     .await
+        //     .expect("get endpoint for segment")
+        //     .parse::<SocketAddr>()
+        //     .expect("convert to socketaddr");
+        //
+        // let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
 
-        let request = Requests::ReadSegment(ReadSegmentCommand {
-            segment: segment_name.to_string(),
-            offset: 0,
-            suggested_length: 14,
-            delegation_token: String::from(""),
-            request_id: 11,
-        });
-
-        let s = raw_client.send_request(request).await;
-        assert!(s.is_ok(), "Error response from server");
-        let s1 = s.unwrap();
-        println!("{:?}", s1);
-        match s1 {
-            Replies::SegmentRead(cmd) => {
-                assert_eq!(cmd.segment, "examples/someStream/0.#epoch.0".to_string());
-                assert_eq!(cmd.offset, 0);
-                // TODO: modify EventCommand to and array instead of Vec.
-                let er = EventCommand::read_from(cmd.data.as_slice()).expect("Invalid msg");
-                println!("Event Command {:?}", er);
-                let data = std::str::from_utf8(er.data.as_slice()).unwrap();
-                assert_eq!("abc", data); // read from the standalone.
-                println!("result data {:?}", data);
-            }
-            _ => assert!(false, "Invalid response"),
-        }
+        // let request = Requests::ReadSegment(ReadSegmentCommand {
+        //     segment: segment_name.to_string(),
+        //     offset: 0,
+        //     suggested_length: 14,
+        //     delegation_token: String::from(""),
+        //     request_id: 11,
+        // });
+        //
+        // let s = raw_client.send_request(request).await;
+        // assert!(s.is_ok(), "Error response from server");
+        // let s1 = s.unwrap();
+        // println!("{:?}", s1);
+        // match s1 {
+        //     Replies::SegmentRead(cmd) => {
+        //         assert_eq!(cmd.segment, "examples/someStream/0.#epoch.0".to_string());
+        //         assert_eq!(cmd.offset, 0);
+        //         // TODO: modify EventCommand to and array instead of Vec.
+        //         let er = EventCommand::read_from(cmd.data.as_slice()).expect("Invalid msg");
+        //         println!("Event Command {:?}", er);
+        //         let data = std::str::from_utf8(er.data.as_slice()).unwrap();
+        //         assert_eq!("abc", data); // read from the standalone.
+        //         println!("result data {:?}", data);
+        //     }
+        //     _ => assert!(false, "Invalid response"),
+        // }
     }
 }
