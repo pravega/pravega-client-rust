@@ -9,6 +9,7 @@
 //
 
 use super::connection_factory::ConnectionType;
+use crate::wire_commands::Replies;
 use bincode2::Error as BincodeError;
 use snafu::{Backtrace, Snafu};
 use std::io::Error as IoError;
@@ -117,6 +118,9 @@ pub enum ClientConnectionError {
 
     #[snafu(display("Failed to write/read since connection is split"))]
     ConnectionIsSplit {},
+
+    #[snafu(display("Wrong reply: expect to have {}, but get {}", expected, get))]
+    WrongReply { expected: Replies, get: Replies },
 }
 
 #[derive(Debug, Snafu)]
@@ -130,6 +134,9 @@ pub enum ConnectionPoolError {
 
     #[snafu(display("No available connection in the internal pool"))]
     NoAvailableConnection {},
+
+    #[snafu(display("Failed to send or read Hello wirecommand: {}", source))]
+    Hello { source: ClientConnectionError },
 }
 
 #[derive(Debug, Snafu)]
@@ -146,4 +153,17 @@ pub enum RawClientError {
 
     #[snafu(display("Reply incompatible wirecommand version: low {}, high {}", low, high))]
     IncompatibleVersion { low: i32, high: i32 },
+}
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility = "pub")]
+pub enum EventStreamWriterError {
+    #[snafu(display("Failed to send request to the processor"))]
+    SendToProcessor {},
+
+    #[snafu(display("The size limit is {} while actual size is {}", limit, size))]
+    EventSizeTooLarge { limit: i32, size: i32 },
+
+    #[snafu(display("Failed to parse to an Event Command: {}", source))]
+    ParseToEventCommand { source: CommandError },
 }

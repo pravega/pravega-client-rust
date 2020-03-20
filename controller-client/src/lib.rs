@@ -79,7 +79,7 @@ pub type Result<T> = StdResult<T, ControllerError>;
 
 /// Controller APIs for administrative action for streams
 #[async_trait]
-pub trait ControllerClient {
+pub trait ControllerClient: Send {
     /**
      * API to create a scope. The future completes with true in the case the scope did not exist
      * when the controller executed the operation. In the case of a re-attempt to create the
@@ -314,7 +314,7 @@ fn map_grpc_error(operation_name: &str, status: Status) -> ControllerError {
         _ => ControllerError::OperationError {
             can_retry: true, // retry is enabled for all other errors
             operation: operation_name.into(),
-            error_msg: status.to_string(),
+            error_msg: format!("{:?}", status.code()),
         },
     }
 }

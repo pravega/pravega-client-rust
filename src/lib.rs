@@ -30,5 +30,5 @@
 
 pub mod byte_stream;
 pub mod client_factory;
-pub mod raw_client;
 pub mod event_stream_writer;
+pub mod raw_client;

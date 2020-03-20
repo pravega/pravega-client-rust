@@ -11,6 +11,7 @@
 extern crate byteorder;
 use super::error::*;
 use crate::commands::MAX_WIRECOMMAND_SIZE;
+use crate::connection_factory::{ReadingConnection, WritingConnection};
 use crate::connection_pool::PooledConnection;
 use crate::wire_commands::{Decode, Encode, Replies, Requests};
 use async_trait::async_trait;
@@ -18,7 +19,6 @@ use byteorder::{BigEndian, ReadBytesExt};
 use snafu::{ensure, ResultExt};
 use std::io::Cursor;
 use uuid::Uuid;
-use crate::connection_factory::{ReadingConnection, WritingConnection};
 
 pub const LENGTH_FIELD_OFFSET: u32 = 4;
 pub const LENGTH_FIELD_LENGTH: u32 = 4;
@@ -28,7 +28,7 @@ pub const LENGTH_FIELD_LENGTH: u32 = 4;
 pub trait ClientConnection: Send + Sync {
     async fn read(&mut self) -> Result<Replies, ClientConnectionError>;
     async fn write(&mut self, request: &Requests) -> Result<(), ClientConnectionError>;
-    fn split<'a>(&'a mut self) -> (Box<dyn ReadingClientConnection + 'a>, Box<dyn WritingClientConnection + 'a>);
+    fn split(&mut self) -> (Box<dyn ReadingClientConnection>, Box<dyn WritingClientConnection>);
     fn get_uuid(&self) -> Uuid;
 }
 
@@ -46,22 +46,22 @@ pub struct ClientConnectionImpl<'a> {
     pub connection: PooledConnection<'a>,
 }
 
-pub struct ReadingClientConnectionImpl<'a> {
-    read_half: Box<dyn ReadingConnection + 'a>,
+pub struct ReadingClientConnectionImpl {
+    read_half: Box<dyn ReadingConnection>,
 }
 
-pub struct WritingClientConnectionImpl<'a> {
-    write_half: Box<dyn WritingConnection + 'a>,
+pub struct WritingClientConnectionImpl {
+    write_half: Box<dyn WritingConnection>,
 }
 
 impl<'a> ClientConnectionImpl<'a> {
     pub fn new(connection: PooledConnection<'a>) -> Self {
-        ClientConnectionImpl{connection}
+        ClientConnectionImpl { connection }
     }
 }
 
 #[async_trait]
-impl ReadingClientConnection for ReadingClientConnectionImpl<'_> {
+impl ReadingClientConnection for ReadingClientConnectionImpl {
     async fn read(&mut self) -> Result<Replies, ClientConnectionError> {
         let mut header: Vec<u8> = vec![0; LENGTH_FIELD_OFFSET as usize + LENGTH_FIELD_LENGTH as usize];
         self.read_half.read_async(&mut header[..]).await.context(Read {
@@ -87,7 +87,7 @@ impl ReadingClientConnection for ReadingClientConnectionImpl<'_> {
 }
 
 #[async_trait]
-impl WritingClientConnection for WritingClientConnectionImpl<'_> {
+impl WritingClientConnection for WritingClientConnectionImpl {
     async fn write(&mut self, request: &Requests) -> Result<(), ClientConnectionError> {
         let payload = request.write_fields().context(EncodeCommand {})?;
         self.write_half.send_async(&payload).await.context(Write {})
@@ -124,10 +124,12 @@ impl ClientConnection for ClientConnectionImpl<'_> {
         self.connection.send_async(&payload).await.context(Write {})
     }
 
-    fn split<'a>(&'a mut self) -> (Box<dyn ReadingClientConnection + 'a>, Box<dyn WritingClientConnection + 'a>) {
+    fn split(&mut self) -> (Box<dyn ReadingClientConnection>, Box<dyn WritingClientConnection>) {
         let (r, w) = self.connection.split();
-        let reader = Box::new(ReadingClientConnectionImpl{read_half: r}) as Box<dyn ReadingClientConnection + 'a>;
-        let writer = Box::new(WritingClientConnectionImpl{write_half: w}) as Box<dyn WritingClientConnection + 'a>;
+        let reader =
+            Box::new(ReadingClientConnectionImpl { read_half: r }) as Box<dyn ReadingClientConnection>;
+        let writer =
+            Box::new(WritingClientConnectionImpl { write_half: w }) as Box<dyn WritingClientConnection>;
         (reader, writer)
     }
 

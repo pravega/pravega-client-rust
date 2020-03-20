@@ -38,7 +38,7 @@ use std::fmt::Write;
 use std::fmt::{Display, Formatter};
 use std::ops::Index;
 use uuid::Uuid;
-use crate::naming_utils::NameUtils;
+//use crate::naming_utils::NameUtils;
 
 #[macro_use]
 extern crate shrinkwraprs;
@@ -67,7 +67,7 @@ pub struct Stream {
 
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Segment {
-    pub segment_id: i64,
+    pub number: i64,
 }
 
 #[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
@@ -132,9 +132,22 @@ impl Display for ScopedSegment {
         f.write_char('/')?;
         f.write_str(&self.stream.name)?;
         f.write_char('/')?;
-        f.write_fmt(format_args!("{}", self.segment.number))?;
+        f.write_fmt(format_args!(
+            "{}{}{}",
+            get_segment_number(self.segment.number),
+            ".#epoch.",
+            get_epoch(self.segment.number)
+        ))?;
         Ok(())
     }
+}
+
+pub fn get_segment_number(segment_id: i64) -> i32 {
+    segment_id as i32
+}
+
+pub fn get_epoch(segment_id: i64) -> i32 {
+    (segment_id >> 32) as i32
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -242,6 +255,14 @@ impl StreamSegments {
         r.1.scoped_segment.to_owned()
     }
 
+    pub fn get_segments(&self) -> Vec<ScopedSegment> {
+        let mut vec = vec![];
+        for v in self.key_segment_map.values() {
+            vec.push(v.scoped_segment.clone());
+        }
+        vec
+    }
+
     pub fn apply_replacement_range(
         &self,
         segment_replace: &Segment,
@@ -293,20 +314,6 @@ impl StreamSegments {
             previous = x.min_key;
         }
         Ok(())
-    }
-}
-
-impl StreamSegments {
-    pub fn get_segment_for_key(&self, key: f64) -> ScopedSegment {
-        // wait for segment range query to merge.
-    }
-
-    pub fn get_scoped_segments(&self) -> Vec<ScopedSegment> {
-        let mut vec = vec!{};
-        for (_, v) in self.key_segment_map {
-            vec.push(v.scoped_segment)
-        }
-        vec
     }
 }
 
