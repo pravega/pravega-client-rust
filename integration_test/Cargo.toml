@@ -18,6 +18,8 @@ pravega-wire-protocol = { path = "../wire_protocol"}
 pravega-controller-client = { path = "../controller-client"}
 pravega-rust-client-shared = { path = "../shared"}
 tokio = { version = "0.2.8", features = ["full"] }
+lazy_static = "1.4.0"
+uuid = {version = "0.8", features = ["v4"]}
 
 [build-dependencies]
 log = "0.4"
