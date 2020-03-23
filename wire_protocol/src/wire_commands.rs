@@ -581,7 +581,7 @@ impl Encode for Replies {
 
 impl Encode for WireCommands {
     fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
-        let mut res = Vec::new();
+        let res;
         match self {
             WireCommands::Requests(request) => {
                 res = request.write_fields()?;

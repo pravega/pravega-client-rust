@@ -210,7 +210,7 @@ impl Connection for TokioConnection {
         let endpoint = self.endpoint;
         self.stream
             .as_mut()
-            .unwrap()
+            .expect("get connection")
             .write_all(payload)
             .await
             .context(SendData { endpoint })?;
@@ -223,7 +223,7 @@ impl Connection for TokioConnection {
         let endpoint = self.endpoint;
         self.stream
             .as_mut()
-            .unwrap()
+            .expect("get connection")
             .read_exact(buf)
             .await
             .context(ReadData { endpoint })?;
@@ -233,13 +233,13 @@ impl Connection for TokioConnection {
     fn split(&mut self) -> (Box<dyn ReadingConnection>, Box<dyn WritingConnection>) {
         assert!(!self.stream.is_none());
 
-        let (read_half, write_half) = tokio::io::split(self.stream.take().unwrap());
+        let (read_half, write_half) = tokio::io::split(self.stream.take().expect("take connection"));
         let read = Box::new(ReadingConnectionImpl {
-            endpoint: self.endpoint.clone(),
+            endpoint: self.endpoint,
             read_half,
         }) as Box<dyn ReadingConnection>;
         let write = Box::new(WritingConnectionImpl {
-            endpoint: self.endpoint.clone(),
+            endpoint: self.endpoint,
             write_half,
         }) as Box<dyn WritingConnection>;
         (read, write)

@@ -1,5 +1,6 @@
 use super::pravega_service::PravegaStandaloneService;
 use crate::pravega_service::PravegaService;
+use lazy_static::*;
 use pravega_client_rust::event_stream_writer::{EventStreamWriter, EventStreamWriterImpl, Processor};
 use pravega_client_rust::raw_client::RawClientImpl;
 use pravega_controller_client::{create_connection, ControllerClient, ControllerClientImpl};
@@ -106,19 +107,19 @@ async fn test_event_stream_writer() {
     tokio::spawn(Processor::run(processor));
 
     let rx = &mut writer.write_event("hello".to_owned()).await.expect("write event");
-    rx.wait.unwrap();
-//    loop {
-//        let reply = rx.try_recv();
-//        match reply {
-//            Ok(o) => {
-//                break;
-//            }
-//            Err(e) => {
-//                print!("{:?}", e);
-//                tokio::task::yield_now().await;
-//            }
-//        }
-//    }
+    rx.await.unwrap();
+    //    loop {
+    //        let reply = rx.try_recv();
+    //        match reply {
+    //            Ok(o) => {
+    //                break;
+    //            }
+    //            Err(e) => {
+    //                print!("{:?}", e);
+    //                tokio::task::yield_now().await;
+    //            }
+    //        }
+    //    }
     pravega.stop().unwrap();
     wait_for_standalone_with_timeout(false, 5);
 }

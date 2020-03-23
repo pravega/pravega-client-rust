@@ -28,6 +28,7 @@
 
 mod naming_utils;
 
+use crate::naming_utils::NameUtils;
 use im::HashMap as ImHashMap;
 use im::OrdMap;
 use ordered_float::OrderedFloat;
@@ -38,7 +39,6 @@ use std::fmt::Write;
 use std::fmt::{Display, Formatter};
 use std::ops::Index;
 use uuid::Uuid;
-//use crate::naming_utils::NameUtils;
 
 #[macro_use]
 extern crate shrinkwraprs;
@@ -81,6 +81,31 @@ pub struct ScopedSegment {
     pub scope: Scope,
     pub stream: Stream,
     pub segment: Segment,
+}
+
+impl From<String> for ScopedSegment {
+    fn from(qualified_name: String) -> Self {
+        if NameUtils::is_transaction_segment(&qualified_name) {
+            let original_segment_name = NameUtils::get_parent_stream_segment_name(&qualified_name);
+            ScopedSegment::from(String::from(original_segment_name))
+        } else {
+            let mut tokens = NameUtils::extract_segment_tokens(qualified_name);
+            if tokens.len() == 2 {
+                panic!("scope not present");
+            } else {
+                let segment_id = tokens.pop().expect("get segment id from tokens");
+                let stream_name = tokens.pop().expect("get stream name from tokens");
+                let scope = tokens.pop().expect("get scope from tokens");
+                ScopedSegment {
+                    scope: Scope { name: scope },
+                    stream: Stream { name: stream_name },
+                    segment: Segment {
+                        number: segment_id.parse::<i64>().expect("parse string to i64"),
+                    },
+                }
+            }
+        }
+    }
 }
 
 #[derive(new, Shrinkwrap, Copy, Clone, Hash, PartialEq, Eq)]
@@ -134,20 +159,12 @@ impl Display for ScopedSegment {
         f.write_char('/')?;
         f.write_fmt(format_args!(
             "{}{}{}",
-            get_segment_number(self.segment.number),
+            NameUtils::get_segment_number(self.segment.number),
             ".#epoch.",
-            get_epoch(self.segment.number)
+            NameUtils::get_epoch(self.segment.number)
         ))?;
         Ok(())
     }
-}
-
-pub fn get_segment_number(segment_id: i64) -> i32 {
-    segment_id as i32
-}
-
-pub fn get_epoch(segment_id: i64) -> i32 {
-    (segment_id >> 32) as i32
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]

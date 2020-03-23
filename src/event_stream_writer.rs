@@ -9,33 +9,23 @@
 //
 
 use async_trait::async_trait;
-use pravega_controller_client::{create_connection, ControllerClient, ControllerClientImpl};
+use pravega_controller_client::ControllerClient;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::*;
-use pravega_wire_protocol::commands::{
-    AppendBlockEndCommand, AppendSetupCommand, Command, DataAppendedCommand, EventCommand, SetupAppendCommand,
-};
+use pravega_wire_protocol::commands::{AppendBlockEndCommand, Command, EventCommand, SetupAppendCommand};
 use pravega_wire_protocol::connection_pool::*;
 use pravega_wire_protocol::error::*;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
-use snafu::ResultExt;
 use std::collections::{HashMap, VecDeque};
-use std::fmt;
 use std::net::SocketAddr;
 use tokio;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
-use tracing::{span, Level};
 extern crate rand;
 use self::rand::thread_rng;
-use pravega_wire_protocol::client_config::ClientConfigBuilder;
-use pravega_wire_protocol::connection_factory::ConnectionFactoryImpl;
-use pravega_wire_protocol::wire_commands::Replies::SegmentRead;
 use rand::Rng;
-use serde::{Serialize, Serializer};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
-use std::time::Duration;
 use uuid::Uuid;
 
 /// EventStreamWriter will handle the write to a given Stream.
@@ -68,7 +58,7 @@ impl<T: std::convert::Into<Vec<u8>> + Send + Sized + 'static> EventStreamWriterI
 
     pub async fn new(
         stream: ScopedStream,
-        mut controller: Box<dyn ControllerClient>,
+        controller: Box<dyn ControllerClient>,
         connection_pool: Box<dyn ConnectionPool>,
     ) -> (Self, Processor<T>) {
         let (tx, rx) = channel(EventStreamWriterImpl::<T>::CHANNEL_CAPACITY);
@@ -103,7 +93,7 @@ impl<T: std::convert::Into<Vec<u8>> + Send + Sized + 'static> EventStreamWriter<
             routing_key: Option::None,
             tx_oneshot: tx,
         });
-        if let Err(e) = self.tx.send(append_event).await {
+        if let Err(_e) = self.tx.send(append_event).await {
             Err(EventStreamWriterError::SendToProcessor {})
         } else {
             Ok(rx)
@@ -121,11 +111,10 @@ impl<T: std::convert::Into<Vec<u8>> + Send + Sized + 'static> EventStreamWriter<
             routing_key: Option::Some(routing_key),
             tx_oneshot: tx,
         });
-        if let Err(_) = self.tx.send(append_event).await {
-            Err(EventStreamWriterError::SendToProcessor {})
-        } else {
-            Ok(rx)
-        }
+        self.tx
+            .send(append_event)
+            .await
+            .map_or_else(|_| Err(EventStreamWriterError::SendToProcessor {}), |_| Ok(rx))
     }
 }
 
@@ -152,7 +141,7 @@ impl<T: std::convert::Into<Vec<u8>> + Send + Sized + 'static> Processor<T> {
                             .get_segment_writer_for_key(event.routing_key.clone());
                     }
 
-                    let event_segment_writer = option.unwrap();
+                    let event_segment_writer = option.expect("get writer");
                     if !event_segment_writer.connection_setup {
                         let connection = processor
                             .connection_pool
@@ -166,8 +155,8 @@ impl<T: std::convert::Into<Vec<u8>> + Send + Sized + 'static> Processor<T> {
                         event_segment_writer.writer = Some(w);
                         let segment = event_segment_writer.segment.clone();
 
-                        // spin up connection listener that keeps listening to the connection
-                        let handle = tokio::spawn(async move {
+                        // spin up connection listener that keeps listening on the connection
+                        tokio::spawn(async move {
                             loop {
                                 // listen to the receiver channel
                                 let reply = r.read().await.expect("sender closed, listener exit");
@@ -182,24 +171,37 @@ impl<T: std::convert::Into<Vec<u8>> + Send + Sized + 'static> Processor<T> {
                         event_segment_writer.setup_append().await;
                     }
 
-                    PendingEvent::with_header(event.routing_key, event.inner.into(), event.tx_oneshot)
-                        .map(|event| event_segment_writer.add_pending(event));
+                    if let Some(event) =
+                        PendingEvent::with_header(event.routing_key, event.inner.into(), event.tx_oneshot)
+                    {
+                        event_segment_writer.add_pending(event)
+                    }
                 }
                 Event::ServerReply(server_reply) => {
                     let writer = processor
                         .selector
                         .writers
                         .get_mut(&server_reply.segment)
-                        .expect("TODO");
+                        .expect("should always have writer");
                     match server_reply.reply {
-                        Replies::AppendSetup(cmd) => {
+                        Replies::AppendSetup(_cmd) => {
                             writer.connection_setup = true;
                             writer.flush().await;
                         }
                         Replies::DataAppended(cmd) => {
                             writer.ack(cmd.event_number).await;
                         }
+                        Replies::SegmentIsSealed(cmd) => {
+                            let segment = ScopedSegment::from(cmd.segment);
+                            let inflight = processor
+                                .selector
+                                .refresh_segment_event_writers_upon_sealed(&segment)
+                                .await;
+                            processor.selector.resend(inflight).await;
+                            processor.selector.remove_segment_event_writer(&segment);
+                        }
                         _ => {
+                            // TODO, add other replies
                             panic!("{:?}", server_reply.reply);
                         }
                     }
@@ -292,7 +294,7 @@ impl EventSegmentWriter {
     /// then flush the pending list is the inflight list is empty
     pub async fn write(&mut self, event: PendingEvent) {
         self.add_pending(event);
-        if self.inflight.len() == 0 {
+        if self.inflight.is_empty() {
             self.flush().await;
         }
     }
@@ -434,7 +436,7 @@ impl SegmentSelector {
         let mut to_remove = vec![];
 
         for (key, value) in &mut self.writers {
-            if !segments.contains(&key) {
+            if !segments.contains(key) {
                 let mut unacked = value.get_unacked_events();
                 to_resend.append(&mut unacked);
                 to_remove.push(key.to_owned());
@@ -446,6 +448,39 @@ impl SegmentSelector {
         }
 
         to_resend
+    }
+
+    /// refresh segment event writer when a segment is sealed
+    /// return the inflight events of that sealed segment
+    async fn refresh_segment_event_writers_upon_sealed(
+        &mut self,
+        sealed_segment: &ScopedSegment,
+    ) -> Vec<PendingEvent> {
+        let result = self.controller.get_successors(&sealed_segment).await;
+        match result {
+            Ok(successors) => self.update_segments_upon_sealed(successors, sealed_segment).await,
+            Err(_e) => {
+                //TODO error handling
+                vec![]
+            }
+        }
+    }
+
+    /// create event segment writer for the successor segment of the sealed segment and return the inflight event
+    async fn update_segments_upon_sealed(
+        &mut self,
+        successors: StreamSegmentsWithPredecessors,
+        sealed_segment: &ScopedSegment,
+    ) -> Vec<PendingEvent> {
+        self.current_segments = self
+            .current_segments
+            .apply_replacement_range(&sealed_segment.segment, &successors)
+            .expect("apply replacement range");
+        self.create_missing_writers().await;
+        self.writers
+            .get_mut(&sealed_segment)
+            .expect("get writer")
+            .get_unacked_events()
     }
 
     /// create missing EventSegmentWriter and set up the connections for ready to use
@@ -462,6 +497,32 @@ impl SegmentSelector {
                 self.writers.insert(scoped_segment, writer);
             }
         }
+    }
+
+    /// resend events
+    async fn resend(&mut self, mut to_resend: Vec<PendingEvent>) {
+        while !to_resend.is_empty() {
+            let mut unsent = vec![];
+            let mut send_failed = false;
+            for event in to_resend {
+                if send_failed {
+                    unsent.push(event);
+                } else {
+                    let segment_writer = self.get_segment_writer_for_key(event.routing_key.clone());
+                    if segment_writer.is_none() {
+                        unsent.extend(self.refresh_segment_event_writers().await);
+                        send_failed = true;
+                    } else {
+                        segment_writer.unwrap().write(event);
+                    }
+                }
+            }
+            to_resend = unsent;
+        }
+    }
+
+    fn remove_segment_event_writer(&mut self, segment: &ScopedSegment) {
+        self.writers.remove(segment);
     }
 }
 
@@ -504,13 +565,11 @@ impl PendingEvent {
         data: Vec<u8>,
         tx: oneshot::Sender<Result<(), EventStreamWriterError>>,
     ) -> Option<PendingEvent> {
-        let cmd = EventCommand {data};
+        let cmd = EventCommand { data };
         match cmd.write_fields() {
-            Ok(data) => {
-                PendingEvent::new(routing_key, data, tx)
-            }
+            Ok(data) => PendingEvent::new(routing_key, data, tx),
             Err(e) => {
-                tx.send(Err(EventStreamWriterError::ParseToEventCommand {source: e}));
+                tx.send(Err(EventStreamWriterError::ParseToEventCommand { source: e }));
                 None
             }
         }
@@ -530,83 +589,14 @@ fn hash_string_to_f64(s: String) -> f64 {
     let mut hasher = DefaultHasher::new();
     hasher.write(s.as_bytes());
     let hash_u64 = hasher.finish();
-    let shifted = (hash_u64 >> 12) & 0x000fffffffffffffu64;
-    f64::from_bits(0x3ff0000000000000u64 + shifted) - 1.0
+    let shifted = (hash_u64 >> 12) & 0x000f_ffff_ffff_ffff_u64;
+    f64::from_bits(0x3ff0_0000_0000_0000_u64 + shifted) - 1.0
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pravega_wire_protocol::client_config::ClientConfigBuilder;
-    use pravega_wire_protocol::commands::HelloCommand;
-    use pravega_wire_protocol::connection_factory::ConnectionFactoryImpl;
-    use pravega_wire_protocol::wire_commands::Encode;
-    use std::io::Write;
-    use std::net::{SocketAddr, TcpListener};
-    use tokio::runtime::Runtime;
-
-    struct Common {
-        rt: Runtime,
-        pool: Box<dyn ConnectionPool>,
-    }
-
-    impl Common {
-        fn new() -> Self {
-            let rt = Runtime::new().expect("create tokio Runtime");
-            let connection_factory = ConnectionFactoryImpl {};
-            let pool = Box::new(ConnectionPoolImpl::new(
-                Box::new(connection_factory),
-                ClientConfigBuilder::default()
-                    .build()
-                    .expect("build client config"),
-            ));
-            Common { rt, pool }
-        }
-    }
-
-    struct Server {
-        address: SocketAddr,
-        listener: TcpListener,
-    }
-
-    impl Server {
-        pub fn new() -> Server {
-            let listener = TcpListener::bind("127.0.0.1:0").expect("local server");
-            let address = listener.local_addr().unwrap();
-            Server { address, listener }
-        }
-
-        pub fn send_hello(&mut self) {
-            let reply = Replies::Hello(HelloCommand {
-                high_version: 9,
-                low_version: 5,
-            })
-            .write_fields()
-            .expect("serialize hello wirecommand");
-
-            for stream in self.listener.incoming() {
-                let mut stream = stream.expect("get tcp stream");
-                stream.write_all(&reply).expect("reply with hello wirecommand");
-                break;
-            }
-        }
-
-        pub fn send_hello_wrong_version(&mut self) {
-            let reply = Replies::Hello(HelloCommand {
-                high_version: 10,
-                low_version: 10,
-            })
-            .write_fields()
-            .expect("serialize hello wirecommand");
-
-            for stream in self.listener.incoming() {
-                let mut stream = stream.expect("get tcp stream");
-                stream.write_all(&reply).expect("reply with hello wirecommand");
-                break;
-            }
-        }
-    }
 
     #[test]
-    fn test_hello() {}
+    fn test() {}
 }
