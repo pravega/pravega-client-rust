@@ -31,185 +31,241 @@ enum Command {
     },
     /// Create a segment with the defined configuration.
     CreateSegment {
+        /// The segment name.
         #[structopt(short = "s", long)]
         segment: String,
+        /// Desire rate.
         #[structopt(long)]
         target_rate: i32,
         /// ScaleType, 0 = NoScale, 1 = ByRateInKbytesPerSec 2 = ByRateInEventsPerSec
         #[structopt(long)]
         scale_type: u8,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
+    /// Setup an Append to the given segment.
     SetupAppend {
+        /// The segment name.
         #[structopt(short = "s", long)]
         segment: String,
+        /// The writer id.
         #[structopt(short = "w", long)]
         writer_id: u128,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
     /// Add an event to a segment. It will create the writer if it does not exist.
     ConditionalAppend {
+        /// The segment name.
         #[structopt(short = "s", long)]
         segment: String,
+        /// The writer id.
         #[structopt(short = "w", long)]
         writer_id: u128,
+        /// The number of the event.
         #[structopt(long)]
         event_number: i64,
+        /// The start offset of the event.
         #[structopt(long)]
         expected_offset: i64,
+        /// The content of event.
         #[structopt(short = "e", long)]
         event: String,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
-    /// Read from one segment.
+    /// Read some data from one segment.
     ReadSegment {
+        /// The segment name.
         #[structopt(short = "s", long)]
         segment: String,
+        /// The start offset to read.
         #[structopt(short = "o", long)]
         offset: i64,
+        /// The suggested_length of data.
         #[structopt(short = "len", long)]
         suggested_length: i32,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
-    /// Get segment attribute.
+    /// Get segment attribute of the given segment.
     GetSegmentAttribute {
+        /// The segment name.
         #[structopt(short = "s", long)]
         segment: String,
+        /// The id of the attribute.
         #[structopt(short = "id", long)]
         attribute_id: u128,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
-    /// Update segment attribute.
+    /// Update segment attribute of the given segment.
     UpdateSegmentAttribute {
+        /// The segment name.
         #[structopt(short = "s", long)]
         segment: String,
+        /// The id of the attribute.
         #[structopt(short = "id", long)]
         attribute_id: u128,
+        /// The new value of the attribute.
         #[structopt(long)]
         new_value: i64,
-        /// The default value is i64::min_value(). which means to add a new attribute.
+        /// The old value of the attribute, default value is i64::min_value(). which means to add a new attribute.
         #[structopt(long, default_value = "-9223372036854775808")]
         expected_value: i64,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
     /// Get stream segment info.
     GetStreamSegmentInfo {
+        /// The segment name.
         #[structopt(short = "s", long)]
         segment: String,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
     /// Create table segment.
     CreateTableSegment {
+        /// The table segment name.
         #[structopt(short = "s", long)]
         segment: String,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
     /// Update segment policy.
     UpdateSegmentPolicy {
+        /// The segment name.
         #[structopt(short = "s", long)]
         segment: String,
+        /// Desired rate.
         #[structopt(long)]
         target_rate: i32,
         /// ScaleType, 0 = NoScale, 1 = ByRateInKbytesPerSec 2 = ByRateInEventsPerSec
         #[structopt(long)]
         scale_type: u8,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
     /// Merge two segments.
     MergeSegments {
+        /// The source name of segment.
         #[structopt(short = "s", long)]
         source: String,
+        /// The target name of segment.
         #[structopt(short = "t", long)]
         target: String,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
     /// Merge two table segments.
     MergeTableSegments {
+        /// The source name of table segment.
         #[structopt(short = "s", long)]
         source: String,
+        /// The target name of table segment.
         #[structopt(short = "t", long)]
         target: String,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
     /// Seal segment.
     SealSegment {
+        /// The segment name.
         #[structopt(short = "s", long)]
         segment: String,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
     /// Seal table segment.
     SealTableSegment {
+        /// The segment name.
         #[structopt(short = "s", long)]
         segment: String,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
     /// Truncate segment.
     TruncateSegment {
+        /// The segment name.
         #[structopt(short = "s", long)]
         segment: String,
+        /// The truncation offset.
         #[structopt(short = "t", long)]
         truncation_offset: i64,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
     /// Delete segment.
     DeleteSegment {
+        /// The segment name.
         #[structopt(short = "s", long)]
         segment: String,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
     /// Delete table segment.
     DeleteTableSegment {
+        /// The table segment name.
         #[structopt(short = "s", long)]
         segment: String,
+        /// If true, the segment only allows to delete if it is empty.
         #[structopt(long)]
         must_be_empty: bool,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
     /// Update table entries, for the convenience, it only allows update one entry at one time.
     UpdateTableEntries {
+        /// The segment name.
         #[structopt(short = "s", long)]
         segment: String,
+        /// The key.
         #[structopt(short = "k", long)]
         key: String,
-        /// The default value is i64::min_value(). which means to add a new attribute.
+        /// The key version, default value is i64::min_value(). which means to add a new table entry.
         #[structopt(long, default_value = "-9223372036854775808")]
         key_version: i64,
+        /// The value.
         #[structopt(short = "v", long)]
         value: String,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
     /// Remove table keys.
     RemoveTableKeys {
+        /// The segment name.
         #[structopt(short = "s", long)]
         segment: String,
         /// The data of the table key.
         #[structopt(short = "k", long)]
         table_keys: Vec<String>,
-        /// The version of the table key, the length should be the same.
+        /// The version of the table key, the length should be the same as keys array..
         #[structopt(short = "v", long)]
         keys_version: Vec<i64>,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
     /// Read table.
     ReadTable {
+        /// The segment name.
         #[structopt(short = "s", long)]
         segment: String,
         /// The data of the table key.
@@ -218,31 +274,37 @@ enum Command {
         /// The version of the table key, the length should be the same.
         #[structopt(short = "v", long)]
         keys_version: Vec<i64>,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
     /// Read table keys.
     ReadTableKeys {
+        /// The segment name.
         #[structopt(short = "s", long)]
         segment: String,
         #[structopt(long)]
         suggested_key_count: i32,
-        /// this is used to indicate the point from which the next keys should be fetch.
-        /// use comma to separate the num.
+        /// This is used to indicate the point from which the next keys should be fetch.
+        /// use comma to separate the number.
         #[structopt(long, default_value = "")]
         continuation_token: String,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
     /// Read table entries.
     ReadTableEntries {
+        /// The segment name.
         #[structopt(short = "s", long)]
         segment: String,
         #[structopt(long)]
         suggested_entry_count: i32,
-        /// this is used to indicate the point from which the next entry should be fetch.
+        /// This is used to indicate the point from which the next keys should be fetch.
+        /// use comma to separate the number.
         #[structopt(long, default_value = "")]
         continuation_token: String,
+        /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
     },
