@@ -91,7 +91,16 @@ impl From<String> for ScopedSegment {
         } else {
             let mut tokens = NameUtils::extract_segment_tokens(qualified_name);
             if tokens.len() == 2 {
-                panic!("scope not present");
+                // scope not present
+                let segment_id = tokens.pop().expect("get segment id from tokens");
+                let stream_name = tokens.pop().expect("get stream name from tokens");
+                ScopedSegment {
+                    scope: Scope { name: String::from("") },
+                    stream: Stream { name: stream_name },
+                    segment: Segment {
+                        number: segment_id.parse::<i64>().expect("parse string to i64"),
+                    },
+                }
             } else {
                 let segment_id = tokens.pop().expect("get segment id from tokens");
                 let stream_name = tokens.pop().expect("get stream name from tokens");
@@ -153,16 +162,7 @@ impl Display for ScopedStream {
 
 impl Display for ScopedSegment {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.scope.name)?;
-        f.write_char('/')?;
-        f.write_str(&self.stream.name)?;
-        f.write_char('/')?;
-        f.write_fmt(format_args!(
-            "{}{}{}",
-            NameUtils::get_segment_number(self.segment.number),
-            ".#epoch.",
-            NameUtils::get_epoch(self.segment.number)
-        ))?;
+        f.write_str(&NameUtils::get_qualified_stream_segment_name(&self.scope.name, &self.stream.name, self.segment.number))?;
         Ok(())
     }
 }

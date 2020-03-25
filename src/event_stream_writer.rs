@@ -8,7 +8,6 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use async_trait::async_trait;
 use pravega_controller_client::ControllerClient;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::*;
@@ -27,169 +26,119 @@ use rand::Rng;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
 use uuid::Uuid;
+use crate::setup_logger;
+use log::{info};
 
-/// EventStreamWriter will handle the write to a given Stream.
-#[async_trait]
-pub trait EventStreamWriter<T: std::convert::Into<Vec<u8>> + Send + Sized + Send + Sized + 'static> {
-    /// Write event with out routing key, this event will be sent to a random segment of that stream.
-    /// It returns a oneshot Receiver immediately, caller will listen on this Receiver and see if it has been successfully written.
-    async fn write_event(
-        &mut self,
-        event: T,
-    ) -> Result<oneshot::Receiver<Result<(), EventStreamWriterError>>, EventStreamWriterError>;
-
-    /// Write event with a routing key.
-    async fn write_event_by_routing_key(
-        &mut self,
-        routing_key: String,
-        event: T,
-    ) -> Result<oneshot::Receiver<Result<(), EventStreamWriterError>>, EventStreamWriterError>;
-}
-
-/// the impl of EventStreamWriter. It contains a writer id and a mpsc sender which is used to send Event
+/// EventStreamWriter contains a writer id and a mpsc sender which is used to send Event
 /// to the Processor
-pub struct EventStreamWriterImpl<T: std::convert::Into<Vec<u8>> + Send + Sized + Send + Sized + 'static> {
+pub struct EventStreamWriter{
     writer_id: Uuid,
-    tx: Sender<Event<T>>,
+    sender: Sender<Incoming>,
 }
 
-impl<T: std::convert::Into<Vec<u8>> + Send + Sized + 'static> EventStreamWriterImpl<T> {
+impl EventStreamWriter {
     const CHANNEL_CAPACITY: usize = 100;
 
     pub async fn new(
         stream: ScopedStream,
         controller: Box<dyn ControllerClient>,
         connection_pool: Box<dyn ConnectionPool>,
-    ) -> (Self, Processor<T>) {
-        let (tx, rx) = channel(EventStreamWriterImpl::<T>::CHANNEL_CAPACITY);
-        let selector = SegmentSelector::new(controller, stream).await;
+    ) -> (Self, Processor) {
+        let (tx, rx) = channel(EventStreamWriter::CHANNEL_CAPACITY);
+        let selector = SegmentSelector::new(controller, stream, tx.clone(), connection_pool).await;
         let processor = Processor {
-            tx: tx.clone(),
-            rx,
+            sender: tx.clone(),
+            receiver: rx,
             selector,
-            connection_pool,
         };
         (
-            EventStreamWriterImpl {
+            EventStreamWriter {
                 writer_id: Uuid::new_v4(),
-                tx,
+                sender: tx,
             },
             processor,
         )
     }
-}
 
-#[async_trait]
-impl<T: std::convert::Into<Vec<u8>> + Send + Sized + 'static> EventStreamWriter<T>
-    for EventStreamWriterImpl<T>
-{
-    async fn write_event(
+    pub async fn write_event(
         &mut self,
-        event: T,
-    ) -> Result<oneshot::Receiver<Result<(), EventStreamWriterError>>, EventStreamWriterError> {
+        event: Vec<u8>,
+    ) -> oneshot::Receiver<Result<(), EventStreamWriterError>> {
         let (tx, rx) = oneshot::channel();
-        let append_event = Event::AppendEvent(AppendEvent {
+        let append_event = Incoming::AppendEvent(AppendEvent {
             inner: event,
             routing_key: Option::None,
-            tx_oneshot: tx,
+            oneshot_sender: tx,
         });
-        if let Err(_e) = self.tx.send(append_event).await {
-            Err(EventStreamWriterError::SendToProcessor {})
+        if let Err(_e) = self.sender.send(append_event).await {
+            let (tx_error, rx_error) = oneshot::channel();
+            tx_error.send(Err(EventStreamWriterError::SendToProcessor {})).expect("send error");
+            rx_error
         } else {
-            Ok(rx)
+            rx
         }
     }
 
-    async fn write_event_by_routing_key(
+    pub async fn write_event_by_routing_key(
         &mut self,
         routing_key: String,
-        event: T,
-    ) -> Result<oneshot::Receiver<Result<(), EventStreamWriterError>>, EventStreamWriterError> {
+        event: Vec<u8>,
+    ) -> oneshot::Receiver<Result<(), EventStreamWriterError>> {
         let (tx, rx) = oneshot::channel();
-        let append_event = Event::AppendEvent(AppendEvent {
+        let append_event = Incoming::AppendEvent(AppendEvent {
             inner: event,
             routing_key: Option::Some(routing_key),
-            tx_oneshot: tx,
+            oneshot_sender: tx,
         });
-        self.tx
-            .send(append_event)
-            .await
-            .map_or_else(|_| Err(EventStreamWriterError::SendToProcessor {}), |_| Ok(rx))
+        if let Err(_e) = self.sender.send(append_event).await {
+            let (tx_error, rx_error) = oneshot::channel();
+            tx_error.send(Err(EventStreamWriterError::SendToProcessor {})).expect("send error");
+            rx_error
+        } else {
+            rx
+        }
     }
 }
 
-pub struct Processor<T: std::convert::Into<Vec<u8>> + Send + Sized + 'static> {
-    tx: Sender<Event<T>>,
-    rx: Receiver<Event<T>>,
+pub struct Processor {
+    sender: Sender<Incoming>,
+    receiver: Receiver<Incoming>,
     selector: SegmentSelector,
-    connection_pool: Box<dyn ConnectionPool>,
 }
 
-impl<T: std::convert::Into<Vec<u8>> + Send + Sized + 'static> Processor<T> {
-    pub async fn run(mut processor: Processor<T>) {
+impl Processor {
+    pub async fn run(mut processor: Processor) {
         loop {
-            let event = processor.rx.recv().await.expect("sender closed, processor exit");
+            let event = processor.receiver.recv().await.expect("sender closed, processor exit");
             match event {
-                Event::AppendEvent(event) => {
-                    let mut option = processor
+                Incoming::AppendEvent(event) => {
+                    let event_segment_writer = processor
                         .selector
-                        .get_segment_writer_for_key(event.routing_key.clone());
-                    while option.is_none() {
-                        processor.selector.refresh_segment_event_writers().await;
-                        option = processor
-                            .selector
-                            .get_segment_writer_for_key(event.routing_key.clone());
-                    }
-
-                    let event_segment_writer = option.expect("get writer");
-                    if !event_segment_writer.connection_setup {
-                        let connection = processor
-                            .connection_pool
-                            .get_connection(event_segment_writer.endpoint)
-                            .await
-                            .expect("get connection");
-                        let mut client_connection = ClientConnectionImpl { connection };
-                        let (mut r, w) = client_connection.split();
-
-                        let mut tx_clone = processor.tx.clone();
-                        event_segment_writer.writer = Some(w);
-                        let segment = event_segment_writer.segment.clone();
-
-                        // spin up connection listener that keeps listening on the connection
-                        tokio::spawn(async move {
-                            loop {
-                                // listen to the receiver channel
-                                let reply = r.read().await.expect("sender closed, listener exit");
-                                tx_clone
-                                    .send(Event::ServerReply(ServerReply {
-                                        segment: segment.clone(),
-                                        reply,
-                                    }))
-                                    .await;
-                            }
-                        });
-                        event_segment_writer.setup_append().await;
-                    }
+                        .get_segment_writer_for_key(event.routing_key.clone()).await;
 
                     if let Some(event) =
-                        PendingEvent::with_header(event.routing_key, event.inner.into(), event.tx_oneshot)
+                        PendingEvent::with_header(event.routing_key, event.inner, event.oneshot_sender)
                     {
-                        event_segment_writer.add_pending(event)
+                        event_segment_writer.write(event).await
                     }
                 }
-                Event::ServerReply(server_reply) => {
+                Incoming::ServerReply(server_reply) => {
+                    // it should always have writer because writer will
+                    // not be removed until it receives SegmentSealed reply
                     let writer = processor
                         .selector
                         .writers
                         .get_mut(&server_reply.segment)
                         .expect("should always have writer");
+
                     match server_reply.reply {
                         Replies::AppendSetup(_cmd) => {
                             writer.connection_setup = true;
                             writer.flush().await;
                         }
                         Replies::DataAppended(cmd) => {
-                            writer.ack(cmd.event_number).await;
+                            writer.ack(cmd.event_number);
+                            writer.flush().await;
                         }
                         Replies::SegmentIsSealed(cmd) => {
                             let segment = ScopedSegment::from(cmd.segment);
@@ -211,15 +160,15 @@ impl<T: std::convert::Into<Vec<u8>> + Send + Sized + 'static> Processor<T> {
     }
 }
 
-enum Event<T: Send + Sized + 'static> {
-    AppendEvent(AppendEvent<T>),
+enum Incoming {
+    AppendEvent(AppendEvent),
     ServerReply(ServerReply),
 }
 
-struct AppendEvent<T: Send + Sized + 'static> {
-    inner: T,
+struct AppendEvent {
+    inner: Vec<u8>,
     routing_key: Option<String>,
-    tx_oneshot: oneshot::Sender<Result<(), EventStreamWriterError>>,
+    oneshot_sender: oneshot::Sender<Result<(), EventStreamWriterError>>,
 }
 
 struct ServerReply {
@@ -235,7 +184,7 @@ struct EventSegmentWriter {
     writer_id: Uuid,
 
     /// writer that writes to the segmentstore
-    writer: Option<Box<dyn WritingClientConnection>>,
+    writer: Option<WritingClientConnection>,
 
     /// the segment that this writer is writing to
     segment: ScopedSegment,
@@ -274,9 +223,40 @@ impl EventSegmentWriter {
         self.segment.to_string()
     }
 
+    pub async fn setup_connection(&mut self, mut sender: Sender<Incoming>, pool: &Box<dyn ConnectionPool>) {
+        if self.connection_setup {return;}
+
+        let connection = pool
+            .get_connection(self.endpoint)
+            .await
+            .expect("get connection");
+        let mut client_connection = ClientConnectionImpl { connection };
+        let (mut r, w) = client_connection.split();
+        self.writer = Some(w);
+
+        let segment = self.segment.clone();
+
+        // spin up connection listener that keeps listening on the connection
+        tokio::spawn(async move {
+            loop {
+                // listen to the receiver channel
+                let reply = r.read().await.expect("sender closed, listener exit");
+                // TODO maybe with retry
+                sender
+                    .send(Incoming::ServerReply(ServerReply {
+                        segment: segment.clone(),
+                        reply,
+                    }))
+                    .await;
+            }
+        });
+        self.setup_append().await;
+    }
+
     /// send setup_append command to the server.
     async fn setup_append(&mut self) {
         assert!(self.writer.is_some(), "should have client connection");
+        assert_eq!(self.connection_setup, false, "connection should not been setup");
 
         // TODO: implement token related feature
         let cmd = Requests::SetupAppend(SetupAppendCommand {
@@ -288,15 +268,14 @@ impl EventSegmentWriter {
 
         //TODO: add retry
         self.writer.as_mut().unwrap().write(&cmd).await.expect("TODO");
+        self.connection_setup = true;
     }
 
     /// first add the event to the pending list
     /// then flush the pending list is the inflight list is empty
     pub async fn write(&mut self, event: PendingEvent) {
         self.add_pending(event);
-        if self.inflight.is_empty() {
-            self.flush().await;
-        }
+        self.flush().await;
     }
 
     /// add the event to the pending list
@@ -312,6 +291,9 @@ impl EventSegmentWriter {
     /// from the pending list and send them to the server. Those events will be moved to inflight list waiting to be acked.
     pub async fn flush(&mut self) {
         if self.pending.is_empty() {
+            return;
+        }
+        if !self.inflight.is_empty() {
             return;
         }
 
@@ -339,6 +321,7 @@ impl EventSegmentWriter {
             request_id: 2,
         });
 
+        info!("write to segment!!!!!");
         //TODO: add retry
         self.writer
             .as_mut()
@@ -349,7 +332,7 @@ impl EventSegmentWriter {
     }
 
     /// ack inflight events. It will send the reply from server back to the caller using oneshot.
-    pub async fn ack(&mut self, event_id: i64) {
+    pub fn ack(&mut self, event_id: i64) {
         loop {
             let acked = self
                 .inflight
@@ -360,7 +343,7 @@ impl EventSegmentWriter {
                 "given event id is illegal or has been acked"
             );
 
-            acked.event.tx.send(Result::Ok(()));
+            acked.event.oneshot_sender.send(Result::Ok(())).expect("send ack to caller");
             if acked.event_id == event_id {
                 break;
             }
@@ -372,6 +355,9 @@ impl EventSegmentWriter {
     pub fn get_unacked_events(&mut self) -> Vec<PendingEvent> {
         let mut ret = vec![];
         while let Some(append) = self.inflight.pop_front() {
+            ret.push(append.event);
+        }
+        while let Some(append) = self.pending.pop_front() {
             ret.push(append.event);
         }
         ret
@@ -390,10 +376,16 @@ pub struct SegmentSelector {
 
     /// the controller instance that is used to get updated segment information from controller
     controller: Box<dyn ControllerClient>,
+
+    // TODO: replace by client factory
+    connection_pool: Box<dyn ConnectionPool>,
+
+    /// the sender that sends reply back to Processor
+    sender: Sender<Incoming>
 }
 
 impl SegmentSelector {
-    async fn new(mut controller: Box<dyn ControllerClient>, stream: ScopedStream) -> Self {
+    async fn new(mut controller: Box<dyn ControllerClient>, stream: ScopedStream, sender: Sender<Incoming>, connection_pool: Box<dyn ConnectionPool>) -> Self {
         let writers = HashMap::new();
         let current_segments = controller.get_current_segments(&stream).await.expect("TODO");
         SegmentSelector {
@@ -401,12 +393,18 @@ impl SegmentSelector {
             writers,
             current_segments,
             controller,
+            connection_pool,
+            sender,
         }
     }
 
     /// get the segment writer by passing a routing key if there is one
-    fn get_segment_writer_for_key(&mut self, routing_key: Option<String>) -> Option<&mut EventSegmentWriter> {
-        self.writers.get_mut(&self.get_segment_for_event(routing_key))
+    async fn get_segment_writer_for_key(&mut self, routing_key: Option<String>) -> &mut EventSegmentWriter {
+        let segment = &self.get_segment_for_event(routing_key);
+        if !self.writers.contains_key(segment) {
+            self.create_missing_writers().await;
+        }
+        self.writers.get_mut(segment).expect("must have writer")
     }
 
     /// get the Segment by passing a routing key
@@ -418,36 +416,6 @@ impl SegmentSelector {
             self.current_segments
                 .get_segment(hash_string_to_f64(routing_key.expect("routing key")))
         }
-    }
-
-    /// refresh the mapping from Segment to EventSegmentWriter. It will create writers for newly added segments
-    /// and delete outdated segment writer pairs.
-    async fn refresh_segment_event_writers(&mut self) -> Vec<PendingEvent> {
-        self.current_segments = self
-            .controller
-            .get_current_segments(&self.stream)
-            .await
-            .expect("get current segments");
-        self.create_missing_writers().await;
-
-        let segments = self.current_segments.get_segments();
-
-        let mut to_resend = vec![];
-        let mut to_remove = vec![];
-
-        for (key, value) in &mut self.writers {
-            if !segments.contains(key) {
-                let mut unacked = value.get_unacked_events();
-                to_resend.append(&mut unacked);
-                to_remove.push(key.to_owned());
-            }
-        }
-
-        for k in to_remove {
-            self.writers.remove(&k);
-        }
-
-        to_resend
     }
 
     /// refresh segment event writer when a segment is sealed
@@ -493,31 +461,19 @@ impl SegmentSelector {
                     .get_endpoint_for_segment(&scoped_segment)
                     .await
                     .expect("TODO");
-                let writer = EventSegmentWriter::new(uri.0.parse().expect("TODO"), scoped_segment.clone());
+                let mut writer = EventSegmentWriter::new(uri.0.parse().expect("TODO"), scoped_segment.clone());
+                writer.setup_connection(self.sender.clone(), &self.connection_pool).await;
+                info!("setup connection");
                 self.writers.insert(scoped_segment, writer);
             }
         }
     }
 
     /// resend events
-    async fn resend(&mut self, mut to_resend: Vec<PendingEvent>) {
-        while !to_resend.is_empty() {
-            let mut unsent = vec![];
-            let mut send_failed = false;
-            for event in to_resend {
-                if send_failed {
-                    unsent.push(event);
-                } else {
-                    let segment_writer = self.get_segment_writer_for_key(event.routing_key.clone());
-                    if segment_writer.is_none() {
-                        unsent.extend(self.refresh_segment_event_writers().await);
-                        send_failed = true;
-                    } else {
-                        segment_writer.unwrap().write(event);
-                    }
-                }
-            }
-            to_resend = unsent;
+    async fn resend(&mut self, to_resend: Vec<PendingEvent>) {
+        for event in to_resend {
+            let segment_writer = self.get_segment_writer_for_key(event.routing_key.clone()).await;
+            segment_writer.write(event).await;
         }
     }
 
@@ -534,7 +490,7 @@ struct Append {
 struct PendingEvent {
     routing_key: Option<String>,
     data: Vec<u8>,
-    tx: oneshot::Sender<Result<(), EventStreamWriterError>>,
+    oneshot_sender: oneshot::Sender<Result<(), EventStreamWriterError>>,
 }
 
 impl PendingEvent {
@@ -543,19 +499,19 @@ impl PendingEvent {
     fn new(
         routing_key: Option<String>,
         data: Vec<u8>,
-        tx: oneshot::Sender<Result<(), EventStreamWriterError>>,
+        oneshot_sender: oneshot::Sender<Result<(), EventStreamWriterError>>,
     ) -> Option<Self> {
         if data.len() as i32 > PendingEvent::MAX_WRITE_SIZE {
-            tx.send(Err(EventStreamWriterError::EventSizeTooLarge {
+            oneshot_sender.send(Err(EventStreamWriterError::EventSizeTooLarge {
                 limit: PendingEvent::MAX_WRITE_SIZE,
                 size: data.len() as i32,
-            }));
+            })).expect("send error to caller");
             None
         } else {
             Some(PendingEvent {
                 routing_key,
                 data,
-                tx,
+                oneshot_sender,
             })
         }
     }
@@ -563,13 +519,13 @@ impl PendingEvent {
     fn with_header(
         routing_key: Option<String>,
         data: Vec<u8>,
-        tx: oneshot::Sender<Result<(), EventStreamWriterError>>,
+        oneshot_sender: oneshot::Sender<Result<(), EventStreamWriterError>>,
     ) -> Option<PendingEvent> {
         let cmd = EventCommand { data };
         match cmd.write_fields() {
-            Ok(data) => PendingEvent::new(routing_key, data, tx),
+            Ok(data) => PendingEvent::new(routing_key, data, oneshot_sender),
             Err(e) => {
-                tx.send(Err(EventStreamWriterError::ParseToEventCommand { source: e }));
+                oneshot_sender.send(Err(EventStreamWriterError::ParseToEventCommand { source: e })).expect("send error to caller");
                 None
             }
         }
@@ -578,9 +534,9 @@ impl PendingEvent {
     fn without_header(
         routing_key: Option<String>,
         data: Vec<u8>,
-        tx: oneshot::Sender<Result<(), EventStreamWriterError>>,
+        oneshot_sender: oneshot::Sender<Result<(), EventStreamWriterError>>,
     ) -> Option<PendingEvent> {
-        PendingEvent::new(routing_key, data, tx)
+        PendingEvent::new(routing_key, data, oneshot_sender)
     }
 }
 

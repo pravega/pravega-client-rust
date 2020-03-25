@@ -7,11 +7,13 @@
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
+use uuid::Uuid;
 
 const EPOCH_DELIMITER: &str = ".#epoch.";
 const TRANSACTION_DELIMITER: &str = "#transaction.";
 const TRANSACTION_PART_LENGTH: i32 = 16;
 const TRANSACTION_ID_LENGTH: i32 = 2 * TRANSACTION_PART_LENGTH;
+const FULL_HEX_FORMAT: &str = "%016x";
 
 pub struct NameUtils {}
 
@@ -22,6 +24,19 @@ impl NameUtils {
 
     pub fn get_epoch(segment_id: i64) -> i32 {
         (segment_id >> 32) as i32
+    }
+
+    pub fn get_qualified_stream_segment_name(scope: &str, stream_name: &str, segment_id: i64) -> String {
+        let segment_number = NameUtils::get_segment_number(segment_id);
+        let epoch = NameUtils::get_epoch(segment_id);
+        format!(
+            "{}/{}/{}{}{}",
+            scope, stream_name, segment_number, EPOCH_DELIMITER, epoch
+        )
+    }
+
+    pub fn get_transaction_name_from_id(parent_stream_segment_name: &str, transaction_id: Uuid) -> String {
+        format! ("{}{}{}{}",parent_stream_segment_name, TRANSACTION_DELIMITER, format!("{}{}",FULL_HEX_FORMAT, (transaction_id.as_u128() >> 64) as i64), format!("{}{}",FULL_HEX_FORMAT, transaction_id.as_u128() as i64))
     }
 
     pub fn is_transaction_segment(stream_segment_name: &str) -> bool {
@@ -98,10 +113,71 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_get_segment_number() {
+        let segment_id = i64::from_str_radix("000000017fffffff", 16).expect("i64");
+        let segment_number = i32::max_value();
+        assert_eq!(NameUtils::get_segment_number(segment_id), segment_number);
+    }
+
+    #[test]
+    fn test_get_epoch() {
+        let segment_id = i64::from_str_radix("000000017fffffff", 16).expect("i64");
+        let epoch = 1;
+        assert_eq!(NameUtils::get_epoch(segment_id), epoch);
+    }
+
+    #[test]
     fn test_compute_segment_id() {
         let segment_number = i32::max_value();
         let epoch = 1;
-        let result = i64::from_str_radix("000000017fffffff", 16).expect("i64");
-        assert_eq!(NameUtils::compute_segment_id(segment_number, epoch), result);
+        let segment_id = i64::from_str_radix("000000017fffffff", 16).expect("i64");
+        assert_eq!(NameUtils::compute_segment_id(segment_number, epoch), segment_id);
+    }
+
+    #[test]
+    fn test_get_qualified_stream_segment_name() {
+        let scope_name = "testScope";
+        let stream_name = "testStream";
+        let segment_id = i64::from_str_radix("0000000100000001", 16).expect("i64");
+        let qualified_stream_segment_name = "testScope/testStream/1.#epoch.1";
+        assert_eq!(
+            NameUtils::get_qualified_stream_segment_name(scope_name, stream_name, segment_id),
+            qualified_stream_segment_name
+        );
+    }
+
+    #[test]
+    fn test_is_transaction_segment() {
+        let segment_id = NameUtils::compute_segment_id(10, 100);
+        let qualified_name =
+            NameUtils::get_qualified_stream_segment_name("testScope", "testStream", segment_id);
+
+        let transaction_id = Uuid::new_v4();
+        let txn_segment = NameUtils::get_transaction_name_from_id(&qualified_name, transaction_id);
+        assert!(NameUtils::is_transaction_segment(&txn_segment));
+    }
+
+    #[test]
+    fn test_get_parent_stream_segment_name() {
+        let segment_id = NameUtils::compute_segment_id(10, 100);
+        let qualified_name =
+            NameUtils::get_qualified_stream_segment_name("testScope", "testStream", segment_id);
+
+        let transaction_id = Uuid::new_v4();
+        let txn_segment = NameUtils::get_transaction_name_from_id(&qualified_name, transaction_id);
+        assert_eq!(NameUtils::get_parent_stream_segment_name(&txn_segment), qualified_name);
+    }
+
+    #[test]
+    fn test_extract_segment_tokens() {
+        let segment_id = NameUtils::compute_segment_id(10, 100);
+        let qualified_name =
+            NameUtils::get_qualified_stream_segment_name("testScope", "testStream", segment_id);
+
+        let tokens = NameUtils::extract_segment_tokens(qualified_name);
+        assert_eq!(tokens.len(), 3);
+        assert_eq!("testScope", tokens.get(0).expect("should have scope"));
+        assert_eq!("testStream", tokens.get(1).expect("should have stream"));
+        assert_eq!(&segment_id.to_string(), tokens.get(2).expect("should have segment id"));
     }
 }

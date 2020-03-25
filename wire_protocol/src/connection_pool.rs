@@ -17,12 +17,12 @@ use crate::commands::HelloCommand;
 use crate::wire_commands::{Replies, Requests};
 use async_trait::async_trait;
 use dashmap::DashMap;
+use log::info;
 use snafu::{ensure, ResultExt};
 use std::fmt;
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
 use tracing::{span, Level};
-
 /// ConnectionPool creates a pool of threads for reuse.
 /// It is thread safe
 #[async_trait]
@@ -123,8 +123,10 @@ async fn send_hello(conn: PooledConnection<'_>) -> Result<PooledConnection<'_>, 
         high_version: 9,
         low_version: 5,
     });
+    info!("send data");
     client_connection.write(&request).await?;
     let r = client_connection.read().await?;
+    info!("receive data");
     let reply = Replies::Hello(HelloCommand {
         high_version: 9,
         low_version: 5,
@@ -208,8 +210,10 @@ impl fmt::Debug for PooledConnection<'_> {
 
 impl Drop for PooledConnection<'_> {
     fn drop(&mut self) {
-        self.pool
-            .add_connection(self.inner.take().expect("drop connection back to pool"))
+        let conn = self.inner.take().expect("get inner connection");
+        if conn.is_valid() {
+            self.pool.add_connection(conn)
+        }
     }
 }
 

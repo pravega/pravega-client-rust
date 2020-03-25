@@ -110,26 +110,22 @@ pub trait Connection: Send + Sync {
     /// ```
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError>;
 
-    fn split(&mut self) -> (Box<dyn ReadingConnection>, Box<dyn WritingConnection>);
+    fn split(&mut self) -> (ReadingConnection, WritingConnection);
 
     fn get_uuid(&self) -> Uuid;
 
     fn get_endpoint(&self) -> SocketAddr;
+
+    fn is_valid(&self) -> bool;
 }
 
-#[async_trait]
-pub trait ReadingConnection: Send + Sync {
-    async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError>;
-}
-
-struct ReadingConnectionImpl {
+pub struct ReadingConnection {
     endpoint: SocketAddr,
     read_half: ReadHalf<TcpStream>,
 }
 
-#[async_trait]
-impl ReadingConnection for ReadingConnectionImpl {
-    async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError> {
+impl ReadingConnection {
+    pub async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError> {
         let endpoint = self.endpoint;
         self.read_half
             .read_exact(buf)
@@ -138,19 +134,14 @@ impl ReadingConnection for ReadingConnectionImpl {
         Ok(())
     }
 }
-#[async_trait]
-pub trait WritingConnection: Send + Sync {
-    async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError>;
-}
 
-struct WritingConnectionImpl {
+pub struct WritingConnection {
     endpoint: SocketAddr,
     write_half: WriteHalf<TcpStream>,
 }
 
-#[async_trait]
-impl WritingConnection for WritingConnectionImpl {
-    async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
+impl WritingConnection {
+    pub async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
         let endpoint = self.endpoint;
         self.write_half
             .write_all(payload)
@@ -230,18 +221,18 @@ impl Connection for TokioConnection {
         Ok(())
     }
 
-    fn split(&mut self) -> (Box<dyn ReadingConnection>, Box<dyn WritingConnection>) {
+    fn split(&mut self) -> (ReadingConnection, WritingConnection) {
         assert!(!self.stream.is_none());
 
         let (read_half, write_half) = tokio::io::split(self.stream.take().expect("take connection"));
-        let read = Box::new(ReadingConnectionImpl {
+        let read = ReadingConnection {
             endpoint: self.endpoint,
             read_half,
-        }) as Box<dyn ReadingConnection>;
-        let write = Box::new(WritingConnectionImpl {
+        };
+        let write = WritingConnection {
             endpoint: self.endpoint,
             write_half,
-        }) as Box<dyn WritingConnection>;
+        };
         (read, write)
     }
 
@@ -251,6 +242,10 @@ impl Connection for TokioConnection {
 
     fn get_endpoint(&self) -> SocketAddr {
         self.endpoint
+    }
+
+    fn is_valid(&self) -> bool {
+        self.stream.is_some()
     }
 }
 
