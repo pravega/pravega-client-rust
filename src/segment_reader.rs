@@ -9,6 +9,7 @@
 //
 
 use crate::raw_client::{RawClient, RawClientImpl};
+use crate::REQUEST_ID_GENERATOR;
 use async_trait::async_trait;
 use pravega_controller_client::*;
 use pravega_rust_client_shared::ScopedSegment;
@@ -19,6 +20,7 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use snafu::Snafu;
 use std::net::SocketAddr;
 use std::result::Result as StdResult;
+use std::sync::atomic::{AtomicI64, Ordering};
 
 #[derive(Debug, Snafu)]
 //TODO: Improve error handling.
@@ -63,6 +65,7 @@ pub trait AsyncSegmentReader {
 struct AsyncSegmentReaderImpl<'a> {
     segment: &'a ScopedSegment,
     raw_client: Box<dyn RawClient<'a> + 'a>,
+    id: &'static AtomicI64,
 }
 
 impl<'a> AsyncSegmentReaderImpl<'a> {
@@ -83,7 +86,8 @@ impl<'a> AsyncSegmentReaderImpl<'a> {
 
         AsyncSegmentReaderImpl {
             segment,
-            raw_client: RawClientImpl::new(&*connection_pool, endpoint).await, // the object should be moved here right ?
+            raw_client: RawClientImpl::new(&*connection_pool, endpoint).await,
+            id: &REQUEST_ID_GENERATOR,
         }
     }
 }
@@ -96,7 +100,7 @@ impl AsyncSegmentReader for AsyncSegmentReaderImpl<'_> {
             offset,
             suggested_length: length,
             delegation_token: String::from(""),
-            request_id: 11,
+            request_id: self.id.fetch_add(1, Ordering::SeqCst) + 1, // add_fetch
         });
 
         let reply = self.raw_client.as_ref().send_request(request).await;
