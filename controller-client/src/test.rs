@@ -7,6 +7,7 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
+use pravega_wire_protocol::client_config::ClientConfigBuilder;
 use tokio::runtime::Runtime;
 
 // Note this useful idiom: importing names from outer (for mod tests) scope.
@@ -16,12 +17,23 @@ use super::*;
 #[should_panic] // since the controller is not running.
 fn test_create_scope_error() {
     let mut rt = Runtime::new().unwrap();
-
-    let client_future = create_connection("http://[::1]:9090");
-    let mut client = rt.block_on(client_future);
+    let config = ClientConfigBuilder::default()
+        .build()
+        .expect("build client config");
+    let manager = ControllerConnectionManager::new(config);
+    let pool = ConnectionPool::new(manager);
+    let connection = rt
+        .block_on(
+            pool.get_connection(
+                "127.0.0.1:9090"
+                    .parse::<SocketAddr>()
+                    .expect("parse to socketaddr"),
+            ),
+        )
+        .expect("get connection");
 
     let request = Scope::new("testScope124".into());
-    let fut = create_scope(&request, &mut client);
+    let fut = create_scope(&request, connection);
 
     rt.block_on(fut).unwrap();
 }
@@ -31,8 +43,20 @@ fn test_create_scope_error() {
 fn test_create_stream_error() {
     let mut rt = Runtime::new().unwrap();
 
-    let client_future = create_connection("http://[::1]:9090");
-    let mut client = rt.block_on(client_future);
+    let config = ClientConfigBuilder::default()
+        .build()
+        .expect("build client config");
+    let manager = ControllerConnectionManager::new(config);
+    let pool = ConnectionPool::new(manager);
+    let connection = rt
+        .block_on(
+            pool.get_connection(
+                "127.0.0.1:9090"
+                    .parse::<SocketAddr>()
+                    .expect("parse to socketaddr"),
+            ),
+        )
+        .expect("get connection");
 
     let request = StreamConfiguration {
         scoped_stream: ScopedStream {
@@ -52,7 +76,7 @@ fn test_create_stream_error() {
             retention_param: 0,
         },
     };
-    let fut = create_stream(&request, &mut client);
+    let fut = create_stream(&request, connection);
 
     rt.block_on(fut).unwrap();
 }

@@ -36,7 +36,13 @@ impl NameUtils {
     }
 
     pub fn get_transaction_name_from_id(parent_stream_segment_name: &str, transaction_id: Uuid) -> String {
-        format! ("{}{}{}{}",parent_stream_segment_name, TRANSACTION_DELIMITER, format!("{}{}",FULL_HEX_FORMAT, (transaction_id.as_u128() >> 64) as i64), format!("{}{}",FULL_HEX_FORMAT, transaction_id.as_u128() as i64))
+        format!(
+            "{}{}{}{}",
+            parent_stream_segment_name,
+            TRANSACTION_DELIMITER,
+            format!("{}{}", FULL_HEX_FORMAT, (transaction_id.as_u128() >> 64) as i64),
+            format!("{}{}", FULL_HEX_FORMAT, transaction_id.as_u128() as i64)
+        )
     }
 
     pub fn is_transaction_segment(stream_segment_name: &str) -> bool {
@@ -165,7 +171,10 @@ mod tests {
 
         let transaction_id = Uuid::new_v4();
         let txn_segment = NameUtils::get_transaction_name_from_id(&qualified_name, transaction_id);
-        assert_eq!(NameUtils::get_parent_stream_segment_name(&txn_segment), qualified_name);
+        assert_eq!(
+            NameUtils::get_parent_stream_segment_name(&txn_segment),
+            qualified_name
+        );
     }
 
     #[test]
@@ -178,6 +187,9 @@ mod tests {
         assert_eq!(tokens.len(), 3);
         assert_eq!("testScope", tokens.get(0).expect("should have scope"));
         assert_eq!("testStream", tokens.get(1).expect("should have stream"));
-        assert_eq!(&segment_id.to_string(), tokens.get(2).expect("should have segment id"));
+        assert_eq!(
+            &segment_id.to_string(),
+            tokens.get(2).expect("should have segment id")
+        );
     }
 }

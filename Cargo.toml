@@ -22,6 +22,7 @@ members = [
 pravega-rust-client-shared = { path = "./shared"}
 pravega-controller-client = { path = "./controller-client"}
 pravega-wire-protocol = { path = "./wire_protocol"}
+pravega-rust-client-retry = {path= "./retry"}
 async-trait = "0.1.22"
 futures = "0.3.1"
 snafu = "0.6.2"
@@ -33,6 +34,7 @@ serde = { version = "1.0", features = ["derive"] }
 log = "0.4.8"
 fern = "0.5"
 chrono = "0.4"
+lazy_static = "1.4.0"
 
 [dev-dependencies]
 pravega-rust-client-integration-test = { path = "./integration_test"}

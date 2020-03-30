@@ -1,0 +1,7 @@
+[2020-03-29][23:09:33][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test simple write
+[2020-03-29][23:09:33][pravega_wire_protocol::connection_factory][INFO] send data using connection 5e69bace-bf8d-4b0c-b93a-6d7ec7782ff6
+[2020-03-29][23:09:33][pravega_wire_protocol::connection_factory][INFO] receive data using connection 5e69bace-bf8d-4b0c-b93a-6d7ec7782ff6
+[2020-03-29][23:09:33][pravega_client_rust::event_stream_writer][INFO] id is 5e69bace-bf8d-4b0c-b93a-6d7ec7782ff6
+[2020-03-29][23:09:33][pravega_client_rust::event_stream_writer][INFO] write to segment!!!!!
+[2020-03-29][23:09:33][pravega_client_rust::event_stream_writer][INFO] write to segment!!!!!
+[2020-03-29][23:09:33][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test simple write passed

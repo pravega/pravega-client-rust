@@ -19,18 +19,6 @@ use std::net::SocketAddr;
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]
 pub enum ConnectionError {
-    #[snafu(display(
-        "Could not connect to endpoint {} using connection type {}: {}",
-        endpoint,
-        connection_type,
-        source
-    ))]
-    Connect {
-        connection_type: ConnectionType,
-        endpoint: SocketAddr,
-        source: std::io::Error,
-        backtrace: Backtrace,
-    },
     #[snafu(display("Could not send data to {} asynchronously: {}", endpoint, source))]
     SendData {
         endpoint: SocketAddr,
@@ -43,6 +31,26 @@ pub enum ConnectionError {
         source: std::io::Error,
         backtrace: Backtrace,
     },
+}
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility = "pub(crate)")]
+pub enum ConnectionFactoryError {
+    #[snafu(display(
+        "Could not connect to endpoint {} using connection type {}: {}",
+        endpoint,
+        connection_type,
+        source
+    ))]
+    Connect {
+        connection_type: ConnectionType,
+        endpoint: SocketAddr,
+        source: std::io::Error,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Failed to verify the connection: {}", source))]
+    Verify { source: ClientConnectionError },
 }
 
 /// This kind of error that can be produced during Pravega serialize and deserialize the wire commands.
@@ -119,8 +127,16 @@ pub enum ClientConnectionError {
     #[snafu(display("Failed to write/read since connection is split"))]
     ConnectionIsSplit {},
 
-    #[snafu(display("Wrong reply: expect to have {}, but get {}", expected, get))]
-    WrongReply { expected: Replies, get: Replies },
+    #[snafu(display("Wrong Hello Wirecommand reply: current wire version {} and oldest compatible version {}, but get {} and {}", wire_version, oldest_compatible, wire_version_received, oldest_compatible_received))]
+    WrongHelloVersion {
+        wire_version: i32,
+        oldest_compatible: i32,
+        wire_version_received: i32,
+        oldest_compatible_received: i32,
+    },
+
+    #[snafu(display("Expect to receive Hello Wirecommand but get {}", reply))]
+    WrongReply { reply: Replies },
 }
 
 #[derive(Debug, Snafu)]
@@ -128,15 +144,12 @@ pub enum ClientConnectionError {
 pub enum ConnectionPoolError {
     #[snafu(display("Could not establish connection to endpoint: {}", source))]
     EstablishConnection {
-        source: ConnectionError,
+        source: ConnectionFactoryError,
         backtrace: Backtrace,
     },
 
     #[snafu(display("No available connection in the internal pool"))]
     NoAvailableConnection {},
-
-    #[snafu(display("Failed to send or read Hello wirecommand: {}", source))]
-    Hello { source: ClientConnectionError },
 }
 
 #[derive(Debug, Snafu)]

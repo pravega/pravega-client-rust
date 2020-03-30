@@ -95,7 +95,9 @@ impl From<String> for ScopedSegment {
                 let segment_id = tokens.pop().expect("get segment id from tokens");
                 let stream_name = tokens.pop().expect("get stream name from tokens");
                 ScopedSegment {
-                    scope: Scope { name: String::from("") },
+                    scope: Scope {
+                        name: String::from(""),
+                    },
                     stream: Stream { name: stream_name },
                     segment: Segment {
                         number: segment_id.parse::<i64>().expect("parse string to i64"),
@@ -162,7 +164,11 @@ impl Display for ScopedStream {
 
 impl Display for ScopedSegment {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.write_str(&NameUtils::get_qualified_stream_segment_name(&self.scope.name, &self.stream.name, self.segment.number))?;
+        f.write_str(&NameUtils::get_qualified_stream_segment_name(
+            &self.scope.name,
+            &self.stream.name,
+            self.segment.number,
+        ))?;
         Ok(())
     }
 }

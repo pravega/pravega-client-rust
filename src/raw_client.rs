@@ -34,7 +34,7 @@ pub trait RawClient<'a> {
 }
 
 pub struct RawClientImpl<'a> {
-    pool: &'a dyn ConnectionPool,
+    pool: &'a ConnectionPool<SegmentConnectionManager>,
     endpoint: SocketAddr,
 }
 
@@ -46,7 +46,10 @@ impl<'a> fmt::Debug for RawClientImpl<'a> {
 
 impl<'a> RawClientImpl<'a> {
     #[allow(clippy::new_ret_no_self)]
-    pub async fn new(pool: &'a dyn ConnectionPool, endpoint: SocketAddr) -> Box<dyn RawClient<'a> + 'a> {
+    pub async fn new(
+        pool: &'a ConnectionPool<SegmentConnectionManager>,
+        endpoint: SocketAddr,
+    ) -> Box<dyn RawClient<'a> + 'a> {
         Box::new(RawClientImpl { pool, endpoint })
     }
 }
@@ -99,19 +102,18 @@ mod tests {
 
     struct Common {
         rt: Runtime,
-        pool: Box<dyn ConnectionPool>,
+        pool: ConnectionPool<SegmentConnectionManager>,
     }
 
     impl Common {
         fn new() -> Self {
             let rt = Runtime::new().expect("create tokio Runtime");
-            let connection_factory = ConnectionFactoryImpl {};
-            let pool = Box::new(ConnectionPoolImpl::new(
-                Box::new(connection_factory),
-                ClientConfigBuilder::default()
-                    .build()
-                    .expect("build client config"),
-            ));
+            let config = ClientConfigBuilder::default()
+                .build()
+                .expect("build client config");
+            let connection_factory = Box::new(ConnectionFactoryImpl {});
+            let manager = SegmentConnectionManager::new(connection_factory, config);
+            let pool = ConnectionPool::new(manager);
             Common { rt, pool }
         }
     }
@@ -160,11 +162,12 @@ mod tests {
     }
 
     #[test]
+    #[should_panic] // since connection verify will panic
     fn test_hello() {
         let mut common = Common::new();
         let mut server = Server::new();
 
-        let raw_client_fut = RawClientImpl::new(&*common.pool, server.address);
+        let raw_client_fut = RawClientImpl::new(&common.pool, server.address);
         let raw_client = common.rt.block_on(raw_client_fut);
         let h = thread::spawn(move || {
             server.send_hello();

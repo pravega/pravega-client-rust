@@ -8,13 +8,15 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::client_connection::{read_wirecommand, write_wirecommand};
+use crate::commands::{HelloCommand, OLDEST_COMPATIBLE_VERSION, WIRE_VERSION};
+use crate::connection::{Connection, TokioConnection};
 use crate::error::*;
+use crate::wire_commands::{Replies, Requests};
 use async_trait::async_trait;
 use snafu::ResultExt;
 use std::fmt;
 use std::net::SocketAddr;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::io::{ReadHalf, WriteHalf};
 use tokio::net::TcpStream;
 use uuid::Uuid;
 
@@ -60,95 +62,7 @@ pub trait ConnectionFactory: Send + Sync {
         &self,
         endpoint: SocketAddr,
         connection_type: ConnectionType,
-    ) -> Result<Box<dyn Connection>, ConnectionError>;
-}
-
-/// Connection can send and read data using a TCP connection
-#[async_trait]
-pub trait Connection: Send + Sync {
-    /// send_async will send a byte array payload to the remote server asynchronously.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use pravega_wire_protocol::connection_factory;
-    /// use pravega_wire_protocol::connection_factory::ConnectionFactory;
-    /// use tokio::runtime::Runtime;
-    ///
-    /// fn main() {
-    ///   let mut rt = Runtime::new().unwrap();
-    ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
-    ///   let cf = connection_factory::ConnectionFactoryImpl {};
-    ///   let connection_future = cf.establish_connection(endpoint, connection_factory::ConnectionType::Tokio);
-    ///   let mut connection = rt.block_on(connection_future).unwrap();
-    ///   let mut payload: Vec<u8> = Vec::new();
-    ///   let fut = connection.send_async(&payload);
-    /// }
-    /// ```
-    async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError>;
-
-    /// read_async will read exactly the amount of data needed to fill the provided buffer asynchronously.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use pravega_wire_protocol::connection_factory;
-    /// use pravega_wire_protocol::connection_factory::ConnectionFactory;
-    /// use tokio::runtime::Runtime;
-    ///
-    /// fn main() {
-    ///   let mut rt = Runtime::new().unwrap();
-    ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
-    ///   let cf = connection_factory::ConnectionFactoryImpl {};
-    ///   let connection_future = cf.establish_connection(endpoint, connection_factory::ConnectionType::Tokio);
-    ///   let mut connection = rt.block_on(connection_future).unwrap();
-    ///   let mut buf = [0; 10];
-    ///   let fut = connection.read_async(&mut buf);
-    /// }
-    /// ```
-    async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError>;
-
-    fn split(&mut self) -> (ReadingConnection, WritingConnection);
-
-    fn get_uuid(&self) -> Uuid;
-
-    fn get_endpoint(&self) -> SocketAddr;
-
-    fn is_valid(&self) -> bool;
-}
-
-pub struct ReadingConnection {
-    endpoint: SocketAddr,
-    read_half: ReadHalf<TcpStream>,
-}
-
-impl ReadingConnection {
-    pub async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError> {
-        let endpoint = self.endpoint;
-        self.read_half
-            .read_exact(buf)
-            .await
-            .context(ReadData { endpoint })?;
-        Ok(())
-    }
-}
-
-pub struct WritingConnection {
-    endpoint: SocketAddr,
-    write_half: WriteHalf<TcpStream>,
-}
-
-impl WritingConnection {
-    pub async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
-        let endpoint = self.endpoint;
-        self.write_half
-            .write_all(payload)
-            .await
-            .context(SendData { endpoint })?;
-        Ok(())
-    }
+    ) -> Result<Box<dyn Connection>, ConnectionFactoryError>;
 }
 
 #[derive(Debug)]
@@ -158,18 +72,21 @@ impl ConnectionFactoryImpl {
     async fn establish_tokio_connection(
         &self,
         endpoint: SocketAddr,
-    ) -> Result<Box<dyn Connection>, ConnectionError> {
+    ) -> Result<Box<dyn Connection>, ConnectionFactoryError> {
         let connection_type = ConnectionType::Tokio;
         let uuid = Uuid::new_v4();
         let stream = TcpStream::connect(endpoint).await.context(Connect {
             connection_type,
             endpoint,
         })?;
-        let tokio_connection: Box<dyn Connection> = Box::new(TokioConnection {
+        let mut tokio_connection: Box<dyn Connection> = Box::new(TokioConnection {
             uuid,
             endpoint,
             stream: Some(stream),
         }) as Box<dyn Connection>;
+        verify_connection(&mut tokio_connection)
+            .await
+            .context(Verify {})?;
         Ok(tokio_connection)
     }
 }
@@ -180,72 +97,35 @@ impl ConnectionFactory for ConnectionFactoryImpl {
         &self,
         endpoint: SocketAddr,
         connection_type: ConnectionType,
-    ) -> Result<Box<dyn Connection>, ConnectionError> {
+    ) -> Result<Box<dyn Connection>, ConnectionFactoryError> {
         match connection_type {
             ConnectionType::Tokio => self.establish_tokio_connection(endpoint).await,
         }
     }
 }
 
-pub struct TokioConnection {
-    pub uuid: Uuid,
-    pub endpoint: SocketAddr,
-    pub stream: Option<TcpStream>,
-}
+async fn verify_connection(conn: &mut Box<dyn Connection>) -> Result<(), ClientConnectionError> {
+    let request = Requests::Hello(HelloCommand {
+        high_version: WIRE_VERSION,
+        low_version: OLDEST_COMPATIBLE_VERSION,
+    });
+    write_wirecommand(conn, &request).await?;
+    let reply = read_wirecommand(conn).await?;
 
-#[async_trait]
-impl Connection for TokioConnection {
-    async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
-        assert!(!self.stream.is_none());
-
-        let endpoint = self.endpoint;
-        self.stream
-            .as_mut()
-            .expect("get connection")
-            .write_all(payload)
-            .await
-            .context(SendData { endpoint })?;
-        Ok(())
-    }
-
-    async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError> {
-        assert!(!self.stream.is_none());
-
-        let endpoint = self.endpoint;
-        self.stream
-            .as_mut()
-            .expect("get connection")
-            .read_exact(buf)
-            .await
-            .context(ReadData { endpoint })?;
-        Ok(())
-    }
-
-    fn split(&mut self) -> (ReadingConnection, WritingConnection) {
-        assert!(!self.stream.is_none());
-
-        let (read_half, write_half) = tokio::io::split(self.stream.take().expect("take connection"));
-        let read = ReadingConnection {
-            endpoint: self.endpoint,
-            read_half,
-        };
-        let write = WritingConnection {
-            endpoint: self.endpoint,
-            write_half,
-        };
-        (read, write)
-    }
-
-    fn get_uuid(&self) -> Uuid {
-        self.uuid
-    }
-
-    fn get_endpoint(&self) -> SocketAddr {
-        self.endpoint
-    }
-
-    fn is_valid(&self) -> bool {
-        self.stream.is_some()
+    match reply {
+        Replies::Hello(cmd) => {
+            if cmd.low_version <= WIRE_VERSION && cmd.high_version >= WIRE_VERSION {
+                Ok(())
+            } else {
+                Err(ClientConnectionError::WrongHelloVersion {
+                    wire_version: WIRE_VERSION,
+                    oldest_compatible: OLDEST_COMPATIBLE_VERSION,
+                    wire_version_received: cmd.high_version,
+                    oldest_compatible_received: cmd.low_version,
+                })
+            }
+        }
+        _ => Err(ClientConnectionError::WrongReply { reply }),
     }
 }
 
@@ -278,6 +158,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic] // since verify will panic
     fn test_connection() {
         let mut rt = Runtime::new().unwrap();
 

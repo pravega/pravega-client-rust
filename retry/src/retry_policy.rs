@@ -11,6 +11,7 @@ impl<T> BackoffSchedule for T where T: Iterator<Item = Duration> {}
 
 /// The retry policy that can retry something with
 /// exp backoff policy.
+#[derive(Debug, Clone)]
 pub struct RetryWithBackoff {
     current: u64,
     base: u64,
