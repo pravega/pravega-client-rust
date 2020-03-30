@@ -30,7 +30,9 @@ use std::result::Result as StdResult;
 use std::time::Duration;
 
 use snafu::Snafu;
+use snafu::ResultExt;
 use tonic::transport::channel::Channel;
+use tonic::transport::Error as tonicError;
 use tonic::{Code, Status};
 
 use async_trait::async_trait;
@@ -72,6 +74,7 @@ pub enum ControllerError {
         can_retry: bool,
         endpoint: String,
         error_msg: String,
+        source: tonicError,
     },
 }
 
@@ -289,12 +292,16 @@ impl ControllerClient for ControllerClientImpl {
 }
 
 /// create_connection with the given controller uri.
-pub async fn create_connection(uri: &str) -> ControllerServiceClient<Channel> {
+pub async fn create_connection(uri: &str) -> Result<ControllerServiceClient<Channel>> {
     // Placeholder to add authentication headers.
-    let connection: ControllerServiceClient<Channel> = ControllerServiceClient::connect(uri.to_string())
+    let connection = ControllerServiceClient::connect(uri.to_string())
         .await
-        .expect("Failed to create a channel");
-    connection
+        .context(ConnectionError{
+            can_retry: true,
+            endpoint: String::from(uri),
+            error_msg: String::from("Connection Refused"),
+        })?;
+    Ok(connection)
 }
 
 // Method used to translate grpc errors to custom error.

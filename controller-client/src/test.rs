@@ -18,7 +18,7 @@ fn test_create_scope_error() {
     let mut rt = Runtime::new().unwrap();
 
     let client_future = create_connection("http://[::1]:9090");
-    let mut client = rt.block_on(client_future);
+    let mut client = rt.block_on(client_future).expect("create controller connection");
 
     let request = Scope::new("testScope124".into());
     let fut = create_scope(&request, &mut client);
@@ -32,7 +32,7 @@ fn test_create_stream_error() {
     let mut rt = Runtime::new().unwrap();
 
     let client_future = create_connection("http://[::1]:9090");
-    let mut client = rt.block_on(client_future);
+    let mut client = rt.block_on(client_future).expect("create controller connection");
 
     let request = StreamConfiguration {
         scoped_stream: ScopedStream {
