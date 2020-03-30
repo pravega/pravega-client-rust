@@ -233,6 +233,7 @@ struct EventSegmentWriter {
 impl EventSegmentWriter {
     /// maximum data size in one append block
     const MAX_DATA_SIZE: i32 = 1024 * 1024;
+    const MAX_EVENTS: i32 = 500;
 
     fn new(endpoint: SocketAddr, segment: ScopedSegment) -> Self {
         EventSegmentWriter {
@@ -358,7 +359,9 @@ impl EventSegmentWriter {
 
         while let Some(append) = self.pending.pop_front() {
             // TODO what if a single event size is larger than MAX_DATA_SIZE
-            if append.event.data.len() + total_size <= EventSegmentWriter::MAX_DATA_SIZE as usize {
+            if append.event.data.len() + total_size <= EventSegmentWriter::MAX_DATA_SIZE as usize
+                || to_send.len() > EventSegmentWriter::MAX_EVENTS as usize
+            {
                 total_size += append.event.data.len();
                 to_send.extend(append.event.data.clone());
                 self.inflight.push_back(append);
