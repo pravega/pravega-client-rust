@@ -228,43 +228,4 @@ mod tests {
         let data = std::str::from_utf8(event_data.data.as_slice()).unwrap();
         assert_eq!("abc", data);
     }
-
-    #[tokio::test]
-    async fn test_read_error_no_segment() {
-        let scope_name = Scope::new("examples".into());
-        let stream_name = Stream::new("someStream".into());
-
-        let segment_name = ScopedSegment {
-            scope: scope_name.clone(),
-            stream: stream_name.clone(),
-            segment: Segment { number: 0 },
-        };
-
-        let mut raw_client = MockRawClientImpl::new();
-
-        let segment_name_copy = segment_name.clone();
-        raw_client
-            .expect_send_request()
-            .with(predicate::eq(Requests::ReadSegment(ReadSegmentCommand {
-                segment: segment_name.to_string(),
-                offset: 0,
-                suggested_length: 11,
-                delegation_token: String::from(""),
-                request_id: 1,
-            })))
-            .times(1)
-            .returning(move |_| {
-                Ok(Replies::NoSuchSegment(NoSuchSegmentCommand {
-                    segment: segment_name_copy.to_string(),
-                    server_stack_trace: "".to_string(),
-                    offset: 0,
-                    request_id: 1,
-                }))
-            });
-        let async_segment_reader =
-            AsyncSegmentReaderImpl::new(&segment_name, Box::new(raw_client), &REQUEST_ID_GENERATOR);
-        let read_status = async_segment_reader.read(0, 11).await;
-        assert!(read_status.is_err()); // read should fail due to NoSuchSegment
-        println!("{:?}", read_status);
-    }
 }
