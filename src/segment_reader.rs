@@ -152,7 +152,6 @@ mod tests {
     use pravega_rust_client_shared::Segment;
     use pravega_rust_client_shared::*;
     use pravega_wire_protocol::client_connection::ClientConnection;
-    use pravega_wire_protocol::commands::NoSuchSegmentCommand;
     use std::time::Duration;
     use tokio::time::delay_for;
 
