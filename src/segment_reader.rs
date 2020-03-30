@@ -11,7 +11,7 @@
 use crate::raw_client::{RawClient, RawClientImpl};
 use crate::REQUEST_ID_GENERATOR;
 use async_trait::async_trait;
-use pravega_controller_client::*;
+use pravega_controller_client::{create_connection, ControllerClient, ControllerClientImpl};
 use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::commands::{Command, EventCommand, ReadSegmentCommand, SegmentReadCommand};
 use pravega_wire_protocol::connection_pool::ConnectionPoolImpl;
@@ -23,7 +23,6 @@ use std::result::Result as StdResult;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 #[derive(Debug, Snafu)]
-//TODO: Improve error handling.
 pub enum ReaderError {
     #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
     SegmentTruncated {
@@ -62,6 +61,7 @@ pub trait AsyncSegmentReader {
     async fn read(&self, offset: i64, length: i32) -> StdResult<SegmentReadCommand, ReaderError>;
 }
 
+#[derive(new)]
 struct AsyncSegmentReaderImpl<'a> {
     segment: &'a ScopedSegment,
     raw_client: Box<dyn RawClient<'a> + 'a>,
@@ -69,7 +69,7 @@ struct AsyncSegmentReaderImpl<'a> {
 }
 
 impl<'a> AsyncSegmentReaderImpl<'a> {
-    pub async fn new(
+    pub async fn init(
         segment: &'a ScopedSegment,
         connection_pool: &'a ConnectionPoolImpl,
         controller_uri: &'a str,
@@ -100,45 +100,41 @@ impl AsyncSegmentReader for AsyncSegmentReaderImpl<'_> {
             offset,
             suggested_length: length,
             delegation_token: String::from(""),
-            request_id: self.id.fetch_add(1, Ordering::SeqCst) + 1, // add_fetch
+            request_id: self.id.fetch_add(1, Ordering::SeqCst) + 1, // add_fetch implementation
         });
 
         let reply = self.raw_client.as_ref().send_request(request).await;
         match reply {
-            Ok(reply) => {
-                match reply {
-                    Replies::SegmentRead(cmd) => {
-                        // TODO: modify EventCommand to and array instead of Vec.
-                        let er = EventCommand::read_from(cmd.data.as_slice()).expect("Invalid msg");
-                        println!("Event Command {:?}", er);
-                        Ok(cmd)
-                    }
-                    Replies::NoSuchSegment(_cmd) => Err(ReaderError::SegmentTruncated {
-                        can_retry: false,
-                        operation: "Read segment".to_string(),
-                        //TODO: to string method to all commands , Display trait
-                        error_msg: "No Such Segment".to_string(),
-                    }),
-                    Replies::SegmentTruncated(_cmd) => Err(ReaderError::SegmentTruncated {
-                        can_retry: false,
-                        operation: "Read segment".to_string(),
-                        error_msg: "Segment truncated".into(),
-                    }),
-                    Replies::SegmentSealed(cmd) => Ok(SegmentReadCommand {
-                        segment: self.segment.to_string(),
-                        offset,
-                        at_tail: true,
-                        end_of_segment: true,
-                        data: vec![],
-                        request_id: cmd.request_id,
-                    }),
-                    _ => Err(ReaderError::OperationError {
-                        can_retry: false,
-                        operation: "Read segment".to_string(),
-                        error_msg: "".to_string(),
-                    }),
+            Ok(reply) => match reply {
+                Replies::SegmentRead(cmd) => {
+                    let er = EventCommand::read_from(cmd.data.as_slice()).expect("Invalid msg");
+                    println!("Event Command {:?}", er);
+                    Ok(cmd)
                 }
-            }
+                Replies::NoSuchSegment(_cmd) => Err(ReaderError::SegmentTruncated {
+                    can_retry: false,
+                    operation: "Read segment".to_string(),
+                    error_msg: "No Such Segment".to_string(),
+                }),
+                Replies::SegmentTruncated(_cmd) => Err(ReaderError::SegmentTruncated {
+                    can_retry: false,
+                    operation: "Read segment".to_string(),
+                    error_msg: "Segment truncated".into(),
+                }),
+                Replies::SegmentSealed(cmd) => Ok(SegmentReadCommand {
+                    segment: self.segment.to_string(),
+                    offset,
+                    at_tail: true,
+                    end_of_segment: true,
+                    data: vec![],
+                    request_id: cmd.request_id,
+                }),
+                _ => Err(ReaderError::OperationError {
+                    can_retry: false,
+                    operation: "Read segment".to_string(),
+                    error_msg: "".to_string(),
+                }),
+            },
             Err(error) => Err(ReaderError::ConnectionError {
                 can_retry: true,
                 source: error,
@@ -151,22 +147,40 @@ impl AsyncSegmentReader for AsyncSegmentReaderImpl<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mockall::predicate::*;
+    use mockall::*;
     use pravega_rust_client_shared::Segment;
     use pravega_rust_client_shared::*;
-    use pravega_wire_protocol::client_config::ClientConfigBuilder;
-    use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl};
+    use pravega_wire_protocol::client_connection::ClientConnection;
+    use pravega_wire_protocol::commands::NoSuchSegmentCommand;
+    use std::time::Duration;
+    use tokio::time::delay_for;
+
+    // Setup mock.
+    mock! {
+        pub RawClientImpl {
+            fn send_request(&self, request: Requests) -> Result<Replies, RawClientError>{
+            }
+        }
+    }
+
+    #[async_trait]
+    impl<'a> RawClient<'a> for MockRawClientImpl {
+        async fn send_request(&self, request: Requests) -> Result<Replies, RawClientError> {
+            delay_for(Duration::from_nanos(1)).await;
+            self.send_request(request)
+        }
+
+        async fn send_setup_request(
+            &self,
+            _request: Requests,
+        ) -> Result<(Replies, Box<dyn ClientConnection>), RawClientError> {
+            unimplemented!() // Not required for this test.
+        }
+    }
 
     #[tokio::test]
-    async fn test_read() {
-        let ref connection_pool: ConnectionPoolImpl = {
-            let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
-            let config = ClientConfigBuilder::default()
-                .build()
-                .expect("build client config");
-            let pool = ConnectionPoolImpl::new(cf, config);
-            pool
-        };
-        // create a segment.
+    async fn test_read_happy_path() {
         let scope_name = Scope::new("examples".into());
         let stream_name = Stream::new("someStream".into());
 
@@ -176,16 +190,81 @@ mod tests {
             segment: Segment { number: 0 },
         };
 
-        let reader =
-            AsyncSegmentReaderImpl::new(&segment_name, connection_pool, "http://127.0.0.1:9090").await;
-        let result = reader.read(0, 11).await;
-        let result = result.unwrap();
-        assert_eq!(result.segment, "examples/someStream/0.#epoch.0".to_string());
-        assert_eq!(result.offset, 0);
-        let event_data = EventCommand::read_from(result.data.as_slice()).unwrap();
-        // Assuming events are written into Pravega  using UTF8Serializer
+        let mut raw_client = MockRawClientImpl::new();
+
+        let segment_name_copy = segment_name.clone();
+        raw_client
+            .expect_send_request()
+            .with(predicate::eq(Requests::ReadSegment(ReadSegmentCommand {
+                segment: segment_name.to_string(),
+                offset: 0,
+                suggested_length: 11,
+                delegation_token: String::from(""),
+                request_id: 1,
+            })))
+            .times(1)
+            .returning(move |_| {
+                Ok(Replies::SegmentRead(SegmentReadCommand {
+                    segment: segment_name_copy.to_string(),
+                    offset: 0,
+                    at_tail: false,
+                    end_of_segment: false,
+                    data: vec![0, 0, 0, 0, 0, 0, 0, 3, 97, 98, 99],
+                    request_id: 1,
+                }))
+            });
+        let async_segment_reader =
+            AsyncSegmentReaderImpl::new(&segment_name, Box::new(raw_client), &REQUEST_ID_GENERATOR);
+        let data = async_segment_reader.read(0, 11).await;
+        let segment_read_result: SegmentReadCommand = data.unwrap();
+        assert_eq!(
+            segment_read_result.segment,
+            "examples/someStream/0.#epoch.0".to_string()
+        );
+        assert_eq!(segment_read_result.offset, 0);
+        assert_eq!(segment_read_result.at_tail, false);
+        assert_eq!(segment_read_result.end_of_segment, false);
+        let event_data = EventCommand::read_from(segment_read_result.data.as_slice()).unwrap();
         let data = std::str::from_utf8(event_data.data.as_slice()).unwrap();
-        println!("result data {:?}", data);
-        assert_eq!("abc", data); // read from the standalone.
+        assert_eq!("abc", data);
+    }
+
+    #[tokio::test]
+    async fn test_read_error_no_segment() {
+        let scope_name = Scope::new("examples".into());
+        let stream_name = Stream::new("someStream".into());
+
+        let segment_name = ScopedSegment {
+            scope: scope_name.clone(),
+            stream: stream_name.clone(),
+            segment: Segment { number: 0 },
+        };
+
+        let mut raw_client = MockRawClientImpl::new();
+
+        let segment_name_copy = segment_name.clone();
+        raw_client
+            .expect_send_request()
+            .with(predicate::eq(Requests::ReadSegment(ReadSegmentCommand {
+                segment: segment_name.to_string(),
+                offset: 0,
+                suggested_length: 11,
+                delegation_token: String::from(""),
+                request_id: 1,
+            })))
+            .times(1)
+            .returning(move |_| {
+                Ok(Replies::NoSuchSegment(NoSuchSegmentCommand {
+                    segment: segment_name_copy.to_string(),
+                    server_stack_trace: "".to_string(),
+                    offset: 0,
+                    request_id: 1,
+                }))
+            });
+        let async_segment_reader =
+            AsyncSegmentReaderImpl::new(&segment_name, Box::new(raw_client), &REQUEST_ID_GENERATOR);
+        let read_status = async_segment_reader.read(0, 11).await;
+        assert!(read_status.is_err()); // read should fail due to NoSuchSegment
+        println!("{:?}", read_status);
     }
 }

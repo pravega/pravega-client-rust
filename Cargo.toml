@@ -31,6 +31,4 @@ derive-new = "0.5"
 
 [dev-dependencies]
 pravega-rust-client-integration-test = { path = "./integration_test"}
-
-
-
+mockall = "0.7.0"

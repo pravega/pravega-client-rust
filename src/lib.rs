@@ -36,3 +36,6 @@ pub mod raw_client;
 pub mod segment_reader;
 
 pub static REQUEST_ID_GENERATOR: AtomicI64 = AtomicI64::new(0);
+
+#[macro_use]
+extern crate derive_new;
