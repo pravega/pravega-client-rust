@@ -15,7 +15,9 @@ use std::time::Duration;
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>> {
     // start Pravega standalone before invoking this function.
-    let client = create_connection("http://[::1]:9090").await.expect("create controller connection");
+    let client = create_connection("http://[::1]:9090")
+        .await
+        .expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
 
     let scope_name = Scope::new("testScope123".into());

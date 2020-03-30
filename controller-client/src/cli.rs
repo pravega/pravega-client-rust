@@ -69,7 +69,9 @@ fn main() {
     let mut rt = Runtime::new().unwrap();
 
     // create a controller client.
-    let client = rt.block_on(create_connection(&opt.controller_uri)).expect("create controller connection");
+    let client = rt
+        .block_on(create_connection(&opt.controller_uri))
+        .expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
     // let command: &Command = &opt.cmd;
     match opt.cmd {

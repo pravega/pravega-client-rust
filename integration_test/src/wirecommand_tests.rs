@@ -129,7 +129,9 @@ async fn test_hello() {
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     // Create scope and stream
-    let client = create_connection("http://127.0.0.1:9090").await.expect("create controller connection");
+    let client = create_connection("http://127.0.0.1:9090")
+        .await
+        .expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
     controller_client
         .create_scope(&scope_name)
@@ -197,7 +199,9 @@ async fn test_keep_alive() {
         segment: Segment { number: 0 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await.expect("create controller connection");
+    let client = create_connection("http://127.0.0.1:9090")
+        .await
+        .expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
@@ -224,7 +228,9 @@ async fn test_setup_append() {
         segment: Segment { number: 0 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await.expect("create controller connection");
+    let client = create_connection("http://127.0.0.1:9090")
+        .await
+        .expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
@@ -284,7 +290,9 @@ async fn test_create_segment() {
         segment: Segment { number: 0 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await.expect("create controller connection");
+    let client = create_connection("http://127.0.0.1:9090")
+        .await
+        .expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
@@ -322,7 +330,9 @@ async fn test_seal_segment() {
         segment: Segment { number: 0 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await.expect("create controller connection");
+    let client = create_connection("http://127.0.0.1:9090")
+        .await
+        .expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
@@ -358,7 +368,9 @@ async fn test_update_and_get_segment_attribute() {
         stream: stream_name.clone(),
         segment: Segment { number: 0 },
     };
-    let client = create_connection("http://127.0.0.1:9090").await.expect("create controller connection");
+    let client = create_connection("http://127.0.0.1:9090")
+        .await
+        .expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
@@ -414,7 +426,9 @@ async fn test_get_stream_segment_info() {
     };
 
     //seal this stream.
-    let client = create_connection("http://127.0.0.1:9090").await.expect("create controller connection");
+    let client = create_connection("http://127.0.0.1:9090")
+        .await
+        .expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
     controller_client.seal_stream(&stream).await.expect("seal stream");
 
@@ -456,7 +470,9 @@ async fn test_delete_segment() {
         segment: Segment { number: 0 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await.expect("create controller connection");
+    let client = create_connection("http://127.0.0.1:9090")
+        .await
+        .expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
@@ -493,7 +509,9 @@ async fn test_conditional_append_and_read_segment() {
         segment: Segment { number: 0 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await.expect("create controller connection");
+    let client = create_connection("http://127.0.0.1:9090")
+        .await
+        .expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
@@ -580,7 +598,9 @@ async fn test_update_segment_policy() {
         segment: Segment { number: 0 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await.expect("create controller connection");
+    let client = create_connection("http://127.0.0.1:9090")
+        .await
+        .expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
@@ -619,7 +639,9 @@ async fn test_merge_segment() {
         segment: Segment { number: 1 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await.expect("create controller connection");
+    let client = create_connection("http://127.0.0.1:9090")
+        .await
+        .expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
@@ -711,7 +733,9 @@ async fn test_truncate_segment() {
         segment: Segment { number: 0 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await.expect("create controller connection");
+    let client = create_connection("http://127.0.0.1:9090")
+        .await
+        .expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
@@ -750,7 +774,9 @@ async fn test_update_table_entries() {
         segment: Segment { number: 2 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await.expect("create controller connection");
+    let client = create_connection("http://127.0.0.1:9090")
+        .await
+        .expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
@@ -857,7 +883,9 @@ async fn test_read_table_key() {
         segment: Segment { number: 2 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await.expect("create controller connection");
+    let client = create_connection("http://127.0.0.1:9090")
+        .await
+        .expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
@@ -899,7 +927,9 @@ async fn test_read_table() {
         segment: Segment { number: 2 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await.expect("create controller connection");
+    let client = create_connection("http://127.0.0.1:9090")
+        .await
+        .expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
@@ -953,7 +983,9 @@ async fn test_read_table_entries() {
         segment: Segment { number: 2 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await.expect("create controller connection");
+    let client = create_connection("http://127.0.0.1:9090")
+        .await
+        .expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)

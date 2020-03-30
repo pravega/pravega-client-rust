@@ -1,21 +1,21 @@
-use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
-use pravega_rust_client_retry::retry_async::retry_async;
+use crate::pravega_service::{PravegaService, PravegaStandaloneService};
+use lazy_static::*;
 use pravega_client_rust::raw_client::RawClientImpl;
+use pravega_controller_client::{create_connection, ControllerClient, ControllerClientImpl};
+use pravega_rust_client_retry::retry_async::retry_async;
+use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
+use pravega_rust_client_retry::retry_result::RetryResult;
+use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfigBuilder;
+use pravega_wire_protocol::commands::{HelloCommand, SealSegmentCommand};
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl};
 use pravega_wire_protocol::connection_pool::ConnectionPoolImpl;
-use std::net::SocketAddr;
-use pravega_wire_protocol::wire_commands::Requests;
 use pravega_wire_protocol::wire_commands::Replies;
-use pravega_wire_protocol::commands::{HelloCommand, SealSegmentCommand};
-use pravega_rust_client_retry::retry_result::RetryResult;
-use std::{thread, time};
+use pravega_wire_protocol::wire_commands::Requests;
+use std::net::SocketAddr;
 use std::process::Command;
-use pravega_controller_client::{ControllerClientImpl, ControllerClient, create_connection};
+use std::{thread, time};
 use tokio::runtime::Runtime;
-use crate::pravega_service::{PravegaStandaloneService, PravegaService};
-use pravega_rust_client_shared::*;
-use lazy_static::*;
 
 lazy_static! {
     static ref CONNECTION_POOL: ConnectionPoolImpl = {
@@ -67,7 +67,9 @@ fn test_wrapper() {
 async fn test_retry_with_no_connection() {
     let retry_policy = RetryWithBackoff::default().max_tries(4);
     // give a wrong endpoint
-    let endpoint = "127.0.0.1:12345".parse::<SocketAddr>().expect("Unable to parse socket address");
+    let endpoint = "127.0.0.1:12345"
+        .parse::<SocketAddr>()
+        .expect("Unable to parse socket address");
     let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
 
     let result = retry_async(retry_policy, || async {
@@ -77,12 +79,11 @@ async fn test_retry_with_no_connection() {
         });
         let reply = raw_client.send_request(request).await;
         match reply {
-            Ok(r)  => {
-                RetryResult::Success(r)
-            },
-            Err(error) => RetryResult::Retry(error)
+            Ok(r) => RetryResult::Success(r),
+            Err(error) => RetryResult::Retry(error),
         }
-    }).await;
+    })
+    .await;
     if let Err(e) = result {
         assert_eq!(e.tries, 5);
     } else {
@@ -95,10 +96,12 @@ async fn test_retry_while_start_pravega() {
     let client = retry_async(retry_policy, || async {
         let result = create_connection("http://127.0.0.1:9090").await;
         match result {
-            Ok(connection)  => RetryResult::Success(connection),
+            Ok(connection) => RetryResult::Success(connection),
             Err(error) => RetryResult::Retry(error),
         }
-    }).await.expect("create controller connection");
+    })
+    .await
+    .expect("create controller connection");
 
     let mut controller_client = ControllerClientImpl { channel: client };
     let scope_name = Scope::new("retryScope".into());
@@ -135,7 +138,9 @@ async fn test_retry_with_unexpected_reply() {
     let retry_policy = RetryWithBackoff::default().max_tries(4);
     let scope_name = Scope::new("retryScope".into());
     let stream_name = Stream::new("retryStream".into());
-    let client = create_connection("http://127.0.0.1:9090").await.expect("create controller connection");
+    let client = create_connection("http://127.0.0.1:9090")
+        .await
+        .expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
 
     //Get the endpoint.
@@ -158,22 +163,20 @@ async fn test_retry_with_unexpected_reply() {
             request_id: 0,
             delegation_token: String::from(""),
         });
-        let reply =  raw_client.send_request(request).await;
+        let reply = raw_client.send_request(request).await;
         match reply {
-            Ok(r)  => {
-                match r {
-                    Replies::SegmentSealed(_) => RetryResult::Success(r),
-                    Replies::NoSuchSegment(_) => RetryResult::Retry("No Such Segment"),
-                    _  => RetryResult::Fail("Wrong reply type")
-                }
+            Ok(r) => match r {
+                Replies::SegmentSealed(_) => RetryResult::Success(r),
+                Replies::NoSuchSegment(_) => RetryResult::Retry("No Such Segment"),
+                _ => RetryResult::Fail("Wrong reply type"),
             },
-            Err(_error) => RetryResult::Retry("Connection Refused")
+            Err(_error) => RetryResult::Retry("Connection Refused"),
         }
-    }).await;
+    })
+    .await;
     if let Err(e) = result {
         assert_eq!(e.error, "No Such Segment");
     } else {
         panic!("Test failed.")
     }
 }
-
