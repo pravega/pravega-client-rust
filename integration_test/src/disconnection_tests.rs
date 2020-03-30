@@ -101,8 +101,8 @@ async fn test_retry_while_start_pravega() {
     }).await.expect("create controller connection");
 
     let mut controller_client = ControllerClientImpl { channel: client };
-    let scope_name = Scope::new("testScope".into());
-    let stream_name = Stream::new("testStream".into());
+    let scope_name = Scope::new("retryScope".into());
+    let stream_name = Stream::new("retryStream".into());
 
     controller_client
         .create_scope(&scope_name)
@@ -133,8 +133,8 @@ async fn test_retry_while_start_pravega() {
 
 async fn test_retry_with_unexpected_reply() {
     let retry_policy = RetryWithBackoff::default().max_tries(4);
-    let scope_name = Scope::new("testScope".into());
-    let stream_name = Stream::new("testStream".into());
+    let scope_name = Scope::new("retryScope".into());
+    let stream_name = Stream::new("retryStream".into());
     let client = create_connection("http://127.0.0.1:9090").await.expect("create controller connection");
     let mut controller_client = ControllerClientImpl { channel: client };
 
