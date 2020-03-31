@@ -9,6 +9,7 @@
  */
 use pravega_controller_client::*;
 use pravega_rust_client_shared::*;
+use std::net::SocketAddr;
 use structopt::StructOpt;
 use tokio::runtime::Runtime;
 
@@ -57,7 +58,7 @@ enum Command {
 )]
 struct Opt {
     /// Used to configure controller grpc, default uri http://127.0.0.1:9090
-    #[structopt(short = "uri", long, default_value = "http://[::1]:9090")]
+    #[structopt(short = "uri", long, default_value = "127.0.0.1:9090")]
     controller_uri: String,
 
     #[structopt(subcommand)] // Note that we mark a field as a subcommand
@@ -69,9 +70,11 @@ fn main() {
     let mut rt = Runtime::new().unwrap();
 
     // create a controller client.
-    let client = rt.block_on(create_connection(&opt.controller_uri));
-    let mut controller_client = ControllerClientImpl { channel: client };
-    // let command: &Command = &opt.cmd;
+    let mut controller_client = ControllerClientImpl::new(
+        opt.controller_uri
+            .parse::<SocketAddr>()
+            .expect("parse to socketaddr"),
+    );
     match opt.cmd {
         Command::CreateScope { scope_name } => {
             let scope_result = rt.block_on(controller_client.create_scope(&Scope::new(scope_name)));

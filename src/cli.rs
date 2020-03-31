@@ -11,7 +11,7 @@ use pravega_client_rust::raw_client::*;
 use pravega_wire_protocol::client_config::ClientConfigBuilder;
 use pravega_wire_protocol::commands::*;
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl};
-use pravega_wire_protocol::connection_pool::ConnectionPoolImpl;
+use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::Requests;
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -331,7 +331,8 @@ async fn main() {
     let config = ClientConfigBuilder::default()
         .build()
         .expect("build client config");
-    let pool = ConnectionPoolImpl::new(cf, config);
+    let manager = SegmentConnectionManager::new(cf, config);
+    let pool = ConnectionPool::new(manager);
     let endpoint = opt
         .server_uri
         .clone()
