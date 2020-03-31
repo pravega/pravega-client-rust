@@ -265,7 +265,7 @@ struct EventSegmentWriter {
 
 impl EventSegmentWriter {
     /// maximum data size in one append block
-    const MAX_DATA_SIZE: i32 = 1024 * 1024;
+    const MAX_WRITE_SIZE: i32 = 8 * 1024 * 1024 + 8;
     const MAX_EVENTS: i32 = 500;
 
     fn new(segment: ScopedSegment, sender: Sender<Incoming>) -> Self {
@@ -390,7 +390,7 @@ impl EventSegmentWriter {
         });
     }
 
-    /// flush the pending events. It will grab at most MAX_DATA_SIZE of data
+    /// flush the pending events. It will grab at most MAX_WRITE_SIZE of data
     /// from the pending list and send them to the server. Those events will be moved to inflight list waiting to be acked.
     pub async fn flush(&mut self) -> Result<(), EventStreamWriterError> {
         if !self.inflight.is_empty() || self.pending.is_empty() {
@@ -401,8 +401,13 @@ impl EventSegmentWriter {
         let mut to_send = vec![];
 
         while let Some(append) = self.pending.pop_front() {
-            // TODO what if a single event size is larger than MAX_DATA_SIZE
-            if append.event.data.len() + total_size <= EventSegmentWriter::MAX_DATA_SIZE as usize
+            assert!(
+                append.event.data.len() <= EventSegmentWriter::MAX_WRITE_SIZE as usize,
+                "event size {} must be under {}",
+                append.event.data.len(),
+                EventSegmentWriter::MAX_WRITE_SIZE
+            );
+            if append.event.data.len() + total_size <= EventSegmentWriter::MAX_WRITE_SIZE as usize
                 || to_send.len() > EventSegmentWriter::MAX_EVENTS as usize
             {
                 total_size += append.event.data.len();
