@@ -152,6 +152,9 @@ mod tests {
     use pravega_rust_client_shared::Segment;
     use pravega_rust_client_shared::*;
     use pravega_wire_protocol::client_connection::ClientConnection;
+    use pravega_wire_protocol::commands::{
+        NoSuchSegmentCommand, SegmentSealedCommand, SegmentTruncatedCommand,
+    };
     use std::time::Duration;
     use tokio::time::delay_for;
 
@@ -189,29 +192,48 @@ mod tests {
             segment: Segment { number: 0 },
         };
 
-        let mut raw_client = MockRawClientImpl::new();
-
         let segment_name_copy = segment_name.clone();
-        raw_client
-            .expect_send_request()
-            .with(predicate::eq(Requests::ReadSegment(ReadSegmentCommand {
-                segment: segment_name.to_string(),
-                offset: 0,
-                suggested_length: 11,
-                delegation_token: String::from(""),
-                request_id: 1,
-            })))
-            .times(1)
-            .returning(move |_| {
-                Ok(Replies::SegmentRead(SegmentReadCommand {
+        let mut raw_client = MockRawClientImpl::new();
+        raw_client.expect_send_request().returning(move |req: Requests| {
+            //let s: Result<Replies, RawClientError> =
+            match req {
+                Requests::ReadSegment(cmd) => {
+                    if cmd.request_id == 1 {
+                        Ok(Replies::SegmentRead(SegmentReadCommand {
+                            segment: segment_name_copy.to_string(),
+                            offset: 0,
+                            at_tail: false,
+                            end_of_segment: false,
+                            data: vec![0, 0, 0, 0, 0, 0, 0, 3, 97, 98, 99],
+                            request_id: 1,
+                        }))
+                    } else if cmd.request_id == 2 {
+                        Ok(Replies::NoSuchSegment(NoSuchSegmentCommand {
+                            segment: segment_name_copy.to_string(),
+                            server_stack_trace: "".to_string(),
+                            offset: 0,
+                            request_id: 2,
+                        }))
+                    } else if cmd.request_id == 3 {
+                        Ok(Replies::SegmentTruncated(SegmentTruncatedCommand {
+                            request_id: 3,
+                            segment: segment_name_copy.to_string(),
+                        }))
+                    } else {
+                        Ok(Replies::SegmentSealed(SegmentSealedCommand {
+                            request_id: 4,
+                            segment: segment_name_copy.to_string(),
+                        }))
+                    }
+                }
+                _ => Ok(Replies::NoSuchSegment(NoSuchSegmentCommand {
                     segment: segment_name_copy.to_string(),
+                    server_stack_trace: "".to_string(),
                     offset: 0,
-                    at_tail: false,
-                    end_of_segment: false,
-                    data: vec![0, 0, 0, 0, 0, 0, 0, 3, 97, 98, 99],
                     request_id: 1,
-                }))
-            });
+                })),
+            }
+        });
         let async_segment_reader =
             AsyncSegmentReaderImpl::new(&segment_name, Box::new(raw_client), &REQUEST_ID_GENERATOR);
         let data = async_segment_reader.read(0, 11).await;
@@ -226,5 +248,41 @@ mod tests {
         let event_data = EventCommand::read_from(segment_read_result.data.as_slice()).unwrap();
         let data = std::str::from_utf8(event_data.data.as_slice()).unwrap();
         assert_eq!("abc", data);
+
+        // simulate NoSuchSegment
+        let data = async_segment_reader.read(11, 1024).await;
+        let segment_read_result: ReaderError = data.err().unwrap();
+        match segment_read_result {
+            ReaderError::SegmentTruncated {
+                can_retry,
+                operation: _,
+                error_msg: _,
+            } => assert_eq!(can_retry, false),
+            _ => assert!(false, "Segment truncated excepted"),
+        }
+
+        // simulate SegmentTruncated
+        let data = async_segment_reader.read(12, 1024).await;
+        let segment_read_result: ReaderError = data.err().unwrap();
+        match segment_read_result {
+            ReaderError::SegmentTruncated {
+                can_retry,
+                operation: _,
+                error_msg: _,
+            } => assert_eq!(can_retry, false),
+            _ => assert!(false, "Segment truncated excepted"),
+        }
+
+        // simulate SealedSegment
+        let data = async_segment_reader.read(13, 1024).await;
+        let segment_read_result: SegmentReadCommand = data.unwrap();
+        assert_eq!(
+            segment_read_result.segment,
+            "examples/someStream/0.#epoch.0".to_string()
+        );
+        assert_eq!(segment_read_result.offset, 13);
+        assert_eq!(segment_read_result.at_tail, true);
+        assert_eq!(segment_read_result.end_of_segment, true);
+        assert_eq!(segment_read_result.data.len(), 0);
     }
 }
