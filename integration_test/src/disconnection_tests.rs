@@ -198,6 +198,7 @@ impl Server {
     }
 }
 
+/*
 #[test]
 fn test_with_mock_server() {
     let endpoint = "127.0.0.1:54321".parse::<SocketAddr>().expect("Unable to parse socket address");
@@ -259,4 +260,4 @@ fn test_with_mock_server() {
         }
     }
 }
-
+*/
