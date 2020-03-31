@@ -41,8 +41,8 @@ pub enum EventStreamWriterError {
     #[snafu(display("Failed to parse to an Event Command: {}", source))]
     ParseToEventCommand { source: CommandError },
 
-    #[snafu(display("Retry failed due to error: {:?}", err))]
-    RetrySegmentWriting { err: RetryError<ClientConnectionError> },
+    #[snafu(display("Failed to send request to segmentstore due to: {:?}", source))]
+    SegmentWriting { source: ClientConnectionError },
 
     #[snafu(display("Retry failed due to error: {:?}", err))]
     RetryControllerWriting { err: RetryError<ControllerError> },

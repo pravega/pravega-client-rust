@@ -59,7 +59,13 @@ async fn test_event_stream_writer() {
         stream: stream_name.clone(),
     };
 
-    let (mut writer, processor) = EventStreamWriter::new(scoped_stream.clone()).await;
+    let (mut writer, processor) = EventStreamWriter::new(
+        scoped_stream.clone(),
+        ClientConfigBuilder::default()
+            .build()
+            .expect("build client config"),
+    )
+    .await;
     tokio::spawn(Processor::run(processor, Box::new(controller_client), pool));
 
     test_simple_write(&mut writer).await;

@@ -9,20 +9,18 @@
 //
 
 use crate::error::*;
-use crate::setup_logger;
-use lazy_static::*;
 use pravega_controller_client::ControllerClient;
 use pravega_rust_client_retry::retry_async::retry_async;
-use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_retry::retry_result::RetryResult;
 use pravega_rust_client_shared::*;
+use pravega_wire_protocol::client_config::ClientConfig;
 use pravega_wire_protocol::client_connection::*;
 use pravega_wire_protocol::commands::{AppendBlockEndCommand, Command, EventCommand, SetupAppendCommand};
 use pravega_wire_protocol::connection_pool::*;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
-use std::cell::RefCell;
+use snafu::ResultExt;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::hash::Hasher;
@@ -32,10 +30,6 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
 use tracing::{debug, warn};
 use uuid::Uuid;
-
-lazy_static! {
-    static ref RETRY_POLICY: RetryWithBackoff = RetryWithBackoff::default();
-}
 
 /// EventStreamWriter contains a writer id and a mpsc sender which is used to send Event
 /// to the Processor
@@ -47,10 +41,9 @@ pub struct EventStreamWriter {
 impl EventStreamWriter {
     const CHANNEL_CAPACITY: usize = 100;
 
-    pub async fn new(stream: ScopedStream) -> (Self, Processor) {
-        setup_logger();
+    pub async fn new(stream: ScopedStream, config: ClientConfig) -> (Self, Processor) {
         let (tx, rx) = channel(EventStreamWriter::CHANNEL_CAPACITY);
-        let selector = SegmentSelector::new(stream, tx.clone()).await;
+        let selector = SegmentSelector::new(stream, tx.clone(), config).await;
         let processor = Processor {
             receiver: rx,
             selector,
@@ -261,6 +254,9 @@ struct EventSegmentWriter {
 
     /// the sender that sends back reply to processor
     sender: Sender<Incoming>,
+
+    /// client config that contains the retry policy
+    config: ClientConfig,
 }
 
 impl EventSegmentWriter {
@@ -268,7 +264,7 @@ impl EventSegmentWriter {
     const MAX_WRITE_SIZE: i32 = 8 * 1024 * 1024 + 8;
     const MAX_EVENTS: i32 = 500;
 
-    fn new(segment: ScopedSegment, sender: Sender<Incoming>) -> Self {
+    fn new(segment: ScopedSegment, sender: Sender<Incoming>, config: ClientConfig) -> Self {
         EventSegmentWriter {
             endpoint: "127.0.0.1:9090".parse::<SocketAddr>().expect("get socketaddr"),
             id: Uuid::new_v4(),
@@ -279,6 +275,7 @@ impl EventSegmentWriter {
             event_num: 0,
             rng: SmallRng::from_entropy(),
             sender,
+            config,
         }
     }
 
@@ -292,7 +289,7 @@ impl EventSegmentWriter {
         controller: &dyn ControllerClient,
     ) -> Result<(), EventStreamWriterError> {
         // retry to get latest endpoint
-        let uri = match retry_async(RETRY_POLICY.clone(), || async {
+        let uri = match retry_async(self.config.retry_policy, || async {
             match controller.get_endpoint_for_segment(&self.segment).await {
                 Ok(uri) => RetryResult::Success(uri),
                 Err(e) => {
@@ -310,7 +307,7 @@ impl EventSegmentWriter {
         self.endpoint = uri.0.parse::<SocketAddr>().expect("should parse to socketaddr");
 
         // retry to get connection from pool
-        let connection = match retry_async(RETRY_POLICY.clone(), || async {
+        let connection = match retry_async(self.config.retry_policy, || async {
             match pool.get_connection(self.endpoint).await {
                 Ok(connection) => RetryResult::Success(connection),
                 Err(e) => {
@@ -324,7 +321,6 @@ impl EventSegmentWriter {
             Ok(connection) => connection,
             Err(e) => return Err(EventStreamWriterError::RetryConnectionPool { err: e }),
         };
-
         let mut client_connection = ClientConnectionImpl { connection };
         let (mut r, w) = client_connection.split();
         self.writer = Some(w);
@@ -351,8 +347,6 @@ impl EventSegmentWriter {
 
     /// send setup_append command to the server.
     async fn setup_append(&mut self) -> Result<(), EventStreamWriterError> {
-        assert!(self.writer.is_some(), "should have event segment writer");
-
         // TODO: implement token related feature
         let request = Requests::SetupAppend(SetupAppendCommand {
             request_id: self.rng.gen::<i64>(),
@@ -361,17 +355,8 @@ impl EventSegmentWriter {
             delegation_token: "".to_string(),
         });
 
-        let writer = self.writer.take().expect("must have writer");
-        match segment_write_with_retry(writer, &request).await {
-            Ok(writer) => {
-                self.writer = Some(writer);
-                Ok(())
-            }
-            Err(e) => {
-                warn!("event segment writer failed to send setup append");
-                Err(e)
-            }
-        }
+        let mut writer = self.writer.as_mut().expect("must have writer");
+        writer.write(&request).await.context(SegmentWriting {})
     }
 
     /// first add the event to the pending list
@@ -425,6 +410,7 @@ impl EventSegmentWriter {
             total_size,
             self.writer.as_ref().expect("must have writer").get_id()
         );
+
         let request = Requests::AppendBlockEnd(AppendBlockEndCommand {
             writer_id: self.id.as_u128(),
             size_of_whole_events: total_size as i32,
@@ -434,17 +420,8 @@ impl EventSegmentWriter {
             request_id: self.rng.gen::<i64>(),
         });
 
-        let writer = self.writer.take().expect("must take writer");
-        match segment_write_with_retry(writer, &request).await {
-            Ok(writer) => {
-                self.writer = Some(writer);
-                Ok(())
-            }
-            Err(e) => {
-                warn!("event segment writer failed to flush events to segmentstore");
-                Err(e)
-            }
-        }
+        let mut writer = self.writer.as_mut().expect("must have writer");
+        writer.write(&request).await.context(SegmentWriting {})
     }
 
     /// ack inflight events. It will send the reply from server back to the caller using oneshot.
@@ -522,29 +499,6 @@ impl EventSegmentWriter {
     }
 }
 
-async fn segment_write_with_retry(
-    writer: WritingClientConnection,
-    req: &Requests,
-) -> Result<WritingClientConnection, EventStreamWriterError> {
-    let writer_cell = RefCell::new(writer);
-
-    retry_async(RETRY_POLICY.clone(), || async {
-        let mut writer_mut = writer_cell.borrow_mut();
-        match writer_mut.write(req).await {
-            Ok(()) => RetryResult::Success(()),
-            Err(e) => {
-                warn!("retry write to segment due to error {:?}", e);
-                RetryResult::Retry(e)
-            }
-        }
-    })
-    .await
-    .map_or_else(
-        |e| Err(EventStreamWriterError::RetrySegmentWriting { err: e }),
-        |_| Ok(writer_cell.into_inner()),
-    )
-}
-
 pub struct SegmentSelector {
     /// Stream that this SegmentSelector is on
     stream: ScopedStream,
@@ -557,15 +511,19 @@ pub struct SegmentSelector {
 
     /// the sender that sends reply back to Processor
     sender: Sender<Incoming>,
+
+    /// client config that contains the retry policy
+    config: ClientConfig,
 }
 
 impl SegmentSelector {
-    async fn new(stream: ScopedStream, sender: Sender<Incoming>) -> Self {
+    async fn new(stream: ScopedStream, sender: Sender<Incoming>, config: ClientConfig) -> Self {
         SegmentSelector {
             stream,
             writers: HashMap::new(),
             current_segments: StreamSegments::new(BTreeMap::new()),
             sender,
+            config,
         }
     }
 
@@ -574,7 +532,7 @@ impl SegmentSelector {
         connection_pool: &ConnectionPool<SegmentConnectionManager>,
         controller: &dyn ControllerClient,
     ) {
-        self.current_segments = retry_async(RETRY_POLICY.clone(), || async {
+        self.current_segments = retry_async(self.config.retry_policy, || async {
             match controller.get_current_segments(&self.stream).await {
                 Ok(ss) => RetryResult::Success(ss),
                 Err(_e) => RetryResult::Retry("retry controller command due to error"),
@@ -611,7 +569,7 @@ impl SegmentSelector {
         connection_pool: &ConnectionPool<SegmentConnectionManager>,
         controller: &dyn ControllerClient,
     ) -> Vec<PendingEvent> {
-        let stream_segments_with_predecessors = retry_async(RETRY_POLICY.clone(), || async {
+        let stream_segments_with_predecessors = retry_async(self.config.retry_policy, || async {
             match controller.get_successors(sealed_segment).await {
                 Ok(ss) => RetryResult::Success(ss),
                 Err(_e) => RetryResult::Retry("retry controller command due to error"),
@@ -656,7 +614,8 @@ impl SegmentSelector {
     ) {
         for scoped_segment in self.current_segments.get_segments() {
             if !self.writers.contains_key(&scoped_segment) {
-                let mut writer = EventSegmentWriter::new(scoped_segment.clone(), self.sender.clone());
+                let mut writer =
+                    EventSegmentWriter::new(scoped_segment.clone(), self.sender.clone(), self.config);
                 match writer.setup_connection(connection_pool, controller).await {
                     Ok(()) => {}
                     Err(_) => {
