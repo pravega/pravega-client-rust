@@ -30,11 +30,12 @@
 
 pub mod byte_stream;
 pub mod client_factory;
+pub mod error;
 pub mod event_stream_writer;
 pub mod raw_client;
 
-/// There is a known issue that rust doesn't output log from thread even when nocapture is not set.
-/// This will setup logger globally so logs will be output to the same place.
+/// There is a known issue that rust doesn't print log from thread even when nocapture is not set.
+/// This will setup logger globally so logs can be printed to the same place.
 fn setup_logger() -> Result<(), fern::InitError> {
     fern::Dispatch::new()
         .format(|out, message, record| {

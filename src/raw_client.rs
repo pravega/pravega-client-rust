@@ -8,10 +8,10 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::error::*;
 use async_trait::async_trait;
 use pravega_wire_protocol::client_connection::*;
 use pravega_wire_protocol::connection_pool::*;
-use pravega_wire_protocol::error::*;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use snafu::ResultExt;
 use std::fmt;

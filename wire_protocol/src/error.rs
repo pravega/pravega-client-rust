@@ -151,32 +151,3 @@ pub enum ConnectionPoolError {
     #[snafu(display("No available connection in the internal pool"))]
     NoAvailableConnection {},
 }
-
-#[derive(Debug, Snafu)]
-#[snafu(visibility = "pub")]
-pub enum RawClientError {
-    #[snafu(display("Failed to get connection from connection pool: {}", source))]
-    GetConnectionFromPool { source: ConnectionPoolError },
-
-    #[snafu(display("Failed to write request: {}", source))]
-    WriteRequest { source: ClientConnectionError },
-
-    #[snafu(display("Failed to read reply: {}", source))]
-    ReadReply { source: ClientConnectionError },
-
-    #[snafu(display("Reply incompatible wirecommand version: low {}, high {}", low, high))]
-    IncompatibleVersion { low: i32, high: i32 },
-}
-
-#[derive(Debug, Snafu)]
-#[snafu(visibility = "pub")]
-pub enum EventStreamWriterError {
-    #[snafu(display("Failed to send request to the processor"))]
-    SendToProcessor {},
-
-    #[snafu(display("The size limit is {} while actual size is {}", limit, size))]
-    EventSizeTooLarge { limit: i32, size: i32 },
-
-    #[snafu(display("Failed to parse to an Event Command: {}", source))]
-    ParseToEventCommand { source: CommandError },
-}

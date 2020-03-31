@@ -40,7 +40,6 @@ fn check_standalone_status() -> bool {
     listening
 }
 
-//TODO: controller client will fail using multiple threads
 #[tokio::test(core_threads = 4)]
 async fn test_event_stream_writer() {
     // spin up Pravega standalone
@@ -60,9 +59,8 @@ async fn test_event_stream_writer() {
         stream: stream_name.clone(),
     };
 
-    let (mut writer, processor) =
-        EventStreamWriter::new(scoped_stream.clone(), Box::new(controller_client), pool).await;
-    tokio::spawn(Processor::run(processor));
+    let (mut writer, processor) = EventStreamWriter::new(scoped_stream.clone()).await;
+    tokio::spawn(Processor::run(processor, Box::new(controller_client), pool));
 
     test_simple_write(&mut writer).await;
 
@@ -145,7 +143,7 @@ async fn test_segment_sealed(writer: &mut EventStreamWriter, stream: &ScopedStre
 
 // helper function
 async fn setup_test(scope_name: &Scope, stream_name: &Stream) -> ControllerClientImpl {
-    let mut controller_client = ControllerClientImpl::new(
+    let controller_client = ControllerClientImpl::new(
         "127.0.0.1:9090"
             .parse::<SocketAddr>()
             .expect("parse to socketaddr"),
