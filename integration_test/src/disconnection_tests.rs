@@ -53,7 +53,6 @@ fn test_wrapper() {
     rt.block_on(test_retry_with_unexpected_reply());
     pravega.stop().unwrap();
     wait_for_standalone_with_timeout(false, 10);
-
 }
 
 async fn test_retry_with_no_connection() {
@@ -198,13 +197,12 @@ impl Server {
     }
 }
 
-/*
+
 #[test]
 fn test_with_mock_server() {
     let endpoint = "127.0.0.1:54321".parse::<SocketAddr>().expect("Unable to parse socket address");
     let copy_endpoint = endpoint.clone();
-    let mut rt = Runtime::new().unwrap();
-    rt.spawn(  async move {
+    thread::spawn(  move || {
         let server = Server::new(copy_endpoint);
         for stream in server.listener.incoming() {
             let mut client = stream.expect("get a new client connection");
@@ -222,7 +220,8 @@ fn test_with_mock_server() {
         }
         drop(server);
     });
-    println!("aaaaa");
+
+    let mut rt = Runtime::new().unwrap();
     let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
     let config = ClientConfigBuilder::default()
         .build()
@@ -231,12 +230,11 @@ fn test_with_mock_server() {
     let connection = rt
         .block_on(pool.get_connection(endpoint))
         .expect("get connection from pool");
-    println!("bbbbb");
     let client_connection = ClientConnectionImpl { connection };
     let client = RefCell::new(client_connection);
 
     // test with 10 requests, they should be all succeed.
-    for i in 0..1 {
+    for i in 0..10 {
         println!("{:?}", i);
         let retry_policy = RetryWithBackoff::default().max_tries(5);
         let future = retry_async(retry_policy, || async {
@@ -260,4 +258,4 @@ fn test_with_mock_server() {
         }
     }
 }
-*/
+
