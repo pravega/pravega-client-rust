@@ -1,5 +1,4 @@
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
-use lazy_static::*;
 use pravega_client_rust::raw_client::RawClientImpl;
 use pravega_controller_client::{create_connection, ControllerClient, ControllerClientImpl};
 use pravega_rust_client_retry::retry_async::retry_async;
@@ -9,24 +8,16 @@ use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfigBuilder;
 use pravega_wire_protocol::commands::{HelloCommand, SealSegmentCommand};
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl};
-use pravega_wire_protocol::connection_pool::ConnectionPoolImpl;
-use pravega_wire_protocol::wire_commands::Replies;
+use pravega_wire_protocol::connection_pool::{ConnectionPoolImpl, ConnectionPool};
+use pravega_wire_protocol::wire_commands::{Replies, Encode};
 use pravega_wire_protocol::wire_commands::Requests;
-use std::net::SocketAddr;
-use std::process::Command;
 use std::{thread, time};
+use std::process::Command;
 use tokio::runtime::Runtime;
-
-lazy_static! {
-    static ref CONNECTION_POOL: ConnectionPoolImpl = {
-        let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
-        let config = ClientConfigBuilder::default()
-            .build()
-            .expect("build client config");
-        let pool = ConnectionPoolImpl::new(cf, config);
-        pool
-    };
-}
+use std::io::{Write, Read};
+use std::cell::RefCell;
+use pravega_wire_protocol::client_connection::{ClientConnectionImpl, ClientConnection};
+use std::net::{SocketAddr, TcpListener, Shutdown};
 
 fn check_standalone_status() -> bool {
     let output = Command::new("sh")
@@ -62,6 +53,7 @@ fn test_wrapper() {
     rt.block_on(test_retry_with_unexpected_reply());
     pravega.stop().unwrap();
     wait_for_standalone_with_timeout(false, 10);
+
 }
 
 async fn test_retry_with_no_connection() {
@@ -70,7 +62,14 @@ async fn test_retry_with_no_connection() {
     let endpoint = "127.0.0.1:12345"
         .parse::<SocketAddr>()
         .expect("Unable to parse socket address");
-    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+
+    let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
+    let config = ClientConfigBuilder::default()
+        .build()
+        .expect("build client config");
+    let pool = ConnectionPoolImpl::new(cf, config);
+
+    let raw_client = RawClientImpl::new(&pool, endpoint).await;
 
     let result = retry_async(retry_policy, || async {
         let request = Requests::Hello(HelloCommand {
@@ -156,7 +155,12 @@ async fn test_retry_with_unexpected_reply() {
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
 
-    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+    let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
+    let config = ClientConfigBuilder::default()
+        .build()
+        .expect("build client config");
+    let pool = ConnectionPoolImpl::new(cf, config);
+    let raw_client = RawClientImpl::new(&pool, endpoint).await;
     let result = retry_async(retry_policy, || async {
         let request = Requests::SealSegment(SealSegmentCommand {
             segment: segment_name.to_string(),
@@ -180,3 +184,79 @@ async fn test_retry_with_unexpected_reply() {
         panic!("Test failed.")
     }
 }
+
+struct Server {
+    address: SocketAddr,
+    listener: TcpListener,
+}
+
+impl Server {
+    pub fn new(endpoint: SocketAddr) -> Server {
+        let listener = TcpListener::bind(endpoint).expect("local server");
+        let address = listener.local_addr().expect("get listener address");
+        Server { address, listener }
+    }
+}
+
+#[test]
+fn test_with_mock_server() {
+    let endpoint = "127.0.0.1:54321".parse::<SocketAddr>().expect("Unable to parse socket address");
+    let copy_endpoint = endpoint.clone();
+    let mut rt = Runtime::new().unwrap();
+    rt.spawn(  async move {
+        let server = Server::new(copy_endpoint);
+        for stream in server.listener.incoming() {
+            let mut client = stream.expect("get a new client connection");
+            let mut buffer = [0u8; 100];
+            let request = client.read(&mut buffer);
+            println!("{:?}", request);
+            let reply = Replies::Hello(HelloCommand{
+                high_version: 9,
+                low_version: 5,
+            });
+            let data = reply.write_fields().expect("serialize");
+            client.write(&data).expect("send back the reply");
+            // close connection immediately to mock the connection failed.
+            client.shutdown(Shutdown::Both).expect("shutdown the connection");
+        }
+        drop(server);
+    });
+    println!("aaaaa");
+    let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
+    let config = ClientConfigBuilder::default()
+        .build()
+        .expect("build client config");
+    let pool = ConnectionPoolImpl::new(cf, config);
+    let connection = rt
+        .block_on(pool.get_connection(endpoint))
+        .expect("get connection from pool");
+    println!("bbbbb");
+    let client_connection = ClientConnectionImpl { connection };
+    let client = RefCell::new(client_connection);
+
+    // test with 10 requests, they should be all succeed.
+    for i in 0..1 {
+        println!("{:?}", i);
+        let retry_policy = RetryWithBackoff::default().max_tries(5);
+        let future = retry_async(retry_policy, || async {
+            let mut connection = client.borrow_mut();
+            let request = Requests::Hello(HelloCommand {
+                high_version: 9,
+                low_version: 5,
+            });
+            connection.write(&request).await.expect("send the request");
+            let reply = connection.read().await;
+            match reply {
+                Ok(r) => RetryResult::Success(r),
+                Err(error) => RetryResult::Retry(error),
+            }
+        });
+        let result = rt.block_on(future);
+        if let Ok(r) = result {
+            println!("{:?}", r);
+        } else {
+            panic!("Test failed.")
+        }
+    }
+}
+
