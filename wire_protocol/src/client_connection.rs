@@ -93,11 +93,11 @@ impl WritingClientConnection {
 #[async_trait]
 impl ClientConnection for ClientConnectionImpl<'_> {
     async fn read(&mut self) -> Result<Replies, ClientConnectionError> {
-        read_wirecommand(self.connection.deref_mut()).await
+        read_wirecommand(&mut **self.connection.deref_mut()).await
     }
 
     async fn write(&mut self, request: &Requests) -> Result<(), ClientConnectionError> {
-        write_wirecommand(self.connection.deref_mut(), request).await
+        write_wirecommand(&mut **self.connection.deref_mut(), request).await
     }
 
     fn split(&mut self) -> (ReadingClientConnection, WritingClientConnection) {
@@ -113,9 +113,7 @@ impl ClientConnection for ClientConnectionImpl<'_> {
     }
 }
 
-pub async fn read_wirecommand(
-    connection: &mut Box<dyn Connection>,
-) -> Result<Replies, ClientConnectionError> {
+pub async fn read_wirecommand(connection: &mut dyn Connection) -> Result<Replies, ClientConnectionError> {
     let mut header: Vec<u8> = vec![0; LENGTH_FIELD_OFFSET as usize + LENGTH_FIELD_LENGTH as usize];
     connection.read_async(&mut header[..]).await.context(Read {
         part: "header".to_string(),
@@ -139,7 +137,7 @@ pub async fn read_wirecommand(
 }
 
 pub async fn write_wirecommand(
-    connection: &mut Box<dyn Connection>,
+    connection: &mut dyn Connection,
     request: &Requests,
 ) -> Result<(), ClientConnectionError> {
     let payload = request.write_fields().context(EncodeCommand {})?;

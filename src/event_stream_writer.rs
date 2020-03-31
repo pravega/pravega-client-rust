@@ -114,13 +114,17 @@ pub struct Processor {
 }
 
 impl Processor {
+    #[allow(clippy::cognitive_complexity)]
     pub async fn run(
         mut processor: Processor,
         controller: Box<dyn ControllerClient>,
         connection_pool: ConnectionPool<SegmentConnectionManager>,
     ) {
         // get the current segments and create corresponding event segment writers
-        processor.selector.initialize(&connection_pool, &controller).await;
+        processor
+            .selector
+            .initialize(&connection_pool, &*controller)
+            .await;
 
         loop {
             let event = processor
@@ -139,7 +143,7 @@ impl Processor {
                     {
                         if event_segment_writer.write(event).await.is_err() {
                             event_segment_writer
-                                .reconnect(&connection_pool, &controller)
+                                .reconnect(&connection_pool, &*controller)
                                 .await;
                         }
                     }
@@ -165,7 +169,7 @@ impl Processor {
                                     continue;
                                 }
                                 Err(_) => {
-                                    writer.reconnect(&connection_pool, &controller).await;
+                                    writer.reconnect(&connection_pool, &*controller).await;
                                 }
                             }
                         }
@@ -178,7 +182,7 @@ impl Processor {
                                     continue;
                                 }
                                 Err(_) => {
-                                    writer.reconnect(&connection_pool, &controller).await;
+                                    writer.reconnect(&connection_pool, &*controller).await;
                                 }
                             }
                         }
@@ -191,12 +195,12 @@ impl Processor {
                                 .refresh_segment_event_writers_upon_sealed(
                                     &segment,
                                     &connection_pool,
-                                    &controller,
+                                    &*controller,
                                 )
                                 .await;
                             processor
                                 .selector
-                                .resend(inflight, &connection_pool, &controller)
+                                .resend(inflight, &connection_pool, &*controller)
                                 .await;
                             processor.selector.remove_segment_event_writer(&segment);
                         }
@@ -285,7 +289,7 @@ impl EventSegmentWriter {
     pub async fn setup_connection(
         &mut self,
         pool: &ConnectionPool<SegmentConnectionManager>,
-        controller: &Box<dyn ControllerClient>,
+        controller: &dyn ControllerClient,
     ) -> Result<(), EventStreamWriterError> {
         // retry to get latest endpoint
         let uri = match retry_async(RETRY_POLICY.clone(), || async {
@@ -441,7 +445,7 @@ impl EventSegmentWriter {
     /// ack inflight events. It will send the reply from server back to the caller using oneshot.
     pub fn ack(&mut self, event_id: i64) {
         // no events need to ack
-        if self.inflight.len() == 0 {
+        if self.inflight.is_empty() {
             return;
         }
 
@@ -488,7 +492,7 @@ impl EventSegmentWriter {
     pub async fn reconnect(
         &mut self,
         pool: &ConnectionPool<SegmentConnectionManager>,
-        controller: &Box<dyn ControllerClient>,
+        controller: &dyn ControllerClient,
     ) {
         loop {
             // setup the connection
@@ -521,7 +525,7 @@ async fn segment_write_with_retry(
 
     retry_async(RETRY_POLICY.clone(), || async {
         let mut writer_mut = writer_cell.borrow_mut();
-        match writer_mut.write(&req).await {
+        match writer_mut.write(req).await {
             Ok(()) => RetryResult::Success(()),
             Err(e) => {
                 warn!("retry write to segment due to error {:?}", e);
@@ -563,7 +567,7 @@ impl SegmentSelector {
     async fn initialize(
         &mut self,
         connection_pool: &ConnectionPool<SegmentConnectionManager>,
-        controller: &Box<dyn ControllerClient>,
+        controller: &dyn ControllerClient,
     ) {
         self.current_segments = retry_async(RETRY_POLICY.clone(), || async {
             match controller.get_current_segments(&self.stream).await {
@@ -574,7 +578,7 @@ impl SegmentSelector {
         .await
         .expect("retry failed");
 
-        self.create_missing_writers(&connection_pool, &controller).await;
+        self.create_missing_writers(connection_pool, controller).await;
     }
 
     /// get the segment writer by passing a routing key if there is one
@@ -600,10 +604,10 @@ impl SegmentSelector {
         &mut self,
         sealed_segment: &ScopedSegment,
         connection_pool: &ConnectionPool<SegmentConnectionManager>,
-        controller: &Box<dyn ControllerClient>,
+        controller: &dyn ControllerClient,
     ) -> Vec<PendingEvent> {
         let stream_segments_with_predecessors = retry_async(RETRY_POLICY.clone(), || async {
-            match controller.get_successors(&sealed_segment).await {
+            match controller.get_successors(sealed_segment).await {
                 Ok(ss) => RetryResult::Success(ss),
                 Err(_e) => RetryResult::Retry("retry controller command due to error"),
             }
@@ -625,7 +629,7 @@ impl SegmentSelector {
         successors: StreamSegmentsWithPredecessors,
         sealed_segment: &ScopedSegment,
         connection_pool: &ConnectionPool<SegmentConnectionManager>,
-        controller: &Box<dyn ControllerClient>,
+        controller: &dyn ControllerClient,
     ) -> Vec<PendingEvent> {
         self.current_segments = self
             .current_segments
@@ -633,24 +637,25 @@ impl SegmentSelector {
             .expect("apply replacement range");
         self.create_missing_writers(connection_pool, controller).await;
         self.writers
-            .get_mut(&sealed_segment)
+            .get_mut(sealed_segment)
             .expect("get writer")
             .get_unacked_events()
     }
 
     /// create missing EventSegmentWriter and set up the connections for ready to use
+    #[allow(clippy::map_entry)] // clippy warns about using entry, but async closure is not stable
     async fn create_missing_writers(
         &mut self,
         connection_pool: &ConnectionPool<SegmentConnectionManager>,
-        controller: &Box<dyn ControllerClient>,
+        controller: &dyn ControllerClient,
     ) {
         for scoped_segment in self.current_segments.get_segments() {
             if !self.writers.contains_key(&scoped_segment) {
                 let mut writer = EventSegmentWriter::new(scoped_segment.clone(), self.sender.clone());
-                match writer.setup_connection(&connection_pool, &controller).await {
+                match writer.setup_connection(connection_pool, controller).await {
                     Ok(()) => {}
                     Err(_) => {
-                        writer.reconnect(&connection_pool, &controller).await;
+                        writer.reconnect(connection_pool, controller).await;
                     }
                 }
                 self.writers.insert(scoped_segment, writer);
@@ -663,11 +668,15 @@ impl SegmentSelector {
         &mut self,
         to_resend: Vec<PendingEvent>,
         pool: &ConnectionPool<SegmentConnectionManager>,
-        controller: &Box<dyn ControllerClient>,
+        controller: &dyn ControllerClient,
     ) {
         for event in to_resend {
             let segment_writer = self.get_segment_writer_for_key(event.routing_key.clone());
             if let Err(e) = segment_writer.write(event).await {
+                warn!(
+                    "failed to resend an event due to: {:?}, reconnecting the event segment writer",
+                    e
+                );
                 segment_writer.reconnect(pool, controller).await;
             }
         }

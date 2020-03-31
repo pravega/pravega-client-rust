@@ -422,7 +422,7 @@ impl Manager for ControllerConnectionManager {
     }
 
     fn get_config(&self) -> ClientConfig {
-        self.config.clone()
+        self.config
     }
 }
 

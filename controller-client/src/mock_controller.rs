@@ -114,7 +114,7 @@ impl ControllerClient for MockController {
             .insert(stream.clone());
 
         let read_guard = &self.created_streams.read().await;
-        for segment in get_segments_for_stream(&stream, &read_guard)? {
+        for segment in get_segments_for_stream(&stream, read_guard)? {
             let segment_name = segment.to_string();
             create_segment(segment_name, self, false).await?;
         }

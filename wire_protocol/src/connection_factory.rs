@@ -84,7 +84,7 @@ impl ConnectionFactoryImpl {
             endpoint,
             stream: Some(stream),
         }) as Box<dyn Connection>;
-        verify_connection(&mut tokio_connection)
+        verify_connection(&mut *tokio_connection)
             .await
             .context(Verify {})?;
         Ok(tokio_connection)
@@ -104,7 +104,7 @@ impl ConnectionFactory for ConnectionFactoryImpl {
     }
 }
 
-async fn verify_connection(conn: &mut Box<dyn Connection>) -> Result<(), ClientConnectionError> {
+async fn verify_connection(conn: &mut dyn Connection) -> Result<(), ClientConnectionError> {
     let request = Requests::Hello(HelloCommand {
         high_version: WIRE_VERSION,
         low_version: OLDEST_COMPATIBLE_VERSION,
