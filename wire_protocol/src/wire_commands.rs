@@ -659,25 +659,19 @@ impl Decode for Requests {
                 ReadTableEntriesCommand::read_from(input)?,
             )),
 
-            AppendBlockCommand::TYPE_CODE => Ok(Requests::AppendBlock(
-                AppendBlockCommand::read_from(input)?,
-            )),
+            AppendBlockCommand::TYPE_CODE => Ok(Requests::AppendBlock(AppendBlockCommand::read_from(input)?)),
 
-            AppendBlockEndCommand::TYPE_CODE => Ok(Requests::AppendBlockEnd(
-                AppendBlockEndCommand::read_from(input)?,
-            )),
+            AppendBlockEndCommand::TYPE_CODE => {
+                Ok(Requests::AppendBlockEnd(AppendBlockEndCommand::read_from(input)?))
+            }
 
-            PaddingCommand::TYPE_CODE => Ok(Requests::Padding(
-                PaddingCommand::read_from(input)?,
-            )),
+            PaddingCommand::TYPE_CODE => Ok(Requests::Padding(PaddingCommand::read_from(input)?)),
 
-            PartialEventCommand::TYPE_CODE => Ok(Requests::PartialEvent(
-                PartialEventCommand::read_from(input)?,
-            )),
+            PartialEventCommand::TYPE_CODE => {
+                Ok(Requests::PartialEvent(PartialEventCommand::read_from(input)?))
+            }
 
-            EventCommand::TYPE_CODE => Ok(Requests::Event(
-                EventCommand::read_from(input)?,
-            )),
+            EventCommand::TYPE_CODE => Ok(Requests::Event(EventCommand::read_from(input)?)),
 
             _ => InvalidType {
                 command_type: type_code,

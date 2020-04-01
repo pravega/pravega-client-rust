@@ -184,8 +184,7 @@ mod tests {
         let mut server = Server::new();
 
         let connection_factory = self::ConnectionFactoryImpl {};
-        let connection_future =
-            connection_factory.establish_connection(server.address, ConnectionType::Mock);
+        let connection_future = connection_factory.establish_connection(server.address, ConnectionType::Mock);
         let mut connection = rt.block_on(connection_future).unwrap();
 
         let mut payload: Vec<u8> = Vec::new();
