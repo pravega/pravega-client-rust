@@ -16,7 +16,7 @@ use std::time::Duration;
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>> {
     // start Pravega standalone before invoking this function.
-    let mut controller_client = ControllerClientImpl::new(
+    let controller_client = ControllerClientImpl::new(
         "127.0.0.1:9090"
             .parse::<SocketAddr>()
             .expect("parse to socketaddr"),
