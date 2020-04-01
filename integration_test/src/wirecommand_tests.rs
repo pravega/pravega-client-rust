@@ -8,8 +8,6 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use super::pravega_service::PravegaStandaloneService;
-use crate::pravega_service::PravegaService;
 use lazy_static::*;
 use pravega_client_rust::raw_client::RawClientImpl;
 use pravega_controller_client::{
@@ -24,7 +22,6 @@ use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFac
 use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
-use std::process::Command;
 use std::time;
 use tokio::runtime::Runtime;
 use tokio::time::timeout;
