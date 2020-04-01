@@ -7,14 +7,18 @@
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
+
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
 use pravega_client_rust::setup_logger;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use std::process::Command;
 use std::{thread, time};
 
+#[allow(clippy::all)]
 mod event_stream_writer_tests;
+#[allow(clippy::all)]
 mod pravega_service;
+#[allow(clippy::all)]
 mod wirecommand_tests;
 
 fn wait_for_standalone_with_timeout(expected_status: bool, timeout_second: i32) {
@@ -40,11 +44,13 @@ fn check_standalone_status() -> bool {
     !output.stdout.is_empty()
 }
 
+#[allow(clippy::all)]
 #[cfg(test)]
 mod test {
     use super::*;
 
     #[test]
+    #[allow]
     fn integration_test() {
         let mut rt = tokio::runtime::Runtime::new().expect("create runtime");
 
