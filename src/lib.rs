@@ -36,7 +36,7 @@ pub mod raw_client;
 
 /// There is a known issue that rust doesn't print log from thread even when nocapture is not set.
 /// This will setup logger globally so logs can be printed to the same place.
-fn setup_logger() -> Result<(), fern::InitError> {
+pub fn setup_logger() -> Result<(), fern::InitError> {
     fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
@@ -47,7 +47,7 @@ fn setup_logger() -> Result<(), fern::InitError> {
                 message
             ))
         })
-        .level(log::LevelFilter::Info)
+        .level(log::LevelFilter::Debug)
         .chain(std::io::stdout())
         .chain(fern::log_file("./output.log")?)
         .apply()?;

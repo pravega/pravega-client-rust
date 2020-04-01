@@ -13,6 +13,7 @@ const EPOCH_DELIMITER: &str = ".#epoch.";
 const TRANSACTION_DELIMITER: &str = "#transaction.";
 const TRANSACTION_PART_LENGTH: i32 = 16;
 const TRANSACTION_ID_LENGTH: i32 = 2 * TRANSACTION_PART_LENGTH;
+#[allow(dead_code)]
 const FULL_HEX_FORMAT: &str = "%016x";
 
 pub struct NameUtils {}
@@ -35,6 +36,7 @@ impl NameUtils {
         )
     }
 
+    #[allow(dead_code)]
     pub fn get_transaction_name_from_id(parent_stream_segment_name: &str, transaction_id: Uuid) -> String {
         format!(
             "{}{}{}{}",

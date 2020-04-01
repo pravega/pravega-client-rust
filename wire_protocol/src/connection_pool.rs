@@ -19,7 +19,6 @@ use snafu::ResultExt;
 use std::fmt;
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
-use tracing::{span, Level};
 use uuid::Uuid;
 
 #[async_trait]
@@ -125,8 +124,6 @@ where
         &self,
         endpoint: SocketAddr,
     ) -> Result<PooledConnection<'_, M::Conn>, ConnectionPoolError> {
-        let span = span!(Level::DEBUG, "send_setup_request");
-        let _guard = span.enter();
         match self.managed_pool.get_connection(endpoint) {
             Ok(internal_conn) => Ok(PooledConnection {
                 uuid: internal_conn.uuid,

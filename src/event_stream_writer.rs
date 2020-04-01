@@ -153,9 +153,10 @@ impl Processor {
                     match server_reply.reply {
                         Replies::AppendSetup(cmd) => {
                             debug!(
-                                "append setup for writer:{:?} and segment:{:?}",
+                                "append setup completed for writer:{:?}/segment:{:?}",
                                 cmd.writer_id, cmd.segment
                             );
+                            writer.is_setup = true;
                             writer.ack(cmd.last_event_number);
                             match writer.flush().await {
                                 Ok(()) => {
@@ -168,7 +169,7 @@ impl Processor {
                         }
 
                         Replies::DataAppended(cmd) => {
-                            debug!("date appended: {:?}", cmd.event_number);
+                            debug!("date appended, latest event id is: {:?}", cmd.event_number);
                             writer.ack(cmd.event_number);
                             match writer.flush().await {
                                 Ok(()) => {
@@ -181,7 +182,7 @@ impl Processor {
                         }
 
                         Replies::SegmentIsSealed(cmd) => {
-                            debug!("segment sealed: {:?}", cmd.segment);
+                            debug!("segment {:?} sealed", cmd.segment);
                             let segment = ScopedSegment::from(cmd.segment);
                             let inflight = processor
                                 .selector
@@ -257,6 +258,9 @@ struct EventSegmentWriter {
 
     /// client config that contains the retry policy
     config: ClientConfig,
+
+    /// has been setup or not
+    is_setup: bool,
 }
 
 impl EventSegmentWriter {
@@ -276,6 +280,7 @@ impl EventSegmentWriter {
             rng: SmallRng::from_entropy(),
             sender,
             config,
+            is_setup: false,
         }
     }
 
@@ -342,6 +347,12 @@ impl EventSegmentWriter {
                     .expect("send reply to processor");
             }
         });
+        debug!(
+            "setting up append for writer:{:?}/connection:{:?}/segment:{}",
+            self.id,
+            self.writer.as_ref().expect("get writer").get_id(),
+            self.segment.to_string()
+        );
         self.setup_append().await
     }
 
@@ -378,12 +389,13 @@ impl EventSegmentWriter {
     /// flush the pending events. It will grab at most MAX_WRITE_SIZE of data
     /// from the pending list and send them to the server. Those events will be moved to inflight list waiting to be acked.
     pub async fn flush(&mut self) -> Result<(), EventStreamWriterError> {
-        if !self.inflight.is_empty() || self.pending.is_empty() {
+        if !self.inflight.is_empty() || self.pending.is_empty() || !self.is_setup {
             return Ok(());
         }
 
         let mut total_size = 0;
         let mut to_send = vec![];
+        let mut event_count = 0;
 
         while let Some(append) = self.pending.pop_front() {
             assert!(
@@ -392,9 +404,10 @@ impl EventSegmentWriter {
                 append.event.data.len(),
                 EventSegmentWriter::MAX_WRITE_SIZE
             );
-            if append.event.data.len() + total_size <= EventSegmentWriter::MAX_WRITE_SIZE as usize
-                || to_send.len() > EventSegmentWriter::MAX_EVENTS as usize
+            if append.event.data.len() + to_send.len() <= EventSegmentWriter::MAX_WRITE_SIZE as usize
+                || event_count == EventSegmentWriter::MAX_EVENTS as usize
             {
+                event_count += 1;
                 total_size += append.event.data.len();
                 to_send.extend(append.event.data.clone());
                 self.inflight.push_back(append);
@@ -405,10 +418,13 @@ impl EventSegmentWriter {
         }
 
         debug!(
-            "flushing {} events of total size {} using connection with id: {:?}",
+            "flushing {} events of total size {} to segment {:?}; event segment writer id {:?}/connection id: {:?}",
+            event_count,
             to_send.len(),
-            total_size,
-            self.writer.as_ref().expect("must have writer").get_id()
+            self.segment.to_string(),
+            self.id,
+            self.writer.as_ref().expect("must have writer").get_id(),
+
         );
 
         let request = Requests::AppendBlockEnd(AppendBlockEndCommand {
@@ -477,6 +493,7 @@ impl EventSegmentWriter {
         controller: &dyn ControllerClient,
     ) {
         loop {
+            debug!("Reconnecting event segment writer {:?}", self.id);
             // setup the connection
             let setup_res = self.setup_connection(pool, controller).await;
             if setup_res.is_err() {
@@ -616,6 +633,11 @@ impl SegmentSelector {
             if !self.writers.contains_key(&scoped_segment) {
                 let mut writer =
                     EventSegmentWriter::new(scoped_segment.clone(), self.sender.clone(), self.config);
+                debug!(
+                    "writer {:?} created for segment {:?}",
+                    writer.id,
+                    scoped_segment.to_string()
+                );
                 match writer.setup_connection(connection_pool, controller).await {
                     Ok(()) => {}
                     Err(_) => {

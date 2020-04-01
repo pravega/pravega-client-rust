@@ -1,6 +1,7 @@
 use super::pravega_service::PravegaStandaloneService;
 use crate::pravega_service::PravegaService;
 use pravega_client_rust::event_stream_writer::{EventStreamWriter, Processor};
+use pravega_client_rust::setup_logger;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfigBuilder;
@@ -42,11 +43,12 @@ fn check_standalone_status() -> bool {
 
 #[tokio::test(core_threads = 4)]
 async fn test_event_stream_writer() {
+    setup_logger();
     // spin up Pravega standalone
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
 
-    let mut pravega = PravegaStandaloneService::start(true);
+    let mut pravega = PravegaStandaloneService::start(false);
 
     wait_for_standalone_with_timeout(true, 20);
 
