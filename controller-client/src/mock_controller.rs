@@ -21,6 +21,7 @@ use std::collections::HashSet;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
+use tokio::sync::RwLock;
 use uuid::Uuid;
 
 static ID_GENERATOR: AtomicUsize = AtomicUsize::new(0);
@@ -29,25 +30,28 @@ struct MockController {
     endpoint: String,
     port: i32,
     connection: Box<dyn ClientConnection>, // a fake client connection to send wire command.
-    created_scopes: HashMap<String, HashSet<ScopedStream>>,
+    created_scopes: RwLock<HashMap<String, HashSet<ScopedStream>>>,
     created_streams: HashMap<ScopedStream, StreamConfiguration>,
 }
 
 #[async_trait]
 impl ControllerClient for MockController {
-    async fn create_scope(&mut self, scope: &Scope) -> Result<bool, ControllerError> {
+    async fn create_scope(&self, scope: &Scope) -> Result<bool, ControllerError> {
         let scope_name = scope.name.clone();
-        if self.created_scopes.contains_key(&scope_name) {
+        if self.created_scopes.read().await.contains_key(&scope_name) {
             return Ok(false);
         }
 
-        self.created_scopes.insert(scope_name, HashSet::new());
+        self.created_scopes
+            .write()
+            .await
+            .insert(scope_name, HashSet::new());
         Ok(true)
     }
 
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>, ControllerError> {
-        let streams_set = self
-            .created_scopes
+        let read_lock = self.created_scopes.read().await;
+        let streams_set = read_lock
             .get(&scope.name)
             .ok_or(ControllerError::OperationError {
                 can_retry: false,
@@ -63,19 +67,25 @@ impl ControllerClient for MockController {
 
     async fn delete_scope(&mut self, scope: &Scope) -> Result<bool, ControllerError> {
         let scope_name = scope.name.clone();
-        if self.created_scopes.get(&scope_name).is_none() {
+        if self.created_scopes.read().await.get(&scope_name).is_none() {
             return Ok(false);
         }
 
-        let streams_set = self.created_scopes.get(&scope_name).unwrap();
-        if !streams_set.is_empty() {
+        if !self
+            .created_scopes
+            .read()
+            .await
+            .get(&scope_name)
+            .unwrap()
+            .is_empty()
+        {
             Err(ControllerError::OperationError {
                 can_retry: false,
                 operation: "DeleteScope".into(),
                 error_msg: "Scope not empty".into(),
             })
         } else {
-            self.created_scopes.remove(&scope_name);
+            self.created_scopes.write().await.remove(&scope_name);
             Ok(true)
         }
     }
@@ -85,7 +95,7 @@ impl ControllerClient for MockController {
         if self.created_streams.contains_key(&stream) {
             return Ok(false);
         }
-        if self.created_scopes.get(&stream.scope.name).is_none() {
+        if self.created_scopes.read().await.get(&stream.scope.name).is_none() {
             return Err(ControllerError::OperationError {
                 can_retry: false,
                 operation: "create stream".into(),
@@ -94,6 +104,8 @@ impl ControllerClient for MockController {
         }
         self.created_streams.insert(stream.clone(), stream_config.clone());
         self.created_scopes
+            .write()
+            .await
             .get_mut(&stream.scope.name)
             .unwrap()
             .insert(stream.clone());
@@ -141,6 +153,8 @@ impl ControllerClient for MockController {
 
         self.created_streams.remove(stream);
         self.created_scopes
+            .write()
+            .await
             .get_mut(&stream.scope.name)
             .unwrap()
             .remove(stream);

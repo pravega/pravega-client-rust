@@ -69,6 +69,7 @@ pub enum ControllerError {
     },
     #[snafu(display("Could not connect to controller {}", endpoint))]
     ConnectionError {
+        source: tonic::transport::Error,
         can_retry: bool,
         endpoint: String,
         error_msg: String,
@@ -86,7 +87,7 @@ pub trait ControllerClient {
      * same scope, the future completes with false to indicate that the scope existed when the
      * controller executed the operation.
      */
-    async fn create_scope(&mut self, scope: &Scope) -> Result<bool>;
+    async fn create_scope(&self, scope: &Scope) -> Result<bool>;
 
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>>;
 
@@ -197,15 +198,42 @@ pub trait ControllerClient {
     async fn get_successors(&mut self, segment: &ScopedSegment) -> Result<StreamSegmentsWithPredecessors>;
 }
 
+#[derive(Clone)]
 pub struct ControllerClientImpl {
     pub channel: ControllerServiceClient<Channel>,
 }
 
+impl ControllerClientImpl {
+    /// create_connection with the given controller uri.
+    pub async fn create_connection(uri: &str) -> Result<ControllerClientImpl> {
+        // Placeholder to add authentication headers.
+        let connection_result = ControllerServiceClient::connect(uri.to_string()).await;
+        match connection_result {
+            Ok(connection) => Ok(ControllerClientImpl { channel: connection }),
+            Err(e) => Err(ControllerError::ConnectionError {
+                source: e,
+                can_retry: true,
+                endpoint: uri.to_string(),
+                error_msg: "Failed to connect to the controller".to_string(),
+            }),
+        }
+    }
+
+    ///
+    /// Tonic library suggests we clone the channel to enable multiplexing of requests.
+    /// This is because at the very top level the channel is backed by a `tower_buffer::Buffer`
+    /// which runs the connection in a background task and provides a `mpsc` channel interface.
+    /// Due to this cloning the `Channel` type is cheap and encouraged.
+    ///
+    fn get_controller_client(&self) -> ControllerServiceClient<Channel> {
+        self.channel.clone()
+    }
+}
 #[allow(unused_variables)]
 #[async_trait]
 impl ControllerClient for ControllerClientImpl {
-    async fn create_scope(&mut self, scope: &Scope) -> Result<bool> {
-        create_scope(scope, &mut self.channel).await
+    async fn create_scope(&self, scope: &Scope) -> Result<bool> {
+        create_scope(scope, &mut self.get_controller_client()).await
     }
 
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>> {
@@ -288,17 +316,7 @@ impl ControllerClient for ControllerClientImpl {
     }
 }
 
-/// create_connection with the given controller uri.
-pub async fn create_connection(uri: &str) -> ControllerServiceClient<Channel> {
-    // Placeholder to add authentication headers.
-    let connection: ControllerServiceClient<Channel> = ControllerServiceClient::connect(uri.to_string())
-        .await
-        .expect("Failed to create a channel");
-    connection
-}
-
-// Method used to translate grpc errors to custom error.
-fn map_grpc_error(operation_name: &str, status: Status) -> ControllerError {
+pub fn map_grpc_error(operation_name: &str, status: Status) -> ControllerError {
     match status.code() {
         Code::InvalidArgument
         | Code::NotFound
