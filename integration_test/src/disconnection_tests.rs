@@ -6,18 +6,18 @@ use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_retry::retry_result::RetryResult;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfigBuilder;
+use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{HelloCommand, SealSegmentCommand};
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl};
-use pravega_wire_protocol::connection_pool::{ConnectionPoolImpl, ConnectionPool};
-use pravega_wire_protocol::wire_commands::{Replies, Encode};
+use pravega_wire_protocol::connection_pool::{ConnectionPool, ConnectionPoolImpl};
 use pravega_wire_protocol::wire_commands::Requests;
-use std::{thread, time};
-use std::process::Command;
-use tokio::runtime::Runtime;
-use std::io::{Write, Read};
+use pravega_wire_protocol::wire_commands::{Encode, Replies};
 use std::cell::RefCell;
-use pravega_wire_protocol::client_connection::{ClientConnectionImpl, ClientConnection};
-use std::net::{SocketAddr, TcpListener, Shutdown};
+use std::io::{Read, Write};
+use std::net::{Shutdown, SocketAddr, TcpListener};
+use std::process::Command;
+use std::{thread, time};
+use tokio::runtime::Runtime;
 
 fn check_standalone_status() -> bool {
     let output = Command::new("sh")
@@ -185,31 +185,30 @@ async fn test_retry_with_unexpected_reply() {
 }
 
 struct Server {
-    address: SocketAddr,
     listener: TcpListener,
 }
 
 impl Server {
     pub fn new(endpoint: SocketAddr) -> Server {
         let listener = TcpListener::bind(endpoint).expect("local server");
-        let address = listener.local_addr().expect("get listener address");
-        Server { address, listener }
+        Server { listener }
     }
 }
 
-
 #[test]
 fn test_with_mock_server() {
-    let endpoint = "127.0.0.1:54321".parse::<SocketAddr>().expect("Unable to parse socket address");
+    let endpoint = "127.0.0.1:54321"
+        .parse::<SocketAddr>()
+        .expect("Unable to parse socket address");
     let copy_endpoint = endpoint.clone();
-    thread::spawn(  move || {
+    thread::spawn(move || {
         let server = Server::new(copy_endpoint);
         for stream in server.listener.incoming() {
             let mut client = stream.expect("get a new client connection");
             let mut buffer = [0u8; 100];
             let request = client.read(&mut buffer);
             println!("{:?}", request);
-            let reply = Replies::Hello(HelloCommand{
+            let reply = Replies::Hello(HelloCommand {
                 high_version: 9,
                 low_version: 5,
             });
@@ -252,10 +251,9 @@ fn test_with_mock_server() {
         });
         let result = rt.block_on(future);
         if let Ok(r) = result {
-            println!("{:?}", r);
+            println!("reply is {:?}", r);
         } else {
             panic!("Test failed.")
         }
     }
 }
-
