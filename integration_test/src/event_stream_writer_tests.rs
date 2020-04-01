@@ -5,7 +5,7 @@ use pravega_client_rust::setup_logger;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfigBuilder;
-use pravega_wire_protocol::commands::{MergeSegmentsCommand, SealSegmentCommand};
+use pravega_wire_protocol::commands::MergeSegmentsCommand;
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl};
 use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
@@ -52,7 +52,7 @@ async fn test_event_stream_writer() {
 
     wait_for_standalone_with_timeout(true, 20);
 
-    let mut controller_client = setup_test(&scope_name, &stream_name).await;
+    let controller_client = setup_test(&scope_name, &stream_name).await;
 
     let pool = get_connection_pool_for_segment().await;
 

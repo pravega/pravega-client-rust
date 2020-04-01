@@ -70,7 +70,7 @@ fn main() {
     let mut rt = Runtime::new().unwrap();
 
     // create a controller client.
-    let mut controller_client = ControllerClientImpl::new(
+    let controller_client = ControllerClientImpl::new(
         opt.controller_uri
             .parse::<SocketAddr>()
             .expect("parse to socketaddr"),

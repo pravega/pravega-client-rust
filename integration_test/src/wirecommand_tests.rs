@@ -2,15 +2,16 @@ use super::pravega_service::PravegaStandaloneService;
 use crate::pravega_service::PravegaService;
 use lazy_static::*;
 use pravega_client_rust::raw_client::RawClientImpl;
-use pravega_controller_client::{create_connection, ControllerClient, ControllerClientImpl};
+use pravega_controller_client::{
+    create_connection, ControllerClient, ControllerClientImpl, ControllerConnectionManager,
+};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfigBuilder;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::Command as WireCommand;
 use pravega_wire_protocol::commands::*;
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl};
-use pravega_wire_protocol::connection_pool::ConnectionPool;
-use pravega_wire_protocol::connection_pool::ConnectionPoolImpl;
+use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
 use std::process::Command;
@@ -21,13 +22,21 @@ use uuid::Uuid;
 
 // create a static connection pool for using through tests.
 lazy_static! {
-    static ref CONNECTION_POOL: ConnectionPoolImpl = {
+    static ref CONNECTION_POOL: ConnectionPool<SegmentConnectionManager> = {
         let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
         let config = ClientConfigBuilder::default()
             .build()
             .expect("build client config");
-        let pool = ConnectionPoolImpl::new(cf, config);
+        let manager = SegmentConnectionManager::new(cf, config);
+        let pool = ConnectionPool::new(manager);
         pool
+    };
+    static ref CONTROLLER_CLIENT: ControllerClientImpl = {
+        ControllerClientImpl::new(
+            "127.0.0.1:9090"
+                .parse::<SocketAddr>()
+                .expect("parse to socketaddr"),
+        )
     };
 }
 
@@ -55,7 +64,7 @@ fn check_standalone_status() -> bool {
 }
 #[test]
 fn test_wirecommand() {
-    let mut pravega = PravegaStandaloneService::start();
+    let mut pravega = PravegaStandaloneService::start(false);
     wait_for_standalone_with_timeout(true, 20);
     let mut rt = Runtime::new().unwrap();
     let timeout_second = time::Duration::from_secs(30);
@@ -127,9 +136,7 @@ async fn test_hello() {
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     // Create scope and stream
-    let client = create_connection("http://127.0.0.1:9090").await;
-    let mut controller_client = ControllerClientImpl { channel: client };
-    controller_client
+    CONTROLLER_CLIENT
         .create_scope(&scope_name)
         .await
         .expect("create scope");
@@ -150,7 +157,7 @@ async fn test_hello() {
             retention_param: 0,
         },
     };
-    controller_client
+    CONTROLLER_CLIENT
         .create_stream(&request)
         .await
         .expect("create stream");
@@ -160,7 +167,7 @@ async fn test_hello() {
         stream: stream_name.clone(),
         segment: Segment { number: 0 },
     };
-    let endpoint = controller_client
+    let endpoint = CONTROLLER_CLIENT
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -195,9 +202,7 @@ async fn test_keep_alive() {
         segment: Segment { number: 0 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await;
-    let mut controller_client = ControllerClientImpl { channel: client };
-    let endpoint = controller_client
+    let endpoint = CONTROLLER_CLIENT
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -222,9 +227,7 @@ async fn test_setup_append() {
         segment: Segment { number: 0 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await;
-    let mut controller_client = ControllerClientImpl { channel: client };
-    let endpoint = controller_client
+    let endpoint = CONTROLLER_CLIENT
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -282,9 +285,7 @@ async fn test_create_segment() {
         segment: Segment { number: 0 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await;
-    let mut controller_client = ControllerClientImpl { channel: client };
-    let endpoint = controller_client
+    let endpoint = CONTROLLER_CLIENT
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -320,9 +321,7 @@ async fn test_seal_segment() {
         segment: Segment { number: 0 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await;
-    let mut controller_client = ControllerClientImpl { channel: client };
-    let endpoint = controller_client
+    let endpoint = CONTROLLER_CLIENT
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -356,9 +355,7 @@ async fn test_update_and_get_segment_attribute() {
         stream: stream_name.clone(),
         segment: Segment { number: 0 },
     };
-    let client = create_connection("http://127.0.0.1:9090").await;
-    let mut controller_client = ControllerClientImpl { channel: client };
-    let endpoint = controller_client
+    let endpoint = CONTROLLER_CLIENT
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -412,9 +409,7 @@ async fn test_get_stream_segment_info() {
     };
 
     //seal this stream.
-    let client = create_connection("http://127.0.0.1:9090").await;
-    let mut controller_client = ControllerClientImpl { channel: client };
-    controller_client.seal_stream(&stream).await.expect("seal stream");
+    CONTROLLER_CLIENT.seal_stream(&stream).await.expect("seal stream");
 
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
@@ -422,7 +417,7 @@ async fn test_get_stream_segment_info() {
         segment: Segment { number: 0 },
     };
 
-    let endpoint = controller_client
+    let endpoint = CONTROLLER_CLIENT
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -454,9 +449,7 @@ async fn test_delete_segment() {
         segment: Segment { number: 0 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await;
-    let mut controller_client = ControllerClientImpl { channel: client };
-    let endpoint = controller_client
+    let endpoint = CONTROLLER_CLIENT
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -491,9 +484,7 @@ async fn test_conditional_append_and_read_segment() {
         segment: Segment { number: 0 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await;
-    let mut controller_client = ControllerClientImpl { channel: client };
-    let endpoint = controller_client
+    let endpoint = CONTROLLER_CLIENT
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -578,9 +569,7 @@ async fn test_update_segment_policy() {
         segment: Segment { number: 0 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await;
-    let mut controller_client = ControllerClientImpl { channel: client };
-    let endpoint = controller_client
+    let endpoint = CONTROLLER_CLIENT
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -617,9 +606,7 @@ async fn test_merge_segment() {
         segment: Segment { number: 1 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await;
-    let mut controller_client = ControllerClientImpl { channel: client };
-    let endpoint = controller_client
+    let endpoint = CONTROLLER_CLIENT
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -709,9 +696,7 @@ async fn test_truncate_segment() {
         segment: Segment { number: 0 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await;
-    let mut controller_client = ControllerClientImpl { channel: client };
-    let endpoint = controller_client
+    let endpoint = CONTROLLER_CLIENT
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -748,9 +733,7 @@ async fn test_update_table_entries() {
         segment: Segment { number: 2 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await;
-    let mut controller_client = ControllerClientImpl { channel: client };
-    let endpoint = controller_client
+    let endpoint = CONTROLLER_CLIENT
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -855,9 +838,7 @@ async fn test_read_table_key() {
         segment: Segment { number: 2 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await;
-    let mut controller_client = ControllerClientImpl { channel: client };
-    let endpoint = controller_client
+    let endpoint = CONTROLLER_CLIENT
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -897,9 +878,7 @@ async fn test_read_table() {
         segment: Segment { number: 2 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await;
-    let mut controller_client = ControllerClientImpl { channel: client };
-    let endpoint = controller_client
+    let endpoint = CONTROLLER_CLIENT
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -951,9 +930,7 @@ async fn test_read_table_entries() {
         segment: Segment { number: 2 },
     };
 
-    let client = create_connection("http://127.0.0.1:9090").await;
-    let mut controller_client = ControllerClientImpl { channel: client };
-    let endpoint = controller_client
+    let endpoint = CONTROLLER_CLIENT
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
