@@ -113,7 +113,7 @@ impl PravegaService for PravegaStandaloneService {
 
         // Recreate the file and dump the processed contents to it
         let mut dst = File::create(&file_path).expect("create file");
-        dst.write(new_data.as_bytes()).expect("write file");
+        dst.write_all(new_data.as_bytes()).expect("write file");
 
         info!("done");
     }

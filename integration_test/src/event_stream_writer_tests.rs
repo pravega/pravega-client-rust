@@ -36,8 +36,8 @@ fn check_standalone_status() -> bool {
         .arg("netstat -ltn 2> /dev/null | grep 9090 || ss -ltn 2> /dev/null | grep 9090")
         .output()
         .expect("failed to execute process");
-    // if length not zero, controller is listening on port 9090
-    let listening = output.stdout.len() != 0;
+    // if length is not zero, controller is listening on port 9090
+    let listening = !output.stdout.is_empty();
     listening
 }
 
@@ -92,13 +92,13 @@ async fn test_simple_write(writer: &mut EventStreamWriter) {
     assert_eq!(receivers.len(), count);
 
     for rx in receivers {
-        rx.await.expect("wait for result from oneshot");
+        let _reply = rx.await.expect("wait for result from oneshot");
     }
     info!("test simple write passed");
 }
 
 async fn test_segment_sealed(writer: &mut EventStreamWriter, stream: &ScopedStream) {
-    let mut controller_client = ControllerClientImpl::new(
+    let controller_client = ControllerClientImpl::new(
         "127.0.0.1:9090"
             .parse::<SocketAddr>()
             .expect("parse to socketaddr"),
@@ -142,10 +142,10 @@ async fn test_segment_sealed(writer: &mut EventStreamWriter, stream: &ScopedStre
         .expect("get connection from pool");
     let mut client_connection = ClientConnectionImpl::new(conn);
     client_connection.write(&cmd).await.expect("write to segment");
-    let reply = client_connection.read().await.expect("read from segment");
+    let _reply = client_connection.read().await.expect("read from segment");
 
     for rx in receivers {
-        rx.await.expect("wait for result from oneshot");
+        let _reply = rx.await.expect("wait for result from oneshot");
     }
 }
 

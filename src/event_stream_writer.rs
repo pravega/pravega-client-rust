@@ -366,7 +366,7 @@ impl EventSegmentWriter {
             delegation_token: "".to_string(),
         });
 
-        let mut writer = self.writer.as_mut().expect("must have writer");
+        let writer = self.writer.as_mut().expect("must have writer");
         writer.write(&request).await.context(SegmentWriting {})
     }
 
@@ -436,7 +436,7 @@ impl EventSegmentWriter {
             request_id: self.rng.gen::<i64>(),
         });
 
-        let mut writer = self.writer.as_mut().expect("must have writer");
+        let writer = self.writer.as_mut().expect("must have writer");
         writer.write(&request).await.context(SegmentWriting {})
     }
 
