@@ -185,8 +185,7 @@ impl<T: Sized + Send> ManagedPool<T> {
 
     // return the pool length of the internal pool
     fn pool_len(&self, endpoint: &SocketAddr) -> usize {
-        let pool = self.map.get(endpoint).expect("internal pool");
-        pool.conns.len()
+        self.map.get(endpoint).map_or(0, |pool| pool.conns.len())
     }
 }
 

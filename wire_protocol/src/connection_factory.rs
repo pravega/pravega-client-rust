@@ -22,6 +22,7 @@ use uuid::Uuid;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ConnectionType {
+    Mock,
     Tokio,
 }
 
@@ -89,6 +90,24 @@ impl ConnectionFactoryImpl {
             .context(Verify {})?;
         Ok(tokio_connection)
     }
+
+    async fn establish_mock_connection(
+        &self,
+        endpoint: SocketAddr,
+    ) -> Result<Box<dyn Connection>, ConnectionFactoryError> {
+        let connection_type = ConnectionType::Mock;
+        let uuid = Uuid::new_v4();
+        let stream = TcpStream::connect(endpoint).await.context(Connect {
+            connection_type,
+            endpoint,
+        })?;
+        let tokio_connection: Box<dyn Connection> = Box::new(TokioConnection {
+            uuid,
+            endpoint,
+            stream: Some(stream),
+        }) as Box<dyn Connection>;
+        Ok(tokio_connection)
+    }
 }
 
 #[async_trait]
@@ -100,6 +119,7 @@ impl ConnectionFactory for ConnectionFactoryImpl {
     ) -> Result<Box<dyn Connection>, ConnectionFactoryError> {
         match connection_type {
             ConnectionType::Tokio => self.establish_tokio_connection(endpoint).await,
+            ConnectionType::Mock => self.establish_mock_connection(endpoint).await,
         }
     }
 }
@@ -158,7 +178,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic] // since verify will panic
     fn test_connection() {
         let mut rt = Runtime::new().unwrap();
 
@@ -166,7 +185,7 @@ mod tests {
 
         let connection_factory = self::ConnectionFactoryImpl {};
         let connection_future =
-            connection_factory.establish_connection(server.address, ConnectionType::Tokio);
+            connection_factory.establish_connection(server.address, ConnectionType::Mock);
         let mut connection = rt.block_on(connection_future).unwrap();
 
         let mut payload: Vec<u8> = Vec::new();
