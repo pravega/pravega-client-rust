@@ -235,7 +235,7 @@ async fn test_setup_append() {
         .expect("convert to socketaddr");
 
     // send setup_append to standalone SegmentStore
-    let sname = segment_name.to_string() + ".#epoch.0";
+    let sname = segment_name.to_string();
     let request = Requests::SetupAppend(SetupAppendCommand {
         request_id: 0,
         writer_id: 0,
@@ -260,13 +260,13 @@ async fn test_setup_append() {
     let request = Requests::SetupAppend(SetupAppendCommand {
         request_id: 1,
         writer_id: 1,
-        segment: segment_name.to_string(),
+        segment: segment_name.to_string() + "foo",
         delegation_token: String::from(""),
     });
 
     let reply = Replies::NoSuchSegment(NoSuchSegmentCommand {
         request_id: 1,
-        segment: segment_name.to_string(),
+        segment: segment_name.to_string() + "foo",
         server_stack_trace: String::from(""),
         offset: -1,
     });
@@ -282,7 +282,7 @@ async fn test_create_segment() {
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 0 },
+        segment: Segment { number: 1 },
     };
 
     let endpoint = CONTROLLER_CLIENT
@@ -318,7 +318,7 @@ async fn test_seal_segment() {
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 0 },
+        segment: Segment { number: 1 },
     };
 
     let endpoint = CONTROLLER_CLIENT
@@ -364,7 +364,7 @@ async fn test_update_and_get_segment_attribute() {
 
     let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
 
-    let sname = segment_name.to_string() + ".#epoch.0";
+    let sname = segment_name.to_string();
     let uid = Uuid::new_v4().as_u128();
     let request = Requests::UpdateSegmentAttribute(UpdateSegmentAttributeCommand {
         request_id: 4,
@@ -426,7 +426,7 @@ async fn test_get_stream_segment_info() {
 
     let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
 
-    let sname = segment_name.to_string() + ".#epoch.0";
+    let sname = segment_name.to_string();
     let request = Requests::GetStreamSegmentInfo(GetStreamSegmentInfoCommand {
         request_id: 6,
         segment_name: sname.clone(),

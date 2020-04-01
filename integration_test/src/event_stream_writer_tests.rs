@@ -1,19 +1,17 @@
-use super::pravega_service::PravegaStandaloneService;
-use crate::pravega_service::PravegaService;
 use pravega_client_rust::event_stream_writer::{EventStreamWriter, Processor};
-use pravega_client_rust::setup_logger;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfigBuilder;
 use pravega_wire_protocol::commands::MergeSegmentsCommand;
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl};
 use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
-use pravega_wire_protocol::wire_commands::{Replies, Requests};
+use pravega_wire_protocol::wire_commands::Requests;
 use std::net::SocketAddr;
 
+use crate::pravega_service::{PravegaService, PravegaStandaloneService};
 use log::info;
+use pravega_client_rust::setup_logger;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
-use pravega_wire_protocol::wire_commands::Requests::SealSegment;
 use std::process::Command;
 use std::{thread, time};
 
@@ -37,20 +35,19 @@ fn check_standalone_status() -> bool {
         .output()
         .expect("failed to execute process");
     // if length is not zero, controller is listening on port 9090
-    let listening = !output.stdout.is_empty();
-    listening
+    !output.stdout.is_empty()
 }
 
 #[tokio::test(core_threads = 4)]
 async fn test_event_stream_writer() {
-    setup_logger();
+    setup_logger().expect("set up logger");
     // spin up Pravega standalone
-    let scope_name = Scope::new("testScope".into());
-    let stream_name = Stream::new("testStream".into());
+    let scope_name = Scope::new("testScopeWriter".into());
+    let stream_name = Stream::new("testStreamWriter".into());
 
     let mut pravega = PravegaStandaloneService::start(false);
 
-    wait_for_standalone_with_timeout(true, 20);
+    wait_for_standalone_with_timeout(true, 300);
 
     let controller_client = setup_test(&scope_name, &stream_name).await;
 
