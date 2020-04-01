@@ -95,7 +95,7 @@ pub trait ControllerClient {
      * API to delete a scope. Note that a scope can only be deleted in the case is it empty. If
      * the scope contains at least one stream, then the delete request will fail.
      */
-    async fn delete_scope(&mut self, scope: &Scope) -> Result<bool>;
+    async fn delete_scope(&self, scope: &Scope) -> Result<bool>;
 
     /**
      * API to create a stream. The future completes with true in the case the stream did not
@@ -103,46 +103,46 @@ pub trait ControllerClient {
      * the same stream, the future completes with false to indicate that the stream existed when
      * the controller executed the operation.
      */
-    async fn create_stream(&mut self, stream_config: &StreamConfiguration) -> Result<bool>;
+    async fn create_stream(&self, stream_config: &StreamConfiguration) -> Result<bool>;
 
     /**
      * API to update the configuration of a Stream.
      */
-    async fn update_stream(&mut self, stream_config: &StreamConfiguration) -> Result<bool>;
+    async fn update_stream(&self, stream_config: &StreamConfiguration) -> Result<bool>;
 
     /**
      * API to Truncate stream. This api takes a stream cut point which corresponds to a cut in
      * the stream segments which is consistent and covers the entire key range space.
      */
-    async fn truncate_stream(&mut self, stream_cut: &StreamCut) -> Result<bool>;
+    async fn truncate_stream(&self, stream_cut: &StreamCut) -> Result<bool>;
 
     /**
      * API to seal a Stream.
      */
-    async fn seal_stream(&mut self, stream: &ScopedStream) -> Result<bool>;
+    async fn seal_stream(&self, stream: &ScopedStream) -> Result<bool>;
 
     /**
      * API to delete a stream. Only a sealed stream can be deleted.
      */
-    async fn delete_stream(&mut self, stream: &ScopedStream) -> Result<bool>;
+    async fn delete_stream(&self, stream: &ScopedStream) -> Result<bool>;
 
     // Controller APIs called by Pravega producers for getting stream specific information
 
     /**
      * API to get list of current segments for the stream to write to.
      */
-    async fn get_current_segments(&mut self, stream: &ScopedStream) -> Result<StreamSegments>;
+    async fn get_current_segments(&self, stream: &ScopedStream) -> Result<StreamSegments>;
 
     /**
      * API to create a new transaction. The transaction timeout is relative to the creation time.
      */
-    async fn create_transaction(&mut self, stream: &ScopedStream, lease: Duration) -> Result<TxnSegments>;
+    async fn create_transaction(&self, stream: &ScopedStream, lease: Duration) -> Result<TxnSegments>;
 
     /**
      * API to send transaction heartbeat and increase the transaction timeout by lease amount of milliseconds.
      */
     async fn ping_transaction(
-        &mut self,
+        &self,
         stream: &ScopedStream,
         tx_id: TxId,
         lease: Duration,
@@ -154,7 +154,7 @@ pub trait ControllerClient {
      * already been committed or aborted.
      */
     async fn commit_transaction(
-        &mut self,
+        &self,
         stream: &ScopedStream,
         tx_id: TxId,
         writer_id: WriterId,
@@ -165,16 +165,13 @@ pub trait ControllerClient {
      * Aborts a transaction. No events written to it may be read, and no further events may be
      * written. Will fail with if the transaction has already been committed or aborted.
      */
-    async fn abort_transaction(&mut self, stream: &ScopedStream, tx_id: TxId) -> Result<()>;
+    async fn abort_transaction(&self, stream: &ScopedStream, tx_id: TxId) -> Result<()>;
 
     /**
      * Returns the status of the specified transaction.
      */
-    async fn check_transaction_status(
-        &mut self,
-        stream: &ScopedStream,
-        tx_id: TxId,
-    ) -> Result<TransactionStatus>;
+    async fn check_transaction_status(&self, stream: &ScopedStream, tx_id: TxId)
+        -> Result<TransactionStatus>;
 
     // Controller APIs that are called by readers
 
@@ -185,7 +182,7 @@ pub trait ControllerClient {
      * read and write, respectively. The result of this function can be cached until the endpoint is
      * unreachable or indicates it is no longer the owner.
      */
-    async fn get_endpoint_for_segment(&mut self, segment: &ScopedSegment) -> Result<PravegaNodeUri>;
+    async fn get_endpoint_for_segment(&self, segment: &ScopedSegment) -> Result<PravegaNodeUri>;
 
     /**
      * Refreshes an expired/non-existent delegation token.
@@ -195,7 +192,7 @@ pub trait ControllerClient {
      */
     async fn get_or_refresh_delegation_token_for(&self, stream: ScopedStream) -> Result<DelegationToken>;
 
-    async fn get_successors(&mut self, segment: &ScopedSegment) -> Result<StreamSegmentsWithPredecessors>;
+    async fn get_successors(&self, segment: &ScopedSegment) -> Result<StreamSegmentsWithPredecessors>;
 }
 
 #[derive(Clone)]
@@ -204,7 +201,7 @@ pub struct ControllerClientImpl {
 }
 
 impl ControllerClientImpl {
-    /// create_connection with the given controller uri.
+    /// create_connection with a single controller uri.
     pub async fn create_connection(uri: &str) -> Result<ControllerClientImpl> {
         // Placeholder to add authentication headers.
         let connection_result = ControllerServiceClient::connect(uri.to_string()).await;
@@ -218,6 +215,8 @@ impl ControllerClientImpl {
             }),
         }
     }
+
+    ///TODO: create a connection with multiple controller uris and ensure it is loadbalanced.
 
     ///
     /// Tonic library suggests we clone the channel to enable multiplexing of requests.
@@ -240,79 +239,79 @@ impl ControllerClient for ControllerClientImpl {
         unimplemented!()
     }
 
-    async fn delete_scope(&mut self, scope: &Scope) -> Result<bool> {
-        delete_scope(scope, &mut self.channel).await
+    async fn delete_scope(&self, scope: &Scope) -> Result<bool> {
+        delete_scope(scope, &mut self.get_controller_client()).await
     }
 
-    async fn create_stream(&mut self, stream_config: &StreamConfiguration) -> Result<bool> {
-        create_stream(stream_config, &mut self.channel).await
+    async fn create_stream(&self, stream_config: &StreamConfiguration) -> Result<bool> {
+        create_stream(stream_config, &mut self.get_controller_client()).await
     }
 
-    async fn update_stream(&mut self, stream_config: &StreamConfiguration) -> Result<bool> {
-        update_stream(stream_config, &mut self.channel).await
+    async fn update_stream(&self, stream_config: &StreamConfiguration) -> Result<bool> {
+        update_stream(stream_config, &mut self.get_controller_client()).await
     }
 
-    async fn truncate_stream(&mut self, stream_cut: &StreamCut) -> Result<bool> {
-        truncate_stream(stream_cut, &mut self.channel).await
+    async fn truncate_stream(&self, stream_cut: &StreamCut) -> Result<bool> {
+        truncate_stream(stream_cut, &mut self.get_controller_client()).await
     }
 
-    async fn seal_stream(&mut self, stream: &ScopedStream) -> Result<bool> {
-        seal_stream(stream, &mut self.channel).await
+    async fn seal_stream(&self, stream: &ScopedStream) -> Result<bool> {
+        seal_stream(stream, &mut self.get_controller_client()).await
     }
 
-    async fn delete_stream(&mut self, stream: &ScopedStream) -> Result<bool> {
-        delete_stream(stream, &mut self.channel).await
+    async fn delete_stream(&self, stream: &ScopedStream) -> Result<bool> {
+        delete_stream(stream, &mut self.get_controller_client()).await
     }
 
-    async fn get_current_segments(&mut self, stream: &ScopedStream) -> Result<StreamSegments> {
-        get_current_segments(stream, &mut self.channel).await
+    async fn get_current_segments(&self, stream: &ScopedStream) -> Result<StreamSegments> {
+        get_current_segments(stream, &mut self.get_controller_client()).await
     }
 
-    async fn create_transaction(&mut self, stream: &ScopedStream, lease: Duration) -> Result<TxnSegments> {
-        create_transaction(stream, lease, &mut self.channel).await
+    async fn create_transaction(&self, stream: &ScopedStream, lease: Duration) -> Result<TxnSegments> {
+        create_transaction(stream, lease, &mut self.get_controller_client()).await
     }
 
     async fn ping_transaction(
-        &mut self,
+        &self,
         stream: &ScopedStream,
         tx_id: TxId,
         lease: Duration,
     ) -> Result<PingStatus> {
-        ping_transaction(stream, tx_id, lease, &mut self.channel).await
+        ping_transaction(stream, tx_id, lease, &mut self.get_controller_client()).await
     }
 
     async fn commit_transaction(
-        &mut self,
+        &self,
         stream: &ScopedStream,
         tx_id: TxId,
         writer_id: WriterId,
         time: Timestamp,
     ) -> Result<()> {
-        commit_transaction(stream, tx_id, writer_id, time, &mut self.channel).await
+        commit_transaction(stream, tx_id, writer_id, time, &mut self.get_controller_client()).await
     }
 
-    async fn abort_transaction(&mut self, stream: &ScopedStream, tx_id: TxId) -> Result<()> {
-        abort_transaction(stream, tx_id, &mut self.channel).await
+    async fn abort_transaction(&self, stream: &ScopedStream, tx_id: TxId) -> Result<()> {
+        abort_transaction(stream, tx_id, &mut self.get_controller_client()).await
     }
 
     async fn check_transaction_status(
-        &mut self,
+        &self,
         stream: &ScopedStream,
         tx_id: TxId,
     ) -> Result<TransactionStatus> {
-        check_transaction_status(stream, tx_id, &mut self.channel).await
+        check_transaction_status(stream, tx_id, &mut self.get_controller_client()).await
     }
 
-    async fn get_endpoint_for_segment(&mut self, segment: &ScopedSegment) -> Result<PravegaNodeUri> {
-        get_uri_segment(segment, &mut self.channel).await
+    async fn get_endpoint_for_segment(&self, segment: &ScopedSegment) -> Result<PravegaNodeUri> {
+        get_uri_segment(segment, &mut self.get_controller_client()).await
     }
 
     async fn get_or_refresh_delegation_token_for(&self, stream: ScopedStream) -> Result<DelegationToken> {
         unimplemented!()
     }
 
-    async fn get_successors(&mut self, segment: &ScopedSegment) -> Result<StreamSegmentsWithPredecessors> {
-        get_successors(segment, &mut self.channel).await
+    async fn get_successors(&self, segment: &ScopedSegment) -> Result<StreamSegmentsWithPredecessors> {
+        get_successors(segment, &mut self.get_controller_client()).await
     }
 }
 
