@@ -1,3 +1,13 @@
+//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+
 use super::pravega_service::PravegaStandaloneService;
 use crate::pravega_service::PravegaService;
 use lazy_static::*;
@@ -15,7 +25,7 @@ use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionMa
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
 use std::process::Command;
-use std::{thread, time};
+use std::time;
 use tokio::runtime::Runtime;
 use tokio::time::timeout;
 use uuid::Uuid;
@@ -28,8 +38,7 @@ lazy_static! {
             .build()
             .expect("build client config");
         let manager = SegmentConnectionManager::new(cf, config);
-        let pool = ConnectionPool::new(manager);
-        pool
+        ConnectionPool::new(manager)
     };
     static ref CONTROLLER_CLIENT: ControllerClientImpl = {
         ControllerClientImpl::new(
@@ -40,32 +49,7 @@ lazy_static! {
     };
 }
 
-fn wait_for_standalone_with_timeout(expected_status: bool, timeout_second: i32) {
-    for _i in 0..timeout_second {
-        if expected_status == check_standalone_status() {
-            return;
-        }
-        thread::sleep(time::Duration::from_secs(1));
-    }
-    panic!(
-        "timeout {} exceeded, Pravega standalone is in status {} while expected {}",
-        timeout_second, !expected_status, expected_status
-    );
-}
-fn check_standalone_status() -> bool {
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg("netstat -ltn 2> /dev/null | grep 9090 || ss -ltn 2> /dev/null | grep 9090")
-        .output()
-        .expect("failed to execute process");
-    // if length not zero, controller is listening on port 9090
-    let listening = output.stdout.len() != 0;
-    listening
-}
-#[test]
-fn test_wirecommand() {
-    let mut pravega = PravegaStandaloneService::start(false);
-    wait_for_standalone_with_timeout(true, 20);
+pub fn test_wirecommand() {
     let mut rt = Runtime::new().unwrap();
     let timeout_second = time::Duration::from_secs(30);
     rt.block_on(async {
@@ -128,8 +112,6 @@ fn test_wirecommand() {
     rt.block_on(async {
         timeout(timeout_second, test_read_table_entries()).await.unwrap();
     });
-    pravega.stop().unwrap();
-    wait_for_standalone_with_timeout(false, 10);
 }
 
 async fn test_hello() {

@@ -38,9 +38,10 @@ use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
     delete_scope_status, delete_stream_status, ping_txn_status, txn_state, txn_status, update_stream_status,
     CreateScopeStatus, CreateStreamStatus, CreateTxnRequest, CreateTxnResponse, DeleteScopeStatus,
-    DeleteStreamStatus, NodeUri, PingTxnRequest, PingTxnStatus, ScopeInfo, SegmentRanges, StreamConfig,
-    StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
+    DeleteStreamStatus, NodeUri, PingTxnRequest, PingTxnStatus, ScopeInfo, SegmentId, SegmentRanges,
+    StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
 };
+use log::debug;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfig;
 use pravega_wire_protocol::client_config::ClientConfigBuilder;
@@ -919,9 +920,18 @@ async fn get_successors(
     request: &ScopedSegment,
     mut connection: PooledConnection<'_, ControllerConnection>,
 ) -> Result<StreamSegmentsWithPredecessors> {
+    let scoped_stream = ScopedStream {
+        scope: request.scope.clone(),
+        stream: request.stream.clone(),
+    };
+    let segment_id_request = SegmentId {
+        stream_info: Some(StreamInfo::from(&scoped_stream)),
+        segment_id: request.segment.number,
+    };
+    debug!("sending get successors request for {:?}", request);
     let op_status: StdResult<tonic::Response<SuccessorResponse>, tonic::Status> = connection
         .channel
-        .get_segments_immediately_following(tonic::Request::new(request.into()))
+        .get_segments_immediately_following(tonic::Request::new(segment_id_request))
         .await;
     let operation_name = "get_successors_segment";
     match op_status {

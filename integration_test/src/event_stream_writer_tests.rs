@@ -1,53 +1,29 @@
+//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+
 use pravega_client_rust::event_stream_writer::{EventStreamWriter, Processor};
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfigBuilder;
-use pravega_wire_protocol::commands::MergeSegmentsCommand;
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl};
 use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::Requests;
 use std::net::SocketAddr;
 
-use crate::pravega_service::{PravegaService, PravegaStandaloneService};
 use log::info;
-use pravega_client_rust::setup_logger;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
-use std::process::Command;
-use std::{thread, time};
 
-fn wait_for_standalone_with_timeout(expected_status: bool, timeout_second: i32) {
-    for _i in 0..timeout_second {
-        if expected_status == check_standalone_status() {
-            return;
-        }
-        thread::sleep(time::Duration::from_secs(1));
-    }
-    panic!(
-        "timeout {} exceeded, Pravega standalone is in status {} while expected {}",
-        timeout_second, !expected_status, expected_status
-    );
-}
-
-fn check_standalone_status() -> bool {
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg("netstat -ltn 2> /dev/null | grep 9090 || ss -ltn 2> /dev/null | grep 9090")
-        .output()
-        .expect("failed to execute process");
-    // if length is not zero, controller is listening on port 9090
-    !output.stdout.is_empty()
-}
-
-#[tokio::test(core_threads = 4)]
-async fn test_event_stream_writer() {
-    setup_logger().expect("set up logger");
+pub async fn test_event_stream_writer() {
     // spin up Pravega standalone
     let scope_name = Scope::new("testScopeWriter".into());
     let stream_name = Stream::new("testStreamWriter".into());
-
-    let mut pravega = PravegaStandaloneService::start(false);
-
-    wait_for_standalone_with_timeout(true, 300);
 
     let controller_client = setup_test(&scope_name, &stream_name).await;
 
@@ -69,11 +45,9 @@ async fn test_event_stream_writer() {
 
     test_simple_write(&mut writer).await;
 
-    test_segment_sealed(&mut writer, &scoped_stream).await;
+    test_scaling_up(&mut writer).await;
 
-    // Shut down Pravega standalone
-    pravega.stop().unwrap();
-    wait_for_standalone_with_timeout(false, 5);
+    test_segment_sealed(&mut writer).await;
 }
 
 async fn test_simple_write(writer: &mut EventStreamWriter) {
@@ -94,56 +68,100 @@ async fn test_simple_write(writer: &mut EventStreamWriter) {
     info!("test simple write passed");
 }
 
-async fn test_segment_sealed(writer: &mut EventStreamWriter, stream: &ScopedStream) {
+async fn test_scaling_up(writer: &mut EventStreamWriter) {
+    info!("test event stream writer with segment scaled up");
     let controller_client = ControllerClientImpl::new(
         "127.0.0.1:9090"
             .parse::<SocketAddr>()
             .expect("parse to socketaddr"),
     );
-    let pool = get_connection_pool_for_segment().await;
-    let mut segments = controller_client
-        .get_current_segments(&stream)
-        .await
-        .expect("get current segments")
-        .get_segments();
-    let from = segments.pop().expect("get source segment");
-    let to = segments.pop().expect("get target segment");
-    let endpoint = controller_client
-        .get_endpoint_for_segment(&from)
-        .await
-        .expect("get endpoint")
-        .0
-        .parse::<SocketAddr>()
-        .expect("parse to socketaddr");
 
     let mut receivers = vec![];
     let count = 1000;
     let mut i = 0;
     while i < count {
+        if i == 500 {
+            // scaling down the segment number
+            let new_config = StreamConfiguration {
+                scoped_stream: ScopedStream {
+                    scope: Scope::new("testScopeWriter".into()),
+                    stream: Stream::new("testStreamWriter".into()),
+                },
+                scaling: Scaling {
+                    scale_type: ScaleType::FixedNumSegments,
+                    target_rate: 0,
+                    scale_factor: 0,
+                    min_num_segments: 4,
+                },
+                retention: Retention {
+                    retention_type: RetentionType::None,
+                    retention_param: 0,
+                },
+            };
+            controller_client
+                .update_stream(&new_config)
+                .await
+                .expect("scale down the segments");
+        }
         let rx = writer.write_event(String::from("hello").into_bytes()).await;
         receivers.push(rx);
         i += 1;
     }
     assert_eq!(receivers.len(), count);
 
-    let cmd = Requests::MergeSegments(MergeSegmentsCommand {
-        request_id: 0,
-        target: to.to_string(),
-        source: from.to_string(),
-        delegation_token: "".to_string(),
-    });
+    for rx in receivers {
+        let _reply = rx.await.expect("wait for result from oneshot");
+    }
 
-    let conn = pool
-        .get_connection(endpoint)
-        .await
-        .expect("get connection from pool");
-    let mut client_connection = ClientConnectionImpl::new(conn);
-    client_connection.write(&cmd).await.expect("write to segment");
-    let _reply = client_connection.read().await.expect("read from segment");
+    info!("test event stream writer with segment scaled up passed");
+}
+
+async fn test_segment_sealed(writer: &mut EventStreamWriter) {
+    info!("test event stream writer with segment sealed");
+    let controller_client = ControllerClientImpl::new(
+        "127.0.0.1:9090"
+            .parse::<SocketAddr>()
+            .expect("parse to socketaddr"),
+    );
+
+    let mut receivers = vec![];
+    let count = 1000;
+    let mut i = 0;
+    while i < count {
+        if i == 500 {
+            // scaling down the segment number
+            let new_config = StreamConfiguration {
+                scoped_stream: ScopedStream {
+                    scope: Scope::new("testScopeWriter".into()),
+                    stream: Stream::new("testStreamWriter".into()),
+                },
+                scaling: Scaling {
+                    scale_type: ScaleType::FixedNumSegments,
+                    target_rate: 0,
+                    scale_factor: 0,
+                    min_num_segments: 1,
+                },
+                retention: Retention {
+                    retention_type: RetentionType::None,
+                    retention_param: 0,
+                },
+            };
+            controller_client
+                .update_stream(&new_config)
+                .await
+                .expect("scale down the segments");
+        }
+        let rx = writer.write_event(String::from("hello").into_bytes()).await;
+        receivers.push(rx);
+        i += 1;
+    }
+    assert_eq!(receivers.len(), count);
 
     for rx in receivers {
         let _reply = rx.await.expect("wait for result from oneshot");
     }
+
+    info!("test event stream writer with segment sealed passed");
 }
 
 // helper function

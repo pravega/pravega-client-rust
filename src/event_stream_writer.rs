@@ -588,7 +588,18 @@ impl SegmentSelector {
     ) -> Vec<PendingEvent> {
         let stream_segments_with_predecessors = retry_async(self.config.retry_policy, || async {
             match controller.get_successors(sealed_segment).await {
-                Ok(ss) => RetryResult::Success(ss),
+                Ok(ss) => {
+                    if !ss.replacement_segments.contains_key(&sealed_segment.segment) {
+                        debug!(
+                            "successors map size is {:?} and {:?}",
+                            ss.replacement_segments.len(),
+                            ss.segment_with_predecessors.len()
+                        );
+                        RetryResult::Retry("retry get successors due to empty successors")
+                    } else {
+                        RetryResult::Success(ss)
+                    }
+                }
                 Err(_e) => RetryResult::Retry("retry controller command due to error"),
             }
         })
