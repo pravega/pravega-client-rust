@@ -63,14 +63,14 @@ pub trait AsyncSegmentReader {
 
 #[derive(new)]
 struct AsyncSegmentReaderImpl<'a> {
-    segment: &'a ScopedSegment,
+    segment: ScopedSegment,
     raw_client: Box<dyn RawClient<'a> + 'a>,
     id: &'static AtomicI64,
 }
 
 impl<'a> AsyncSegmentReaderImpl<'a> {
     pub async fn init(
-        segment: &'a ScopedSegment,
+        segment: ScopedSegment,
         connection_pool: &'a ConnectionPoolImpl,
         controller_uri: String,
     ) -> AsyncSegmentReaderImpl<'a> {
@@ -78,7 +78,7 @@ impl<'a> AsyncSegmentReaderImpl<'a> {
             channel: create_connection(controller_uri.as_str()).await,
         };
         let endpoint = controller_client
-            .get_endpoint_for_segment(segment)
+            .get_endpoint_for_segment(&segment)
             .await
             .expect("get endpoint for segment")
             .parse::<SocketAddr>()
@@ -235,7 +235,7 @@ mod tests {
             }
         });
         let async_segment_reader =
-            AsyncSegmentReaderImpl::new(&segment_name, Box::new(raw_client), &REQUEST_ID_GENERATOR);
+            AsyncSegmentReaderImpl::new(segment_name, Box::new(raw_client), &REQUEST_ID_GENERATOR);
         let data = async_segment_reader.read(0, 11).await;
         let segment_read_result: SegmentReadCommand = data.unwrap();
         assert_eq!(
