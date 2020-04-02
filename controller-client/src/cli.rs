@@ -69,8 +69,9 @@ fn main() {
     let mut rt = Runtime::new().unwrap();
 
     // create a controller client.
-    let client = rt.block_on(create_connection(&opt.controller_uri));
-    let mut controller_client = ControllerClientImpl { channel: client };
+    let controller_client = rt
+        .block_on(ControllerClientImpl::create_connection(&opt.controller_uri))
+        .unwrap();
     // let command: &Command = &opt.cmd;
     match opt.cmd {
         Command::CreateScope { scope_name } => {

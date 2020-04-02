@@ -17,11 +17,11 @@ use super::*;
 fn test_create_scope_error() {
     let mut rt = Runtime::new().unwrap();
 
-    let client_future = create_connection("http://[::1]:9090");
-    let mut client = rt.block_on(client_future);
+    let client_future = ControllerClientImpl::create_connection("http://[::1]:9090");
+    let mut client = rt.block_on(client_future).unwrap();
 
     let request = Scope::new("testScope124".into());
-    let fut = create_scope(&request, &mut client);
+    let fut = create_scope(&request, &mut client.channel);
 
     rt.block_on(fut).unwrap();
 }
@@ -31,8 +31,8 @@ fn test_create_scope_error() {
 fn test_create_stream_error() {
     let mut rt = Runtime::new().unwrap();
 
-    let client_future = create_connection("http://[::1]:9090");
-    let mut client = rt.block_on(client_future);
+    let client_future = ControllerClientImpl::create_connection("http://[::1]:9090");
+    let mut client = rt.block_on(client_future).unwrap();
 
     let request = StreamConfiguration {
         scoped_stream: ScopedStream {
@@ -52,7 +52,7 @@ fn test_create_stream_error() {
             retention_param: 0,
         },
     };
-    let fut = create_stream(&request, &mut client);
+    let fut = create_stream(&request, &mut client.channel);
 
     rt.block_on(fut).unwrap();
 }

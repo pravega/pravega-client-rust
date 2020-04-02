@@ -43,10 +43,16 @@ use controller::{
 };
 use pravega_rust_client_shared::*;
 use std::convert::{From, Into};
+use std::str::FromStr;
+use tonic::transport::Uri;
 
 #[allow(non_camel_case_types)]
 pub mod controller {
-    tonic::include_proto!("io.pravega.controller.stream.api.grpc.v1");
+    //tonic::include_proto!("io.pravega.controller.stream.api.grpc.v1");
+    include!(concat!(
+        env!("OUT_DIR"),
+        concat!("/", "io.pravega.controller.stream.api.grpc.v1", ".rs")
+    ));
     // this is the rs file name generated after compiling the proto file, located inside the target folder.
 }
 
@@ -216,7 +222,22 @@ impl ControllerClientImpl {
         }
     }
 
-    ///TODO: create a connection with multiple controller uris and ensure it is loadbalanced.
+    ///
+    /// Create a pool of connections to a controller.
+    /// The requests will be load balanced across multiple connections and every underlying connection
+    /// can handle multiplexing as supported by http2.
+    ///
+    pub async fn create_pooled_connection(uri: &str, pool_size: u8) -> Result<ControllerClientImpl> {
+        let uri = Uri::from_str(uri).unwrap();
+        let list_connections = (0..pool_size).map(|_a| Channel::builder(uri.clone()));
+
+        // Placeholder to add authentication headers.
+        let ch = Channel::balance_list(list_connections);
+
+        Ok(ControllerClientImpl {
+            channel: ControllerServiceClient::new(ch),
+        })
+    }
 
     ///
     /// Tonic library suggests we clone the channel to enable multiplexing of requests.

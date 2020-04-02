@@ -27,6 +27,27 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>>
     let scope_result = controller_client.create_scope(&scope_name).await;
     println!("Response for create_scope is {:?}", scope_result);
 
+    // test multiple requests without pooling
+    // netstat indicates only one port is opened.
+    let mut futures = FuturesUnordered::new();
+    for _ in 0..10000_i32 {
+        let scope_name = Scope::new("testScope".into());
+        let c = &controller_client;
+        futures.push(async move { c.create_scope(&scope_name).await });
+    }
+
+    while let Some(res) = futures.next().await {
+        match res {
+            Ok(resp) => println!("{:?}", resp),
+            Err(e) => {
+                println!("Errant response; err = {:?}", e);
+            }
+        }
+    }
+
+    // test multiple requests with pooling
+    // netstat indicates multiple ports are opened.
+    let controller_client = ControllerClientImpl::create_pooled_connection("http://[::1]:9090", 2).await?;
     let mut futures = FuturesUnordered::new();
     for _ in 0..10000_i32 {
         let scope_name = Scope::new("testScope".into());
