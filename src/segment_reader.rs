@@ -72,10 +72,10 @@ impl<'a> AsyncSegmentReaderImpl<'a> {
     pub async fn init(
         segment: &'a ScopedSegment,
         connection_pool: &'a ConnectionPoolImpl,
-        controller_uri: &'a str,
+        controller_uri: String,
     ) -> AsyncSegmentReaderImpl<'a> {
         let mut controller_client = ControllerClientImpl {
-            channel: create_connection(controller_uri).await,
+            channel: create_connection(controller_uri.as_str()).await,
         };
         let endpoint = controller_client
             .get_endpoint_for_segment(segment)
