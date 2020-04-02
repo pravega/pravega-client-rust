@@ -21,17 +21,46 @@ use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
 use uuid::Uuid;
 
+/// Manager is a trait for defining custom connections. User can implement their own
+/// type of connection and their own way of establishing the connection in this trait.
+/// ConnectionPool will accept an implementation of this trait and manage the customized
+/// connection using the method that user provides
+/// # Example
+///
+/// ```no_run
+/// use std::net::SocketAddr;
+/// use pravega_wire_protocol::connection_pool::ConnectionPool;
+/// use pravega_wire_protocol::connection_pool::SegmentConnectionManager;
+/// use pravega_wire_protocol::connection_factory::ConnectionFactoryImpl;
+/// use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
+/// use tokio::runtime::Runtime;
+///
+/// let mut rt = Runtime::new().unwrap();
+/// let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
+/// let config = ClientConfigBuilder::default().build().unwrap();
+/// let factory = Box::new(ConnectionFactoryImpl{});
+/// let manager = SegmentConnectionManager::new(factory, config);
+/// let pool = ConnectionPool::new(manager);
+/// let connection = rt.block_on(pool.get_connection(endpoint));
+/// ```
 #[async_trait]
 pub trait Manager {
+    /// The customized connection must implement Send and Sized marker trait
     type Conn: Send + Sized;
 
+    /// Define how to establish the customized connection
     async fn establish_connection(&self, endpoint: SocketAddr) -> Result<Self::Conn, ConnectionPoolError>;
 
+    /// Check whether this connection is still valid. This method will be used to filter out
+    /// invalid connections when putting connection back to the pool
     fn is_valid(&self, conn: &PooledConnection<'_, Self::Conn>) -> bool;
 
+    /// ConnectionPool will call this method to get its config
     fn get_config(&self) -> ClientConfig;
 }
 
+/// An implementation of the Manager trait. This is for creating connections between
+/// Rust client and Segmentstore server.
 pub struct SegmentConnectionManager {
     /// connection_factory is used to establish connection to the remote server
     /// when there is no connection available in the internal pool.
@@ -70,7 +99,7 @@ impl Manager for SegmentConnectionManager {
     }
 }
 
-/// ConnectionPool creates a pool of threads for reuse.
+/// ConnectionPool creates a pool of connections for reuse.
 /// It is thread safe.
 /// # Example
 ///
