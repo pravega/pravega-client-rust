@@ -11,6 +11,7 @@
 use pravega_controller_client::ControllerError;
 use pravega_rust_client_retry::retry_result::RetryError;
 use pravega_wire_protocol::error::*;
+use pravega_wire_protocol::wire_commands::Replies;
 use snafu::Snafu;
 
 #[derive(Debug, Snafu)]
@@ -49,4 +50,10 @@ pub enum EventStreamWriterError {
 
     #[snafu(display("Retry connection pool failed due to error {:?}", err))]
     RetryConnectionPool { err: RetryError<ConnectionPoolError> },
+
+    #[snafu(display("Retry raw client failed due to error {:?}", err))]
+    RetryRawClient { err: RetryError<RawClientError> },
+
+    #[snafu(display("Wrong reply, expected {:?} but get {:?}", expected, actual))]
+    WrongReply { expected: String, actual: Replies },
 }

@@ -166,7 +166,7 @@ async fn test_hello() {
 
     let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
     raw_client
-        .send_request(request)
+        .send_request(&request)
         .await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
@@ -231,7 +231,7 @@ async fn test_setup_append() {
 
     let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
     raw_client
-        .send_request(request)
+        .send_request(&request)
         .await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 
@@ -250,7 +250,7 @@ async fn test_setup_append() {
         offset: -1,
     });
     raw_client
-        .send_request(request)
+        .send_request(&request)
         .await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
@@ -286,7 +286,7 @@ async fn test_create_segment() {
     });
 
     raw_client
-        .send_request(request)
+        .send_request(&request)
         .await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
@@ -321,7 +321,7 @@ async fn test_seal_segment() {
     });
 
     raw_client
-        .send_request(request)
+        .send_request(&request)
         .await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
@@ -358,7 +358,7 @@ async fn test_update_and_get_segment_attribute() {
         success: true,
     });
     raw_client
-        .send_request(request)
+        .send_request(&request)
         .await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 
@@ -374,7 +374,7 @@ async fn test_update_and_get_segment_attribute() {
         value: 1,
     });
     raw_client
-        .send_request(request)
+        .send_request(&request)
         .await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
@@ -411,7 +411,10 @@ async fn test_get_stream_segment_info() {
         segment_name: sname.clone(),
         delegation_token: String::from(""),
     });
-    let reply = raw_client.send_request(request).await.expect("fail to get reply");
+    let reply = raw_client
+        .send_request(&request)
+        .await
+        .expect("fail to get reply");
     if let Replies::StreamSegmentInfo(info) = reply {
         assert!(info.is_sealed, true);
     } else {
@@ -447,7 +450,7 @@ async fn test_delete_segment() {
         segment: segment_name.to_string(),
     });
     raw_client
-        .send_request(request)
+        .send_request(&request)
         .await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
@@ -479,7 +482,7 @@ async fn test_conditional_append_and_read_segment() {
         scale_type: ScaleType::FixedNumSegments as u8,
         delegation_token: String::from(""),
     });
-    raw_client.send_request(request).await.expect("create segment");
+    raw_client.send_request(&request).await.expect("create segment");
 
     // Setup Append.
     let request = Requests::SetupAppend(SetupAppendCommand {
@@ -488,7 +491,7 @@ async fn test_conditional_append_and_read_segment() {
         segment: segment_name.to_string(),
         delegation_token: String::from(""),
     });
-    raw_client.send_request(request).await.expect("setup append");
+    raw_client.send_request(&request).await.expect("setup append");
 
     // Conditional Append.
     let data = String::from("event1").into_bytes();
@@ -508,7 +511,7 @@ async fn test_conditional_append_and_read_segment() {
         current_segment_write_offset: 14,
     });
     raw_client
-        .send_request(request)
+        .send_request(&request)
         .await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 
@@ -533,7 +536,7 @@ async fn test_conditional_append_and_read_segment() {
     });
 
     raw_client
-        .send_request(request)
+        .send_request(&request)
         .await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
@@ -570,7 +573,7 @@ async fn test_update_segment_policy() {
         segment: segment_name.to_string(),
     });
     raw_client
-        .send_request(request)
+        .send_request(&request)
         .await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
@@ -602,7 +605,7 @@ async fn test_merge_segment() {
         delegation_token: String::from(""),
     });
 
-    raw_client.send_request(request).await.expect("create segment");
+    raw_client.send_request(&request).await.expect("create segment");
 
     // Setup Append.
     let request = Requests::SetupAppend(SetupAppendCommand {
@@ -611,7 +614,7 @@ async fn test_merge_segment() {
         segment: segment_name.to_string(),
         delegation_token: String::from(""),
     });
-    raw_client.send_request(request).await.expect("setup append");
+    raw_client.send_request(&request).await.expect("setup append");
 
     // Conditional Append.
     let data = String::from("event2").into_bytes();
@@ -631,7 +634,7 @@ async fn test_merge_segment() {
         current_segment_write_offset: 14,
     });
     raw_client
-        .send_request(request)
+        .send_request(&request)
         .await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 
@@ -660,7 +663,7 @@ async fn test_merge_segment() {
     });
 
     raw_client
-        .send_request(request)
+        .send_request(&request)
         .await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
@@ -697,7 +700,7 @@ async fn test_truncate_segment() {
         segment: segment_name.to_string(),
     });
     raw_client
-        .send_request(request)
+        .send_request(&request)
         .await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
@@ -729,7 +732,7 @@ async fn test_update_table_entries() {
         delegation_token: String::from(""),
     });
 
-    raw_client.send_request(request).await.expect("create segment");
+    raw_client.send_request(&request).await.expect("create segment");
 
     //create a table.
     let mut entries = Vec::new();
@@ -757,7 +760,7 @@ async fn test_update_table_entries() {
     });
 
     raw_client
-        .send_request(request)
+        .send_request(&request)
         .await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 
@@ -780,7 +783,7 @@ async fn test_update_table_entries() {
         server_stack_trace: String::from(""),
     });
     raw_client
-        .send_request(request)
+        .send_request(&request)
         .await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 
@@ -803,7 +806,7 @@ async fn test_update_table_entries() {
         server_stack_trace: String::from(""),
     });
     raw_client
-        .send_request(request)
+        .send_request(&request)
         .await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
@@ -838,7 +841,7 @@ async fn test_read_table_key() {
     keys.push(TableKey::new(String::from("key1").into_bytes(), 0));
     keys.push(TableKey::new(String::from("key2").into_bytes(), 27));
 
-    let reply = raw_client.send_request(request).await.expect("read table key");
+    let reply = raw_client.send_request(&request).await.expect("read table key");
 
     if let Replies::TableKeysRead(t) = reply {
         assert_eq!(t.segment, segment_name.to_string());
@@ -895,7 +898,7 @@ async fn test_read_table() {
     });
 
     raw_client
-        .send_request(request)
+        .send_request(&request)
         .await
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
@@ -938,7 +941,7 @@ async fn test_read_table_entries() {
     let table = TableEntries { entries };
 
     let reply = raw_client
-        .send_request(request)
+        .send_request(&request)
         .await
         .expect("read table entries");
     if let Replies::TableEntriesRead(t) = reply {

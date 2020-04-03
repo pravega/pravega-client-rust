@@ -22,14 +22,14 @@ use tracing::{span, Level};
 /// Request enums and return Reply enums asynchronously. It has logic to process some of the replies from
 /// server and return the processed result to caller.
 #[async_trait]
-pub trait RawClient<'a> {
+pub trait RawClient<'a>: Send + Sync {
     /// Asynchronously send a request to the server and receive a response.
-    async fn send_request(&self, request: Requests) -> Result<Replies, RawClientError>;
+    async fn send_request(&self, request: &Requests) -> Result<Replies, RawClientError>;
 
     /// Asynchronously send a request to the server and receive a response and return the connection to the caller.
     async fn send_setup_request(
         &self,
-        request: Requests,
+        request: &Requests,
     ) -> Result<(Replies, Box<dyn ClientConnection + 'a>), RawClientError>;
 }
 
@@ -56,21 +56,21 @@ impl<'a> RawClientImpl<'a> {
 #[allow(clippy::needless_lifetimes)]
 #[async_trait]
 impl<'a> RawClient<'a> for RawClientImpl<'a> {
-    async fn send_request(&self, request: Requests) -> Result<Replies, RawClientError> {
+    async fn send_request(&self, request: &Requests) -> Result<Replies, RawClientError> {
         let connection = self
             .pool
             .get_connection(self.endpoint)
             .await
             .context(GetConnectionFromPool {})?;
         let mut client_connection = ClientConnectionImpl::new(connection);
-        client_connection.write(&request).await.context(WriteRequest {})?;
+        client_connection.write(request).await.context(WriteRequest {})?;
         let reply = client_connection.read().await.context(ReadReply {})?;
         Ok(reply)
     }
 
     async fn send_setup_request(
         &self,
-        request: Requests,
+        request: &Requests,
     ) -> Result<(Replies, Box<dyn ClientConnection + 'a>), RawClientError> {
         let span = span!(Level::DEBUG, "send_setup_request");
         let _guard = span.enter();
@@ -80,7 +80,7 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
             .await
             .context(GetConnectionFromPool {})?;
         let mut client_connection = ClientConnectionImpl::new(connection);
-        client_connection.write(&request).await.context(WriteRequest {})?;
+        client_connection.write(request).await.context(WriteRequest {})?;
 
         let reply = client_connection.read().await.context(ReadReply {})?;
 
@@ -180,7 +180,7 @@ mod tests {
 
         let reply = common
             .rt
-            .block_on(raw_client.send_request(request))
+            .block_on(raw_client.send_request(&request))
             .expect("get reply");
 
         assert_eq!(

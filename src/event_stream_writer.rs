@@ -9,6 +9,7 @@
 //
 
 use crate::error::*;
+use crate::raw_client::RawClientImpl;
 use pravega_controller_client::ControllerClient;
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_result::RetryResult;
@@ -28,7 +29,7 @@ use std::net::SocketAddr;
 use tokio;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
-use tracing::{debug, warn};
+use tracing::{debug, error, warn};
 use uuid::Uuid;
 
 /// EventStreamWriter contains a writer id and a mpsc sender which is used to send Event
@@ -134,7 +135,8 @@ impl Processor {
                     if let Some(event) =
                         PendingEvent::with_header(event.routing_key, event.inner, event.oneshot_sender)
                     {
-                        if event_segment_writer.write(event).await.is_err() {
+                        if let Err(e) = event_segment_writer.write(event).await {
+                            warn!("failed to write append to segment due to {:?}, reconnecting", e);
                             event_segment_writer
                                 .reconnect(&connection_pool, &*controller)
                                 .await;
@@ -151,31 +153,34 @@ impl Processor {
                         .expect("should always be able to get event segment writer");
 
                     match server_reply.reply {
-                        Replies::AppendSetup(cmd) => {
-                            debug!(
-                                "append setup completed for writer:{:?}/segment:{:?}",
-                                cmd.writer_id, cmd.segment
-                            );
-                            writer.is_setup = true;
-                            writer.ack(cmd.last_event_number);
-                            match writer.flush().await {
-                                Ok(()) => {
-                                    continue;
-                                }
-                                Err(_) => {
-                                    writer.reconnect(&connection_pool, &*controller).await;
-                                }
-                            }
-                        }
-
+                        //                                                Replies::AppendSetup(cmd) => {
+                        //                                                    debug!(
+                        //                                                        "append setup completed for writer:{:?}/segment:{:?}",
+                        //                                                        cmd.writer_id, cmd.segment
+                        //                                                    );
+                        //                                                    writer.is_setup = true;
+                        //                                                    writer.ack(cmd.last_event_number);
+                        //                                                    match writer.flush().await {
+                        //                                                        Ok(()) => {
+                        //                                                            continue;
+                        //                                                        }
+                        //                                                        Err(_) => {
+                        //                                                            writer.reconnect(&connection_pool, &*controller).await;
+                        //                                                        }
+                        //                                                    }
+                        //                                                }
                         Replies::DataAppended(cmd) => {
-                            debug!("date appended, latest event id is: {:?}", cmd.event_number);
+                            debug!(
+                                "data appended for writer {:?}, latest event id is: {:?}",
+                                writer.id, cmd.event_number
+                            );
                             writer.ack(cmd.event_number);
                             match writer.flush().await {
                                 Ok(()) => {
                                     continue;
                                 }
-                                Err(_) => {
+                                Err(e) => {
+                                    warn!("writer {:?} failed to flush data to segment {:?} due to {:?}, reconnecting", writer.id ,writer.segment, e);
                                     writer.reconnect(&connection_pool, &*controller).await;
                                 }
                             }
@@ -198,8 +203,35 @@ impl Processor {
                                 .await;
                             processor.selector.remove_segment_event_writer(&segment);
                         }
+
+                        // same handling logic as segment sealed reply
+                        Replies::NoSuchSegment(cmd) => {
+                            debug!(
+                                "no such segment {:?} due to segment truncation: stack trace {}",
+                                cmd.segment, cmd.server_stack_trace
+                            );
+                            let segment = ScopedSegment::from(cmd.segment);
+                            let inflight = processor
+                                .selector
+                                .refresh_segment_event_writers_upon_sealed(
+                                    &segment,
+                                    &connection_pool,
+                                    &*controller,
+                                )
+                                .await;
+                            processor
+                                .selector
+                                .resend(inflight, &connection_pool, &*controller)
+                                .await;
+                            processor.selector.remove_segment_event_writer(&segment);
+                        }
+
                         _ => {
-                            // TODO, add other replies
+                            error!(
+                                "receive unexpected reply {:?}, closing event stream writer",
+                                server_reply.reply
+                            );
+                            processor.receiver.close();
                             panic!("{:?}", server_reply.reply);
                         }
                     }
@@ -258,9 +290,8 @@ struct EventSegmentWriter {
 
     /// client config that contains the retry policy
     config: ClientConfig,
-
-    /// has been setup or not
-    is_setup: bool,
+    //    /// has been setup or not
+    //    is_setup: bool,
 }
 
 impl EventSegmentWriter {
@@ -280,7 +311,7 @@ impl EventSegmentWriter {
             rng: SmallRng::from_entropy(),
             sender,
             config,
-            is_setup: false,
+            //            is_setup: false,
         }
     }
 
@@ -311,23 +342,54 @@ impl EventSegmentWriter {
 
         self.endpoint = uri.0.parse::<SocketAddr>().expect("should parse to socketaddr");
 
-        // retry to get connection from pool
-        let connection = match retry_async(self.config.retry_policy, || async {
-            match pool.get_connection(self.endpoint).await {
-                Ok(connection) => RetryResult::Success(connection),
+        let request = Requests::SetupAppend(SetupAppendCommand {
+            request_id: self.rng.gen::<i64>(),
+            writer_id: self.id.as_u128(),
+            segment: self.segment.to_string(),
+            delegation_token: "".to_string(),
+        });
+
+        let raw_client = RawClientImpl::new(pool, self.endpoint).await;
+        let mut connection = match retry_async(self.config.retry_policy, || async {
+            debug!(
+                "setting up append for writer:{:?}/segment:{}",
+                self.id,
+                self.segment.to_string()
+            );
+            match raw_client.send_setup_request(&request).await {
+                Ok((reply, connection)) => RetryResult::Success((reply, connection)),
                 Err(e) => {
-                    warn!("failed to get connection from pool");
+                    warn!("failed to setup append using rawclient due to {:?}", e);
                     RetryResult::Retry(e)
                 }
             }
         })
         .await
         {
-            Ok(connection) => connection,
-            Err(e) => return Err(EventStreamWriterError::RetryConnectionPool { err: e }),
+            Ok((reply, connection)) => match reply {
+                Replies::AppendSetup(cmd) => {
+                    debug!(
+                        "append setup completed for writer:{:?}/segment:{:?}",
+                        cmd.writer_id, cmd.segment
+                    );
+                    self.ack(cmd.last_event_number);
+                    connection
+                }
+                _ => {
+                    warn!(
+                        "append setup failed for writer:{:?}/segment:{:?} due to {:?}",
+                        self.id, self.segment, reply
+                    );
+                    return Err(EventStreamWriterError::WrongReply {
+                        expected: String::from("AppendSetup"),
+                        actual: reply,
+                    });
+                }
+            },
+            Err(e) => return Err(EventStreamWriterError::RetryRawClient { err: e }),
         };
-        let mut client_connection = ClientConnectionImpl { connection };
-        let (mut r, w) = client_connection.split();
+
+        let (mut r, w) = connection.split();
         self.writer = Some(w);
 
         let segment = self.segment.clone();
@@ -337,37 +399,26 @@ impl EventSegmentWriter {
         tokio::spawn(async move {
             loop {
                 // listen to the receiver channel
-                let reply = r.read().await.expect("sender closed, listener exit");
-                sender
-                    .send(Incoming::ServerReply(ServerReply {
-                        segment: segment.clone(),
-                        reply,
-                    }))
-                    .await
-                    .expect("send reply to processor");
+                match r.read().await {
+                    Ok(reply) => {
+                        sender
+                            .send(Incoming::ServerReply(ServerReply {
+                                segment: segment.clone(),
+                                reply,
+                            }))
+                            .await.or_else(|e| {
+                            error!("connection {:?} read data from segmentstore but failed to send reply back to processor due to {:?}", r.get_id() ,e);
+                            Err(())
+                        }).expect("must send reply back to processor");
+                    }
+                    Err(e) => {
+                        warn!("connection {:?} failed to read data back from segmentstore due to {:?}, closing the listener task", r.get_id(), e);
+                        return;
+                    }
+                };
             }
         });
-        debug!(
-            "setting up append for writer:{:?}/connection:{:?}/segment:{}",
-            self.id,
-            self.writer.as_ref().expect("get writer").get_id(),
-            self.segment.to_string()
-        );
-        self.setup_append().await
-    }
-
-    /// send setup_append command to the server.
-    async fn setup_append(&mut self) -> Result<(), EventStreamWriterError> {
-        // TODO: implement token related feature
-        let request = Requests::SetupAppend(SetupAppendCommand {
-            request_id: self.rng.gen::<i64>(),
-            writer_id: self.id.as_u128(),
-            segment: self.segment.to_string(),
-            delegation_token: "".to_string(),
-        });
-
-        let writer = self.writer.as_mut().expect("must have writer");
-        writer.write(&request).await.context(SegmentWriting {})
+        Ok(())
     }
 
     /// first add the event to the pending list
@@ -389,7 +440,7 @@ impl EventSegmentWriter {
     /// flush the pending events. It will grab at most MAX_WRITE_SIZE of data
     /// from the pending list and send them to the server. Those events will be moved to inflight list waiting to be acked.
     pub async fn flush(&mut self) -> Result<(), EventStreamWriterError> {
-        if !self.inflight.is_empty() || self.pending.is_empty() || !self.is_setup {
+        if !self.inflight.is_empty() || self.pending.is_empty() {
             return Ok(());
         }
 
@@ -570,11 +621,10 @@ impl SegmentSelector {
     /// get the Segment by passing a routing key
     fn get_segment_for_event(&self, routing_key: Option<String>) -> ScopedSegment {
         let mut small_rng = SmallRng::from_entropy();
-        if routing_key.is_none() {
-            self.current_segments.get_segment(small_rng.gen::<f64>())
+        if let Some(key) = routing_key {
+            self.current_segments.get_segment(hash_string_to_f64(key))
         } else {
-            self.current_segments
-                .get_segment(hash_string_to_f64(routing_key.expect("routing key")))
+            self.current_segments.get_segment(small_rng.gen::<f64>())
         }
     }
 
@@ -590,11 +640,6 @@ impl SegmentSelector {
             match controller.get_successors(sealed_segment).await {
                 Ok(ss) => {
                     if !ss.replacement_segments.contains_key(&sealed_segment.segment) {
-                        debug!(
-                            "successors map size is {:?} and {:?}",
-                            ss.replacement_segments.len(),
-                            ss.segment_with_predecessors.len()
-                        );
                         RetryResult::Retry("retry get successors due to empty successors")
                     } else {
                         RetryResult::Success(ss)
@@ -704,6 +749,11 @@ impl PendingEvent {
         oneshot_sender: oneshot::Sender<Result<(), EventStreamWriterError>>,
     ) -> Option<Self> {
         if data.len() as i32 > PendingEvent::MAX_WRITE_SIZE {
+            warn!(
+                "event size {:?} exceeds limit {:?}",
+                data.len(),
+                PendingEvent::MAX_WRITE_SIZE
+            );
             oneshot_sender
                 .send(Err(EventStreamWriterError::EventSizeTooLarge {
                     limit: PendingEvent::MAX_WRITE_SIZE,
@@ -729,6 +779,7 @@ impl PendingEvent {
         match cmd.write_fields() {
             Ok(data) => PendingEvent::new(routing_key, data, oneshot_sender),
             Err(e) => {
+                warn!("failed to serialize event to event command, sending this error back to caller");
                 oneshot_sender
                     .send(Err(EventStreamWriterError::ParseToEventCommand { source: e }))
                     .expect("send error to caller");
