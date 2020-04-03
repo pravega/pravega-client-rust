@@ -12,7 +12,6 @@ use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFac
 use pravega_wire_protocol::connection_pool::{ConnectionPool, ConnectionPoolImpl};
 use pravega_wire_protocol::wire_commands::Requests;
 use pravega_wire_protocol::wire_commands::{Encode, Replies};
-use std::cell::RefCell;
 use std::io::{Read, Write};
 use std::net::{Shutdown, SocketAddr, TcpListener};
 use std::process::Command;
@@ -226,30 +225,26 @@ fn test_with_mock_server() {
         .build()
         .expect("build client config");
     let pool = ConnectionPoolImpl::new(cf, config);
-    let connection = rt
-        .block_on(pool.get_connection(endpoint))
-        .expect("get connection from pool");
-    let client_connection = ClientConnectionImpl { connection };
-    let client = RefCell::new(client_connection);
 
     // test with 3 requests, they should be all succeed.
     for i in 0..3 {
         println!("{:?}", i);
         let retry_policy = RetryWithBackoff::default().max_tries(5);
         let future = retry_async(retry_policy, || async {
-            let mut connection = client.borrow_mut();
+            let connection = pool.get_connection(endpoint).await.expect("get connection from pool");
+            let mut client_connection = ClientConnectionImpl { connection };
             let request = Requests::Hello(HelloCommand {
                 high_version: 9,
                 low_version: 5,
             });
-            let reply = connection.write(&request).await;
+            let reply = client_connection.write(&request).await;
             // TODO: Tests failed here. It will always gives BrokenPipe error.
             // TODO: which means the connection would not reconnect to server, if server closes connection.
             if let Err(error) = reply {
                 return RetryResult::Retry(error);
             }
 
-            let reply = connection.read().await;
+            let reply = client_connection.read().await;
             match reply {
                 Ok(r) => RetryResult::Success(r),
                 Err(error) => RetryResult::Retry(error),
