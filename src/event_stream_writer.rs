@@ -401,15 +401,16 @@ impl EventSegmentWriter {
                 // listen to the receiver channel
                 match r.read().await {
                     Ok(reply) => {
-                        sender
+                        if let Err(e) = sender
                             .send(Incoming::ServerReply(ServerReply {
                                 segment: segment.clone(),
                                 reply,
                             }))
-                            .await.or_else(|e| {
+                            .await
+                        {
                             error!("connection {:?} read data from segmentstore but failed to send reply back to processor due to {:?}", r.get_id() ,e);
-                            Err(())
-                        }).expect("must send reply back to processor");
+                            return;
+                        }
                     }
                     Err(e) => {
                         warn!("connection {:?} failed to read data back from segmentstore due to {:?}, closing the listener task", r.get_id(), e);
@@ -512,11 +513,12 @@ impl EventSegmentWriter {
             }
 
             let acked = self.inflight.pop_front().expect("must have");
-            acked
-                .event
-                .oneshot_sender
-                .send(Result::Ok(()))
-                .expect("send ack to caller");
+            if let Err(e) = acked.event.oneshot_sender.send(Result::Ok(())) {
+                error!(
+                    "failed to send ack back to caller using oneshot due to {:?}: event id {:?}",
+                    e, acked.event_id
+                );
+            }
 
             // ack up to event id
             if acked.event_id == event_id {
