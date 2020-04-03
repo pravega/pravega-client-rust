@@ -107,6 +107,10 @@ impl AsyncSegmentReader for AsyncSegmentReaderImpl<'_> {
         match reply {
             Ok(reply) => match reply {
                 Replies::SegmentRead(cmd) => {
+                    assert_eq!(
+                        cmd.offset, offset,
+                        "Offset of SegmentRead response different from the request"
+                    );
                     let er = EventCommand::read_from(cmd.data.as_slice()).expect("Invalid msg");
                     println!("Event Command {:?}", er);
                     Ok(cmd)
