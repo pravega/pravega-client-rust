@@ -22,7 +22,7 @@ use tracing::{span, Level};
 /// Request enums and return Reply enums asynchronously. It has logic to process some of the replies from
 /// server and return the processed result to caller.
 #[async_trait]
-pub trait RawClient<'a> {
+pub trait RawClient<'a>: Send + Sync {
     /// Asynchronously send a request to the server and receive a response.
     async fn send_request(&self, request: Requests) -> Result<Replies, RawClientError>;
 

@@ -28,6 +28,14 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
+use std::sync::atomic::AtomicI64;
+
 pub mod byte_stream;
 pub mod client_factory;
 pub mod raw_client;
+pub mod segment_reader;
+
+pub static REQUEST_ID_GENERATOR: AtomicI64 = AtomicI64::new(0);
+
+#[macro_use]
+extern crate derive_new;
