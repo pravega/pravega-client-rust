@@ -153,22 +153,6 @@ impl Processor {
                         .expect("should always be able to get event segment writer");
 
                     match server_reply.reply {
-                        //                                                Replies::AppendSetup(cmd) => {
-                        //                                                    debug!(
-                        //                                                        "append setup completed for writer:{:?}/segment:{:?}",
-                        //                                                        cmd.writer_id, cmd.segment
-                        //                                                    );
-                        //                                                    writer.is_setup = true;
-                        //                                                    writer.ack(cmd.last_event_number);
-                        //                                                    match writer.flush().await {
-                        //                                                        Ok(()) => {
-                        //                                                            continue;
-                        //                                                        }
-                        //                                                        Err(_) => {
-                        //                                                            writer.reconnect(&connection_pool, &*controller).await;
-                        //                                                        }
-                        //                                                    }
-                        //                                                }
                         Replies::DataAppended(cmd) => {
                             debug!(
                                 "data appended for writer {:?}, latest event id is: {:?}",
@@ -290,8 +274,6 @@ struct EventSegmentWriter {
 
     /// client config that contains the retry policy
     config: ClientConfig,
-    //    /// has been setup or not
-    //    is_setup: bool,
 }
 
 impl EventSegmentWriter {
@@ -311,7 +293,6 @@ impl EventSegmentWriter {
             rng: SmallRng::from_entropy(),
             sender,
             config,
-            //            is_setup: false,
         }
     }
 

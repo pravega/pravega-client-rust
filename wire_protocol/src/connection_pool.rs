@@ -196,7 +196,7 @@ impl<T: Sized + Send> ManagedPool<T> {
     // add a connection to the internal pool
     fn add_connection(&self, endpoint: SocketAddr, connection: InternalConn<T>) {
         let mut internal = self.map.entry(endpoint).or_insert_with(InternalPool::new);
-        if self.config.max_connections_per_segmentstore > internal.conns.len() as u32 {
+        if self.config.max_connections_in_pool > internal.conns.len() as u32 {
             internal.conns.push(connection);
         }
     }
