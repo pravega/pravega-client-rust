@@ -28,11 +28,20 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
+use std::sync::atomic::AtomicI64;
+
 pub mod byte_stream;
 pub mod client_factory;
 pub mod error;
 pub mod event_stream_writer;
 pub mod raw_client;
+pub mod segment_reader;
+
+pub static REQUEST_ID_GENERATOR: AtomicI64 = AtomicI64::new(0);
+
+#[macro_use]
+extern crate derive_new;
+
 
 /// There is a known issue that rust doesn't print log from thread even when nocapture is not set.
 /// This will setup logger globally so logs can be printed to the same place.
@@ -53,3 +62,4 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
         .apply()?;
     Ok(())
 }
+

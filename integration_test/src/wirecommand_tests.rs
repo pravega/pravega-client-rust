@@ -61,9 +61,7 @@ pub fn test_wirecommand() {
     rt.block_on(async {
         timeout(timeout_second, test_create_segment()).await.unwrap();
     });
-    rt.block_on(async {
-        timeout(timeout_second, test_seal_segment()).await.unwrap();
-    });
+
     rt.block_on(async {
         timeout(timeout_second, test_update_and_get_segment_attribute())
             .await
@@ -74,6 +72,10 @@ pub fn test_wirecommand() {
         timeout(timeout_second, test_get_stream_segment_info())
             .await
             .unwrap();
+    });
+
+    rt.block_on(async {
+        timeout(timeout_second, test_seal_segment()).await.unwrap();
     });
 
     rt.block_on(async {
@@ -236,6 +238,11 @@ async fn test_setup_append() {
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 
     // A wrong segment name.
+    let segment_name = ScopedSegment {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+        segment: Segment { number: 1 },
+    };
     let request = Requests::SetupAppend(SetupAppendCommand {
         request_id: 1,
         writer_id: 1,
@@ -280,9 +287,10 @@ async fn test_create_segment() {
         scale_type: ScaleType::FixedNumSegments as u8,
         delegation_token: String::from(""),
     });
-    let reply = Replies::SegmentCreated(SegmentCreatedCommand {
+    let reply = Replies::SegmentAlreadyExists(SegmentAlreadyExistsCommand {
         request_id: 2,
         segment: segment_name.to_string(),
+        server_stack_trace: "".to_string(),
     });
 
     raw_client
@@ -315,9 +323,11 @@ async fn test_seal_segment() {
         delegation_token: String::from(""),
     });
 
-    let reply = Replies::SegmentSealed(SegmentSealedCommand {
+    let reply = Replies::SegmentIsSealed(SegmentIsSealedCommand {
         request_id: 3,
         segment: segment_name.to_string(),
+        server_stack_trace: "".to_string(),
+        offset: -1,
     });
 
     raw_client
