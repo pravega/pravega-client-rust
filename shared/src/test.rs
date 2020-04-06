@@ -1012,6 +1012,16 @@ fn test_replace_range_uneven_out_of_order_split() {
     assert_eq!(create_segment(51), updated_range.get_segment(0.8));
 }
 
+#[test]
+fn test_scoped_segment_to_string() {
+    let seg = ScopedSegment::new(
+        Scope::new("scope".into()),
+        Stream::new("stream".into()),
+        Segment::new(0),
+    );
+    assert_eq!("scope/stream/0.#epoch.0", seg.to_string());
+}
+
 fn add_segment_entry(
     segment_map: &mut BTreeMap<OrderedFloat<f64>, SegmentWithRange>,
     segment: i64,
