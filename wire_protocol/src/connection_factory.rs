@@ -22,7 +22,6 @@ use uuid::Uuid;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ConnectionType {
-    Mock,
     Tokio,
 }
 
