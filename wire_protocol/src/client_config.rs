@@ -10,26 +10,26 @@
 
 use crate::connection_factory::ConnectionType;
 use derive_builder::*;
-use getset::Getters;
+use getset::CopyGetters;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use std::net::SocketAddr;
 
-#[derive(Builder, Debug, Getters, Clone)]
+#[derive(Builder, Debug, CopyGetters, Clone)]
 #[builder(setter(into))]
 pub struct ClientConfig {
-    #[get = "pub"]
+    #[get_copy = "pub"]
     #[builder(default = "u32::max_value()")]
     pub max_connections_in_pool: u32,
 
-    #[get = "pub"]
+    #[get_copy = "pub"]
     #[builder(default = "ConnectionType::Tokio")]
     pub connection_type: ConnectionType,
 
-    #[get = "pub"]
+    #[get_copy = "pub"]
     #[builder(default = "RetryWithBackoff::default()")]
     pub retry_policy: RetryWithBackoff,
 
-    #[get = "pub"]
+    #[get_copy = "pub"]
     pub controller_uri: SocketAddr,
 }
 

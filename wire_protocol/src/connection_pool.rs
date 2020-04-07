@@ -290,6 +290,7 @@ impl<T: Send + Sized> DerefMut for PooledConnection<'_, T> {
 mod tests {
     use super::*;
     use crate::client_config::ClientConfigBuilder;
+    use std::sync::Arc;
 
     struct FooConnection {}
 
@@ -312,8 +313,8 @@ mod tests {
             true
         }
 
-        fn get_config(&self) -> ClientConfig {
-            self.config
+        fn get_config(&self) -> &ClientConfig {
+            &self.config
         }
     }
 
