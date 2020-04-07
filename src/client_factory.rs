@@ -33,7 +33,7 @@ impl ClientFactory {
     pub fn new(config: ClientConfig) -> ClientFactory {
         setup_logger().expect("setting up logger");
         let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
-        let controller_uri = config.controller_uri.clone();
+        let controller_uri = config.controller_uri;
         let pool = ConnectionPool::new(SegmentConnectionManager::new(cf, config));
         let controller = ControllerClientImpl::new(controller_uri);
         ClientFactory(Arc::new(ClientFactoryInternal {
@@ -42,6 +42,7 @@ impl ClientFactory {
         }))
     }
 
+    #[allow(clippy::needless_lifetimes)] //Normally the compiler could infer lifetimes but async is throwing it for a loop.
     pub(crate) async fn create_async_event_reader<'a>(
         &'a self,
         segment: ScopedSegment,
