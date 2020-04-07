@@ -422,8 +422,8 @@ impl Manager for ControllerConnectionManager {
         true
     }
 
-    fn get_config(&self) -> ClientConfig {
-        self.config
+    fn get_config(&self) -> &ClientConfig {
+        &self.config
     }
 }
 

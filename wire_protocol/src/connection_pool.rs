@@ -56,7 +56,7 @@ pub trait Manager {
     fn is_valid(&self, conn: &PooledConnection<'_, Self::Conn>) -> bool;
 
     /// ConnectionPool will call this method to get its config
-    fn get_config(&self) -> ClientConfig;
+    fn get_config(&self) -> &ClientConfig;
 }
 
 /// An implementation of the Manager trait. This is for creating connections between
@@ -94,8 +94,8 @@ impl Manager for SegmentConnectionManager {
         conn.inner.as_ref().expect("get inner connection").is_valid()
     }
 
-    fn get_config(&self) -> ClientConfig {
-        self.config
+    fn get_config(&self) -> &ClientConfig {
+        &self.config
     }
 }
 
@@ -137,7 +137,7 @@ where
     /// Create a new ConnectionPoolImpl instances by passing into a ClientConfig. It will create
     /// a Runtime, a map and a ConnectionFactory.
     pub fn new(manager: M) -> Self {
-        let managed_pool = ManagedPool::new(manager.get_config());
+        let managed_pool = ManagedPool::new(manager.get_config().max_connections_in_pool);
         ConnectionPool {
             manager,
             managed_pool,
@@ -184,19 +184,19 @@ where
 // The map is a concurrent map named Dashmap, which supports multi-threading with high performance.
 struct ManagedPool<T: Sized + Send> {
     map: DashMap<SocketAddr, InternalPool<T>>,
-    config: ClientConfig,
+    max_connections: u32,
 }
 
 impl<T: Sized + Send> ManagedPool<T> {
-    pub fn new(config: ClientConfig) -> Self {
+    pub fn new(max_connections: u32) -> Self {
         let map = DashMap::new();
-        ManagedPool { map, config }
+        ManagedPool { map, max_connections }
     }
 
     // add a connection to the internal pool
     fn add_connection(&self, endpoint: SocketAddr, connection: InternalConn<T>) {
         let mut internal = self.map.entry(endpoint).or_insert_with(InternalPool::new);
-        if self.config.max_connections_in_pool > internal.conns.len() as u32 {
+        if self.max_connections > internal.conns.len() as u32 {
             internal.conns.push(connection);
         }
     }

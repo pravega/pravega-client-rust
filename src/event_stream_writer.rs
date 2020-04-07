@@ -31,6 +31,7 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
 use tracing::{debug, error, warn};
 use uuid::Uuid;
+use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 
 /// EventStreamWriter contains a writer id and a mpsc sender which is used to send Event
 /// to the Processor
@@ -272,8 +273,8 @@ struct EventSegmentWriter {
     /// the sender that sends back reply to processor
     sender: Sender<Incoming>,
 
-    /// client config that contains the retry policy
-    config: ClientConfig,
+    /// The client retry policy
+    retry_policy: RetryWithBackoff,
 }
 
 impl EventSegmentWriter {
@@ -281,7 +282,7 @@ impl EventSegmentWriter {
     const MAX_WRITE_SIZE: i32 = 8 * 1024 * 1024 + 8;
     const MAX_EVENTS: i32 = 500;
 
-    fn new(segment: ScopedSegment, sender: Sender<Incoming>, config: ClientConfig) -> Self {
+    fn new(segment: ScopedSegment, sender: Sender<Incoming>, retry_policy: RetryWithBackoff) -> Self {
         EventSegmentWriter {
             endpoint: "127.0.0.1:9090".parse::<SocketAddr>().expect("get socketaddr"),
             id: Uuid::new_v4(),
@@ -292,7 +293,7 @@ impl EventSegmentWriter {
             event_num: 0,
             rng: SmallRng::from_entropy(),
             sender,
-            config,
+            retry_policy,
         }
     }
 
@@ -306,7 +307,7 @@ impl EventSegmentWriter {
         controller: &dyn ControllerClient,
     ) -> Result<(), EventStreamWriterError> {
         // retry to get latest endpoint
-        let uri = match retry_async(self.config.retry_policy, || async {
+        let uri = match retry_async(self.retry_policy, || async {
             match controller.get_endpoint_for_segment(&self.segment).await {
                 Ok(uri) => RetryResult::Success(uri),
                 Err(e) => {
@@ -330,8 +331,8 @@ impl EventSegmentWriter {
             delegation_token: "".to_string(),
         });
 
-        let raw_client = RawClientImpl::new(pool, self.endpoint).await;
-        let mut connection = match retry_async(self.config.retry_policy, || async {
+        let raw_client = RawClientImpl::new(pool, self.endpoint);
+        let mut connection = match retry_async(self.retry_policy, || async {
             debug!(
                 "setting up append for writer:{:?}/segment:{}",
                 self.id,
@@ -671,7 +672,7 @@ impl SegmentSelector {
         for scoped_segment in self.current_segments.get_segments() {
             if !self.writers.contains_key(&scoped_segment) {
                 let mut writer =
-                    EventSegmentWriter::new(scoped_segment.clone(), self.sender.clone(), self.config);
+                    EventSegmentWriter::new(scoped_segment.clone(), self.sender.clone(), self.config.retry_policy);
                 debug!(
                     "writer {:?} created for segment {:?}",
                     writer.id,
