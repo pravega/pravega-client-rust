@@ -42,7 +42,6 @@ pub static REQUEST_ID_GENERATOR: AtomicI64 = AtomicI64::new(0);
 #[macro_use]
 extern crate derive_new;
 
-
 /// There is a known issue that rust doesn't print log from thread even when nocapture is not set.
 /// This will setup logger globally so logs can be printed to the same place.
 pub fn setup_logger() -> Result<(), fern::InitError> {
@@ -62,4 +61,3 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
         .apply()?;
     Ok(())
 }
-

@@ -8,14 +8,14 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::error::RawClientError;
 use crate::raw_client::{RawClient, RawClientImpl};
 use crate::REQUEST_ID_GENERATOR;
 use async_trait::async_trait;
-use pravega_controller_client::{create_connection, ControllerClient, ControllerClientImpl};
+use pravega_controller_client::ControllerClient;
 use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::commands::{Command, EventCommand, ReadSegmentCommand, SegmentReadCommand};
-use pravega_wire_protocol::connection_pool::ConnectionPoolImpl;
-use pravega_wire_protocol::error::RawClientError;
+use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use snafu::Snafu;
 use std::net::SocketAddr;
@@ -71,12 +71,9 @@ struct AsyncSegmentReaderImpl<'a> {
 impl<'a> AsyncSegmentReaderImpl<'a> {
     pub async fn init(
         segment: ScopedSegment,
-        connection_pool: &'a ConnectionPoolImpl,
-        controller_uri: String,
+        connection_pool: &'a ConnectionPool<SegmentConnectionManager>,
+        controller_client: &'a dyn ControllerClient,
     ) -> AsyncSegmentReaderImpl<'a> {
-        let mut controller_client = ControllerClientImpl {
-            channel: create_connection(controller_uri.as_str()).await,
-        };
         let endpoint = controller_client
             .get_endpoint_for_segment(&segment)
             .await
@@ -103,7 +100,7 @@ impl AsyncSegmentReader for AsyncSegmentReaderImpl<'_> {
             request_id: self.id.fetch_add(1, Ordering::SeqCst) + 1, // add_fetch implementation
         });
 
-        let reply = self.raw_client.as_ref().send_request(request).await;
+        let reply = self.raw_client.as_ref().send_request(&request).await;
         match reply {
             Ok(reply) => match reply {
                 Replies::SegmentRead(cmd) => {
