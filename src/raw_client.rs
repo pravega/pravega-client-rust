@@ -167,8 +167,7 @@ mod tests {
         let mut common = Common::new();
         let mut server = Server::new();
 
-        let raw_client_fut = RawClientImpl::new(&common.pool, server.address);
-        let raw_client = common.rt.block_on(raw_client_fut);
+        let raw_client = RawClientImpl::new(&common.pool, server.address);
         let h = thread::spawn(move || {
             server.send_hello();
         });

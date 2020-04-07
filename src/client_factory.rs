@@ -56,6 +56,10 @@ impl ClientFactory {
     ) -> EventStreamWriter {
         EventStreamWriter::new(stream, config, self.0.clone())
     }
+
+    pub fn get_controller_client(&self) -> &dyn ControllerClient {
+        &self.0.controller_client
+    }
 }
 
 impl ClientFactoryInternal {

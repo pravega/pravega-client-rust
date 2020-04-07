@@ -9,6 +9,7 @@
 //
 
 use lazy_static::*;
+use pravega_client_rust::raw_client::RawClient;
 use pravega_client_rust::raw_client::RawClientImpl;
 use pravega_controller_client::{
     create_connection, ControllerClient, ControllerClientImpl, ControllerConnectionManager,
@@ -166,7 +167,7 @@ async fn test_hello() {
         high_version: 9,
     });
 
-    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
     raw_client
         .send_request(&request)
         .await
@@ -231,7 +232,7 @@ async fn test_setup_append() {
         last_event_number: i64::min_value(),
     });
 
-    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
     raw_client
         .send_request(&request)
         .await
@@ -278,7 +279,7 @@ async fn test_create_segment() {
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
 
-    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 2,
@@ -315,7 +316,7 @@ async fn test_seal_segment() {
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
 
-    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
     let request = Requests::SealSegment(SealSegmentCommand {
         segment: segment_name.to_string(),
@@ -351,7 +352,7 @@ async fn test_update_and_get_segment_attribute() {
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
 
-    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
     let sname = segment_name.to_string();
     let uid = Uuid::new_v4().as_u128();
@@ -413,7 +414,7 @@ async fn test_get_stream_segment_info() {
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
 
-    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
     let sname = segment_name.to_string();
     let request = Requests::GetStreamSegmentInfo(GetStreamSegmentInfoCommand {
@@ -448,7 +449,7 @@ async fn test_delete_segment() {
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
 
-    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
     let request = Requests::DeleteSegment(DeleteSegmentCommand {
         request_id: 7,
@@ -483,7 +484,7 @@ async fn test_conditional_append_and_read_segment() {
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
 
-    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 8,
@@ -568,7 +569,7 @@ async fn test_update_segment_policy() {
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
 
-    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
     let request = Requests::UpdateSegmentPolicy(UpdateSegmentPolicyCommand {
         request_id: 12,
@@ -605,7 +606,7 @@ async fn test_merge_segment() {
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
 
-    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 13,
@@ -695,7 +696,7 @@ async fn test_truncate_segment() {
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
 
-    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
     // truncate the first event1.
     let request = Requests::TruncateSegment(TruncateSegmentCommand {
@@ -732,7 +733,7 @@ async fn test_update_table_entries() {
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
 
-    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 18,
@@ -837,7 +838,7 @@ async fn test_read_table_key() {
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
 
-    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
     let request = Requests::ReadTableKeys(ReadTableKeysCommand {
         request_id: 22,
@@ -877,7 +878,7 @@ async fn test_read_table() {
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
 
-    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
     let mut keys = Vec::new();
     keys.push(TableKey::new(String::from("key1").into_bytes(), i64::min_value()));
@@ -929,7 +930,7 @@ async fn test_read_table_entries() {
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
 
-    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint).await;
+    let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
     let request = Requests::ReadTableEntries(ReadTableEntriesCommand {
         request_id: 22,
