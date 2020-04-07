@@ -268,7 +268,7 @@ async fn test_create_segment() {
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 10 },
+        segment: Segment { number: 0 },
     };
 
     let endpoint = CONTROLLER_CLIENT
