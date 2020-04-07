@@ -65,7 +65,7 @@ pub trait AsyncSegmentReader {
 }
 
 #[derive(new)]
-struct AsyncSegmentReaderImpl<'a> {
+pub(crate) struct AsyncSegmentReaderImpl<'a> {
     segment: ScopedSegment,
     raw_client: Box<dyn RawClient<'a> + 'a>,
     id: &'static AtomicI64,
@@ -75,7 +75,7 @@ impl<'a> AsyncSegmentReaderImpl<'a> {
     pub async fn init(
         segment: ScopedSegment,
         connection_pool: &'a ConnectionPool<SegmentConnectionManager>,
-        controller_client: ControllerClientImpl,
+        controller_client: &ControllerClientImpl,
     ) -> AsyncSegmentReaderImpl<'a> {
         let endpoint = controller_client
             .get_endpoint_for_segment(&segment)
@@ -86,7 +86,7 @@ impl<'a> AsyncSegmentReaderImpl<'a> {
 
         AsyncSegmentReaderImpl {
             segment,
-            raw_client: RawClientImpl::new(&*connection_pool, endpoint),
+            raw_client: Box::new(RawClientImpl::new(&*connection_pool, endpoint)),
             id: &REQUEST_ID_GENERATOR,
         }
     }

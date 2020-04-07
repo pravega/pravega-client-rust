@@ -45,14 +45,11 @@ impl<'a> fmt::Debug for RawClientImpl<'a> {
 }
 
 impl<'a> RawClientImpl<'a> {
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new(
-        pool: &'a ConnectionPool<SegmentConnectionManager>,
-        endpoint: SocketAddr,
-    ) -> Box<dyn RawClient<'a> + 'a> {
-        Box::new(RawClientImpl { pool, endpoint })
+    pub fn new(pool: &'a ConnectionPool<SegmentConnectionManager>, endpoint: SocketAddr) -> RawClientImpl<'a> {
+        RawClientImpl { pool, endpoint }
     }
 }
+
 #[allow(clippy::needless_lifetimes)]
 #[async_trait]
 impl<'a> RawClient<'a> for RawClientImpl<'a> {

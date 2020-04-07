@@ -9,7 +9,7 @@
 //
 
 use crate::error::*;
-use crate::raw_client::RawClientImpl;
+use crate::raw_client::{RawClientImpl, RawClient};
 use pravega_controller_client::ControllerClient;
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_result::RetryResult;
@@ -38,25 +38,23 @@ use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 pub struct EventStreamWriter {
     writer_id: Uuid,
     sender: Sender<Incoming>,
+    processor: Processor,
 }
 
 impl EventStreamWriter {
     const CHANNEL_CAPACITY: usize = 100;
 
-    pub async fn new(stream: ScopedStream, config: ClientConfig) -> (Self, Processor) {
+    pub async fn new(stream: ScopedStream, config: ClientConfig) -> Self {
         let (tx, rx) = channel(EventStreamWriter::CHANNEL_CAPACITY);
         let selector = SegmentSelector::new(stream, tx.clone(), config).await;
-        let processor = Processor {
-            receiver: rx,
-            selector,
-        };
-        (
-            EventStreamWriter {
-                writer_id: Uuid::new_v4(),
-                sender: tx,
+        EventStreamWriter {
+            writer_id: Uuid::new_v4(),
+            sender: tx,
+            processor: Processor {
+                receiver: rx,
+                selector,
             },
-            processor,
-        )
+        }
     }
 
     pub async fn write_event(
