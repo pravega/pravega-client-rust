@@ -23,7 +23,7 @@ pravega-rust-client-shared = { path = "./shared"}
 pravega-controller-client = { path = "./controller-client"}
 pravega-wire-protocol = { path = "./wire_protocol"}
 pravega-rust-client-retry = {path= "./retry"}
-async-trait = "0.1.22"
+async-trait = "0.1.29"
 futures = "0.3.1"
 snafu = "0.6.2"
 tokio = { version = "0.2.13", features = ["full"] }

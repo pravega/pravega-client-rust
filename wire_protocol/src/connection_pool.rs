@@ -315,10 +315,9 @@ mod tests {
         fn get_config(&self) -> ClientConfig {
             self.config
         }
-    }
 
     #[tokio::test(core_threads = 4)]
-    async fn test_connection_pool() {
+    async fn test_connection_pool_basic() {
         let config = ClientConfigBuilder::default()
             .build()
             .expect("build client config");
@@ -333,5 +332,37 @@ mod tests {
         assert_eq!(pool.pool_len(&endpoint), 0);
         drop(connection);
         assert_eq!(pool.pool_len(&endpoint), 1);
+    }
+
+    #[tokio::test(core_threads = 4)]
+    async fn test_connection_pool_size() {
+        const MAX_CONNECTION: u32 = 2;
+        let config = ClientConfigBuilder::default()
+            .max_connections_in_pool(MAX_CONNECTION)
+            .build()
+            .expect("build client config");
+        let manager = FooManager { config };
+        let pool = Arc::new(ConnectionPool::new(manager));
+        let endpoint = "127.0.0.1:9090"
+            .parse::<SocketAddr>()
+            .expect("parse to socketaddr");
+
+        let mut handles = vec![];
+        for _ in 0..100 {
+            let cloned_pool = pool.clone();
+            let handle = tokio::spawn(async move {
+                let _ = cloned_pool
+                    .get_connection(endpoint)
+                    .await
+                    .expect("get connection");
+            });
+            handles.push(handle);
+        }
+
+        while !handles.is_empty() {
+            let handle = handles.pop().expect("get handle");
+            handle.await.expect("handle should work");
+        }
+        assert_eq!(pool.pool_len(&endpoint) as u32, MAX_CONNECTION);
     }
 }
