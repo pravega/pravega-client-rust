@@ -20,36 +20,43 @@ use crate::raw_client::RawClientImpl;
 use crate::segment_reader::AsyncSegmentReaderImpl;
 use crate::event_stream_writer::EventStreamWriter;
 use crate::setup_logger;
+use std::sync::Arc;
 
-pub struct ClientFactory {
+pub struct ClientFactory(Arc<ClientFactoryInternal>);
+
+pub(crate) struct ClientFactoryInternal {
     connection_pool: ConnectionPool<SegmentConnectionManager>,
     controller_client: ControllerClientImpl,
 }
 
 impl ClientFactory {
-
     pub fn new(config: ClientConfig) -> ClientFactory {
         setup_logger().expect("setting up logger");
         let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
         let controller_uri = config.controller_uri.clone();
         let pool = ConnectionPool::new(SegmentConnectionManager::new(cf, config));
         let controller = ControllerClientImpl::new(controller_uri);
-        ClientFactory {
-            connection_pool: pool,
-            controller_client: controller,
-        }
-    }
-
-    pub(crate) fn create_raw_client(&self, endpoint: SocketAddr) -> RawClientImpl {
-        RawClientImpl::new(&self.connection_pool, endpoint)
+        ClientFactory(
+            Arc::new(ClientFactoryInternal {
+                connection_pool: pool,
+                controller_client: controller,
+            })
+        )
     }
 
     pub(crate) async fn create_async_event_reader<'a>(&'a self, segment: ScopedSegment) -> AsyncSegmentReaderImpl<'a> {
-        AsyncSegmentReaderImpl::init(segment, &self.connection_pool, &self.controller_client).await
+        AsyncSegmentReaderImpl::init(segment, &self.0).await
     }
 
-    pub(crate) fn create_event_stream_writer(stream: ScopedStream, config: ClientConfig) -> EventStreamWriter {
-        EventStreamWriter::new(stream, config)
+    pub fn create_event_stream_writer(&self, stream: ScopedStream, config: ClientConfig) -> EventStreamWriter {
+        EventStreamWriter::new(stream, config, self.0.clone())
+    }
+}
+
+impl ClientFactoryInternal {
+
+    pub(crate) fn create_raw_client(&self, endpoint: SocketAddr) -> RawClientImpl {
+        RawClientImpl::new(&self.connection_pool, endpoint)
     }
 
     pub(crate) fn get_connection_pool(&self) -> &ConnectionPool<SegmentConnectionManager> {

@@ -8,52 +8,56 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::error::*;
-use crate::raw_client::{RawClientImpl, RawClient};
-use pravega_controller_client::ControllerClient;
-use pravega_rust_client_retry::retry_async::retry_async;
-use pravega_rust_client_retry::retry_result::RetryResult;
-use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::ClientConfig;
-use pravega_wire_protocol::client_connection::*;
-use pravega_wire_protocol::commands::{AppendBlockEndCommand, Command, EventCommand, SetupAppendCommand};
-use pravega_wire_protocol::connection_pool::*;
-use pravega_wire_protocol::wire_commands::{Replies, Requests};
-use rand::rngs::SmallRng;
-use rand::{Rng, SeedableRng};
-use snafu::ResultExt;
-use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
 use std::net::SocketAddr;
+use std::sync::Arc;
+
+use rand::{Rng, SeedableRng};
+use rand::rngs::SmallRng;
+use snafu::ResultExt;
 use tokio;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
 use tracing::{debug, error, warn};
 use uuid::Uuid;
+
+use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
+use pravega_rust_client_retry::retry_result::RetryResult;
+use pravega_rust_client_shared::*;
+use pravega_wire_protocol::client_config::ClientConfig;
+use pravega_wire_protocol::client_connection::*;
+use pravega_wire_protocol::commands::{AppendBlockEndCommand, Command, EventCommand, SetupAppendCommand};
+use pravega_wire_protocol::wire_commands::{Replies, Requests};
+
+use crate::client_factory::ClientFactoryInternal;
+use crate::error::*;
+use crate::raw_client::{RawClient};
 
 /// EventStreamWriter contains a writer id and a mpsc sender which is used to send Event
 /// to the Processor
 pub struct EventStreamWriter {
     writer_id: Uuid,
     sender: Sender<Incoming>,
-    processor: Processor,
 }
 
 impl EventStreamWriter {
     const CHANNEL_CAPACITY: usize = 100;
 
-    pub fn new(stream: ScopedStream, config: ClientConfig) -> Self {
+    pub(crate) fn new(stream: ScopedStream, config: ClientConfig, factory: Arc<ClientFactoryInternal>) -> Self {
         let (tx, rx) = channel(EventStreamWriter::CHANNEL_CAPACITY);
-        let selector = SegmentSelector::new(stream, tx.clone(), config);
+        let selector = SegmentSelector::new(stream, tx.clone(), config, factory.clone());
+        let processor = Processor {
+            receiver: rx,
+            selector,
+            factory,
+        };
+        tokio::spawn(Processor::run(processor));
         EventStreamWriter {
             writer_id: Uuid::new_v4(),
             sender: tx,
-            processor: Processor {
-                receiver: rx,
-                selector,
-            },
         }
     }
 
@@ -104,32 +108,26 @@ impl EventStreamWriter {
 pub struct Processor {
     receiver: Receiver<Incoming>,
     selector: SegmentSelector,
+    factory: Arc<ClientFactoryInternal>,
 }
 
 impl Processor {
     #[allow(clippy::cognitive_complexity)]
-    pub async fn run(
-        mut processor: Processor,
-        controller: Box<dyn ControllerClient>,
-        connection_pool: ConnectionPool<SegmentConnectionManager>,
-    ) {
+    pub async fn run(mut self) {
         // get the current segments and create corresponding event segment writers
-        processor
-            .selector
-            .initialize(&connection_pool, &*controller)
-            .await;
+        self.selector.initialize().await;
 
         loop {
-            let event = processor
+            let event = self
                 .receiver
                 .recv()
                 .await
                 .expect("sender closed, processor exit");
             match event {
                 Incoming::AppendEvent(event) => {
-                    let event_segment_writer = processor
-                        .selector
-                        .get_segment_writer_for_key(event.routing_key.clone());
+
+                    let segment = self.selector.get_segment_for_event(&event.routing_key);
+                    let event_segment_writer = self.selector.writers.get_mut(&segment).expect("must have writer");
 
                     if let Some(event) =
                         PendingEvent::with_header(event.routing_key, event.inner, event.oneshot_sender)
@@ -137,7 +135,7 @@ impl Processor {
                         if let Err(e) = event_segment_writer.write(event).await {
                             warn!("failed to write append to segment due to {:?}, reconnecting", e);
                             event_segment_writer
-                                .reconnect(&connection_pool, &*controller)
+                                .reconnect(&self.factory)
                                 .await;
                         }
                     }
@@ -145,7 +143,7 @@ impl Processor {
                 Incoming::ServerReply(server_reply) => {
                     // it should always have writer because writer will
                     // not be removed until it receives SegmentSealed reply
-                    let writer = processor
+                    let writer = self
                         .selector
                         .writers
                         .get_mut(&server_reply.segment)
@@ -164,7 +162,7 @@ impl Processor {
                                 }
                                 Err(e) => {
                                     warn!("writer {:?} failed to flush data to segment {:?} due to {:?}, reconnecting", writer.id ,writer.segment, e);
-                                    writer.reconnect(&connection_pool, &*controller).await;
+                                    writer.reconnect(&self.factory).await;
                                 }
                             }
                         }
@@ -172,19 +170,17 @@ impl Processor {
                         Replies::SegmentIsSealed(cmd) => {
                             debug!("segment {:?} sealed", cmd.segment);
                             let segment = ScopedSegment::from(cmd.segment);
-                            let inflight = processor
+                            let inflight = self
                                 .selector
                                 .refresh_segment_event_writers_upon_sealed(
                                     &segment,
-                                    &connection_pool,
-                                    &*controller,
                                 )
                                 .await;
-                            processor
+                            self
                                 .selector
-                                .resend(inflight, &connection_pool, &*controller)
+                                .resend(inflight)
                                 .await;
-                            processor.selector.remove_segment_event_writer(&segment);
+                            self.selector.remove_segment_event_writer(&segment);
                         }
 
                         // same handling logic as segment sealed reply
@@ -194,19 +190,17 @@ impl Processor {
                                 cmd.segment, cmd.server_stack_trace
                             );
                             let segment = ScopedSegment::from(cmd.segment);
-                            let inflight = processor
+                            let inflight = self
                                 .selector
                                 .refresh_segment_event_writers_upon_sealed(
                                     &segment,
-                                    &connection_pool,
-                                    &*controller,
                                 )
                                 .await;
-                            processor
+                            self
                                 .selector
-                                .resend(inflight, &connection_pool, &*controller)
+                                .resend(inflight)
                                 .await;
-                            processor.selector.remove_segment_event_writer(&segment);
+                            self.selector.remove_segment_event_writer(&segment);
                         }
 
                         _ => {
@@ -214,7 +208,7 @@ impl Processor {
                                 "receive unexpected reply {:?}, closing event stream writer",
                                 server_reply.reply
                             );
-                            processor.receiver.close();
+                            self.receiver.close();
                             panic!("{:?}", server_reply.reply);
                         }
                     }
@@ -301,12 +295,11 @@ impl EventSegmentWriter {
 
     pub async fn setup_connection(
         &mut self,
-        pool: &ConnectionPool<SegmentConnectionManager>,
-        controller: &dyn ControllerClient,
+        factory: &ClientFactoryInternal,
     ) -> Result<(), EventStreamWriterError> {
         // retry to get latest endpoint
         let uri = match retry_async(self.retry_policy, || async {
-            match controller.get_endpoint_for_segment(&self.segment).await {
+            match factory.get_controller_client().get_endpoint_for_segment(&self.segment).await {
                 Ok(uri) => RetryResult::Success(uri),
                 Err(e) => {
                     warn!("retry controller due to error {:?}", e);
@@ -329,7 +322,7 @@ impl EventSegmentWriter {
             delegation_token: "".to_string(),
         });
 
-        let raw_client = RawClientImpl::new(pool, self.endpoint);
+        let raw_client = factory.create_raw_client(self.endpoint);
         let mut connection = match retry_async(self.retry_policy, || async {
             debug!(
                 "setting up append for writer:{:?}/segment:{}",
@@ -522,13 +515,12 @@ impl EventSegmentWriter {
 
     pub async fn reconnect(
         &mut self,
-        pool: &ConnectionPool<SegmentConnectionManager>,
-        controller: &dyn ControllerClient,
+        factory: &ClientFactoryInternal
     ) {
         loop {
             debug!("Reconnecting event segment writer {:?}", self.id);
             // setup the connection
-            let setup_res = self.setup_connection(pool, controller).await;
+            let setup_res = self.setup_connection(factory).await;
             if setup_res.is_err() {
                 continue;
             }
@@ -564,26 +556,26 @@ pub struct SegmentSelector {
 
     /// client config that contains the retry policy
     config: ClientConfig,
+
+    //Used to gain access to the controller and connection pool
+    factory: Arc<ClientFactoryInternal>,
 }
 
 impl SegmentSelector {
-    fn new(stream: ScopedStream, sender: Sender<Incoming>, config: ClientConfig) -> Self {
+    fn new(stream: ScopedStream, sender: Sender<Incoming>, config: ClientConfig, factory: Arc<ClientFactoryInternal>) -> Self {
         SegmentSelector {
             stream,
             writers: HashMap::new(),
             current_segments: StreamSegments::new(BTreeMap::new()),
             sender,
             config,
+            factory,
         }
     }
 
-    async fn initialize(
-        &mut self,
-        connection_pool: &ConnectionPool<SegmentConnectionManager>,
-        controller: &dyn ControllerClient,
-    ) {
+    async fn initialize(&mut self) {
         self.current_segments = retry_async(self.config.retry_policy, || async {
-            match controller.get_current_segments(&self.stream).await {
+            match self.factory.get_controller_client().get_current_segments(&self.stream).await {
                 Ok(ss) => RetryResult::Success(ss),
                 Err(_e) => RetryResult::Retry("retry controller command due to error"),
             }
@@ -591,17 +583,11 @@ impl SegmentSelector {
         .await
         .expect("retry failed");
 
-        self.create_missing_writers(connection_pool, controller).await;
-    }
-
-    /// get the segment writer by passing a routing key if there is one
-    fn get_segment_writer_for_key(&mut self, routing_key: Option<String>) -> &mut EventSegmentWriter {
-        let segment = &self.get_segment_for_event(routing_key);
-        self.writers.get_mut(segment).expect("must have writer")
+        self.create_missing_writers().await;
     }
 
     /// get the Segment by passing a routing key
-    fn get_segment_for_event(&self, routing_key: Option<String>) -> ScopedSegment {
+    fn get_segment_for_event(&self, routing_key: &Option<String>) -> ScopedSegment {
         let mut small_rng = SmallRng::from_entropy();
         if let Some(key) = routing_key {
             self.current_segments.get_segment(hash_string_to_f64(key))
@@ -612,14 +598,9 @@ impl SegmentSelector {
 
     /// refresh segment event writer when a segment is sealed
     /// return the inflight events of that sealed segment
-    async fn refresh_segment_event_writers_upon_sealed(
-        &mut self,
-        sealed_segment: &ScopedSegment,
-        connection_pool: &ConnectionPool<SegmentConnectionManager>,
-        controller: &dyn ControllerClient,
-    ) -> Vec<PendingEvent> {
+    async fn refresh_segment_event_writers_upon_sealed(&mut self, sealed_segment: &ScopedSegment) -> Vec<PendingEvent> {
         let stream_segments_with_predecessors = retry_async(self.config.retry_policy, || async {
-            match controller.get_successors(sealed_segment).await {
+            match self.factory.get_controller_client().get_successors(sealed_segment).await {
                 Ok(ss) => {
                     if !ss.replacement_segments.contains_key(&sealed_segment.segment) {
                         RetryResult::Retry("retry get successors due to empty successors")
@@ -635,8 +616,6 @@ impl SegmentSelector {
         self.update_segments_upon_sealed(
             stream_segments_with_predecessors,
             sealed_segment,
-            connection_pool,
-            controller,
         )
         .await
     }
@@ -645,15 +624,13 @@ impl SegmentSelector {
     async fn update_segments_upon_sealed(
         &mut self,
         successors: StreamSegmentsWithPredecessors,
-        sealed_segment: &ScopedSegment,
-        connection_pool: &ConnectionPool<SegmentConnectionManager>,
-        controller: &dyn ControllerClient,
+        sealed_segment: &ScopedSegment
     ) -> Vec<PendingEvent> {
         self.current_segments = self
             .current_segments
             .apply_replacement_range(&sealed_segment.segment, &successors)
             .expect("apply replacement range");
-        self.create_missing_writers(connection_pool, controller).await;
+        self.create_missing_writers().await;
         self.writers
             .get_mut(sealed_segment)
             .expect("get writer")
@@ -662,11 +639,7 @@ impl SegmentSelector {
 
     /// create missing EventSegmentWriter and set up the connections for ready to use
     #[allow(clippy::map_entry)] // clippy warns about using entry, but async closure is not stable
-    async fn create_missing_writers(
-        &mut self,
-        connection_pool: &ConnectionPool<SegmentConnectionManager>,
-        controller: &dyn ControllerClient,
-    ) {
+    async fn create_missing_writers(&mut self) {
         for scoped_segment in self.current_segments.get_segments() {
             if !self.writers.contains_key(&scoped_segment) {
                 let mut writer =
@@ -676,10 +649,10 @@ impl SegmentSelector {
                     writer.id,
                     scoped_segment.to_string()
                 );
-                match writer.setup_connection(connection_pool, controller).await {
+                match writer.setup_connection(&self.factory).await {
                     Ok(()) => {}
                     Err(_) => {
-                        writer.reconnect(connection_pool, controller).await;
+                        writer.reconnect(&self.factory).await;
                     }
                 }
                 self.writers.insert(scoped_segment, writer);
@@ -688,20 +661,16 @@ impl SegmentSelector {
     }
 
     /// resend events
-    async fn resend(
-        &mut self,
-        to_resend: Vec<PendingEvent>,
-        pool: &ConnectionPool<SegmentConnectionManager>,
-        controller: &dyn ControllerClient,
-    ) {
+    async fn resend(&mut self, to_resend: Vec<PendingEvent>) {
         for event in to_resend {
-            let segment_writer = self.get_segment_writer_for_key(event.routing_key.clone());
+            let segment = self.get_segment_for_event(&event.routing_key);
+            let segment_writer = self.writers.get_mut(&segment).expect("must have writer");
             if let Err(e) = segment_writer.write(event).await {
                 warn!(
                     "failed to resend an event due to: {:?}, reconnecting the event segment writer",
                     e
                 );
-                segment_writer.reconnect(pool, controller).await;
+                segment_writer.reconnect(&self.factory).await;
             }
         }
     }
@@ -780,7 +749,7 @@ impl PendingEvent {
 }
 
 // hash string to 0.0 - 1.0 in f64
-fn hash_string_to_f64(s: String) -> f64 {
+fn hash_string_to_f64(s: &str) -> f64 {
     let mut hasher = DefaultHasher::new();
     hasher.write(s.as_bytes());
     let hash_u64 = hasher.finish();
@@ -790,12 +759,13 @@ fn hash_string_to_f64(s: String) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tokio::runtime::Runtime;
+
+    use super::*;
 
     #[test]
     fn test_hash_string() {
-        let hashed = hash_string_to_f64(String::from("hello"));
+        let hashed = hash_string_to_f64("hello");
         assert!(hashed >= 0.0);
         assert!(hashed <= 1.0);
     }

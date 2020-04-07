@@ -15,14 +15,13 @@ use std::sync::atomic::{AtomicI64, Ordering};
 use snafu::Snafu;
 
 use async_trait::async_trait;
-use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::commands::{Command, EventCommand, ReadSegmentCommand, SegmentReadCommand};
-use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
+use crate::client_factory::ClientFactoryInternal;
 use crate::error::RawClientError;
-use crate::raw_client::{RawClient, RawClientImpl};
+use crate::raw_client::RawClient;
 use crate::REQUEST_ID_GENERATOR;
 
 #[derive(Debug, Snafu)]
@@ -74,10 +73,9 @@ pub(crate) struct AsyncSegmentReaderImpl<'a> {
 impl<'a> AsyncSegmentReaderImpl<'a> {
     pub async fn init(
         segment: ScopedSegment,
-        connection_pool: &'a ConnectionPool<SegmentConnectionManager>,
-        controller_client: &ControllerClientImpl,
+        factory: &'a ClientFactoryInternal,
     ) -> AsyncSegmentReaderImpl<'a> {
-        let endpoint = controller_client
+        let endpoint = factory.get_controller_client()
             .get_endpoint_for_segment(&segment)
             .await
             .expect("get endpoint for segment")
@@ -86,7 +84,7 @@ impl<'a> AsyncSegmentReaderImpl<'a> {
 
         AsyncSegmentReaderImpl {
             segment,
-            raw_client: Box::new(RawClientImpl::new(&*connection_pool, endpoint)),
+            raw_client: Box::new(factory.create_raw_client(endpoint)),
             id: &REQUEST_ID_GENERATOR,
         }
     }
