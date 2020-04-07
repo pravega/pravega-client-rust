@@ -44,9 +44,9 @@ pub struct EventStreamWriter {
 impl EventStreamWriter {
     const CHANNEL_CAPACITY: usize = 100;
 
-    pub async fn new(stream: ScopedStream, config: ClientConfig) -> Self {
+    pub fn new(stream: ScopedStream, config: ClientConfig) -> Self {
         let (tx, rx) = channel(EventStreamWriter::CHANNEL_CAPACITY);
-        let selector = SegmentSelector::new(stream, tx.clone(), config).await;
+        let selector = SegmentSelector::new(stream, tx.clone(), config);
         EventStreamWriter {
             writer_id: Uuid::new_v4(),
             sender: tx,
@@ -567,7 +567,7 @@ pub struct SegmentSelector {
 }
 
 impl SegmentSelector {
-    async fn new(stream: ScopedStream, sender: Sender<Incoming>, config: ClientConfig) -> Self {
+    fn new(stream: ScopedStream, sender: Sender<Incoming>, config: ClientConfig) -> Self {
         SegmentSelector {
             stream,
             writers: HashMap::new(),

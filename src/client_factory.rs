@@ -48,8 +48,8 @@ impl ClientFactory {
         AsyncSegmentReaderImpl::init(segment, &self.connection_pool, &self.controller_client).await
     }
 
-    pub(crate) async fn create_event_stream_writer(stream: ScopedStream, config: ClientConfig) -> EventStreamWriter {
-        EventStreamWriter::new(stream, config).await
+    pub(crate) fn create_event_stream_writer(stream: ScopedStream, config: ClientConfig) -> EventStreamWriter {
+        EventStreamWriter::new(stream, config)
     }
 
     pub(crate) fn get_connection_pool(&self) -> &ConnectionPool<SegmentConnectionManager> {
