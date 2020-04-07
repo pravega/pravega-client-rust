@@ -162,22 +162,22 @@ mod tests {
     // Setup mock.
     mock! {
         pub RawClientImpl {
-            fn send_request(&self, request: Requests) -> Result<Replies, RawClientError>{
+            fn send_request(&self, request: &Requests) -> Result<Replies, RawClientError>{
             }
         }
     }
 
     #[async_trait]
     impl<'a> RawClient<'a> for MockRawClientImpl {
-        async fn send_request(&self, request: Requests) -> Result<Replies, RawClientError> {
+        async fn send_request(&self, request: &Requests) -> Result<Replies, RawClientError> {
             delay_for(Duration::from_nanos(1)).await;
             self.send_request(request)
         }
 
         async fn send_setup_request(
             &self,
-            _request: Requests,
-        ) -> Result<(Replies, Box<dyn ClientConnection>), RawClientError> {
+            _request: &Requests,
+        ) -> Result<(Replies, Box<dyn ClientConnection + 'a>), RawClientError> {
             unimplemented!() // Not required for this test.
         }
     }
@@ -195,7 +195,7 @@ mod tests {
 
         let segment_name_copy = segment_name.clone();
         let mut raw_client = MockRawClientImpl::new();
-        raw_client.expect_send_request().returning(move |req: Requests| {
+        raw_client.expect_send_request().returning(move |req: &Requests| {
             //let s: Result<Replies, RawClientError> =
             match req {
                 Requests::ReadSegment(cmd) => {
