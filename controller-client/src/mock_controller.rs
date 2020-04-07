@@ -10,7 +10,6 @@
 #![allow(dead_code)]
 use super::ControllerClient;
 use super::ControllerError;
-use async_std::sync::{Mutex, RwLock, RwLockReadGuard};
 use async_trait::async_trait;
 use ordered_float::OrderedFloat;
 use pravega_rust_client_shared::*;
@@ -22,6 +21,7 @@ use std::collections::HashSet;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
+use tokio::sync::{Mutex, RwLock, RwLockReadGuard};
 use uuid::Uuid;
 
 static ID_GENERATOR: AtomicUsize = AtomicUsize::new(0);
