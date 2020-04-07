@@ -18,8 +18,8 @@ use pravega_wire_protocol::wire_commands::Requests;
 use std::net::SocketAddr;
 
 use log::info;
-use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_client_rust::client_factory::ClientFactory;
+use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 
 pub async fn test_event_stream_writer() {
     // spin up Pravega standalone
@@ -30,8 +30,13 @@ pub async fn test_event_stream_writer() {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
     };
-    let controller_addr = "127.0.0.1:9090".parse::<SocketAddr>().expect("parse to socketaddr");
-    let config = ClientConfigBuilder::default().controller_uri(controller_addr).build().expect("creating config");
+    let controller_addr = "127.0.0.1:9090"
+        .parse::<SocketAddr>()
+        .expect("parse to socketaddr");
+    let config = ClientConfigBuilder::default()
+        .controller_uri(controller_addr)
+        .build()
+        .expect("creating config");
     let client_factory = ClientFactory::new(config.clone());
     let mut writer = client_factory.create_event_stream_writer(scoped_stream.clone(), config);
 
@@ -85,7 +90,8 @@ async fn test_scaling_up(writer: &mut EventStreamWriter, factory: &ClientFactory
                     retention_param: 0,
                 },
             };
-            factory.get_controller_client()
+            factory
+                .get_controller_client()
                 .update_stream(&new_config)
                 .await
                 .expect("scale down the segments");
@@ -128,7 +134,8 @@ async fn test_segment_sealed(writer: &mut EventStreamWriter, factory: &ClientFac
                     retention_param: 0,
                 },
             };
-            factory.get_controller_client()
+            factory
+                .get_controller_client()
                 .update_stream(&new_config)
                 .await
                 .expect("scale down the segments");
