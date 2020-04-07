@@ -75,9 +75,8 @@ impl<'a> AsyncSegmentReaderImpl<'a> {
     pub async fn init(
         segment: ScopedSegment,
         connection_pool: &'a ConnectionPool<SegmentConnectionManager>,
-        controller_uri: SocketAddr,
+        controller_client: ControllerClientImpl,
     ) -> AsyncSegmentReaderImpl<'a> {
-        let controller_client = ControllerClientImpl::new(controller_uri);
         let endpoint = controller_client
             .get_endpoint_for_segment(&segment)
             .await
