@@ -196,17 +196,17 @@ impl Server {
 
 #[test]
 fn test_with_mock_server() {
-    let endpoint = "127.0.0.1:54321"
+    let endpoint = "127.0.1.1:54321"
         .parse::<SocketAddr>()
         .expect("Unable to parse socket address");
+
     let copy_endpoint = endpoint.clone();
     thread::spawn(move || {
         let server = Server::new(copy_endpoint);
         for stream in server.listener.incoming() {
             let mut client = stream.expect("get a new client connection");
             let mut buffer = [0u8; 100];
-            let request = client.read(&mut buffer);
-            println!("{:?}", request);
+            client.read(&mut buffer);
             let reply = Replies::Hello(HelloCommand {
                 high_version: 9,
                 low_version: 5,
@@ -227,11 +227,13 @@ fn test_with_mock_server() {
     let pool = ConnectionPoolImpl::new(cf, config);
 
     // test with 3 requests, they should be all succeed.
-    for i in 0..3 {
-        println!("{:?}", i);
+    for _i in 0..3 {
         let retry_policy = RetryWithBackoff::default().max_tries(5);
         let future = retry_async(retry_policy, || async {
-            let connection = pool.get_connection(endpoint).await.expect("get connection from pool");
+            let connection = pool
+                .get_connection(endpoint)
+                .await
+                .expect("get connection from pool");
             let mut client_connection = ClientConnectionImpl { connection };
             let request = Requests::Hello(HelloCommand {
                 high_version: 9,
@@ -251,7 +253,6 @@ fn test_with_mock_server() {
             }
         });
         let result = rt.block_on(future);
-        println!("{:?}", result);
         if let Ok(r) = result {
             println!("reply is {:?}", r);
         } else {

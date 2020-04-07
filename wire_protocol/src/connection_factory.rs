@@ -10,9 +10,13 @@
 
 use crate::error::*;
 use async_trait::async_trait;
+use futures::task::Poll;
+use futures::Future;
 use snafu::ResultExt;
 use std::fmt;
 use std::net::SocketAddr;
+use std::pin::Pin;
+use std::task::Context;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use uuid::Uuid;
@@ -112,6 +116,8 @@ pub trait Connection: Send + Sync {
     fn get_uuid(&self) -> Uuid;
 
     fn get_endpoint(&self) -> SocketAddr;
+
+    async fn is_valid(&mut self) -> bool;
 }
 
 #[derive(Debug)]
@@ -179,6 +185,58 @@ impl Connection for TokioConnection {
 
     fn get_endpoint(&self) -> SocketAddr {
         self.endpoint
+    }
+
+    async fn is_valid(&mut self) -> bool {
+        let mut buf = [0; 1];
+        let result = poll_fn(|cx| self.stream.poll_peek(cx, &mut buf)).await;
+        match result {
+            Err(_e) => false,
+            Ok(is_valid) => is_valid,
+        }
+    }
+}
+
+pub struct PollFn<F> {
+    f: F,
+}
+impl<F> Unpin for PollFn<F> {}
+
+pub fn poll_fn<F>(f: F) -> PollFn<F>
+where
+    F: FnMut(&mut Context<'_>) -> Poll<std::io::Result<usize>>,
+{
+    PollFn { f }
+}
+
+impl<F> fmt::Debug for PollFn<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PollFn").finish()
+    }
+}
+
+impl<F> Future for PollFn<F>
+where
+    F: FnMut(&mut Context<'_>) -> Poll<std::io::Result<usize>>,
+{
+    type Output = std::io::Result<bool>;
+
+    /// We must customize the poll function.
+    /// poll_peek() would return Poll:Pending, if there is no data in the stream.
+    /// If the stream is closed by the server, it would return Poll::Ready(Ok(0))
+    /// And in our scenario we should not let the poll return Pending, because it will poll again in the future.
+    /// Instead, we can return a
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<bool>> {
+        let result = (&mut self.f)(cx);
+        println!("here {:?}", result);
+        match result {
+            Poll::Ready(Ok(n)) => match n {
+                0 => Poll::Ready(Ok(false)),
+                _ => Poll::Ready(Ok(true)),
+            },
+            Poll::Pending => Poll::Ready(Ok(true)),
+            Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
+        }
     }
 }
 

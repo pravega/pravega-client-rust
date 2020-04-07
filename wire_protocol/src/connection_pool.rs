@@ -91,10 +91,34 @@ impl ConnectionPool for ConnectionPoolImpl {
         let span = span!(Level::DEBUG, "send_setup_request");
         let _guard = span.enter();
         match self.managed_pool.get_connection(endpoint) {
-            Ok(conn) => Ok(PooledConnection {
-                inner: Some(conn),
-                pool: &self.managed_pool,
-            }),
+            Ok(mut conn) => {
+                // The connection may be closed by the server when it is in the pool.
+                if conn.is_valid().await {
+                    Ok(PooledConnection {
+                        inner: Some(conn),
+                        pool: &self.managed_pool,
+                    })
+                } else {
+                    // If not valid, we just create a new one.
+                    self.connection_factory
+                        .establish_connection(endpoint, self.config.connection_type)
+                        .await
+                        .context(EstablishConnection {})
+                        .map_or_else(
+                            // track clippy issue https://github.com/rust-lang/rust-clippy/issues/3071
+                            |e| {
+                                event!(Level::WARN, "connection failed to establish {:?}", e);
+                                Err(e)
+                            },
+                            |conn| {
+                                Ok(PooledConnection {
+                                    inner: Some(conn),
+                                    pool: &self.managed_pool,
+                                })
+                            },
+                        )
+                }
+            }
 
             Err(_e) => self
                 .connection_factory
@@ -187,8 +211,9 @@ impl fmt::Debug for PooledConnection<'_> {
 
 impl Drop for PooledConnection<'_> {
     fn drop(&mut self) {
-        self.pool
-            .add_connection(self.inner.take().expect("drop connection back to pool"))
+        let connection = self.inner.take().expect("drop connection back to pool");
+        // how to use async fn is_valid() in the drop trait?
+        self.pool.add_connection(connection);
     }
 }
 
