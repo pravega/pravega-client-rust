@@ -305,7 +305,7 @@ async fn test_seal_segment() {
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 1 },
+        segment: Segment { number: 0 },
     };
 
     let endpoint = CONTROLLER_CLIENT
