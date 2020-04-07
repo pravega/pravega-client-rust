@@ -30,6 +30,7 @@
 pub mod client_config;
 pub mod client_connection;
 pub mod commands;
+pub mod connection;
 pub mod connection_factory;
 pub mod connection_pool;
 pub mod error;

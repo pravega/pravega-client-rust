@@ -26,6 +26,9 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
+mod naming_utils;
+
+use crate::naming_utils::NameUtils;
 use im::HashMap as ImHashMap;
 use im::OrdMap;
 use ordered_float::OrderedFloat;
@@ -80,6 +83,42 @@ pub struct ScopedSegment {
     pub segment: Segment,
 }
 
+impl From<String> for ScopedSegment {
+    fn from(qualified_name: String) -> Self {
+        if NameUtils::is_transaction_segment(&qualified_name) {
+            let original_segment_name = NameUtils::get_parent_stream_segment_name(&qualified_name);
+            ScopedSegment::from(String::from(original_segment_name))
+        } else {
+            let mut tokens = NameUtils::extract_segment_tokens(qualified_name);
+            if tokens.len() == 2 {
+                // scope not present
+                let segment_id = tokens.pop().expect("get segment id from tokens");
+                let stream_name = tokens.pop().expect("get stream name from tokens");
+                ScopedSegment {
+                    scope: Scope {
+                        name: String::from(""),
+                    },
+                    stream: Stream { name: stream_name },
+                    segment: Segment {
+                        number: segment_id.parse::<i64>().expect("parse string to i64"),
+                    },
+                }
+            } else {
+                let segment_id = tokens.pop().expect("get segment id from tokens");
+                let stream_name = tokens.pop().expect("get stream name from tokens");
+                let scope = tokens.pop().expect("get scope from tokens");
+                ScopedSegment {
+                    scope: Scope { name: scope },
+                    stream: Stream { name: stream_name },
+                    segment: Segment {
+                        number: segment_id.parse::<i64>().expect("parse string to i64"),
+                    },
+                }
+            }
+        }
+    }
+}
+
 #[derive(new, Shrinkwrap, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct TxId(pub u128);
 
@@ -125,11 +164,11 @@ impl Display for ScopedStream {
 
 impl Display for ScopedSegment {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.scope.name)?;
-        f.write_char('/')?;
-        f.write_str(&self.stream.name)?;
-        f.write_char('/')?;
-        f.write_fmt(format_args!("{}", self.segment.number))?;
+        f.write_str(&NameUtils::get_qualified_stream_segment_name(
+            &self.scope.name,
+            &self.stream.name,
+            self.segment.number,
+        ))?;
         Ok(())
     }
 }
@@ -239,6 +278,14 @@ impl StreamSegments {
         r.1.scoped_segment.to_owned()
     }
 
+    pub fn get_segments(&self) -> Vec<ScopedSegment> {
+        let mut vec = vec![];
+        for v in self.key_segment_map.values() {
+            vec.push(v.scoped_segment.clone());
+        }
+        vec
+    }
+
     pub fn apply_replacement_range(
         &self,
         segment_replace: &Segment,
@@ -326,6 +373,11 @@ impl StreamSegmentsWithPredecessors {
             replacement_segments: replacement_map.into(), // convert to immutable map.
         }
     }
+}
+
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
+pub struct EventRead {
+    pub event: Vec<u8>,
 }
 
 #[cfg(test)]

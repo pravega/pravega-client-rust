@@ -135,9 +135,9 @@ fn test_operation_unsupported() {
 #[test]
 fn test_padding() {
     let length = 10;
-    let padding_command = WireCommands::Padding(PaddingCommand { length });
+    let padding_command = WireCommands::Requests(Requests::Padding(PaddingCommand { length }));
     let decoded = test_command(padding_command);
-    if let WireCommands::Padding(command) = decoded {
+    if let WireCommands::Requests(Requests::Padding(command)) = decoded {
         assert_eq!(command.length, 10);
     }
 }
@@ -145,16 +145,16 @@ fn test_padding() {
 #[test]
 fn test_partial_event() {
     let data = String::from("event-1").into_bytes();
-    let partial_event = WireCommands::PartialEvent(PartialEventCommand { data });
+    let partial_event = WireCommands::Requests(Requests::PartialEvent(PartialEventCommand { data }));
     test_command(partial_event);
 }
 
 #[test]
 fn test_event() {
     let data = String::from("event-1").into_bytes();
-    let event = WireCommands::Event(EventCommand { data });
+    let event = WireCommands::Requests(Requests::Event(EventCommand { data }));
     let decoded = test_command(event);
-    if let WireCommands::Event(event_struct) = decoded {
+    if let WireCommands::Requests(Requests::Event(event_struct)) = decoded {
         assert_eq!(String::from_utf8(event_struct.data).unwrap(), "event-1");
     } else {
         panic!("test failed");
@@ -179,10 +179,10 @@ fn test_setup_append() {
 fn test_append_block() {
     let writer_id_number: u128 = 123;
     let data = String::from("event-1").into_bytes();
-    let append_block_command = WireCommands::AppendBlock(AppendBlockCommand {
+    let append_block_command = WireCommands::Requests(Requests::AppendBlock(AppendBlockCommand {
         writer_id: writer_id_number,
         data,
-    });
+    }));
     test_command(append_block_command);
 }
 
@@ -191,14 +191,14 @@ fn test_append_block_end() {
     let writer_id_number: u128 = 123;
     let data = String::from("event-1").into_bytes();
     let size_of_events = data.len() as i32;
-    let append_block_end_command = WireCommands::AppendBlockEnd(AppendBlockEndCommand {
+    let append_block_end_command = WireCommands::Requests(Requests::AppendBlockEnd(AppendBlockEndCommand {
         writer_id: writer_id_number,
         size_of_whole_events: size_of_events,
         data,
         num_event: 1,
         last_event_number: 1,
         request_id: 1,
-    });
+    }));
 
     test_command(append_block_end_command);
 }
