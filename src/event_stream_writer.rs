@@ -8,14 +8,14 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::collections::hash_map::DefaultHasher;
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::hash::Hasher;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use rand::{Rng, SeedableRng};
 use rand::rngs::SmallRng;
+use rand::{Rng, SeedableRng};
 use snafu::ResultExt;
 use tokio;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
@@ -34,7 +34,7 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
 use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
-use crate::raw_client::{RawClient};
+use crate::raw_client::RawClient;
 
 /// EventStreamWriter contains a writer id and a mpsc sender which is used to send Event
 /// to the Processor
@@ -46,7 +46,11 @@ pub struct EventStreamWriter {
 impl EventStreamWriter {
     const CHANNEL_CAPACITY: usize = 100;
 
-    pub(crate) fn new(stream: ScopedStream, config: ClientConfig, factory: Arc<ClientFactoryInternal>) -> Self {
+    pub(crate) fn new(
+        stream: ScopedStream,
+        config: ClientConfig,
+        factory: Arc<ClientFactoryInternal>,
+    ) -> Self {
         let (tx, rx) = channel(EventStreamWriter::CHANNEL_CAPACITY);
         let selector = SegmentSelector::new(stream, tx.clone(), config, factory.clone());
         let processor = Processor {
@@ -118,25 +122,19 @@ impl Processor {
         self.selector.initialize().await;
 
         loop {
-            let event = self
-                .receiver
-                .recv()
-                .await
-                .expect("sender closed, processor exit");
+            let event = self.receiver.recv().await.expect("sender closed, processor exit");
             match event {
                 Incoming::AppendEvent(event) => {
-
                     let segment = self.selector.get_segment_for_event(&event.routing_key);
-                    let event_segment_writer = self.selector.writers.get_mut(&segment).expect("must have writer");
+                    let event_segment_writer =
+                        self.selector.writers.get_mut(&segment).expect("must have writer");
 
                     if let Some(event) =
                         PendingEvent::with_header(event.routing_key, event.inner, event.oneshot_sender)
                     {
                         if let Err(e) = event_segment_writer.write(event).await {
                             warn!("failed to write append to segment due to {:?}, reconnecting", e);
-                            event_segment_writer
-                                .reconnect(&self.factory)
-                                .await;
+                            event_segment_writer.reconnect(&self.factory).await;
                         }
                     }
                 }
@@ -172,14 +170,9 @@ impl Processor {
                             let segment = ScopedSegment::from(cmd.segment);
                             let inflight = self
                                 .selector
-                                .refresh_segment_event_writers_upon_sealed(
-                                    &segment,
-                                )
+                                .refresh_segment_event_writers_upon_sealed(&segment)
                                 .await;
-                            self
-                                .selector
-                                .resend(inflight)
-                                .await;
+                            self.selector.resend(inflight).await;
                             self.selector.remove_segment_event_writer(&segment);
                         }
 
@@ -192,14 +185,9 @@ impl Processor {
                             let segment = ScopedSegment::from(cmd.segment);
                             let inflight = self
                                 .selector
-                                .refresh_segment_event_writers_upon_sealed(
-                                    &segment,
-                                )
+                                .refresh_segment_event_writers_upon_sealed(&segment)
                                 .await;
-                            self
-                                .selector
-                                .resend(inflight)
-                                .await;
+                            self.selector.resend(inflight).await;
                             self.selector.remove_segment_event_writer(&segment);
                         }
 
@@ -299,7 +287,11 @@ impl EventSegmentWriter {
     ) -> Result<(), EventStreamWriterError> {
         // retry to get latest endpoint
         let uri = match retry_async(self.retry_policy, || async {
-            match factory.get_controller_client().get_endpoint_for_segment(&self.segment).await {
+            match factory
+                .get_controller_client()
+                .get_endpoint_for_segment(&self.segment)
+                .await
+            {
                 Ok(uri) => RetryResult::Success(uri),
                 Err(e) => {
                     warn!("retry controller due to error {:?}", e);
@@ -513,10 +505,7 @@ impl EventSegmentWriter {
         ret
     }
 
-    pub async fn reconnect(
-        &mut self,
-        factory: &ClientFactoryInternal
-    ) {
+    pub async fn reconnect(&mut self, factory: &ClientFactoryInternal) {
         loop {
             debug!("Reconnecting event segment writer {:?}", self.id);
             // setup the connection
@@ -562,7 +551,12 @@ pub struct SegmentSelector {
 }
 
 impl SegmentSelector {
-    fn new(stream: ScopedStream, sender: Sender<Incoming>, config: ClientConfig, factory: Arc<ClientFactoryInternal>) -> Self {
+    fn new(
+        stream: ScopedStream,
+        sender: Sender<Incoming>,
+        config: ClientConfig,
+        factory: Arc<ClientFactoryInternal>,
+    ) -> Self {
         SegmentSelector {
             stream,
             writers: HashMap::new(),
@@ -575,7 +569,12 @@ impl SegmentSelector {
 
     async fn initialize(&mut self) {
         self.current_segments = retry_async(self.config.retry_policy, || async {
-            match self.factory.get_controller_client().get_current_segments(&self.stream).await {
+            match self
+                .factory
+                .get_controller_client()
+                .get_current_segments(&self.stream)
+                .await
+            {
                 Ok(ss) => RetryResult::Success(ss),
                 Err(_e) => RetryResult::Retry("retry controller command due to error"),
             }
@@ -598,9 +597,17 @@ impl SegmentSelector {
 
     /// refresh segment event writer when a segment is sealed
     /// return the inflight events of that sealed segment
-    async fn refresh_segment_event_writers_upon_sealed(&mut self, sealed_segment: &ScopedSegment) -> Vec<PendingEvent> {
+    async fn refresh_segment_event_writers_upon_sealed(
+        &mut self,
+        sealed_segment: &ScopedSegment,
+    ) -> Vec<PendingEvent> {
         let stream_segments_with_predecessors = retry_async(self.config.retry_policy, || async {
-            match self.factory.get_controller_client().get_successors(sealed_segment).await {
+            match self
+                .factory
+                .get_controller_client()
+                .get_successors(sealed_segment)
+                .await
+            {
                 Ok(ss) => {
                     if !ss.replacement_segments.contains_key(&sealed_segment.segment) {
                         RetryResult::Retry("retry get successors due to empty successors")
@@ -613,18 +620,15 @@ impl SegmentSelector {
         })
         .await
         .expect("retry failed");
-        self.update_segments_upon_sealed(
-            stream_segments_with_predecessors,
-            sealed_segment,
-        )
-        .await
+        self.update_segments_upon_sealed(stream_segments_with_predecessors, sealed_segment)
+            .await
     }
 
     /// create event segment writer for the successor segment of the sealed segment and return the inflight event
     async fn update_segments_upon_sealed(
         &mut self,
         successors: StreamSegmentsWithPredecessors,
-        sealed_segment: &ScopedSegment
+        sealed_segment: &ScopedSegment,
     ) -> Vec<PendingEvent> {
         self.current_segments = self
             .current_segments
@@ -642,8 +646,11 @@ impl SegmentSelector {
     async fn create_missing_writers(&mut self) {
         for scoped_segment in self.current_segments.get_segments() {
             if !self.writers.contains_key(&scoped_segment) {
-                let mut writer =
-                    EventSegmentWriter::new(scoped_segment.clone(), self.sender.clone(), self.config.retry_policy);
+                let mut writer = EventSegmentWriter::new(
+                    scoped_segment.clone(),
+                    self.sender.clone(),
+                    self.config.retry_policy,
+                );
                 debug!(
                     "writer {:?} created for segment {:?}",
                     writer.id,

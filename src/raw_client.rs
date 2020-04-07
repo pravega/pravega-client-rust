@@ -45,7 +45,10 @@ impl<'a> fmt::Debug for RawClientImpl<'a> {
 }
 
 impl<'a> RawClientImpl<'a> {
-    pub fn new(pool: &'a ConnectionPool<SegmentConnectionManager>, endpoint: SocketAddr) -> RawClientImpl<'a> {
+    pub fn new(
+        pool: &'a ConnectionPool<SegmentConnectionManager>,
+        endpoint: SocketAddr,
+    ) -> RawClientImpl<'a> {
         RawClientImpl { pool, endpoint }
     }
 }

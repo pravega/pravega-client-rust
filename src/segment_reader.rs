@@ -75,7 +75,8 @@ impl<'a> AsyncSegmentReaderImpl<'a> {
         segment: ScopedSegment,
         factory: &'a ClientFactoryInternal,
     ) -> AsyncSegmentReaderImpl<'a> {
-        let endpoint = factory.get_controller_client()
+        let endpoint = factory
+            .get_controller_client()
             .get_endpoint_for_segment(&segment)
             .await
             .expect("get endpoint for segment")
@@ -150,12 +151,12 @@ impl AsyncSegmentReader for AsyncSegmentReaderImpl<'_> {
 mod tests {
     use std::time::Duration;
 
-    use mockall::*;
     use mockall::predicate::*;
+    use mockall::*;
     use tokio::time::delay_for;
 
-    use pravega_rust_client_shared::*;
     use pravega_rust_client_shared::Segment;
+    use pravega_rust_client_shared::*;
     use pravega_wire_protocol::client_connection::ClientConnection;
     use pravega_wire_protocol::commands::{
         NoSuchSegmentCommand, SegmentSealedCommand, SegmentTruncatedCommand,
