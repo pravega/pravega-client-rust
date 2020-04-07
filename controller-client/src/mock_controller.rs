@@ -10,7 +10,6 @@
 #![allow(dead_code)]
 use super::ControllerClient;
 use super::ControllerError;
-use async_std::sync::{Mutex, RwLock, RwLockReadGuard};
 use async_trait::async_trait;
 use ordered_float::OrderedFloat;
 use pravega_rust_client_shared::*;

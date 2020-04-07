@@ -8,7 +8,6 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::hash::Hasher;
@@ -663,7 +662,6 @@ impl SegmentSelector {
                     Ok(()) => {}
                     Err(_) => {
                         writer.reconnect(&self.factory).await;
-
                     }
                 }
                 self.writers.insert(scoped_segment, writer);

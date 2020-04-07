@@ -315,6 +315,7 @@ mod tests {
         fn get_config(&self) -> ClientConfig {
             self.config
         }
+    }
 
     #[tokio::test(core_threads = 4)]
     async fn test_connection_pool_basic() {
