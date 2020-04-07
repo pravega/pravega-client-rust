@@ -337,7 +337,7 @@ async fn main() {
         .clone()
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
-    let raw_client = RawClientImpl::new(&pool, endpoint).await;
+    let raw_client = RawClientImpl::new(&pool, endpoint);
     match opt.cmd {
         Command::Hello {
             high_version,

@@ -46,7 +46,7 @@ impl<'a> fmt::Debug for RawClientImpl<'a> {
 
 impl<'a> RawClientImpl<'a> {
     #[allow(clippy::new_ret_no_self)]
-    pub async fn new(pool: &'a dyn ConnectionPool, endpoint: SocketAddr) -> Box<dyn RawClient<'a> + 'a> {
+    pub(crate) fn new(pool: &'a dyn ConnectionPool, endpoint: SocketAddr) -> Box<dyn RawClient<'a> + 'a> {
         Box::new(RawClientImpl { pool, endpoint })
     }
 }
