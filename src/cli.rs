@@ -11,7 +11,7 @@ use pravega_client_rust::raw_client::*;
 use pravega_wire_protocol::client_config::ClientConfigBuilder;
 use pravega_wire_protocol::commands::*;
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl};
-use pravega_wire_protocol::connection_pool::ConnectionPoolImpl;
+use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::Requests;
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -331,7 +331,8 @@ async fn main() {
     let config = ClientConfigBuilder::default()
         .build()
         .expect("build client config");
-    let pool = ConnectionPoolImpl::new(cf, config);
+    let manager = SegmentConnectionManager::new(cf, config);
+    let pool = ConnectionPool::new(manager);
     let endpoint = opt
         .server_uri
         .clone()
@@ -347,7 +348,7 @@ async fn main() {
                 high_version,
                 low_version,
             });
-            let reply = raw_client.send_request(request).await.expect("send hello");
+            let reply = raw_client.send_request(&request).await.expect("send hello");
             println!("{:?}", reply);
         }
         Command::CreateSegment {
@@ -365,7 +366,7 @@ async fn main() {
                 delegation_token,
             });
             let reply = raw_client
-                .send_request(request)
+                .send_request(&request)
                 .await
                 .expect("send create segment");
             println!("{:?}", reply);
@@ -383,7 +384,7 @@ async fn main() {
                 segment,
                 delegation_token,
             });
-            let reply = raw_client.send_request(request).await.expect("setupAppend");
+            let reply = raw_client.send_request(&request).await.expect("setupAppend");
             println!("{:?}", reply)
         }
         Command::ConditionalAppend {
@@ -402,7 +403,7 @@ async fn main() {
                 segment,
                 delegation_token,
             });
-            raw_client.send_request(request).await.expect("setupAppend");
+            raw_client.send_request(&request).await.expect("setupAppend");
 
             let id = ID_GENERATOR.fetch_add(1, Ordering::SeqCst) as i64;
             let data = event.into_bytes();
@@ -415,7 +416,7 @@ async fn main() {
                 request_id: id,
             });
             let reply = raw_client
-                .send_request(request)
+                .send_request(&request)
                 .await
                 .expect("Conditional append");
             println!("{:?}", reply);
@@ -434,7 +435,7 @@ async fn main() {
                 delegation_token,
                 request_id: id,
             });
-            let reply = raw_client.send_request(request).await.expect("read segment");
+            let reply = raw_client.send_request(&request).await.expect("read segment");
             println!("{:?}", reply);
         }
         Command::GetSegmentAttribute {
@@ -450,7 +451,7 @@ async fn main() {
                 delegation_token,
             });
             let reply = raw_client
-                .send_request(request)
+                .send_request(&request)
                 .await
                 .expect("get segment attribute");
             println!("{:?}", reply);
@@ -472,7 +473,7 @@ async fn main() {
                 delegation_token,
             });
             let reply = raw_client
-                .send_request(request)
+                .send_request(&request)
                 .await
                 .expect("update segment attribute");
             println!("{:?}", reply);
@@ -488,7 +489,7 @@ async fn main() {
                 delegation_token,
             });
             let reply = raw_client
-                .send_request(request)
+                .send_request(&request)
                 .await
                 .expect("get stream segment info");
             println!("{:?}", reply);
@@ -504,7 +505,7 @@ async fn main() {
                 delegation_token,
             });
             let reply = raw_client
-                .send_request(request)
+                .send_request(&request)
                 .await
                 .expect("create table segment");
             println!("{:?}", reply);
@@ -524,7 +525,7 @@ async fn main() {
                 delegation_token,
             });
             let reply = raw_client
-                .send_request(request)
+                .send_request(&request)
                 .await
                 .expect("update segment policy");
             println!("{:?}", reply);
@@ -541,7 +542,7 @@ async fn main() {
                 source,
                 delegation_token,
             });
-            let reply = raw_client.send_request(request).await.expect("merge segment");
+            let reply = raw_client.send_request(&request).await.expect("merge segment");
             println!("{:?}", reply);
         }
         Command::MergeTableSegments {
@@ -557,7 +558,7 @@ async fn main() {
                 delegation_token,
             });
             let reply = raw_client
-                .send_request(request)
+                .send_request(&request)
                 .await
                 .expect("merge table segment");
             println!("{:?}", reply);
@@ -572,7 +573,7 @@ async fn main() {
                 segment,
                 delegation_token,
             });
-            let reply = raw_client.send_request(request).await.expect("seal segment");
+            let reply = raw_client.send_request(&request).await.expect("seal segment");
             println!("{:?}", reply);
         }
         Command::SealTableSegment {
@@ -586,7 +587,7 @@ async fn main() {
                 delegation_token,
             });
             let reply = raw_client
-                .send_request(request)
+                .send_request(&request)
                 .await
                 .expect("seal table segment");
             println!("{:?}", reply);
@@ -603,7 +604,7 @@ async fn main() {
                 truncation_offset,
                 delegation_token,
             });
-            let reply = raw_client.send_request(request).await.expect("truncate segment");
+            let reply = raw_client.send_request(&request).await.expect("truncate segment");
             println!("{:?}", reply);
         }
         Command::DeleteSegment {
@@ -616,7 +617,7 @@ async fn main() {
                 segment,
                 delegation_token,
             });
-            let reply = raw_client.send_request(request).await.expect("delete segment");
+            let reply = raw_client.send_request(&request).await.expect("delete segment");
             println!("{:?}", reply);
         }
         Command::DeleteTableSegment {
@@ -632,7 +633,7 @@ async fn main() {
                 delegation_token,
             });
             let reply = raw_client
-                .send_request(request)
+                .send_request(&request)
                 .await
                 .expect("delete table segment");
             println!("{:?}", reply);
@@ -658,7 +659,7 @@ async fn main() {
                 delegation_token,
             });
             let reply = raw_client
-                .send_request(request)
+                .send_request(&request)
                 .await
                 .expect("update table entries");
             println!("{:?}", reply);
@@ -683,7 +684,10 @@ async fn main() {
                 keys,
                 delegation_token,
             });
-            let reply = raw_client.send_request(request).await.expect("remove table keys");
+            let reply = raw_client
+                .send_request(&request)
+                .await
+                .expect("remove table keys");
             println!("{:?}", reply);
         }
         Command::ReadTable {
@@ -706,7 +710,7 @@ async fn main() {
                 keys,
                 delegation_token,
             });
-            let reply = raw_client.send_request(request).await.expect("read table");
+            let reply = raw_client.send_request(&request).await.expect("read table");
             println!("{:?}", reply);
         }
         Command::ReadTableKeys {
@@ -731,7 +735,7 @@ async fn main() {
                 suggested_key_count,
                 continuation_token: token,
             });
-            let reply = raw_client.send_request(request).await.expect("read table keys");
+            let reply = raw_client.send_request(&request).await.expect("read table keys");
             println!("{:?}", reply);
         }
         Command::ReadTableEntries {
@@ -757,7 +761,7 @@ async fn main() {
                 continuation_token: token,
             });
             let reply = raw_client
-                .send_request(request)
+                .send_request(&request)
                 .await
                 .expect("read table entries");
             println!("{:?}", reply);

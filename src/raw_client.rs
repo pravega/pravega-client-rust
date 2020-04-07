@@ -8,10 +8,10 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::error::*;
 use async_trait::async_trait;
 use pravega_wire_protocol::client_connection::*;
 use pravega_wire_protocol::connection_pool::*;
-use pravega_wire_protocol::error::*;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use snafu::ResultExt;
 use std::fmt;
@@ -24,17 +24,17 @@ use tracing::{span, Level};
 #[async_trait]
 pub trait RawClient<'a>: Send + Sync {
     /// Asynchronously send a request to the server and receive a response.
-    async fn send_request(&self, request: Requests) -> Result<Replies, RawClientError>;
+    async fn send_request(&self, request: &Requests) -> Result<Replies, RawClientError>;
 
     /// Asynchronously send a request to the server and receive a response and return the connection to the caller.
     async fn send_setup_request(
         &self,
-        request: Requests,
+        request: &Requests,
     ) -> Result<(Replies, Box<dyn ClientConnection + 'a>), RawClientError>;
 }
 
 pub struct RawClientImpl<'a> {
-    pool: &'a dyn ConnectionPool,
+    pool: &'a ConnectionPool<SegmentConnectionManager>,
     endpoint: SocketAddr,
 }
 
@@ -46,28 +46,31 @@ impl<'a> fmt::Debug for RawClientImpl<'a> {
 
 impl<'a> RawClientImpl<'a> {
     #[allow(clippy::new_ret_no_self)]
-    pub async fn new(pool: &'a dyn ConnectionPool, endpoint: SocketAddr) -> Box<dyn RawClient<'a> + 'a> {
+    pub async fn new(
+        pool: &'a ConnectionPool<SegmentConnectionManager>,
+        endpoint: SocketAddr,
+    ) -> Box<dyn RawClient<'a> + 'a> {
         Box::new(RawClientImpl { pool, endpoint })
     }
 }
 #[allow(clippy::needless_lifetimes)]
 #[async_trait]
 impl<'a> RawClient<'a> for RawClientImpl<'a> {
-    async fn send_request(&self, request: Requests) -> Result<Replies, RawClientError> {
+    async fn send_request(&self, request: &Requests) -> Result<Replies, RawClientError> {
         let connection = self
             .pool
             .get_connection(self.endpoint)
             .await
             .context(GetConnectionFromPool {})?;
         let mut client_connection = ClientConnectionImpl::new(connection);
-        client_connection.write(&request).await.context(WriteRequest {})?;
+        client_connection.write(request).await.context(WriteRequest {})?;
         let reply = client_connection.read().await.context(ReadReply {})?;
         Ok(reply)
     }
 
     async fn send_setup_request(
         &self,
-        request: Requests,
+        request: &Requests,
     ) -> Result<(Replies, Box<dyn ClientConnection + 'a>), RawClientError> {
         let span = span!(Level::DEBUG, "send_setup_request");
         let _guard = span.enter();
@@ -77,7 +80,7 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
             .await
             .context(GetConnectionFromPool {})?;
         let mut client_connection = ClientConnectionImpl::new(connection);
-        client_connection.write(&request).await.context(WriteRequest {})?;
+        client_connection.write(request).await.context(WriteRequest {})?;
 
         let reply = client_connection.read().await.context(ReadReply {})?;
 
@@ -99,19 +102,18 @@ mod tests {
 
     struct Common {
         rt: Runtime,
-        pool: Box<dyn ConnectionPool>,
+        pool: ConnectionPool<SegmentConnectionManager>,
     }
 
     impl Common {
         fn new() -> Self {
             let rt = Runtime::new().expect("create tokio Runtime");
-            let connection_factory = ConnectionFactoryImpl {};
-            let pool = Box::new(ConnectionPoolImpl::new(
-                Box::new(connection_factory),
-                ClientConfigBuilder::default()
-                    .build()
-                    .expect("build client config"),
-            ));
+            let config = ClientConfigBuilder::default()
+                .build()
+                .expect("build client config");
+            let connection_factory = Box::new(ConnectionFactoryImpl {});
+            let manager = SegmentConnectionManager::new(connection_factory, config);
+            let pool = ConnectionPool::new(manager);
             Common { rt, pool }
         }
     }
@@ -160,11 +162,12 @@ mod tests {
     }
 
     #[test]
+    #[should_panic] // since connection verify will panic
     fn test_hello() {
         let mut common = Common::new();
         let mut server = Server::new();
 
-        let raw_client_fut = RawClientImpl::new(&*common.pool, server.address);
+        let raw_client_fut = RawClientImpl::new(&common.pool, server.address);
         let raw_client = common.rt.block_on(raw_client_fut);
         let h = thread::spawn(move || {
             server.send_hello();
@@ -177,7 +180,7 @@ mod tests {
 
         let reply = common
             .rt
-            .block_on(raw_client.send_request(request))
+            .block_on(raw_client.send_request(&request))
             .expect("get reply");
 
         assert_eq!(

@@ -9,6 +9,7 @@
 //
 
 use super::connection_factory::ConnectionType;
+use crate::wire_commands::Replies;
 use bincode2::Error as BincodeError;
 use snafu::{Backtrace, Snafu};
 use std::io::Error as IoError;
@@ -18,18 +19,6 @@ use std::net::SocketAddr;
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]
 pub enum ConnectionError {
-    #[snafu(display(
-        "Could not connect to endpoint {} using connection type {}: {}",
-        endpoint,
-        connection_type,
-        source
-    ))]
-    Connect {
-        connection_type: ConnectionType,
-        endpoint: SocketAddr,
-        source: std::io::Error,
-        backtrace: Backtrace,
-    },
     #[snafu(display("Could not send data to {} asynchronously: {}", endpoint, source))]
     SendData {
         endpoint: SocketAddr,
@@ -42,6 +31,26 @@ pub enum ConnectionError {
         source: std::io::Error,
         backtrace: Backtrace,
     },
+}
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility = "pub(crate)")]
+pub enum ConnectionFactoryError {
+    #[snafu(display(
+        "Could not connect to endpoint {} using connection type {}: {}",
+        endpoint,
+        connection_type,
+        source
+    ))]
+    Connect {
+        connection_type: ConnectionType,
+        endpoint: SocketAddr,
+        source: std::io::Error,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Failed to verify the connection: {}", source))]
+    Verify { source: ClientConnectionError },
 }
 
 /// This kind of error that can be produced during Pravega serialize and deserialize the wire commands.
@@ -114,6 +123,20 @@ pub enum ClientConnectionError {
         source: CommandError,
         backtrace: Backtrace,
     },
+
+    #[snafu(display("Failed to write/read since connection is split"))]
+    ConnectionIsSplit {},
+
+    #[snafu(display("Wrong Hello Wirecommand reply: current wire version {} and oldest compatible version {}, but get {} and {}", wire_version, oldest_compatible, wire_version_received, oldest_compatible_received))]
+    WrongHelloVersion {
+        wire_version: i32,
+        oldest_compatible: i32,
+        wire_version_received: i32,
+        oldest_compatible_received: i32,
+    },
+
+    #[snafu(display("Expect to receive Hello Wirecommand but get {}", reply))]
+    WrongReply { reply: Replies },
 }
 
 #[derive(Debug, Snafu)]
@@ -121,26 +144,10 @@ pub enum ClientConnectionError {
 pub enum ConnectionPoolError {
     #[snafu(display("Could not establish connection to endpoint: {}", source))]
     EstablishConnection {
-        source: ConnectionError,
+        source: ConnectionFactoryError,
         backtrace: Backtrace,
     },
 
     #[snafu(display("No available connection in the internal pool"))]
     NoAvailableConnection {},
-}
-
-#[derive(Debug, Snafu)]
-#[snafu(visibility = "pub")]
-pub enum RawClientError {
-    #[snafu(display("Failed to get connection from connection pool: {}", source))]
-    GetConnectionFromPool { source: ConnectionPoolError },
-
-    #[snafu(display("Failed to write request: {}", source))]
-    WriteRequest { source: ClientConnectionError },
-
-    #[snafu(display("Failed to read reply: {}", source))]
-    ReadReply { source: ClientConnectionError },
-
-    #[snafu(display("Reply incompatible wirecommand version: low {}, high {}", low, high))]
-    IncompatibleVersion { low: i32, high: i32 },
 }
