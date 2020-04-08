@@ -32,16 +32,21 @@ use uuid::Uuid;
 // create a static connection pool for using through tests.
 lazy_static! {
     static ref CONFIG: ClientConfig = {
-        ClientConfigBuilder::default().controller_uri("127.0.0.1:9090".parse::<SocketAddr>().expect("parse to socketaddr")).build().expect("build client config")
+        ClientConfigBuilder::default()
+            .controller_uri(
+                "127.0.0.1:9090"
+                    .parse::<SocketAddr>()
+                    .expect("parse to socketaddr"),
+            )
+            .build()
+            .expect("build client config")
     };
     static ref CONNECTION_POOL: ConnectionPool<SegmentConnectionManager> = {
         let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
         let manager = SegmentConnectionManager::new(cf, CONFIG.clone());
         ConnectionPool::new(manager)
     };
-    static ref CONTROLLER_CLIENT: ControllerClientImpl = {
-        ControllerClientImpl::new(CONFIG.clone())
-    };
+    static ref CONTROLLER_CLIENT: ControllerClientImpl = { ControllerClientImpl::new(CONFIG.clone()) };
 }
 
 pub fn test_wirecommand(rt: &mut Runtime) {
@@ -301,14 +306,14 @@ async fn test_create_segment() {
         server_stack_trace: "".to_string(),
     });
 
-    raw_client
-        .send_request(&request1)
-        .await
-        .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply1, r));
-    raw_client
-        .send_request(&request2)
-        .await
-        .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply2, r));
+    raw_client.send_request(&request1).await.map_or_else(
+        |e| panic!("failed to get reply: {}", e),
+        |r| assert_eq!(reply1, r),
+    );
+    raw_client.send_request(&request2).await.map_or_else(
+        |e| panic!("failed to get reply: {}", e),
+        |r| assert_eq!(reply2, r),
+    );
 }
 
 async fn test_seal_segment() {

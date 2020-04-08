@@ -156,11 +156,14 @@ async fn test_segment_sealed(writer: &mut EventStreamWriter, factory: &ClientFac
 
 // helper function
 async fn setup_test(scope_name: &Scope, stream_name: &Stream) -> ControllerClientImpl {
-    let config = ClientConfigBuilder::default().controller_uri("127.0.0.1:9090"
-        .parse::<SocketAddr>()
-        .expect("parse to socketaddr"))
-                                               .build()
-                                               .expect("build client config");
+    let config = ClientConfigBuilder::default()
+        .controller_uri(
+            "127.0.0.1:9090"
+                .parse::<SocketAddr>()
+                .expect("parse to socketaddr"),
+        )
+        .build()
+        .expect("build client config");
 
     let controller_client = ControllerClientImpl::new(config);
     controller_client
