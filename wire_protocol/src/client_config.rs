@@ -36,6 +36,7 @@ pub struct ClientConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::Ipv4Addr;
 
     #[test]
     fn test_get_set() {
@@ -43,17 +44,24 @@ mod tests {
             .max_connections_in_pool(15 as u32)
             .connection_type(ConnectionType::Tokio)
             .retry_policy(RetryWithBackoff::from_millis(1000))
+            .controller_uri("127.0.0.1:9090"
+                                .parse::<SocketAddr>()
+                                .expect("parse to socketaddr"))
             .build()
             .unwrap();
 
         assert_eq!(config.max_connections_in_pool(), 15 as u32);
         assert_eq!(config.connection_type(), ConnectionType::Tokio);
         assert_eq!(config.retry_policy(), RetryWithBackoff::from_millis(1000));
+        assert_eq!(config.controller_uri().ip(), &Ipv4Addr::new(127, 0, 0, 1));
+        assert_eq!(config.controller_uri().port(), 9090);
     }
 
     #[test]
     fn test_get_default() {
-        let config = ClientConfigBuilder::default().build().unwrap();
+        let config = ClientConfigBuilder::default().controller_uri("127.0.0.1:9090"
+            .parse::<SocketAddr>()
+            .expect("parse to socketaddr")).build().unwrap();
 
         assert_eq!(config.max_connections_in_pool(), u32::max_value() as u32);
         assert_eq!(config.connection_type(), ConnectionType::Tokio);
