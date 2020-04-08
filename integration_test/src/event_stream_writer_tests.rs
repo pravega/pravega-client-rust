@@ -25,6 +25,7 @@ pub async fn test_event_stream_writer() {
     // spin up Pravega standalone
     let scope_name = Scope::new("testScopeWriter".into());
     let stream_name = Stream::new("testStreamWriter".into());
+    setup_test(&scope_name, &stream_name).await;
 
     let scoped_stream = ScopedStream {
         scope: scope_name.clone(),
@@ -155,17 +156,18 @@ async fn test_segment_sealed(writer: &mut EventStreamWriter, factory: &ClientFac
 
 // helper function
 async fn setup_test(scope_name: &Scope, stream_name: &Stream) -> ControllerClientImpl {
-    let controller_client = ControllerClientImpl::new(
-        "127.0.0.1:9090"
-            .parse::<SocketAddr>()
-            .expect("parse to socketaddr"),
-    );
+    let config = ClientConfigBuilder::default().controller_uri("127.0.0.1:9090"
+        .parse::<SocketAddr>()
+        .expect("parse to socketaddr"))
+                                               .build()
+                                               .expect("build client config");
 
+    let controller_client = ControllerClientImpl::new(config);
     controller_client
         .create_scope(scope_name)
         .await
         .expect("create scope");
-
+    info!("Scope created");
     let request = StreamConfiguration {
         scoped_stream: ScopedStream {
             scope: scope_name.clone(),
@@ -186,14 +188,6 @@ async fn setup_test(scope_name: &Scope, stream_name: &Stream) -> ControllerClien
         .create_stream(&request)
         .await
         .expect("create stream");
+    info!("Stream created");
     controller_client
-}
-
-async fn get_connection_pool_for_segment() -> ConnectionPool<SegmentConnectionManager> {
-    let config = ClientConfigBuilder::default()
-        .build()
-        .expect("build client config");
-    let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
-    let manager = SegmentConnectionManager::new(cf, config);
-    ConnectionPool::new(manager)
 }

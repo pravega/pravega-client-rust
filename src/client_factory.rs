@@ -31,11 +31,10 @@ pub(crate) struct ClientFactoryInternal {
 
 impl ClientFactory {
     pub fn new(config: ClientConfig) -> ClientFactory {
-        setup_logger().expect("setting up logger");
+        let _ = setup_logger(); //Ignore failure
         let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
-        let controller_uri = config.controller_uri;
-        let pool = ConnectionPool::new(SegmentConnectionManager::new(cf, config));
-        let controller = ControllerClientImpl::new(controller_uri);
+        let pool = ConnectionPool::new(SegmentConnectionManager::new(cf, config.clone()));
+        let controller = ControllerClientImpl::new(config);
         ClientFactory(Arc::new(ClientFactoryInternal {
             connection_pool: pool,
             controller_client: controller,

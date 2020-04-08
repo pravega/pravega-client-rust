@@ -44,7 +44,6 @@ use controller::{
 use log::debug;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfig;
-use pravega_wire_protocol::client_config::ClientConfigBuilder;
 use pravega_wire_protocol::connection_pool::{ConnectionPool, Manager, PooledConnection};
 use pravega_wire_protocol::error::*;
 use std::convert::{From, Into};
@@ -207,10 +206,8 @@ pub struct ControllerClientImpl {
 }
 
 impl ControllerClientImpl {
-    pub fn new(endpoint: SocketAddr) -> Self {
-        let config = ClientConfigBuilder::default()
-            .build()
-            .expect("build client config");
+    pub fn new(config: ClientConfig) -> Self {
+        let endpoint = config.controller_uri;
         let manager = ControllerConnectionManager::new(config);
         let pool = ConnectionPool::new(manager);
         ControllerClientImpl { endpoint, pool }

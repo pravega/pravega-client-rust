@@ -7,6 +7,7 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
+use pravega_wire_protocol::client_config::ClientConfigBuilder;
 use pravega_controller_client::*;
 use pravega_rust_client_shared::*;
 use std::collections::HashMap;
@@ -15,12 +16,15 @@ use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>> {
+    let controller_addr = "127.0.0.1:9090"
+        .parse::<SocketAddr>()
+        .expect("parse to socketaddr");
+    let config = ClientConfigBuilder::default()
+        .controller_uri(controller_addr)
+        .build()
+        .expect("creating config");
     // start Pravega standalone before invoking this function.
-    let controller_client = ControllerClientImpl::new(
-        "127.0.0.1:9090"
-            .parse::<SocketAddr>()
-            .expect("parse to socketaddr"),
-    );
+    let controller_client = ControllerClientImpl::new(config);
 
     let scope_name = Scope::new("testScope123".into());
     let stream_name = Stream::new("testStream".into());

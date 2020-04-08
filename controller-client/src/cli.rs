@@ -7,6 +7,7 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
+use pravega_wire_protocol::client_config::ClientConfigBuilder;
 use pravega_controller_client::*;
 use pravega_rust_client_shared::*;
 use std::net::SocketAddr;
@@ -68,13 +69,15 @@ struct Opt {
 fn main() {
     let opt = Opt::from_args();
     let mut rt = Runtime::new().unwrap();
-
+    let controller_addr = "127.0.0.1:9090"
+        .parse::<SocketAddr>()
+        .expect("parse to socketaddr");
+    let config = ClientConfigBuilder::default()
+        .controller_uri(controller_addr)
+        .build()
+        .expect("creating config");
     // create a controller client.
-    let controller_client = ControllerClientImpl::new(
-        opt.controller_uri
-            .parse::<SocketAddr>()
-            .expect("parse to socketaddr"),
-    );
+    let controller_client = ControllerClientImpl::new(config);
     match opt.cmd {
         Command::CreateScope { scope_name } => {
             let scope_result = rt.block_on(controller_client.create_scope(&Scope::new(scope_name)));
