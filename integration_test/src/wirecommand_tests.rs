@@ -20,7 +20,7 @@ use pravega_wire_protocol::client_config::ClientConfigBuilder;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::Command as WireCommand;
 use pravega_wire_protocol::commands::*;
-use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl};
+use pravega_wire_protocol::connection_factory::{ConnectionFactory};
 use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
@@ -42,8 +42,8 @@ lazy_static! {
             .expect("build client config")
     };
     static ref CONNECTION_POOL: ConnectionPool<SegmentConnectionManager> = {
-        let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
-        let manager = SegmentConnectionManager::new(cf, CONFIG.clone());
+        let cf = ConnectionFactory::create(CONFIG.connection_type);
+        let manager = SegmentConnectionManager::new(cf, CONFIG.max_connections_in_pool);
         ConnectionPool::new(manager)
     };
     static ref CONTROLLER_CLIENT: ControllerClientImpl = { ControllerClientImpl::new(CONFIG.clone()) };

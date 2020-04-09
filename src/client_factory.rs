@@ -13,7 +13,7 @@ use std::net::SocketAddr;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream};
 use pravega_wire_protocol::client_config::ClientConfig;
-use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl};
+use pravega_wire_protocol::connection_factory::{ConnectionFactory};
 use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
 
 use crate::event_stream_writer::EventStreamWriter;
@@ -32,8 +32,8 @@ pub(crate) struct ClientFactoryInternal {
 impl ClientFactory {
     pub fn new(config: ClientConfig) -> ClientFactory {
         let _ = setup_logger(); //Ignore failure
-        let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
-        let pool = ConnectionPool::new(SegmentConnectionManager::new(cf, config.clone()));
+        let cf = ConnectionFactory::create(config.connection_type);
+        let pool = ConnectionPool::new(SegmentConnectionManager::new(cf, config.max_connections_in_pool));
         let controller = ControllerClientImpl::new(config);
         ClientFactory(Arc::new(ClientFactoryInternal {
             connection_pool: pool,

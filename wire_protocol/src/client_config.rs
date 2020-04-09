@@ -53,7 +53,7 @@ mod tests {
         assert_eq!(config.max_connections_in_pool(), 15 as u32);
         assert_eq!(config.connection_type(), ConnectionType::Tokio);
         assert_eq!(config.retry_policy(), RetryWithBackoff::from_millis(1000));
-        assert_eq!(config.controller_uri().ip(), &Ipv4Addr::new(127, 0, 0, 1));
+        assert_eq!(config.controller_uri().ip(), Ipv4Addr::new(127, 0, 0, 1));
         assert_eq!(config.controller_uri().port(), 9090);
     }
 

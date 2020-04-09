@@ -147,9 +147,8 @@ pub async fn write_wirecommand(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::client_config::ClientConfigBuilder;
     use crate::commands::HelloCommand;
-    use crate::connection_factory::{ConnectionFactoryImpl, ConnectionType};
+    use crate::connection_factory::{ConnectionFactory, ConnectionType};
     use crate::connection_pool::{ConnectionPool, SegmentConnectionManager};
     use crate::wire_commands::{Encode, Replies};
     use std::io::Write;
@@ -188,12 +187,8 @@ mod tests {
 
         let mut server = Server::new();
 
-        let connection_factory = ConnectionFactoryImpl {};
-        let config = ClientConfigBuilder::default()
-            .connection_type(ConnectionType::Mock)
-            .build()
-            .expect("build client config");
-        let manager = SegmentConnectionManager::new(Box::new(connection_factory), config);
+        let connection_factory = ConnectionFactory::create(ConnectionType::Mock);
+        let manager = SegmentConnectionManager::new(connection_factory, 1);
         let pool = ConnectionPool::new(manager);
         let connection = rt
             .block_on(pool.get_connection(server.address))

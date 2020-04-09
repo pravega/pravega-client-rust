@@ -419,8 +419,8 @@ impl Manager for ControllerConnectionManager {
         true
     }
 
-    fn get_config(&self) -> &ClientConfig {
-        &self.config
+    fn get_max_connections(&self) -> u32 {
+        self.config.max_connections_in_pool
     }
 }
 
