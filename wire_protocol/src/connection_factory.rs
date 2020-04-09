@@ -8,21 +8,21 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::client_connection::{read_wirecommand, write_wirecommand};
+use crate::commands::{HelloCommand, OLDEST_COMPATIBLE_VERSION, WIRE_VERSION};
+use crate::connection::{Connection, TokioConnection};
 use crate::error::*;
+use crate::wire_commands::{Replies, Requests};
 use async_trait::async_trait;
-use futures::task::Poll;
-use futures::Future;
 use snafu::ResultExt;
 use std::fmt;
 use std::net::SocketAddr;
-use std::pin::Pin;
-use std::task::Context;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use uuid::Uuid;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ConnectionType {
+    Mock,
     Tokio,
 }
 
@@ -63,61 +63,7 @@ pub trait ConnectionFactory: Send + Sync {
         &self,
         endpoint: SocketAddr,
         connection_type: ConnectionType,
-    ) -> Result<Box<dyn Connection>, ConnectionError>;
-}
-
-/// Connection can send and read data using a TCP connection
-#[async_trait]
-pub trait Connection: Send + Sync {
-    /// send_async will send a byte array payload to the remote server asynchronously.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use pravega_wire_protocol::connection_factory;
-    /// use pravega_wire_protocol::connection_factory::ConnectionFactory;
-    /// use tokio::runtime::Runtime;
-    ///
-    /// fn main() {
-    ///   let mut rt = Runtime::new().unwrap();
-    ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
-    ///   let cf = connection_factory::ConnectionFactoryImpl {};
-    ///   let connection_future = cf.establish_connection(endpoint, connection_factory::ConnectionType::Tokio);
-    ///   let mut connection = rt.block_on(connection_future).unwrap();
-    ///   let mut payload: Vec<u8> = Vec::new();
-    ///   let fut = connection.send_async(&payload);
-    /// }
-    /// ```
-    async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError>;
-
-    /// read_async will read exactly the amount of data needed to fill the provided buffer asynchronously.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use pravega_wire_protocol::connection_factory;
-    /// use pravega_wire_protocol::connection_factory::ConnectionFactory;
-    /// use tokio::runtime::Runtime;
-    ///
-    /// fn main() {
-    ///   let mut rt = Runtime::new().unwrap();
-    ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
-    ///   let cf = connection_factory::ConnectionFactoryImpl {};
-    ///   let connection_future = cf.establish_connection(endpoint, connection_factory::ConnectionType::Tokio);
-    ///   let mut connection = rt.block_on(connection_future).unwrap();
-    ///   let mut buf = [0; 10];
-    ///   let fut = connection.read_async(&mut buf);
-    /// }
-    /// ```
-    async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError>;
-
-    fn get_uuid(&self) -> Uuid;
-
-    fn get_endpoint(&self) -> SocketAddr;
-
-    async fn is_valid(&mut self) -> bool;
+    ) -> Result<Box<dyn Connection>, ConnectionFactoryError>;
 }
 
 #[derive(Debug)]
@@ -127,8 +73,29 @@ impl ConnectionFactoryImpl {
     async fn establish_tokio_connection(
         &self,
         endpoint: SocketAddr,
-    ) -> Result<Box<dyn Connection>, ConnectionError> {
+    ) -> Result<Box<dyn Connection>, ConnectionFactoryError> {
         let connection_type = ConnectionType::Tokio;
+        let uuid = Uuid::new_v4();
+        let stream = TcpStream::connect(endpoint).await.context(Connect {
+            connection_type,
+            endpoint,
+        })?;
+        let mut tokio_connection: Box<dyn Connection> = Box::new(TokioConnection {
+            uuid,
+            endpoint,
+            stream: Some(stream),
+        }) as Box<dyn Connection>;
+        verify_connection(&mut *tokio_connection)
+            .await
+            .context(Verify {})?;
+        Ok(tokio_connection)
+    }
+
+    async fn establish_mock_connection(
+        &self,
+        endpoint: SocketAddr,
+    ) -> Result<Box<dyn Connection>, ConnectionFactoryError> {
+        let connection_type = ConnectionType::Mock;
         let uuid = Uuid::new_v4();
         let stream = TcpStream::connect(endpoint).await.context(Connect {
             connection_type,
@@ -137,7 +104,7 @@ impl ConnectionFactoryImpl {
         let tokio_connection: Box<dyn Connection> = Box::new(TokioConnection {
             uuid,
             endpoint,
-            stream,
+            stream: Some(stream),
         }) as Box<dyn Connection>;
         Ok(tokio_connection)
     }
@@ -149,94 +116,36 @@ impl ConnectionFactory for ConnectionFactoryImpl {
         &self,
         endpoint: SocketAddr,
         connection_type: ConnectionType,
-    ) -> Result<Box<dyn Connection>, ConnectionError> {
+    ) -> Result<Box<dyn Connection>, ConnectionFactoryError> {
         match connection_type {
             ConnectionType::Tokio => self.establish_tokio_connection(endpoint).await,
+            ConnectionType::Mock => self.establish_mock_connection(endpoint).await,
         }
     }
 }
 
-pub struct TokioConnection {
-    pub uuid: Uuid,
-    pub endpoint: SocketAddr,
-    pub stream: TcpStream,
-}
+async fn verify_connection(conn: &mut dyn Connection) -> Result<(), ClientConnectionError> {
+    let request = Requests::Hello(HelloCommand {
+        high_version: WIRE_VERSION,
+        low_version: OLDEST_COMPATIBLE_VERSION,
+    });
+    write_wirecommand(conn, &request).await?;
+    let reply = read_wirecommand(conn).await?;
 
-#[async_trait]
-impl Connection for TokioConnection {
-    async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
-        let endpoint = self.endpoint;
-        self.stream
-            .write_all(payload)
-            .await
-            .context(SendData { endpoint })?;
-        Ok(())
-    }
-
-    async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError> {
-        let endpoint = self.endpoint;
-        self.stream.read_exact(buf).await.context(ReadData { endpoint })?;
-        Ok(())
-    }
-
-    fn get_uuid(&self) -> Uuid {
-        self.uuid
-    }
-
-    fn get_endpoint(&self) -> SocketAddr {
-        self.endpoint
-    }
-
-    async fn is_valid(&mut self) -> bool {
-        let mut buf = [0; 1];
-        let result = poll_fn(|cx| self.stream.poll_peek(cx, &mut buf)).await;
-        match result {
-            Err(_e) => false,
-            Ok(is_valid) => is_valid,
+    match reply {
+        Replies::Hello(cmd) => {
+            if cmd.low_version <= WIRE_VERSION && cmd.high_version >= WIRE_VERSION {
+                Ok(())
+            } else {
+                Err(ClientConnectionError::WrongHelloVersion {
+                    wire_version: WIRE_VERSION,
+                    oldest_compatible: OLDEST_COMPATIBLE_VERSION,
+                    wire_version_received: cmd.high_version,
+                    oldest_compatible_received: cmd.low_version,
+                })
+            }
         }
-    }
-}
-
-pub struct PollFn<F> {
-    f: F,
-}
-impl<F> Unpin for PollFn<F> {}
-
-pub fn poll_fn<F>(f: F) -> PollFn<F>
-where
-    F: FnMut(&mut Context<'_>) -> Poll<std::io::Result<usize>>,
-{
-    PollFn { f }
-}
-
-impl<F> fmt::Debug for PollFn<F> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("PollFn").finish()
-    }
-}
-
-impl<F> Future for PollFn<F>
-where
-    F: FnMut(&mut Context<'_>) -> Poll<std::io::Result<usize>>,
-{
-    type Output = std::io::Result<bool>;
-
-    /// We must customize the poll function.
-    /// poll_peek() would return Poll:Pending, if there is no data in the stream.
-    /// If the stream is closed by the server, it would return Poll::Ready(Ok(0))
-    /// And in our scenario we should not let the poll return Pending, because it will poll again in the future.
-    /// Instead, we can return a
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<bool>> {
-        let result = (&mut self.f)(cx);
-        println!("here {:?}", result);
-        match result {
-            Poll::Ready(Ok(n)) => match n {
-                0 => Poll::Ready(Ok(false)),
-                _ => Poll::Ready(Ok(true)),
-            },
-            Poll::Pending => Poll::Ready(Ok(true)),
-            Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
-        }
+        _ => Err(ClientConnectionError::WrongReply { reply }),
     }
 }
 
@@ -275,8 +184,7 @@ mod tests {
         let mut server = Server::new();
 
         let connection_factory = self::ConnectionFactoryImpl {};
-        let connection_future =
-            connection_factory.establish_connection(server.address, ConnectionType::Tokio);
+        let connection_future = connection_factory.establish_connection(server.address, ConnectionType::Mock);
         let mut connection = rt.block_on(connection_future).unwrap();
 
         let mut payload: Vec<u8> = Vec::new();

@@ -10,15 +10,17 @@
 use pravega_controller_client::*;
 use pravega_rust_client_shared::*;
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>> {
     // start Pravega standalone before invoking this function.
-    let client = create_connection("http://[::1]:9090")
-        .await
-        .expect("create controller connection");
-    let mut controller_client = ControllerClientImpl { channel: client };
+    let controller_client = ControllerClientImpl::new(
+        "127.0.0.1:9090"
+            .parse::<SocketAddr>()
+            .expect("parse to socketaddr"),
+    );
 
     let scope_name = Scope::new("testScope123".into());
     let stream_name = Stream::new("testStream".into());

@@ -1,6 +1,10 @@
+use super::check_standalone_status;
+use super::wait_for_standalone_with_timeout;
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
+use log::info;
 use pravega_client_rust::raw_client::RawClientImpl;
-use pravega_controller_client::{create_connection, ControllerClient, ControllerClientImpl};
+use pravega_client_rust::setup_logger;
+use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_retry::retry_result::RetryResult;
@@ -8,50 +12,26 @@ use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfigBuilder;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{HelloCommand, SealSegmentCommand};
-use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl};
-use pravega_wire_protocol::connection_pool::{ConnectionPool, ConnectionPoolImpl};
+use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl, ConnectionType};
+use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::Requests;
 use pravega_wire_protocol::wire_commands::{Encode, Replies};
 use std::io::{Read, Write};
 use std::net::{Shutdown, SocketAddr, TcpListener};
 use std::process::Command;
+use std::time::Duration;
 use std::{thread, time};
 use tokio::runtime::Runtime;
 
-fn check_standalone_status() -> bool {
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg("netstat -ltn 2> /dev/null | grep 9090 || ss -ltn 2> /dev/null | grep 9090")
-        .output()
-        .expect("failed to execute process");
-    // if length not zero, controller is listening on port 9090
-    let listening = output.stdout.len() != 0;
-    listening
-}
-
-fn wait_for_standalone_with_timeout(expected_status: bool, timeout_second: i32) {
-    for _i in 0..timeout_second {
-        if expected_status == check_standalone_status() {
-            return;
-        }
-        thread::sleep(time::Duration::from_secs(1));
-    }
-    panic!(
-        "timeout {} exceeded, Pravega standalone is in status {} while expected {}",
-        timeout_second, !expected_status, expected_status
-    );
-}
-
-#[test]
-fn test_wrapper() {
-    let mut rt = Runtime::new().unwrap();
-    rt.block_on(test_retry_with_no_connection());
-    let mut pravega = PravegaStandaloneService::start();
-    rt.block_on(test_retry_while_start_pravega());
+pub async fn disconnection_test_wrapper() {
+    test_retry_with_no_connection().await;
+    let mut pravega = PravegaStandaloneService::start(false);
+    test_retry_while_start_pravega().await;
     assert_eq!(check_standalone_status(), true);
-    rt.block_on(test_retry_with_unexpected_reply());
+    test_retry_with_unexpected_reply().await;
     pravega.stop().unwrap();
     wait_for_standalone_with_timeout(false, 10);
+    test_with_mock_server().await;
 }
 
 async fn test_retry_with_no_connection() {
@@ -65,7 +45,8 @@ async fn test_retry_with_no_connection() {
     let config = ClientConfigBuilder::default()
         .build()
         .expect("build client config");
-    let pool = ConnectionPoolImpl::new(cf, config);
+    let manager = SegmentConnectionManager::new(cf, config);
+    let pool = ConnectionPool::new(manager);
 
     let raw_client = RawClientImpl::new(&pool, endpoint).await;
 
@@ -74,7 +55,7 @@ async fn test_retry_with_no_connection() {
             low_version: 5,
             high_version: 9,
         });
-        let reply = raw_client.send_request(request).await;
+        let reply = raw_client.send_request(&request).await;
         match reply {
             Ok(r) => RetryResult::Success(r),
             Err(error) => RetryResult::Retry(error),
@@ -90,25 +71,25 @@ async fn test_retry_with_no_connection() {
 
 async fn test_retry_while_start_pravega() {
     let retry_policy = RetryWithBackoff::default().max_tries(10);
-    let client = retry_async(retry_policy, || async {
-        let result = create_connection("http://127.0.0.1:9090").await;
+    let controller_client = ControllerClientImpl::new(
+        "127.0.0.1:9090"
+            .parse::<SocketAddr>()
+            .expect("parse to socketaddr"),
+    );
+    let scope_name = Scope::new("retryScope".into());
+
+    let result = retry_async(retry_policy, || async {
+        let result = controller_client.create_scope(&scope_name).await;
         match result {
-            Ok(connection) => RetryResult::Success(connection),
+            Ok(created) => RetryResult::Success(created),
             Err(error) => RetryResult::Retry(error),
         }
     })
     .await
-    .expect("create controller connection");
+    .expect("create scope");
+    assert!(result, true);
 
-    let mut controller_client = ControllerClientImpl { channel: client };
-    let scope_name = Scope::new("retryScope".into());
-    let stream_name = Stream::new("retryStream".into());
-
-    controller_client
-        .create_scope(&scope_name)
-        .await
-        .expect("create scope");
-
+    let stream_name = Stream::new("testStream".into());
     let request = StreamConfiguration {
         scoped_stream: ScopedStream {
             scope: scope_name.clone(),
@@ -125,20 +106,29 @@ async fn test_retry_while_start_pravega() {
             retention_param: 0,
         },
     };
-    controller_client
-        .create_stream(&request)
-        .await
-        .expect("create stream");
+    let retry_policy = RetryWithBackoff::default().max_tries(10);
+    let result = retry_async(retry_policy, || async {
+        let result = controller_client.create_stream(&request).await;
+        match result {
+            Ok(created) => RetryResult::Success(created),
+            Err(error) => RetryResult::Retry(error),
+        }
+    })
+    .await
+    .expect("create stream");
+    assert!(result, true);
 }
 
 async fn test_retry_with_unexpected_reply() {
     let retry_policy = RetryWithBackoff::default().max_tries(4);
     let scope_name = Scope::new("retryScope".into());
     let stream_name = Stream::new("retryStream".into());
-    let client = create_connection("http://127.0.0.1:9090")
-        .await
-        .expect("create controller connection");
-    let mut controller_client = ControllerClientImpl { channel: client };
+
+    let controller_client = ControllerClientImpl::new(
+        "127.0.0.1:9090"
+            .parse::<SocketAddr>()
+            .expect("parse to socketaddr"),
+    );
 
     //Get the endpoint.
     let segment_name = ScopedSegment {
@@ -157,7 +147,8 @@ async fn test_retry_with_unexpected_reply() {
     let config = ClientConfigBuilder::default()
         .build()
         .expect("build client config");
-    let pool = ConnectionPoolImpl::new(cf, config);
+    let manager = SegmentConnectionManager::new(cf, config);
+    let pool = ConnectionPool::new(manager);
     let raw_client = RawClientImpl::new(&pool, endpoint).await;
     let result = retry_async(retry_policy, || async {
         let request = Requests::SealSegment(SealSegmentCommand {
@@ -165,7 +156,7 @@ async fn test_retry_with_unexpected_reply() {
             request_id: 0,
             delegation_token: String::from(""),
         });
-        let reply = raw_client.send_request(request).await;
+        let reply = raw_client.send_request(&request).await;
         match reply {
             Ok(r) => match r {
                 Replies::SegmentSealed(_) => RetryResult::Success(r),
@@ -194,8 +185,7 @@ impl Server {
     }
 }
 
-#[test]
-fn test_with_mock_server() {
+async fn test_with_mock_server() {
     let endpoint = "127.0.1.1:54321"
         .parse::<SocketAddr>()
         .expect("Unable to parse socket address");
@@ -206,7 +196,7 @@ fn test_with_mock_server() {
         for stream in server.listener.incoming() {
             let mut client = stream.expect("get a new client connection");
             let mut buffer = [0u8; 100];
-            client.read(&mut buffer);
+            let _size = client.read(&mut buffer).unwrap();
             let reply = Replies::Hello(HelloCommand {
                 high_version: 9,
                 low_version: 5,
@@ -219,17 +209,18 @@ fn test_with_mock_server() {
         drop(server);
     });
 
-    let mut rt = Runtime::new().unwrap();
     let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
     let config = ClientConfigBuilder::default()
+        .connection_type(ConnectionType::Mock)
         .build()
         .expect("build client config");
-    let pool = ConnectionPoolImpl::new(cf, config);
+    let manager = SegmentConnectionManager::new(cf, config);
+    let pool = ConnectionPool::new(manager);
 
     // test with 3 requests, they should be all succeed.
     for _i in 0..3 {
         let retry_policy = RetryWithBackoff::default().max_tries(5);
-        let future = retry_async(retry_policy, || async {
+        let result = retry_async(retry_policy, || async {
             let connection = pool
                 .get_connection(endpoint)
                 .await
@@ -240,8 +231,6 @@ fn test_with_mock_server() {
                 low_version: 5,
             });
             let reply = client_connection.write(&request).await;
-            // TODO: Tests failed here. It will always gives BrokenPipe error.
-            // TODO: which means the connection would not reconnect to server, if server closes connection.
             if let Err(error) = reply {
                 return RetryResult::Retry(error);
             }
@@ -251,8 +240,9 @@ fn test_with_mock_server() {
                 Ok(r) => RetryResult::Success(r),
                 Err(error) => RetryResult::Retry(error),
             }
-        });
-        let result = rt.block_on(future);
+        })
+        .await;
+
         if let Ok(r) = result {
             println!("reply is {:?}", r);
         } else {

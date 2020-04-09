@@ -14,21 +14,20 @@ use crate::error::InvalidType;
 use byteorder::{BigEndian, ByteOrder};
 use std::fmt;
 
-// 57 total
 #[derive(PartialEq, Debug)]
 pub enum WireCommands {
     Requests(Requests),
     Replies(Replies),
+}
+
+#[derive(PartialEq, Debug)]
+pub enum Requests {
     AppendBlock(AppendBlockCommand),
     AppendBlockEnd(AppendBlockEndCommand),
     Padding(PaddingCommand),
     PartialEvent(PartialEventCommand),
     Event(EventCommand),
-}
 
-// 23 requests
-#[derive(PartialEq, Debug)]
-pub enum Requests {
     Hello(HelloCommand),
     SetupAppend(SetupAppendCommand),
     ConditionalAppend(ConditionalAppendCommand),
@@ -54,7 +53,6 @@ pub enum Requests {
     ReadTableEntries(ReadTableEntriesCommand),
 }
 
-// 30 replies
 #[derive(PartialEq, Debug, Clone)]
 pub enum Replies {
     Hello(HelloCommand),
@@ -138,6 +136,7 @@ impl Request for Requests {
             Requests::ReadTable(read_table_cmd) => read_table_cmd.get_request_id(),
             Requests::ReadTableKeys(read_table_keys_cmd) => read_table_keys_cmd.get_request_id(),
             Requests::ReadTableEntries(read_table_entries_cmd) => read_table_entries_cmd.get_request_id(),
+            _ => -1,
         }
     }
 }
@@ -211,6 +210,37 @@ impl Encode for Requests {
     fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
         let mut res = Vec::new();
         match self {
+            Requests::Padding(padding_command) => {
+                res.extend_from_slice(&PaddingCommand::TYPE_CODE.to_be_bytes());
+                let se = padding_command.write_fields()?;
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
+                res.extend(se);
+            }
+            Requests::PartialEvent(partial_event_cmd) => {
+                res.extend_from_slice(&PartialEventCommand::TYPE_CODE.to_be_bytes());
+                let se = partial_event_cmd.write_fields()?;
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
+                res.extend(se);
+            }
+            Requests::Event(event_cmd) => {
+                res.extend_from_slice(&EventCommand::TYPE_CODE.to_be_bytes());
+                let se = event_cmd.write_fields()?;
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
+                res.extend(se);
+            }
+            Requests::AppendBlock(append_block_cmd) => {
+                res.extend_from_slice(&AppendBlockCommand::TYPE_CODE.to_be_bytes());
+                let se = append_block_cmd.write_fields()?;
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
+                res.extend(se);
+            }
+            Requests::AppendBlockEnd(append_block_end_cmd) => {
+                res.extend_from_slice(&AppendBlockEndCommand::TYPE_CODE.to_be_bytes());
+                let se = append_block_end_cmd.write_fields()?;
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
+                res.extend(se);
+            }
+
             Requests::Hello(hello_cmd) => {
                 res.extend_from_slice(&HelloCommand::TYPE_CODE.to_be_bytes());
                 let se = hello_cmd.write_fields()?;
@@ -551,43 +581,13 @@ impl Encode for Replies {
 
 impl Encode for WireCommands {
     fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
-        let mut res = Vec::new();
+        let res;
         match self {
             WireCommands::Requests(request) => {
                 res = request.write_fields()?;
             }
             WireCommands::Replies(reply) => {
                 res = reply.write_fields()?;
-            }
-            WireCommands::Padding(padding_command) => {
-                res.extend_from_slice(&PaddingCommand::TYPE_CODE.to_be_bytes());
-                let se = padding_command.write_fields()?;
-                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
-                res.extend(se);
-            }
-            WireCommands::PartialEvent(partial_event_cmd) => {
-                res.extend_from_slice(&PartialEventCommand::TYPE_CODE.to_be_bytes());
-                let se = partial_event_cmd.write_fields()?;
-                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
-                res.extend(se);
-            }
-            WireCommands::Event(event_cmd) => {
-                res.extend_from_slice(&EventCommand::TYPE_CODE.to_be_bytes());
-                let se = event_cmd.write_fields()?;
-                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
-                res.extend(se);
-            }
-            WireCommands::AppendBlock(append_block_cmd) => {
-                res.extend_from_slice(&AppendBlockCommand::TYPE_CODE.to_be_bytes());
-                let se = append_block_cmd.write_fields()?;
-                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
-                res.extend(se);
-            }
-            WireCommands::AppendBlockEnd(append_block_end_cmd) => {
-                res.extend_from_slice(&AppendBlockEndCommand::TYPE_CODE.to_be_bytes());
-                let se = append_block_end_cmd.write_fields()?;
-                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
-                res.extend(se);
             }
         }
         Ok(res)
@@ -658,6 +658,21 @@ impl Decode for Requests {
             ReadTableEntriesCommand::TYPE_CODE => Ok(Requests::ReadTableEntries(
                 ReadTableEntriesCommand::read_from(input)?,
             )),
+
+            AppendBlockCommand::TYPE_CODE => Ok(Requests::AppendBlock(AppendBlockCommand::read_from(input)?)),
+
+            AppendBlockEndCommand::TYPE_CODE => {
+                Ok(Requests::AppendBlockEnd(AppendBlockEndCommand::read_from(input)?))
+            }
+
+            PaddingCommand::TYPE_CODE => Ok(Requests::Padding(PaddingCommand::read_from(input)?)),
+
+            PartialEventCommand::TYPE_CODE => {
+                Ok(Requests::PartialEvent(PartialEventCommand::read_from(input)?))
+            }
+
+            EventCommand::TYPE_CODE => Ok(Requests::Event(EventCommand::read_from(input)?)),
+
             _ => InvalidType {
                 command_type: type_code,
             }
@@ -766,33 +781,15 @@ impl Decode for WireCommands {
     type Item = WireCommands;
     fn read_from(raw_input: &[u8]) -> Result<Self::Item, CommandError> {
         let type_code = BigEndian::read_i32(raw_input);
-        let _length = BigEndian::read_i32(&raw_input[4..]);
-        let input = &raw_input[8..];
         if let Ok(r) = Replies::read_from(raw_input) {
             Ok(WireCommands::Replies(r))
         } else if let Ok(r) = Requests::read_from(raw_input) {
             Ok(WireCommands::Requests(r))
         } else {
-            match type_code {
-                PaddingCommand::TYPE_CODE => Ok(WireCommands::Padding(PaddingCommand::read_from(input)?)),
-
-                PartialEventCommand::TYPE_CODE => {
-                    Ok(WireCommands::PartialEvent(PartialEventCommand::read_from(input)?))
-                }
-
-                EventCommand::TYPE_CODE => Ok(WireCommands::Event(EventCommand::read_from(input)?)),
-
-                AppendBlockCommand::TYPE_CODE => {
-                    Ok(WireCommands::AppendBlock(AppendBlockCommand::read_from(input)?))
-                }
-                AppendBlockEndCommand::TYPE_CODE => Ok(WireCommands::AppendBlockEnd(
-                    AppendBlockEndCommand::read_from(input)?,
-                )),
-                _ => InvalidType {
-                    command_type: type_code,
-                }
-                .fail(),
+            InvalidType {
+                command_type: type_code,
             }
+            .fail()
         }
     }
 }

@@ -21,6 +21,7 @@ use std::collections::HashSet;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
+use tokio::sync::{Mutex, RwLock, RwLockReadGuard};
 use uuid::Uuid;
 
 static ID_GENERATOR: AtomicUsize = AtomicUsize::new(0);
@@ -28,26 +29,29 @@ static ID_GENERATOR: AtomicUsize = AtomicUsize::new(0);
 struct MockController {
     endpoint: String,
     port: i32,
-    connection: Box<dyn ClientConnection>, // a fake client connection to send wire command.
-    created_scopes: HashMap<String, HashSet<ScopedStream>>,
-    created_streams: HashMap<ScopedStream, StreamConfiguration>,
+    connection: Mutex<Box<dyn ClientConnection>>, // a fake client connection to send wire command.
+    created_scopes: RwLock<HashMap<String, HashSet<ScopedStream>>>,
+    created_streams: RwLock<HashMap<ScopedStream, StreamConfiguration>>,
 }
 
 #[async_trait]
 impl ControllerClient for MockController {
-    async fn create_scope(&mut self, scope: &Scope) -> Result<bool, ControllerError> {
+    async fn create_scope(&self, scope: &Scope) -> Result<bool, ControllerError> {
         let scope_name = scope.name.clone();
-        if self.created_scopes.contains_key(&scope_name) {
+        if self.created_scopes.read().await.contains_key(&scope_name) {
             return Ok(false);
         }
 
-        self.created_scopes.insert(scope_name, HashSet::new());
+        self.created_scopes
+            .write()
+            .await
+            .insert(scope_name, HashSet::new());
         Ok(true)
     }
 
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>, ControllerError> {
-        let streams_set = self
-            .created_scopes
+        let map_guard = self.created_scopes.read().await;
+        let streams_set = map_guard
             .get(&scope.name)
             .ok_or(ControllerError::OperationError {
                 can_retry: false,
@@ -61,51 +65,63 @@ impl ControllerClient for MockController {
         Ok(result)
     }
 
-    async fn delete_scope(&mut self, scope: &Scope) -> Result<bool, ControllerError> {
+    async fn delete_scope(&self, scope: &Scope) -> Result<bool, ControllerError> {
         let scope_name = scope.name.clone();
-        if self.created_scopes.get(&scope_name).is_none() {
+        if self.created_scopes.read().await.get(&scope_name).is_none() {
             return Ok(false);
         }
 
-        let streams_set = self.created_scopes.get(&scope_name).unwrap();
-        if !streams_set.is_empty() {
+        if !self
+            .created_scopes
+            .read()
+            .await
+            .get(&scope_name)
+            .unwrap()
+            .is_empty()
+        {
             Err(ControllerError::OperationError {
                 can_retry: false,
                 operation: "DeleteScope".into(),
                 error_msg: "Scope not empty".into(),
             })
         } else {
-            self.created_scopes.remove(&scope_name);
+            self.created_scopes.write().await.remove(&scope_name);
             Ok(true)
         }
     }
 
-    async fn create_stream(&mut self, stream_config: &StreamConfiguration) -> Result<bool, ControllerError> {
+    async fn create_stream(&self, stream_config: &StreamConfiguration) -> Result<bool, ControllerError> {
         let stream = stream_config.scoped_stream.clone();
-        if self.created_streams.contains_key(&stream) {
+        if self.created_streams.read().await.contains_key(&stream) {
             return Ok(false);
         }
-        if self.created_scopes.get(&stream.scope.name).is_none() {
+        if self.created_scopes.read().await.get(&stream.scope.name).is_none() {
             return Err(ControllerError::OperationError {
                 can_retry: false,
                 operation: "create stream".into(),
                 error_msg: "Scope does not exist.".into(),
             });
         }
-        self.created_streams.insert(stream.clone(), stream_config.clone());
+        self.created_streams
+            .write()
+            .await
+            .insert(stream.clone(), stream_config.clone());
         self.created_scopes
+            .write()
+            .await
             .get_mut(&stream.scope.name)
             .unwrap()
             .insert(stream.clone());
 
-        for segment in get_segments_for_stream(&stream, &self.created_streams)? {
+        let read_guard = &self.created_streams.read().await;
+        for segment in get_segments_for_stream(&stream, read_guard)? {
             let segment_name = segment.to_string();
             create_segment(segment_name, self, false).await?;
         }
         Ok(true)
     }
 
-    async fn update_stream(&mut self, _stream_config: &StreamConfiguration) -> Result<bool, ControllerError> {
+    async fn update_stream(&self, _stream_config: &StreamConfiguration) -> Result<bool, ControllerError> {
         Err(ControllerError::OperationError {
             can_retry: false,
             operation: "update stream".into(),
@@ -113,7 +129,7 @@ impl ControllerClient for MockController {
         })
     }
 
-    async fn truncate_stream(&mut self, _stream_cut: &StreamCut) -> Result<bool, ControllerError> {
+    async fn truncate_stream(&self, _stream_cut: &StreamCut) -> Result<bool, ControllerError> {
         Err(ControllerError::OperationError {
             can_retry: false,
             operation: "truncate stream".into(),
@@ -121,7 +137,7 @@ impl ControllerClient for MockController {
         })
     }
 
-    async fn seal_stream(&mut self, _stream: &ScopedStream) -> Result<bool, ControllerError> {
+    async fn seal_stream(&self, _stream: &ScopedStream) -> Result<bool, ControllerError> {
         Err(ControllerError::OperationError {
             can_retry: false,
             operation: "seal stream".into(),
@@ -129,29 +145,28 @@ impl ControllerClient for MockController {
         })
     }
 
-    async fn delete_stream(&mut self, stream: &ScopedStream) -> Result<bool, ControllerError> {
-        if self.created_streams.get(stream).is_none() {
+    async fn delete_stream(&self, stream: &ScopedStream) -> Result<bool, ControllerError> {
+        if self.created_streams.read().await.get(stream).is_none() {
             return Ok(false);
         }
 
-        for segment in get_segments_for_stream(stream, &self.created_streams)? {
+        for segment in get_segments_for_stream(stream, &self.created_streams.read().await)? {
             let segment_name = segment.to_string();
             delete_segment(segment_name, self, false).await?;
         }
 
-        self.created_streams.remove(stream);
+        self.created_streams.write().await.remove(stream);
         self.created_scopes
+            .write()
+            .await
             .get_mut(&stream.scope.name)
             .unwrap()
             .remove(stream);
         Ok(true)
     }
 
-    async fn get_current_segments(
-        &mut self,
-        stream: &ScopedStream,
-    ) -> Result<StreamSegments, ControllerError> {
-        let segments_in_stream = get_segments_for_stream(stream, &self.created_streams)?;
+    async fn get_current_segments(&self, stream: &ScopedStream) -> Result<StreamSegments, ControllerError> {
+        let segments_in_stream = get_segments_for_stream(stream, &self.created_streams.read().await)?;
         let mut segments = BTreeMap::new();
         let increment = 1.0 / segments_in_stream.len() as f64;
         for (number, segment) in segments_in_stream.into_iter().enumerate() {
@@ -169,7 +184,7 @@ impl ControllerClient for MockController {
     }
 
     async fn create_transaction(
-        &mut self,
+        &self,
         stream: &ScopedStream,
         _lease: Duration,
     ) -> Result<TxnSegments, ControllerError> {
@@ -186,7 +201,7 @@ impl ControllerClient for MockController {
     }
 
     async fn ping_transaction(
-        &mut self,
+        &self,
         _stream: &ScopedStream,
         _tx_id: TxId,
         _lease: Duration,
@@ -199,21 +214,21 @@ impl ControllerClient for MockController {
     }
 
     async fn commit_transaction(
-        &mut self,
+        &self,
         stream: &ScopedStream,
         tx_id: TxId,
         _writer_id: WriterId,
         _time: Timestamp,
     ) -> Result<(), ControllerError> {
-        let current_segments = get_segments_for_stream(stream, &self.created_streams)?;
+        let current_segments = get_segments_for_stream(stream, &self.created_streams.read().await)?;
         for segment in current_segments {
             commit_tx_segment(tx_id, segment, self, false).await?;
         }
         Ok(())
     }
 
-    async fn abort_transaction(&mut self, stream: &ScopedStream, tx_id: TxId) -> Result<(), ControllerError> {
-        let current_segments = get_segments_for_stream(stream, &self.created_streams)?;
+    async fn abort_transaction(&self, stream: &ScopedStream, tx_id: TxId) -> Result<(), ControllerError> {
+        let current_segments = get_segments_for_stream(stream, &self.created_streams.read().await)?;
         for segment in current_segments {
             abort_tx_segment(tx_id, segment, self, false).await?;
         }
@@ -221,7 +236,7 @@ impl ControllerClient for MockController {
     }
 
     async fn check_transaction_status(
-        &mut self,
+        &self,
         _stream: &ScopedStream,
         _tx_id: TxId,
     ) -> Result<TransactionStatus, ControllerError> {
@@ -233,7 +248,7 @@ impl ControllerClient for MockController {
     }
 
     async fn get_endpoint_for_segment(
-        &mut self,
+        &self,
         _segment: &ScopedSegment,
     ) -> Result<PravegaNodeUri, ControllerError> {
         let uri = self.endpoint.clone() + ":" + &self.port.to_string();
@@ -248,7 +263,7 @@ impl ControllerClient for MockController {
     }
 
     async fn get_successors(
-        &mut self,
+        &self,
         _segment: &ScopedSegment,
     ) -> Result<StreamSegmentsWithPredecessors, ControllerError> {
         Err(ControllerError::OperationError {
@@ -261,7 +276,7 @@ impl ControllerClient for MockController {
 
 fn get_segments_for_stream(
     stream: &ScopedStream,
-    created_streams: &HashMap<ScopedStream, StreamConfiguration>,
+    created_streams: &RwLockReadGuard<HashMap<ScopedStream, StreamConfiguration>>,
 ) -> Result<Vec<ScopedSegment>, ControllerError> {
     let stream_config = created_streams.get(stream);
     if stream_config.is_none() {
@@ -295,7 +310,7 @@ fn get_segments_for_stream(
 
 async fn create_segment(
     name: String,
-    controller: &mut MockController,
+    controller: &MockController,
     call_server: bool,
 ) -> Result<bool, ControllerError> {
     if !call_server {
@@ -343,7 +358,7 @@ async fn create_segment(
 
 async fn delete_segment(
     name: String,
-    controller: &mut MockController,
+    controller: &MockController,
     call_server: bool,
 ) -> Result<bool, ControllerError> {
     if !call_server {
@@ -389,7 +404,7 @@ async fn delete_segment(
 async fn commit_tx_segment(
     uuid: TxId,
     segment: ScopedSegment,
-    controller: &mut MockController,
+    controller: &MockController,
     call_server: bool,
 ) -> Result<(), ControllerError> {
     if !call_server {
@@ -441,7 +456,7 @@ async fn commit_tx_segment(
 async fn abort_tx_segment(
     uuid: TxId,
     segment: ScopedSegment,
-    controller: &mut MockController,
+    controller: &MockController,
     call_server: bool,
 ) -> Result<(), ControllerError> {
     if !call_server {
@@ -492,7 +507,7 @@ async fn abort_tx_segment(
 async fn create_tx_segment(
     uuid: TxId,
     segment: ScopedSegment,
-    controller: &mut MockController,
+    controller: &MockController,
     call_server: bool,
 ) -> Result<(), ControllerError> {
     if !call_server {
@@ -540,8 +555,8 @@ async fn create_tx_segment(
 
 async fn send_request_over_connection(
     command: &Requests,
-    controller: &mut MockController,
+    controller: &MockController,
 ) -> Result<Replies, ClientConnectionError> {
-    controller.connection.write(command).await?;
-    controller.connection.read().await
+    controller.connection.lock().await.write(command).await?;
+    controller.connection.lock().await.read().await
 }
