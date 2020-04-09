@@ -8,7 +8,6 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_config::ClientConfig;
 use crate::connection::Connection;
 use crate::connection_factory::ConnectionFactory;
 use crate::error::ConnectionPoolError;
@@ -29,34 +28,31 @@ use uuid::Uuid;
 /// use std::net::SocketAddr;
 /// use pravega_wire_protocol::connection_pool::ConnectionPool;
 /// use pravega_wire_protocol::connection_pool::SegmentConnectionManager;
-/// use pravega_wire_protocol::connection_factory::ConnectionFactoryImpl;
+/// use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionType};
 /// use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
 /// use tokio::runtime::Runtime;
 ///
 /// let mut rt = Runtime::new().unwrap();
 /// let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
-/// let config = ClientConfigBuilder::default().build().unwrap();
-/// let factory = Box::new(ConnectionFactoryImpl{});
-/// let manager = SegmentConnectionManager::new(factory, config);
+/// let factory = ConnectionFactory::create(ConnectionType::Tokio);
+/// let manager = SegmentConnectionManager::new(factory, 2);
 /// let pool = ConnectionPool::new(manager);
 /// let connection = rt.block_on(pool.get_connection(endpoint));
 /// ```
 #[async_trait]
 pub trait Manager {
     /// The customized connection must implement Sized and Send trait
-    type Conn: Sized+Send;
+    type Conn: Sized + Send;
 
     /// Define how to establish the customized connection
     async fn establish_connection(&self, endpoint: SocketAddr) -> Result<Self::Conn, ConnectionPoolError>;
-
 
     /// Check whether this connection is still valid. This method will be used to filter out
     /// invalid connections when putting connection back to the pool
     fn is_valid(&self, conn: &Self::Conn) -> bool;
 
-
-    /// ConnectionPool will call this method to get its config
-    fn get_config(&self) -> ClientConfig;
+    /// Get the maximum connections in the pool
+    fn get_max_connections(&self) -> u32;
 }
 
 /// An implementation of the Manager trait. This is for creating connections between
@@ -67,14 +63,14 @@ pub struct SegmentConnectionManager {
     connection_factory: Box<dyn ConnectionFactory>,
 
     /// The client configuration.
-    config: ClientConfig,
+    max_connections_in_pool: u32,
 }
 
 impl SegmentConnectionManager {
-    pub fn new(connection_factory: Box<dyn ConnectionFactory>, config: ClientConfig) -> Self {
+    pub fn new(connection_factory: Box<dyn ConnectionFactory>, max_connections_in_pool: u32) -> Self {
         SegmentConnectionManager {
             connection_factory,
-            config,
+            max_connections_in_pool,
         }
     }
 }
@@ -84,9 +80,7 @@ impl Manager for SegmentConnectionManager {
     type Conn = Box<(dyn Connection)>;
 
     async fn establish_connection(&self, endpoint: SocketAddr) -> Result<Self::Conn, ConnectionPoolError> {
-        let result = self.connection_factory
-            .establish_connection(endpoint, self.config.connection_type)
-            .await;
+        let result = self.connection_factory.establish_connection(endpoint).await;
 
         match result {
             Ok(conn) => Ok(conn),
@@ -95,16 +89,14 @@ impl Manager for SegmentConnectionManager {
                 error_msg: String::from("Could not establish connection"),
             }),
         }
-
     }
 
     fn is_valid(&self, conn: &Self::Conn) -> bool {
         conn.is_valid()
     }
 
-
-    fn get_config(&self) -> ClientConfig {
-        self.config
+    fn get_max_connections(&self) -> u32 {
+        self.max_connections_in_pool
     }
 }
 
@@ -116,15 +108,14 @@ impl Manager for SegmentConnectionManager {
 /// use std::net::SocketAddr;
 /// use pravega_wire_protocol::connection_pool::ConnectionPool;
 /// use pravega_wire_protocol::connection_pool::SegmentConnectionManager;
-/// use pravega_wire_protocol::connection_factory::ConnectionFactoryImpl;
+/// use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionType};
 /// use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
 /// use tokio::runtime::Runtime;
 ///
 /// let mut rt = Runtime::new().unwrap();
 /// let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
-/// let config = ClientConfigBuilder::default().build().unwrap();
-/// let factory = Box::new(ConnectionFactoryImpl{});
-/// let manager = SegmentConnectionManager::new(factory, config);
+/// let factory = ConnectionFactory::create(ConnectionType::Tokio);
+/// let manager = SegmentConnectionManager::new(factory, 1);
 /// let pool = ConnectionPool::new(manager);
 /// let connection = rt.block_on(pool.get_connection(endpoint));
 /// ```
@@ -146,7 +137,7 @@ where
     /// Create a new ConnectionPoolImpl instances by passing into a ClientConfig. It will create
     /// a Runtime, a map and a ConnectionFactory.
     pub fn new(manager: M) -> Self {
-        let managed_pool = ManagedPool::new(manager.get_config());
+        let managed_pool = ManagedPool::new(manager.get_max_connections());
         ConnectionPool {
             manager,
             managed_pool,
@@ -203,19 +194,19 @@ where
 // The map is a concurrent map named Dashmap, which supports multi-threading with high performance.
 struct ManagedPool<T: Sized + Send> {
     map: DashMap<SocketAddr, InternalPool<T>>,
-    config: ClientConfig,
+    max_connections: u32,
 }
 
 impl<T: Sized + Send> ManagedPool<T> {
-    pub fn new(config: ClientConfig) -> Self {
+    pub fn new(max_connections: u32) -> Self {
         let map = DashMap::new();
-        ManagedPool { map, config }
+        ManagedPool { map, max_connections }
     }
 
     // add a connection to the internal pool
     fn add_connection(&self, endpoint: SocketAddr, connection: InternalConn<T>) {
         let mut internal = self.map.entry(endpoint).or_insert_with(InternalPool::new);
-        if self.config.max_connections_in_pool > internal.conns.len() as u32 {
+        if self.max_connections > internal.conns.len() as u32 {
             internal.conns.push(connection);
         }
     }
@@ -308,13 +299,12 @@ impl<T: Send + Sized> DerefMut for PooledConnection<'_, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::client_config::ClientConfigBuilder;
     use std::sync::Arc;
 
     struct FooConnection {}
 
     struct FooManager {
-        config: ClientConfig,
+        max_connections_in_pool: u32,
     }
 
     #[async_trait]
@@ -328,25 +318,22 @@ mod tests {
             Ok(FooConnection {})
         }
 
-
         fn is_valid(&self, _conn: &Self::Conn) -> bool {
             true
         }
 
-
-        fn get_config(&self) -> ClientConfig {
-            self.config
+        fn get_max_connections(&self) -> u32 {
+            self.max_connections_in_pool
         }
     }
 
     #[tokio::test(core_threads = 4)]
     async fn test_connection_pool_basic() {
-        let config = ClientConfigBuilder::default()
-            .build()
-            .expect("build client config");
-        let manager = FooManager { config };
+        let manager = FooManager {
+            max_connections_in_pool: 2,
+        };
         let pool = ConnectionPool::new(manager);
-        let endpoint = "127.0.0.1:9090"
+        let endpoint = "127.0.0.1:1000"
             .parse::<SocketAddr>()
             .expect("parse to socketaddr");
 
@@ -360,13 +347,11 @@ mod tests {
     #[tokio::test(core_threads = 4)]
     async fn test_connection_pool_size() {
         const MAX_CONNECTION: u32 = 2;
-        let config = ClientConfigBuilder::default()
-            .max_connections_in_pool(MAX_CONNECTION)
-            .build()
-            .expect("build client config");
-        let manager = FooManager { config };
+        let manager = FooManager {
+            max_connections_in_pool: MAX_CONNECTION,
+        };
         let pool = Arc::new(ConnectionPool::new(manager));
-        let endpoint = "127.0.0.1:9090"
+        let endpoint = "127.0.0.1:1234"
             .parse::<SocketAddr>()
             .expect("parse to socketaddr");
 

@@ -2,7 +2,7 @@ use super::check_standalone_status;
 use super::wait_for_standalone_with_timeout;
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
 use log::info;
-use pravega_client_rust::raw_client::RawClientImpl;
+use pravega_client_rust::raw_client::{RawClient, RawClientImpl};
 use pravega_client_rust::setup_logger;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_rust_client_retry::retry_async::retry_async;
@@ -12,7 +12,7 @@ use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfigBuilder;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{HelloCommand, SealSegmentCommand};
-use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl, ConnectionType};
+use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionType};
 use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::Requests;
 use pravega_wire_protocol::wire_commands::{Encode, Replies};
@@ -41,14 +41,11 @@ async fn test_retry_with_no_connection() {
         .parse::<SocketAddr>()
         .expect("Unable to parse socket address");
 
-    let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
-    let config = ClientConfigBuilder::default()
-        .build()
-        .expect("build client config");
-    let manager = SegmentConnectionManager::new(cf, config);
+    let cf = ConnectionFactory::create(ConnectionType::Tokio);
+    let manager = SegmentConnectionManager::new(cf, 1);
     let pool = ConnectionPool::new(manager);
 
-    let raw_client = RawClientImpl::new(&pool, endpoint).await;
+    let raw_client = RawClientImpl::new(&pool, endpoint);
 
     let result = retry_async(retry_policy, || async {
         let request = Requests::Hello(HelloCommand {
@@ -71,11 +68,15 @@ async fn test_retry_with_no_connection() {
 
 async fn test_retry_while_start_pravega() {
     let retry_policy = RetryWithBackoff::default().max_tries(10);
-    let controller_client = ControllerClientImpl::new(
-        "127.0.0.1:9090"
-            .parse::<SocketAddr>()
-            .expect("parse to socketaddr"),
-    );
+    let controller_uri = "127.0.0.1:9090"
+        .parse::<SocketAddr>()
+        .expect("parse to socketaddr");
+    let config = ClientConfigBuilder::default()
+        .controller_uri(controller_uri)
+        .build()
+        .expect("build client config");
+    let controller_client = ControllerClientImpl::new(config);
+
     let scope_name = Scope::new("retryScope".into());
 
     let result = retry_async(retry_policy, || async {
@@ -123,12 +124,15 @@ async fn test_retry_with_unexpected_reply() {
     let retry_policy = RetryWithBackoff::default().max_tries(4);
     let scope_name = Scope::new("retryScope".into());
     let stream_name = Stream::new("retryStream".into());
+    let controller_uri = "127.0.0.1:9090"
+        .parse::<SocketAddr>()
+        .expect("parse to socketaddr");
+    let config = ClientConfigBuilder::default()
+        .controller_uri(controller_uri)
+        .build()
+        .expect("build client config");
 
-    let controller_client = ControllerClientImpl::new(
-        "127.0.0.1:9090"
-            .parse::<SocketAddr>()
-            .expect("parse to socketaddr"),
-    );
+    let controller_client = ControllerClientImpl::new(config);
 
     //Get the endpoint.
     let segment_name = ScopedSegment {
@@ -143,13 +147,10 @@ async fn test_retry_with_unexpected_reply() {
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
 
-    let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
-    let config = ClientConfigBuilder::default()
-        .build()
-        .expect("build client config");
-    let manager = SegmentConnectionManager::new(cf, config);
+    let cf = ConnectionFactory::create(ConnectionType::Tokio);
+    let manager = SegmentConnectionManager::new(cf, 1);
     let pool = ConnectionPool::new(manager);
-    let raw_client = RawClientImpl::new(&pool, endpoint).await;
+    let raw_client = RawClientImpl::new(&pool, endpoint);
     let result = retry_async(retry_policy, || async {
         let request = Requests::SealSegment(SealSegmentCommand {
             segment: segment_name.to_string(),
@@ -209,12 +210,8 @@ async fn test_with_mock_server() {
         drop(server);
     });
 
-    let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
-    let config = ClientConfigBuilder::default()
-        .connection_type(ConnectionType::Mock)
-        .build()
-        .expect("build client config");
-    let manager = SegmentConnectionManager::new(cf, config);
+    let cf = ConnectionFactory::create(ConnectionType::Mock);
+    let manager = SegmentConnectionManager::new(cf, 3);
     let pool = ConnectionPool::new(manager);
 
     // test with 3 requests, they should be all succeed.

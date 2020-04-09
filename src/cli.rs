@@ -10,7 +10,7 @@
 use pravega_client_rust::raw_client::*;
 use pravega_wire_protocol::client_config::ClientConfigBuilder;
 use pravega_wire_protocol::commands::*;
-use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl};
+use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionType};
 use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::Requests;
 use std::net::SocketAddr;
@@ -327,18 +327,18 @@ struct Opt {
 #[tokio::main]
 async fn main() {
     let opt = Opt::from_args();
-    let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
+    let cf = ConnectionFactory::create(ConnectionType::Tokio);
     let config = ClientConfigBuilder::default()
         .build()
         .expect("build client config");
-    let manager = SegmentConnectionManager::new(cf, config);
+    let manager = SegmentConnectionManager::new(cf, config.max_connections_in_pool);
     let pool = ConnectionPool::new(manager);
     let endpoint = opt
         .server_uri
         .clone()
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
-    let raw_client = RawClientImpl::new(&pool, endpoint).await;
+    let raw_client = RawClientImpl::new(&pool, endpoint);
     match opt.cmd {
         Command::Hello {
             high_version,

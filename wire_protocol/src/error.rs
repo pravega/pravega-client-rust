@@ -143,10 +143,7 @@ pub enum ClientConnectionError {
 #[snafu(visibility = "pub(crate)")]
 pub enum ConnectionPoolError {
     #[snafu(display("Could not establish connection to endpoint: {}", endpoint))]
-    EstablishConnection {
-        endpoint: String,
-        error_msg: String,
-    },
+    EstablishConnection { endpoint: String, error_msg: String },
 
     #[snafu(display("No available connection in the internal pool"))]
     NoAvailableConnection {},

@@ -110,3 +110,19 @@
 [2020-04-09][15:52:36][pravega_rust_client_integration_test::pravega_service][INFO] done
 [2020-04-09][15:52:36][pravega_rust_client_integration_test::pravega_service][INFO] start running pravega under path ./pravega/bin/pravega-standalone
 [2020-04-09][15:52:36][pravega_rust_client_integration_test::pravega_service][INFO] child pid: 19196
+[2020-04-09][16:49:13][pravega_rust_client_integration_test::pravega_service][INFO] done
+[2020-04-09][16:49:13][pravega_rust_client_integration_test::pravega_service][INFO] start running pravega under path ./pravega/bin/pravega-standalone
+[2020-04-09][16:49:13][pravega_rust_client_integration_test::pravega_service][INFO] child pid: 25966
+[2020-04-09][16:49:32][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] Scope created
+[2020-04-09][16:49:32][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] Stream created
+[2020-04-09][16:49:32][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test simple write
+[2020-04-09][16:49:32][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test simple write passed
+[2020-04-09][16:49:32][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer with segment scaled up
+[2020-04-09][16:49:32][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer with segment scaled up passed
+[2020-04-09][16:49:32][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer with segment sealed
+[2020-04-09][16:49:33][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer with segment sealed passed
+[2020-04-09][16:49:33][pravega_client_rust::event_stream_writer][WARN] connection 9dd4ec1a-1d7c-4f27-a82a-20be9a43ef45 failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-04-09][16:49:33][pravega_client_rust::event_stream_writer][WARN] connection 50621960-ddea-4da3-99d2-8334b87b940c failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-04-09][16:49:35][pravega_rust_client_integration_test::pravega_service][INFO] done
+[2020-04-09][16:49:35][pravega_rust_client_integration_test::pravega_service][INFO] start running pravega under path ./pravega/bin/pravega-standalone
+[2020-04-09][16:49:35][pravega_rust_client_integration_test::pravega_service][INFO] child pid: 26736
