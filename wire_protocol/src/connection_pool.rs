@@ -320,7 +320,7 @@ mod tests {
             max_connections_in_pool: 2,
         };
         let pool = ConnectionPool::new(manager);
-        let endpoint = "127.0.0.1:9090"
+        let endpoint = "127.0.0.1:1000"
             .parse::<SocketAddr>()
             .expect("parse to socketaddr");
 
@@ -338,7 +338,7 @@ mod tests {
             max_connections_in_pool: MAX_CONNECTION,
         };
         let pool = Arc::new(ConnectionPool::new(manager));
-        let endpoint = "127.0.0.1:9090"
+        let endpoint = "127.0.0.1:1234"
             .parse::<SocketAddr>()
             .expect("parse to socketaddr");
 

@@ -7,7 +7,7 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-use pravega_wire_protocol::client_config::ClientConfigBuilder;
+use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
 use tokio::runtime::Runtime;
 
 // Note this useful idiom: importing names from outer (for mod tests) scope.
@@ -23,13 +23,7 @@ fn test_create_scope_error() {
     let manager = ControllerConnectionManager::new(config);
     let pool = ConnectionPool::new(manager);
     let connection = rt
-        .block_on(
-            pool.get_connection(
-                "127.0.0.1:9090"
-                    .parse::<SocketAddr>()
-                    .expect("parse to socketaddr"),
-            ),
-        )
+        .block_on(pool.get_connection(TEST_CONTROLLER_URI.into()))
         .expect("get connection");
 
     let request = Scope::new("testScope124".into());
@@ -49,13 +43,7 @@ fn test_create_stream_error() {
     let manager = ControllerConnectionManager::new(config);
     let pool = ConnectionPool::new(manager);
     let connection = rt
-        .block_on(
-            pool.get_connection(
-                "127.0.0.1:9090"
-                    .parse::<SocketAddr>()
-                    .expect("parse to socketaddr"),
-            ),
-        )
+        .block_on(pool.get_connection(TEST_CONTROLLER_URI.into()))
         .expect("get connection");
 
     let request = StreamConfiguration {

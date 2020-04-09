@@ -12,7 +12,9 @@ use crate::connection_factory::ConnectionType;
 use derive_builder::*;
 use getset::CopyGetters;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
-use std::net::SocketAddr;
+use std::net::{SocketAddr, Ipv4Addr};
+
+pub const TEST_CONTROLLER_URI: (Ipv4Addr, u16) = (Ipv4Addr::new(127,0,0,1), 9090);
 
 #[derive(Builder, Debug, CopyGetters, Clone)]
 #[builder(setter(into))]
@@ -30,6 +32,7 @@ pub struct ClientConfig {
     pub retry_policy: RetryWithBackoff,
 
     #[get_copy = "pub"]
+    #[builder(setter(into))]
     pub controller_uri: SocketAddr,
 }
 
@@ -45,7 +48,7 @@ mod tests {
             .connection_type(ConnectionType::Tokio)
             .retry_policy(RetryWithBackoff::from_millis(1000))
             .controller_uri(
-                "127.0.0.1:9090"
+                "127.0.0.2:9091"
                     .parse::<SocketAddr>()
                     .expect("parse to socketaddr"),
             )
@@ -55,18 +58,14 @@ mod tests {
         assert_eq!(config.max_connections_in_pool(), 15 as u32);
         assert_eq!(config.connection_type(), ConnectionType::Tokio);
         assert_eq!(config.retry_policy(), RetryWithBackoff::from_millis(1000));
-        assert_eq!(config.controller_uri().ip(), Ipv4Addr::new(127, 0, 0, 1));
-        assert_eq!(config.controller_uri().port(), 9090);
+        assert_eq!(config.controller_uri().ip(), Ipv4Addr::new(127, 0, 0, 2));
+        assert_eq!(config.controller_uri().port(), 9091);
     }
 
     #[test]
     fn test_get_default() {
         let config = ClientConfigBuilder::default()
-            .controller_uri(
-                "127.0.0.1:9090"
-                    .parse::<SocketAddr>()
-                    .expect("parse to socketaddr"),
-            )
+            .controller_uri(TEST_CONTROLLER_URI)
             .build()
             .unwrap();
 

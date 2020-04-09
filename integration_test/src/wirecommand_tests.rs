@@ -15,8 +15,7 @@ use pravega_controller_client::{
     create_connection, ControllerClient, ControllerClientImpl, ControllerConnectionManager,
 };
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::ClientConfig;
-use pravega_wire_protocol::client_config::ClientConfigBuilder;
+use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::Command as WireCommand;
 use pravega_wire_protocol::commands::*;
@@ -33,11 +32,7 @@ use uuid::Uuid;
 lazy_static! {
     static ref CONFIG: ClientConfig = {
         ClientConfigBuilder::default()
-            .controller_uri(
-                "127.0.0.1:9090"
-                    .parse::<SocketAddr>()
-                    .expect("parse to socketaddr"),
-            )
+            .controller_uri(TEST_CONTROLLER_URI)
             .build()
             .expect("build client config")
     };

@@ -265,7 +265,7 @@ impl EventSegmentWriter {
 
     fn new(segment: ScopedSegment, sender: Sender<Incoming>, retry_policy: RetryWithBackoff) -> Self {
         EventSegmentWriter {
-            endpoint: "127.0.0.1:9090".parse::<SocketAddr>().expect("get socketaddr"),
+            endpoint: "127.0.0.1:0".parse::<SocketAddr>().expect("get socketaddr"), //Dummy address
             id: Uuid::new_v4(),
             writer: None,
             segment,

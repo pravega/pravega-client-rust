@@ -11,7 +11,7 @@
 use pravega_client_rust::event_stream_writer::{EventStreamWriter, Processor};
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::ClientConfigBuilder;
+use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_wire_protocol::connection_factory::ConnectionFactory;
 use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::Requests;
@@ -31,11 +31,8 @@ pub async fn test_event_stream_writer() {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
     };
-    let controller_addr = "127.0.0.1:9090"
-        .parse::<SocketAddr>()
-        .expect("parse to socketaddr");
     let config = ClientConfigBuilder::default()
-        .controller_uri(controller_addr)
+        .controller_uri(TEST_CONTROLLER_URI)
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config.clone());
@@ -157,11 +154,7 @@ async fn test_segment_sealed(writer: &mut EventStreamWriter, factory: &ClientFac
 // helper function
 async fn setup_test(scope_name: &Scope, stream_name: &Stream) -> ControllerClientImpl {
     let config = ClientConfigBuilder::default()
-        .controller_uri(
-            "127.0.0.1:9090"
-                .parse::<SocketAddr>()
-                .expect("parse to socketaddr"),
-        )
+        .controller_uri(TEST_CONTROLLER_URI)
         .build()
         .expect("build client config");
 
