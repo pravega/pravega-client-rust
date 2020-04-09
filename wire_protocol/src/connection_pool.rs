@@ -82,14 +82,19 @@ impl Manager for SegmentConnectionManager {
     type Conn = Box<dyn Connection>;
 
     async fn establish_connection(&self, endpoint: SocketAddr) -> Result<Self::Conn, ConnectionPoolError> {
-        self.connection_factory.establish_connection(endpoint).await.context(EstablishConnection {})
+        self.connection_factory
+            .establish_connection(endpoint)
+            .await
+            .context(EstablishConnection {})
     }
 
     fn is_valid(&self, conn: &PooledConnection<'_, Self::Conn>) -> bool {
         conn.inner.as_ref().expect("get inner connection").is_valid()
     }
 
-    fn get_max_connections(&self) -> u32 { self.max_connections_in_pool }
+    fn get_max_connections(&self) -> u32 {
+        self.max_connections_in_pool
+    }
 }
 
 /// ConnectionPool creates a pool of connections for reuse.
@@ -311,7 +316,9 @@ mod tests {
 
     #[tokio::test(core_threads = 4)]
     async fn test_connection_pool_basic() {
-        let manager = FooManager { max_connections_in_pool: 2 };
+        let manager = FooManager {
+            max_connections_in_pool: 2,
+        };
         let pool = ConnectionPool::new(manager);
         let endpoint = "127.0.0.1:9090"
             .parse::<SocketAddr>()
@@ -327,7 +334,9 @@ mod tests {
     #[tokio::test(core_threads = 4)]
     async fn test_connection_pool_size() {
         const MAX_CONNECTION: u32 = 2;
-        let manager = FooManager { max_connections_in_pool: MAX_CONNECTION };
+        let manager = FooManager {
+            max_connections_in_pool: MAX_CONNECTION,
+        };
         let pool = Arc::new(ConnectionPool::new(manager));
         let endpoint = "127.0.0.1:9090"
             .parse::<SocketAddr>()

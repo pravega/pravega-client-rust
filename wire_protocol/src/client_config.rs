@@ -44,9 +44,11 @@ mod tests {
             .max_connections_in_pool(15 as u32)
             .connection_type(ConnectionType::Tokio)
             .retry_policy(RetryWithBackoff::from_millis(1000))
-            .controller_uri("127.0.0.1:9090"
-                                .parse::<SocketAddr>()
-                                .expect("parse to socketaddr"))
+            .controller_uri(
+                "127.0.0.1:9090"
+                    .parse::<SocketAddr>()
+                    .expect("parse to socketaddr"),
+            )
             .build()
             .unwrap();
 
@@ -59,9 +61,14 @@ mod tests {
 
     #[test]
     fn test_get_default() {
-        let config = ClientConfigBuilder::default().controller_uri("127.0.0.1:9090"
-            .parse::<SocketAddr>()
-            .expect("parse to socketaddr")).build().unwrap();
+        let config = ClientConfigBuilder::default()
+            .controller_uri(
+                "127.0.0.1:9090"
+                    .parse::<SocketAddr>()
+                    .expect("parse to socketaddr"),
+            )
+            .build()
+            .unwrap();
 
         assert_eq!(config.max_connections_in_pool(), u32::max_value() as u32);
         assert_eq!(config.connection_type(), ConnectionType::Tokio);

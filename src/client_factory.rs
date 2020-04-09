@@ -13,7 +13,7 @@ use std::net::SocketAddr;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream};
 use pravega_wire_protocol::client_config::ClientConfig;
-use pravega_wire_protocol::connection_factory::{ConnectionFactory};
+use pravega_wire_protocol::connection_factory::ConnectionFactory;
 use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
 
 use crate::event_stream_writer::EventStreamWriter;

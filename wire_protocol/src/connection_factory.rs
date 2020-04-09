@@ -59,15 +59,17 @@ pub trait ConnectionFactory: Send + Sync {
     ///   let mut connection = rt.block_on(connection_future).unwrap();
     /// }
     /// ```
-    async fn establish_connection(&self, endpoint: SocketAddr) -> Result<Box<dyn Connection>, ConnectionFactoryError>;
-
+    async fn establish_connection(
+        &self,
+        endpoint: SocketAddr,
+    ) -> Result<Box<dyn Connection>, ConnectionFactoryError>;
 }
 
 impl dyn ConnectionFactory {
     pub fn create(connection_type: ConnectionType) -> Box<dyn ConnectionFactory> {
         match connection_type {
-            ConnectionType::Tokio => Box::new(TokioConnectionFactory{}),
-            ConnectionType::Mock => Box::new(MockConnectionFactory{}),
+            ConnectionType::Tokio => Box::new(TokioConnectionFactory {}),
+            ConnectionType::Mock => Box::new(MockConnectionFactory {}),
         }
     }
 }
