@@ -69,7 +69,8 @@ struct Opt {
 fn main() {
     let opt = Opt::from_args();
     let mut rt = Runtime::new().unwrap();
-    let controller_addr = opt.controller_uri
+    let controller_addr = opt
+        .controller_uri
         .parse::<SocketAddr>()
         .expect("parse to socketaddr");
     let config = ClientConfigBuilder::default()

@@ -12,9 +12,9 @@ use crate::connection_factory::ConnectionType;
 use derive_builder::*;
 use getset::CopyGetters;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
-use std::net::{SocketAddr, Ipv4Addr};
+use std::net::{Ipv4Addr, SocketAddr};
 
-pub const TEST_CONTROLLER_URI: (Ipv4Addr, u16) = (Ipv4Addr::new(127,0,0,1), 9090);
+pub const TEST_CONTROLLER_URI: (Ipv4Addr, u16) = (Ipv4Addr::new(127, 0, 0, 1), 9090);
 
 #[derive(Builder, Debug, CopyGetters, Clone)]
 #[builder(setter(into))]
