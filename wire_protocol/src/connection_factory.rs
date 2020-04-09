@@ -54,23 +54,32 @@ pub trait ConnectionFactory: Send + Sync {
     /// fn main() {
     ///   let mut rt = Runtime::new().unwrap();
     ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
-    ///   let cf = connection_factory::ConnectionFactoryImpl {};
-    ///   let connection_future = cf.establish_connection(endpoint, connection_factory::ConnectionType::Tokio);
+    ///   let cf = connection_factory::ConnectionFactory::create(connection_factory::ConnectionType::Tokio);
+    ///   let connection_future = cf.establish_connection(endpoint);
     ///   let mut connection = rt.block_on(connection_future).unwrap();
     /// }
     /// ```
     async fn establish_connection(
         &self,
         endpoint: SocketAddr,
-        connection_type: ConnectionType,
     ) -> Result<Box<dyn Connection>, ConnectionFactoryError>;
 }
 
-#[derive(Debug)]
-pub struct ConnectionFactoryImpl {}
+impl dyn ConnectionFactory {
+    pub fn create(connection_type: ConnectionType) -> Box<dyn ConnectionFactory> {
+        match connection_type {
+            ConnectionType::Tokio => Box::new(TokioConnectionFactory {}),
+            ConnectionType::Mock => Box::new(MockConnectionFactory {}),
+        }
+    }
+}
 
-impl ConnectionFactoryImpl {
-    async fn establish_tokio_connection(
+struct TokioConnectionFactory {}
+struct MockConnectionFactory {}
+
+#[async_trait]
+impl ConnectionFactory for TokioConnectionFactory {
+    async fn establish_connection(
         &self,
         endpoint: SocketAddr,
     ) -> Result<Box<dyn Connection>, ConnectionFactoryError> {
@@ -90,8 +99,11 @@ impl ConnectionFactoryImpl {
             .context(Verify {})?;
         Ok(tokio_connection)
     }
+}
 
-    async fn establish_mock_connection(
+#[async_trait]
+impl ConnectionFactory for MockConnectionFactory {
+    async fn establish_connection(
         &self,
         endpoint: SocketAddr,
     ) -> Result<Box<dyn Connection>, ConnectionFactoryError> {
@@ -107,20 +119,6 @@ impl ConnectionFactoryImpl {
             stream: Some(stream),
         }) as Box<dyn Connection>;
         Ok(tokio_connection)
-    }
-}
-
-#[async_trait]
-impl ConnectionFactory for ConnectionFactoryImpl {
-    async fn establish_connection(
-        &self,
-        endpoint: SocketAddr,
-        connection_type: ConnectionType,
-    ) -> Result<Box<dyn Connection>, ConnectionFactoryError> {
-        match connection_type {
-            ConnectionType::Tokio => self.establish_tokio_connection(endpoint).await,
-            ConnectionType::Mock => self.establish_mock_connection(endpoint).await,
-        }
     }
 }
 
@@ -183,8 +181,8 @@ mod tests {
 
         let mut server = Server::new();
 
-        let connection_factory = self::ConnectionFactoryImpl {};
-        let connection_future = connection_factory.establish_connection(server.address, ConnectionType::Mock);
+        let connection_factory = ConnectionFactory::create(ConnectionType::Mock);
+        let connection_future = connection_factory.establish_connection(server.address);
         let mut connection = rt.block_on(connection_future).unwrap();
 
         let mut payload: Vec<u8> = Vec::new();

@@ -8,19 +8,22 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::error::RawClientError;
-use crate::raw_client::{RawClient, RawClientImpl};
-use crate::REQUEST_ID_GENERATOR;
-use async_trait::async_trait;
-use pravega_controller_client::ControllerClient;
-use pravega_rust_client_shared::ScopedSegment;
-use pravega_wire_protocol::commands::{Command, EventCommand, ReadSegmentCommand, SegmentReadCommand};
-use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
-use pravega_wire_protocol::wire_commands::{Replies, Requests};
-use snafu::Snafu;
 use std::net::SocketAddr;
 use std::result::Result as StdResult;
 use std::sync::atomic::{AtomicI64, Ordering};
+
+use snafu::Snafu;
+
+use async_trait::async_trait;
+use pravega_rust_client_shared::ScopedSegment;
+use pravega_wire_protocol::commands::{Command, EventCommand, ReadSegmentCommand, SegmentReadCommand};
+
+use pravega_wire_protocol::wire_commands::{Replies, Requests};
+
+use crate::client_factory::ClientFactoryInternal;
+use crate::error::RawClientError;
+use crate::raw_client::RawClient;
+use crate::REQUEST_ID_GENERATOR;
 
 #[derive(Debug, Snafu)]
 pub enum ReaderError {
@@ -62,7 +65,7 @@ pub trait AsyncSegmentReader {
 }
 
 #[derive(new)]
-struct AsyncSegmentReaderImpl<'a> {
+pub(crate) struct AsyncSegmentReaderImpl<'a> {
     segment: ScopedSegment,
     raw_client: Box<dyn RawClient<'a> + 'a>,
     id: &'static AtomicI64,
@@ -71,10 +74,10 @@ struct AsyncSegmentReaderImpl<'a> {
 impl<'a> AsyncSegmentReaderImpl<'a> {
     pub async fn init(
         segment: ScopedSegment,
-        connection_pool: &'a ConnectionPool<SegmentConnectionManager>,
-        controller_client: &'a dyn ControllerClient,
+        factory: &'a ClientFactoryInternal,
     ) -> AsyncSegmentReaderImpl<'a> {
-        let endpoint = controller_client
+        let endpoint = factory
+            .get_controller_client()
             .get_endpoint_for_segment(&segment)
             .await
             .expect("get endpoint for segment")
@@ -83,7 +86,7 @@ impl<'a> AsyncSegmentReaderImpl<'a> {
 
         AsyncSegmentReaderImpl {
             segment,
-            raw_client: RawClientImpl::new(&*connection_pool, endpoint).await,
+            raw_client: Box::new(factory.create_raw_client(endpoint)),
             id: &REQUEST_ID_GENERATOR,
         }
     }
@@ -147,17 +150,20 @@ impl AsyncSegmentReader for AsyncSegmentReaderImpl<'_> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::time::Duration;
+
     use mockall::predicate::*;
     use mockall::*;
+    use tokio::time::delay_for;
+
     use pravega_rust_client_shared::Segment;
     use pravega_rust_client_shared::*;
     use pravega_wire_protocol::client_connection::ClientConnection;
     use pravega_wire_protocol::commands::{
         NoSuchSegmentCommand, SegmentSealedCommand, SegmentTruncatedCommand,
     };
-    use std::time::Duration;
-    use tokio::time::delay_for;
+
+    use super::*;
 
     // Setup mock.
     mock! {

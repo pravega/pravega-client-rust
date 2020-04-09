@@ -55,7 +55,8 @@ mod test {
         let mut pravega = PravegaStandaloneService::start(false);
         wait_for_standalone_with_timeout(true, 30);
 
-        wirecommand_tests::test_wirecommand();
+        wirecommand_tests::test_wirecommand(&mut rt);
+
         rt.block_on(event_stream_writer_tests::test_event_stream_writer());
 
         // Shut down Pravega standalone
