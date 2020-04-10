@@ -193,7 +193,6 @@ async fn test_with_mock_server() {
     let endpoint = server.address;
 
     thread::spawn(move || {
-
         for stream in server.listener.incoming() {
             let mut client = stream.expect("get a new client connection");
             let mut buffer = [0u8; 100];
