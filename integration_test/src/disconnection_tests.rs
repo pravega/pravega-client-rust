@@ -177,23 +177,23 @@ async fn test_retry_with_unexpected_reply() {
 
 struct Server {
     listener: TcpListener,
+    address: SocketAddr,
 }
 
 impl Server {
-    pub fn new(endpoint: SocketAddr) -> Server {
-        let listener = TcpListener::bind(endpoint).expect("local server");
-        Server { listener }
+    pub fn new() -> Server {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("local server");
+        let address = listener.local_addr().expect("get listener address");
+        Server { address, listener }
     }
 }
 
 async fn test_with_mock_server() {
-    let endpoint = "127.0.0.1:54321"
-        .parse::<SocketAddr>()
-        .expect("Unable to parse socket address");
+    let server = Server::new();
+    let endpoint = server.address;
 
-    let copy_endpoint = endpoint.clone();
     thread::spawn(move || {
-        let server = Server::new(copy_endpoint);
+
         for stream in server.listener.incoming() {
             let mut client = stream.expect("get a new client connection");
             let mut buffer = [0u8; 100];
