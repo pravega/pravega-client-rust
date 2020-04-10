@@ -1,0 +1,754 @@
+[2020-04-09][17:38:53][pravega_rust_client_integration_test::pravega_service][INFO] done
+[2020-04-09][17:38:53][pravega_rust_client_integration_test::pravega_service][INFO] start running pravega under path ./pravega/bin/pravega-standalone
+[2020-04-09][17:38:53][pravega_rust_client_integration_test::pravega_service][INFO] child pid: 29339
+[2020-04-09][17:38:57][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:38:57][hyper::client::connect::http][DEBUG] connected to 127.0.0.1:9090
+[2020-04-09][17:38:57][h2::client][DEBUG] binding client connection
+[2020-04-09][17:38:57][h2::client][DEBUG] client connection bound
+[2020-04-09][17:38:57][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:38:57][h2::codec::framed_write][DEBUG] send; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 5177345 }
+[2020-04-09][17:38:57][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:38:57][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(1), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:38:57][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:38:57][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1), flags: (0x1: END_STREAM) }
+[2020-04-09][17:38:58][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x0), max_concurrent_streams: 2147483647, initial_window_size: 1048576, max_header_list_size: 8192 }
+[2020-04-09][17:38:58][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:38:58][h2::codec::framed_read][DEBUG] received; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 983041 }
+[2020-04-09][17:38:58][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:38:58][h2::proto::settings][DEBUG] received settings ACK; applying Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:38:58][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:38:58][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:38:58][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:38:58][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:38:58][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(3), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:38:58][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(3) }
+[2020-04-09][17:38:58][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(3), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(3), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(3) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(3), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(5), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(5) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(5), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(5), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(5) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(5), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(7), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(7) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(7), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(7), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(7) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(7), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(9), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(9) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(9), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(9), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(9) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(9), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(11), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(11) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(11), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(11), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(11) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(11), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(13), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(13) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(13), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(13), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(13) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(13), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(15), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(15) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(15), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(15), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(15) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(15), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(17), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(17) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(17), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(17), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(17) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(17), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(19), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(19) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(19), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(19), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(19) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(19), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(21), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(21) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(21), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(21), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(21) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(21), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(23), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(23) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(23), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(23), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(23) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(23), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(25), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(25) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(25), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(25), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(25) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(25), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(27), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(27) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(27), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(27), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(27) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(27), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(29), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(29) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(29), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(29), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(29) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(29), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(31), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(31) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(31), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(31), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(31) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(31), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(33), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(33) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(33), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(33), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(33) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(33), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(35), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(35) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(35), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(35), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(35) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(35), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(37), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(37) }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(37), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(37), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(37) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(37), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:14][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:39:14][hyper::client::connect::http][DEBUG] connected to 127.0.0.1:9090
+[2020-04-09][17:39:14][h2::client][DEBUG] binding client connection
+[2020-04-09][17:39:14][h2::client][DEBUG] client connection bound
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:39:14][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x0), max_concurrent_streams: 2147483647, initial_window_size: 1048576, max_header_list_size: 8192 }
+[2020-04-09][17:39:14][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:39:14][h2::codec::framed_read][DEBUG] received; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 983041 }
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 5177345 }
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(1), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:39:15][h2::proto::settings][DEBUG] received settings ACK; applying Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:15][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] Scope created
+[2020-04-09][17:39:15][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(3), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(3) }
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(3), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(3), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(3) }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(3), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:15][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] Stream created
+[2020-04-09][17:39:15][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test simple write
+[2020-04-09][17:39:15][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=GoAway { error_code: NO_ERROR, last_stream_id: StreamId(0) }
+[2020-04-09][17:39:15][hyper::client::connect::http][DEBUG] connected to 127.0.0.1:9090
+[2020-04-09][17:39:15][h2::proto::connection][DEBUG] Connection::poll; connection error=NO_ERROR
+[2020-04-09][17:39:15][h2::client][DEBUG] binding client connection
+[2020-04-09][17:39:15][h2::client][DEBUG] client connection bound
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:39:15][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x0), max_concurrent_streams: 2147483647, initial_window_size: 1048576, max_header_list_size: 8192 }
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 983041 }
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 5177345 }
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(1), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:39:15][h2::proto::settings][DEBUG] received settings ACK; applying Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] writer b456843a-2cd7-4e8d-b349-995dcd9958bf created for segment "testScopeWriter/testStreamWriter/0.#epoch.0" 
+[2020-04-09][17:39:15][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(3), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(3) }
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(3), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(3), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(3) }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(3), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] setting up append for writer:b456843a-2cd7-4e8d-b349-995dcd9958bf/segment:testScopeWriter/testStreamWriter/0.#epoch.0 
+[2020-04-09][17:39:15][pravega_client_rust::raw_client][DEBUG] send_setup_request; 
+[2020-04-09][17:39:15][pravega_client_rust::raw_client][DEBUG] -> send_setup_request
+[2020-04-09][17:39:15][pravega_client_rust::raw_client][DEBUG] <- send_setup_request
+[2020-04-09][17:39:15][pravega_client_rust::raw_client][DEBUG] -- send_setup_request
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] append setup completed for writer:239710258658297590588418367153568831679/segment:"testScopeWriter/testStreamWriter/0.#epoch.0" 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b created for segment "testScopeWriter/testStreamWriter/1.#epoch.0" 
+[2020-04-09][17:39:15][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(5), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(5) }
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(5), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(5), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(5) }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(5), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] setting up append for writer:eec3d3bb-1700-41be-9cc0-12e067cd8e0b/segment:testScopeWriter/testStreamWriter/1.#epoch.0 
+[2020-04-09][17:39:15][pravega_client_rust::raw_client][DEBUG] send_setup_request; 
+[2020-04-09][17:39:15][pravega_client_rust::raw_client][DEBUG] -> send_setup_request
+[2020-04-09][17:39:15][pravega_client_rust::raw_client][DEBUG] <- send_setup_request
+[2020-04-09][17:39:15][pravega_client_rust::raw_client][DEBUG] -- send_setup_request
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] append setup completed for writer:317373055295435495504448855726552354315/segment:"testScopeWriter/testStreamWriter/1.#epoch.0" 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id b456843a-2cd7-4e8d-b349-995dcd9958bf/connection id: d29a74ff-6c99-4ab7-8276-d9187cdb5d51 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer b456843a-2cd7-4e8d-b349-995dcd9958bf, latest event id is: 1 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 5 events of total size 65 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id b456843a-2cd7-4e8d-b349-995dcd9958bf/connection id: d29a74ff-6c99-4ab7-8276-d9187cdb5d51 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 1 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 3 events of total size 39 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer b456843a-2cd7-4e8d-b349-995dcd9958bf, latest event id is: 6 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 4 
+[2020-04-09][17:39:15][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test simple write passed
+[2020-04-09][17:39:15][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer with segment scaled up
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id b456843a-2cd7-4e8d-b349-995dcd9958bf/connection id: d29a74ff-6c99-4ab7-8276-d9187cdb5d51 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer b456843a-2cd7-4e8d-b349-995dcd9958bf, latest event id is: 7 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 65 events of total size 845 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id b456843a-2cd7-4e8d-b349-995dcd9958bf/connection id: d29a74ff-6c99-4ab7-8276-d9187cdb5d51 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 5 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 176 events of total size 2288 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer b456843a-2cd7-4e8d-b349-995dcd9958bf, latest event id is: 72 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 109 events of total size 1417 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id b456843a-2cd7-4e8d-b349-995dcd9958bf/connection id: d29a74ff-6c99-4ab7-8276-d9187cdb5d51 
+[2020-04-09][17:39:15][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 181 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 47 events of total size 611 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(7), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(7) }
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(7), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer b456843a-2cd7-4e8d-b349-995dcd9958bf, latest event id is: 181 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 74 events of total size 962 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id b456843a-2cd7-4e8d-b349-995dcd9958bf/connection id: d29a74ff-6c99-4ab7-8276-d9187cdb5d51 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 228 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 27 events of total size 351 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer b456843a-2cd7-4e8d-b349-995dcd9958bf, latest event id is: 255 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 255 
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(7), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(7) }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(7), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id b456843a-2cd7-4e8d-b349-995dcd9958bf/connection id: d29a74ff-6c99-4ab7-8276-d9187cdb5d51 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 256 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 75 events of total size 975 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer b456843a-2cd7-4e8d-b349-995dcd9958bf, latest event id is: 256 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 100 events of total size 1300 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id b456843a-2cd7-4e8d-b349-995dcd9958bf/connection id: d29a74ff-6c99-4ab7-8276-d9187cdb5d51 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 331 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 60 events of total size 780 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer b456843a-2cd7-4e8d-b349-995dcd9958bf, latest event id is: 356 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 68 events of total size 884 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id b456843a-2cd7-4e8d-b349-995dcd9958bf/connection id: d29a74ff-6c99-4ab7-8276-d9187cdb5d51 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 391 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 117 events of total size 1521 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer b456843a-2cd7-4e8d-b349-995dcd9958bf, latest event id is: 424 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 69 events of total size 897 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id b456843a-2cd7-4e8d-b349-995dcd9958bf/connection id: d29a74ff-6c99-4ab7-8276-d9187cdb5d51 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 508 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 9 events of total size 117 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer b456843a-2cd7-4e8d-b349-995dcd9958bf, latest event id is: 493 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 517 
+[2020-04-09][17:39:15][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer with segment scaled up passed
+[2020-04-09][17:39:15][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer with segment sealed
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id b456843a-2cd7-4e8d-b349-995dcd9958bf/connection id: d29a74ff-6c99-4ab7-8276-d9187cdb5d51 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 518 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 50 events of total size 650 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer b456843a-2cd7-4e8d-b349-995dcd9958bf, latest event id is: 494 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 62 events of total size 806 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id b456843a-2cd7-4e8d-b349-995dcd9958bf/connection id: d29a74ff-6c99-4ab7-8276-d9187cdb5d51 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 568 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 123 events of total size 1599 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer b456843a-2cd7-4e8d-b349-995dcd9958bf, latest event id is: 556 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 205 events of total size 2665 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id b456843a-2cd7-4e8d-b349-995dcd9958bf/connection id: d29a74ff-6c99-4ab7-8276-d9187cdb5d51 
+[2020-04-09][17:39:15][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(9), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(9) }
+[2020-04-09][17:39:15][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(9), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 691 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 58 events of total size 754 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer b456843a-2cd7-4e8d-b349-995dcd9958bf, latest event id is: 761 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 749 
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(9), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(9) }
+[2020-04-09][17:39:15][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(9), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id b456843a-2cd7-4e8d-b349-995dcd9958bf/connection id: d29a74ff-6c99-4ab7-8276-d9187cdb5d51 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer b456843a-2cd7-4e8d-b349-995dcd9958bf, latest event id is: 762 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 73 events of total size 949 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id b456843a-2cd7-4e8d-b349-995dcd9958bf/connection id: d29a74ff-6c99-4ab7-8276-d9187cdb5d51 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 750 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 57 events of total size 741 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer b456843a-2cd7-4e8d-b349-995dcd9958bf, latest event id is: 835 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 50 events of total size 650 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id b456843a-2cd7-4e8d-b349-995dcd9958bf/connection id: d29a74ff-6c99-4ab7-8276-d9187cdb5d51 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 807 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 49 events of total size 637 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 856 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 90 events of total size 1170 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer b456843a-2cd7-4e8d-b349-995dcd9958bf, latest event id is: 885 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 112 events of total size 1456 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id b456843a-2cd7-4e8d-b349-995dcd9958bf/connection id: d29a74ff-6c99-4ab7-8276-d9187cdb5d51 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer b456843a-2cd7-4e8d-b349-995dcd9958bf, latest event id is: 997 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 26 events of total size 338 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id b456843a-2cd7-4e8d-b349-995dcd9958bf/connection id: d29a74ff-6c99-4ab7-8276-d9187cdb5d51 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 946 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] flushing 41 events of total size 533 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id eec3d3bb-1700-41be-9cc0-12e067cd8e0b/connection id: cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer b456843a-2cd7-4e8d-b349-995dcd9958bf, latest event id is: 1023 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer eec3d3bb-1700-41be-9cc0-12e067cd8e0b, latest event id is: 987 
+[2020-04-09][17:39:15][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer with segment sealed passed
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][WARN] connection d29a74ff-6c99-4ab7-8276-d9187cdb5d51 failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-04-09][17:39:15][pravega_client_rust::event_stream_writer][WARN] connection cddbf0bf-944f-438f-82e9-1c4dc4b8ee77 failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-04-09][17:39:15][hyper::client::service][DEBUG] connection error: hyper::Error(Io, Kind(BrokenPipe))
+[2020-04-09][17:39:15][hyper::client::service][DEBUG] connection error: hyper::Error(Io, Kind(BrokenPipe))
+[2020-04-09][17:39:18][pravega_rust_client_integration_test::pravega_service][INFO] done
+[2020-04-09][17:39:18][pravega_rust_client_integration_test::pravega_service][INFO] start running pravega under path ./pravega/bin/pravega-standalone
+[2020-04-09][17:39:18][pravega_rust_client_integration_test::pravega_service][INFO] child pid: 30098
+[2020-04-09][17:39:18][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:39:18][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:39:18][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:39:18][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:39:19][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:39:29][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:39:29][hyper::client::connect::http][DEBUG] connected to 127.0.0.1:9090
+[2020-04-09][17:39:29][h2::client][DEBUG] binding client connection
+[2020-04-09][17:39:29][h2::client][DEBUG] client connection bound
+[2020-04-09][17:39:29][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:39:29][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:29][h2::codec::framed_write][DEBUG] send; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 5177345 }
+[2020-04-09][17:39:29][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(1), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:29][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:39:29][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:29][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x0), max_concurrent_streams: 2147483647, initial_window_size: 1048576, max_header_list_size: 8192 }
+[2020-04-09][17:39:29][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:39:29][h2::codec::framed_read][DEBUG] received; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 983041 }
+[2020-04-09][17:39:29][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:39:29][h2::proto::settings][DEBUG] received settings ACK; applying Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:39:29][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:29][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:39:29][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:29][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:29][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(3), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:29][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(3) }
+[2020-04-09][17:39:29][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(3), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:31][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(3), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:31][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(3) }
+[2020-04-09][17:39:31][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(3), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:31][h2::codec::framed_write][DEBUG] send; frame=GoAway { error_code: NO_ERROR, last_stream_id: StreamId(0) }
+[2020-04-09][17:39:31][h2::proto::connection][DEBUG] Connection::poll; connection error=NO_ERROR
+[2020-04-09][17:39:31][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:39:31][hyper::client::connect::http][DEBUG] connected to 127.0.0.1:9090
+[2020-04-09][17:39:31][h2::client][DEBUG] binding client connection
+[2020-04-09][17:39:31][h2::client][DEBUG] client connection bound
+[2020-04-09][17:39:31][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:39:31][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:39:31][h2::codec::framed_write][DEBUG] send; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 5177345 }
+[2020-04-09][17:39:31][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(1), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:39:31][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:39:31][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1), flags: (0x1: END_STREAM) }
+[2020-04-09][17:39:31][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x0), max_concurrent_streams: 2147483647, initial_window_size: 1048576, max_header_list_size: 8192 }
+[2020-04-09][17:39:31][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:39:31][h2::codec::framed_read][DEBUG] received; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 983041 }
+[2020-04-09][17:39:31][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:39:31][h2::proto::settings][DEBUG] received settings ACK; applying Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:39:31][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:31][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:39:31][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:39:32][h2::codec::framed_write][DEBUG] send; frame=GoAway { error_code: NO_ERROR, last_stream_id: StreamId(0) }
+[2020-04-09][17:39:32][h2::proto::connection][DEBUG] Connection::poll; connection error=NO_ERROR
+[2020-04-09][17:40:18][pravega_rust_client_integration_test::pravega_service][INFO] done
+[2020-04-09][17:40:18][pravega_rust_client_integration_test::pravega_service][INFO] start running pravega under path ./pravega/bin/pravega-standalone
+[2020-04-09][17:40:18][pravega_rust_client_integration_test::pravega_service][INFO] child pid: 31290
+[2020-04-09][17:40:22][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:40:22][hyper::client::connect::http][DEBUG] connected to 127.0.0.1:9090
+[2020-04-09][17:40:22][h2::client][DEBUG] binding client connection
+[2020-04-09][17:40:22][h2::client][DEBUG] client connection bound
+[2020-04-09][17:40:22][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:40:22][h2::codec::framed_write][DEBUG] send; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 5177345 }
+[2020-04-09][17:40:22][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:22][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(1), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:22][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:40:22][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:22][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x0), max_concurrent_streams: 2147483647, initial_window_size: 1048576, max_header_list_size: 8192 }
+[2020-04-09][17:40:22][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:40:22][h2::codec::framed_read][DEBUG] received; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 983041 }
+[2020-04-09][17:40:22][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:40:22][h2::proto::settings][DEBUG] received settings ACK; applying Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:40:22][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:22][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:40:22][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:22][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:22][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(3), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:22][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(3) }
+[2020-04-09][17:40:22][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(3), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:34][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(3), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:34][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(3) }
+[2020-04-09][17:40:34][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(3), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:34][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:34][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(5), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:34][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(5) }
+[2020-04-09][17:40:34][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(5), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:34][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(5), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:34][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(5) }
+[2020-04-09][17:40:34][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(5), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:34][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:34][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(7), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:34][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(7) }
+[2020-04-09][17:40:34][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(7), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:34][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(7), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:34][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(7) }
+[2020-04-09][17:40:34][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(7), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:34][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:34][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(9), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:34][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(9) }
+[2020-04-09][17:40:34][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(9), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:34][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(9), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:34][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(9) }
+[2020-04-09][17:40:34][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(9), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:34][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:34][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(11), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:34][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(11) }
+[2020-04-09][17:40:34][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(11), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:34][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(11), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:34][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(11) }
+[2020-04-09][17:40:34][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(11), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:34][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:34][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(13), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:34][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(13) }
+[2020-04-09][17:40:34][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(13), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:34][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(13), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:34][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(13) }
+[2020-04-09][17:40:34][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(13), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:34][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:34][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(15), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:34][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(15) }
+[2020-04-09][17:40:34][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(15), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(15), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(15) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(15), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(17), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(17) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(17), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(17), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(17) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(17), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(19), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(19) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(19), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(19), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(19) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(19), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(21), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(21) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(21), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(21), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(21) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(21), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(23), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(23) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(23), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(23), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(23) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(23), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(25), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(25) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(25), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(25), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(25) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(25), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(27), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(27) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(27), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(27), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(27) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(27), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(29), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(29) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(29), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(29), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(29) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(29), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(31), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(31) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(31), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(31), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(31) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(31), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(33), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(33) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(33), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(33), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(33) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(33), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(35), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(35) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(35), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(35), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(35) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(35), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(37), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(37) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(37), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(37), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(37) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(37), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:40:36][hyper::client::connect::http][DEBUG] connected to 127.0.0.1:9090
+[2020-04-09][17:40:36][h2::client][DEBUG] binding client connection
+[2020-04-09][17:40:36][h2::client][DEBUG] client connection bound
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:40:36][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 5177345 }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(1), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x0), max_concurrent_streams: 2147483647, initial_window_size: 1048576, max_header_list_size: 8192 }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 983041 }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:40:36][h2::proto::settings][DEBUG] received settings ACK; applying Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] Scope created
+[2020-04-09][17:40:36][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(3), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(3) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(3), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(3), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(3) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(3), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] Stream created
+[2020-04-09][17:40:36][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test simple write
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=GoAway { error_code: NO_ERROR, last_stream_id: StreamId(0) }
+[2020-04-09][17:40:36][h2::proto::connection][DEBUG] Connection::poll; connection error=NO_ERROR
+[2020-04-09][17:40:36][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:40:36][hyper::client::connect::http][DEBUG] connected to 127.0.0.1:9090
+[2020-04-09][17:40:36][h2::client][DEBUG] binding client connection
+[2020-04-09][17:40:36][h2::client][DEBUG] client connection bound
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:40:36][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 5177345 }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(1), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x0), max_concurrent_streams: 2147483647, initial_window_size: 1048576, max_header_list_size: 8192 }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 983041 }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:40:36][h2::proto::settings][DEBUG] received settings ACK; applying Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] writer 015172af-5c5e-4aba-914b-0364956f095e created for segment "testScopeWriter/testStreamWriter/0.#epoch.0" 
+[2020-04-09][17:40:36][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(3), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(3) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(3), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(3), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(3) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(3), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] setting up append for writer:015172af-5c5e-4aba-914b-0364956f095e/segment:testScopeWriter/testStreamWriter/0.#epoch.0 
+[2020-04-09][17:40:36][pravega_client_rust::raw_client][DEBUG] send_setup_request; 
+[2020-04-09][17:40:36][pravega_client_rust::raw_client][DEBUG] -> send_setup_request
+[2020-04-09][17:40:36][pravega_client_rust::raw_client][DEBUG] <- send_setup_request
+[2020-04-09][17:40:36][pravega_client_rust::raw_client][DEBUG] -- send_setup_request
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] append setup completed for writer:1752130129536106024793303137901283678/segment:"testScopeWriter/testStreamWriter/0.#epoch.0" 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869 created for segment "testScopeWriter/testStreamWriter/1.#epoch.0" 
+[2020-04-09][17:40:36][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(5), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(5) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(5), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(5), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(5) }
+[2020-04-09][17:40:36][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(5), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] setting up append for writer:3bce6b35-44b7-4f56-b7c1-2c284cef7869/segment:testScopeWriter/testStreamWriter/1.#epoch.0 
+[2020-04-09][17:40:36][pravega_client_rust::raw_client][DEBUG] send_setup_request; 
+[2020-04-09][17:40:36][pravega_client_rust::raw_client][DEBUG] -> send_setup_request
+[2020-04-09][17:40:36][pravega_client_rust::raw_client][DEBUG] <- send_setup_request
+[2020-04-09][17:40:36][pravega_client_rust::raw_client][DEBUG] -- send_setup_request
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] append setup completed for writer:79496239342355003737001145398373349481/segment:"testScopeWriter/testStreamWriter/1.#epoch.0" 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id 015172af-5c5e-4aba-914b-0364956f095e/connection id: b0753b08-47bd-40dd-b55a-0da7b97aff7d 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 015172af-5c5e-4aba-914b-0364956f095e, latest event id is: 1 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] flushing 5 events of total size 65 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id 015172af-5c5e-4aba-914b-0364956f095e/connection id: b0753b08-47bd-40dd-b55a-0da7b97aff7d 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 1 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] flushing 3 events of total size 39 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 4 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 015172af-5c5e-4aba-914b-0364956f095e, latest event id is: 6 
+[2020-04-09][17:40:36][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test simple write passed
+[2020-04-09][17:40:36][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer with segment scaled up
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id 015172af-5c5e-4aba-914b-0364956f095e/connection id: b0753b08-47bd-40dd-b55a-0da7b97aff7d 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 5 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] flushing 147 events of total size 1911 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 015172af-5c5e-4aba-914b-0364956f095e, latest event id is: 7 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] flushing 189 events of total size 2457 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id 015172af-5c5e-4aba-914b-0364956f095e/connection id: b0753b08-47bd-40dd-b55a-0da7b97aff7d 
+[2020-04-09][17:40:36][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(7), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(7) }
+[2020-04-09][17:40:36][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(7), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 152 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] flushing 83 events of total size 1079 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 015172af-5c5e-4aba-914b-0364956f095e, latest event id is: 196 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] flushing 66 events of total size 858 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id 015172af-5c5e-4aba-914b-0364956f095e/connection id: b0753b08-47bd-40dd-b55a-0da7b97aff7d 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 015172af-5c5e-4aba-914b-0364956f095e, latest event id is: 262 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 235 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] flushing 13 events of total size 169 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:36][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 248 
+[2020-04-09][17:40:37][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(7), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:37][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(7) }
+[2020-04-09][17:40:37][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(7), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id 015172af-5c5e-4aba-914b-0364956f095e/connection id: b0753b08-47bd-40dd-b55a-0da7b97aff7d 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 015172af-5c5e-4aba-914b-0364956f095e, latest event id is: 263 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 36 events of total size 468 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id 015172af-5c5e-4aba-914b-0364956f095e/connection id: b0753b08-47bd-40dd-b55a-0da7b97aff7d 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 249 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 43 events of total size 559 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 015172af-5c5e-4aba-914b-0364956f095e, latest event id is: 299 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 64 events of total size 832 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id 015172af-5c5e-4aba-914b-0364956f095e/connection id: b0753b08-47bd-40dd-b55a-0da7b97aff7d 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 292 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 155 events of total size 2015 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 015172af-5c5e-4aba-914b-0364956f095e, latest event id is: 363 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 100 events of total size 1300 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id 015172af-5c5e-4aba-914b-0364956f095e/connection id: b0753b08-47bd-40dd-b55a-0da7b97aff7d 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 447 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 72 events of total size 936 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 015172af-5c5e-4aba-914b-0364956f095e, latest event id is: 463 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 28 events of total size 364 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id 015172af-5c5e-4aba-914b-0364956f095e/connection id: b0753b08-47bd-40dd-b55a-0da7b97aff7d 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 519 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 015172af-5c5e-4aba-914b-0364956f095e, latest event id is: 491 
+[2020-04-09][17:40:37][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer with segment scaled up passed
+[2020-04-09][17:40:37][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer with segment sealed
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id 015172af-5c5e-4aba-914b-0364956f095e/connection id: b0753b08-47bd-40dd-b55a-0da7b97aff7d 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 015172af-5c5e-4aba-914b-0364956f095e, latest event id is: 492 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 144 events of total size 1872 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id 015172af-5c5e-4aba-914b-0364956f095e/connection id: b0753b08-47bd-40dd-b55a-0da7b97aff7d 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 520 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 125 events of total size 1625 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 645 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 59 events of total size 767 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:37][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:37][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(9), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:37][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(9) }
+[2020-04-09][17:40:37][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(9), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 015172af-5c5e-4aba-914b-0364956f095e, latest event id is: 636 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 98 events of total size 1274 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id 015172af-5c5e-4aba-914b-0364956f095e/connection id: b0753b08-47bd-40dd-b55a-0da7b97aff7d 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 704 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 57 events of total size 741 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 015172af-5c5e-4aba-914b-0364956f095e, latest event id is: 734 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 11 events of total size 143 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id 015172af-5c5e-4aba-914b-0364956f095e/connection id: b0753b08-47bd-40dd-b55a-0da7b97aff7d 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 761 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 4 events of total size 52 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 015172af-5c5e-4aba-914b-0364956f095e, latest event id is: 745 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 765 
+[2020-04-09][17:40:37][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(9), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:37][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(9) }
+[2020-04-09][17:40:37][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(9), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id 015172af-5c5e-4aba-914b-0364956f095e/connection id: b0753b08-47bd-40dd-b55a-0da7b97aff7d 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 1 events of total size 13 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 766 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 104 events of total size 1352 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 015172af-5c5e-4aba-914b-0364956f095e, latest event id is: 746 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 113 events of total size 1469 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id 015172af-5c5e-4aba-914b-0364956f095e/connection id: b0753b08-47bd-40dd-b55a-0da7b97aff7d 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 870 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 64 events of total size 832 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 015172af-5c5e-4aba-914b-0364956f095e, latest event id is: 859 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 66 events of total size 858 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id 015172af-5c5e-4aba-914b-0364956f095e/connection id: b0753b08-47bd-40dd-b55a-0da7b97aff7d 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 934 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 67 events of total size 871 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 015172af-5c5e-4aba-914b-0364956f095e, latest event id is: 925 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 76 events of total size 988 to segment "testScopeWriter/testStreamWriter/0.#epoch.0"; event segment writer id 015172af-5c5e-4aba-914b-0364956f095e/connection id: b0753b08-47bd-40dd-b55a-0da7b97aff7d 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 1001 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] flushing 8 events of total size 104 to segment "testScopeWriter/testStreamWriter/1.#epoch.0"; event segment writer id 3bce6b35-44b7-4f56-b7c1-2c284cef7869/connection id: 47506924-5f8e-4aed-a12b-9fc55c96d465 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 015172af-5c5e-4aba-914b-0364956f095e, latest event id is: 1001 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][DEBUG] data appended for writer 3bce6b35-44b7-4f56-b7c1-2c284cef7869, latest event id is: 1009 
+[2020-04-09][17:40:37][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer with segment sealed passed
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][WARN] connection 47506924-5f8e-4aed-a12b-9fc55c96d465 failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-04-09][17:40:37][pravega_client_rust::event_stream_writer][WARN] connection b0753b08-47bd-40dd-b55a-0da7b97aff7d failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-04-09][17:40:37][hyper::client::service][DEBUG] connection error: hyper::Error(Io, Kind(BrokenPipe))
+[2020-04-09][17:40:37][hyper::client::service][DEBUG] connection error: hyper::Error(Io, Kind(BrokenPipe))
+[2020-04-09][17:40:39][pravega_rust_client_integration_test::pravega_service][INFO] done
+[2020-04-09][17:40:39][pravega_rust_client_integration_test::pravega_service][INFO] start running pravega under path ./pravega/bin/pravega-standalone
+[2020-04-09][17:40:39][pravega_rust_client_integration_test::pravega_service][INFO] child pid: 32048
+[2020-04-09][17:40:39][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:40:39][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:40:39][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:40:39][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:40:40][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:40:50][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:40:50][hyper::client::connect::http][DEBUG] connected to 127.0.0.1:9090
+[2020-04-09][17:40:50][h2::client][DEBUG] binding client connection
+[2020-04-09][17:40:50][h2::client][DEBUG] client connection bound
+[2020-04-09][17:40:50][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:40:50][h2::codec::framed_write][DEBUG] send; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 5177345 }
+[2020-04-09][17:40:50][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:50][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(1), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:50][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:40:50][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:50][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x0), max_concurrent_streams: 2147483647, initial_window_size: 1048576, max_header_list_size: 8192 }
+[2020-04-09][17:40:50][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:40:50][h2::codec::framed_read][DEBUG] received; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 983041 }
+[2020-04-09][17:40:51][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:40:51][h2::proto::settings][DEBUG] received settings ACK; applying Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:40:51][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:51][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:40:51][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:51][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:51][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(3), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:51][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(3) }
+[2020-04-09][17:40:51][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(3), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:52][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(3), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:52][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(3) }
+[2020-04-09][17:40:52][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(3), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:52][h2::codec::framed_write][DEBUG] send; frame=GoAway { error_code: NO_ERROR, last_stream_id: StreamId(0) }
+[2020-04-09][17:40:52][h2::proto::connection][DEBUG] Connection::poll; connection error=NO_ERROR
+[2020-04-09][17:40:52][hyper::client::connect::http][DEBUG] connecting to 127.0.0.1:9090
+[2020-04-09][17:40:52][hyper::client::connect::http][DEBUG] connected to 127.0.0.1:9090
+[2020-04-09][17:40:52][h2::client][DEBUG] binding client connection
+[2020-04-09][17:40:52][h2::client][DEBUG] client connection bound
+[2020-04-09][17:40:52][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:40:52][tower_buffer::worker][DEBUG] service.ready=true processing request 
+[2020-04-09][17:40:52][h2::codec::framed_write][DEBUG] send; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 5177345 }
+[2020-04-09][17:40:52][h2::codec::framed_write][DEBUG] send; frame=Headers { stream_id: StreamId(1), flags: (0x4: END_HEADERS) }
+[2020-04-09][17:40:52][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:40:52][h2::codec::framed_write][DEBUG] send; frame=Data { stream_id: StreamId(1), flags: (0x1: END_STREAM) }
+[2020-04-09][17:40:52][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x0), max_concurrent_streams: 2147483647, initial_window_size: 1048576, max_header_list_size: 8192 }
+[2020-04-09][17:40:52][h2::codec::framed_write][DEBUG] send; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:40:52][h2::codec::framed_read][DEBUG] received; frame=WindowUpdate { stream_id: StreamId(0), size_increment: 983041 }
+[2020-04-09][17:40:52][h2::codec::framed_read][DEBUG] received; frame=Settings { flags: (0x1: ACK) }
+[2020-04-09][17:40:52][h2::proto::settings][DEBUG] received settings ACK; applying Settings { flags: (0x0), enable_push: 0, initial_window_size: 2097152 }
+[2020-04-09][17:40:52][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x24: END_HEADERS | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:52][h2::codec::framed_read][DEBUG] received; frame=Data { stream_id: StreamId(1) }
+[2020-04-09][17:40:52][h2::codec::framed_read][DEBUG] received; frame=Headers { stream_id: StreamId(1), flags: (0x25: END_HEADERS | END_STREAM | PRIORITY), stream_dep: StreamDependency { dependency_id: StreamId(0), weight: 15, is_exclusive: false } }
+[2020-04-09][17:40:53][h2::codec::framed_write][DEBUG] send; frame=GoAway { error_code: NO_ERROR, last_stream_id: StreamId(0) }
+[2020-04-09][17:40:53][h2::proto::connection][DEBUG] Connection::poll; connection error=NO_ERROR
