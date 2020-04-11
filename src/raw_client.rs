@@ -45,14 +45,14 @@ impl<'a> fmt::Debug for RawClientImpl<'a> {
 }
 
 impl<'a> RawClientImpl<'a> {
-    #[allow(clippy::new_ret_no_self)]
-    pub async fn new(
+    pub fn new(
         pool: &'a ConnectionPool<SegmentConnectionManager>,
         endpoint: SocketAddr,
-    ) -> Box<dyn RawClient<'a> + 'a> {
-        Box::new(RawClientImpl { pool, endpoint })
+    ) -> RawClientImpl<'a> {
+        RawClientImpl { pool, endpoint }
     }
 }
+
 #[allow(clippy::needless_lifetimes)]
 #[async_trait]
 impl<'a> RawClient<'a> for RawClientImpl<'a> {
@@ -91,9 +91,8 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pravega_wire_protocol::client_config::ClientConfigBuilder;
     use pravega_wire_protocol::commands::HelloCommand;
-    use pravega_wire_protocol::connection_factory::ConnectionFactoryImpl;
+    use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionType};
     use pravega_wire_protocol::wire_commands::Encode;
     use std::io::Write;
     use std::net::{SocketAddr, TcpListener};
@@ -108,11 +107,8 @@ mod tests {
     impl Common {
         fn new() -> Self {
             let rt = Runtime::new().expect("create tokio Runtime");
-            let config = ClientConfigBuilder::default()
-                .build()
-                .expect("build client config");
-            let connection_factory = Box::new(ConnectionFactoryImpl {});
-            let manager = SegmentConnectionManager::new(connection_factory, config);
+            let connection_factory = ConnectionFactory::create(ConnectionType::Tokio);
+            let manager = SegmentConnectionManager::new(connection_factory, 2);
             let pool = ConnectionPool::new(manager);
             Common { rt, pool }
         }
@@ -167,8 +163,7 @@ mod tests {
         let mut common = Common::new();
         let mut server = Server::new();
 
-        let raw_client_fut = RawClientImpl::new(&common.pool, server.address);
-        let raw_client = common.rt.block_on(raw_client_fut);
+        let raw_client = RawClientImpl::new(&common.pool, server.address);
         let h = thread::spawn(move || {
             server.send_hello();
         });

@@ -11,6 +11,7 @@ use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use pravega_controller_client::*;
 use pravega_rust_client_shared::*;
+use pravega_wire_protocol::client_config::ClientConfigBuilder;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -19,6 +20,16 @@ use std::time::Duration;
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>> {
     // start Pravega standalone before invoking this function.
     {
+        let controller_addr = "127.0.0.1:9090"
+            .parse::<SocketAddr>()
+            .expect("parse to socketaddr");
+        let config = ClientConfigBuilder::default()
+            .controller_uri(controller_addr)
+            .build()
+            .expect("creating config");
+        // start Pravega standalone before invoking this function.
+        let controller_client = ControllerClientImpl::new(config);
+
         let controller_client =
             ControllerClientImpl::create_pooled_connection("http://[::1]:9090", 2).await?;
         // let client = create_connection("http://[::1]:9090").await;

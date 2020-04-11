@@ -11,43 +11,38 @@
 use pravega_client_rust::event_stream_writer::{EventStreamWriter, Processor};
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::ClientConfigBuilder;
-use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryImpl};
+use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
+use pravega_wire_protocol::connection_factory::ConnectionFactory;
 use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::Requests;
 use std::net::SocketAddr;
 
 use log::info;
+use pravega_client_rust::client_factory::ClientFactory;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 
 pub async fn test_event_stream_writer() {
     // spin up Pravega standalone
     let scope_name = Scope::new("testScopeWriter".into());
     let stream_name = Stream::new("testStreamWriter".into());
-
-    let controller_client = setup_test(&scope_name, &stream_name).await;
-
-    let pool = get_connection_pool_for_segment().await;
+    setup_test(&scope_name, &stream_name).await;
 
     let scoped_stream = ScopedStream {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
     };
-
-    let (mut writer, processor) = EventStreamWriter::new(
-        scoped_stream.clone(),
-        ClientConfigBuilder::default()
-            .build()
-            .expect("build client config"),
-    )
-    .await;
-    tokio::spawn(Processor::run(processor, Box::new(controller_client), pool));
+    let config = ClientConfigBuilder::default()
+        .controller_uri(TEST_CONTROLLER_URI)
+        .build()
+        .expect("creating config");
+    let client_factory = ClientFactory::new(config.clone());
+    let mut writer = client_factory.create_event_stream_writer(scoped_stream.clone(), config);
 
     test_simple_write(&mut writer).await;
 
-    test_scaling_up(&mut writer).await;
+    test_scaling_up(&mut writer, &client_factory).await;
 
-    test_segment_sealed(&mut writer).await;
+    test_segment_sealed(&mut writer, &client_factory).await;
 }
 
 async fn test_simple_write(writer: &mut EventStreamWriter) {
@@ -68,13 +63,8 @@ async fn test_simple_write(writer: &mut EventStreamWriter) {
     info!("test simple write passed");
 }
 
-async fn test_scaling_up(writer: &mut EventStreamWriter) {
+async fn test_scaling_up(writer: &mut EventStreamWriter, factory: &ClientFactory) {
     info!("test event stream writer with segment scaled up");
-    let controller_client = ControllerClientImpl::new(
-        "127.0.0.1:9090"
-            .parse::<SocketAddr>()
-            .expect("parse to socketaddr"),
-    );
 
     let mut receivers = vec![];
     let count = 1000;
@@ -98,7 +88,8 @@ async fn test_scaling_up(writer: &mut EventStreamWriter) {
                     retention_param: 0,
                 },
             };
-            controller_client
+            factory
+                .get_controller_client()
                 .update_stream(&new_config)
                 .await
                 .expect("scale down the segments");
@@ -116,13 +107,8 @@ async fn test_scaling_up(writer: &mut EventStreamWriter) {
     info!("test event stream writer with segment scaled up passed");
 }
 
-async fn test_segment_sealed(writer: &mut EventStreamWriter) {
+async fn test_segment_sealed(writer: &mut EventStreamWriter, factory: &ClientFactory) {
     info!("test event stream writer with segment sealed");
-    let controller_client = ControllerClientImpl::new(
-        "127.0.0.1:9090"
-            .parse::<SocketAddr>()
-            .expect("parse to socketaddr"),
-    );
 
     let mut receivers = vec![];
     let count = 1000;
@@ -146,7 +132,8 @@ async fn test_segment_sealed(writer: &mut EventStreamWriter) {
                     retention_param: 0,
                 },
             };
-            controller_client
+            factory
+                .get_controller_client()
                 .update_stream(&new_config)
                 .await
                 .expect("scale down the segments");
@@ -166,17 +153,17 @@ async fn test_segment_sealed(writer: &mut EventStreamWriter) {
 
 // helper function
 async fn setup_test(scope_name: &Scope, stream_name: &Stream) -> ControllerClientImpl {
-    let controller_client = ControllerClientImpl::new(
-        "127.0.0.1:9090"
-            .parse::<SocketAddr>()
-            .expect("parse to socketaddr"),
-    );
+    let config = ClientConfigBuilder::default()
+        .controller_uri(TEST_CONTROLLER_URI)
+        .build()
+        .expect("build client config");
 
+    let controller_client = ControllerClientImpl::new(config);
     controller_client
         .create_scope(scope_name)
         .await
         .expect("create scope");
-
+    info!("Scope created");
     let request = StreamConfiguration {
         scoped_stream: ScopedStream {
             scope: scope_name.clone(),
@@ -197,14 +184,6 @@ async fn setup_test(scope_name: &Scope, stream_name: &Stream) -> ControllerClien
         .create_stream(&request)
         .await
         .expect("create stream");
+    info!("Stream created");
     controller_client
-}
-
-async fn get_connection_pool_for_segment() -> ConnectionPool<SegmentConnectionManager> {
-    let config = ClientConfigBuilder::default()
-        .build()
-        .expect("build client config");
-    let cf = Box::new(ConnectionFactoryImpl {}) as Box<dyn ConnectionFactory>;
-    let manager = SegmentConnectionManager::new(cf, config);
-    ConnectionPool::new(manager)
 }

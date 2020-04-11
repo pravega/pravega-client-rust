@@ -25,7 +25,7 @@ pub enum WriteError {
 
 #[async_trait]
 trait ByteStreamWriter: Sink<Vec<u8>, Error = WriteError> {
-    async fn open(segment: ScopedSegment, factory: &dyn ClientFactory) -> Self;
+    async fn open(segment: ScopedSegment, factory: &ClientFactory) -> Self;
 }
 
 #[derive(Debug, Snafu)]
@@ -36,5 +36,5 @@ pub enum ReadError {
 
 #[async_trait]
 trait ByteStreamReader: TryStream<Ok = Vec<u8>, Error = ReadError> {
-    async fn open(segment: ScopedSegment, factory: &dyn ClientFactory) -> Self;
+    async fn open(segment: ScopedSegment, factory: &ClientFactory) -> Self;
 }

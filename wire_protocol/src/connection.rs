@@ -33,8 +33,8 @@ pub trait Connection: Send + Sync {
     /// fn main() {
     ///   let mut rt = Runtime::new().unwrap();
     ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
-    ///   let cf = connection_factory::ConnectionFactoryImpl {};
-    ///   let connection_future = cf.establish_connection(endpoint, connection_factory::ConnectionType::Tokio);
+    ///   let cf = connection_factory::ConnectionFactory::create(connection_factory::ConnectionType::Tokio);
+    ///   let connection_future = cf.establish_connection(endpoint);
     ///   let mut connection = rt.block_on(connection_future).unwrap();
     ///   let mut payload: Vec<u8> = Vec::new();
     ///   let fut = connection.send_async(&payload);
@@ -55,8 +55,8 @@ pub trait Connection: Send + Sync {
     /// fn main() {
     ///   let mut rt = Runtime::new().unwrap();
     ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
-    ///   let cf = connection_factory::ConnectionFactoryImpl {};
-    ///   let connection_future = cf.establish_connection(endpoint, connection_factory::ConnectionType::Tokio);
+    ///   let cf = connection_factory::ConnectionFactory::create(connection_factory::ConnectionType::Tokio);
+    ///   let connection_future = cf.establish_connection(endpoint);
     ///   let mut connection = rt.block_on(connection_future).unwrap();
     ///   let mut buf = [0; 10];
     ///   let fut = connection.read_async(&mut buf);

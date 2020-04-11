@@ -188,6 +188,17 @@ pub struct Scaling {
     pub min_num_segments: i32,
 }
 
+impl Default for Scaling {
+    fn default() -> Self {
+        Scaling {
+            scale_type: ScaleType::FixedNumSegments,
+            min_num_segments: 1,
+            scale_factor: 1,
+            target_rate: 1000,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum RetentionType {
     None = 0,
@@ -215,6 +226,15 @@ pub enum TransactionStatus {
 pub struct Retention {
     pub retention_type: RetentionType,
     pub retention_param: i64,
+}
+
+impl Default for Retention {
+    fn default() -> Self {
+        Retention {
+            retention_type: RetentionType::None,
+            retention_param: std::i64::MAX,
+        }
+    }
 }
 
 #[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
