@@ -49,6 +49,8 @@ use pravega_wire_protocol::connection_pool::{ConnectionPool, Manager, PooledConn
 use pravega_wire_protocol::error::*;
 use std::convert::{From, Into};
 use std::net::SocketAddr;
+use std::str::FromStr;
+use tonic::transport::Uri;
 use uuid::Uuid;
 
 #[allow(non_camel_case_types)]
@@ -76,6 +78,7 @@ pub enum ControllerError {
     },
     #[snafu(display("Could not connect to controller {}", endpoint))]
     ConnectionError {
+        source: tonic::transport::Error,
         can_retry: bool,
         endpoint: String,
         error_msg: String,
@@ -201,19 +204,52 @@ pub trait ControllerClient: Send + Sync {
     async fn get_successors(&self, segment: &ScopedSegment) -> Result<StreamSegmentsWithPredecessors>;
 }
 
+#[derive(Clone)]
 pub struct ControllerClientImpl {
-    endpoint: SocketAddr,
-    pool: ConnectionPool<ControllerConnectionManager>,
+    pub channel: ControllerServiceClient<Channel>,
 }
 
 impl ControllerClientImpl {
-    pub fn new(endpoint: SocketAddr) -> Self {
-        let config = ClientConfigBuilder::default()
-            .build()
-            .expect("build client config");
-        let manager = ControllerConnectionManager::new(config);
-        let pool = ConnectionPool::new(manager);
-        ControllerClientImpl { endpoint, pool }
+    /// create_connection with a single controller uri.
+    pub async fn create_connection(uri: &str) -> Result<ControllerClientImpl> {
+        // Placeholder to add authentication headers.
+        let connection_result = ControllerServiceClient::connect(uri.to_string()).await;
+        match connection_result {
+            Ok(connection) => Ok(ControllerClientImpl { channel: connection }),
+            Err(e) => Err(ControllerError::ConnectionError {
+                source: e,
+                can_retry: true,
+                endpoint: uri.to_string(),
+                error_msg: "Failed to connect to the controller".to_string(),
+            }),
+        }
+    }
+
+    ///
+    /// Create a pool of connections to a controller.
+    /// The requests will be load balanced across multiple connections and every underlying connection
+    /// can handle multiplexing as supported by http2.
+    ///
+    pub async fn create_pooled_connection(uri: &str, pool_size: u8) -> Result<ControllerClientImpl> {
+        let uri = Uri::from_str(uri).unwrap();
+        let list_connections = (0..pool_size).map(|_a| Channel::builder(uri.clone()));
+
+        // Placeholder to add authentication headers.
+        let ch = Channel::balance_list(list_connections);
+
+        Ok(ControllerClientImpl {
+            channel: ControllerServiceClient::new(ch),
+        })
+    }
+
+    ///
+    /// Tonic library suggests we clone the channel to enable multiplexing of requests.
+    /// This is because at the very top level the channel is backed by a `tower_buffer::Buffer`
+    /// which runs the connection in a background task and provides a `mpsc` channel interface.
+    /// Due to this cloning the `Channel` type is cheap and encouraged.
+    ///
+    fn get_controller_client(&self) -> ControllerServiceClient<Channel> {
+        self.channel.clone()
     }
 }
 
@@ -221,12 +257,7 @@ impl ControllerClientImpl {
 #[async_trait]
 impl ControllerClient for ControllerClientImpl {
     async fn create_scope(&self, scope: &Scope) -> Result<bool> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
-        create_scope(scope, connection).await
+        create_scope(scope, &mut self.get_controller_client()).await
     }
 
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>> {
@@ -234,75 +265,35 @@ impl ControllerClient for ControllerClientImpl {
     }
 
     async fn delete_scope(&self, scope: &Scope) -> Result<bool> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
-        delete_scope(scope, connection).await
+        delete_scope(scope, &mut self.get_controller_client()).await
     }
 
     async fn create_stream(&self, stream_config: &StreamConfiguration) -> Result<bool> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
-        create_stream(stream_config, connection).await
+        create_stream(stream_config, &mut self.get_controller_client()).await
     }
 
     async fn update_stream(&self, stream_config: &StreamConfiguration) -> Result<bool> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
-        update_stream(stream_config, connection).await
+        update_stream(stream_config, &mut self.get_controller_client()).await
     }
 
     async fn truncate_stream(&self, stream_cut: &StreamCut) -> Result<bool> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
-        truncate_stream(stream_cut, connection).await
+        truncate_stream(stream_cut, &mut self.get_controller_client()).await
     }
 
     async fn seal_stream(&self, stream: &ScopedStream) -> Result<bool> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
-        seal_stream(stream, connection).await
+        seal_stream(stream, &mut self.get_controller_client()).await
     }
 
     async fn delete_stream(&self, stream: &ScopedStream) -> Result<bool> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
-        delete_stream(stream, connection).await
+        delete_stream(stream, &mut self.get_controller_client()).await
     }
 
     async fn get_current_segments(&self, stream: &ScopedStream) -> Result<StreamSegments> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
-        get_current_segments(stream, connection).await
+        get_current_segments(stream, &mut self.get_controller_client()).await
     }
 
     async fn create_transaction(&self, stream: &ScopedStream, lease: Duration) -> Result<TxnSegments> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
-        create_transaction(stream, lease, connection).await
+        create_transaction(stream, lease, &mut self.get_controller_client()).await
     }
 
     async fn ping_transaction(
@@ -311,12 +302,7 @@ impl ControllerClient for ControllerClientImpl {
         tx_id: TxId,
         lease: Duration,
     ) -> Result<PingStatus> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
-        ping_transaction(stream, tx_id, lease, connection).await
+        ping_transaction(stream, tx_id, lease, &mut self.get_controller_client()).await
     }
 
     async fn commit_transaction(
@@ -326,21 +312,11 @@ impl ControllerClient for ControllerClientImpl {
         writer_id: WriterId,
         time: Timestamp,
     ) -> Result<()> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
-        commit_transaction(stream, tx_id, writer_id, time, connection).await
+        commit_transaction(stream, tx_id, writer_id, time, &mut self.get_controller_client()).await
     }
 
     async fn abort_transaction(&self, stream: &ScopedStream, tx_id: TxId) -> Result<()> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
-        abort_transaction(stream, tx_id, connection).await
+        abort_transaction(stream, tx_id, &mut self.get_controller_client()).await
     }
 
     async fn check_transaction_status(
@@ -348,21 +324,11 @@ impl ControllerClient for ControllerClientImpl {
         stream: &ScopedStream,
         tx_id: TxId,
     ) -> Result<TransactionStatus> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
-        check_transaction_status(stream, tx_id, connection).await
+        check_transaction_status(stream, tx_id, &mut self.get_controller_client()).await
     }
 
     async fn get_endpoint_for_segment(&self, segment: &ScopedSegment) -> Result<PravegaNodeUri> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
-        get_uri_segment(segment, connection).await
+        get_uri_segment(segment, &mut self.get_controller_client()).await
     }
 
     async fn get_or_refresh_delegation_token_for(&self, stream: ScopedStream) -> Result<DelegationToken> {
@@ -370,28 +336,7 @@ impl ControllerClient for ControllerClientImpl {
     }
 
     async fn get_successors(&self, segment: &ScopedSegment) -> Result<StreamSegmentsWithPredecessors> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
-        get_successors(segment, connection).await
-    }
-}
-
-pub struct ControllerConnection {
-    uuid: Uuid,
-    endpoint: SocketAddr,
-    channel: ControllerServiceClient<Channel>,
-}
-
-impl ControllerConnection {
-    fn new(endpoint: SocketAddr, channel: ControllerServiceClient<Channel>) -> Self {
-        ControllerConnection {
-            uuid: Uuid::new_v4(),
-            endpoint,
-            channel,
-        }
+        get_successors(segment, &mut self.get_controller_client()).await
     }
 }
 
@@ -406,35 +351,35 @@ impl ControllerConnectionManager {
     }
 }
 
-#[async_trait]
-impl Manager for ControllerConnectionManager {
-    type Conn = ControllerConnection;
-
-    async fn establish_connection(
-        &self,
-        endpoint: SocketAddr,
-    ) -> std::result::Result<Self::Conn, ConnectionPoolError> {
-        let channel = create_connection(&format!("{}{}", "http://", &endpoint.to_string())).await;
-        Ok(ControllerConnection::new(endpoint, channel))
-    }
-
-    fn is_valid(&self, _conn: &PooledConnection<'_, Self::Conn>) -> bool {
-        true
-    }
-
-    fn get_config(&self) -> ClientConfig {
-        self.config
-    }
-}
+// #[async_trait]
+// impl Manager for ControllerConnectionManager {
+//     type Conn = ControllerConnection;
+//
+//     async fn establish_connection(
+//         &self,
+//         endpoint: SocketAddr,
+//     ) -> std::result::Result<Self::Conn, ConnectionPoolError> {
+//         let channel = create_connection(&format!("{}{}", "http://", &endpoint.to_string())).await;
+//         Ok(ControllerConnection::new(endpoint, channel))
+//     }
+//
+//     fn is_valid(&self, _conn: &PooledConnection<'_, Self::Conn>) -> bool {
+//         true
+//     }
+//
+//     fn get_config(&self) -> ClientConfig {
+//         self.config
+//     }
+// }
 
 /// create_connection with the given controller uri.
-pub async fn create_connection(uri: &str) -> ControllerServiceClient<Channel> {
-    // Placeholder to add authentication headers.
-    let connection: ControllerServiceClient<Channel> = ControllerServiceClient::connect(uri.to_string())
-        .await
-        .expect("Failed to create a channel");
-    connection
-}
+// pub async fn create_connection(uri: &str) -> ControllerServiceClient<Channel> {
+//     // Placeholder to add authentication headers.
+//     let connection: ControllerServiceClient<Channel> = ControllerServiceClient::connect(uri.to_string())
+//         .await
+//         .expect("Failed to create a channel");
+//     connection
+// }
 
 // Method used to translate grpc errors to custom error.
 fn map_grpc_error(operation_name: &str, status: Status) -> ControllerError {
@@ -459,18 +404,13 @@ fn map_grpc_error(operation_name: &str, status: Status) -> ControllerError {
 }
 
 /// Async helper function to create scope
-async fn create_scope(
-    scope: &Scope,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<bool> {
+async fn create_scope(scope: &Scope, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
     use create_scope_status::Status;
 
     let request: ScopeInfo = ScopeInfo::from(scope);
 
-    let op_status: StdResult<tonic::Response<CreateScopeStatus>, tonic::Status> = connection
-        .channel
-        .create_scope(tonic::Request::new(request))
-        .await;
+    let op_status: StdResult<tonic::Response<CreateScopeStatus>, tonic::Status> =
+        ch.create_scope(tonic::Request::new(request)).await;
     let operation_name = "CreateScope";
     match op_status {
         Ok(code) => match code.into_inner().status() {
@@ -492,17 +432,12 @@ async fn create_scope(
 }
 
 /// Async helper function to create stream.
-async fn create_stream(
-    cfg: &StreamConfiguration,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<bool> {
+async fn create_stream(cfg: &StreamConfiguration, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
     use create_stream_status::Status;
 
     let request: StreamConfig = StreamConfig::from(cfg);
-    let op_status: StdResult<tonic::Response<CreateStreamStatus>, tonic::Status> = connection
-        .channel
-        .create_stream(tonic::Request::new(request))
-        .await;
+    let op_status: StdResult<tonic::Response<CreateStreamStatus>, tonic::Status> =
+        ch.create_stream(tonic::Request::new(request)).await;
     let operation_name = "CreateStream";
     match op_status {
         Ok(code) => match code.into_inner().status() {
@@ -528,12 +463,10 @@ async fn create_stream(
 /// Async helper function to get segment URI.
 async fn get_uri_segment(
     request: &ScopedSegment,
-    mut connection: PooledConnection<'_, ControllerConnection>,
+    ch: &mut ControllerServiceClient<Channel>,
 ) -> Result<PravegaNodeUri> {
-    let op_status: StdResult<tonic::Response<NodeUri>, tonic::Status> = connection
-        .channel
-        .get_uri(tonic::Request::new(request.into()))
-        .await;
+    let op_status: StdResult<tonic::Response<NodeUri>, tonic::Status> =
+        ch.get_uri(tonic::Request::new(request.into())).await;
     let operation_name = "get_endpoint";
     match op_status {
         Ok(response) => Ok(response.into_inner()),
@@ -543,16 +476,11 @@ async fn get_uri_segment(
 }
 
 /// Async helper function to delete Stream.
-async fn delete_scope(
-    scope: &Scope,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<bool> {
+async fn delete_scope(scope: &Scope, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
     use delete_scope_status::Status;
 
-    let op_status: StdResult<tonic::Response<DeleteScopeStatus>, tonic::Status> = connection
-        .channel
-        .delete_scope(tonic::Request::new(ScopeInfo::from(scope)))
-        .await;
+    let op_status: StdResult<tonic::Response<DeleteScopeStatus>, tonic::Status> =
+        ch.delete_scope(tonic::Request::new(ScopeInfo::from(scope))).await;
     let operation_name = "DeleteScope";
     match op_status {
         Ok(code) => match code.into_inner().status() {
@@ -574,15 +502,12 @@ async fn delete_scope(
 }
 
 /// Async helper function to seal Stream.
-async fn seal_stream(
-    stream: &ScopedStream,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<bool> {
+async fn seal_stream(stream: &ScopedStream, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
     use update_stream_status::Status;
 
     let request: StreamInfo = StreamInfo::from(stream);
     let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> =
-        connection.channel.seal_stream(tonic::Request::new(request)).await;
+        ch.seal_stream(tonic::Request::new(request)).await;
     let operation_name = "SealStream";
     match op_status {
         Ok(code) => match code.into_inner().status() {
@@ -605,17 +530,12 @@ async fn seal_stream(
 }
 
 /// Async helper function to delete Stream.
-async fn delete_stream(
-    stream: &ScopedStream,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<bool> {
+async fn delete_stream(stream: &ScopedStream, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
     use delete_stream_status::Status;
 
     let request: StreamInfo = StreamInfo::from(stream);
-    let op_status: StdResult<tonic::Response<DeleteStreamStatus>, tonic::Status> = connection
-        .channel
-        .delete_stream(tonic::Request::new(request))
-        .await;
+    let op_status: StdResult<tonic::Response<DeleteStreamStatus>, tonic::Status> =
+        ch.delete_stream(tonic::Request::new(request)).await;
     let operation_name = "DeleteStream";
     match op_status {
         Ok(code) => match code.into_inner().status() {
@@ -641,15 +561,13 @@ async fn delete_stream(
 /// Async helper function to update Stream.
 async fn update_stream(
     stream_config: &StreamConfiguration,
-    mut connection: PooledConnection<'_, ControllerConnection>,
+    ch: &mut ControllerServiceClient<Channel>,
 ) -> Result<bool> {
     use update_stream_status::Status;
 
     let request: StreamConfig = StreamConfig::from(stream_config);
-    let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> = connection
-        .channel
-        .update_stream(tonic::Request::new(request))
-        .await;
+    let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> =
+        ch.update_stream(tonic::Request::new(request)).await;
     let operation_name = "updateStream";
     match op_status {
         Ok(code) => match code.into_inner().status() {
@@ -672,17 +590,12 @@ async fn update_stream(
 }
 
 /// Async helper function to truncate Stream.
-async fn truncate_stream(
-    stream_cut: &StreamCut,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<bool> {
+async fn truncate_stream(stream_cut: &StreamCut, ch: &mut ControllerServiceClient<Channel>) -> Result<bool> {
     use update_stream_status::Status;
 
     let request: controller::StreamCut = controller::StreamCut::from(stream_cut);
-    let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> = connection
-        .channel
-        .truncate_stream(tonic::Request::new(request))
-        .await;
+    let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> =
+        ch.truncate_stream(tonic::Request::new(request)).await;
     let operation_name = "truncateStream";
     match op_status {
         Ok(code) => match code.into_inner().status() {
@@ -707,13 +620,11 @@ async fn truncate_stream(
 /// Async helper function to get current Segments in a Stream.
 async fn get_current_segments(
     stream: &ScopedStream,
-    mut connection: PooledConnection<'_, ControllerConnection>,
+    ch: &mut ControllerServiceClient<Channel>,
 ) -> Result<StreamSegments> {
     let request: StreamInfo = StreamInfo::from(stream);
-    let op_status: StdResult<tonic::Response<SegmentRanges>, tonic::Status> = connection
-        .channel
-        .get_current_segments(tonic::Request::new(request))
-        .await;
+    let op_status: StdResult<tonic::Response<SegmentRanges>, tonic::Status> =
+        ch.get_current_segments(tonic::Request::new(request)).await;
     let operation_name = "getCurrentSegments";
     match op_status {
         Ok(segment_ranges) => Ok(StreamSegments::from(segment_ranges.into_inner())),
@@ -725,17 +636,15 @@ async fn get_current_segments(
 async fn create_transaction(
     stream: &ScopedStream,
     lease: Duration,
-    mut connection: PooledConnection<'_, ControllerConnection>,
+    ch: &mut ControllerServiceClient<Channel>,
 ) -> Result<TxnSegments> {
     let request = CreateTxnRequest {
         stream_info: Some(StreamInfo::from(stream)),
         lease: lease.as_millis() as i64,
         scale_grace_period: 0,
     };
-    let op_status: StdResult<tonic::Response<CreateTxnResponse>, tonic::Status> = connection
-        .channel
-        .create_transaction(tonic::Request::new(request))
-        .await;
+    let op_status: StdResult<tonic::Response<CreateTxnResponse>, tonic::Status> =
+        ch.create_transaction(tonic::Request::new(request)).await;
     let operation_name = "createTransaction";
     match op_status {
         Ok(create_txn_response) => Ok(TxnSegments::from(create_txn_response.into_inner())),
@@ -748,7 +657,7 @@ async fn ping_transaction(
     stream: &ScopedStream,
     tx_id: TxId,
     lease: Duration,
-    mut connection: PooledConnection<'_, ControllerConnection>,
+    ch: &mut ControllerServiceClient<Channel>,
 ) -> Result<PingStatus> {
     use ping_txn_status::Status;
     let request = PingTxnRequest {
@@ -756,10 +665,8 @@ async fn ping_transaction(
         txn_id: Some(TxnId::from(tx_id)),
         lease: lease.as_millis() as i64,
     };
-    let op_status: StdResult<tonic::Response<PingTxnStatus>, tonic::Status> = connection
-        .channel
-        .ping_transaction(tonic::Request::new(request))
-        .await;
+    let op_status: StdResult<tonic::Response<PingTxnStatus>, tonic::Status> =
+        ch.ping_transaction(tonic::Request::new(request)).await;
     let operation_name = "pingTransaction";
     match op_status {
         Ok(code) => match code.into_inner().status() {
@@ -802,7 +709,7 @@ async fn commit_transaction(
     tx_id: TxId,
     writerid: WriterId,
     time: Timestamp,
-    mut connection: PooledConnection<'_, ControllerConnection>,
+    ch: &mut ControllerServiceClient<Channel>,
 ) -> Result<()> {
     use txn_status::Status;
     let request = TxnRequest {
@@ -811,10 +718,8 @@ async fn commit_transaction(
         writer_id: writerid.0.to_string(),
         timestamp: time.0 as i64,
     };
-    let op_status: StdResult<tonic::Response<TxnStatus>, tonic::Status> = connection
-        .channel
-        .commit_transaction(tonic::Request::new(request))
-        .await;
+    let op_status: StdResult<tonic::Response<TxnStatus>, tonic::Status> =
+        ch.commit_transaction(tonic::Request::new(request)).await;
     let operation_name = "commitTransaction";
     match op_status {
         Ok(code) => match code.into_inner().status() {
@@ -843,7 +748,7 @@ async fn commit_transaction(
 async fn abort_transaction(
     stream: &ScopedStream,
     tx_id: TxId,
-    mut connection: PooledConnection<'_, ControllerConnection>,
+    ch: &mut ControllerServiceClient<Channel>,
 ) -> Result<()> {
     use txn_status::Status;
     let request = TxnRequest {
@@ -852,10 +757,8 @@ async fn abort_transaction(
         writer_id: "".to_string(),
         timestamp: 0,
     };
-    let op_status: StdResult<tonic::Response<TxnStatus>, tonic::Status> = connection
-        .channel
-        .commit_transaction(tonic::Request::new(request))
-        .await;
+    let op_status: StdResult<tonic::Response<TxnStatus>, tonic::Status> =
+        ch.commit_transaction(tonic::Request::new(request)).await;
     let operation_name = "abortTransaction";
     match op_status {
         Ok(code) => match code.into_inner().status() {
@@ -884,7 +787,7 @@ async fn abort_transaction(
 async fn check_transaction_status(
     stream: &ScopedStream,
     tx_id: TxId,
-    mut connection: PooledConnection<'_, ControllerConnection>,
+    ch: &mut ControllerServiceClient<Channel>,
 ) -> Result<TransactionStatus> {
     use txn_state::State;
     let request = TxnRequest {
@@ -893,10 +796,8 @@ async fn check_transaction_status(
         writer_id: "".to_string(),
         timestamp: 0,
     };
-    let op_status: StdResult<tonic::Response<TxnState>, tonic::Status> = connection
-        .channel
-        .check_transaction_state(tonic::Request::new(request))
-        .await;
+    let op_status: StdResult<tonic::Response<TxnState>, tonic::Status> =
+        ch.check_transaction_state(tonic::Request::new(request)).await;
     let operation_name = "checkTransactionStatus";
     match op_status {
         Ok(code) => match code.into_inner().state() {
@@ -918,7 +819,7 @@ async fn check_transaction_status(
 /// Async helper function to get successors
 async fn get_successors(
     request: &ScopedSegment,
-    mut connection: PooledConnection<'_, ControllerConnection>,
+    ch: &mut ControllerServiceClient<Channel>,
 ) -> Result<StreamSegmentsWithPredecessors> {
     let scoped_stream = ScopedStream {
         scope: request.scope.clone(),
@@ -929,8 +830,7 @@ async fn get_successors(
         segment_id: request.segment.number,
     };
     debug!("sending get successors request for {:?}", request);
-    let op_status: StdResult<tonic::Response<SuccessorResponse>, tonic::Status> = connection
-        .channel
+    let op_status: StdResult<tonic::Response<SuccessorResponse>, tonic::Status> = ch
         .get_segments_immediately_following(tonic::Request::new(segment_id_request))
         .await;
     let operation_name = "get_successors_segment";
