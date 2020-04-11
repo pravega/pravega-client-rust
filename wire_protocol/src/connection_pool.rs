@@ -9,7 +9,8 @@
 //
 
 use crate::client_config::ClientConfig;
-use crate::connection_factory::{Connection, ConnectionFactory};
+use crate::connection::Connection;
+use crate::connection_factory::ConnectionFactory;
 use crate::error::*;
 
 use async_trait::async_trait;
@@ -18,56 +19,158 @@ use snafu::ResultExt;
 use std::fmt;
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
-use tracing::{event, span, Level};
+use uuid::Uuid;
 
-/// ConnectionPool creates a pool of threads for reuse.
-/// It is thread safe
+/// Manager is a trait for defining custom connections. User can implement their own
+/// type of connection and their own way of establishing the connection in this trait.
+/// ConnectionPool will accept an implementation of this trait and manage the customized
+/// connection using the method that user provides
+/// # Example
+///
+/// ```no_run
+/// use std::net::SocketAddr;
+/// use pravega_wire_protocol::connection_pool::ConnectionPool;
+/// use pravega_wire_protocol::connection_pool::SegmentConnectionManager;
+/// use pravega_wire_protocol::connection_factory::ConnectionFactoryImpl;
+/// use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
+/// use tokio::runtime::Runtime;
+///
+/// let mut rt = Runtime::new().unwrap();
+/// let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
+/// let config = ClientConfigBuilder::default().build().unwrap();
+/// let factory = Box::new(ConnectionFactoryImpl{});
+/// let manager = SegmentConnectionManager::new(factory, config);
+/// let pool = ConnectionPool::new(manager);
+/// let connection = rt.block_on(pool.get_connection(endpoint));
+/// ```
 #[async_trait]
-pub trait ConnectionPool: Send + Sync {
-    /// get_connection takes an endpoint and returns a PooledConnection.
-    /// # Example
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use pravega_wire_protocol::connection_pool::ConnectionPool;
-    /// use pravega_wire_protocol::connection_pool::ConnectionPoolImpl;
-    /// use pravega_wire_protocol::connection_factory::ConnectionFactoryImpl;
-    /// use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
-    /// use tokio::runtime::Runtime;
-    ///
-    /// let mut rt = Runtime::new().unwrap();
-    /// let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
-    /// let config = ClientConfigBuilder::default().build().unwrap();
-    /// let factory = Box::new(ConnectionFactoryImpl{});
-    /// let pool = ConnectionPoolImpl::new(factory, config);
-    /// let connection = rt.block_on(pool.get_connection(endpoint));
-    /// ```
-    async fn get_connection(&self, endpoint: SocketAddr) -> Result<PooledConnection, ConnectionPoolError>;
+pub trait Manager {
+    /// The customized connection must implement Send and Sized marker trait
+    type Conn: Send + Sized;
+
+    /// Define how to establish the customized connection
+    async fn establish_connection(&self, endpoint: SocketAddr) -> Result<Self::Conn, ConnectionPoolError>;
+
+    /// Check whether this connection is still valid. This method will be used to filter out
+    /// invalid connections when putting connection back to the pool
+    fn is_valid(&self, conn: &PooledConnection<'_, Self::Conn>) -> bool;
+
+    /// ConnectionPool will call this method to get its config
+    fn get_config(&self) -> ClientConfig;
 }
 
-/// An implementation of the ConnectionPool.
-pub struct ConnectionPoolImpl {
-    /// managed_pool holds a map that maps endpoint to the internal pool.
-    /// each endpoint has its own internal pool.
-    managed_pool: ManagedPool,
-
-    /// The client configuration.
-    config: ClientConfig,
-
+/// An implementation of the Manager trait. This is for creating connections between
+/// Rust client and Segmentstore server.
+pub struct SegmentConnectionManager {
     /// connection_factory is used to establish connection to the remote server
     /// when there is no connection available in the internal pool.
     connection_factory: Box<dyn ConnectionFactory>,
+
+    /// The client configuration.
+    config: ClientConfig,
 }
 
-impl ConnectionPoolImpl {
+impl SegmentConnectionManager {
+    pub fn new(connection_factory: Box<dyn ConnectionFactory>, config: ClientConfig) -> Self {
+        SegmentConnectionManager {
+            connection_factory,
+            config,
+        }
+    }
+}
+
+#[async_trait]
+impl Manager for SegmentConnectionManager {
+    type Conn = Box<dyn Connection>;
+
+    async fn establish_connection(&self, endpoint: SocketAddr) -> Result<Self::Conn, ConnectionPoolError> {
+        self.connection_factory
+            .establish_connection(endpoint, self.config.connection_type)
+            .await
+            .context(EstablishConnection {})
+    }
+
+    fn is_valid(&self, conn: &PooledConnection<'_, Self::Conn>) -> bool {
+        conn.inner.as_ref().expect("get inner connection").is_valid()
+    }
+
+    fn get_config(&self) -> ClientConfig {
+        self.config
+    }
+}
+
+/// ConnectionPool creates a pool of connections for reuse.
+/// It is thread safe.
+/// # Example
+///
+/// ```no_run
+/// use std::net::SocketAddr;
+/// use pravega_wire_protocol::connection_pool::ConnectionPool;
+/// use pravega_wire_protocol::connection_pool::SegmentConnectionManager;
+/// use pravega_wire_protocol::connection_factory::ConnectionFactoryImpl;
+/// use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
+/// use tokio::runtime::Runtime;
+///
+/// let mut rt = Runtime::new().unwrap();
+/// let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
+/// let config = ClientConfigBuilder::default().build().unwrap();
+/// let factory = Box::new(ConnectionFactoryImpl{});
+/// let manager = SegmentConnectionManager::new(factory, config);
+/// let pool = ConnectionPool::new(manager);
+/// let connection = rt.block_on(pool.get_connection(endpoint));
+/// ```
+pub struct ConnectionPool<M>
+where
+    M: Manager,
+{
+    manager: M,
+
+    /// managed_pool holds a map that maps endpoint to the internal pool.
+    /// each endpoint has its own internal pool.
+    managed_pool: ManagedPool<M::Conn>,
+}
+
+impl<M> ConnectionPool<M>
+where
+    M: Manager,
+{
     /// Create a new ConnectionPoolImpl instances by passing into a ClientConfig. It will create
     /// a Runtime, a map and a ConnectionFactory.
-    pub fn new(factory: Box<dyn ConnectionFactory>, config: ClientConfig) -> Self {
-        let managed_pool = ManagedPool::new(config);
-        ConnectionPoolImpl {
+    pub fn new(manager: M) -> Self {
+        let managed_pool = ManagedPool::new(manager.get_config());
+        ConnectionPool {
+            manager,
             managed_pool,
-            config,
-            connection_factory: factory,
+        }
+    }
+
+    /// get_connection takes an endpoint and returns a PooledConnection. The PooledConnection is a
+    /// wrapper that contains a Connection that can be used to send and read.
+    ///
+    /// This method is thread safe and can be called concurrently. It will return an error if it fails
+    /// to establish connection to the remote server.
+    pub async fn get_connection(
+        &self,
+        endpoint: SocketAddr,
+    ) -> Result<PooledConnection<'_, M::Conn>, ConnectionPoolError> {
+        match self.managed_pool.get_connection(endpoint) {
+            Ok(internal_conn) => Ok(PooledConnection {
+                uuid: internal_conn.uuid,
+                inner: Some(internal_conn.conn),
+                endpoint,
+                pool: &self.managed_pool,
+                valid: true,
+            }),
+            Err(_e) => {
+                let conn = self.manager.establish_connection(endpoint).await?;
+                Ok(PooledConnection {
+                    uuid: Uuid::new_v4(),
+                    inner: Some(conn),
+                    endpoint,
+                    pool: &self.managed_pool,
+                    valid: true,
+                })
+            }
         }
     }
 
@@ -77,71 +180,29 @@ impl ConnectionPoolImpl {
     }
 }
 
-#[async_trait]
-impl ConnectionPool for ConnectionPoolImpl {
-    /// get_connection takes an endpoint and returns a PooledConnection. The PooledConnection is a
-    /// wrapper that contains a Connection that can be used to send and read.
-    ///
-    /// This method is thread safe and can be called concurrently. It will return an error if it fails
-    /// to establish connection to the remote server.
-    async fn get_connection(
-        &self,
-        endpoint: SocketAddr,
-    ) -> Result<PooledConnection<'_>, ConnectionPoolError> {
-        let span = span!(Level::DEBUG, "send_setup_request");
-        let _guard = span.enter();
-        match self.managed_pool.get_connection(endpoint) {
-            Ok(conn) => Ok(PooledConnection {
-                inner: Some(conn),
-                pool: &self.managed_pool,
-            }),
-
-            Err(_e) => self
-                .connection_factory
-                .establish_connection(endpoint, self.config.connection_type)
-                .await
-                .context(EstablishConnection {})
-                .map_or_else(
-                    // track clippy issue https://github.com/rust-lang/rust-clippy/issues/3071
-                    |e| {
-                        event!(Level::WARN, "connection failed to establish {:?}", e);
-                        Err(e)
-                    },
-                    |conn| {
-                        Ok(PooledConnection {
-                            inner: Some(conn),
-                            pool: &self.managed_pool,
-                        })
-                    },
-                ),
-        }
-    }
-}
-
 // ManagedPool maintains a map that maps endpoint to InternalPool.
 // The map is a concurrent map named Dashmap, which supports multi-threading with high performance.
-struct ManagedPool {
-    map: DashMap<SocketAddr, InternalPool>,
+struct ManagedPool<T: Sized + Send> {
+    map: DashMap<SocketAddr, InternalPool<T>>,
     config: ClientConfig,
 }
 
-impl ManagedPool {
+impl<T: Sized + Send> ManagedPool<T> {
     pub fn new(config: ClientConfig) -> Self {
         let map = DashMap::new();
         ManagedPool { map, config }
     }
 
     // add a connection to the internal pool
-    fn add_connection(&self, connection: Box<dyn Connection>) {
-        let endpoint = connection.get_endpoint();
+    fn add_connection(&self, endpoint: SocketAddr, connection: InternalConn<T>) {
         let mut internal = self.map.entry(endpoint).or_insert_with(InternalPool::new);
-        if self.config.max_connections_per_segmentstore > internal.conns.len() as u32 {
+        if self.config.max_connections_in_pool > internal.conns.len() as u32 {
             internal.conns.push(connection);
         }
     }
 
     // get a connection from the internal pool. If there is no available connections, returns an error
-    fn get_connection(&self, endpoint: SocketAddr) -> Result<Box<dyn Connection>, ConnectionPoolError> {
+    fn get_connection(&self, endpoint: SocketAddr) -> Result<InternalConn<T>, ConnectionPoolError> {
         let mut internal = self.map.entry(endpoint).or_insert_with(InternalPool::new);
         if internal.conns.is_empty() {
             Err(ConnectionPoolError::NoAvailableConnection {})
@@ -153,17 +214,22 @@ impl ManagedPool {
 
     // return the pool length of the internal pool
     fn pool_len(&self, endpoint: &SocketAddr) -> usize {
-        let pool = self.map.get(endpoint).expect("internal pool");
-        pool.conns.len()
+        self.map.get(endpoint).map_or(0, |pool| pool.conns.len())
     }
 }
 
-// An InternalPool that maintains a vector that stores all the connections.
-struct InternalPool {
-    conns: Vec<Box<dyn Connection>>,
+// An internal connection struct that stores the uuid of the connection
+struct InternalConn<T> {
+    uuid: Uuid,
+    conn: T,
 }
 
-impl InternalPool {
+// An InternalPool that maintains a vector that stores all the connections.
+struct InternalPool<T> {
+    conns: Vec<InternalConn<T>>,
+}
+
+impl<T: Send + Sized> InternalPool<T> {
     fn new() -> Self {
         InternalPool { conns: vec![] }
     }
@@ -171,37 +237,51 @@ impl InternalPool {
 
 /// A smart pointer wrapping a Connection so that the inner Connection can return to the ConnectionPool once
 /// this pointer is dropped.
-pub struct PooledConnection<'a> {
-    inner: Option<Box<dyn Connection>>,
-    pool: &'a ManagedPool,
+pub struct PooledConnection<'a, T: Send + Sized> {
+    uuid: Uuid,
+    endpoint: SocketAddr,
+    inner: Option<T>,
+    pool: &'a ManagedPool<T>,
+    valid: bool,
 }
 
-impl fmt::Debug for PooledConnection<'_> {
+impl<T: Send + Sized> PooledConnection<'_, T> {
+    pub fn invalidate(&mut self) {
+        self.valid = false;
+    }
+}
+
+impl<T: Send + Sized> fmt::Debug for PooledConnection<'_, T> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(
-            &self.inner.as_ref().expect("borrow inner connection").get_uuid(),
-            fmt,
-        )
+        fmt::Debug::fmt(&self.uuid, fmt)
     }
 }
 
-impl Drop for PooledConnection<'_> {
+impl<T: Send + Sized> Drop for PooledConnection<'_, T> {
     fn drop(&mut self) {
-        self.pool
-            .add_connection(self.inner.take().expect("drop connection back to pool"))
+        let conn = self.inner.take().expect("get inner connection");
+        if self.valid {
+            self.pool.add_connection(
+                self.endpoint,
+                InternalConn {
+                    uuid: self.uuid,
+                    conn,
+                },
+            )
+        }
     }
 }
 
-impl Deref for PooledConnection<'_> {
-    type Target = Box<dyn Connection>;
+impl<T: Send + Sized> Deref for PooledConnection<'_, T> {
+    type Target = T;
 
-    fn deref(&self) -> &Box<dyn Connection> {
+    fn deref(&self) -> &T {
         self.inner.as_ref().expect("borrow inner connection")
     }
 }
 
-impl DerefMut for PooledConnection<'_> {
-    fn deref_mut(&mut self) -> &mut Box<dyn Connection> {
+impl<T: Send + Sized> DerefMut for PooledConnection<'_, T> {
+    fn deref_mut(&mut self) -> &mut T {
         self.inner.as_mut().expect("mutably borrow inner connection")
     }
 }
@@ -210,87 +290,81 @@ impl DerefMut for PooledConnection<'_> {
 mod tests {
     use super::*;
     use crate::client_config::ClientConfigBuilder;
-    use crate::connection_factory::ConnectionFactoryImpl;
-    use parking_lot::Mutex;
-    use std::io::Read;
-    use std::net::{SocketAddr, TcpListener};
-    use std::ops::DerefMut;
     use std::sync::Arc;
-    use std::{io, thread};
-    use tokio::runtime::Runtime;
 
-    struct Server {
-        address: SocketAddr,
-        listener: TcpListener,
+    struct FooConnection {}
+
+    struct FooManager {
+        config: ClientConfig,
     }
 
-    impl Server {
-        pub fn new() -> Server {
-            let listener = TcpListener::bind("127.0.0.1:0").expect("local server");
-            listener.set_nonblocking(true).expect("Cannot set non-blocking");
-            let address = listener.local_addr().unwrap();
-            Server { address, listener }
+    #[async_trait]
+    impl Manager for FooManager {
+        type Conn = FooConnection;
+
+        async fn establish_connection(
+            &self,
+            _endpoint: SocketAddr,
+        ) -> Result<Self::Conn, ConnectionPoolError> {
+            Ok(FooConnection {})
         }
 
-        pub fn receive(&mut self) -> u32 {
-            let mut connections: u32 = 0;
+        fn is_valid(&self, _conn: &PooledConnection<'_, Self::Conn>) -> bool {
+            true
+        }
 
-            for stream in self.listener.incoming() {
-                match stream {
-                    Ok(mut stream) => {
-                        let mut buf = [0; 1024];
-                        match stream.read(&mut buf) {
-                            Ok(_) => {}
-                            Err(e) => panic!("encountered IO error: {}", e),
-                        }
-                        connections += 1;
-                    }
-                    Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-                        break;
-                    }
-                    Err(e) => panic!("encountered IO error: {}", e),
-                }
-            }
-            connections
+        fn get_config(&self) -> ClientConfig {
+            self.config
         }
     }
 
-    #[test]
-    fn test_connection_pool() {
-        // Create server
-        let mut server = Server::new();
-        let shared_address = Arc::new(server.address);
+    #[tokio::test(core_threads = 4)]
+    async fn test_connection_pool_basic() {
+        let config = ClientConfigBuilder::default()
+            .build()
+            .expect("build client config");
+        let manager = FooManager { config };
+        let pool = ConnectionPool::new(manager);
+        let endpoint = "127.0.0.1:9090"
+            .parse::<SocketAddr>()
+            .expect("parse to socketaddr");
 
-        // Create a connection pool and a Runtime
-        let config = ClientConfigBuilder::default().build().unwrap();
-        let factory = Box::new(ConnectionFactoryImpl {});
-        let shared_pool = Arc::new(ConnectionPoolImpl::new(factory, config));
-        let rt = Arc::new(Mutex::new(Runtime::new().unwrap()));
+        assert_eq!(pool.pool_len(&endpoint), 0);
+        let connection = pool.get_connection(endpoint).await.expect("get connection");
+        assert_eq!(pool.pool_len(&endpoint), 0);
+        drop(connection);
+        assert_eq!(pool.pool_len(&endpoint), 1);
+    }
 
-        // Create a number of threads, each thread will use the connection pool to get a connection
-        let mut v = vec![];
-        for _i in 1..51 {
-            let shared_pool = shared_pool.clone();
-            let shared_address = shared_address.clone();
-            let rt = rt.clone();
-            let h = thread::spawn(move || {
-                let mut rt_mutex = rt.lock();
-                let mut conn = rt_mutex
-                    .block_on(shared_pool.get_connection(*shared_address))
-                    .unwrap();
-                let mut payload: Vec<u8> = Vec::new();
-                payload.push(42);
-                rt_mutex.block_on(conn.deref_mut().send_async(&payload)).unwrap();
+    #[tokio::test(core_threads = 4)]
+    async fn test_connection_pool_size() {
+        const MAX_CONNECTION: u32 = 2;
+        let config = ClientConfigBuilder::default()
+            .max_connections_in_pool(MAX_CONNECTION)
+            .build()
+            .expect("build client config");
+        let manager = FooManager { config };
+        let pool = Arc::new(ConnectionPool::new(manager));
+        let endpoint = "127.0.0.1:9090"
+            .parse::<SocketAddr>()
+            .expect("parse to socketaddr");
+
+        let mut handles = vec![];
+        for _ in 0..100 {
+            let cloned_pool = pool.clone();
+            let handle = tokio::spawn(async move {
+                let _ = cloned_pool
+                    .get_connection(endpoint)
+                    .await
+                    .expect("get connection");
             });
-            v.push(h);
+            handles.push(handle);
         }
 
-        for _i in v {
-            _i.join().unwrap();
+        while !handles.is_empty() {
+            let handle = handles.pop().expect("get handle");
+            handle.await.expect("handle should work");
         }
-
-        let received = server.receive();
-        let connections = shared_pool.pool_len(shared_address.deref()) as u32;
-        assert_eq!(received, connections);
+        assert_eq!(pool.pool_len(&endpoint) as u32, MAX_CONNECTION);
     }
 }

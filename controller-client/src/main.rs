@@ -7,62 +7,26 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-use futures::stream::FuturesUnordered;
-use futures::StreamExt;
 use pravega_controller_client::*;
 use pravega_rust_client_shared::*;
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>> {
     // start Pravega standalone before invoking this function.
-    let controller_client = ControllerClientImpl::create_connection("http://[::1]:9090").await?;
-    // let client = create_connection("http://[::1]:9090").await;
-    // let mut controller_client = ControllerClientImpl { channel: client };
+    let controller_client = ControllerClientImpl::new(
+        "127.0.0.1:9090"
+            .parse::<SocketAddr>()
+            .expect("parse to socketaddr"),
+    );
 
     let scope_name = Scope::new("testScope123".into());
     let stream_name = Stream::new("testStream".into());
 
     let scope_result = controller_client.create_scope(&scope_name).await;
     println!("Response for create_scope is {:?}", scope_result);
-
-    // test multiple requests without pooling
-    // netstat indicates only one port is opened.
-    let mut futures = FuturesUnordered::new();
-    for _ in 0..10000_i32 {
-        let scope_name = Scope::new("testScope".into());
-        let c = &controller_client;
-        futures.push(async move { c.create_scope(&scope_name).await });
-    }
-
-    while let Some(res) = futures.next().await {
-        match res {
-            Ok(resp) => println!("{:?}", resp),
-            Err(e) => {
-                println!("Errant response; err = {:?}", e);
-            }
-        }
-    }
-
-    // test multiple requests with pooling
-    // netstat indicates multiple ports are opened.
-    let controller_client = ControllerClientImpl::create_pooled_connection("http://[::1]:9090", 2).await?;
-    let mut futures = FuturesUnordered::new();
-    for _ in 0..10000_i32 {
-        let scope_name = Scope::new("testScope".into());
-        let c = &controller_client;
-        futures.push(async move { c.create_scope(&scope_name).await });
-    }
-
-    while let Some(res) = futures.next().await {
-        match res {
-            Ok(resp) => println!("{:?}", resp),
-            Err(e) => {
-                println!("Errant response; err = {:?}", e);
-            }
-        }
-    }
 
     let stream_cfg = StreamConfiguration {
         scoped_stream: ScopedStream {
