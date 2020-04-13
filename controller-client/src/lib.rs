@@ -44,13 +44,10 @@ use controller::{
 use log::debug;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfig;
-use pravega_wire_protocol::connection_pool::{ConnectionPool, Manager, PooledConnection};
-use pravega_wire_protocol::error::*;
 use std::convert::{From, Into};
-use std::net::SocketAddr;
 use std::str::FromStr;
+use tonic::codegen::http::uri::InvalidUri;
 use tonic::transport::Uri;
-use uuid::Uuid;
 
 #[allow(non_camel_case_types)]
 pub mod controller {
@@ -75,13 +72,10 @@ pub enum ControllerError {
         operation: String,
         error_msg: String,
     },
-    #[snafu(display("Could not connect to controller {}", endpoint))]
-    ConnectionError {
-        source: tonic::transport::Error,
-        can_retry: bool,
-        endpoint: String,
-        error_msg: String,
-    },
+    #[snafu(display("Could not connect to controller due to {}", error_msg))]
+    ConnectionError { can_retry: bool, error_msg: String },
+    #[snafu(display("Invalid configuration passed to the Controller client. Error {}", error_msg))]
+    InvalidConfiguration { can_retry: bool, error_msg: String },
 }
 
 pub type Result<T> = StdResult<T, ControllerError>;
@@ -209,42 +203,28 @@ pub struct ControllerClientImpl {
 }
 
 impl ControllerClientImpl {
-    pub fn new(config: ClientConfig) -> Self {
-        let endpoint = config.controller_uri;
-        let manager = ControllerConnectionManager::new(config);
-        let pool = ConnectionPool::new(manager);
-        ControllerClientImpl { endpoint, pool }
-    }
-    /// create_connection with a single controller uri.
-    pub async fn create_connection(uri: &str) -> Result<ControllerClientImpl> {
-        // Placeholder to add authentication headers.
-        let connection_result = ControllerServiceClient::connect(uri.to_string()).await;
-        match connection_result {
-            Ok(connection) => Ok(ControllerClientImpl { channel: connection }),
-            Err(e) => Err(ControllerError::ConnectionError {
-                source: e,
-                can_retry: true,
-                endpoint: uri.to_string(),
-                error_msg: "Failed to connect to the controller".to_string(),
-            }),
-        }
-    }
-
-    ///
-    /// Create a pool of connections to a controller.
-    /// The requests will be load balanced across multiple connections and every underlying connection
-    /// can handle multiplexing as supported by http2.
-    ///
-    pub async fn create_pooled_connection(uri: &str, pool_size: u8) -> Result<ControllerClientImpl> {
-        let uri = Uri::from_str(uri).unwrap();
-        let list_connections = (0..pool_size).map(|_a| Channel::builder(uri.clone()));
+    /// Create a pooled connection to the controller. The pool size is decided by the ClientConfig.
+    /// The requests will be load balanced across multiple connections and every connection supports
+    /// multiplexing of requests.
+    pub fn new(config: ClientConfig) -> ControllerClientImpl {
+        const HTTP_PREFIX: &str = "http://";
 
         // Placeholder to add authentication headers.
-        let ch = Channel::balance_list(list_connections);
+        let s = format!("{}{}", HTTP_PREFIX, &config.controller_uri.to_string());
+        let uri_result = Uri::from_str(s.as_str())
+            .map_err(|e1: InvalidUri| ControllerError::InvalidConfiguration {
+                can_retry: false,
+                error_msg: e1.to_string(),
+            })
+            .unwrap();
 
-        Ok(ControllerClientImpl {
+        let iterable_endpoints =
+            (0..config.max_connections_in_pool).map(|_a| Channel::builder(uri_result.clone()));
+
+        let ch: Channel = Channel::balance_list(iterable_endpoints);
+        ControllerClientImpl {
             channel: ControllerServiceClient::new(ch),
-        })
+        }
     }
 
     ///
@@ -356,36 +336,6 @@ impl ControllerConnectionManager {
     }
 }
 
-// #[async_trait]
-// impl Manager for ControllerConnectionManager {
-//     type Conn = ControllerConnection;
-//
-//     async fn establish_connection(
-//         &self,
-//         endpoint: SocketAddr,
-//     ) -> std::result::Result<Self::Conn, ConnectionPoolError> {
-//         let channel = create_connection(&format!("{}{}", "http://", &endpoint.to_string())).await;
-//         Ok(ControllerConnection::new(endpoint, channel))
-//     }
-//
-//     fn is_valid(&self, _conn: &PooledConnection<'_, Self::Conn>) -> bool {
-//         true
-//     }
-//
-//     fn get_config(&self) -> ClientConfig {
-//         self.config
-//     }
-// }
-
-/// create_connection with the given controller uri.
-// pub async fn create_connection(uri: &str) -> ControllerServiceClient<Channel> {
-//     // Placeholder to add authentication headers.
-//     let connection: ControllerServiceClient<Channel> = ControllerServiceClient::connect(uri.to_string())
-//         .await
-//         .expect("Failed to create a channel");
-//     connection
-// }
-
 // Method used to translate grpc errors to custom error.
 fn map_grpc_error(operation_name: &str, status: Status) -> ControllerError {
     match status.code() {
@@ -398,6 +348,10 @@ fn map_grpc_error(operation_name: &str, status: Status) -> ControllerError {
         | Code::Unauthenticated => ControllerError::OperationError {
             can_retry: false,
             operation: operation_name.into(),
+            error_msg: status.to_string(),
+        },
+        Code::Unknown => ControllerError::ConnectionError {
+            can_retry: true, // retry is enabled for all other errors
             error_msg: status.to_string(),
         },
         _ => ControllerError::OperationError {
