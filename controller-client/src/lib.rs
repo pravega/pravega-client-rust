@@ -219,7 +219,7 @@ impl ControllerClientImpl {
             .unwrap();
 
         let iterable_endpoints =
-            (0..config.max_connections_in_pool).map(|_a| Channel::builder(uri_result.clone()));
+            (0..config.max_controller_connections).map(|_a| Channel::builder(uri_result.clone()));
 
         let ch: Channel = Channel::balance_list(iterable_endpoints);
         ControllerClientImpl {

@@ -20,8 +20,12 @@ pub const TEST_CONTROLLER_URI: (Ipv4Addr, u16) = (Ipv4Addr::new(127, 0, 0, 1), 9
 #[builder(setter(into))]
 pub struct ClientConfig {
     #[get_copy = "pub"]
-    #[builder(default = "5u32")]
+    #[builder(default = "u32::max_value()")]
     pub max_connections_in_pool: u32,
+
+    #[get_copy = "pub"]
+    #[builder(default = "3u32")]
+    pub max_controller_connections: u32,
 
     #[get_copy = "pub"]
     #[builder(default = "ConnectionType::Tokio")]
@@ -70,6 +74,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(config.max_connections_in_pool(), u32::max_value() as u32);
+        assert_eq!(config.max_controller_connections(), 3u32);
         assert_eq!(config.connection_type(), ConnectionType::Tokio);
         assert_eq!(config.retry_policy(), RetryWithBackoff::default());
     }
