@@ -20,7 +20,7 @@ pub const TEST_CONTROLLER_URI: (Ipv4Addr, u16) = (Ipv4Addr::new(127, 0, 0, 1), 9
 #[builder(setter(into))]
 pub struct ClientConfig {
     #[get_copy = "pub"]
-    #[builder(default = "u32::max_value()")]
+    #[builder(default = "5u32")]
     pub max_connections_in_pool: u32,
 
     #[get_copy = "pub"]
