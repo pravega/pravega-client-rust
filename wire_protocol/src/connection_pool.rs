@@ -41,8 +41,8 @@ use uuid::Uuid;
 /// ```
 #[async_trait]
 pub trait Manager {
-    /// The customized connection must implement Sized and Send trait
-    type Conn: Sized + Send;
+    /// The customized connection must implement Send and Sized marker trait
+    type Conn: Send + Sized;
 
     /// Define how to establish the customized connection
     async fn establish_connection(&self, endpoint: SocketAddr) -> Result<Self::Conn, ConnectionPoolError>;
@@ -77,7 +77,7 @@ impl SegmentConnectionManager {
 
 #[async_trait]
 impl Manager for SegmentConnectionManager {
-    type Conn = Box<(dyn Connection)>;
+    type Conn = Box<dyn Connection>;
 
     async fn establish_connection(&self, endpoint: SocketAddr) -> Result<Self::Conn, ConnectionPoolError> {
         let result = self.connection_factory.establish_connection(endpoint).await;

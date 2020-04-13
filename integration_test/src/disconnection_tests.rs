@@ -37,7 +37,7 @@ pub async fn disconnection_test_wrapper() {
 async fn test_retry_with_no_connection() {
     let retry_policy = RetryWithBackoff::default().max_tries(4);
     // give a wrong endpoint
-    let endpoint = "127.0.0.1:12345"
+    let endpoint = "127.0.0.1:0"
         .parse::<SocketAddr>()
         .expect("Unable to parse socket address");
 
