@@ -10,11 +10,9 @@
 
 use crate::connection::Connection;
 use crate::connection_factory::ConnectionFactory;
-use crate::error::*;
-
+use crate::error::ConnectionPoolError;
 use async_trait::async_trait;
 use dashmap::DashMap;
-use snafu::ResultExt;
 use std::fmt;
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
@@ -51,7 +49,7 @@ pub trait Manager {
 
     /// Check whether this connection is still valid. This method will be used to filter out
     /// invalid connections when putting connection back to the pool
-    fn is_valid(&self, conn: &PooledConnection<'_, Self::Conn>) -> bool;
+    fn is_valid(&self, conn: &Self::Conn) -> bool;
 
     /// Get the maximum connections in the pool
     fn get_max_connections(&self) -> u32;
@@ -82,14 +80,19 @@ impl Manager for SegmentConnectionManager {
     type Conn = Box<dyn Connection>;
 
     async fn establish_connection(&self, endpoint: SocketAddr) -> Result<Self::Conn, ConnectionPoolError> {
-        self.connection_factory
-            .establish_connection(endpoint)
-            .await
-            .context(EstablishConnection {})
+        let result = self.connection_factory.establish_connection(endpoint).await;
+
+        match result {
+            Ok(conn) => Ok(conn),
+            Err(_e) => Err(ConnectionPoolError::EstablishConnection {
+                endpoint: endpoint.to_string(),
+                error_msg: String::from("Could not establish connection"),
+            }),
+        }
     }
 
-    fn is_valid(&self, conn: &PooledConnection<'_, Self::Conn>) -> bool {
-        conn.inner.as_ref().expect("get inner connection").is_valid()
+    fn is_valid(&self, conn: &Self::Conn) -> bool {
+        conn.is_valid()
     }
 
     fn get_max_connections(&self) -> u32 {
@@ -150,23 +153,33 @@ where
         &self,
         endpoint: SocketAddr,
     ) -> Result<PooledConnection<'_, M::Conn>, ConnectionPoolError> {
-        match self.managed_pool.get_connection(endpoint) {
-            Ok(internal_conn) => Ok(PooledConnection {
-                uuid: internal_conn.uuid,
-                inner: Some(internal_conn.conn),
-                endpoint,
-                pool: &self.managed_pool,
-                valid: true,
-            }),
-            Err(_e) => {
-                let conn = self.manager.establish_connection(endpoint).await?;
-                Ok(PooledConnection {
-                    uuid: Uuid::new_v4(),
-                    inner: Some(conn),
-                    endpoint,
-                    pool: &self.managed_pool,
-                    valid: true,
-                })
+        // use an infinite loop.
+        loop {
+            match self.managed_pool.get_connection(endpoint) {
+                Ok(internal_conn) => {
+                    let conn = internal_conn.conn;
+                    if self.manager.is_valid(&conn) {
+                        return Ok(PooledConnection {
+                            uuid: internal_conn.uuid,
+                            inner: Some(conn),
+                            endpoint,
+                            pool: &self.managed_pool,
+                            valid: true,
+                        });
+                    }
+
+                    //if it is not valid, will be delete automatically
+                }
+                Err(_e) => {
+                    let conn = self.manager.establish_connection(endpoint).await?;
+                    return Ok(PooledConnection {
+                        uuid: Uuid::new_v4(),
+                        inner: Some(conn),
+                        endpoint,
+                        pool: &self.managed_pool,
+                        valid: true,
+                    });
+                }
             }
         }
     }
@@ -305,7 +318,7 @@ mod tests {
             Ok(FooConnection {})
         }
 
-        fn is_valid(&self, _conn: &PooledConnection<'_, Self::Conn>) -> bool {
+        fn is_valid(&self, _conn: &Self::Conn) -> bool {
             true
         }
 

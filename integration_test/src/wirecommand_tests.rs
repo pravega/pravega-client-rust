@@ -11,9 +11,7 @@
 use lazy_static::*;
 use pravega_client_rust::raw_client::RawClient;
 use pravega_client_rust::raw_client::RawClientImpl;
-use pravega_controller_client::{
-    create_connection, ControllerClient, ControllerClientImpl, ControllerConnectionManager,
-};
+use pravega_controller_client::{ControllerClient, ControllerClientImpl, ControllerConnectionManager};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
@@ -44,76 +42,57 @@ lazy_static! {
     static ref CONTROLLER_CLIENT: ControllerClientImpl = { ControllerClientImpl::new(CONFIG.clone()) };
 }
 
-pub fn test_wirecommand(rt: &mut Runtime) {
+pub async fn wirecommand_test_wrapper() {
     let timeout_second = time::Duration::from_secs(30);
-    rt.block_on(async {
-        timeout(timeout_second, test_hello()).await.unwrap();
-    });
-    rt.block_on(async {
-        timeout(timeout_second, test_keep_alive()).await.unwrap();
-    });
-    rt.block_on(async {
-        timeout(timeout_second, test_setup_append()).await.unwrap();
-    });
-    rt.block_on(async {
-        timeout(timeout_second, test_create_segment()).await.unwrap();
-    });
 
-    rt.block_on(async {
-        timeout(timeout_second, test_update_and_get_segment_attribute())
-            .await
-            .unwrap();
-    });
+    timeout(timeout_second, test_hello()).await.unwrap();
 
-    rt.block_on(async {
-        timeout(timeout_second, test_get_stream_segment_info())
-            .await
-            .unwrap();
-    });
+    timeout(timeout_second, test_keep_alive()).await.unwrap();
 
-    rt.block_on(async {
-        timeout(timeout_second, test_seal_segment()).await.unwrap();
-    });
+    timeout(timeout_second, test_setup_append()).await.unwrap();
 
-    rt.block_on(async {
-        timeout(timeout_second, test_delete_segment()).await.unwrap();
-    });
-    rt.block_on(async {
-        timeout(timeout_second, test_conditional_append_and_read_segment())
-            .await
-            .unwrap();
-    });
-    rt.block_on(async {
-        timeout(timeout_second, test_update_segment_policy())
-            .await
-            .unwrap();
-    });
-    rt.block_on(async {
-        timeout(timeout_second, test_merge_segment()).await.unwrap();
-    });
-    rt.block_on(async {
-        timeout(timeout_second, test_truncate_segment()).await.unwrap();
-    });
-    rt.block_on(async {
-        timeout(timeout_second, test_update_table_entries())
-            .await
-            .unwrap();
-    });
-    rt.block_on(async {
-        timeout(timeout_second, test_read_table_key()).await.unwrap();
-    });
-    rt.block_on(async {
-        timeout(timeout_second, test_read_table()).await.unwrap();
-    });
-    rt.block_on(async {
-        timeout(timeout_second, test_read_table_entries()).await.unwrap();
-    });
+    timeout(timeout_second, test_create_segment()).await.unwrap();
+
+    timeout(timeout_second, test_update_and_get_segment_attribute())
+        .await
+        .unwrap();
+
+    timeout(timeout_second, test_get_stream_segment_info())
+        .await
+        .unwrap();
+
+    timeout(timeout_second, test_seal_segment()).await.unwrap();
+
+    timeout(timeout_second, test_delete_segment()).await.unwrap();
+
+    timeout(timeout_second, test_conditional_append_and_read_segment())
+        .await
+        .unwrap();
+
+    timeout(timeout_second, test_update_segment_policy())
+        .await
+        .unwrap();
+
+    timeout(timeout_second, test_merge_segment()).await.unwrap();
+
+    timeout(timeout_second, test_truncate_segment()).await.unwrap();
+
+    timeout(timeout_second, test_update_table_entries())
+        .await
+        .unwrap();
+
+    timeout(timeout_second, test_read_table_key()).await.unwrap();
+
+    timeout(timeout_second, test_read_table()).await.unwrap();
+
+    timeout(timeout_second, test_read_table_entries()).await.unwrap();
 }
 
 async fn test_hello() {
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     // Create scope and stream
+
     CONTROLLER_CLIENT
         .create_scope(&scope_name)
         .await
@@ -354,6 +333,7 @@ async fn test_update_and_get_segment_attribute() {
         stream: stream_name.clone(),
         segment: Segment { number: 0 },
     };
+
     let endpoint = CONTROLLER_CLIENT
         .get_endpoint_for_segment(&segment_name)
         .await
