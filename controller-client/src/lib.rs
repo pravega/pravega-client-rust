@@ -46,6 +46,7 @@ use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfig;
 use std::convert::{From, Into};
 use std::str::FromStr;
+use std::sync::RwLock;
 use tonic::codegen::http::uri::InvalidUri;
 use tonic::transport::Uri;
 
@@ -197,34 +198,32 @@ pub trait ControllerClient: Send + Sync {
     async fn get_successors(&self, segment: &ScopedSegment) -> Result<StreamSegmentsWithPredecessors>;
 }
 
-#[derive(Clone)]
 pub struct ControllerClientImpl {
-    pub channel: ControllerServiceClient<Channel>,
+    pub channel: RwLock<ControllerServiceClient<Channel>>,
 }
 
 impl ControllerClientImpl {
+    ///
     /// Create a pooled connection to the controller. The pool size is decided by the ClientConfig.
     /// The requests will be load balanced across multiple connections and every connection supports
     /// multiplexing of requests.
-    pub fn new(config: ClientConfig) -> ControllerClientImpl {
-        const HTTP_PREFIX: &str = "http://";
-
-        // Placeholder to add authentication headers.
-        let s = format!("{}{}", HTTP_PREFIX, &config.controller_uri.to_string());
-        let uri_result = Uri::from_str(s.as_str())
-            .map_err(|e1: InvalidUri| ControllerError::InvalidConfiguration {
-                can_retry: false,
-                error_msg: e1.to_string(),
-            })
-            .unwrap();
-
-        let iterable_endpoints =
-            (0..config.max_controller_connections).map(|_a| Channel::builder(uri_result.clone()));
-
-        let ch: Channel = Channel::balance_list(iterable_endpoints);
+    ///
+    pub fn new(config: ClientConfig) -> Self {
+        // actual connection is established lazily.
+        let ch = get_channel(config);
         ControllerClientImpl {
-            channel: ControllerServiceClient::new(ch),
+            channel: RwLock::new(ControllerServiceClient::new(ch)),
         }
+    }
+
+    ///
+    /// reset method needs to be invoked in the case of ConnectionError.
+    /// This logic can be removed once https://github.com/tower-rs/tower/issues/383 is fixed.
+    ///
+    pub fn reset(&self, config: ClientConfig) {
+        let ch = get_channel(config);
+        let mut x = self.channel.write().unwrap();
+        *x = ControllerServiceClient::new(ch);
     }
 
     ///
@@ -234,8 +233,26 @@ impl ControllerClientImpl {
     /// Due to this cloning the `Channel` type is cheap and encouraged.
     ///
     fn get_controller_client(&self) -> ControllerServiceClient<Channel> {
-        self.channel.clone()
+        self.channel.read().unwrap().clone()
     }
+}
+
+fn get_channel(config: ClientConfig) -> Channel {
+    const HTTP_PREFIX: &str = "http://";
+
+    // Placeholder to add authentication headers.
+    let s = format!("{}{}", HTTP_PREFIX, &config.controller_uri.to_string());
+    let uri_result = Uri::from_str(s.as_str())
+        .map_err(|e1: InvalidUri| ControllerError::InvalidConfiguration {
+            can_retry: false,
+            error_msg: e1.to_string(),
+        })
+        .unwrap();
+
+    let iterable_endpoints =
+        (0..config.max_controller_connections).map(|_a| Channel::builder(uri_result.clone()));
+
+    Channel::balance_list(iterable_endpoints)
 }
 
 #[allow(unused_variables)]
@@ -325,17 +342,6 @@ impl ControllerClient for ControllerClientImpl {
     }
 }
 
-pub struct ControllerConnectionManager {
-    /// The client configuration.
-    config: ClientConfig,
-}
-
-impl ControllerConnectionManager {
-    pub fn new(config: ClientConfig) -> Self {
-        ControllerConnectionManager { config }
-    }
-}
-
 // Method used to translate grpc errors to custom error.
 fn map_grpc_error(operation_name: &str, status: Status) -> ControllerError {
     match status.code() {
@@ -350,10 +356,12 @@ fn map_grpc_error(operation_name: &str, status: Status) -> ControllerError {
             operation: operation_name.into(),
             error_msg: status.to_string(),
         },
-        Code::Unknown => ControllerError::ConnectionError {
-            can_retry: true, // retry is enabled for all other errors
-            error_msg: status.to_string(),
-        },
+        Code::Unknown => {
+            ControllerError::ConnectionError {
+                can_retry: false, // retry is enabled for all other errors
+                error_msg: status.to_string(),
+            }
+        }
         _ => ControllerError::OperationError {
             can_retry: true, // retry is enabled for all other errors
             operation: operation_name.into(),

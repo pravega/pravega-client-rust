@@ -11,7 +11,7 @@
 use lazy_static::*;
 use pravega_client_rust::raw_client::RawClient;
 use pravega_client_rust::raw_client::RawClientImpl;
-use pravega_controller_client::{ControllerClient, ControllerClientImpl, ControllerConnectionManager};
+use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};

@@ -9,7 +9,6 @@
  */
 use pravega_wire_protocol::client_config::ClientConfigBuilder;
 
-// Note this useful idiom: importing names from outer (for mod tests) scope.
 use super::*;
 use std::net::SocketAddr;
 
@@ -21,17 +20,16 @@ async fn test_create_scope_error() {
         .expect("build client config");
 
     let client = ControllerClientImpl::new(config);
-    let mut ch = client.channel;
 
     let request = Scope::new("testScope124".into());
-    let create_scope_result = create_scope(&request, &mut ch).await;
+    let create_scope_result = client.create_scope(&request).await;
     assert!(create_scope_result.is_err());
     match create_scope_result {
         Ok(_) => assert!(false, "Failure excepted"),
         Err(ControllerError::ConnectionError {
             can_retry,
             error_msg: _,
-        }) => assert!(can_retry),
+        }) => assert_eq!(false, can_retry),
         _ => assert!(false, "Invalid Error"),
     };
 }
@@ -69,7 +67,7 @@ async fn test_create_stream_error() {
         Err(ControllerError::ConnectionError {
             can_retry,
             error_msg: _,
-        }) => assert!(can_retry),
+        }) => assert_eq!(false, can_retry),
         _ => assert!(false, "Invalid Error"),
     };
 }
