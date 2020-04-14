@@ -133,7 +133,11 @@ impl Connection for TokioConnection {
     }
 
     fn is_valid(&self) -> bool {
-        self.stream.is_some()
+        let result = self.stream.as_ref().expect("get connection").peer_addr();
+        match result {
+            Err(_e) => false,
+            Ok(_addr) => true,
+        }
     }
 }
 
