@@ -29,10 +29,8 @@
 use std::result::Result as StdResult;
 use std::time::Duration;
 
-use snafu::ResultExt;
 use snafu::Snafu;
 use tonic::transport::channel::Channel;
-use tonic::transport::Error as tonicError;
 use tonic::{Code, Status};
 
 use async_trait::async_trait;
@@ -74,19 +72,8 @@ pub enum ControllerError {
         operation: String,
         error_msg: String,
     },
-    #[snafu(display("Could not connect to controller due to {}", endpoint))]
-    ConnectionError {
-        can_retry: bool,
-        endpoint: String,
-        error_msg: String,
-        source: tonicError,
-    },
-    #[snafu(display("Could not get connection from connection pool"))]
-    PoolError {
-        can_retry: bool,
-        endpoint: String,
-        source: ConnectionPoolError,
-    },
+    #[snafu(display("Could not connect to controller due to {}", error_msg))]
+    ConnectionError { can_retry: bool, error_msg: String },
     #[snafu(display("Invalid configuration passed to the Controller client. Error {}", error_msg))]
     InvalidConfiguration { can_retry: bool, error_msg: String },
 }
