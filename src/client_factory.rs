@@ -20,6 +20,7 @@ use crate::event_stream_writer::EventStreamWriter;
 use crate::raw_client::RawClientImpl;
 use crate::segment_reader::AsyncSegmentReaderImpl;
 use crate::setup_logger;
+use crate::tablemap::TableMap;
 use std::sync::Arc;
 
 pub struct ClientFactory(Arc<ClientFactoryInternal>);
@@ -55,6 +56,10 @@ impl ClientFactory {
         config: ClientConfig,
     ) -> EventStreamWriter {
         EventStreamWriter::new(stream, config, self.0.clone())
+    }
+
+    pub(crate) async fn create_table_map<'a>(&'a self, segment: String) -> TableMap<'a> {
+        TableMap::new(segment, &self.0).await
     }
 
     pub fn get_controller_client(&self) -> &dyn ControllerClient {
