@@ -148,9 +148,9 @@ pub async fn write_wirecommand(
 mod tests {
     use super::*;
     use crate::commands::HelloCommand;
-    use crate::connection_factory::{ConnectionFactory, ConnectionType};
-    use crate::connection_pool::{ConnectionPool, SegmentConnectionManager};
+    use crate::connection_factory::{ConnectionFactory, ConnectionType, SegmentConnectionManager};
     use crate::wire_commands::{Encode, Replies};
+    use pravega_connection_pool::connection_pool::ConnectionPool;
     use std::io::Write;
     use std::net::{SocketAddr, TcpListener};
     use tokio::runtime::Runtime;
