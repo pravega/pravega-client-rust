@@ -27,6 +27,7 @@
 #![allow(clippy::multiple_crate_versions)]
 
 mod naming_utils;
+mod versioned_deserializer;
 
 use crate::naming_utils::NameUtils;
 use im::HashMap as ImHashMap;
