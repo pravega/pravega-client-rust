@@ -85,24 +85,7 @@ async fn test_retry_while_start_pravega() {
         let result = controller_client.create_scope(&scope_name).await;
         match result {
             Ok(created) => RetryResult::Success(created),
-            Err(error) => match error {
-                ControllerError::ConnectionError {
-                    can_retry: _,
-                    error_msg: _,
-                } => {
-                    let config = ClientConfigBuilder::default()
-                        .controller_uri(controller_uri)
-                        .build()
-                        .expect("build client config");
-                    // reset the client before retrying
-                    controller_client.reset(config);
-                    RetryResult::Retry(ControllerError::ConnectionError {
-                        can_retry: false,
-                        error_msg: "Reconnecting".to_string(),
-                    })
-                }
-                _ => RetryResult::Retry(error),
-            },
+            Err(error) => RetryResult::Retry(error),
         }
     })
     .await

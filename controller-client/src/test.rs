@@ -29,7 +29,7 @@ async fn test_create_scope_error() {
         Err(ControllerError::ConnectionError {
             can_retry,
             error_msg: _,
-        }) => assert_eq!(false, can_retry),
+        }) => assert_eq!(true, can_retry),
         _ => assert!(false, "Invalid Error"),
     };
 }
@@ -67,7 +67,7 @@ async fn test_create_stream_error() {
         Err(ControllerError::ConnectionError {
             can_retry,
             error_msg: _,
-        }) => assert_eq!(false, can_retry),
+        }) => assert_eq!(true, can_retry),
         _ => assert!(false, "Invalid Error"),
     };
 }
