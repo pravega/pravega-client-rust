@@ -213,7 +213,7 @@ impl ControllerClientImpl {
         // actual connection is established lazily.
         let ch = get_channel(&config);
         ControllerClientImpl {
-            config: config.clone(),
+            config,
             channel: RwLock::new(ControllerServiceClient::new(ch)),
         }
     }
