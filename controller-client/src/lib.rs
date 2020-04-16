@@ -200,7 +200,7 @@ pub trait ControllerClient: Send + Sync {
 
 pub struct ControllerClientImpl {
     config: ClientConfig,
-    pub channel: RwLock<ControllerServiceClient<Channel>>,
+    channel: RwLock<ControllerServiceClient<Channel>>,
 }
 
 impl ControllerClientImpl {
