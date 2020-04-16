@@ -27,13 +27,4 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
-pub mod client_config;
-pub mod client_connection;
-pub mod commands;
-pub mod connection;
-pub mod connection_factory;
-pub mod error;
-pub mod wire_commands;
-
-#[cfg(test)]
-mod tests;
+pub mod connection_pool;

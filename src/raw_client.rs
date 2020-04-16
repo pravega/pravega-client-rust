@@ -10,8 +10,9 @@
 
 use crate::error::*;
 use async_trait::async_trait;
-use pravega_wire_protocol::client_connection::*;
-use pravega_wire_protocol::connection_pool::*;
+use pravega_connection_pool::connection_pool::ConnectionPool;
+use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
+use pravega_wire_protocol::connection_factory::SegmentConnectionManager;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use snafu::ResultExt;
 use std::fmt;

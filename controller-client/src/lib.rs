@@ -44,10 +44,11 @@ use controller::{
     StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
 };
 use log::debug;
+use pravega_connection_pool::connection_pool::{
+    ConnectionPool, ConnectionPoolError, Manager, PooledConnection,
+};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfig;
-use pravega_wire_protocol::connection_pool::{ConnectionPool, Manager, PooledConnection};
-use pravega_wire_protocol::error::ConnectionPoolError;
 use std::convert::{From, Into};
 use std::net::SocketAddr;
 use uuid::Uuid;
