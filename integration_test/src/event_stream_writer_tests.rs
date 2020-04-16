@@ -9,11 +9,11 @@
 //
 
 use pravega_client_rust::event_stream_writer::{EventStreamWriter, Processor};
+use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
-use pravega_wire_protocol::connection_factory::ConnectionFactory;
-use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
+use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::Requests;
 use std::net::SocketAddr;
 

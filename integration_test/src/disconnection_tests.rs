@@ -4,6 +4,7 @@ use crate::pravega_service::{PravegaService, PravegaStandaloneService};
 use log::info;
 use pravega_client_rust::raw_client::{RawClient, RawClientImpl};
 use pravega_client_rust::setup_logger;
+use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl, ControllerError};
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
@@ -12,8 +13,9 @@ use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfigBuilder;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{HelloCommand, SealSegmentCommand};
-use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionType};
-use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
+use pravega_wire_protocol::connection_factory::{
+    ConnectionFactory, ConnectionType, SegmentConnectionManager,
+};
 use pravega_wire_protocol::wire_commands::Requests;
 use pravega_wire_protocol::wire_commands::{Encode, Replies};
 use std::io::{Read, Write};

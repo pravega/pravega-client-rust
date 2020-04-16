@@ -14,6 +14,7 @@ use crate::connection::{Connection, TokioConnection};
 use crate::error::*;
 use crate::wire_commands::{Replies, Requests};
 use async_trait::async_trait;
+use pravega_connection_pool::connection_pool::{ConnectionPoolError, Manager};
 use snafu::ResultExt;
 use std::fmt;
 use std::net::SocketAddr;
@@ -144,6 +145,51 @@ async fn verify_connection(conn: &mut dyn Connection) -> Result<(), ClientConnec
             }
         }
         _ => Err(ClientConnectionError::WrongReply { reply }),
+    }
+}
+
+/// An implementation of the Manager trait to integrate with ConnectionPool.
+/// This is for creating connections between Rust client and Segmentstore server.
+pub struct SegmentConnectionManager {
+    /// connection_factory is used to establish connection to the remote server
+    /// when there is no connection available in the internal pool.
+    connection_factory: Box<dyn ConnectionFactory>,
+
+    /// The client configuration.
+    max_connections_in_pool: u32,
+}
+
+impl SegmentConnectionManager {
+    pub fn new(connection_factory: Box<dyn ConnectionFactory>, max_connections_in_pool: u32) -> Self {
+        SegmentConnectionManager {
+            connection_factory,
+            max_connections_in_pool,
+        }
+    }
+}
+
+#[async_trait]
+impl Manager for SegmentConnectionManager {
+    type Conn = Box<dyn Connection>;
+
+    async fn establish_connection(&self, endpoint: SocketAddr) -> Result<Self::Conn, ConnectionPoolError> {
+        let result = self.connection_factory.establish_connection(endpoint).await;
+
+        match result {
+            Ok(conn) => Ok(conn),
+            Err(_e) => Err(ConnectionPoolError::EstablishConnection {
+                endpoint: endpoint.to_string(),
+                error_msg: String::from("Could not establish connection"),
+            }),
+        }
+    }
+
+    fn is_valid(&self, conn: &Self::Conn) -> bool {
+        conn.is_valid()
+    }
+
+    fn get_max_connections(&self) -> u32 {
+        self.max_connections_in_pool
     }
 }
 
