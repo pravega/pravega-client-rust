@@ -89,5 +89,10 @@ mod test {
 
         let client_factory = ClientFactory::new(config.clone());
         let map = client_factory.create_table_map("t1".into()).await;
+
+        let r = map.insert("key".to_string(), "val".to_string()).await;
+        info!("==> {:?}", r);
+        let r: Option<String> = map.get("key".to_string()).await;
+        info!("==> {:?}", r);
     }
 }

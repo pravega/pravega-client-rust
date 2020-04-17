@@ -12,14 +12,16 @@ use crate::client_factory::ClientFactoryInternal;
 use crate::error::RawClientError;
 use crate::raw_client::RawClient;
 use crate::REQUEST_ID_GENERATOR;
+use bincode2::{deserialize, serialize};
 use log::debug;
 use log::info;
 use pravega_rust_client_shared::{Scope, ScopedSegment, Segment, Stream};
 use pravega_wire_protocol::commands::CreateTableSegmentCommand;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
+use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 use std::net::SocketAddr;
-use std::sync::atomic::AtomicI64;
+use std::sync::atomic::{AtomicI64, Ordering};
 
 pub struct TableMap<'a> {
     name: String,
@@ -61,7 +63,7 @@ impl<'a> TableMap<'a> {
             id: &REQUEST_ID_GENERATOR,
         };
         let req = Requests::CreateTableSegment(CreateTableSegmentCommand {
-            request_id: 1,
+            request_id: m.id.fetch_add(1, Ordering::SeqCst) + 1,
             segment: m.name.clone(),
             delegation_token: String::from(""),
         });
@@ -78,6 +80,41 @@ impl<'a> TableMap<'a> {
             }
             _ => panic!("Invalid response during creation of TableSegment"),
         }
+    }
+
+    ///
+    /// Inserts a key-value pair into the table map. The Key and Value are serialized to to bytes using
+    /// bincode2
+    ///
+    /// If the map did not have this key present, [`None`] is returned.
+    ///
+    /// If the map does have this key present, the value is updated, and the old
+    /// value is returned. The key is not updated, though; this matters for
+    /// types that can be `==` without being identical. See the [module-level
+    /// documentation] for more.
+    ///
+    pub async fn insert<K: Serialize + Deserialize<'a>, V: Serialize + Deserialize<'a>>(
+        &self,
+        k: K,
+        v: V,
+    ) -> Option<V> {
+        let key = serialize(&k).expect("error serialize");
+        let val = serialize(&v).expect("error v serializae");
+        let ret: String = deserialize(val.as_slice()).expect("error deserialze");
+
+        None
+    }
+
+    ///
+    /// Returns the value corresponding to the key.
+    ///
+    /// If the map does not have the key [`None`] is returned.
+    ///
+    pub async fn get<K: Serialize + Deserialize<'a>, V: Serialize + Deserialize<'a>>(
+        &self,
+        k: K,
+    ) -> Option<V> {
+        None
     }
 }
 
