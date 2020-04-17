@@ -25,7 +25,7 @@ use std::sync::Arc;
 
 pub struct ClientFactory(Arc<ClientFactoryInternal>);
 
-pub(crate) struct ClientFactoryInternal {
+pub struct ClientFactoryInternal {
     connection_pool: ConnectionPool<SegmentConnectionManager>,
     controller_client: ControllerClientImpl,
 }
@@ -50,16 +50,16 @@ impl ClientFactory {
         AsyncSegmentReaderImpl::init(segment, &self.0).await
     }
 
+    pub async fn create_table_map<'a>(&'a self, name: String) -> TableMap<'a> {
+        TableMap::new(name, &self.0).await
+    }
+
     pub fn create_event_stream_writer(
         &self,
         stream: ScopedStream,
         config: ClientConfig,
     ) -> EventStreamWriter {
         EventStreamWriter::new(stream, config, self.0.clone())
-    }
-
-    pub(crate) async fn create_table_map<'a>(&'a self, segment: String) -> TableMap<'a> {
-        TableMap::new(segment, &self.0).await
     }
 
     pub fn get_controller_client(&self) -> &dyn ControllerClient {

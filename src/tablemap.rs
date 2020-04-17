@@ -9,24 +9,40 @@
 //
 
 use crate::client_factory::ClientFactoryInternal;
+use crate::error::RawClientError;
 use crate::raw_client::RawClient;
 use crate::REQUEST_ID_GENERATOR;
+use log::debug;
 use log::info;
 use pravega_rust_client_shared::{Scope, ScopedSegment, Segment, Stream};
+use pravega_wire_protocol::commands::CreateTableSegmentCommand;
+use pravega_wire_protocol::wire_commands::{Replies, Requests};
+use snafu::Snafu;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicI64;
 
-pub(crate) struct TableMap<'a> {
+pub struct TableMap<'a> {
     name: String,
     raw_client: Box<dyn RawClient<'a> + 'a>,
     id: &'static AtomicI64,
 }
 
+#[derive(Debug, Snafu)]
+pub enum TableError {
+    #[snafu(display("Non retryable error {} ", error_msg))]
+    ConfigError { can_retry: bool, error_msg: String },
+    #[snafu(display("Connection Error while performing {}. Error details {}", operation, source))]
+    ConnectionError {
+        can_retry: bool,
+        operation: String,
+        source: RawClientError,
+    },
+}
 impl<'a> TableMap<'a> {
     /// create a table map
     pub async fn new(name: String, factory: &'a ClientFactoryInternal) -> TableMap<'a> {
         let segment = ScopedSegment {
-            scope: Scope::new("scope".into()),
+            scope: Scope::new("_tables".into()),
             stream: Stream::new(name),
             segment: Segment::new(0),
         };
@@ -37,13 +53,30 @@ impl<'a> TableMap<'a> {
             .expect("get endpoint for segment")
             .parse::<SocketAddr>()
             .expect("Invalid end point returned");
-        println!("EndPoint is {}", endpoint.to_string());
+        debug!("EndPoint is {}", endpoint.to_string());
 
-        let raw_client = Box::new(factory.create_raw_client(endpoint));
-        TableMap {
+        let m = TableMap {
             name: segment.to_string(),
             raw_client: Box::new(factory.create_raw_client(endpoint)),
             id: &REQUEST_ID_GENERATOR,
+        };
+        let req = Requests::CreateTableSegment(CreateTableSegmentCommand {
+            request_id: 1,
+            segment: m.name.clone(),
+            delegation_token: String::from(""),
+        });
+        let response = m
+            .raw_client
+            .as_ref()
+            .send_request(&req)
+            .await
+            .expect("Error while creating table segment");
+        match response {
+            Replies::SegmentCreated(..) | Replies::SegmentAlreadyExists(..) => {
+                info!("Table segment {} created", m.name);
+                m
+            }
+            _ => panic!("Invalid response during creation of TableSegment"),
         }
     }
 }

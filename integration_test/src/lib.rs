@@ -48,6 +48,15 @@ fn check_standalone_status() -> bool {
 #[cfg(test)]
 mod test {
     use super::*;
+    use lazy_static::*;
+    use log::info;
+    use pravega_client_rust::client_factory::ClientFactory;
+    use pravega_client_rust::tablemap::TableMap;
+    use pravega_connection_pool::connection_pool::ConnectionPool;
+    use pravega_controller_client::{ControllerClient, ControllerClientImpl};
+    use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
+    use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
+
     use wirecommand_tests::*;
 
     #[test]
@@ -55,18 +64,30 @@ mod test {
         let mut rt = tokio::runtime::Runtime::new().expect("create runtime");
 
         setup_logger().expect("setup logger");
-        let mut pravega = PravegaStandaloneService::start(false);
-        wait_for_standalone_with_timeout(true, 30);
+        rt.block_on(test_tablemap());
+        // let mut pravega = PravegaStandaloneService::start(false);
+        // wait_for_standalone_with_timeout(true, 30);
+        // thread::sleep(time::Duration::from_secs(20));
 
-        rt.block_on(wirecommand_tests::wirecommand_test_wrapper());
+        // rt.block_on(wirecommand_tests::wirecommand_test_wrapper());
+        //
+        // rt.block_on(event_stream_writer_tests::test_event_stream_writer());
+        //
+        // // Shut down Pravega standalone
+        // pravega.stop().unwrap();
+        // wait_for_standalone_with_timeout(false, 30);
+        //
+        // // disconnection test will start its own Pravega Standalone.
+        // rt.block_on(disconnection_tests::disconnection_test_wrapper());
+    }
 
-        rt.block_on(event_stream_writer_tests::test_event_stream_writer());
+    async fn test_tablemap() {
+        let config = ClientConfigBuilder::default()
+            .controller_uri(TEST_CONTROLLER_URI)
+            .build()
+            .expect("creating config");
 
-        // Shut down Pravega standalone
-        pravega.stop().unwrap();
-        wait_for_standalone_with_timeout(false, 30);
-
-        // disconnection test will start its own Pravega Standalone.
-        rt.block_on(disconnection_tests::disconnection_test_wrapper());
+        let client_factory = ClientFactory::new(config.clone());
+        let map = client_factory.create_table_map("t1".into()).await;
     }
 }
