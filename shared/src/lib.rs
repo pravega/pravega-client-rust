@@ -27,12 +27,12 @@
 #![allow(clippy::multiple_crate_versions)]
 
 mod naming_utils;
-mod versioned_deserializer;
 
 use crate::naming_utils::NameUtils;
 use im::HashMap as ImHashMap;
 use im::OrdMap;
 use ordered_float::OrderedFloat;
+use serde::{Deserialize, Serialize};
 use std::cmp::{min, Reverse};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
@@ -56,17 +56,17 @@ pub struct DelegationToken(pub String);
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Timestamp(pub u64);
 
-#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Scope {
     pub name: String,
 }
 
-#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Stream {
     pub name: String,
 }
 
-#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Segment {
     pub number: i64,
 }
@@ -77,7 +77,7 @@ pub struct ScopedStream {
     pub stream: Stream,
 }
 
-#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScopedSegment {
     pub scope: Scope,
     pub stream: Stream,
@@ -251,11 +251,17 @@ pub struct StreamCut {
     pub segment_offset_map: HashMap<i64, i64>,
 }
 
-#[derive(new, Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(new, Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SegmentWithRange {
     pub scoped_segment: ScopedSegment,
     pub min_key: OrderedFloat<f64>,
     pub max_key: OrderedFloat<f64>,
+}
+
+impl SegmentWithRange {
+    pub fn get_segment(&self) -> Segment {
+        self.scoped_segment.segment.clone()
+    }
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]

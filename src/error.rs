@@ -8,6 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use bincode2::Error as BincodeError;
 use pravega_controller_client::ControllerError;
 use pravega_rust_client_retry::retry_result::RetryError;
 use pravega_wire_protocol::error::*;
@@ -56,4 +57,14 @@ pub enum EventStreamWriterError {
 
     #[snafu(display("Wrong reply, expected {:?} but get {:?}", expected, actual))]
     WrongReply { expected: String, actual: Replies },
+}
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility = "pub")]
+pub enum SerdeError {
+    #[snafu(display("Failed to serialize/deserialize due to {:?}", source))]
+    EventPointer { source: BincodeError },
+
+    #[snafu(display("Failed to serialize/deserialize due to {:?}", source))]
+    Position { source: BincodeError },
 }
