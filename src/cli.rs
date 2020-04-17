@@ -8,10 +8,12 @@
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
 use pravega_client_rust::raw_client::*;
+use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_wire_protocol::client_config::ClientConfigBuilder;
 use pravega_wire_protocol::commands::*;
-use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionType};
-use pravega_wire_protocol::connection_pool::{ConnectionPool, SegmentConnectionManager};
+use pravega_wire_protocol::connection_factory::{
+    ConnectionFactory, ConnectionType, SegmentConnectionManager,
+};
 use pravega_wire_protocol::wire_commands::Requests;
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicUsize, Ordering};
