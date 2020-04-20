@@ -49,16 +49,6 @@ fn check_standalone_status() -> bool {
 #[cfg(test)]
 mod test {
     use super::*;
-    use lazy_static::*;
-    use log::info;
-    use pravega_client_rust::client_factory::ClientFactory;
-    use pravega_client_rust::tablemap::{TableError, TableMap};
-    use pravega_connection_pool::connection_pool::ConnectionPool;
-    use pravega_controller_client::{ControllerClient, ControllerClientImpl};
-    use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
-    use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
-
-    use pravega_wire_protocol::commands::TableKey;
     use wirecommand_tests::*;
 
     #[test]
@@ -70,6 +60,7 @@ mod test {
         wait_for_standalone_with_timeout(true, 30);
 
         rt.block_on(wirecommand_tests::wirecommand_test_wrapper());
+
         rt.block_on(tablemap_tests::test_tablemap());
 
         rt.block_on(event_stream_writer_tests::test_event_stream_writer());
