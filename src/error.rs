@@ -9,6 +9,7 @@
 //
 
 use bincode2::Error as BincodeError;
+use pravega_connection_pool::connection_pool::ConnectionPoolError;
 use pravega_controller_client::ControllerError;
 use pravega_rust_client_retry::retry_result::RetryError;
 use pravega_wire_protocol::error::*;

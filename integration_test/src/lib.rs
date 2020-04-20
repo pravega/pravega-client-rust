@@ -11,6 +11,8 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
+#[cfg(test)]
+mod disconnection_tests;
 mod event_stream_writer_tests;
 mod pravega_service;
 mod wirecommand_tests;
@@ -46,6 +48,7 @@ fn check_standalone_status() -> bool {
 #[cfg(test)]
 mod test {
     use super::*;
+    use wirecommand_tests::*;
 
     #[test]
     fn integration_test() {
@@ -55,12 +58,15 @@ mod test {
         let mut pravega = PravegaStandaloneService::start(false);
         wait_for_standalone_with_timeout(true, 30);
 
-        wirecommand_tests::test_wirecommand(&mut rt);
+        rt.block_on(wirecommand_tests::wirecommand_test_wrapper());
 
         rt.block_on(event_stream_writer_tests::test_event_stream_writer());
 
         // Shut down Pravega standalone
         pravega.stop().unwrap();
         wait_for_standalone_with_timeout(false, 30);
+
+        // disconnection test will start its own Pravega Standalone.
+        rt.block_on(disconnection_tests::disconnection_test_wrapper());
     }
 }
