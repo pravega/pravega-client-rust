@@ -14,6 +14,24 @@ use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use std::collections::HashMap;
 
+/// PositionedVersioned enum contains all versions of Position struct
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub(crate) enum PositionVersioned {
+    V1(PositionV1),
+}
+
+impl PositionVersioned {
+    fn to_bytes(&self) -> Result<Vec<u8>, SerdeError> {
+        let encoded = CONFIG.serialize(&self).context(Position {})?;
+        Ok(encoded)
+    }
+
+    fn from_bytes(input: &[u8]) -> Result<PositionVersioned, SerdeError> {
+        let decoded: PositionVersioned = CONFIG.deserialize(&input[..]).context(Position {})?;
+        Ok(decoded)
+    }
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) struct PositionV1 {
     owned_segments: HashMap<Segment, i64>,
@@ -32,23 +50,6 @@ impl PositionV1 {
             owned_segments,
             segment_ranges,
         }
-    }
-}
-
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-pub(crate) enum PositionVersioned {
-    V1(PositionV1),
-}
-
-impl PositionVersioned {
-    fn to_bytes(&self) -> Result<Vec<u8>, SerdeError> {
-        let encoded = CONFIG.serialize(&self).context(Position {})?;
-        Ok(encoded)
-    }
-
-    fn from_bytes(input: &[u8]) -> Result<PositionVersioned, SerdeError> {
-        let decoded: PositionVersioned = CONFIG.deserialize(&input[..]).context(Position {})?;
-        Ok(decoded)
     }
 }
 

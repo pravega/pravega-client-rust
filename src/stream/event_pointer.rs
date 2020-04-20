@@ -13,13 +13,7 @@ use pravega_rust_client_shared::Segment;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-pub(crate) struct EventPointerV1 {
-    segment: Segment,
-    event_start_offset: i64,
-    event_length: i32,
-}
-
+/// EventPointerVersioned enum contains all versions of EventPointer
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) enum EventPointerVersioned {
     V1(EventPointerV1),
@@ -35,6 +29,13 @@ impl EventPointerVersioned {
         let decoded: EventPointerVersioned = CONFIG.deserialize(&input[..]).context(EventPointer {})?;
         Ok(decoded)
     }
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub(crate) struct EventPointerV1 {
+    segment: Segment,
+    event_start_offset: i64,
+    event_length: i32,
 }
 
 #[cfg(test)]
