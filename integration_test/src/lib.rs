@@ -15,6 +15,7 @@
 mod disconnection_tests;
 mod event_stream_writer_tests;
 mod pravega_service;
+mod tablemap_tests;
 mod wirecommand_tests;
 
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
@@ -65,91 +66,19 @@ mod test {
         let mut rt = tokio::runtime::Runtime::new().expect("create runtime");
 
         setup_logger().expect("setup logger");
-        rt.block_on(test_tablemap());
-        // let mut pravega = PravegaStandaloneService::start(false);
-        // wait_for_standalone_with_timeout(true, 30);
-        // thread::sleep(time::Duration::from_secs(20));
+        let mut pravega = PravegaStandaloneService::start(false);
+        wait_for_standalone_with_timeout(true, 30);
 
-        // rt.block_on(wirecommand_tests::wirecommand_test_wrapper());
-        //
-        // rt.block_on(event_stream_writer_tests::test_event_stream_writer());
-        //
-        // // Shut down Pravega standalone
-        // pravega.stop().unwrap();
-        // wait_for_standalone_with_timeout(false, 30);
-        //
-        // // disconnection test will start its own Pravega Standalone.
-        // rt.block_on(disconnection_tests::disconnection_test_wrapper());
-    }
+        rt.block_on(wirecommand_tests::wirecommand_test_wrapper());
+        rt.block_on(tablemap_tests::test_tablemap());
 
-    async fn test_tablemap() {
-        let config = ClientConfigBuilder::default()
-            .controller_uri(TEST_CONTROLLER_URI)
-            .build()
-            .expect("creating config");
+        rt.block_on(event_stream_writer_tests::test_event_stream_writer());
 
-        let client_factory = ClientFactory::new(config.clone());
-        let map = client_factory.create_table_map("t1".into()).await;
+        // Shut down Pravega standalone
+        pravega.stop().unwrap();
+        wait_for_standalone_with_timeout(false, 30);
 
-        let k: String = "key".into();
-        let v: String = "valu".into();
-        let r = map.insert(k.clone(), v).await;
-        info!("==> PUT {:?}", r);
-        let r: Result<Option<(String, i64)>, TableError> = map.get(k.clone()).await;
-        info!("==> GET {:?}", r);
-
-        // versioning test
-        let k: String = "k".into();
-        let v: String = "v_0".into();
-        let rr: Result<Option<(String, i64)>, TableError> = map.get(k.clone()).await;
-        assert!(rr.is_ok() && rr.unwrap().is_none());
-
-        let r = map
-            .insert_conditional(k.clone(), TableKey::NOT_EXISTS, v.clone())
-            .await;
-        assert!(r.is_ok());
-        let version = r.unwrap();
-        let rr: Result<Option<(String, i64)>, TableError> = map.get(k.clone()).await;
-        assert!(rr.is_ok());
-        let temp = rr.unwrap();
-        assert!(temp.is_some());
-        assert_eq!(temp.unwrap().0, v);
-
-        // second update with not exists
-        let r = map
-            .insert_conditional(k.clone(), TableKey::NOT_EXISTS, "v_1".to_string())
-            .await;
-        assert!(r.is_err());
-        match r {
-            Ok(_v) => assert!(false, "Bad version error expected"),
-            Err(TableError::BadKeyVersion { error_msg: _ }) => assert!(true),
-            _ => assert!(false, "Invalid Error message"),
-        }
-
-        // update with the write version.
-        let r = map
-            .insert_conditional(k.clone(), version, "v_1".to_string()) // specify the correct key version
-            .await;
-        assert!(r.is_ok());
-
-        // verify if the write was successful.
-        let rr: Result<Option<(String, i64)>, TableError> = map.get(k.clone()).await;
-        assert!(rr.is_ok());
-        let temp = rr.unwrap();
-        assert!(temp.is_some());
-        assert_eq!(temp.unwrap().0, "v_1".to_string());
-
-        // insert unconditional
-        let r = map
-            .insert_conditional(k.clone(), TableKey::KEY_NO_VERSION, "v_100".to_string()) // specify the correct key version
-            .await;
-        assert!(r.is_ok());
-
-        // verify if the write was successful.
-        let rr: Result<Option<(String, i64)>, TableError> = map.get(k.clone()).await;
-        assert!(rr.is_ok());
-        let temp = rr.unwrap();
-        assert!(temp.is_some());
-        assert_eq!(temp.unwrap().0, "v_100".to_string());
+        // disconnection test will start its own Pravega Standalone.
+        rt.block_on(disconnection_tests::disconnection_test_wrapper());
     }
 }

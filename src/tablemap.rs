@@ -73,101 +73,30 @@ impl<'a> TableMap<'a> {
             .expect("Invalid end point returned");
         debug!("EndPoint is {}", endpoint.to_string());
 
-        let m = TableMap {
+        let map = TableMap {
             name: segment.to_string(),
             raw_client: Box::new(factory.create_raw_client(endpoint)),
             id: &REQUEST_ID_GENERATOR,
         };
         let req = Requests::CreateTableSegment(CreateTableSegmentCommand {
-            request_id: m.id.fetch_add(1, Ordering::SeqCst) + 1,
-            segment: m.name.clone(),
+            request_id: map.id.fetch_add(1, Ordering::SeqCst) + 1,
+            segment: map.name.clone(),
             delegation_token: String::from(""),
         });
-        let response = m
+
+        let resp = map
             .raw_client
             .as_ref()
             .send_request(&req)
             .await
             .expect("Error while creating table segment");
-        match response {
+        match resp {
             Replies::SegmentCreated(..) | Replies::SegmentAlreadyExists(..) => {
-                info!("Table segment {} created", m.name);
-                m
+                info!("Table segment {} created", map.name);
+                map
             }
             _ => panic!("Invalid response during creation of TableSegment"),
         }
-    }
-
-    pub async fn insert_bytes(
-        &self,
-        key: Vec<u8>,
-        key_version: i64,
-        value: Vec<u8>,
-    ) -> Result<i64, TableError> {
-        let tk = TableKey::new(key, key_version);
-
-        let tv = TableValue::new(value);
-        let te = TableEntries {
-            entries: vec![(tk, tv)],
-        };
-        let req = Requests::UpdateTableEntries(UpdateTableEntriesCommand {
-            request_id: self.id.fetch_add(1, Ordering::SeqCst) + 1,
-            segment: self.name.clone(),
-            delegation_token: "".to_string(),
-            table_entries: te,
-        });
-        let re = self.raw_client.as_ref().send_request(&req).await;
-        debug!("== {:?}", re);
-        let s = re
-            .map_err(|e| TableError::ConnectionError {
-                can_retry: true,
-                operation: "Insert into tablemap".to_string(),
-                source: e,
-            })
-            .and_then(|r| match r {
-                Replies::TableEntriesUpdated(c) => Ok(c.updated_versions),
-                Replies::TableKeyBadVersion(c) => Err(TableError::BadKeyVersion {
-                    error_msg: c.to_string(),
-                }),
-                _ => panic!("Unexpected response for update tableEntries"),
-            });
-        s.map(|o| *o.get(0).unwrap())
-    }
-
-    pub async fn get_bytes(&self, key: Vec<u8>) -> Result<Option<(Vec<u8>, i64)>, TableError> {
-        let tk = TableKey::new(key, TableKey::KEY_NO_VERSION);
-        let req = Requests::ReadTable(ReadTableCommand {
-            request_id: self.id.fetch_add(1, Ordering::SeqCst) + 1,
-            segment: self.name.clone(),
-            delegation_token: "".to_string(),
-            keys: vec![tk],
-        });
-        let re = self.raw_client.as_ref().send_request(&req).await;
-        debug!("==Read Response {:?}", re);
-        let s: Result<Replies, TableError> = re.map_err(|e| TableError::ConnectionError {
-            can_retry: true,
-            operation: "Read from tablemap".to_string(),
-            source: e,
-        });
-
-        let s: Result<Vec<(TableKey, TableValue)>, TableError> = s.map(|reply| match reply {
-            Replies::TableRead(c) => c.entries.entries,
-            _ => panic!("Unexpected response for update tableEntries"),
-        });
-
-        let rrr: Result<Option<(Vec<u8>, i64)>, TableError> = s.map(|v: Vec<(TableKey, TableValue)>| {
-            if v.is_empty() {
-                None
-            } else {
-                let (l, r) = v[0].clone();
-                let s = (r.data, l.key_version);
-                //let r: V = deserialize_from(s.as_slice()).expect("err");
-                // Some(s)
-                Some(s)
-            }
-        });
-
-        rrr
     }
 
     ///
@@ -183,20 +112,18 @@ impl<'a> TableMap<'a> {
         &self,
         k: K,
     ) -> Result<Option<(V, i64)>, TableError> {
-        let key = serialize(&k).expect("error serialize");
-        let r = self.get_bytes(key).await;
-        let r3 = r.map(|v| {
-            let sss = v.and_then(|(l, r)| {
+        let key = serialize(&k).expect("error during serialization.");
+        let read_result = self.get_bytes(key).await;
+        read_result.map(|v| {
+            v.and_then(|(l, version)| {
                 if l.is_empty() {
                     None
                 } else {
-                    let r1: V = deserialize_from(l.as_slice()).expect("err");
-                    Some((r1, r))
+                    let value: V = deserialize_from(l.as_slice()).expect("err");
+                    Some((value, version))
                 }
-            });
-            sss
-        });
-        r3
+            })
+        })
     }
 
     ///
@@ -208,6 +135,7 @@ impl<'a> TableMap<'a> {
         k: K,
         v: V,
     ) -> Result<i64, TableError> {
+        // use KEY_NO_VERSION to ensure unconditional update.
         self.insert_conditional(k, TableKey::KEY_NO_VERSION, v).await
     }
 
@@ -225,9 +153,80 @@ impl<'a> TableMap<'a> {
         key_version: i64,
         v: V,
     ) -> Result<i64, TableError> {
-        let key = serialize(&k).expect("error serialize");
-        let val = serialize(&v).expect("error v serializae");
+        let key = serialize(&k).expect("error during serialization.");
+        let val = serialize(&v).expect("error during serialization.");
         self.insert_bytes(key, key_version, val).await
+    }
+
+    ///
+    /// Insert key and value without serialization.
+    /// The function returns the newer version number post the insert operation.
+    ///
+    pub async fn insert_bytes(
+        &self,
+        key: Vec<u8>,
+        key_version: i64,
+        value: Vec<u8>,
+    ) -> Result<i64, TableError> {
+        let tk = TableKey::new(key, key_version);
+        let tv = TableValue::new(value);
+        let te = TableEntries {
+            entries: vec![(tk, tv)],
+        };
+        let req = Requests::UpdateTableEntries(UpdateTableEntriesCommand {
+            request_id: self.id.fetch_add(1, Ordering::SeqCst) + 1,
+            segment: self.name.clone(),
+            delegation_token: "".to_string(),
+            table_entries: te,
+        });
+        let re = self.raw_client.as_ref().send_request(&req).await;
+        debug!("Reply for UpdateTableEntries request {:?}", re);
+        re.map_err(|e| TableError::ConnectionError {
+            can_retry: true,
+            operation: "Insert into tablemap".to_string(),
+            source: e,
+        })
+        .and_then(|r| match r {
+            Replies::TableEntriesUpdated(c) => Ok(c.updated_versions),
+            Replies::TableKeyBadVersion(c) => Err(TableError::BadKeyVersion {
+                error_msg: c.to_string(),
+            }),
+            _ => panic!("Unexpected response for update tableEntries"),
+        })
+        .map(|o| *o.get(0).unwrap())
+    }
+
+    ///
+    /// Get raw bytes for a givenKey. If not value is present then [None] is returned.
+    /// The read result and the corresponding version is returned as a tuple.
+    ///
+    pub async fn get_bytes(&self, key: Vec<u8>) -> Result<Option<(Vec<u8>, i64)>, TableError> {
+        let tk = TableKey::new(key, TableKey::KEY_NO_VERSION);
+        let req = Requests::ReadTable(ReadTableCommand {
+            request_id: self.id.fetch_add(1, Ordering::SeqCst) + 1,
+            segment: self.name.clone(),
+            delegation_token: "".to_string(),
+            keys: vec![tk],
+        });
+        let re = self.raw_client.as_ref().send_request(&req).await;
+        debug!("Read Response {:?}", re);
+        re.map_err(|e| TableError::ConnectionError {
+            can_retry: true,
+            operation: "Read from tablemap".to_string(),
+            source: e,
+        })
+        .map(|reply| match reply {
+            Replies::TableRead(c) => c.entries.entries,
+            _ => panic!("Unexpected response for update tableEntries"),
+        })
+        .map(|v: Vec<(TableKey, TableValue)>| {
+            if v.is_empty() {
+                None
+            } else {
+                let (l, r) = v[0].clone(); //Can we eliminate this?
+                Some((r.data, l.key_version))
+            }
+        })
     }
 }
 
