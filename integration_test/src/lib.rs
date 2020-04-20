@@ -57,6 +57,7 @@ mod test {
     use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
     use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 
+    use pravega_wire_protocol::commands::TableKey;
     use wirecommand_tests::*;
 
     #[test]
@@ -90,9 +91,65 @@ mod test {
         let client_factory = ClientFactory::new(config.clone());
         let map = client_factory.create_table_map("t1".into()).await;
 
-        let r = map.insert("key".to_string(), "val".to_string()).await;
+        let k: String = "key".into();
+        let v: String = "valu".into();
+        let r = map.insert(k.clone(), v).await;
         info!("==> PUT {:?}", r);
-        let r: Result<Option<String>, TableError> = map.get("key".to_string()).await;
+        let r: Result<Option<(String, i64)>, TableError> = map.get(k.clone()).await;
         info!("==> GET {:?}", r);
+
+        // versioning test
+        let k: String = "k".into();
+        let v: String = "v_0".into();
+        let rr: Result<Option<(String, i64)>, TableError> = map.get(k.clone()).await;
+        assert!(rr.is_ok() && rr.unwrap().is_none());
+
+        let r = map
+            .insert_conditional(k.clone(), TableKey::NOT_EXISTS, v.clone())
+            .await;
+        assert!(r.is_ok());
+        let version = r.unwrap();
+        let rr: Result<Option<(String, i64)>, TableError> = map.get(k.clone()).await;
+        assert!(rr.is_ok());
+        let temp = rr.unwrap();
+        assert!(temp.is_some());
+        assert_eq!(temp.unwrap().0, v);
+
+        // second update with not exists
+        let r = map
+            .insert_conditional(k.clone(), TableKey::NOT_EXISTS, "v_1".to_string())
+            .await;
+        assert!(r.is_err());
+        match r {
+            Ok(_v) => assert!(false, "Bad version error expected"),
+            Err(TableError::BadKeyVersion { error_msg: _ }) => assert!(true),
+            _ => assert!(false, "Invalid Error message"),
+        }
+
+        // update with the write version.
+        let r = map
+            .insert_conditional(k.clone(), version, "v_1".to_string()) // specify the correct key version
+            .await;
+        assert!(r.is_ok());
+
+        // verify if the write was successful.
+        let rr: Result<Option<(String, i64)>, TableError> = map.get(k.clone()).await;
+        assert!(rr.is_ok());
+        let temp = rr.unwrap();
+        assert!(temp.is_some());
+        assert_eq!(temp.unwrap().0, "v_1".to_string());
+
+        // insert unconditional
+        let r = map
+            .insert_conditional(k.clone(), TableKey::KEY_NO_VERSION, "v_100".to_string()) // specify the correct key version
+            .await;
+        assert!(r.is_ok());
+
+        // verify if the write was successful.
+        let rr: Result<Option<(String, i64)>, TableError> = map.get(k.clone()).await;
+        assert!(rr.is_ok());
+        let temp = rr.unwrap();
+        assert!(temp.is_some());
+        assert_eq!(temp.unwrap().0, "v_100".to_string());
     }
 }

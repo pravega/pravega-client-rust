@@ -12,7 +12,7 @@ use crate::client_factory::ClientFactoryInternal;
 use crate::error::RawClientError;
 use crate::raw_client::RawClient;
 use crate::REQUEST_ID_GENERATOR;
-use bincode2::{deserialize, deserialize_from, serialize};
+use bincode2::{deserialize_from, serialize};
 use log::debug;
 use log::info;
 use pravega_rust_client_shared::{Scope, ScopedSegment, Segment, Stream};
@@ -20,10 +20,9 @@ use pravega_wire_protocol::commands::{
     CreateTableSegmentCommand, ReadTableCommand, TableEntries, TableKey, TableValue,
     UpdateTableEntriesCommand,
 };
-use pravega_wire_protocol::wire_commands::Replies::{TableEntriesUpdated, TableRead};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use serde::{Deserialize, Serialize};
-use snafu::{ResultExt, Snafu};
+use snafu::Snafu;
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicI64, Ordering};
 
@@ -49,6 +48,12 @@ pub enum TableError {
     EmptyError {
         can_retry: bool,
         operation: String,
+    },
+    KeyDoesNotExist {
+        error_msg: String,
+    },
+    BadKeyVersion {
+        error_msg: String,
     },
 }
 impl<'a> TableMap<'a> {
@@ -93,23 +98,15 @@ impl<'a> TableMap<'a> {
         }
     }
 
-    ///
-    /// Inserts a key-value pair into the table map. The Key and Value are serialized to to bytes using
-    /// bincode2
-    ///
-    /// The insert is performed without checking versioning. Once the update is done the version of the key
-    /// is returned.
-    ///
-    pub async fn insert<K: Serialize + Deserialize<'a>, V: Serialize + Deserialize<'a>>(
+    pub async fn insert_bytes(
         &self,
-        k: K,
-        v: V,
+        key: Vec<u8>,
+        key_version: i64,
+        value: Vec<u8>,
     ) -> Result<i64, TableError> {
-        let key = serialize(&k).expect("error serialize");
-        let tk = TableKey::new(key, TableKey::KEY_NO_VERSION);
+        let tk = TableKey::new(key, key_version);
 
-        let val = serialize(&v).expect("error v serializae");
-        let tv = TableValue::new(val);
+        let tv = TableValue::new(value);
         let te = TableEntries {
             entries: vec![(tk, tv)],
         };
@@ -122,31 +119,22 @@ impl<'a> TableMap<'a> {
         let re = self.raw_client.as_ref().send_request(&req).await;
         debug!("== {:?}", re);
         let s = re
-            .map(|r| match r {
-                Replies::TableEntriesUpdated(c) => c.updated_versions,
-                _ => panic!("Unexpected response for update tableEntries"),
-            })
             .map_err(|e| TableError::ConnectionError {
                 can_retry: true,
                 operation: "Insert into tablemap".to_string(),
                 source: e,
+            })
+            .and_then(|r| match r {
+                Replies::TableEntriesUpdated(c) => Ok(c.updated_versions),
+                Replies::TableKeyBadVersion(c) => Err(TableError::BadKeyVersion {
+                    error_msg: c.to_string(),
+                }),
+                _ => panic!("Unexpected response for update tableEntries"),
             });
         s.map(|o| *o.get(0).unwrap())
     }
 
-    ///
-    /// Returns the value corresponding to the key.
-    ///
-    /// If the map does not have the key [`None`] is returned.
-    ///
-    pub async fn get<
-        K: Serialize + serde::de::DeserializeOwned,
-        V: Serialize + serde::de::DeserializeOwned,
-    >(
-        &self,
-        k: K,
-    ) -> Result<Option<V>, TableError> {
-        let key = serialize(&k).expect("error serialize");
+    pub async fn get_bytes(&self, key: Vec<u8>) -> Result<Option<(Vec<u8>, i64)>, TableError> {
         let tk = TableKey::new(key, TableKey::KEY_NO_VERSION);
         let req = Requests::ReadTable(ReadTableCommand {
             request_id: self.id.fetch_add(1, Ordering::SeqCst) + 1,
@@ -167,18 +155,79 @@ impl<'a> TableMap<'a> {
             _ => panic!("Unexpected response for update tableEntries"),
         });
 
-        let rrr = s.map(|v: Vec<(TableKey, TableValue)>| {
-            if (v.is_empty()) {
+        let rrr: Result<Option<(Vec<u8>, i64)>, TableError> = s.map(|v: Vec<(TableKey, TableValue)>| {
+            if v.is_empty() {
                 None
             } else {
                 let (l, r) = v[0].clone();
-                let s = r.data;
-                let r: V = deserialize_from(s.as_slice()).expect("err");
-                Some(r)
+                let s = (r.data, l.key_version);
+                //let r: V = deserialize_from(s.as_slice()).expect("err");
+                // Some(s)
+                Some(s)
             }
         });
 
         rrr
+    }
+
+    ///
+    /// Returns the latest value corresponding to the key.
+    ///
+    /// If the map does not have the key [`None`] is returned. The version number of the Value is
+    /// returned by the API.
+    ///
+    pub async fn get<
+        K: Serialize + serde::de::DeserializeOwned,
+        V: Serialize + serde::de::DeserializeOwned,
+    >(
+        &self,
+        k: K,
+    ) -> Result<Option<(V, i64)>, TableError> {
+        let key = serialize(&k).expect("error serialize");
+        let r = self.get_bytes(key).await;
+        let r3 = r.map(|v| {
+            let sss = v.and_then(|(l, r)| {
+                if l.is_empty() {
+                    None
+                } else {
+                    let r1: V = deserialize_from(l.as_slice()).expect("err");
+                    Some((r1, r))
+                }
+            });
+            sss
+        });
+        r3
+    }
+
+    ///
+    /// Unconditionally inserts a new or update an existing entry for the given key.
+    /// Once the update is performed the newer version is returned.
+    ///
+    pub async fn insert<K: Serialize + Deserialize<'a>, V: Serialize + Deserialize<'a>>(
+        &self,
+        k: K,
+        v: V,
+    ) -> Result<i64, TableError> {
+        self.insert_conditional(k, TableKey::KEY_NO_VERSION, v).await
+    }
+
+    ///
+    /// Conditionally inserts a key-value pair into the table map. The Key and Value are serialized to to bytes using
+    /// bincode2
+    ///
+    /// The insert is performed after checking the key_version passed.
+    /// Once the update is done the newer version is returned.
+    /// TableError::BadKeyVersion is returned incase of an incorrect key version.
+    ///
+    pub async fn insert_conditional<K: Serialize + Deserialize<'a>, V: Serialize + Deserialize<'a>>(
+        &self,
+        k: K,
+        key_version: i64,
+        v: V,
+    ) -> Result<i64, TableError> {
+        let key = serialize(&k).expect("error serialize");
+        let val = serialize(&v).expect("error v serializae");
+        self.insert_bytes(key, key_version, val).await
     }
 }
 
