@@ -20,22 +20,24 @@ use std::net::SocketAddr;
 use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
+use pravega_client_rust::segment_reader::AsyncSegmentReaderImpl;
 
 pub async fn test_event_stream_writer() {
     // spin up Pravega standalone
     let scope_name = Scope::new("testScopeWriter".into());
     let stream_name = Stream::new("testStreamWriter".into());
-    setup_test(&scope_name, &stream_name).await;
-
-    let scoped_stream = ScopedStream {
-        scope: scope_name.clone(),
-        stream: stream_name.clone(),
-    };
     let config = ClientConfigBuilder::default()
         .controller_uri(TEST_CONTROLLER_URI)
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config.clone());
+    let controller_client = client_factory.get_controller_client();
+    create_scope_stream(&controller_client, &scope_name, &stream_name, 2).await;
+
+    let scoped_stream = ScopedStream {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+    };
     let mut writer = client_factory.create_event_stream_writer(scoped_stream.clone(), config);
 
     test_simple_write(&mut writer).await;
@@ -43,6 +45,17 @@ pub async fn test_event_stream_writer() {
     test_scaling_up(&mut writer, &client_factory).await;
 
     test_segment_sealed(&mut writer, &client_factory).await;
+
+    let scope_name = Scope::new("testScopeWriter2".into());
+    let stream_name = Stream::nwe("testStreamWriter2".into());
+    create_scope_stream(&controller_client, &scope_name, &stream_name, 1).await;
+    let scoped_stream = ScopedStream {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+    };
+    let mut writer = client_factory.create_event_stream_writer(scoped_stream.clone(), config);
+
+    test_write_and_read(&mut writer, &client_factory).await;
 }
 
 async fn test_simple_write(writer: &mut EventStreamWriter) {
@@ -151,14 +164,23 @@ async fn test_segment_sealed(writer: &mut EventStreamWriter, factory: &ClientFac
     info!("test event stream writer with segment sealed passed");
 }
 
-// helper function
-async fn setup_test(scope_name: &Scope, stream_name: &Stream) -> ControllerClientImpl {
-    let config = ClientConfigBuilder::default()
-        .controller_uri(TEST_CONTROLLER_URI)
-        .build()
-        .expect("build client config");
+async fn test_write_and_read(writer: &mut EventStreamWriter, factory: &ClientFactory) {
+    info!("test read and write");
+    let rx = writer.write_event(String::from("event1").into_bytes()).await;
+    let reply = rx.await.expect("wait for result from oneshot");
+    println!("{:?}", reply);
 
-    let controller_client = ControllerClientImpl::new(config);
+    let scope_name = Scope::new("testScopeWriter2".into());
+    let stream_name = Stream::nwe("testStreamWriter2".into());
+    let segment_name = ScopedSegment {
+        scope: scope_name,
+        stream: stream_name,
+        segment: Segment { number: 0 },
+    };
+    let asymc_segment_reader = AsyncSegmentReaderImpl::init(segment_name, factory).await;
+}
+/// helper function
+async fn create_scope_stream(controller_client: &dyn ControllerClient, scope_name: &Scope, stream_name: &Stream, segment_number: i32) {
     controller_client
         .create_scope(scope_name)
         .await
@@ -173,7 +195,7 @@ async fn setup_test(scope_name: &Scope, stream_name: &Stream) -> ControllerClien
             scale_type: ScaleType::FixedNumSegments,
             target_rate: 0,
             scale_factor: 0,
-            min_num_segments: 2,
+            min_num_segments: segment_number,
         },
         retention: Retention {
             retention_type: RetentionType::None,
@@ -185,5 +207,4 @@ async fn setup_test(scope_name: &Scope, stream_name: &Stream) -> ControllerClien
         .await
         .expect("create stream");
     info!("Stream created");
-    controller_client
 }
