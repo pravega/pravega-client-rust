@@ -29,8 +29,10 @@
 use std::result::Result as StdResult;
 use std::time::Duration;
 
+use snafu::ResultExt;
 use snafu::Snafu;
 use tonic::transport::channel::Channel;
+use tonic::transport::Error as tonicError;
 use tonic::{Code, Status};
 
 use async_trait::async_trait;
@@ -42,10 +44,11 @@ use controller::{
     StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
 };
 use log::debug;
+use pravega_connection_pool::connection_pool::{
+    ConnectionPool, ConnectionPoolError, Manager, PooledConnection,
+};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfig;
-use pravega_wire_protocol::connection_pool::{ConnectionPool, Manager, PooledConnection};
-use pravega_wire_protocol::error::*;
 use std::convert::{From, Into};
 use std::net::SocketAddr;
 use uuid::Uuid;
@@ -78,6 +81,13 @@ pub enum ControllerError {
         can_retry: bool,
         endpoint: String,
         error_msg: String,
+        source: tonicError,
+    },
+    #[snafu(display("Could not get connection from connection pool"))]
+    PoolError {
+        can_retry: bool,
+        endpoint: String,
+        source: ConnectionPoolError,
     },
 }
 
@@ -218,11 +228,10 @@ impl ControllerClientImpl {
 #[async_trait]
 impl ControllerClient for ControllerClientImpl {
     async fn create_scope(&self, scope: &Scope) -> Result<bool> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
+        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
+            can_retry: true,
+            endpoint: self.endpoint.to_string(),
+        })?;
         create_scope(scope, connection).await
     }
 
@@ -231,74 +240,66 @@ impl ControllerClient for ControllerClientImpl {
     }
 
     async fn delete_scope(&self, scope: &Scope) -> Result<bool> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
+        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
+            can_retry: true,
+            endpoint: self.endpoint.to_string(),
+        })?;
         delete_scope(scope, connection).await
     }
 
     async fn create_stream(&self, stream_config: &StreamConfiguration) -> Result<bool> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
+        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
+            can_retry: true,
+            endpoint: self.endpoint.to_string(),
+        })?;
         create_stream(stream_config, connection).await
     }
 
     async fn update_stream(&self, stream_config: &StreamConfiguration) -> Result<bool> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
+        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
+            can_retry: true,
+            endpoint: self.endpoint.to_string(),
+        })?;
         update_stream(stream_config, connection).await
     }
 
     async fn truncate_stream(&self, stream_cut: &StreamCut) -> Result<bool> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
+        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
+            can_retry: true,
+            endpoint: self.endpoint.to_string(),
+        })?;
         truncate_stream(stream_cut, connection).await
     }
 
     async fn seal_stream(&self, stream: &ScopedStream) -> Result<bool> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
+        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
+            can_retry: true,
+            endpoint: self.endpoint.to_string(),
+        })?;
         seal_stream(stream, connection).await
     }
 
     async fn delete_stream(&self, stream: &ScopedStream) -> Result<bool> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
+        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
+            can_retry: true,
+            endpoint: self.endpoint.to_string(),
+        })?;
         delete_stream(stream, connection).await
     }
 
     async fn get_current_segments(&self, stream: &ScopedStream) -> Result<StreamSegments> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
+        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
+            can_retry: true,
+            endpoint: self.endpoint.to_string(),
+        })?;
         get_current_segments(stream, connection).await
     }
 
     async fn create_transaction(&self, stream: &ScopedStream, lease: Duration) -> Result<TxnSegments> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
+        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
+            can_retry: true,
+            endpoint: self.endpoint.to_string(),
+        })?;
         create_transaction(stream, lease, connection).await
     }
 
@@ -308,11 +309,10 @@ impl ControllerClient for ControllerClientImpl {
         tx_id: TxId,
         lease: Duration,
     ) -> Result<PingStatus> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
+        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
+            can_retry: true,
+            endpoint: self.endpoint.to_string(),
+        })?;
         ping_transaction(stream, tx_id, lease, connection).await
     }
 
@@ -323,20 +323,18 @@ impl ControllerClient for ControllerClientImpl {
         writer_id: WriterId,
         time: Timestamp,
     ) -> Result<()> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
+        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
+            can_retry: true,
+            endpoint: self.endpoint.to_string(),
+        })?;
         commit_transaction(stream, tx_id, writer_id, time, connection).await
     }
 
     async fn abort_transaction(&self, stream: &ScopedStream, tx_id: TxId) -> Result<()> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
+        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
+            can_retry: true,
+            endpoint: self.endpoint.to_string(),
+        })?;
         abort_transaction(stream, tx_id, connection).await
     }
 
@@ -345,20 +343,18 @@ impl ControllerClient for ControllerClientImpl {
         stream: &ScopedStream,
         tx_id: TxId,
     ) -> Result<TransactionStatus> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
+        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
+            can_retry: true,
+            endpoint: self.endpoint.to_string(),
+        })?;
         check_transaction_status(stream, tx_id, connection).await
     }
 
     async fn get_endpoint_for_segment(&self, segment: &ScopedSegment) -> Result<PravegaNodeUri> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
+        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
+            can_retry: true,
+            endpoint: self.endpoint.to_string(),
+        })?;
         get_uri_segment(segment, connection).await
     }
 
@@ -367,11 +363,10 @@ impl ControllerClient for ControllerClientImpl {
     }
 
     async fn get_successors(&self, segment: &ScopedSegment) -> Result<StreamSegmentsWithPredecessors> {
-        let connection = self
-            .pool
-            .get_connection(self.endpoint)
-            .await
-            .expect("get connection");
+        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
+            can_retry: true,
+            endpoint: self.endpoint.to_string(),
+        })?;
         get_successors(segment, connection).await
     }
 }
@@ -411,11 +406,17 @@ impl Manager for ControllerConnectionManager {
         &self,
         endpoint: SocketAddr,
     ) -> std::result::Result<Self::Conn, ConnectionPoolError> {
-        let channel = create_connection(&format!("{}{}", "http://", &endpoint.to_string())).await;
-        Ok(ControllerConnection::new(endpoint, channel))
+        let result = create_connection(&format!("{}{}", "http://", &endpoint.to_string())).await;
+        match result {
+            Ok(channel) => Ok(ControllerConnection::new(endpoint, channel)),
+            Err(_e) => Err(ConnectionPoolError::EstablishConnection {
+                endpoint: endpoint.to_string(),
+                error_msg: String::from("Could not establish connection"),
+            }),
+        }
     }
 
-    fn is_valid(&self, _conn: &PooledConnection<'_, Self::Conn>) -> bool {
+    fn is_valid(&self, _conn: &Self::Conn) -> bool {
         true
     }
 
@@ -425,12 +426,16 @@ impl Manager for ControllerConnectionManager {
 }
 
 /// create_connection with the given controller uri.
-pub async fn create_connection(uri: &str) -> ControllerServiceClient<Channel> {
+async fn create_connection(uri: &str) -> Result<ControllerServiceClient<Channel>> {
     // Placeholder to add authentication headers.
-    let connection: ControllerServiceClient<Channel> = ControllerServiceClient::connect(uri.to_string())
+    let connection = ControllerServiceClient::connect(uri.to_string())
         .await
-        .expect("Failed to create a channel");
-    connection
+        .context(ConnectionError {
+            can_retry: true,
+            endpoint: String::from(uri),
+            error_msg: String::from("Connection Refused"),
+        })?;
+    Ok(connection)
 }
 
 // Method used to translate grpc errors to custom error.

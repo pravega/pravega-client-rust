@@ -8,17 +8,23 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::connection::Connection;
-use crate::connection_factory::ConnectionFactory;
-use crate::error::*;
-
 use async_trait::async_trait;
 use dashmap::DashMap;
-use snafu::ResultExt;
+use snafu::Snafu;
 use std::fmt;
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
 use uuid::Uuid;
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility = "pub(crate)")]
+pub enum ConnectionPoolError {
+    #[snafu(display("Could not establish connection to endpoint: {}", endpoint))]
+    EstablishConnection { endpoint: String, error_msg: String },
+
+    #[snafu(display("No available connection in the internal pool"))]
+    NoAvailableConnection {},
+}
 
 /// Manager is a trait for defining custom connections. User can implement their own
 /// type of connection and their own way of establishing the connection in this trait.
@@ -27,18 +33,37 @@ use uuid::Uuid;
 /// # Example
 ///
 /// ```no_run
+/// use async_trait::async_trait;
 /// use std::net::SocketAddr;
-/// use pravega_wire_protocol::connection_pool::ConnectionPool;
-/// use pravega_wire_protocol::connection_pool::SegmentConnectionManager;
-/// use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionType};
-/// use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
+/// use pravega_connection_pool::connection_pool::{Manager, ConnectionPoolError, ConnectionPool};
 /// use tokio::runtime::Runtime;
 ///
+/// struct FooConnection {}
+///
+/// struct FooManager {}
+///
+/// #[async_trait]
+/// impl Manager for FooManager {
+/// type Conn = FooConnection;
+///
+/// async fn establish_connection(&self,endpoint: SocketAddr) -> Result<Self::Conn, ConnectionPoolError> {
+///         unimplemented!()
+///     }
+///
+/// fn is_valid(&self,conn: &Self::Conn) -> bool {
+///         unimplemented!()
+///     }
+///
+/// fn get_max_connections(&self) -> u32 {
+///         unimplemented!()
+///     }
+///
+/// }
+///
 /// let mut rt = Runtime::new().unwrap();
-/// let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
-/// let factory = ConnectionFactory::create(ConnectionType::Tokio);
-/// let manager = SegmentConnectionManager::new(factory, 2);
+/// let manager = FooManager{};
 /// let pool = ConnectionPool::new(manager);
+/// let endpoint = "127.0.0.1:12345".parse::<SocketAddr>().unwrap();
 /// let connection = rt.block_on(pool.get_connection(endpoint));
 /// ```
 #[async_trait]
@@ -51,71 +76,14 @@ pub trait Manager {
 
     /// Check whether this connection is still valid. This method will be used to filter out
     /// invalid connections when putting connection back to the pool
-    fn is_valid(&self, conn: &PooledConnection<'_, Self::Conn>) -> bool;
+    fn is_valid(&self, conn: &Self::Conn) -> bool;
 
     /// Get the maximum connections in the pool
     fn get_max_connections(&self) -> u32;
 }
 
-/// An implementation of the Manager trait. This is for creating connections between
-/// Rust client and Segmentstore server.
-pub struct SegmentConnectionManager {
-    /// connection_factory is used to establish connection to the remote server
-    /// when there is no connection available in the internal pool.
-    connection_factory: Box<dyn ConnectionFactory>,
-
-    /// The client configuration.
-    max_connections_in_pool: u32,
-}
-
-impl SegmentConnectionManager {
-    pub fn new(connection_factory: Box<dyn ConnectionFactory>, max_connections_in_pool: u32) -> Self {
-        SegmentConnectionManager {
-            connection_factory,
-            max_connections_in_pool,
-        }
-    }
-}
-
-#[async_trait]
-impl Manager for SegmentConnectionManager {
-    type Conn = Box<dyn Connection>;
-
-    async fn establish_connection(&self, endpoint: SocketAddr) -> Result<Self::Conn, ConnectionPoolError> {
-        self.connection_factory
-            .establish_connection(endpoint)
-            .await
-            .context(EstablishConnection {})
-    }
-
-    fn is_valid(&self, conn: &PooledConnection<'_, Self::Conn>) -> bool {
-        conn.inner.as_ref().expect("get inner connection").is_valid()
-    }
-
-    fn get_max_connections(&self) -> u32 {
-        self.max_connections_in_pool
-    }
-}
-
 /// ConnectionPool creates a pool of connections for reuse.
 /// It is thread safe.
-/// # Example
-///
-/// ```no_run
-/// use std::net::SocketAddr;
-/// use pravega_wire_protocol::connection_pool::ConnectionPool;
-/// use pravega_wire_protocol::connection_pool::SegmentConnectionManager;
-/// use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionType};
-/// use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
-/// use tokio::runtime::Runtime;
-///
-/// let mut rt = Runtime::new().unwrap();
-/// let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
-/// let factory = ConnectionFactory::create(ConnectionType::Tokio);
-/// let manager = SegmentConnectionManager::new(factory, 1);
-/// let pool = ConnectionPool::new(manager);
-/// let connection = rt.block_on(pool.get_connection(endpoint));
-/// ```
 pub struct ConnectionPool<M>
 where
     M: Manager,
@@ -150,23 +118,33 @@ where
         &self,
         endpoint: SocketAddr,
     ) -> Result<PooledConnection<'_, M::Conn>, ConnectionPoolError> {
-        match self.managed_pool.get_connection(endpoint) {
-            Ok(internal_conn) => Ok(PooledConnection {
-                uuid: internal_conn.uuid,
-                inner: Some(internal_conn.conn),
-                endpoint,
-                pool: &self.managed_pool,
-                valid: true,
-            }),
-            Err(_e) => {
-                let conn = self.manager.establish_connection(endpoint).await?;
-                Ok(PooledConnection {
-                    uuid: Uuid::new_v4(),
-                    inner: Some(conn),
-                    endpoint,
-                    pool: &self.managed_pool,
-                    valid: true,
-                })
+        // use an infinite loop.
+        loop {
+            match self.managed_pool.get_connection(endpoint) {
+                Ok(internal_conn) => {
+                    let conn = internal_conn.conn;
+                    if self.manager.is_valid(&conn) {
+                        return Ok(PooledConnection {
+                            uuid: internal_conn.uuid,
+                            inner: Some(conn),
+                            endpoint,
+                            pool: &self.managed_pool,
+                            valid: true,
+                        });
+                    }
+
+                    //if it is not valid, will be delete automatically
+                }
+                Err(_e) => {
+                    let conn = self.manager.establish_connection(endpoint).await?;
+                    return Ok(PooledConnection {
+                        uuid: Uuid::new_v4(),
+                        inner: Some(conn),
+                        endpoint,
+                        pool: &self.managed_pool,
+                        valid: true,
+                    });
+                }
             }
         }
     }
@@ -287,6 +265,7 @@ impl<T: Send + Sized> DerefMut for PooledConnection<'_, T> {
 mod tests {
     use super::*;
     use std::sync::Arc;
+    use std::time::Duration;
 
     struct FooConnection {}
 
@@ -305,7 +284,7 @@ mod tests {
             Ok(FooConnection {})
         }
 
-        fn is_valid(&self, _conn: &PooledConnection<'_, Self::Conn>) -> bool {
+        fn is_valid(&self, _conn: &Self::Conn) -> bool {
             true
         }
 
@@ -343,13 +322,14 @@ mod tests {
             .expect("parse to socketaddr");
 
         let mut handles = vec![];
-        for _ in 0..100 {
+        for _ in 0..10 {
             let cloned_pool = pool.clone();
             let handle = tokio::spawn(async move {
-                let _ = cloned_pool
+                let _connection = cloned_pool
                     .get_connection(endpoint)
                     .await
                     .expect("get connection");
+                tokio::time::delay_for(Duration::from_millis(500)).await;
             });
             handles.push(handle);
         }
@@ -358,6 +338,7 @@ mod tests {
             let handle = handles.pop().expect("get handle");
             handle.await.expect("handle should work");
         }
+
         assert_eq!(pool.pool_len(&endpoint) as u32, MAX_CONNECTION);
     }
 }

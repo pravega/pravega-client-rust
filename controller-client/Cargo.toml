@@ -15,6 +15,7 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 [dependencies]
 pravega-rust-client-shared = { path = "../shared"}
 pravega-wire-protocol = { path = "../wire_protocol"}
+pravega-connection-pool = {path= "../connection_pool"}
 async-trait = "0.1.29"
 prost = "0.6.1"
 snafu = "0.6.2"
