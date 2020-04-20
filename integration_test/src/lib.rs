@@ -51,7 +51,7 @@ mod test {
     use lazy_static::*;
     use log::info;
     use pravega_client_rust::client_factory::ClientFactory;
-    use pravega_client_rust::tablemap::TableMap;
+    use pravega_client_rust::tablemap::{TableError, TableMap};
     use pravega_connection_pool::connection_pool::ConnectionPool;
     use pravega_controller_client::{ControllerClient, ControllerClientImpl};
     use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
@@ -91,8 +91,8 @@ mod test {
         let map = client_factory.create_table_map("t1".into()).await;
 
         let r = map.insert("key".to_string(), "val".to_string()).await;
-        info!("==> {:?}", r);
-        let r: Option<String> = map.get("key".to_string()).await;
-        info!("==> {:?}", r);
+        info!("==> PUT {:?}", r);
+        let r: Result<Option<String>, TableError> = map.get("key".to_string()).await;
+        info!("==> GET {:?}", r);
     }
 }

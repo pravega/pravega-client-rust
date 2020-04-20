@@ -12,14 +12,18 @@ use crate::client_factory::ClientFactoryInternal;
 use crate::error::RawClientError;
 use crate::raw_client::RawClient;
 use crate::REQUEST_ID_GENERATOR;
-use bincode2::{deserialize, serialize};
+use bincode2::{deserialize, deserialize_from, serialize};
 use log::debug;
 use log::info;
 use pravega_rust_client_shared::{Scope, ScopedSegment, Segment, Stream};
-use pravega_wire_protocol::commands::CreateTableSegmentCommand;
+use pravega_wire_protocol::commands::{
+    CreateTableSegmentCommand, ReadTableCommand, TableEntries, TableKey, TableValue,
+    UpdateTableEntriesCommand,
+};
+use pravega_wire_protocol::wire_commands::Replies::{TableEntriesUpdated, TableRead};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use serde::{Deserialize, Serialize};
-use snafu::Snafu;
+use snafu::{ResultExt, Snafu};
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicI64, Ordering};
 
@@ -32,12 +36,19 @@ pub struct TableMap<'a> {
 #[derive(Debug, Snafu)]
 pub enum TableError {
     #[snafu(display("Non retryable error {} ", error_msg))]
-    ConfigError { can_retry: bool, error_msg: String },
-    #[snafu(display("Connection Error while performing {}. Error details {}", operation, source))]
+    ConfigError {
+        can_retry: bool,
+        error_msg: String,
+    },
+    #[snafu(display("Connection Error while performing {}: {}", operation, source))]
     ConnectionError {
         can_retry: bool,
         operation: String,
         source: RawClientError,
+    },
+    EmptyError {
+        can_retry: bool,
+        operation: String,
     },
 }
 impl<'a> TableMap<'a> {
@@ -86,23 +97,41 @@ impl<'a> TableMap<'a> {
     /// Inserts a key-value pair into the table map. The Key and Value are serialized to to bytes using
     /// bincode2
     ///
-    /// If the map did not have this key present, [`None`] is returned.
-    ///
-    /// If the map does have this key present, the value is updated, and the old
-    /// value is returned. The key is not updated, though; this matters for
-    /// types that can be `==` without being identical. See the [module-level
-    /// documentation] for more.
+    /// The insert is performed without checking versioning. Once the update is done the version of the key
+    /// is returned.
     ///
     pub async fn insert<K: Serialize + Deserialize<'a>, V: Serialize + Deserialize<'a>>(
         &self,
         k: K,
         v: V,
-    ) -> Option<V> {
+    ) -> Result<i64, TableError> {
         let key = serialize(&k).expect("error serialize");
-        let val = serialize(&v).expect("error v serializae");
-        let ret: String = deserialize(val.as_slice()).expect("error deserialze");
+        let tk = TableKey::new(key, TableKey::KEY_NO_VERSION);
 
-        None
+        let val = serialize(&v).expect("error v serializae");
+        let tv = TableValue::new(val);
+        let te = TableEntries {
+            entries: vec![(tk, tv)],
+        };
+        let req = Requests::UpdateTableEntries(UpdateTableEntriesCommand {
+            request_id: self.id.fetch_add(1, Ordering::SeqCst) + 1,
+            segment: self.name.clone(),
+            delegation_token: "".to_string(),
+            table_entries: te,
+        });
+        let re = self.raw_client.as_ref().send_request(&req).await;
+        debug!("== {:?}", re);
+        let s = re
+            .map(|r| match r {
+                Replies::TableEntriesUpdated(c) => c.updated_versions,
+                _ => panic!("Unexpected response for update tableEntries"),
+            })
+            .map_err(|e| TableError::ConnectionError {
+                can_retry: true,
+                operation: "Insert into tablemap".to_string(),
+                source: e,
+            });
+        s.map(|o| *o.get(0).unwrap())
     }
 
     ///
@@ -110,11 +139,46 @@ impl<'a> TableMap<'a> {
     ///
     /// If the map does not have the key [`None`] is returned.
     ///
-    pub async fn get<K: Serialize + Deserialize<'a>, V: Serialize + Deserialize<'a>>(
+    pub async fn get<
+        K: Serialize + serde::de::DeserializeOwned,
+        V: Serialize + serde::de::DeserializeOwned,
+    >(
         &self,
         k: K,
-    ) -> Option<V> {
-        None
+    ) -> Result<Option<V>, TableError> {
+        let key = serialize(&k).expect("error serialize");
+        let tk = TableKey::new(key, TableKey::KEY_NO_VERSION);
+        let req = Requests::ReadTable(ReadTableCommand {
+            request_id: self.id.fetch_add(1, Ordering::SeqCst) + 1,
+            segment: self.name.clone(),
+            delegation_token: "".to_string(),
+            keys: vec![tk],
+        });
+        let re = self.raw_client.as_ref().send_request(&req).await;
+        debug!("==Read Response {:?}", re);
+        let s: Result<Replies, TableError> = re.map_err(|e| TableError::ConnectionError {
+            can_retry: true,
+            operation: "Read from tablemap".to_string(),
+            source: e,
+        });
+
+        let s: Result<Vec<(TableKey, TableValue)>, TableError> = s.map(|reply| match reply {
+            Replies::TableRead(c) => c.entries.entries,
+            _ => panic!("Unexpected response for update tableEntries"),
+        });
+
+        let rrr = s.map(|v: Vec<(TableKey, TableValue)>| {
+            if (v.is_empty()) {
+                None
+            } else {
+                let (l, r) = v[0].clone();
+                let s = r.data;
+                let r: V = deserialize_from(s.as_slice()).expect("err");
+                Some(r)
+            }
+        });
+
+        rrr
     }
 }
 
