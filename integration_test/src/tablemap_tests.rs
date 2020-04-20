@@ -56,9 +56,9 @@ pub async fn test_tablemap() {
         .await;
     assert!(r.is_err());
     match r {
-        Ok(_v) => assert!(false, "Bad version error expected"),
-        Err(TableError::BadKeyVersion { error_msg: _ }) => assert!(true),
-        _ => assert!(false, "Invalid Error message"),
+        Ok(_v) => panic!("Bad version error expected"),
+        Err(TableError::BadKeyVersion { .. }) => (), // this is expected
+        _ => panic!("Invalid Error message"),
     }
 
     // update with the write version.
