@@ -24,6 +24,10 @@ pub struct ClientConfig {
     pub max_connections_in_pool: u32,
 
     #[get_copy = "pub"]
+    #[builder(default = "3u32")]
+    pub max_controller_connections: u32,
+
+    #[get_copy = "pub"]
     #[builder(default = "ConnectionType::Tokio")]
     pub connection_type: ConnectionType,
 
@@ -70,6 +74,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(config.max_connections_in_pool(), u32::max_value() as u32);
+        assert_eq!(config.max_controller_connections(), 3u32);
         assert_eq!(config.connection_type(), ConnectionType::Tokio);
         assert_eq!(config.retry_policy(), RetryWithBackoff::default());
     }

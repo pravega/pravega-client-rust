@@ -7,44 +7,40 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
-use tokio::runtime::Runtime;
+use pravega_wire_protocol::client_config::ClientConfigBuilder;
 
-// Note this useful idiom: importing names from outer (for mod tests) scope.
 use super::*;
+use std::net::SocketAddr;
 
-#[test]
-#[should_panic] // since the controller is not running.
-fn test_create_scope_error() {
-    let mut rt = Runtime::new().unwrap();
+#[tokio::test]
+async fn test_create_scope_error() {
     let config = ClientConfigBuilder::default()
+        .controller_uri("127.0.0.1:9090".parse::<SocketAddr>().unwrap())
         .build()
         .expect("build client config");
-    let manager = ControllerConnectionManager::new(config);
-    let pool = ConnectionPool::new(manager);
-    let connection = rt
-        .block_on(pool.get_connection(TEST_CONTROLLER_URI.into()))
-        .expect("get connection");
+
+    let client = ControllerClientImpl::new(config);
 
     let request = Scope::new("testScope124".into());
-    let fut = create_scope(&request, connection);
-
-    rt.block_on(fut).unwrap();
+    let create_scope_result = client.create_scope(&request).await;
+    assert!(create_scope_result.is_err());
+    match create_scope_result {
+        Ok(_) => assert!(false, "Failure excepted"),
+        Err(ControllerError::ConnectionError {
+            can_retry,
+            error_msg: _,
+        }) => assert_eq!(true, can_retry),
+        _ => assert!(false, "Invalid Error"),
+    };
 }
 
-#[test]
-#[should_panic] // since the controller is not running.
-fn test_create_stream_error() {
-    let mut rt = Runtime::new().unwrap();
-
+#[tokio::test]
+async fn test_create_stream_error() {
     let config = ClientConfigBuilder::default()
+        .controller_uri("127.0.0.1:9090".parse::<SocketAddr>().unwrap())
         .build()
         .expect("build client config");
-    let manager = ControllerConnectionManager::new(config);
-    let pool = ConnectionPool::new(manager);
-    let connection = rt
-        .block_on(pool.get_connection(TEST_CONTROLLER_URI.into()))
-        .expect("get connection");
+    let client = ControllerClientImpl::new(config);
 
     let request = StreamConfiguration {
         scoped_stream: ScopedStream {
@@ -64,7 +60,14 @@ fn test_create_stream_error() {
             retention_param: 0,
         },
     };
-    let fut = create_stream(&request, connection);
-
-    rt.block_on(fut).unwrap();
+    let create_stream_result = client.create_stream(&request).await;
+    assert!(create_stream_result.is_err());
+    match create_stream_result {
+        Ok(_) => assert!(false, "Failure excepted"),
+        Err(ControllerError::ConnectionError {
+            can_retry,
+            error_msg: _,
+        }) => assert_eq!(true, can_retry),
+        _ => assert!(false, "Invalid Error"),
+    };
 }

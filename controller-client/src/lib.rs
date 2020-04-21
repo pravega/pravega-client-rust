@@ -29,10 +29,8 @@
 use std::result::Result as StdResult;
 use std::time::Duration;
 
-use snafu::ResultExt;
 use snafu::Snafu;
 use tonic::transport::channel::Channel;
-use tonic::transport::Error as tonicError;
 use tonic::{Code, Status};
 
 use async_trait::async_trait;
@@ -44,14 +42,13 @@ use controller::{
     StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
 };
 use log::debug;
-use pravega_connection_pool::connection_pool::{
-    ConnectionPool, ConnectionPoolError, Manager, PooledConnection,
-};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfig;
 use std::convert::{From, Into};
-use std::net::SocketAddr;
-use uuid::Uuid;
+use std::str::FromStr;
+use std::sync::RwLock;
+use tonic::codegen::http::uri::InvalidUri;
+use tonic::transport::Uri;
 
 #[allow(non_camel_case_types)]
 pub mod controller {
@@ -76,19 +73,10 @@ pub enum ControllerError {
         operation: String,
         error_msg: String,
     },
-    #[snafu(display("Could not connect to controller {}", endpoint))]
-    ConnectionError {
-        can_retry: bool,
-        endpoint: String,
-        error_msg: String,
-        source: tonicError,
-    },
-    #[snafu(display("Could not get connection from connection pool"))]
-    PoolError {
-        can_retry: bool,
-        endpoint: String,
-        source: ConnectionPoolError,
-    },
+    #[snafu(display("Could not connect to controller due to {}", error_msg))]
+    ConnectionError { can_retry: bool, error_msg: String },
+    #[snafu(display("Invalid configuration passed to the Controller client. Error {}", error_msg))]
+    InvalidConfiguration { can_retry: bool, error_msg: String },
 }
 
 pub type Result<T> = StdResult<T, ControllerError>;
@@ -211,28 +199,123 @@ pub trait ControllerClient: Send + Sync {
 }
 
 pub struct ControllerClientImpl {
-    endpoint: SocketAddr,
-    pool: ConnectionPool<ControllerConnectionManager>,
+    config: ClientConfig,
+    channel: RwLock<ControllerServiceClient<Channel>>,
 }
 
 impl ControllerClientImpl {
+    ///
+    /// Create a pooled connection to the controller. The pool size is decided by the ClientConfig.
+    /// The requests will be load balanced across multiple connections and every connection supports
+    /// multiplexing of requests.
+    ///
     pub fn new(config: ClientConfig) -> Self {
-        let endpoint = config.controller_uri;
-        let manager = ControllerConnectionManager::new(config);
-        let pool = ConnectionPool::new(manager);
-        ControllerClientImpl { endpoint, pool }
+        // actual connection is established lazily.
+        let ch = get_channel(&config);
+        ControllerClientImpl {
+            config,
+            channel: RwLock::new(ControllerServiceClient::new(ch)),
+        }
     }
+
+    ///
+    /// reset method needs to be invoked in the case of ConnectionError.
+    /// This logic can be removed once https://github.com/tower-rs/tower/issues/383 is fixed.
+    ///
+    pub fn reset(&self) {
+        let ch = get_channel(&self.config);
+        let mut x = self.channel.write().unwrap();
+        *x = ControllerServiceClient::new(ch);
+    }
+
+    ///
+    /// Tonic library suggests we clone the channel to enable multiplexing of requests.
+    /// This is because at the very top level the channel is backed by a `tower_buffer::Buffer`
+    /// which runs the connection in a background task and provides a `mpsc` channel interface.
+    /// Due to this cloning the `Channel` type is cheap and encouraged.
+    ///
+    fn get_controller_client(&self) -> ControllerServiceClient<Channel> {
+        self.channel.read().unwrap().clone()
+    }
+
+    // Method used to translate grpc errors to ControllerError.
+    fn map_grpc_error(&self, operation_name: &str, status: Status) -> ControllerError {
+        match status.code() {
+            Code::InvalidArgument
+            | Code::NotFound
+            | Code::AlreadyExists
+            | Code::PermissionDenied
+            | Code::OutOfRange
+            | Code::Unimplemented
+            | Code::Unauthenticated => ControllerError::OperationError {
+                can_retry: false,
+                operation: operation_name.into(),
+                error_msg: status.to_string(),
+            },
+            Code::Unknown => {
+                self.reset();
+                ControllerError::ConnectionError {
+                    can_retry: true,
+                    error_msg: status.to_string(),
+                }
+            }
+            _ => ControllerError::OperationError {
+                can_retry: true, // retry is enabled for all other errors
+                operation: operation_name.into(),
+                error_msg: format!("{:?}", status.code()),
+            },
+        }
+    }
+}
+
+fn get_channel(config: &ClientConfig) -> Channel {
+    const HTTP_PREFIX: &str = "http://";
+
+    // Placeholder to add authentication headers.
+    let s = format!("{}{}", HTTP_PREFIX, &config.controller_uri.to_string());
+    let uri_result = Uri::from_str(s.as_str())
+        .map_err(|e1: InvalidUri| ControllerError::InvalidConfiguration {
+            can_retry: false,
+            error_msg: e1.to_string(),
+        })
+        .unwrap();
+
+    let iterable_endpoints =
+        (0..config.max_controller_connections).map(|_a| Channel::builder(uri_result.clone()));
+
+    Channel::balance_list(iterable_endpoints)
 }
 
 #[allow(unused_variables)]
 #[async_trait]
 impl ControllerClient for ControllerClientImpl {
     async fn create_scope(&self, scope: &Scope) -> Result<bool> {
-        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
-            can_retry: true,
-            endpoint: self.endpoint.to_string(),
-        })?;
-        create_scope(scope, connection).await
+        use create_scope_status::Status;
+
+        let request: ScopeInfo = ScopeInfo::from(scope);
+
+        let op_status: StdResult<tonic::Response<CreateScopeStatus>, tonic::Status> = self
+            .get_controller_client()
+            .create_scope(tonic::Request::new(request))
+            .await;
+        let operation_name = "CreateScope";
+        match op_status {
+            Ok(code) => match code.into_inner().status() {
+                Status::Success => Ok(true),
+                Status::ScopeExists => Ok(false),
+                Status::InvalidScopeName => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Invalid scope".into(),
+                }),
+                _ => Err(ControllerError::OperationError {
+                    can_retry: true,
+                    operation: operation_name.into(),
+                    error_msg: "Operation failed".into(),
+                }),
+            },
+            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+        }
     }
 
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>> {
@@ -240,67 +323,207 @@ impl ControllerClient for ControllerClientImpl {
     }
 
     async fn delete_scope(&self, scope: &Scope) -> Result<bool> {
-        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
-            can_retry: true,
-            endpoint: self.endpoint.to_string(),
-        })?;
-        delete_scope(scope, connection).await
+        use delete_scope_status::Status;
+
+        let op_status: StdResult<tonic::Response<DeleteScopeStatus>, tonic::Status> = self
+            .get_controller_client()
+            .delete_scope(tonic::Request::new(ScopeInfo::from(scope)))
+            .await;
+        let operation_name = "DeleteScope";
+        match op_status {
+            Ok(code) => match code.into_inner().status() {
+                Status::Success => Ok(true),
+                Status::ScopeNotFound => Ok(false),
+                Status::ScopeNotEmpty => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Scope not empty".into(),
+                }),
+                _ => Err(ControllerError::OperationError {
+                    can_retry: true,
+                    operation: operation_name.into(),
+                    error_msg: "Operation failed".into(),
+                }),
+            },
+            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+        }
     }
 
     async fn create_stream(&self, stream_config: &StreamConfiguration) -> Result<bool> {
-        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
-            can_retry: true,
-            endpoint: self.endpoint.to_string(),
-        })?;
-        create_stream(stream_config, connection).await
+        use create_stream_status::Status;
+
+        let request: StreamConfig = StreamConfig::from(stream_config);
+        let op_status: StdResult<tonic::Response<CreateStreamStatus>, tonic::Status> = self
+            .get_controller_client()
+            .create_stream(tonic::Request::new(request))
+            .await;
+        let operation_name = "CreateStream";
+        match op_status {
+            Ok(code) => match code.into_inner().status() {
+                Status::Success => Ok(true),
+                Status::StreamExists => Ok(false),
+                Status::InvalidStreamName | Status::ScopeNotFound => {
+                    Err(ControllerError::OperationError {
+                        can_retry: false, // do not retry.
+                        operation: operation_name.into(),
+                        error_msg: "Invalid Stream/Scope Not Found".into(),
+                    })
+                }
+                _ => Err(ControllerError::OperationError {
+                    can_retry: true, // retry for all other errors
+                    operation: operation_name.into(),
+                    error_msg: "Operation failed".into(),
+                }),
+            },
+            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+        }
     }
 
     async fn update_stream(&self, stream_config: &StreamConfiguration) -> Result<bool> {
-        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
-            can_retry: true,
-            endpoint: self.endpoint.to_string(),
-        })?;
-        update_stream(stream_config, connection).await
+        use update_stream_status::Status;
+
+        let request: StreamConfig = StreamConfig::from(stream_config);
+        let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> = self
+            .get_controller_client()
+            .update_stream(tonic::Request::new(request))
+            .await;
+        let operation_name = "updateStream";
+        match op_status {
+            Ok(code) => match code.into_inner().status() {
+                Status::Success => Ok(true),
+                Status::ScopeNotFound | Status::StreamNotFound => {
+                    Err(ControllerError::OperationError {
+                        can_retry: false, // do not retry.
+                        operation: operation_name.into(),
+                        error_msg: "Stream/Scope Not Found".into(),
+                    })
+                }
+                _ => Err(ControllerError::OperationError {
+                    can_retry: true, // retry for all other errors
+                    operation: operation_name.into(),
+                    error_msg: "Operation failed".into(),
+                }),
+            },
+            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+        }
     }
 
     async fn truncate_stream(&self, stream_cut: &StreamCut) -> Result<bool> {
-        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
-            can_retry: true,
-            endpoint: self.endpoint.to_string(),
-        })?;
-        truncate_stream(stream_cut, connection).await
+        use update_stream_status::Status;
+
+        let request: controller::StreamCut = controller::StreamCut::from(stream_cut);
+        let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> = self
+            .get_controller_client()
+            .truncate_stream(tonic::Request::new(request))
+            .await;
+        let operation_name = "truncateStream";
+        match op_status {
+            Ok(code) => match code.into_inner().status() {
+                Status::Success => Ok(true),
+                Status::ScopeNotFound | Status::StreamNotFound => {
+                    Err(ControllerError::OperationError {
+                        can_retry: false, // do not retry.
+                        operation: operation_name.into(),
+                        error_msg: "Stream/Scope Not Found".into(),
+                    })
+                }
+                _ => Err(ControllerError::OperationError {
+                    can_retry: true, // retry for all other errors
+                    operation: operation_name.into(),
+                    error_msg: "Operation failed".into(),
+                }),
+            },
+            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+        }
     }
 
     async fn seal_stream(&self, stream: &ScopedStream) -> Result<bool> {
-        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
-            can_retry: true,
-            endpoint: self.endpoint.to_string(),
-        })?;
-        seal_stream(stream, connection).await
+        use update_stream_status::Status;
+
+        let request: StreamInfo = StreamInfo::from(stream);
+        let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> = self
+            .get_controller_client()
+            .seal_stream(tonic::Request::new(request))
+            .await;
+        let operation_name = "SealStream";
+        match op_status {
+            Ok(code) => match code.into_inner().status() {
+                Status::Success => Ok(true),
+                Status::StreamNotFound | Status::ScopeNotFound => {
+                    Err(ControllerError::OperationError {
+                        can_retry: false, // do not retry.
+                        operation: operation_name.into(),
+                        error_msg: "Stream/Scope Not Found".into(),
+                    })
+                }
+                _ => Err(ControllerError::OperationError {
+                    can_retry: true, // retry for all other errors
+                    operation: operation_name.into(),
+                    error_msg: "Operation failed".into(),
+                }),
+            },
+            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+        }
     }
 
     async fn delete_stream(&self, stream: &ScopedStream) -> Result<bool> {
-        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
-            can_retry: true,
-            endpoint: self.endpoint.to_string(),
-        })?;
-        delete_stream(stream, connection).await
+        use delete_stream_status::Status;
+
+        let request: StreamInfo = StreamInfo::from(stream);
+        let op_status: StdResult<tonic::Response<DeleteStreamStatus>, tonic::Status> = self
+            .get_controller_client()
+            .delete_stream(tonic::Request::new(request))
+            .await;
+        let operation_name = "DeleteStream";
+        match op_status {
+            Ok(code) => match code.into_inner().status() {
+                Status::Success => Ok(true),
+                Status::StreamNotFound => Ok(false),
+                Status::StreamNotSealed => {
+                    Err(ControllerError::OperationError {
+                        can_retry: false, // do not retry.
+                        operation: operation_name.into(),
+                        error_msg: "Stream Not Sealed".into(),
+                    })
+                }
+                _ => Err(ControllerError::OperationError {
+                    can_retry: true, // retry for all other errors
+                    operation: operation_name.into(),
+                    error_msg: "Operation failed".into(),
+                }),
+            },
+            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+        }
     }
 
     async fn get_current_segments(&self, stream: &ScopedStream) -> Result<StreamSegments> {
-        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
-            can_retry: true,
-            endpoint: self.endpoint.to_string(),
-        })?;
-        get_current_segments(stream, connection).await
+        let request: StreamInfo = StreamInfo::from(stream);
+        let op_status: StdResult<tonic::Response<SegmentRanges>, tonic::Status> = self
+            .get_controller_client()
+            .get_current_segments(tonic::Request::new(request))
+            .await;
+        let operation_name = "getCurrentSegments";
+        match op_status {
+            Ok(segment_ranges) => Ok(StreamSegments::from(segment_ranges.into_inner())),
+            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+        }
     }
 
     async fn create_transaction(&self, stream: &ScopedStream, lease: Duration) -> Result<TxnSegments> {
-        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
-            can_retry: true,
-            endpoint: self.endpoint.to_string(),
-        })?;
-        create_transaction(stream, lease, connection).await
+        let request = CreateTxnRequest {
+            stream_info: Some(StreamInfo::from(stream)),
+            lease: lease.as_millis() as i64,
+            scale_grace_period: 0,
+        };
+        let op_status: StdResult<tonic::Response<CreateTxnResponse>, tonic::Status> = self
+            .get_controller_client()
+            .create_transaction(tonic::Request::new(request))
+            .await;
+        let operation_name = "createTransaction";
+        match op_status {
+            Ok(create_txn_response) => Ok(TxnSegments::from(create_txn_response.into_inner())),
+            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+        }
     }
 
     async fn ping_transaction(
@@ -309,11 +532,50 @@ impl ControllerClient for ControllerClientImpl {
         tx_id: TxId,
         lease: Duration,
     ) -> Result<PingStatus> {
-        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
-            can_retry: true,
-            endpoint: self.endpoint.to_string(),
-        })?;
-        ping_transaction(stream, tx_id, lease, connection).await
+        use ping_txn_status::Status;
+        let request = PingTxnRequest {
+            stream_info: Some(StreamInfo::from(stream)),
+            txn_id: Some(TxnId::from(tx_id)),
+            lease: lease.as_millis() as i64,
+        };
+        let op_status: StdResult<tonic::Response<PingTxnStatus>, tonic::Status> = self
+            .get_controller_client()
+            .ping_transaction(tonic::Request::new(request))
+            .await;
+        let operation_name = "pingTransaction";
+        match op_status {
+            Ok(code) => match code.into_inner().status() {
+                Status::Ok => Ok(PingStatus::Ok),
+                Status::Committed => Ok(PingStatus::Committed),
+                Status::Aborted => Ok(PingStatus::Aborted),
+                Status::LeaseTooLarge => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Ping transaction failed, Reason:LeaseTooLarge".into(),
+                }),
+                Status::MaxExecutionTimeExceeded => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Ping transaction failed, Reason:MaxExecutionTimeExceeded".into(),
+                }),
+                Status::ScaleGraceTimeExceeded => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Ping transaction failed, Reason:ScaleGraceTimeExceeded".into(),
+                }),
+                Status::Disconnected => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Ping transaction failed, Reason:ScaleGraceTimeExceeded".into(),
+                }),
+                _ => Err(ControllerError::OperationError {
+                    can_retry: true, // retry for all other errors
+                    operation: operation_name.into(),
+                    error_msg: "Operation failed".into(),
+                }),
+            },
+            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+        }
     }
 
     async fn commit_transaction(
@@ -323,19 +585,75 @@ impl ControllerClient for ControllerClientImpl {
         writer_id: WriterId,
         time: Timestamp,
     ) -> Result<()> {
-        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
-            can_retry: true,
-            endpoint: self.endpoint.to_string(),
-        })?;
-        commit_transaction(stream, tx_id, writer_id, time, connection).await
+        use txn_status::Status;
+        let request = TxnRequest {
+            stream_info: Some(StreamInfo::from(stream)),
+            txn_id: Some(TxnId::from(tx_id)),
+            writer_id: writer_id.0.to_string(),
+            timestamp: time.0 as i64,
+        };
+        let op_status: StdResult<tonic::Response<TxnStatus>, tonic::Status> = self
+            .get_controller_client()
+            .commit_transaction(tonic::Request::new(request))
+            .await;
+        let operation_name = "commitTransaction";
+        match op_status {
+            Ok(code) => match code.into_inner().status() {
+                Status::Success => Ok(()),
+                Status::TransactionNotFound => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Commit transaction failed, Reason:TransactionNotFound".into(),
+                }),
+                Status::StreamNotFound => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Commit transaction failed, Reason:StreamNotFound".into(),
+                }),
+                _ => Err(ControllerError::OperationError {
+                    can_retry: true, // retry for all other errors
+                    operation: operation_name.into(),
+                    error_msg: "Operation failed".into(),
+                }),
+            },
+            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+        }
     }
 
     async fn abort_transaction(&self, stream: &ScopedStream, tx_id: TxId) -> Result<()> {
-        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
-            can_retry: true,
-            endpoint: self.endpoint.to_string(),
-        })?;
-        abort_transaction(stream, tx_id, connection).await
+        use txn_status::Status;
+        let request = TxnRequest {
+            stream_info: Some(StreamInfo::from(stream)),
+            txn_id: Some(TxnId::from(tx_id)),
+            writer_id: "".to_string(),
+            timestamp: 0,
+        };
+        let op_status: StdResult<tonic::Response<TxnStatus>, tonic::Status> = self
+            .get_controller_client()
+            .commit_transaction(tonic::Request::new(request))
+            .await;
+        let operation_name = "abortTransaction";
+        match op_status {
+            Ok(code) => match code.into_inner().status() {
+                Status::Success => Ok(()),
+                Status::TransactionNotFound => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Abort transaction failed, Reason:TransactionNotFound".into(),
+                }),
+                Status::StreamNotFound => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Abort transaction failed, Reason:StreamNotFound".into(),
+                }),
+                _ => Err(ControllerError::OperationError {
+                    can_retry: true, // retry for all other errors
+                    operation: operation_name.into(),
+                    error_msg: "Operation failed".into(),
+                }),
+            },
+            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+        }
     }
 
     async fn check_transaction_status(
@@ -343,19 +661,46 @@ impl ControllerClient for ControllerClientImpl {
         stream: &ScopedStream,
         tx_id: TxId,
     ) -> Result<TransactionStatus> {
-        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
-            can_retry: true,
-            endpoint: self.endpoint.to_string(),
-        })?;
-        check_transaction_status(stream, tx_id, connection).await
+        use txn_state::State;
+        let request = TxnRequest {
+            stream_info: Some(StreamInfo::from(stream)),
+            txn_id: Some(TxnId::from(tx_id)),
+            writer_id: "".to_string(),
+            timestamp: 0,
+        };
+        let op_status: StdResult<tonic::Response<TxnState>, tonic::Status> = self
+            .get_controller_client()
+            .check_transaction_state(tonic::Request::new(request))
+            .await;
+        let operation_name = "checkTransactionStatus";
+        match op_status {
+            Ok(code) => match code.into_inner().state() {
+                State::Open => Ok(TransactionStatus::Open),
+                State::Committing => Ok(TransactionStatus::Committing),
+                State::Committed => Ok(TransactionStatus::Committed),
+                State::Aborting => Ok(TransactionStatus::Aborting),
+                State::Aborted => Ok(TransactionStatus::Aborted),
+                _ => Err(ControllerError::OperationError {
+                    can_retry: true, // retry for all other errors
+                    operation: operation_name.into(),
+                    error_msg: "Operation failed".into(),
+                }),
+            },
+            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+        }
     }
 
     async fn get_endpoint_for_segment(&self, segment: &ScopedSegment) -> Result<PravegaNodeUri> {
-        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
-            can_retry: true,
-            endpoint: self.endpoint.to_string(),
-        })?;
-        get_uri_segment(segment, connection).await
+        let op_status: StdResult<tonic::Response<NodeUri>, tonic::Status> = self
+            .get_controller_client()
+            .get_uri(tonic::Request::new(segment.into()))
+            .await;
+        let operation_name = "get_endpoint";
+        match op_status {
+            Ok(response) => Ok(response.into_inner()),
+            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+        }
+        .map(PravegaNodeUri::from)
     }
 
     async fn get_or_refresh_delegation_token_for(&self, stream: ScopedStream) -> Result<DelegationToken> {
@@ -363,582 +708,24 @@ impl ControllerClient for ControllerClientImpl {
     }
 
     async fn get_successors(&self, segment: &ScopedSegment) -> Result<StreamSegmentsWithPredecessors> {
-        let connection = self.pool.get_connection(self.endpoint).await.context(PoolError {
-            can_retry: true,
-            endpoint: self.endpoint.to_string(),
-        })?;
-        get_successors(segment, connection).await
-    }
-}
-
-pub struct ControllerConnection {
-    uuid: Uuid,
-    endpoint: SocketAddr,
-    channel: ControllerServiceClient<Channel>,
-}
-
-impl ControllerConnection {
-    fn new(endpoint: SocketAddr, channel: ControllerServiceClient<Channel>) -> Self {
-        ControllerConnection {
-            uuid: Uuid::new_v4(),
-            endpoint,
-            channel,
+        let scoped_stream = ScopedStream {
+            scope: segment.scope.clone(),
+            stream: segment.stream.clone(),
+        };
+        let segment_id_request = SegmentId {
+            stream_info: Some(StreamInfo::from(&scoped_stream)),
+            segment_id: segment.segment.number,
+        };
+        debug!("sending get successors request for {:?}", segment);
+        let op_status: StdResult<tonic::Response<SuccessorResponse>, tonic::Status> = self
+            .get_controller_client()
+            .get_segments_immediately_following(tonic::Request::new(segment_id_request))
+            .await;
+        let operation_name = "get_successors_segment";
+        match op_status {
+            Ok(response) => Ok(response.into_inner()),
+            Err(status) => Err(self.map_grpc_error(operation_name, status)),
         }
+        .map(StreamSegmentsWithPredecessors::from)
     }
-}
-
-pub struct ControllerConnectionManager {
-    /// The client configuration.
-    config: ClientConfig,
-}
-
-impl ControllerConnectionManager {
-    pub fn new(config: ClientConfig) -> Self {
-        ControllerConnectionManager { config }
-    }
-}
-
-#[async_trait]
-impl Manager for ControllerConnectionManager {
-    type Conn = ControllerConnection;
-
-    async fn establish_connection(
-        &self,
-        endpoint: SocketAddr,
-    ) -> std::result::Result<Self::Conn, ConnectionPoolError> {
-        let result = create_connection(&format!("{}{}", "http://", &endpoint.to_string())).await;
-        match result {
-            Ok(channel) => Ok(ControllerConnection::new(endpoint, channel)),
-            Err(_e) => Err(ConnectionPoolError::EstablishConnection {
-                endpoint: endpoint.to_string(),
-                error_msg: String::from("Could not establish connection"),
-            }),
-        }
-    }
-
-    fn is_valid(&self, _conn: &Self::Conn) -> bool {
-        true
-    }
-
-    fn get_max_connections(&self) -> u32 {
-        self.config.max_connections_in_pool
-    }
-}
-
-/// create_connection with the given controller uri.
-async fn create_connection(uri: &str) -> Result<ControllerServiceClient<Channel>> {
-    // Placeholder to add authentication headers.
-    let connection = ControllerServiceClient::connect(uri.to_string())
-        .await
-        .context(ConnectionError {
-            can_retry: true,
-            endpoint: String::from(uri),
-            error_msg: String::from("Connection Refused"),
-        })?;
-    Ok(connection)
-}
-
-// Method used to translate grpc errors to custom error.
-fn map_grpc_error(operation_name: &str, status: Status) -> ControllerError {
-    match status.code() {
-        Code::InvalidArgument
-        | Code::NotFound
-        | Code::AlreadyExists
-        | Code::PermissionDenied
-        | Code::OutOfRange
-        | Code::Unimplemented
-        | Code::Unauthenticated => ControllerError::OperationError {
-            can_retry: false,
-            operation: operation_name.into(),
-            error_msg: status.to_string(),
-        },
-        _ => ControllerError::OperationError {
-            can_retry: true, // retry is enabled for all other errors
-            operation: operation_name.into(),
-            error_msg: format!("{:?}", status.code()),
-        },
-    }
-}
-
-/// Async helper function to create scope
-async fn create_scope(
-    scope: &Scope,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<bool> {
-    use create_scope_status::Status;
-
-    let request: ScopeInfo = ScopeInfo::from(scope);
-
-    let op_status: StdResult<tonic::Response<CreateScopeStatus>, tonic::Status> = connection
-        .channel
-        .create_scope(tonic::Request::new(request))
-        .await;
-    let operation_name = "CreateScope";
-    match op_status {
-        Ok(code) => match code.into_inner().status() {
-            Status::Success => Ok(true),
-            Status::ScopeExists => Ok(false),
-            Status::InvalidScopeName => Err(ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: operation_name.into(),
-                error_msg: "Invalid scope".into(),
-            }),
-            _ => Err(ControllerError::OperationError {
-                can_retry: true,
-                operation: operation_name.into(),
-                error_msg: "Operation failed".into(),
-            }),
-        },
-        Err(status) => Err(map_grpc_error(operation_name, status)),
-    }
-}
-
-/// Async helper function to create stream.
-async fn create_stream(
-    cfg: &StreamConfiguration,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<bool> {
-    use create_stream_status::Status;
-
-    let request: StreamConfig = StreamConfig::from(cfg);
-    let op_status: StdResult<tonic::Response<CreateStreamStatus>, tonic::Status> = connection
-        .channel
-        .create_stream(tonic::Request::new(request))
-        .await;
-    let operation_name = "CreateStream";
-    match op_status {
-        Ok(code) => match code.into_inner().status() {
-            Status::Success => Ok(true),
-            Status::StreamExists => Ok(false),
-            Status::InvalidStreamName | Status::ScopeNotFound => {
-                Err(ControllerError::OperationError {
-                    can_retry: false, // do not retry.
-                    operation: operation_name.into(),
-                    error_msg: "Invalid Stream/Scope Not Found".into(),
-                })
-            }
-            _ => Err(ControllerError::OperationError {
-                can_retry: true, // retry for all other errors
-                operation: operation_name.into(),
-                error_msg: "Operation failed".into(),
-            }),
-        },
-        Err(status) => Err(map_grpc_error(operation_name, status)),
-    }
-}
-
-/// Async helper function to get segment URI.
-async fn get_uri_segment(
-    request: &ScopedSegment,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<PravegaNodeUri> {
-    let op_status: StdResult<tonic::Response<NodeUri>, tonic::Status> = connection
-        .channel
-        .get_uri(tonic::Request::new(request.into()))
-        .await;
-    let operation_name = "get_endpoint";
-    match op_status {
-        Ok(response) => Ok(response.into_inner()),
-        Err(status) => Err(map_grpc_error(operation_name, status)),
-    }
-    .map(PravegaNodeUri::from)
-}
-
-/// Async helper function to delete Stream.
-async fn delete_scope(
-    scope: &Scope,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<bool> {
-    use delete_scope_status::Status;
-
-    let op_status: StdResult<tonic::Response<DeleteScopeStatus>, tonic::Status> = connection
-        .channel
-        .delete_scope(tonic::Request::new(ScopeInfo::from(scope)))
-        .await;
-    let operation_name = "DeleteScope";
-    match op_status {
-        Ok(code) => match code.into_inner().status() {
-            Status::Success => Ok(true),
-            Status::ScopeNotFound => Ok(false),
-            Status::ScopeNotEmpty => Err(ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: operation_name.into(),
-                error_msg: "Scope not empty".into(),
-            }),
-            _ => Err(ControllerError::OperationError {
-                can_retry: true,
-                operation: operation_name.into(),
-                error_msg: "Operation failed".into(),
-            }),
-        },
-        Err(status) => Err(map_grpc_error(operation_name, status)),
-    }
-}
-
-/// Async helper function to seal Stream.
-async fn seal_stream(
-    stream: &ScopedStream,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<bool> {
-    use update_stream_status::Status;
-
-    let request: StreamInfo = StreamInfo::from(stream);
-    let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> =
-        connection.channel.seal_stream(tonic::Request::new(request)).await;
-    let operation_name = "SealStream";
-    match op_status {
-        Ok(code) => match code.into_inner().status() {
-            Status::Success => Ok(true),
-            Status::StreamNotFound | Status::ScopeNotFound => {
-                Err(ControllerError::OperationError {
-                    can_retry: false, // do not retry.
-                    operation: operation_name.into(),
-                    error_msg: "Stream/Scope Not Found".into(),
-                })
-            }
-            _ => Err(ControllerError::OperationError {
-                can_retry: true, // retry for all other errors
-                operation: operation_name.into(),
-                error_msg: "Operation failed".into(),
-            }),
-        },
-        Err(status) => Err(map_grpc_error(operation_name, status)),
-    }
-}
-
-/// Async helper function to delete Stream.
-async fn delete_stream(
-    stream: &ScopedStream,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<bool> {
-    use delete_stream_status::Status;
-
-    let request: StreamInfo = StreamInfo::from(stream);
-    let op_status: StdResult<tonic::Response<DeleteStreamStatus>, tonic::Status> = connection
-        .channel
-        .delete_stream(tonic::Request::new(request))
-        .await;
-    let operation_name = "DeleteStream";
-    match op_status {
-        Ok(code) => match code.into_inner().status() {
-            Status::Success => Ok(true),
-            Status::StreamNotFound => Ok(false),
-            Status::StreamNotSealed => {
-                Err(ControllerError::OperationError {
-                    can_retry: false, // do not retry.
-                    operation: operation_name.into(),
-                    error_msg: "Stream Not Sealed".into(),
-                })
-            }
-            _ => Err(ControllerError::OperationError {
-                can_retry: true, // retry for all other errors
-                operation: operation_name.into(),
-                error_msg: "Operation failed".into(),
-            }),
-        },
-        Err(status) => Err(map_grpc_error(operation_name, status)),
-    }
-}
-
-/// Async helper function to update Stream.
-async fn update_stream(
-    stream_config: &StreamConfiguration,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<bool> {
-    use update_stream_status::Status;
-
-    let request: StreamConfig = StreamConfig::from(stream_config);
-    let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> = connection
-        .channel
-        .update_stream(tonic::Request::new(request))
-        .await;
-    let operation_name = "updateStream";
-    match op_status {
-        Ok(code) => match code.into_inner().status() {
-            Status::Success => Ok(true),
-            Status::ScopeNotFound | Status::StreamNotFound => {
-                Err(ControllerError::OperationError {
-                    can_retry: false, // do not retry.
-                    operation: operation_name.into(),
-                    error_msg: "Stream/Scope Not Found".into(),
-                })
-            }
-            _ => Err(ControllerError::OperationError {
-                can_retry: true, // retry for all other errors
-                operation: operation_name.into(),
-                error_msg: "Operation failed".into(),
-            }),
-        },
-        Err(status) => Err(map_grpc_error(operation_name, status)),
-    }
-}
-
-/// Async helper function to truncate Stream.
-async fn truncate_stream(
-    stream_cut: &StreamCut,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<bool> {
-    use update_stream_status::Status;
-
-    let request: controller::StreamCut = controller::StreamCut::from(stream_cut);
-    let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> = connection
-        .channel
-        .truncate_stream(tonic::Request::new(request))
-        .await;
-    let operation_name = "truncateStream";
-    match op_status {
-        Ok(code) => match code.into_inner().status() {
-            Status::Success => Ok(true),
-            Status::ScopeNotFound | Status::StreamNotFound => {
-                Err(ControllerError::OperationError {
-                    can_retry: false, // do not retry.
-                    operation: operation_name.into(),
-                    error_msg: "Stream/Scope Not Found".into(),
-                })
-            }
-            _ => Err(ControllerError::OperationError {
-                can_retry: true, // retry for all other errors
-                operation: operation_name.into(),
-                error_msg: "Operation failed".into(),
-            }),
-        },
-        Err(status) => Err(map_grpc_error(operation_name, status)),
-    }
-}
-
-/// Async helper function to get current Segments in a Stream.
-async fn get_current_segments(
-    stream: &ScopedStream,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<StreamSegments> {
-    let request: StreamInfo = StreamInfo::from(stream);
-    let op_status: StdResult<tonic::Response<SegmentRanges>, tonic::Status> = connection
-        .channel
-        .get_current_segments(tonic::Request::new(request))
-        .await;
-    let operation_name = "getCurrentSegments";
-    match op_status {
-        Ok(segment_ranges) => Ok(StreamSegments::from(segment_ranges.into_inner())),
-        Err(status) => Err(map_grpc_error(operation_name, status)),
-    }
-}
-
-/// Async helper function to create a Transaction.
-async fn create_transaction(
-    stream: &ScopedStream,
-    lease: Duration,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<TxnSegments> {
-    let request = CreateTxnRequest {
-        stream_info: Some(StreamInfo::from(stream)),
-        lease: lease.as_millis() as i64,
-        scale_grace_period: 0,
-    };
-    let op_status: StdResult<tonic::Response<CreateTxnResponse>, tonic::Status> = connection
-        .channel
-        .create_transaction(tonic::Request::new(request))
-        .await;
-    let operation_name = "createTransaction";
-    match op_status {
-        Ok(create_txn_response) => Ok(TxnSegments::from(create_txn_response.into_inner())),
-        Err(status) => Err(map_grpc_error(operation_name, status)),
-    }
-}
-
-/// Async helper function to ping a Transaction.
-async fn ping_transaction(
-    stream: &ScopedStream,
-    tx_id: TxId,
-    lease: Duration,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<PingStatus> {
-    use ping_txn_status::Status;
-    let request = PingTxnRequest {
-        stream_info: Some(StreamInfo::from(stream)),
-        txn_id: Some(TxnId::from(tx_id)),
-        lease: lease.as_millis() as i64,
-    };
-    let op_status: StdResult<tonic::Response<PingTxnStatus>, tonic::Status> = connection
-        .channel
-        .ping_transaction(tonic::Request::new(request))
-        .await;
-    let operation_name = "pingTransaction";
-    match op_status {
-        Ok(code) => match code.into_inner().status() {
-            Status::Ok => Ok(PingStatus::Ok),
-            Status::Committed => Ok(PingStatus::Committed),
-            Status::Aborted => Ok(PingStatus::Aborted),
-            Status::LeaseTooLarge => Err(ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: operation_name.into(),
-                error_msg: "Ping transaction failed, Reason:LeaseTooLarge".into(),
-            }),
-            Status::MaxExecutionTimeExceeded => Err(ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: operation_name.into(),
-                error_msg: "Ping transaction failed, Reason:MaxExecutionTimeExceeded".into(),
-            }),
-            Status::ScaleGraceTimeExceeded => Err(ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: operation_name.into(),
-                error_msg: "Ping transaction failed, Reason:ScaleGraceTimeExceeded".into(),
-            }),
-            Status::Disconnected => Err(ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: operation_name.into(),
-                error_msg: "Ping transaction failed, Reason:ScaleGraceTimeExceeded".into(),
-            }),
-            _ => Err(ControllerError::OperationError {
-                can_retry: true, // retry for all other errors
-                operation: operation_name.into(),
-                error_msg: "Operation failed".into(),
-            }),
-        },
-        Err(status) => Err(map_grpc_error(operation_name, status)),
-    }
-}
-
-/// Async helper function to commit a Transaction.
-async fn commit_transaction(
-    stream: &ScopedStream,
-    tx_id: TxId,
-    writerid: WriterId,
-    time: Timestamp,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<()> {
-    use txn_status::Status;
-    let request = TxnRequest {
-        stream_info: Some(StreamInfo::from(stream)),
-        txn_id: Some(TxnId::from(tx_id)),
-        writer_id: writerid.0.to_string(),
-        timestamp: time.0 as i64,
-    };
-    let op_status: StdResult<tonic::Response<TxnStatus>, tonic::Status> = connection
-        .channel
-        .commit_transaction(tonic::Request::new(request))
-        .await;
-    let operation_name = "commitTransaction";
-    match op_status {
-        Ok(code) => match code.into_inner().status() {
-            Status::Success => Ok(()),
-            Status::TransactionNotFound => Err(ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: operation_name.into(),
-                error_msg: "Commit transaction failed, Reason:TransactionNotFound".into(),
-            }),
-            Status::StreamNotFound => Err(ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: operation_name.into(),
-                error_msg: "Commit transaction failed, Reason:StreamNotFound".into(),
-            }),
-            _ => Err(ControllerError::OperationError {
-                can_retry: true, // retry for all other errors
-                operation: operation_name.into(),
-                error_msg: "Operation failed".into(),
-            }),
-        },
-        Err(status) => Err(map_grpc_error(operation_name, status)),
-    }
-}
-
-/// Async helper function to abort a Transaction.
-async fn abort_transaction(
-    stream: &ScopedStream,
-    tx_id: TxId,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<()> {
-    use txn_status::Status;
-    let request = TxnRequest {
-        stream_info: Some(StreamInfo::from(stream)),
-        txn_id: Some(TxnId::from(tx_id)),
-        writer_id: "".to_string(),
-        timestamp: 0,
-    };
-    let op_status: StdResult<tonic::Response<TxnStatus>, tonic::Status> = connection
-        .channel
-        .commit_transaction(tonic::Request::new(request))
-        .await;
-    let operation_name = "abortTransaction";
-    match op_status {
-        Ok(code) => match code.into_inner().status() {
-            Status::Success => Ok(()),
-            Status::TransactionNotFound => Err(ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: operation_name.into(),
-                error_msg: "Abort transaction failed, Reason:TransactionNotFound".into(),
-            }),
-            Status::StreamNotFound => Err(ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: operation_name.into(),
-                error_msg: "Abort transaction failed, Reason:StreamNotFound".into(),
-            }),
-            _ => Err(ControllerError::OperationError {
-                can_retry: true, // retry for all other errors
-                operation: operation_name.into(),
-                error_msg: "Operation failed".into(),
-            }),
-        },
-        Err(status) => Err(map_grpc_error(operation_name, status)),
-    }
-}
-
-/// Async helper function to check Transaction status.
-async fn check_transaction_status(
-    stream: &ScopedStream,
-    tx_id: TxId,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<TransactionStatus> {
-    use txn_state::State;
-    let request = TxnRequest {
-        stream_info: Some(StreamInfo::from(stream)),
-        txn_id: Some(TxnId::from(tx_id)),
-        writer_id: "".to_string(),
-        timestamp: 0,
-    };
-    let op_status: StdResult<tonic::Response<TxnState>, tonic::Status> = connection
-        .channel
-        .check_transaction_state(tonic::Request::new(request))
-        .await;
-    let operation_name = "checkTransactionStatus";
-    match op_status {
-        Ok(code) => match code.into_inner().state() {
-            State::Open => Ok(TransactionStatus::Open),
-            State::Committing => Ok(TransactionStatus::Committing),
-            State::Committed => Ok(TransactionStatus::Committed),
-            State::Aborting => Ok(TransactionStatus::Aborting),
-            State::Aborted => Ok(TransactionStatus::Aborted),
-            _ => Err(ControllerError::OperationError {
-                can_retry: true, // retry for all other errors
-                operation: operation_name.into(),
-                error_msg: "Operation failed".into(),
-            }),
-        },
-        Err(status) => Err(map_grpc_error(operation_name, status)),
-    }
-}
-
-/// Async helper function to get successors
-async fn get_successors(
-    request: &ScopedSegment,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<StreamSegmentsWithPredecessors> {
-    let scoped_stream = ScopedStream {
-        scope: request.scope.clone(),
-        stream: request.stream.clone(),
-    };
-    let segment_id_request = SegmentId {
-        stream_info: Some(StreamInfo::from(&scoped_stream)),
-        segment_id: request.segment.number,
-    };
-    debug!("sending get successors request for {:?}", request);
-    let op_status: StdResult<tonic::Response<SuccessorResponse>, tonic::Status> = connection
-        .channel
-        .get_segments_immediately_following(tonic::Request::new(segment_id_request))
-        .await;
-    let operation_name = "get_successors_segment";
-    match op_status {
-        Ok(response) => Ok(response.into_inner()),
-        Err(status) => Err(map_grpc_error(operation_name, status)),
-    }
-    .map(StreamSegmentsWithPredecessors::from)
 }
