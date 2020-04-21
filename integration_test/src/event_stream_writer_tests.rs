@@ -87,6 +87,7 @@ async fn test_scaling_up(writer: &mut EventStreamWriter, factory: &ClientFactory
     let mut i = 0;
     while i < count {
         if i == 500 {
+            println!("start to scale up");
             // scaling up the segment number
             let new_config = StreamConfiguration {
                 scoped_stream: ScopedStream {
@@ -104,11 +105,12 @@ async fn test_scaling_up(writer: &mut EventStreamWriter, factory: &ClientFactory
                     retention_param: 0,
                 },
             };
-            factory
+            let result = factory
                 .get_controller_client()
                 .update_stream(&new_config)
                 .await
-                .expect("scale down the segments");
+                .expect("scale up the segments");
+            assert_eq!(result, true);
         }
         let rx = writer.write_event(String::from("hello").into_bytes()).await;
         receivers.push(rx);
@@ -120,6 +122,16 @@ async fn test_scaling_up(writer: &mut EventStreamWriter, factory: &ClientFactory
         let _reply = rx.await.expect("wait for result from oneshot");
     }
 
+    let scoped_stream = ScopedStream {
+        scope: Scope::new("testScopeWriter".into()),
+        stream: Stream::new("testStreamWriter".into()),
+    };
+    let result = factory
+        .get_controller_client()
+        .get_current_segments(&scoped_stream)
+        .await
+        .expect("get current segment");
+    println!("{:?}", result);
     info!("test event stream writer with segment scaled up passed");
 }
 
@@ -148,7 +160,7 @@ async fn test_segment_sealed(writer: &mut EventStreamWriter, factory: &ClientFac
                     retention_param: 0,
                 },
             };
-            factory
+            let result = factory
                 .get_controller_client()
                 .update_stream(&new_config)
                 .await
@@ -163,7 +175,6 @@ async fn test_segment_sealed(writer: &mut EventStreamWriter, factory: &ClientFac
     for rx in receivers {
         let _reply = rx.await.expect("wait for result from oneshot");
     }
-
     info!("test event stream writer with segment sealed passed");
 }
 
@@ -220,7 +231,7 @@ async fn test_write_without_loss_or_duplicate(writer: &mut EventStreamWriter, fa
                 .get_controller_client()
                 .update_stream(&new_config)
                 .await
-                .expect("scale down the segments");
+                .expect("scale up the segments");
         }
         let data = format!("event{}", i);
         let rx = writer.write_event(data.into_bytes()).await;
