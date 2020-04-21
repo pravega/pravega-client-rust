@@ -236,7 +236,7 @@ mod tests {
     use pravega_wire_protocol::client_config::ClientConfigBuilder;
     use pravega_wire_protocol::client_config::TEST_CONTROLLER_URI;
 
-    #[tokio::test]
+    //#[tokio::test]
     async fn integration_test() {
         let config = ClientConfigBuilder::default()
             .controller_uri(TEST_CONTROLLER_URI)
