@@ -24,7 +24,7 @@ use std::sync::Arc;
 
 pub struct ClientFactory(Arc<ClientFactoryInternal>);
 
-pub(crate) struct ClientFactoryInternal {
+pub struct ClientFactoryInternal {
     connection_pool: ConnectionPool<SegmentConnectionManager>,
     controller_client: ControllerClientImpl,
 }
@@ -42,7 +42,7 @@ impl ClientFactory {
     }
 
     #[allow(clippy::needless_lifetimes)] //Normally the compiler could infer lifetimes but async is throwing it for a loop.
-    pub(crate) async fn create_async_event_reader<'a>(
+    pub async fn create_async_event_reader<'a>(
         &'a self,
         segment: ScopedSegment,
     ) -> AsyncSegmentReaderImpl<'a> {

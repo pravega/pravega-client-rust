@@ -389,7 +389,7 @@ impl EventSegmentWriter {
     }
 
     /// first add the event to the pending list
-    /// then flush the pending list is the inflight list is empty
+    /// then flush the pending list if the inflight list is empty
     pub async fn write(&mut self, event: PendingEvent) -> Result<(), EventStreamWriterError> {
         self.add_pending(event);
         self.flush().await
