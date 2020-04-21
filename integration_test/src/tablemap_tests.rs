@@ -86,4 +86,39 @@ pub async fn test_tablemap() {
     let temp = rr.unwrap();
     assert!(temp.is_some());
     assert_eq!(temp.unwrap().0, "v_100".to_string());
+
+    // verify delete with a non-existent key
+    let key: String = "non-existent-key".into();
+    let r = map.remove_conditional(key, TableKey::KEY_NO_VERSION).await;
+    assert!(r.is_ok());
+
+    // verify conditional delete
+    let key: String = k.clone();
+    let r = map.remove_conditional(key, 0i64).await;
+    assert!(r.is_err());
+    match r {
+        Ok(_v) => panic!("Bad version error expected"),
+        Err(TableError::BadKeyVersion { .. }) => (), // this is expected
+        _ => panic!("Invalid Error message"),
+    }
+
+    //verify unconditional delete
+    let key: String = k.clone();
+    let r = map.remove(key).await;
+    assert!(r.is_ok());
+
+    // verify with get.
+    let rr: Result<Option<(String, i64)>, TableError> = map.get(k.clone()).await;
+    assert!(rr.is_ok());
+    assert!(rr.unwrap().is_none());
+
+    // verify conditional delete post delete.
+    let key: String = k.clone();
+    let r = map.remove_conditional(key, 0i64).await;
+    assert!(r.is_err());
+    match r {
+        Ok(_v) => panic!("Key does not exist error expected"),
+        Err(TableError::KeyDoesNotExist { .. }) => (), // this is expected
+        _ => panic!("Invalid Error message"),
+    }
 }

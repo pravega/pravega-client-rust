@@ -17,7 +17,7 @@ use log::debug;
 use log::info;
 use pravega_rust_client_shared::{Scope, ScopedSegment, Segment, Stream};
 use pravega_wire_protocol::commands::{
-    CreateTableSegmentCommand, ReadTableCommand, TableEntries, TableKey, TableValue,
+    CreateTableSegmentCommand, ReadTableCommand, RemoveTableKeysCommand, TableEntries, TableKey, TableValue,
     UpdateTableEntriesCommand,
 };
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
@@ -119,7 +119,7 @@ impl<'a> TableMap<'a> {
                 if l.is_empty() {
                     None
                 } else {
-                    let value: V = deserialize_from(l.as_slice()).expect("err");
+                    let value: V = deserialize_from(l.as_slice()).expect("error during deserialization");
                     Some((value, version))
                 }
             })
@@ -156,6 +156,27 @@ impl<'a> TableMap<'a> {
         let key = serialize(&k).expect("error during serialization.");
         let val = serialize(&v).expect("error during serialization.");
         self.insert_bytes(key, key_version, val).await
+    }
+
+    ///
+    ///Unconditionally remove a key from the Tablemap. If the key does not exist an Ok(()) is returned.
+    ///
+    pub async fn remove<K: Serialize + Deserialize<'a>>(&self, k: K) -> Result<(), TableError> {
+        let key = serialize(&k).expect("error during serialization.");
+        self.remove_bytes(key, TableKey::KEY_NO_VERSION).await
+    }
+
+    ///
+    /// Conditionally remove a key from the Tablemap if it matches the provided key version.
+    /// TableError::BadKeyVersion is returned incase the version does not exist.
+    ///
+    pub async fn remove_conditional<K: Serialize + Deserialize<'a>>(
+        &self,
+        k: K,
+        key_version: i64,
+    ) -> Result<(), TableError> {
+        let key = serialize(&k).expect("error during serialization.");
+        self.remove_bytes(key, key_version).await
     }
 
     ///
@@ -226,6 +247,36 @@ impl<'a> TableMap<'a> {
                 let (l, r) = v[0].clone(); //Can we eliminate this?
                 Some((r.data, l.key_version))
             }
+        })
+    }
+
+    ///
+    /// Remove an entry for given key as Vec<u8>
+    ///
+    pub async fn remove_bytes(&self, key: Vec<u8>, key_version: i64) -> Result<(), TableError> {
+        let tk = TableKey::new(key, key_version);
+        let req = Requests::RemoveTableKeys(RemoveTableKeysCommand {
+            request_id: self.id.fetch_add(1, Ordering::SeqCst) + 1,
+            segment: self.name.clone(),
+            delegation_token: "".to_string(),
+            keys: vec![tk],
+        });
+        let re = self.raw_client.as_ref().send_request(&req).await;
+        debug!("Reply for RemoveTableKeys request {:?}", re);
+        re.map_err(|e| TableError::ConnectionError {
+            can_retry: true,
+            operation: "Remove keysfrom tablemap".to_string(),
+            source: e,
+        })
+        .and_then(|r| match r {
+            Replies::TableKeysRemoved(..) => Ok(()),
+            Replies::TableKeyBadVersion(c) => Err(TableError::BadKeyVersion {
+                error_msg: c.to_string(),
+            }),
+            Replies::TableKeyDoesNotExist(c) => Err(TableError::KeyDoesNotExist {
+                error_msg: c.to_string(),
+            }),
+            _ => panic!("Unexpected response while deleting keys"),
         })
     }
 }
