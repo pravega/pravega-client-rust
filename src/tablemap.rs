@@ -27,6 +27,7 @@ use std::net::SocketAddr;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 pub struct TableMap<'a> {
+    /// name of the map
     name: String,
     raw_client: Box<dyn RawClient<'a> + 'a>,
     id: &'static AtomicI64,
@@ -34,27 +35,16 @@ pub struct TableMap<'a> {
 
 #[derive(Debug, Snafu)]
 pub enum TableError {
-    #[snafu(display("Non retryable error {} ", error_msg))]
-    ConfigError {
-        can_retry: bool,
-        error_msg: String,
-    },
-    #[snafu(display("Connection Error while performing {}: {}", operation, source))]
+    #[snafu(display("Connection error while performing {}: {}", operation, source))]
     ConnectionError {
         can_retry: bool,
         operation: String,
         source: RawClientError,
     },
-    EmptyError {
-        can_retry: bool,
-        operation: String,
-    },
-    KeyDoesNotExist {
-        error_msg: String,
-    },
-    BadKeyVersion {
-        error_msg: String,
-    },
+    #[snafu(display("Key does not exist while performing {}: {}", operation, error_msg))]
+    KeyDoesNotExist { operation: String, error_msg: String },
+    #[snafu(display("Bad Key version observed while performing {}: {}", operation, error_msg))]
+    BadKeyVersion { operation: String, error_msg: String },
 }
 impl<'a> TableMap<'a> {
     /// create a table map
@@ -189,6 +179,7 @@ impl<'a> TableMap<'a> {
         key_version: i64,
         value: Vec<u8>,
     ) -> Result<i64, TableError> {
+        let op = "Insert into tablemap";
         let tk = TableKey::new(key, key_version);
         let tv = TableValue::new(value);
         let te = TableEntries {
@@ -204,12 +195,13 @@ impl<'a> TableMap<'a> {
         debug!("Reply for UpdateTableEntries request {:?}", re);
         re.map_err(|e| TableError::ConnectionError {
             can_retry: true,
-            operation: "Insert into tablemap".to_string(),
+            operation: op.into(),
             source: e,
         })
         .and_then(|r| match r {
             Replies::TableEntriesUpdated(c) => Ok(c.updated_versions),
             Replies::TableKeyBadVersion(c) => Err(TableError::BadKeyVersion {
+                operation: op.into(),
                 error_msg: c.to_string(),
             }),
             _ => panic!("Unexpected response for update tableEntries"),
@@ -218,7 +210,7 @@ impl<'a> TableMap<'a> {
     }
 
     ///
-    /// Get raw bytes for a givenKey. If not value is present then [None] is returned.
+    /// Get raw bytes for a givenKey. If not value is present then None is returned.
     /// The read result and the corresponding version is returned as a tuple.
     ///
     pub async fn get_bytes(&self, key: Vec<u8>) -> Result<Option<(Vec<u8>, i64)>, TableError> {
@@ -254,6 +246,7 @@ impl<'a> TableMap<'a> {
     /// Remove an entry for given key as Vec<u8>
     ///
     pub async fn remove_bytes(&self, key: Vec<u8>, key_version: i64) -> Result<(), TableError> {
+        let op = "Remove keys from tablemap";
         let tk = TableKey::new(key, key_version);
         let req = Requests::RemoveTableKeys(RemoveTableKeysCommand {
             request_id: self.id.fetch_add(1, Ordering::SeqCst) + 1,
@@ -265,36 +258,20 @@ impl<'a> TableMap<'a> {
         debug!("Reply for RemoveTableKeys request {:?}", re);
         re.map_err(|e| TableError::ConnectionError {
             can_retry: true,
-            operation: "Remove keysfrom tablemap".to_string(),
+            operation: op.into(),
             source: e,
         })
         .and_then(|r| match r {
             Replies::TableKeysRemoved(..) => Ok(()),
             Replies::TableKeyBadVersion(c) => Err(TableError::BadKeyVersion {
+                operation: op.into(),
                 error_msg: c.to_string(),
             }),
             Replies::TableKeyDoesNotExist(c) => Err(TableError::KeyDoesNotExist {
+                operation: op.into(),
                 error_msg: c.to_string(),
             }),
             _ => panic!("Unexpected response while deleting keys"),
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::client_factory::ClientFactory;
-    use pravega_wire_protocol::client_config::ClientConfigBuilder;
-    use pravega_wire_protocol::client_config::TEST_CONTROLLER_URI;
-
-    //#[tokio::test]
-    async fn integration_test() {
-        let config = ClientConfigBuilder::default()
-            .controller_uri(TEST_CONTROLLER_URI)
-            .build()
-            .expect("creating config");
-
-        let client_factory = ClientFactory::new(config);
-        let _t = client_factory.create_table_map("t1".into()).await;
     }
 }
