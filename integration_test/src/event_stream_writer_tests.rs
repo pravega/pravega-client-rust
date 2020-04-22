@@ -277,7 +277,7 @@ async fn test_write_correctness_while_scaling(writer: &mut EventStreamWriter, fa
         let data = EventCommand::read_from(&reply.data).expect("deserialize data");
         assert_eq!(expect_string, String::from_utf8(data.data).unwrap());
         i += 1;
-        offset = offset + length as i64;
+        offset += length as i64;
     }
 
     let raw_client = factory.create_raw_client(&segment_name).await;
@@ -352,7 +352,7 @@ async fn test_write_correctness_with_routing_key(writer: &mut EventStreamWriter,
                 .expect("read event from segment");
             let data = EventCommand::read_from(&reply.data).expect("deserialize data");
             assert_eq!(expect_string, String::from_utf8(data.data).unwrap());
-            offset2 = offset2 + length as i64;
+            offset2 += length as i64;
         } else {
             let reply = reader1
                 .read(offset1, length)
@@ -360,7 +360,7 @@ async fn test_write_correctness_with_routing_key(writer: &mut EventStreamWriter,
                 .expect("read event from segment");
             let data = EventCommand::read_from(&reply.data).expect("deserialize data");
             assert_eq!(expect_string, String::from_utf8(data.data).unwrap());
-            offset1 = offset1 + length as i64;
+            offset1 += length as i64;
         }
         i += 1;
     }
