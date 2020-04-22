@@ -27,7 +27,7 @@
 #![allow(dead_code)]
 
 use std::result::Result as StdResult;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use snafu::Snafu;
 use tonic::transport::channel::Channel;
@@ -36,12 +36,17 @@ use tonic::{Code, Status};
 use async_trait::async_trait;
 use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
-    delete_scope_status, delete_stream_status, ping_txn_status, txn_state, txn_status, update_stream_status,
-    CreateScopeStatus, CreateStreamStatus, CreateTxnRequest, CreateTxnResponse, DeleteScopeStatus,
-    DeleteStreamStatus, NodeUri, PingTxnRequest, PingTxnStatus, ScopeInfo, SegmentId, SegmentRanges,
-    StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
+    delete_scope_status, delete_stream_status, ping_txn_status, scale_request, scale_response,
+    scale_status_response, txn_state, txn_status, update_stream_status, CreateScopeStatus,
+    CreateStreamStatus, CreateTxnRequest, CreateTxnResponse, DeleteScopeStatus, DeleteStreamStatus, NodeUri,
+    PingTxnRequest, PingTxnStatus, ScaleRequest, ScaleResponse, ScaleStatusRequest, ScaleStatusResponse,
+    ScopeInfo, SegmentId, SegmentRanges, StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest,
+    TxnState, TxnStatus, UpdateStreamStatus,
 };
 use log::debug;
+use pravega_rust_client_retry::retry_async::retry_async;
+use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
+use pravega_rust_client_retry::retry_result::{RetryError, RetryResult};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfig;
 use std::convert::{From, Into};
@@ -195,7 +200,28 @@ pub trait ControllerClient: Send + Sync {
      */
     async fn get_or_refresh_delegation_token_for(&self, stream: ScopedStream) -> Result<DelegationToken>;
 
+    ///
+    /// Fetch the successors for a given Segment.
+    ///
     async fn get_successors(&self, segment: &ScopedSegment) -> Result<StreamSegmentsWithPredecessors>;
+
+    ///
+    /// Scale a Stream to the new key ranges. This API returns a result once the scale operation has completed.
+    /// This internally uses the check_scale API to verify the Stream Scaling status.
+    ///
+    async fn scale_stream(
+        &self,
+        stream: &ScopedStream,
+        sealed_segments: &[Segment],
+        new_key_ranges: &[(f64, f64)],
+    ) -> StdResult<(), RetryError<ControllerError>>;
+
+    ///
+    ///Check the status of a Stream Scale operation for a given scale epoch. It returns a
+    ///`true` if the stream scaling operation has completed and `false` if the stream scaling is
+    ///in  progress.
+    ///
+    async fn check_scale(&self, stream: &ScopedStream, scale_epoch: i32) -> Result<bool>;
 }
 
 pub struct ControllerClientImpl {
@@ -727,5 +753,110 @@ impl ControllerClient for ControllerClientImpl {
             Err(status) => Err(self.map_grpc_error(operation_name, status)),
         }
         .map(StreamSegmentsWithPredecessors::from)
+    }
+
+    async fn scale_stream(
+        &self,
+        stream: &ScopedStream,
+        sealed_segment_ids: &[Segment],
+        new_ranges: &[(f64, f64)],
+    ) -> StdResult<(), RetryError<ControllerError>> {
+        use scale_response::ScaleStreamStatus;
+        let scale_request = ScaleRequest {
+            stream_info: Some(StreamInfo::from(stream)),
+            sealed_segments: sealed_segment_ids.iter().map(|s| s.number).collect(),
+            new_key_ranges: new_ranges
+                .iter()
+                .map(|(l, r)| scale_request::KeyRangeEntry { start: *l, end: *r })
+                .collect(),
+            scale_timestamp: Instant::now().elapsed().as_millis() as i64,
+        };
+        let op_status: StdResult<tonic::Response<ScaleResponse>, tonic::Status> = self
+            .get_controller_client()
+            .scale(tonic::Request::new(scale_request))
+            .await;
+        let operation_name = "scale_stream";
+        let retry_policy = RetryWithBackoff::default();
+        let scale_status: StdResult<i32, ControllerError> = match op_status {
+            Ok(response) => {
+                let scale_response = response.into_inner();
+                match scale_response.status() {
+                    ScaleStreamStatus::Started => Ok(scale_response.epoch),
+                    ScaleStreamStatus::PreconditionFailed => Err(ControllerError::OperationError {
+                        can_retry: false, // do not retry.
+                        operation: operation_name.into(),
+                        error_msg: "PreconditionFailed".into(),
+                    }),
+                    _ => Err(ControllerError::OperationError {
+                        can_retry: false, // do not retry.
+                        operation: operation_name.into(),
+                        error_msg: "Operation failed".into(),
+                    }),
+                }
+            }
+            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+        };
+        debug!("Stream Scale Operation Status {:?} ", scale_status);
+        // check if the stream scale operation has completed using check_scale Controller API
+        match scale_status {
+            Ok(epoch) => {
+                retry_async(retry_policy, || async {
+                    let r = self.check_scale(stream, epoch).await;
+                    match r {
+                        Ok(status) => {
+                            if status {
+                                RetryResult::Success(())
+                            } else {
+                                RetryResult::Retry(ControllerError::OperationError {
+                                    can_retry: true,
+                                    operation: operation_name.into(),
+                                    error_msg: "Stream Scaling in progress".to_string(),
+                                })
+                            }
+                        }
+                        Err(error) => RetryResult::Fail(error),
+                    }
+                })
+                .await
+            }
+            Err(e) => Err(RetryError {
+                error: e,
+                total_delay: Duration::from_secs(1),
+                tries: 0,
+            }),
+        }
+    }
+
+    async fn check_scale(&self, stream: &ScopedStream, scale_epoch: i32) -> Result<bool> {
+        use scale_status_response::ScaleStatus;
+
+        let request = ScaleStatusRequest {
+            stream_info: Some(StreamInfo::from(stream)),
+            epoch: scale_epoch,
+        };
+        let op_status: StdResult<tonic::Response<ScaleStatusResponse>, tonic::Status> = self
+            .get_controller_client()
+            .check_scale(tonic::Request::new(request))
+            .await;
+
+        let operation_name = "check_scale";
+        debug!("Check Stream scale status {:?}", op_status);
+        match op_status {
+            Ok(response) => match response.into_inner().status() {
+                ScaleStatus::Success => Ok(true),
+                ScaleStatus::InProgress => Ok(false),
+                ScaleStatus::InvalidInput => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Invalid Input".into(),
+                }),
+                _ => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Operation failed".into(),
+                }),
+            },
+            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+        }
     }
 }

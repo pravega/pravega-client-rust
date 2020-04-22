@@ -12,6 +12,7 @@ use super::ControllerClient;
 use super::ControllerError;
 use async_trait::async_trait;
 use ordered_float::OrderedFloat;
+use pravega_rust_client_retry::retry_result::RetryError;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::ClientConnection;
 use pravega_wire_protocol::commands::{CreateSegmentCommand, DeleteSegmentCommand, MergeSegmentsCommand};
@@ -269,6 +270,31 @@ impl ControllerClient for MockController {
         Err(ControllerError::OperationError {
             can_retry: false, // do not retry.
             operation: "get successors".into(),
+            error_msg: "unsupported operation.".into(),
+        })
+    }
+
+    async fn scale_stream(
+        &self,
+        _stream: &ScopedStream,
+        _sealed_segments: &[Segment],
+        _new_key_ranges: &[(f64, f64)],
+    ) -> Result<(), RetryError<ControllerError>> {
+        Err(RetryError {
+            error: ControllerError::OperationError {
+                can_retry: false, // do not retry.
+                operation: "scale stream".into(),
+                error_msg: "unsupported operation.".into(),
+            },
+            total_delay: Default::default(),
+            tries: 0,
+        })
+    }
+
+    async fn check_scale(&self, _stream: &ScopedStream, _scale_epoch: i32) -> Result<bool, ControllerError> {
+        Err(ControllerError::OperationError {
+            can_retry: false, // do not retry.
+            operation: "check stream scale".into(),
             error_msg: "unsupported operation.".into(),
         })
     }
