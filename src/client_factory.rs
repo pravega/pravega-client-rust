@@ -49,6 +49,18 @@ impl ClientFactory {
         AsyncSegmentReaderImpl::init(segment, &self.0).await
     }
 
+    pub async fn create_raw_client(&self, segment: &ScopedSegment) -> RawClientImpl<'_> {
+        let endpoint = self
+            .0
+            .controller_client
+            .get_endpoint_for_segment(segment)
+            .await
+            .expect("get endpoint for segment")
+            .parse::<SocketAddr>()
+            .expect("convert to socketaddr");
+        self.0.create_raw_client(endpoint)
+    }
+
     pub fn create_event_stream_writer(
         &self,
         stream: ScopedStream,
