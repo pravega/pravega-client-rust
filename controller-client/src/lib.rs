@@ -46,7 +46,7 @@ use controller::{
 use log::debug;
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
-use pravega_rust_client_retry::retry_result::{RetryError, RetryResult};
+use pravega_rust_client_retry::retry_result::RetryResult;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfig;
 use std::convert::{From, Into};
@@ -214,7 +214,7 @@ pub trait ControllerClient: Send + Sync {
         stream: &ScopedStream,
         sealed_segments: &[Segment],
         new_key_ranges: &[(f64, f64)],
-    ) -> StdResult<(), RetryError<ControllerError>>;
+    ) -> StdResult<(), ControllerError>;
 
     ///
     ///Check the status of a Stream Scale operation for a given scale epoch. It returns a
@@ -227,71 +227,6 @@ pub trait ControllerClient: Send + Sync {
 pub struct ControllerClientImpl {
     config: ClientConfig,
     channel: RwLock<ControllerServiceClient<Channel>>,
-}
-
-impl ControllerClientImpl {
-    ///
-    /// Create a pooled connection to the controller. The pool size is decided by the ClientConfig.
-    /// The requests will be load balanced across multiple connections and every connection supports
-    /// multiplexing of requests.
-    ///
-    pub fn new(config: ClientConfig) -> Self {
-        // actual connection is established lazily.
-        let ch = get_channel(&config);
-        ControllerClientImpl {
-            config,
-            channel: RwLock::new(ControllerServiceClient::new(ch)),
-        }
-    }
-
-    ///
-    /// reset method needs to be invoked in the case of ConnectionError.
-    /// This logic can be removed once https://github.com/tower-rs/tower/issues/383 is fixed.
-    ///
-    pub fn reset(&self) {
-        let ch = get_channel(&self.config);
-        let mut x = self.channel.write().unwrap();
-        *x = ControllerServiceClient::new(ch);
-    }
-
-    ///
-    /// Tonic library suggests we clone the channel to enable multiplexing of requests.
-    /// This is because at the very top level the channel is backed by a `tower_buffer::Buffer`
-    /// which runs the connection in a background task and provides a `mpsc` channel interface.
-    /// Due to this cloning the `Channel` type is cheap and encouraged.
-    ///
-    fn get_controller_client(&self) -> ControllerServiceClient<Channel> {
-        self.channel.read().unwrap().clone()
-    }
-
-    // Method used to translate grpc errors to ControllerError.
-    fn map_grpc_error(&self, operation_name: &str, status: Status) -> ControllerError {
-        match status.code() {
-            Code::InvalidArgument
-            | Code::NotFound
-            | Code::AlreadyExists
-            | Code::PermissionDenied
-            | Code::OutOfRange
-            | Code::Unimplemented
-            | Code::Unauthenticated => ControllerError::OperationError {
-                can_retry: false,
-                operation: operation_name.into(),
-                error_msg: status.to_string(),
-            },
-            Code::Unknown => {
-                self.reset();
-                ControllerError::ConnectionError {
-                    can_retry: true,
-                    error_msg: status.to_string(),
-                }
-            }
-            _ => ControllerError::OperationError {
-                can_retry: true, // retry is enabled for all other errors
-                operation: operation_name.into(),
-                error_msg: format!("{:?}", status.code()),
-            },
-        }
-    }
 }
 
 fn get_channel(config: &ClientConfig) -> Channel {
@@ -760,7 +695,7 @@ impl ControllerClient for ControllerClientImpl {
         stream: &ScopedStream,
         sealed_segment_ids: &[Segment],
         new_ranges: &[(f64, f64)],
-    ) -> StdResult<(), RetryError<ControllerError>> {
+    ) -> StdResult<(), ControllerError> {
         use scale_response::ScaleStreamStatus;
         let scale_request = ScaleRequest {
             stream_info: Some(StreamInfo::from(stream)),
@@ -771,17 +706,22 @@ impl ControllerClient for ControllerClientImpl {
                 .collect(),
             scale_timestamp: Instant::now().elapsed().as_millis() as i64,
         };
+        // start the scale Stream operation.
         let op_status: StdResult<tonic::Response<ScaleResponse>, tonic::Status> = self
             .get_controller_client()
             .scale(tonic::Request::new(scale_request))
             .await;
         let operation_name = "scale_stream";
-        let retry_policy = RetryWithBackoff::default();
-        let scale_status: StdResult<i32, ControllerError> = match op_status {
+
+        match op_status {
             Ok(response) => {
                 let scale_response = response.into_inner();
                 match scale_response.status() {
-                    ScaleStreamStatus::Started => Ok(scale_response.epoch),
+                    ScaleStreamStatus::Started => {
+                        // scale Stream has started. check for its completion.
+                        self.check_scale_status(stream, scale_response.epoch, RetryWithBackoff::default())
+                            .await
+                    }
                     ScaleStreamStatus::PreconditionFailed => Err(ControllerError::OperationError {
                         can_retry: false, // do not retry.
                         operation: operation_name.into(),
@@ -795,35 +735,6 @@ impl ControllerClient for ControllerClientImpl {
                 }
             }
             Err(status) => Err(self.map_grpc_error(operation_name, status)),
-        };
-        debug!("Stream Scale Operation Status {:?} ", scale_status);
-        // check if the stream scale operation has completed using check_scale Controller API
-        match scale_status {
-            Ok(epoch) => {
-                retry_async(retry_policy, || async {
-                    let r = self.check_scale(stream, epoch).await;
-                    match r {
-                        Ok(status) => {
-                            if status {
-                                RetryResult::Success(())
-                            } else {
-                                RetryResult::Retry(ControllerError::OperationError {
-                                    can_retry: true,
-                                    operation: operation_name.into(),
-                                    error_msg: "Stream Scaling in progress".to_string(),
-                                })
-                            }
-                        }
-                        Err(error) => RetryResult::Fail(error),
-                    }
-                })
-                .await
-            }
-            Err(e) => Err(RetryError {
-                error: e,
-                total_delay: Duration::from_secs(1),
-                tries: 0,
-            }),
         }
     }
 
@@ -858,5 +769,103 @@ impl ControllerClient for ControllerClientImpl {
             },
             Err(status) => Err(self.map_grpc_error(operation_name, status)),
         }
+    }
+}
+
+impl ControllerClientImpl {
+    ///
+    /// Create a pooled connection to the controller. The pool size is decided by the ClientConfig.
+    /// The requests will be load balanced across multiple connections and every connection supports
+    /// multiplexing of requests.
+    ///
+    pub fn new(config: ClientConfig) -> Self {
+        // actual connection is established lazily.
+        let ch = get_channel(&config);
+        ControllerClientImpl {
+            config,
+            channel: RwLock::new(ControllerServiceClient::new(ch)),
+        }
+    }
+
+    ///
+    /// reset method needs to be invoked in the case of ConnectionError.
+    /// This logic can be removed once https://github.com/tower-rs/tower/issues/383 is fixed.
+    ///
+    pub fn reset(&self) {
+        let ch = get_channel(&self.config);
+        let mut x = self.channel.write().unwrap();
+        *x = ControllerServiceClient::new(ch);
+    }
+
+    ///
+    /// Tonic library suggests we clone the channel to enable multiplexing of requests.
+    /// This is because at the very top level the channel is backed by a `tower_buffer::Buffer`
+    /// which runs the connection in a background task and provides a `mpsc` channel interface.
+    /// Due to this cloning the `Channel` type is cheap and encouraged.
+    ///
+    fn get_controller_client(&self) -> ControllerServiceClient<Channel> {
+        self.channel.read().unwrap().clone()
+    }
+
+    // Method used to translate grpc errors to ControllerError.
+    fn map_grpc_error(&self, operation_name: &str, status: Status) -> ControllerError {
+        match status.code() {
+            Code::InvalidArgument
+            | Code::NotFound
+            | Code::AlreadyExists
+            | Code::PermissionDenied
+            | Code::OutOfRange
+            | Code::Unimplemented
+            | Code::Unauthenticated => ControllerError::OperationError {
+                can_retry: false,
+                operation: operation_name.into(),
+                error_msg: status.to_string(),
+            },
+            Code::Unknown => {
+                self.reset();
+                ControllerError::ConnectionError {
+                    can_retry: true,
+                    error_msg: status.to_string(),
+                }
+            }
+            _ => ControllerError::OperationError {
+                can_retry: true, // retry is enabled for all other errors
+                operation: operation_name.into(),
+                error_msg: format!("{:?}", status.code()),
+            },
+        }
+    }
+
+    // Helper method which checks for the completion of the Stream scale for the given epoch with the specified retry policy.
+    async fn check_scale_status(
+        &self,
+        stream: &ScopedStream,
+        epoch: i32,
+        retry_policy: RetryWithBackoff,
+    ) -> Result<()> {
+        let operation_name = "check_scale post scale_stream";
+        retry_async(retry_policy, || async {
+            let r = self.check_scale(stream, epoch).await;
+            match r {
+                Ok(status) => {
+                    if status {
+                        RetryResult::Success(())
+                    } else {
+                        RetryResult::Retry(ControllerError::OperationError {
+                            can_retry: true,
+                            operation: operation_name.into(),
+                            error_msg: "Stream Scaling in progress".to_string(),
+                        })
+                    }
+                }
+                Err(error) => RetryResult::Fail(error),
+            }
+        })
+        .await
+        .map_err(|retry_error| ControllerError::OperationError {
+            can_retry: false,
+            operation: operation_name.to_string(),
+            error_msg: format!("{:?}", retry_error),
+        })
     }
 }
