@@ -272,6 +272,27 @@ impl ControllerClient for MockController {
             error_msg: "unsupported operation.".into(),
         })
     }
+
+    async fn scale_stream(
+        &self,
+        _stream: &ScopedStream,
+        _sealed_segments: &[Segment],
+        _new_key_ranges: &[(f64, f64)],
+    ) -> Result<(), ControllerError> {
+        Err(ControllerError::OperationError {
+            can_retry: false, // do not retry.
+            operation: "scale stream".into(),
+            error_msg: "unsupported operation.".into(),
+        })
+    }
+
+    async fn check_scale(&self, _stream: &ScopedStream, _scale_epoch: i32) -> Result<bool, ControllerError> {
+        Err(ControllerError::OperationError {
+            can_retry: false, // do not retry.
+            operation: "check stream scale".into(),
+            error_msg: "unsupported operation.".into(),
+        })
+    }
 }
 
 fn get_segments_for_stream(
