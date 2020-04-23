@@ -41,7 +41,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>>
             scale_type: ScaleType::FixedNumSegments,
             target_rate: 0,
             scale_factor: 0,
-            min_num_segments: 2,
+            min_num_segments: 1,
         },
         retention: Retention {
             retention_type: RetentionType::None,
@@ -71,6 +71,21 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>>
         "Response for get_current_segments is {:?}",
         current_segments_result
     );
+
+    let sealed_segments = [Segment { number: 0 }];
+
+    let new_range = [(0.0, 0.5), (0.5, 1.0)];
+
+    let scale_result = controller_client
+        .scale_stream(&scoped_stream, &sealed_segments, &new_range)
+        .await;
+    println!("Response for scale_stream is {:?}", scale_result);
+    let current_segments_result = controller_client.get_current_segments(&scoped_stream).await;
+    println!(
+        "Response for get_current_segments is {:?}",
+        current_segments_result
+    );
+    assert_eq!(2, current_segments_result.unwrap().key_segment_map.len());
 
     let stream_config_modified = StreamConfiguration {
         scoped_stream: ScopedStream {
