@@ -11,6 +11,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
+mod controller_tests;
 #[cfg(test)]
 mod disconnection_tests;
 mod event_stream_writer_tests;
@@ -57,6 +58,8 @@ mod test {
         setup_logger().expect("setup logger");
         let mut pravega = PravegaStandaloneService::start(false);
         wait_for_standalone_with_timeout(true, 30);
+
+        rt.block_on(controller_tests::test_controller_apis());
 
         rt.block_on(wirecommand_tests::wirecommand_test_wrapper());
 
