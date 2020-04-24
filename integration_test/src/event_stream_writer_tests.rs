@@ -38,7 +38,7 @@ pub async fn test_event_stream_writer() {
         .expect("creating config");
     let client_factory = ClientFactory::new(config.clone());
     let controller_client = client_factory.get_controller_client();
-    create_scope_stream(controller_client, &scope_name, &stream_name, 2).await;
+    create_scope_stream(controller_client, &scope_name, &stream_name, 1).await;
 
     let scoped_stream = ScopedStream {
         scope: scope_name.clone(),
@@ -102,29 +102,24 @@ async fn test_segment_scaling_up(writer: &mut EventStreamWriter, factory: &Clien
     let mut i = 0;
     while i < count {
         if i == 500 {
-            // scaling up the segment number
-            let new_config = StreamConfiguration {
-                scoped_stream: ScopedStream {
-                    scope: Scope::new("testScopeWriter".into()),
-                    stream: Stream::new("testStreamWriter".into()),
-                },
-                scaling: Scaling {
-                    scale_type: ScaleType::FixedNumSegments,
-                    target_rate: 0,
-                    scale_factor: 0,
-                    min_num_segments: 4,
-                },
-                retention: Retention {
-                    retention_type: RetentionType::None,
-                    retention_param: 0,
-                },
+            let scoped_stream = ScopedStream {
+                scope: Scope::new("testScopeWriter".into()),
+                stream: Stream::new("testStreamWriter".into()),
             };
-            let result = factory
+            let sealed_segments = [Segment { number: 0 }];
+
+            let new_range = [(0.0, 0.5), (0.5, 1.0)];
+
+            let scale_result = factory
                 .get_controller_client()
-                .update_stream(&new_config)
-                .await
-                .expect("scale up the segments");
-            assert_eq!(result, true);
+                .scale_stream(&scoped_stream, &sealed_segments, &new_range)
+                .await;
+            assert!(scale_result.is_ok());
+            let current_segments_result = factory
+                .get_controller_client()
+                .get_current_segments(&scoped_stream)
+                .await;
+            assert_eq!(2, current_segments_result.unwrap().key_segment_map.len());
         }
         let rx = writer.write_event(String::from("hello").into_bytes()).await;
         receivers.push(rx);
@@ -148,29 +143,23 @@ async fn test_segment_scaling_down(writer: &mut EventStreamWriter, factory: &Cli
     let mut i = 0;
     while i < count {
         if i == 500 {
-            // scaling down the segment number
-            let new_config = StreamConfiguration {
-                scoped_stream: ScopedStream {
-                    scope: Scope::new("testScopeWriter".into()),
-                    stream: Stream::new("testStreamWriter".into()),
-                },
-                scaling: Scaling {
-                    scale_type: ScaleType::FixedNumSegments,
-                    target_rate: 0,
-                    scale_factor: 0,
-                    min_num_segments: 1,
-                },
-                retention: Retention {
-                    retention_type: RetentionType::None,
-                    retention_param: 0,
-                },
+            let scoped_stream = ScopedStream {
+                scope: Scope::new("testScopeWriter".into()),
+                stream: Stream::new("testStreamWriter".into()),
             };
-            let result = factory
+            // Have no idea, why the 2 segment number is not 1 and 2.
+            let sealed_segments = [Segment { number: 4294967297 }, Segment { number: 4294967298 }];
+            let new_range = [(0.0, 1.0)];
+            let scale_result = factory
                 .get_controller_client()
-                .update_stream(&new_config)
-                .await
-                .expect("scale down the segments");
-            assert_eq!(result, true);
+                .scale_stream(&scoped_stream, &sealed_segments, &new_range)
+                .await;
+            assert!(scale_result.is_ok());
+            let current_segments_result = factory
+                .get_controller_client()
+                .get_current_segments(&scoped_stream)
+                .await;
+            assert_eq!(1, current_segments_result.unwrap().key_segment_map.len());
         }
         let rx = writer.write_event(String::from("hello").into_bytes()).await;
         receivers.push(rx);
@@ -223,32 +212,39 @@ async fn test_write_correctness_while_scaling(writer: &mut EventStreamWriter, fa
     while i < count {
         if i == 500 {
             // scaling up the segment number
-            let new_config = StreamConfiguration {
-                scoped_stream: ScopedStream {
-                    scope: scope_name.clone(),
-                    stream: stream_name.clone(),
-                },
-                scaling: Scaling {
-                    scale_type: ScaleType::FixedNumSegments,
-                    target_rate: 0,
-                    scale_factor: 0,
-                    min_num_segments: 2,
-                },
-                retention: Retention {
-                    retention_type: RetentionType::None,
-                    retention_param: 0,
-                },
+            let scoped_stream = ScopedStream {
+                scope: scope_name.clone(),
+                stream: stream_name.clone(),
             };
-            let result = factory
+            let sealed_segments = [Segment { number: 0 }];
+
+            let new_range = [(0.0, 0.5), (0.5, 1.0)];
+
+            let scale_result = factory
                 .get_controller_client()
-                .update_stream(&new_config)
-                .await
-                .expect("scale up the segments");
-            assert_eq!(result, true);
+                .scale_stream(&scoped_stream, &sealed_segments, &new_range)
+                .await;
+            assert!(scale_result.is_ok());
+            let current_segments_result = factory
+                .get_controller_client()
+                .get_current_segments(&scoped_stream)
+                .await;
+            assert_eq!(2, current_segments_result.unwrap().key_segment_map.len());
         }
-        let data = format!("event{}", i);
-        let rx = writer.write_event(data.into_bytes()).await;
-        receivers.push(rx);
+
+        if i % 2 == 0 {
+            let data = format!("event{}", i);
+            let rx = writer
+                .write_event_by_routing_key(String::from("even"), data.into_bytes())
+                .await;
+            receivers.push(rx);
+        } else {
+            let data = format!("event{}", i);
+            let rx = writer
+                .write_event_by_routing_key(String::from("odd"), data.into_bytes())
+                .await;
+            receivers.push(rx);
+        }
         i += 1;
     }
     // the data should write successfully.
@@ -266,39 +262,58 @@ async fn test_write_correctness_while_scaling(writer: &mut EventStreamWriter, fa
     let async_segment_reader = factory.create_async_event_reader(segment_name.clone()).await;
     let mut i = 0;
     let mut offset = 0;
-    while i < count {
+    // the first 500 go to the first segment.
+    while i < 500 {
         let expect_string = format!("event{}", i);
         let length = (expect_string.len() + 8) as i32;
         let reply = async_segment_reader
             .read(offset, length)
             .await
             .expect("read event from segment");
-        //println!("reply is {:?}", reply);
         let data = EventCommand::read_from(&reply.data).expect("deserialize data");
         assert_eq!(expect_string, String::from_utf8(data.data).unwrap());
         i += 1;
         offset += length as i64;
     }
 
-    let raw_client = factory.create_raw_client(&segment_name).await;
+    let segment_name1 = ScopedSegment {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+        segment: Segment { number: 4294967297 },
+    };
+    let reader1 = factory.create_async_event_reader(segment_name1.clone()).await;
+    let segment_name2 = ScopedSegment {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+        segment: Segment { number: 4294967298 },
+    };
+    let reader2 = factory.create_async_event_reader(segment_name2.clone()).await;
 
-    let request = Requests::GetStreamSegmentInfo(GetStreamSegmentInfoCommand {
-        request_id: 0,
-        segment_name: segment_name.to_string(),
-        delegation_token: String::from(""),
-    });
-
-    let reply = raw_client
-        .send_request(&request)
-        .await
-        .expect("fail to get reply");
-    //println!("reply is {:?}", reply);
-
-    if let Replies::StreamSegmentInfo(info) = reply {
-        assert_eq!(info.write_offset, offset);
-    } else {
-        panic!("Wrong reply type");
+    let mut offset1 = 0;
+    let mut offset2 = 0;
+    while i < count {
+        let expect_string = format!("event{}", i);
+        let length = (expect_string.len() + 8) as i32;
+        if i % 2 == 0 {
+            let reply = reader1
+                .read(offset1, length)
+                .await
+                .expect("read event from segment");
+            let data = EventCommand::read_from(&reply.data).expect("deserialize data");
+            assert_eq!(expect_string, String::from_utf8(data.data).unwrap());
+            offset1 += length as i64;
+        } else {
+            let reply = reader2
+                .read(offset2, length)
+                .await
+                .expect("read event from segment");
+            let data = EventCommand::read_from(&reply.data).expect("deserialize data");
+            assert_eq!(expect_string, String::from_utf8(data.data).unwrap());
+            offset2 += length as i64;
+        }
+        i += 1;
     }
+
     info!("test event stream writer writes without loss or duplicate when scaling up passed");
 }
 
