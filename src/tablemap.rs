@@ -142,7 +142,9 @@ impl<'a> TableMap<'a> {
     ) -> Result<i64, TableError> {
         let key = serialize(&k).expect("error during serialization.");
         let val = serialize(&v).expect("error during serialization.");
-        self.insert_raw_value(key, key_version, val).await
+        self.insert_raw_value_all(vec![(key, val, key_version)])
+            .await
+            .map(|versions| versions[0])
     }
 
     ///
@@ -167,21 +169,68 @@ impl<'a> TableMap<'a> {
     }
 
     ///
+    /// Unconditionally inserts a new or update an existing entry for the given key.
+    /// Once the update is performed the newer version is returned.
+    ///
+    pub async fn insert_all<K: Serialize + Deserialize<'a>, V: Serialize + Deserialize<'a>>(
+        &self,
+        kvps: Vec<(K, V)>,
+    ) -> Result<Vec<i64>, TableError> {
+        let r: Vec<(Vec<u8>, Vec<u8>, i64)> = kvps
+            .iter()
+            .map(|(k, v)| {
+                let (ks, vs, vers) = (
+                    serialize(&k).expect("error during serialization."),
+                    serialize(&v).expect("error during serialization."),
+                    TableKey::KEY_NO_VERSION,
+                );
+                (ks, vs, vers)
+            })
+            .collect();
+        self.insert_raw_value_all(r).await
+    }
+
+    ///
+    /// Conditionally inserts a key-value pair into the table map. The Key and Value are serialized to to bytes using
+    /// bincode2
+    ///
+    /// The insert is performed after checking the key_version passed.
+    /// Once the update is done the newer version is returned.
+    /// TableError::BadKeyVersion is returned incase of an incorrect key version.
+    ///
+    pub async fn insert_conditionally_all<K: Serialize + Deserialize<'a>, V: Serialize + Deserialize<'a>>(
+        &self,
+        kvps: Vec<(K, V, i64)>,
+    ) -> Result<Vec<i64>, TableError> {
+        let r: Vec<(Vec<u8>, Vec<u8>, i64)> = kvps
+            .iter()
+            .map(|(k, v, ver)| {
+                let (ks, vs, vers) = (
+                    serialize(&k).expect("error during serialization."),
+                    serialize(&v).expect("error during serialization."),
+                    *ver,
+                );
+                (ks, vs, vers)
+            })
+            .collect();
+        self.insert_raw_value_all(r).await
+    }
+    ///
     /// Insert key and value without serialization.
     /// The function returns the newer version number post the insert operation.
     ///
-    async fn insert_raw_value(
-        &self,
-        key: Vec<u8>,
-        key_version: i64,
-        value: Vec<u8>,
-    ) -> Result<i64, TableError> {
+    async fn insert_raw_value_all(&self, kvps: Vec<(Vec<u8>, Vec<u8>, i64)>) -> Result<Vec<i64>, TableError> {
         let op = "Insert into tablemap";
-        let tk = TableKey::new(key, key_version);
-        let tv = TableValue::new(value);
-        let te = TableEntries {
-            entries: vec![(tk, tv)],
-        };
+
+        let entries: Vec<(TableKey, TableValue)> = kvps
+            .iter()
+            .map(|(k, v, ver)| {
+                let tk = TableKey::new(k.clone(), *ver);
+                let tv = TableValue::new(v.clone());
+                (tk, tv)
+            })
+            .collect();
+        let te = TableEntries { entries };
         let req = Requests::UpdateTableEntries(UpdateTableEntriesCommand {
             request_id: get_request_id(),
             segment: self.name.clone(),
@@ -203,7 +252,6 @@ impl<'a> TableMap<'a> {
             }),
             _ => panic!("Unexpected response for update tableEntries"),
         })
-        .map(|o| *o.get(0).unwrap())
     }
 
     ///
