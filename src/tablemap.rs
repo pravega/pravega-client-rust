@@ -92,13 +92,11 @@ impl<'a> TableMap<'a> {
     /// If the map does not have the key [`None`] is returned. The version number of the Value is
     /// returned by the API.
     ///
-    pub async fn get<
+    pub async fn get<K, V>(&self, k: K) -> Result<Option<(V, i64)>, TableError>
+    where
         K: Serialize + serde::de::DeserializeOwned,
         V: Serialize + serde::de::DeserializeOwned,
-    >(
-        &self,
-        k: K,
-    ) -> Result<Option<(V, i64)>, TableError> {
+    {
         let key = serialize(&k).expect("error during serialization.");
         let read_result = self.get_raw_value(key).await;
         read_result.map(|v| {
@@ -117,11 +115,11 @@ impl<'a> TableMap<'a> {
     /// Unconditionally inserts a new or update an existing entry for the given key.
     /// Once the update is performed the newer version is returned.
     ///
-    pub async fn insert<K: Serialize + Deserialize<'a>, V: Serialize + Deserialize<'a>>(
-        &self,
-        k: K,
-        v: V,
-    ) -> Result<i64, TableError> {
+    pub async fn insert<K, V>(&self, k: K, v: V) -> Result<i64, TableError>
+    where
+        K: Serialize + Deserialize<'a>,
+        V: Serialize + Deserialize<'a>,
+    {
         // use KEY_NO_VERSION to ensure unconditional update.
         self.insert_conditionally(k, TableKey::KEY_NO_VERSION, v).await
     }
@@ -134,12 +132,11 @@ impl<'a> TableMap<'a> {
     /// Once the update is done the newer version is returned.
     /// TableError::BadKeyVersion is returned incase of an incorrect key version.
     ///
-    pub async fn insert_conditionally<K: Serialize + Deserialize<'a>, V: Serialize + Deserialize<'a>>(
-        &self,
-        k: K,
-        key_version: i64,
-        v: V,
-    ) -> Result<i64, TableError> {
+    pub async fn insert_conditionally<K, V>(&self, k: K, key_version: i64, v: V) -> Result<i64, TableError>
+    where
+        K: Serialize + Deserialize<'a>,
+        V: Serialize + Deserialize<'a>,
+    {
         let key = serialize(&k).expect("error during serialization.");
         let val = serialize(&v).expect("error during serialization.");
         self.insert_raw_value_all(vec![(key, val, key_version)])
@@ -159,11 +156,10 @@ impl<'a> TableMap<'a> {
     /// Conditionally remove a key from the Tablemap if it matches the provided key version.
     /// TableError::BadKeyVersion is returned incase the version does not exist.
     ///
-    pub async fn remove_conditionally<K: Serialize + Deserialize<'a>>(
-        &self,
-        k: K,
-        key_version: i64,
-    ) -> Result<(), TableError> {
+    pub async fn remove_conditionally<K>(&self, k: K, key_version: i64) -> Result<(), TableError>
+    where
+        K: Serialize + Deserialize<'a>,
+    {
         let key = serialize(&k).expect("error during serialization.");
         self.remove_bytes(key, key_version).await
     }
@@ -172,19 +168,19 @@ impl<'a> TableMap<'a> {
     /// Unconditionally inserts a new or update an existing entry for the given key.
     /// Once the update is performed the newer version is returned.
     ///
-    pub async fn insert_all<K: Serialize + Deserialize<'a>, V: Serialize + Deserialize<'a>>(
-        &self,
-        kvps: Vec<(K, V)>,
-    ) -> Result<Vec<i64>, TableError> {
+    pub async fn insert_all<K, V>(&self, kvps: Vec<(K, V)>) -> Result<Vec<i64>, TableError>
+    where
+        K: Serialize + Deserialize<'a>,
+        V: Serialize + Deserialize<'a>,
+    {
         let r: Vec<(Vec<u8>, Vec<u8>, i64)> = kvps
             .iter()
             .map(|(k, v)| {
-                let (ks, vs, vers) = (
+                (
                     serialize(&k).expect("error during serialization."),
                     serialize(&v).expect("error during serialization."),
                     TableKey::KEY_NO_VERSION,
-                );
-                (ks, vs, vers)
+                )
             })
             .collect();
         self.insert_raw_value_all(r).await
@@ -198,23 +194,24 @@ impl<'a> TableMap<'a> {
     /// Once the update is done the newer version is returned.
     /// TableError::BadKeyVersion is returned incase of an incorrect key version.
     ///
-    pub async fn insert_conditionally_all<K: Serialize + Deserialize<'a>, V: Serialize + Deserialize<'a>>(
-        &self,
-        kvps: Vec<(K, V, i64)>,
-    ) -> Result<Vec<i64>, TableError> {
+    pub async fn insert_conditionally_all<K, V>(&self, kvps: Vec<(K, V, i64)>) -> Result<Vec<i64>, TableError>
+    where
+        K: Serialize + Deserialize<'a>,
+        V: Serialize + Deserialize<'a>,
+    {
         let r: Vec<(Vec<u8>, Vec<u8>, i64)> = kvps
             .iter()
             .map(|(k, v, ver)| {
-                let (ks, vs, vers) = (
+                (
                     serialize(&k).expect("error during serialization."),
                     serialize(&v).expect("error during serialization."),
                     *ver,
-                );
-                (ks, vs, vers)
+                )
             })
             .collect();
         self.insert_raw_value_all(r).await
     }
+
     ///
     /// Insert key and value without serialization.
     /// The function returns the newer version number post the insert operation.
@@ -258,7 +255,7 @@ impl<'a> TableMap<'a> {
     /// Get raw bytes for a givenKey. If not value is present then None is returned.
     /// The read result and the corresponding version is returned as a tuple.
     ///
-    pub async fn get_raw_value(&self, key: Vec<u8>) -> Result<Option<(Vec<u8>, i64)>, TableError> {
+    async fn get_raw_value(&self, key: Vec<u8>) -> Result<Option<(Vec<u8>, i64)>, TableError> {
         let tk = TableKey::new(key, TableKey::KEY_NO_VERSION);
         let req = Requests::ReadTable(ReadTableCommand {
             request_id: get_request_id(),
@@ -290,7 +287,7 @@ impl<'a> TableMap<'a> {
     ///
     /// Remove an entry for given key as Vec<u8>
     ///
-    pub async fn remove_bytes(&self, key: Vec<u8>, key_version: i64) -> Result<(), TableError> {
+    async fn remove_bytes(&self, key: Vec<u8>, key_version: i64) -> Result<(), TableError> {
         let op = "Remove keys from tablemap";
         let tk = TableKey::new(key, key_version);
         let req = Requests::RemoveTableKeys(RemoveTableKeysCommand {
