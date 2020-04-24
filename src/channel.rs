@@ -1,8 +1,8 @@
-use tokio::sync::mpsc::{unbounded_channel, UnboundedSender, UnboundedReceiver};
-use tokio::sync::mpsc::error::SendError;
-use futures_intrusive::sync::{Semaphore, GenericSemaphoreReleaser};
-use std::sync::Arc;
+use futures_intrusive::sync::{GenericSemaphoreReleaser, Semaphore};
 use std::mem::size_of_val;
+use std::sync::Arc;
+use tokio::sync::mpsc::error::SendError;
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 pub struct ChannelSender<T> {
     sender: UnboundedSender<T>,
@@ -10,7 +10,7 @@ pub struct ChannelSender<T> {
 }
 
 impl<T> ChannelSender<T> {
-    pub async fn send(&self, message: T)  -> Result<(), SendError<T>> {
+    pub async fn send(&self, message: T) -> Result<(), SendError<T>> {
         let size = size_of_val(&message);
         let mut result = self.semaphore.acquire(size).await;
         //disable the automatically drop
@@ -18,7 +18,6 @@ impl<T> ChannelSender<T> {
         self.sender.send(message)?;
         Ok(())
     }
-
 }
 
 impl<T> Clone for ChannelSender<T> {
@@ -32,10 +31,10 @@ impl<T> Clone for ChannelSender<T> {
 
 pub struct ChannelReceiver<T> {
     receiver: UnboundedReceiver<T>,
-    semaphore: Arc<Semaphore>
+    semaphore: Arc<Semaphore>,
 }
 
-impl<T> ChannelReceiver <T> {
+impl<T> ChannelReceiver<T> {
     pub async fn recv(&mut self) -> Option<T> {
         let message = self.receiver.recv().await;
         if let Some(msg) = message {
@@ -49,7 +48,7 @@ impl<T> ChannelReceiver <T> {
 }
 
 pub fn create_channel<T>(capacity: usize) -> (ChannelSender<T>, ChannelReceiver<T>) {
-    let (tx, rx) =  unbounded_channel();
+    let (tx, rx) = unbounded_channel();
     let semaphore = Semaphore::new(true, capacity);
     let semaphore_arc = Arc::new(semaphore);
     let sender = ChannelSender {
@@ -63,26 +62,24 @@ pub fn create_channel<T>(capacity: usize) -> (ChannelSender<T>, ChannelReceiver<
     (sender, receiver)
 }
 
-
 #[cfg(test)]
 mod tests {
-    use tokio::runtime::Runtime;
+    use super::create_channel;
     use std::{thread, time};
-    use super::{create_channel};
+    use tokio::runtime::Runtime;
 
     #[test]
     fn test_wrapper() {
         let mut runtime = Runtime::new().unwrap();
         runtime.block_on(test_without_block());
         runtime.block_on(test_with_block());
-
     }
 
     async fn test_without_block() {
         // can only hold 4 bytes
         let (tx, mut rx) = create_channel(4);
 
-        tokio::spawn(  async move {
+        tokio::spawn(async move {
             if let Err(_) = tx.send(1).await {
                 println!("receiver dropped");
             }
@@ -100,7 +97,7 @@ mod tests {
         let (tx, mut rx) = create_channel(4);
 
         let tx1 = tx.clone();
-        tokio::spawn(  async move {
+        tokio::spawn(async move {
             thread::sleep(time::Duration::from_secs(1));
             if let Err(_) = tx1.send(1).await {
                 println!("receiver dropped");
@@ -108,7 +105,7 @@ mod tests {
         });
 
         let tx2 = tx.clone();
-        tokio::spawn(  async move {
+        tokio::spawn(async move {
             if let Err(_) = tx2.send(2).await {
                 println!("receiver dropped");
             }
@@ -123,7 +120,6 @@ mod tests {
 
         if let Some(i) = rx.recv().await {
             assert_eq!(i, 1);
-
         } else {
             panic!("test failed");
         }
