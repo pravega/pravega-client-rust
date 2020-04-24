@@ -34,6 +34,10 @@ pub struct ClientConfig {
     #[get_copy = "pub"]
     #[builder(setter(into))]
     pub controller_uri: SocketAddr,
+
+    #[get_copy = "pub"]
+    #[builder(default = "90 * 1000 - 1")]
+    pub transaction_timeout_time: u64,
 }
 
 #[cfg(test)]

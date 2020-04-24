@@ -17,6 +17,7 @@ use pravega_wire_protocol::client_config::ClientConfig;
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 
 use crate::event_stream_writer::EventStreamWriter;
+use crate::transactional_event_stream_writer::TransactionalEventStreamWriter;
 use crate::raw_client::RawClientImpl;
 use crate::segment_reader::AsyncSegmentReaderImpl;
 use crate::setup_logger;
@@ -25,8 +26,8 @@ use std::sync::Arc;
 pub struct ClientFactory(Arc<ClientFactoryInternal>);
 
 pub(crate) struct ClientFactoryInternal {
-    connection_pool: ConnectionPool<SegmentConnectionManager>,
-    controller_client: ControllerClientImpl,
+    pub(crate) connection_pool: ConnectionPool<SegmentConnectionManager>,
+    pub(crate) controller_client: ControllerClientImpl,
 }
 
 impl ClientFactory {
@@ -55,6 +56,10 @@ impl ClientFactory {
         config: ClientConfig,
     ) -> EventStreamWriter {
         EventStreamWriter::new(stream, config, self.0.clone())
+    }
+
+    pub async fn create_transactional_event_stream_writer(&self, stream: ScopedStream, config: ClientConfig) -> TransactionalEventStreamWriter {
+        TransactionalEventStreamWriter::new(stream, self.0.clone(), config).await
     }
 
     pub fn get_controller_client(&self) -> &dyn ControllerClient {

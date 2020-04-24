@@ -16,6 +16,7 @@ mod disconnection_tests;
 mod event_stream_writer_tests;
 mod pravega_service;
 mod wirecommand_tests;
+mod transactional_event_stream_writer_tests;
 
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
 use pravega_client_rust::setup_logger;
@@ -58,10 +59,11 @@ mod test {
         let mut pravega = PravegaStandaloneService::start(false);
         wait_for_standalone_with_timeout(true, 30);
 
-        rt.block_on(wirecommand_tests::wirecommand_test_wrapper());
+//        rt.block_on(wirecommand_tests::wirecommand_test_wrapper());
 
-        rt.block_on(event_stream_writer_tests::test_event_stream_writer());
+//        rt.block_on(event_stream_writer_tests::test_event_stream_writer());
 
+        rt.block_on(transactional_event_stream_writer_tests::test_transactional_event_stream_writer());
         // Shut down Pravega standalone
         pravega.stop().unwrap();
         wait_for_standalone_with_timeout(false, 30);

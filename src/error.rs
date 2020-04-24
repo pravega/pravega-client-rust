@@ -58,3 +58,11 @@ pub enum EventStreamWriterError {
     #[snafu(display("Wrong reply, expected {:?} but get {:?}", expected, actual))]
     WrongReply { expected: String, actual: Replies },
 }
+
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility = "pub")]
+pub enum TransactionalEventStreamWriterError {
+    #[snafu(display("Pinger has gone"))]
+    PingerGone {},
+}
