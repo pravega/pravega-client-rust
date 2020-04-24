@@ -40,7 +40,7 @@ pub async fn test_tablemap() {
     assert!(rr.is_ok() && rr.unwrap().is_none());
 
     let r = map
-        .insert_conditional(k.clone(), TableKey::NOT_EXISTS, v.clone())
+        .insert_conditionally(k.clone(), TableKey::NOT_EXISTS, v.clone())
         .await;
     assert!(r.is_ok());
     let version = r.unwrap();
@@ -52,7 +52,7 @@ pub async fn test_tablemap() {
 
     // second update with not exists
     let r = map
-        .insert_conditional(k.clone(), TableKey::NOT_EXISTS, "v_1".to_string())
+        .insert_conditionally(k.clone(), TableKey::NOT_EXISTS, "v_1".to_string())
         .await;
     assert!(r.is_err());
     match r {
@@ -63,7 +63,7 @@ pub async fn test_tablemap() {
 
     // update with the write version.
     let r = map
-        .insert_conditional(k.clone(), version, "v_1".to_string()) // specify the correct key version
+        .insert_conditionally(k.clone(), version, "v_1".to_string()) // specify the correct key version
         .await;
     assert!(r.is_ok());
 
@@ -76,7 +76,7 @@ pub async fn test_tablemap() {
 
     // insert unconditional
     let r = map
-        .insert_conditional(k.clone(), TableKey::KEY_NO_VERSION, "v_100".to_string()) // specify the correct key version
+        .insert_conditionally(k.clone(), TableKey::KEY_NO_VERSION, "v_100".to_string()) // specify the correct key version
         .await;
     assert!(r.is_ok());
 
@@ -89,12 +89,12 @@ pub async fn test_tablemap() {
 
     // verify delete with a non-existent key
     let key: String = "non-existent-key".into();
-    let r = map.remove_conditional(key, TableKey::KEY_NO_VERSION).await;
+    let r = map.remove_conditionally(key, TableKey::KEY_NO_VERSION).await;
     assert!(r.is_ok());
 
     // verify conditional delete
     let key: String = k.clone();
-    let r = map.remove_conditional(key, 0i64).await;
+    let r = map.remove_conditionally(key, 0i64).await;
     assert!(r.is_err());
     match r {
         Ok(_v) => panic!("Bad version error expected"),
@@ -114,7 +114,7 @@ pub async fn test_tablemap() {
 
     // verify conditional delete post delete.
     let key: String = k.clone();
-    let r = map.remove_conditional(key, 0i64).await;
+    let r = map.remove_conditionally(key, 0i64).await;
     assert!(r.is_err());
     match r {
         Ok(_v) => panic!("Key does not exist error expected"),

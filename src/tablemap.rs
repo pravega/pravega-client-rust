@@ -10,8 +10,8 @@
 
 use crate::client_factory::ClientFactoryInternal;
 use crate::error::RawClientError;
+use crate::get_request_id;
 use crate::raw_client::RawClient;
-use crate::REQUEST_ID_GENERATOR;
 use bincode2::{deserialize_from, serialize};
 use log::debug;
 use log::info;
@@ -24,13 +24,11 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicI64, Ordering};
 
 pub struct TableMap<'a> {
     /// name of the map
     name: String,
     raw_client: Box<dyn RawClient<'a> + 'a>,
-    id: &'static AtomicI64,
 }
 
 #[derive(Debug, Snafu)]
@@ -66,10 +64,9 @@ impl<'a> TableMap<'a> {
         let map = TableMap {
             name: segment.to_string(),
             raw_client: Box::new(factory.create_raw_client(endpoint)),
-            id: &REQUEST_ID_GENERATOR,
         };
         let req = Requests::CreateTableSegment(CreateTableSegmentCommand {
-            request_id: map.id.fetch_add(1, Ordering::SeqCst) + 1,
+            request_id: get_request_id(),
             segment: map.name.clone(),
             delegation_token: String::from(""),
         });
@@ -103,7 +100,7 @@ impl<'a> TableMap<'a> {
         k: K,
     ) -> Result<Option<(V, i64)>, TableError> {
         let key = serialize(&k).expect("error during serialization.");
-        let read_result = self.get_bytes(key).await;
+        let read_result = self.get_raw_value(key).await;
         read_result.map(|v| {
             v.and_then(|(l, version)| {
                 if l.is_empty() {
@@ -126,7 +123,7 @@ impl<'a> TableMap<'a> {
         v: V,
     ) -> Result<i64, TableError> {
         // use KEY_NO_VERSION to ensure unconditional update.
-        self.insert_conditional(k, TableKey::KEY_NO_VERSION, v).await
+        self.insert_conditionally(k, TableKey::KEY_NO_VERSION, v).await
     }
 
     ///
@@ -137,7 +134,7 @@ impl<'a> TableMap<'a> {
     /// Once the update is done the newer version is returned.
     /// TableError::BadKeyVersion is returned incase of an incorrect key version.
     ///
-    pub async fn insert_conditional<K: Serialize + Deserialize<'a>, V: Serialize + Deserialize<'a>>(
+    pub async fn insert_conditionally<K: Serialize + Deserialize<'a>, V: Serialize + Deserialize<'a>>(
         &self,
         k: K,
         key_version: i64,
@@ -145,7 +142,7 @@ impl<'a> TableMap<'a> {
     ) -> Result<i64, TableError> {
         let key = serialize(&k).expect("error during serialization.");
         let val = serialize(&v).expect("error during serialization.");
-        self.insert_bytes(key, key_version, val).await
+        self.insert_raw_value(key, key_version, val).await
     }
 
     ///
@@ -160,7 +157,7 @@ impl<'a> TableMap<'a> {
     /// Conditionally remove a key from the Tablemap if it matches the provided key version.
     /// TableError::BadKeyVersion is returned incase the version does not exist.
     ///
-    pub async fn remove_conditional<K: Serialize + Deserialize<'a>>(
+    pub async fn remove_conditionally<K: Serialize + Deserialize<'a>>(
         &self,
         k: K,
         key_version: i64,
@@ -173,7 +170,7 @@ impl<'a> TableMap<'a> {
     /// Insert key and value without serialization.
     /// The function returns the newer version number post the insert operation.
     ///
-    pub async fn insert_bytes(
+    async fn insert_raw_value(
         &self,
         key: Vec<u8>,
         key_version: i64,
@@ -186,7 +183,7 @@ impl<'a> TableMap<'a> {
             entries: vec![(tk, tv)],
         };
         let req = Requests::UpdateTableEntries(UpdateTableEntriesCommand {
-            request_id: self.id.fetch_add(1, Ordering::SeqCst) + 1,
+            request_id: get_request_id(),
             segment: self.name.clone(),
             delegation_token: "".to_string(),
             table_entries: te,
@@ -213,10 +210,10 @@ impl<'a> TableMap<'a> {
     /// Get raw bytes for a givenKey. If not value is present then None is returned.
     /// The read result and the corresponding version is returned as a tuple.
     ///
-    pub async fn get_bytes(&self, key: Vec<u8>) -> Result<Option<(Vec<u8>, i64)>, TableError> {
+    pub async fn get_raw_value(&self, key: Vec<u8>) -> Result<Option<(Vec<u8>, i64)>, TableError> {
         let tk = TableKey::new(key, TableKey::KEY_NO_VERSION);
         let req = Requests::ReadTable(ReadTableCommand {
-            request_id: self.id.fetch_add(1, Ordering::SeqCst) + 1,
+            request_id: get_request_id(),
             segment: self.name.clone(),
             delegation_token: "".to_string(),
             keys: vec![tk],
@@ -249,7 +246,7 @@ impl<'a> TableMap<'a> {
         let op = "Remove keys from tablemap";
         let tk = TableKey::new(key, key_version);
         let req = Requests::RemoveTableKeys(RemoveTableKeysCommand {
-            request_id: self.id.fetch_add(1, Ordering::SeqCst) + 1,
+            request_id: get_request_id(),
             segment: self.name.clone(),
             delegation_token: "".to_string(),
             keys: vec![tk],
