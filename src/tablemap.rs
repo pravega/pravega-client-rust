@@ -13,16 +13,21 @@ use crate::error::RawClientError;
 use crate::raw_client::RawClient;
 use crate::REQUEST_ID_GENERATOR;
 use bincode2::{deserialize_from, serialize};
+use chrono::format::Item;
+use futures::pin_mut;
+use futures::stream;
+use futures::stream::StreamExt;
 use log::debug;
 use log::info;
 use pravega_rust_client_shared::{Scope, ScopedSegment, Segment, Stream};
 use pravega_wire_protocol::commands::{
-    CreateTableSegmentCommand, ReadTableCommand, RemoveTableKeysCommand, TableEntries, TableKey, TableValue,
-    UpdateTableEntriesCommand,
+    CreateTableSegmentCommand, ReadTableCommand, ReadTableKeysCommand, RemoveTableKeysCommand, TableEntries,
+    TableKey, TableValue, UpdateTableEntriesCommand,
 };
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
+use std::borrow::Borrow;
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicI64, Ordering};
 
@@ -273,5 +278,137 @@ impl<'a> TableMap<'a> {
             }),
             _ => panic!("Unexpected response while deleting keys"),
         })
+    }
+
+    // pub async fn key_iteratorl<K: Serialize + Deserialize<'a>>(
+    //     &self,
+    // ) -> impl stream::Stream<Item = Result<(K, i64), TableError>> {
+    // }
+
+    pub async fn get_keys(&self, max_keys_per_batch: i32) -> Result<(), TableError> {
+        let token = vec![];
+
+        let (op, r1) = self.get_keys_for_token(max_keys_per_batch, token).await;
+
+        let r2 = r1.map(|cmd| {
+            let token = cmd.continuation_token;
+            println!("token-0 {:?}", &token);
+            let v: Vec<TableKey> = cmd.keys;
+            let v1: Vec<(Vec<u8>, i64)> = v.iter().map(|k| (k.data.to_owned(), k.key_version)).collect();
+
+            (v1, token)
+        });
+
+        let r3 = r2.map(|(list, token)| {
+            let lx = list.as_slice();
+            let lx1: Vec<String> = lx
+                .iter()
+                .map(|(l, r)| {
+                    let s: String = deserialize_from(l.as_slice()).expect("d");
+                    println!("==> {:?}", s);
+                    s
+                })
+                .collect();
+            (token.clone())
+        });
+
+        let to = r3.unwrap();
+        //let to = rc.unwrap().continuation_token;
+        let req = Requests::ReadTableKeys(ReadTableKeysCommand {
+            request_id: self.id.fetch_add(1, Ordering::SeqCst) + 1,
+            segment: self.name.clone(),
+            delegation_token: "".to_string(),
+            suggested_key_count: 4,
+            continuation_token: to,
+        });
+
+        let re = self.raw_client.as_ref().send_request(&req).await;
+        let r1 = re
+            .map_err(|e| TableError::ConnectionError {
+                can_retry: true,
+                operation: op.into(),
+                source: e,
+            })
+            .and_then(|r| match r {
+                Replies::TableKeysRead(c) => Ok(c),
+                _ => panic!("Unexpected response while deleting keys"),
+            });
+        let r2 = r1.map(|cmd| {
+            let token = cmd.continuation_token;
+            println!("token-1 {:?}", token);
+            let v: Vec<TableKey> = cmd.keys;
+            let v1: Vec<(Vec<u8>, i64)> = v.iter().map(|k| (k.data.to_owned(), k.key_version)).collect();
+
+            v1
+        });
+
+        let r3 = r2.map(|list| {
+            let lx = list.as_slice();
+            let lx1: Vec<String> = lx
+                .iter()
+                .map(|(l, r)| {
+                    let s: String = deserialize_from(l.as_slice()).expect("d");
+                    println!("==> {:?}", s);
+                    s
+                })
+                .collect();
+            ()
+        });
+
+        Ok(())
+    }
+
+    async fn get_keys_for_token(
+        &self,
+        max_keys_per_batch: i32,
+        token: Vec<u8>,
+    ) -> (&str, Result<TableKeysReadCommand, TableError>) {
+        let op = "get_keys";
+        let req = Requests::ReadTableKeys(ReadTableKeysCommand {
+            request_id: self.id.fetch_add(1, Ordering::SeqCst) + 1,
+            segment: self.name.clone(),
+            delegation_token: "".to_string(),
+            suggested_key_count: max_keys_per_batch,
+            continuation_token: token,
+        });
+        let re = self.raw_client.as_ref().send_request(&req).await;
+        let r1 = re
+            .map_err(|e| TableError::ConnectionError {
+                can_retry: true,
+                operation: op.into(),
+                source: e,
+            })
+            .and_then(|r| match r {
+                Replies::TableKeysRead(c) => Ok(c),
+                _ => panic!("Unexpected response while deleting keys"),
+            });
+        (op, r1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::client_factory::ClientFactory;
+    use crate::tablemap::TableError;
+    use pravega_wire_protocol::client_config::ClientConfigBuilder;
+    use pravega_wire_protocol::client_config::TEST_CONTROLLER_URI;
+
+    #[tokio::test]
+    async fn test_iterator() {
+        let config = ClientConfigBuilder::default()
+            .controller_uri(TEST_CONTROLLER_URI)
+            .build()
+            .expect("creating config");
+
+        let client_factory = ClientFactory::new(config.clone());
+        let map = client_factory.create_table_map("t1".into()).await;
+        map.insert("k1".to_string(), "v1".to_string()).await;
+        map.insert("k2".to_string(), "v2".to_string()).await;
+        map.insert("k3".to_string(), "v3".to_string()).await;
+        map.insert("k4".to_string(), "v4".to_string()).await;
+        map.insert("k5".to_string(), "v5".to_string()).await;
+        // let v: Result<Option<(String, i64)>, TableError> = map.get("k1".to_string()).await;
+        let r1 = map.get_keys(2).await;
+        println!("{:?}", r1);
     }
 }
