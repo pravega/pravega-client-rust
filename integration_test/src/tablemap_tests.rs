@@ -34,19 +34,19 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     let v: String = "valu".into();
     let r = map.insert(k.clone(), v).await;
     info!("==> PUT {:?}", r);
-    let r: Result<Option<(String, i64)>, TableError> = map.get(k.clone()).await;
+    let r: Result<Option<(String, i64)>, TableError> = map.get(&k).await;
     info!("==> GET {:?}", r);
     // versioning test
     let k: String = "k".into();
     let v: String = "v_0".into();
-    let rr: Result<Option<(String, i64)>, TableError> = map.get(k.clone()).await;
+    let rr: Result<Option<(String, i64)>, TableError> = map.get(&k).await;
     assert!(rr.is_ok() && rr.unwrap().is_none());
     let r = map
         .insert_conditionally(k.clone(), TableKey::NOT_EXISTS, v.clone())
         .await;
     assert!(r.is_ok());
     let version = r.unwrap();
-    let rr: Result<Option<(String, i64)>, TableError> = map.get(k.clone()).await;
+    let rr: Result<Option<(String, i64)>, TableError> = map.get(&k).await;
     assert!(rr.is_ok());
     let temp = rr.unwrap();
     assert!(temp.is_some());
@@ -67,7 +67,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
         .await;
     assert!(r.is_ok());
     // verify if the write was successful.
-    let rr: Result<Option<(String, i64)>, TableError> = map.get(k.clone()).await;
+    let rr: Result<Option<(String, i64)>, TableError> = map.get(&k).await;
     assert!(rr.is_ok());
     let temp = rr.unwrap();
     assert!(temp.is_some());
@@ -78,7 +78,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
         .await;
     assert!(r.is_ok());
     // verify if the write was successful.
-    let rr: Result<Option<(String, i64)>, TableError> = map.get(k.clone()).await;
+    let rr: Result<Option<(String, i64)>, TableError> = map.get(&k).await;
     assert!(rr.is_ok());
     let temp = rr.unwrap();
     assert!(temp.is_some());
@@ -101,7 +101,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     let r = map.remove(key).await;
     assert!(r.is_ok());
     // verify with get.
-    let rr: Result<Option<(String, i64)>, TableError> = map.get(k.clone()).await;
+    let rr: Result<Option<(String, i64)>, TableError> = map.get(&k).await;
     assert!(rr.is_ok());
     assert!(rr.unwrap().is_none());
     // verify conditional delete post delete.
@@ -125,14 +125,14 @@ async fn test_multiple_key_operations(client_factory: &ClientFactory) {
 
     let data = vec![(k1.clone(), v1), (k2.clone(), v2)];
     let versions = map.insert_all(data).await;
-    let r: Result<Option<(String, i64)>, TableError> = map.get(k1.clone()).await;
+    let r: Result<Option<(String, i64)>, TableError> = map.get(&k1).await;
     info!("==> GET {:?}", r);
     assert!(r.is_ok());
     let temp = r.unwrap();
     assert!(temp.is_some());
     assert_eq!(temp.unwrap().0, "v".to_string());
 
-    let r: Result<Option<(String, i64)>, TableError> = map.get(k2.clone()).await;
+    let r: Result<Option<(String, i64)>, TableError> = map.get(&k2).await;
     info!("==> GET {:?}", r);
     assert!(r.is_ok());
     let temp = r.unwrap();
@@ -153,14 +153,14 @@ async fn test_multiple_key_operations(client_factory: &ClientFactory) {
         _ => panic!("Invalid Error message"),
     }
     // verify no new updates have happened.
-    let r: Result<Option<(String, i64)>, TableError> = map.get(k1.clone()).await;
+    let r: Result<Option<(String, i64)>, TableError> = map.get(&k1).await;
     info!("==> GET {:?}", r);
     assert!(r.is_ok());
     let temp = r.unwrap();
     assert!(temp.is_some());
     assert_eq!(temp.unwrap().0, "v".to_string());
 
-    let r: Result<Option<(String, i64)>, TableError> = map.get(k3.clone()).await;
+    let r: Result<Option<(String, i64)>, TableError> = map.get(&k3).await;
     info!("==> GET {:?}", r);
     assert!(r.is_ok());
     let temp = r.unwrap();

@@ -92,12 +92,12 @@ impl<'a> TableMap<'a> {
     /// If the map does not have the key [`None`] is returned. The version number of the Value is
     /// returned by the API.
     ///
-    pub async fn get<K, V>(&self, k: K) -> Result<Option<(V, i64)>, TableError>
+    pub async fn get<K, V>(&self, k: &K) -> Result<Option<(V, i64)>, TableError>
     where
         K: Serialize + serde::de::DeserializeOwned,
         V: Serialize + serde::de::DeserializeOwned,
     {
-        let key = serialize(&k).expect("error during serialization.");
+        let key = serialize(k).expect("error during serialization.");
         let read_result = self.get_raw_value(key).await;
         read_result.map(|v| {
             v.and_then(|(l, version)| {
