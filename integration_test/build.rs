@@ -1,5 +1,6 @@
 use flate2::read::GzDecoder;
 use log::info;
+use reqwest;
 use std::fs::File;
 use std::io;
 use std::path::Path;
