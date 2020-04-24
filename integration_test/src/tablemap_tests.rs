@@ -24,7 +24,7 @@ pub async fn test_tablemap() {
         .expect("creating config");
 
     let client_factory = ClientFactory::new(config.clone());
-    test_single_key_operations(&client_factory).await;
+    // test_single_key_operations(&client_factory).await;
     test_multiple_key_operations(&client_factory).await;
 }
 
@@ -165,4 +165,22 @@ async fn test_multiple_key_operations(client_factory: &ClientFactory) {
     assert!(r.is_ok());
     let temp = r.unwrap();
     assert!(temp.is_none());
+
+    let keys = vec![&k1, &k2];
+    let r: Result<Vec<Option<(String, i64)>>, TableError> = map.get_all(keys).await;
+    info!("==> GET ALL {:?}", r);
+    assert!(r.is_ok());
+    let test = r.unwrap();
+    for x in test {
+        assert!(x.is_some());
+        let (data, _) = x.unwrap();
+        assert_eq!(data, "v".to_string());
+    }
+
+    let r: Result<Vec<Option<(String, i64)>>, TableError> = map.get_all(vec![&k1, &k3]).await;
+    info!("==> GET ALL {:?}", r);
+    assert!(r.is_ok());
+    let result = r.unwrap();
+    assert!(result[0].is_some());
+    assert!(result[1].is_none()); // key k3 is not present.
 }

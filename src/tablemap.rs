@@ -98,16 +98,15 @@ impl<'a> TableMap<'a> {
         V: Serialize + serde::de::DeserializeOwned,
     {
         let key = serialize(k).expect("error during serialization.");
-        let read_result = self.get_raw_value(key).await;
+        let read_result = self.get_raw_values(vec![key]).await;
         read_result.map(|v| {
-            v.and_then(|(l, version)| {
-                if l.is_empty() {
-                    None
-                } else {
-                    let value: V = deserialize_from(l.as_slice()).expect("error during deserialization");
-                    Some((value, version))
-                }
-            })
+            let (l, version) = &v[0];
+            if l.is_empty() {
+                None
+            } else {
+                let value: V = deserialize_from(l.as_slice()).expect("error during deserialization");
+                Some((value, *version))
+            }
         })
     }
 
@@ -139,7 +138,7 @@ impl<'a> TableMap<'a> {
     {
         let key = serialize(&k).expect("error during serialization.");
         let val = serialize(&v).expect("error during serialization.");
-        self.insert_raw_value_all(vec![(key, val, key_version)])
+        self.insert_raw_values(vec![(key, val, key_version)])
             .await
             .map(|versions| versions[0])
     }
@@ -149,7 +148,7 @@ impl<'a> TableMap<'a> {
     ///
     pub async fn remove<K: Serialize + Deserialize<'a>>(&self, k: K) -> Result<(), TableError> {
         let key = serialize(&k).expect("error during serialization.");
-        self.remove_bytes(key, TableKey::KEY_NO_VERSION).await
+        self.remove_raw_value(key, TableKey::KEY_NO_VERSION).await
     }
 
     ///
@@ -161,12 +160,43 @@ impl<'a> TableMap<'a> {
         K: Serialize + Deserialize<'a>,
     {
         let key = serialize(&k).expect("error during serialization.");
-        self.remove_bytes(key, key_version).await
+        self.remove_raw_value(key, key_version).await
     }
 
     ///
-    /// Unconditionally inserts a new or update an existing entry for the given key.
-    /// Once the update is performed the newer version is returned.
+    /// Returns the latest values for a given list of keys. If the tablemap does not have a
+    ///key a `None` is returned for the corresponding key. The version number of the Value is also
+    ///returned by the API
+    ///
+    pub async fn get_all<K, V>(&self, keys: Vec<&K>) -> Result<Vec<Option<(V, i64)>>, TableError>
+    where
+        K: Serialize + serde::de::DeserializeOwned,
+        V: Serialize + serde::de::DeserializeOwned,
+    {
+        let keys_raw: Vec<Vec<u8>> = keys
+            .iter()
+            .map(|k| serialize(*k).expect("error during serialization."))
+            .collect();
+
+        let read_result: Result<Vec<(Vec<u8>, i64)>, TableError> = self.get_raw_values(keys_raw).await;
+        read_result.map(|v| {
+            v.iter()
+                .map(|(data, version)| {
+                    if data.is_empty() {
+                        None
+                    } else {
+                        let value: V =
+                            deserialize_from(data.as_slice()).expect("error during deserialization");
+                        Some((value, *version))
+                    }
+                })
+                .collect()
+        })
+    }
+
+    ///
+    /// Unconditionally inserts a new or updates an existing entry for the given keys.
+    /// Once the update is performed the newer versions are returned.
     ///
     pub async fn insert_all<K, V>(&self, kvps: Vec<(K, V)>) -> Result<Vec<i64>, TableError>
     where
@@ -183,14 +213,15 @@ impl<'a> TableMap<'a> {
                 )
             })
             .collect();
-        self.insert_raw_value_all(r).await
+        self.insert_raw_values(r).await
     }
 
     ///
-    /// Conditionally inserts a key-value pair into the table map. The Key and Value are serialized to to bytes using
+    /// Conditionally inserts key-value pairs into the table map. The Key and Value are serialized to to bytes using
     /// bincode2
     ///
-    /// The insert is performed after checking the key_version passed.
+    /// The insert is performed after checking the key_version passed, incase of a failure none of the key-value pairs
+    /// are persisted.
     /// Once the update is done the newer version is returned.
     /// TableError::BadKeyVersion is returned incase of an incorrect key version.
     ///
@@ -209,14 +240,14 @@ impl<'a> TableMap<'a> {
                 )
             })
             .collect();
-        self.insert_raw_value_all(r).await
+        self.insert_raw_values(r).await
     }
 
     ///
-    /// Insert key and value without serialization.
+    /// Insert key value pairs without serialization.
     /// The function returns the newer version number post the insert operation.
     ///
-    async fn insert_raw_value_all(&self, kvps: Vec<(Vec<u8>, Vec<u8>, i64)>) -> Result<Vec<i64>, TableError> {
+    async fn insert_raw_values(&self, kvps: Vec<(Vec<u8>, Vec<u8>, i64)>) -> Result<Vec<i64>, TableError> {
         let op = "Insert into tablemap";
 
         let entries: Vec<(TableKey, TableValue)> = kvps
@@ -255,13 +286,17 @@ impl<'a> TableMap<'a> {
     /// Get raw bytes for a givenKey. If not value is present then None is returned.
     /// The read result and the corresponding version is returned as a tuple.
     ///
-    async fn get_raw_value(&self, key: Vec<u8>) -> Result<Option<(Vec<u8>, i64)>, TableError> {
-        let tk = TableKey::new(key, TableKey::KEY_NO_VERSION);
+    async fn get_raw_values(&self, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, i64)>, TableError> {
+        let table_keys: Vec<TableKey> = keys
+            .iter()
+            .map(|k| TableKey::new(k.clone(), TableKey::KEY_NO_VERSION))
+            .collect();
+
         let req = Requests::ReadTable(ReadTableCommand {
             request_id: get_request_id(),
             segment: self.name.clone(),
             delegation_token: "".to_string(),
-            keys: vec![tk],
+            keys: table_keys,
         });
         let re = self.raw_client.as_ref().send_request(&req).await;
         debug!("Read Response {:?}", re);
@@ -271,23 +306,25 @@ impl<'a> TableMap<'a> {
             source: e,
         })
         .map(|reply| match reply {
-            Replies::TableRead(c) => c.entries.entries,
-            _ => panic!("Unexpected response for update tableEntries"),
-        })
-        .map(|v: Vec<(TableKey, TableValue)>| {
-            if v.is_empty() {
-                None
-            } else {
-                let (l, r) = v[0].clone(); //Can we eliminate this?
-                Some((r.data, l.key_version))
+            Replies::TableRead(c) => {
+                let v: Vec<(TableKey, TableValue)> = c.entries.entries;
+                if v.is_empty() {
+                    panic!("Invalid response from the Segment store");
+                } else {
+                    //fetch value and corresponding version.
+                    let result: Vec<(Vec<u8>, i64)> =
+                        v.iter().map(|(l, r)| (r.data.clone(), l.key_version)).collect();
+                    result
+                }
             }
+            _ => panic!("Unexpected response for update tableEntries"),
         })
     }
 
     ///
     /// Remove an entry for given key as Vec<u8>
     ///
-    async fn remove_bytes(&self, key: Vec<u8>, key_version: i64) -> Result<(), TableError> {
+    async fn remove_raw_value(&self, key: Vec<u8>, key_version: i64) -> Result<(), TableError> {
         let op = "Remove keys from tablemap";
         let tk = TableKey::new(key, key_version);
         let req = Requests::RemoveTableKeys(RemoveTableKeysCommand {
