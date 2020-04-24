@@ -7,7 +7,7 @@
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
-use super::super::CONFIG;
+use super::BINCODE_CONFIG;
 use crate::error::*;
 use pravega_rust_client_shared::{Segment, SegmentWithRange};
 use serde::{Deserialize, Serialize};
@@ -22,12 +22,12 @@ pub(crate) enum PositionVersioned {
 
 impl PositionVersioned {
     fn to_bytes(&self) -> Result<Vec<u8>, SerdeError> {
-        let encoded = CONFIG.serialize(&self).context(Position {})?;
+        let encoded = BINCODE_CONFIG.serialize(&self).context(Position {})?;
         Ok(encoded)
     }
 
     fn from_bytes(input: &[u8]) -> Result<PositionVersioned, SerdeError> {
-        let decoded: PositionVersioned = CONFIG.deserialize(&input[..]).context(Position {})?;
+        let decoded: PositionVersioned = BINCODE_CONFIG.deserialize(&input[..]).context(Position {})?;
         Ok(decoded)
     }
 }

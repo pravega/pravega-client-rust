@@ -20,7 +20,4 @@ derive-new = "0.5"
 ordered-float = { version= "1.0.2", features = ["serde"]}
 uuid = "0.8"
 im = "14.3.0"
-lazy_static = "1.4.0"
-bincode2 = "2.0.1"
 serde = { version = "1.0", features = ["derive"] }
-byteorder = "1.3"

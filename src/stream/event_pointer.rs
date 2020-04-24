@@ -7,7 +7,7 @@
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
-use super::super::CONFIG;
+use super::BINCODE_CONFIG;
 use crate::error::*;
 use pravega_rust_client_shared::Segment;
 use serde::{Deserialize, Serialize};
@@ -21,12 +21,13 @@ pub(crate) enum EventPointerVersioned {
 
 impl EventPointerVersioned {
     fn to_bytes(&self) -> Result<Vec<u8>, SerdeError> {
-        let encoded = CONFIG.serialize(&self).context(EventPointer {})?;
+        let encoded = BINCODE_CONFIG.serialize(&self).context(EventPointer {})?;
         Ok(encoded)
     }
 
     fn from_bytes(input: &[u8]) -> Result<EventPointerVersioned, SerdeError> {
-        let decoded: EventPointerVersioned = CONFIG.deserialize(&input[..]).context(EventPointer {})?;
+        let decoded: EventPointerVersioned =
+            BINCODE_CONFIG.deserialize(&input[..]).context(EventPointer {})?;
         Ok(decoded)
     }
 }
