@@ -148,7 +148,7 @@ async fn test_segment_scaling_down(writer: &mut EventStreamWriter, factory: &Cli
                 stream: Stream::new("testStreamWriter".into()),
             };
             // Have no idea, why the 2 segment number is not 1 and 2.
-            let sealed_segments = [Segment { number: 4294967297 }, Segment { number: 4294967298 }];
+            let sealed_segments = [Segment { number: 4_294_967_297 }, Segment { number: 4_294_967_298 }];
             let new_range = [(0.0, 1.0)];
             let scale_result = factory
                 .get_controller_client()
@@ -279,13 +279,13 @@ async fn test_write_correctness_while_scaling(writer: &mut EventStreamWriter, fa
     let segment_name1 = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 4294967297 },
+        segment: Segment { number: 4_294_967_297 },
     };
     let reader1 = factory.create_async_event_reader(segment_name1.clone()).await;
     let segment_name2 = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 4294967298 },
+        segment: Segment { number: 4_294_967_298 },
     };
     let reader2 = factory.create_async_event_reader(segment_name2.clone()).await;
 
