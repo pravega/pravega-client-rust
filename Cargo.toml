@@ -15,15 +15,16 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 
 [workspace]
 members = [
-    "controller-client", "shared", "wire_protocol", "retry", "integration_test", "connection_pool",
+    "controller-client", "shared", "wire_protocol", "retry", "integration_test", "connection_pool", "channel"
 ]
 
 [dependencies]
 pravega-rust-client-shared = { path = "./shared"}
 pravega-controller-client = { path = "./controller-client"}
 pravega-wire-protocol = { path = "./wire_protocol"}
-pravega-rust-client-retry = {path= "./retry"}
-pravega-connection-pool = {path= "./connection_pool"}
+pravega-rust-client-retry = {path = "./retry"}
+pravega-connection-pool = {path = "./connection_pool"}
+pravega-rust-client-channel = {path = "./channel"}
 async-trait = "0.1.29"
 futures = "0.3.1"
 snafu = "0.6.2"
@@ -39,7 +40,6 @@ lazy_static = "1.4.0"
 clap = {version = "2.33.0", optional = true}
 structopt = {version = "0.3", optional = true}
 derive-new = "0.5"
-futures-intrusive = "0.3.0"
 
 [dev-dependencies]
 pravega-rust-client-integration-test = { path = "./integration_test"}

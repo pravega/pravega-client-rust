@@ -30,8 +30,6 @@
 
 use std::sync::atomic::AtomicI64;
 
-mod channel;
-
 pub mod byte_stream;
 pub mod client_factory;
 pub mod error;

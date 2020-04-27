@@ -1,3 +1,13 @@
+/*
+ * Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ */
+
 use futures_intrusive::sync::{GenericSemaphoreReleaser, Semaphore};
 use std::mem::size_of_val;
 use std::sync::Arc;
@@ -71,11 +81,12 @@ mod tests {
     #[test]
     fn test_wrapper() {
         let mut runtime = Runtime::new().unwrap();
-        runtime.block_on(test_without_block());
-        runtime.block_on(test_with_block());
+        runtime.block_on(test_simple_test());
+        runtime.block_on(test_send_order());
+        runtime.block_on(test_sender_block());
     }
 
-    async fn test_without_block() {
+    async fn test_simple_test() {
         // can only hold 4 bytes
         let (tx, mut rx) = create_channel(4);
 
@@ -92,7 +103,7 @@ mod tests {
         }
     }
 
-    async fn test_with_block() {
+    async fn test_send_order() {
         // can only hold 4 bytes
         let (tx, mut rx) = create_channel(4);
 
@@ -123,5 +134,54 @@ mod tests {
         } else {
             panic!("test failed");
         }
+    }
+
+    async fn test_sender_block() {
+        // can only hold 4 bytes
+        let (tx, mut rx) = create_channel(4);
+
+        let tx1 = tx.clone();
+        // need 2 bytes.
+        tokio::spawn(async move {
+            if let Err(_) = tx1.send(String::from("ab")).await {
+                println!("receiver dropped");
+            }
+        });
+        // need 4 bytes. (will block)
+        let tx2 = tx.clone();
+        tokio::spawn(async move {
+            if let Err(_) = tx2.send(String::from("abcd")).await {
+                println!("receiver dropped");
+            }
+        });
+
+        // need 2 bytes.
+        let tx3 = tx.clone();
+        tokio::spawn(async move {
+            if let Err(_) = tx2.send(String::from("cd")).await {
+                println!("receiver dropped");
+            }
+        });
+
+        if let Some(message) = rx.recv().await {
+            assert_eq!(message, String::from("ab"));
+        } else {
+            panic!("test failed");
+        }
+
+        if let Some(message) = rx.recv().await {
+            assert_eq!(message, String::from("cd"));
+        } else {
+            panic!("test failed");
+        }
+    }
+    
+
+    async fn test_sender_close() {
+
+    }
+
+    async fn test_receive_close() {
+
     }
 }
