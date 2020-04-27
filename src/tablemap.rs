@@ -114,13 +114,13 @@ impl<'a> TableMap<'a> {
     /// Unconditionally inserts a new or update an existing entry for the given key.
     /// Once the update is performed the newer version is returned.
     ///
-    pub async fn insert<K, V>(&self, k: K, v: V) -> Result<i64, TableError>
+    pub async fn insert<K, V>(&self, k: &K, v: &V) -> Result<i64, TableError>
     where
         K: Serialize + Deserialize<'a>,
         V: Serialize + Deserialize<'a>,
     {
         // use KEY_NO_VERSION to ensure unconditional update.
-        self.insert_conditionally(k, TableKey::KEY_NO_VERSION, v).await
+        self.insert_conditionally(k, v, TableKey::KEY_NO_VERSION).await
     }
 
     ///
@@ -131,13 +131,13 @@ impl<'a> TableMap<'a> {
     /// Once the update is done the newer version is returned.
     /// TableError::BadKeyVersion is returned incase of an incorrect key version.
     ///
-    pub async fn insert_conditionally<K, V>(&self, k: K, key_version: i64, v: V) -> Result<i64, TableError>
+    pub async fn insert_conditionally<K, V>(&self, k: &K, v: &V, key_version: i64) -> Result<i64, TableError>
     where
         K: Serialize + Deserialize<'a>,
         V: Serialize + Deserialize<'a>,
     {
-        let key = serialize(&k).expect("error during serialization.");
-        let val = serialize(&v).expect("error during serialization.");
+        let key = serialize(k).expect("error during serialization.");
+        let val = serialize(v).expect("error during serialization.");
         self.insert_raw_values(vec![(key, val, key_version)])
             .await
             .map(|versions| versions[0])
@@ -146,8 +146,8 @@ impl<'a> TableMap<'a> {
     ///
     ///Unconditionally remove a key from the Tablemap. If the key does not exist an Ok(()) is returned.
     ///
-    pub async fn remove<K: Serialize + Deserialize<'a>>(&self, k: K) -> Result<(), TableError> {
-        let key = serialize(&k).expect("error during serialization.");
+    pub async fn remove<K: Serialize + Deserialize<'a>>(&self, k: &K) -> Result<(), TableError> {
+        let key = serialize(k).expect("error during serialization.");
         self.remove_raw_value(key, TableKey::KEY_NO_VERSION).await
     }
 
@@ -155,11 +155,11 @@ impl<'a> TableMap<'a> {
     /// Conditionally remove a key from the Tablemap if it matches the provided key version.
     /// TableError::BadKeyVersion is returned incase the version does not exist.
     ///
-    pub async fn remove_conditionally<K>(&self, k: K, key_version: i64) -> Result<(), TableError>
+    pub async fn remove_conditionally<K>(&self, k: &K, key_version: i64) -> Result<(), TableError>
     where
         K: Serialize + Deserialize<'a>,
     {
-        let key = serialize(&k).expect("error during serialization.");
+        let key = serialize(k).expect("error during serialization.");
         self.remove_raw_value(key, key_version).await
     }
 
@@ -198,7 +198,7 @@ impl<'a> TableMap<'a> {
     /// Unconditionally inserts a new or updates an existing entry for the given keys.
     /// Once the update is performed the newer versions are returned.
     ///
-    pub async fn insert_all<K, V>(&self, kvps: Vec<(K, V)>) -> Result<Vec<i64>, TableError>
+    pub async fn insert_all<K, V>(&self, kvps: Vec<(&K, &V)>) -> Result<Vec<i64>, TableError>
     where
         K: Serialize + Deserialize<'a>,
         V: Serialize + Deserialize<'a>,
@@ -207,8 +207,8 @@ impl<'a> TableMap<'a> {
             .iter()
             .map(|(k, v)| {
                 (
-                    serialize(&k).expect("error during serialization."),
-                    serialize(&v).expect("error during serialization."),
+                    serialize(k).expect("error during serialization."),
+                    serialize(v).expect("error during serialization."),
                     TableKey::KEY_NO_VERSION,
                 )
             })
@@ -225,7 +225,10 @@ impl<'a> TableMap<'a> {
     /// Once the update is done the newer version is returned.
     /// TableError::BadKeyVersion is returned incase of an incorrect key version.
     ///
-    pub async fn insert_conditionally_all<K, V>(&self, kvps: Vec<(K, V, i64)>) -> Result<Vec<i64>, TableError>
+    pub async fn insert_conditionally_all<K, V>(
+        &self,
+        kvps: Vec<(&K, &V, i64)>,
+    ) -> Result<Vec<i64>, TableError>
     where
         K: Serialize + Deserialize<'a>,
         V: Serialize + Deserialize<'a>,
@@ -234,8 +237,8 @@ impl<'a> TableMap<'a> {
             .iter()
             .map(|(k, v, ver)| {
                 (
-                    serialize(&k).expect("error during serialization."),
-                    serialize(&v).expect("error during serialization."),
+                    serialize(k).expect("error during serialization."),
+                    serialize(v).expect("error during serialization."),
                     *ver,
                 )
             })
