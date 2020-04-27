@@ -52,7 +52,9 @@ impl ClientFactory {
 
     #[allow(clippy::needless_lifetimes)] //Normally the compiler could infer lifetimes but async is throwing it for a loop.
     pub async fn create_table_map<'a>(&'a self, name: String) -> TableMap<'a> {
-        TableMap::new(name, &self.0).await
+        TableMap::new(name, &self.0)
+            .await
+            .expect("Failed to create Table map")
     }
 
     pub fn create_event_stream_writer(

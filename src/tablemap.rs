@@ -46,7 +46,7 @@ pub enum TableError {
 }
 impl<'a> TableMap<'a> {
     /// create a table map
-    pub async fn new(name: String, factory: &'a ClientFactoryInternal) -> TableMap<'a> {
+    pub async fn new(name: String, factory: &'a ClientFactoryInternal) -> Result<TableMap<'a>, TableError> {
         let segment = ScopedSegment {
             scope: Scope::new("_tables".into()),
             stream: Stream::new(name),
@@ -61,29 +61,36 @@ impl<'a> TableMap<'a> {
             .expect("Invalid end point returned");
         debug!("EndPoint is {}", endpoint.to_string());
 
-        let map = TableMap {
+        let table_map = TableMap {
             name: segment.to_string(),
             raw_client: Box::new(factory.create_raw_client(endpoint)),
         };
         let req = Requests::CreateTableSegment(CreateTableSegmentCommand {
             request_id: get_request_id(),
-            segment: map.name.clone(),
+            segment: table_map.name.clone(),
             delegation_token: String::from(""),
         });
 
-        let resp = map
+        table_map
             .raw_client
             .as_ref()
             .send_request(&req)
             .await
-            .expect("Error while creating table segment");
-        match resp {
-            Replies::SegmentCreated(..) | Replies::SegmentAlreadyExists(..) => {
-                info!("Table segment {} created", map.name);
-                map
-            }
-            _ => panic!("Invalid response during creation of TableSegment"),
-        }
+            .map_err(|e| TableError::ConnectionError {
+                can_retry: true,
+                operation: "Create table segment".to_string(),
+                source: e,
+            })
+            .map(|r| {
+                match r {
+                    Replies::SegmentCreated(..) | Replies::SegmentAlreadyExists(..) => {
+                        info!("Table segment {} created", table_map.name);
+                        table_map
+                    }
+                    // unexpected response from Segment store causes a panic.
+                    _ => panic!("Invalid response during creation of TableSegment"),
+                }
+            })
     }
 
     ///
@@ -281,6 +288,7 @@ impl<'a> TableMap<'a> {
                 operation: op.into(),
                 error_msg: c.to_string(),
             }),
+            // unexpected response from Segment store causes a panic.
             _ => panic!("Unexpected response for update tableEntries"),
         })
     }
@@ -312,6 +320,7 @@ impl<'a> TableMap<'a> {
             Replies::TableRead(c) => {
                 let v: Vec<(TableKey, TableValue)> = c.entries.entries;
                 if v.is_empty() {
+                    // partial response from Segment store causes a panic.
                     panic!("Invalid response from the Segment store");
                 } else {
                     //fetch value and corresponding version.
@@ -320,6 +329,7 @@ impl<'a> TableMap<'a> {
                     result
                 }
             }
+            // unexpected response from Segment store causes a panic.
             _ => panic!("Unexpected response for update tableEntries"),
         })
     }
@@ -353,6 +363,7 @@ impl<'a> TableMap<'a> {
                 operation: op.into(),
                 error_msg: c.to_string(),
             }),
+            // unexpected response from Segment store causes a panic.
             _ => panic!("Unexpected response while deleting keys"),
         })
     }
