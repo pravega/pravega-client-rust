@@ -147,7 +147,6 @@ async fn test_segment_scaling_down(writer: &mut EventStreamWriter, factory: &Cli
                 scope: Scope::new("testScopeWriter".into()),
                 stream: Stream::new("testStreamWriter".into()),
             };
-            // Have no idea, why the 2 segment number is not 1 and 2.
             let sealed_segments = [
                 Segment {
                     number: 4_294_967_297,
