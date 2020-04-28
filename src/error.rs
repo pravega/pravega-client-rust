@@ -11,9 +11,12 @@
 use pravega_connection_pool::connection_pool::ConnectionPoolError;
 use pravega_controller_client::ControllerError;
 use pravega_rust_client_retry::retry_result::RetryError;
+use pravega_rust_client_shared::TxId;
 use pravega_wire_protocol::error::*;
 use pravega_wire_protocol::wire_commands::Replies;
 use snafu::Snafu;
+use tokio::sync::mpsc::error::TryRecvError;
+use tokio::sync::oneshot;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
@@ -59,10 +62,36 @@ pub enum EventStreamWriterError {
     WrongReply { expected: String, actual: Replies },
 }
 
-
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
 pub enum TransactionalEventStreamWriterError {
     #[snafu(display("Pinger has gone"))]
     PingerGone {},
+
+    #[snafu(display("Mpsc failed with error {:?}", source))]
+    MpscError { source: TryRecvError },
+
+    #[snafu(display("Oneshot failed with error {:?}", source))]
+    OneshotError { source: oneshot::error::TryRecvError },
+
+    #[snafu(display("Unexpected reply from segmentstore {:?}", error))]
+    UnexpectedReply { error: Replies },
+
+    #[snafu(display("EventSegmentWriter failed due to {:?}", source))]
+    EventSegmentWriterError { source: EventStreamWriterError },
+}
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility = "pub")]
+pub enum TransactionError {
+    #[snafu(display("Transaction failed due to {:?}", source))]
+    TransactionFailed {
+        source: TransactionalEventStreamWriterError,
+    },
+
+    #[snafu(display("Transaction {:?} already closed", id))]
+    TransactionClosed { id: TxId },
+
+    #[snafu(display("Transaction failed due to controller error: {:?}", source))]
+    TransactionControllerError { source: ControllerError },
 }

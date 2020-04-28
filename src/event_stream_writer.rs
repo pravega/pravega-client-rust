@@ -222,8 +222,8 @@ pub(crate) struct AppendEvent {
 
 #[derive(Debug)]
 pub(crate) struct ServerReply {
-    segment: ScopedSegment,
-    reply: Replies,
+    pub(crate) segment: ScopedSegment,
+    pub(crate) reply: Replies,
 }
 
 pub(crate) struct EventSegmentWriter {
@@ -263,7 +263,11 @@ impl EventSegmentWriter {
     const MAX_WRITE_SIZE: i32 = 8 * 1024 * 1024 + 8;
     const MAX_EVENTS: i32 = 500;
 
-    pub(crate) fn new(segment: ScopedSegment, sender: Sender<Incoming>, retry_policy: RetryWithBackoff) -> Self {
+    pub(crate) fn new(
+        segment: ScopedSegment,
+        sender: Sender<Incoming>,
+        retry_policy: RetryWithBackoff,
+    ) -> Self {
         EventSegmentWriter {
             endpoint: "127.0.0.1:0".parse::<SocketAddr>().expect("get socketaddr"), //Dummy address
             id: Uuid::new_v4(),
@@ -276,6 +280,10 @@ impl EventSegmentWriter {
             sender,
             retry_policy,
         }
+    }
+
+    pub(crate) fn get_uuid(&self) -> Uuid {
+        self.id
     }
 
     pub(crate) fn get_segment_name(&self) -> String {
@@ -758,7 +766,7 @@ impl PendingEvent {
 }
 
 // hash string to 0.0 - 1.0 in f64
-fn hash_string_to_f64(s: &str) -> f64 {
+pub(crate) fn hash_string_to_f64(s: &str) -> f64 {
     let mut hasher = DefaultHasher::new();
     hasher.write(s.as_bytes());
     let hash_u64 = hasher.finish();
