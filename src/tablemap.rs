@@ -41,8 +41,12 @@ pub enum TableError {
     },
     #[snafu(display("Key does not exist while performing {}: {}", operation, error_msg))]
     KeyDoesNotExist { operation: String, error_msg: String },
-    #[snafu(display("Bad Key version observed while performing {}: {}", operation, error_msg))]
-    BadKeyVersion { operation: String, error_msg: String },
+    #[snafu(display(
+        "Incorrect Key version observed while performing {}: {}",
+        operation,
+        error_msg
+    ))]
+    IncorrectKeyVersion { operation: String, error_msg: String },
 }
 impl<'a> TableMap<'a> {
     /// create a table map
@@ -284,7 +288,7 @@ impl<'a> TableMap<'a> {
         })
         .and_then(|r| match r {
             Replies::TableEntriesUpdated(c) => Ok(c.updated_versions),
-            Replies::TableKeyBadVersion(c) => Err(TableError::BadKeyVersion {
+            Replies::TableKeyBadVersion(c) => Err(TableError::IncorrectKeyVersion {
                 operation: op.into(),
                 error_msg: c.to_string(),
             }),
@@ -355,7 +359,7 @@ impl<'a> TableMap<'a> {
         })
         .and_then(|r| match r {
             Replies::TableKeysRemoved(..) => Ok(()),
-            Replies::TableKeyBadVersion(c) => Err(TableError::BadKeyVersion {
+            Replies::TableKeyBadVersion(c) => Err(TableError::IncorrectKeyVersion {
                 operation: op.into(),
                 error_msg: c.to_string(),
             }),

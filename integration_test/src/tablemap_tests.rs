@@ -59,7 +59,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     assert!(r.is_err());
     match r {
         Ok(_v) => panic!("Bad version error expected"),
-        Err(TableError::BadKeyVersion { .. }) => (), // this is expected
+        Err(TableError::IncorrectKeyVersion { .. }) => (), // this is expected
         _ => panic!("Invalid Error message"),
     }
     // update with the write version.
@@ -97,7 +97,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     assert!(r.is_err());
     match r {
         Ok(_v) => panic!("Bad version error expected"),
-        Err(TableError::BadKeyVersion { .. }) => (), // this is expected
+        Err(TableError::IncorrectKeyVersion { .. }) => (), // this is expected
         _ => panic!("Invalid Error message"),
     }
     //verify unconditional delete
@@ -154,7 +154,7 @@ async fn test_multiple_key_operations(client_factory: &ClientFactory) {
     assert!(versions.is_err());
     match versions {
         Ok(_v) => panic!("Bad version error expected"),
-        Err(TableError::BadKeyVersion { .. }) => (), // this is expected
+        Err(TableError::IncorrectKeyVersion { .. }) => (), // this is expected
         _ => panic!("Invalid Error message"),
     }
     // verify no new updates have happened.
