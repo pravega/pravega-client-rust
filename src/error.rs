@@ -15,6 +15,7 @@ use pravega_rust_client_retry::retry_result::RetryError;
 use pravega_wire_protocol::error::*;
 use pravega_wire_protocol::wire_commands::Replies;
 use snafu::Snafu;
+use std::fmt::Debug;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
@@ -63,9 +64,6 @@ pub enum EventStreamWriterError {
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
 pub enum SerdeError {
-    #[snafu(display("Failed to serialize/deserialize due to {:?}", source))]
-    EventPointer { source: BincodeError },
-
-    #[snafu(display("Failed to serialize/deserialize due to {:?}", source))]
-    Position { source: BincodeError },
+    #[snafu(display("Failed to {:?} due to {:?}", msg, source))]
+    Serde { msg: String, source: BincodeError },
 }

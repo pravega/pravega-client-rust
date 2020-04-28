@@ -22,12 +22,16 @@ pub(crate) enum PositionVersioned {
 
 impl PositionVersioned {
     fn to_bytes(&self) -> Result<Vec<u8>, SerdeError> {
-        let encoded = BINCODE_CONFIG.serialize(&self).context(Position {})?;
+        let encoded = BINCODE_CONFIG.serialize(&self).context(Serde {
+            msg: String::from("serialize PositionVersioned"),
+        })?;
         Ok(encoded)
     }
 
     fn from_bytes(input: &[u8]) -> Result<PositionVersioned, SerdeError> {
-        let decoded: PositionVersioned = BINCODE_CONFIG.deserialize(&input[..]).context(Position {})?;
+        let decoded: PositionVersioned = BINCODE_CONFIG.deserialize(&input[..]).context(Serde {
+            msg: String::from("serialize PositionVersioned"),
+        })?;
         Ok(decoded)
     }
 }
@@ -56,6 +60,7 @@ impl PositionV1 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ordered_float::OrderedFloat;
     use pravega_rust_client_shared::{Scope, ScopedSegment, Stream};
 
     #[test]
@@ -71,8 +76,8 @@ mod tests {
                 },
                 segment: Segment { number: 0 },
             },
-            min_key: Default::default(),
-            max_key: Default::default(),
+            min_key: OrderedFloat::from(0.0),
+            max_key: OrderedFloat::from(1.0),
         };
         segments.insert(segment_with_range, 0);
         let v1 = PositionV1::new(segments);

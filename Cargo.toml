@@ -44,6 +44,7 @@ bincode2 = "2.0.1"
 [dev-dependencies]
 pravega-rust-client-integration-test = { path = "./integration_test"}
 mockall = "0.7.0"
+ordered-float = { version= "1.0.2", features = ["serde"]}
 
 [[bin]]
 name = "server-cli"

@@ -21,13 +21,16 @@ pub(crate) enum EventPointerVersioned {
 
 impl EventPointerVersioned {
     fn to_bytes(&self) -> Result<Vec<u8>, SerdeError> {
-        let encoded = BINCODE_CONFIG.serialize(&self).context(EventPointer {})?;
+        let encoded = BINCODE_CONFIG.serialize(&self).context(Serde {
+            msg: String::from("serialize EventPointerVersioned"),
+        })?;
         Ok(encoded)
     }
 
     fn from_bytes(input: &[u8]) -> Result<EventPointerVersioned, SerdeError> {
-        let decoded: EventPointerVersioned =
-            BINCODE_CONFIG.deserialize(&input[..]).context(EventPointer {})?;
+        let decoded: EventPointerVersioned = BINCODE_CONFIG.deserialize(&input[..]).context(Serde {
+            msg: String::from("deserialize EventPointerVersioned"),
+        })?;
         Ok(decoded)
     }
 }
