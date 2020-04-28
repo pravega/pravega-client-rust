@@ -18,7 +18,6 @@ use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 use snafu::ResultExt;
 
-use tokio;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
 use tracing::{debug, error, warn};
@@ -389,7 +388,7 @@ impl EventSegmentWriter {
     }
 
     /// first add the event to the pending list
-    /// then flush the pending list is the inflight list is empty
+    /// then flush the pending list if the inflight list is empty
     pub async fn write(&mut self, event: PendingEvent) -> Result<(), EventStreamWriterError> {
         self.add_pending(event);
         self.flush().await
