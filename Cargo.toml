@@ -41,7 +41,6 @@ structopt = {version = "0.3", optional = true}
 derive-new = "0.5"
 bincode2 = "2.0.1"
 futures-intrusive = "0.3.0"
-bincode2 = "2.0.1"
 
 [dev-dependencies]
 pravega-rust-client-integration-test = { path = "./integration_test"}
