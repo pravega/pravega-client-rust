@@ -64,7 +64,7 @@ pub trait AsyncSegmentReader {
 }
 
 #[derive(new)]
-pub(crate) struct AsyncSegmentReaderImpl<'a> {
+pub struct AsyncSegmentReaderImpl<'a> {
     segment: ScopedSegment,
     raw_client: Box<dyn RawClient<'a> + 'a>,
 }

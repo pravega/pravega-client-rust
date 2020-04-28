@@ -43,7 +43,7 @@ impl ClientFactory {
     }
 
     #[allow(clippy::needless_lifetimes)] //Normally the compiler could infer lifetimes but async is throwing it for a loop.
-    pub(crate) async fn create_async_event_reader<'a>(
+    pub async fn create_async_event_reader<'a>(
         &'a self,
         segment: ScopedSegment,
     ) -> AsyncSegmentReaderImpl<'a> {
@@ -55,6 +55,18 @@ impl ClientFactory {
         TableMap::new(name, &self.0)
             .await
             .expect("Failed to create Table map")
+    }
+
+    pub async fn create_raw_client(&self, segment: &ScopedSegment) -> RawClientImpl<'_> {
+        let endpoint = self
+            .0
+            .controller_client
+            .get_endpoint_for_segment(segment)
+            .await
+            .expect("get endpoint for segment")
+            .parse::<SocketAddr>()
+            .expect("convert to socketaddr");
+        self.0.create_raw_client(endpoint)
     }
 
     pub fn create_event_stream_writer(
