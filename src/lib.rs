@@ -27,7 +27,6 @@
     clippy::similar_names
 )]
 #![allow(clippy::multiple_crate_versions)]
-
 use std::sync::atomic::AtomicI64;
 
 pub mod byte_stream;
