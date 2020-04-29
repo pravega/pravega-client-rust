@@ -93,7 +93,7 @@ mod tests {
         runtime.block_on(test_send_order());
         runtime.block_on(test_sender_block());
         runtime.block_on(test_sender_close_first());
-        runtime.block_on(test_receive_close_first());
+        runtime.block_on(test_receiver_close_first());
     }
 
     async fn test_simple_test() {
@@ -151,14 +151,14 @@ mod tests {
         let (tx, mut rx) = create_channel(7);
 
         let tx1 = tx.clone();
-        // need 2 bytes.
+        // need 4 bytes.
         tokio::spawn(async move {
             if let Err(_) = tx1.send((1, 4)).await {
                 println!("receiver dropped");
             }
         });
 
-        // need 4 bytes. (will block)
+        // need another 4 bytes. (will block)
         let tx2 = tx.clone();
         tokio::spawn(async move {
             if let Err(_) = tx2.send((2, 4)).await {
@@ -166,6 +166,7 @@ mod tests {
             }
         });
 
+        // need another 4 bytes. (will block)
         let tx3 = tx.clone();
         tokio::spawn(async move {
             if let Err(_) = tx3.send((3, 4)).await {
@@ -192,7 +193,6 @@ mod tests {
         }
     }
 
-    //
     async fn test_sender_close_first() {
         let (tx, mut rx) = create_channel(100);
 
@@ -221,7 +221,7 @@ mod tests {
         }
     }
 
-    async fn test_receive_close_first() {
+    async fn test_receiver_close_first() {
         let (tx, mut rx) = create_channel(100);
         tx.send((1, 4)).await.expect("send message to channel");
 
