@@ -27,7 +27,8 @@
     clippy::similar_names
 )]
 #![allow(clippy::multiple_crate_versions)]
-use std::sync::atomic::AtomicI64;
+
+use std::sync::atomic::{AtomicI64, Ordering};
 
 pub mod byte_stream;
 pub mod client_factory;
@@ -36,8 +37,16 @@ pub mod event_stream_writer;
 pub mod raw_client;
 pub mod segment_reader;
 mod stream;
+pub mod tablemap;
 
 pub static REQUEST_ID_GENERATOR: AtomicI64 = AtomicI64::new(0);
+
+///
+/// Function used to generate request ids for all the modules.
+///
+pub fn get_request_id() -> i64 {
+    REQUEST_ID_GENERATOR.fetch_add(1, Ordering::SeqCst) + 1
+}
 
 #[macro_use]
 extern crate derive_new;

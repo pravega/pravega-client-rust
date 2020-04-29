@@ -20,6 +20,7 @@ use crate::event_stream_writer::EventStreamWriter;
 use crate::raw_client::RawClientImpl;
 use crate::segment_reader::AsyncSegmentReaderImpl;
 use crate::setup_logger;
+use crate::tablemap::TableMap;
 use std::sync::Arc;
 
 pub struct ClientFactory(Arc<ClientFactoryInternal>);
@@ -47,6 +48,13 @@ impl ClientFactory {
         segment: ScopedSegment,
     ) -> AsyncSegmentReaderImpl<'a> {
         AsyncSegmentReaderImpl::init(segment, &self.0).await
+    }
+
+    #[allow(clippy::needless_lifetimes)] //Normally the compiler could infer lifetimes but async is throwing it for a loop.
+    pub async fn create_table_map<'a>(&'a self, name: String) -> TableMap<'a> {
+        TableMap::new(name, &self.0)
+            .await
+            .expect("Failed to create Table map")
     }
 
     pub async fn create_raw_client(&self, segment: &ScopedSegment) -> RawClientImpl<'_> {
