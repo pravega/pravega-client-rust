@@ -9,20 +9,22 @@
  */
 
 use futures_intrusive::sync::{GenericSemaphoreReleaser, Semaphore};
-use std::mem::size_of_val;
+use std::cmp::min;
 use std::sync::Arc;
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 pub struct ChannelSender<T> {
-    sender: UnboundedSender<T>,
+    sender: UnboundedSender<(T, usize)>,
     semaphore: Arc<Semaphore>,
+    capacity: usize,
 }
 
 impl<T> ChannelSender<T> {
-    pub async fn send(&self, message: T) -> Result<(), SendError<T>> {
-        let size = size_of_val(&message);
-        let mut result = self.semaphore.acquire(size).await;
+    pub async fn send(&self, message: (T, usize)) -> Result<(), SendError<(T, usize)>> {
+        let size = message.1;
+        let n_permits = min(size, self.capacity);
+        let mut result = self.semaphore.acquire(n_permits).await;
         //disable the automatically drop
         GenericSemaphoreReleaser::disarm(&mut result);
         self.sender.send(message)?;
@@ -35,21 +37,24 @@ impl<T> Clone for ChannelSender<T> {
         ChannelSender {
             sender: self.sender.clone(),
             semaphore: self.semaphore.clone(),
+            capacity: self.capacity,
         }
     }
 }
 
 pub struct ChannelReceiver<T> {
-    receiver: UnboundedReceiver<T>,
+    receiver: UnboundedReceiver<(T, usize)>,
     semaphore: Arc<Semaphore>,
+    capacity: usize,
 }
 
 impl<T> ChannelReceiver<T> {
-    pub async fn recv(&mut self) -> Option<T> {
+    pub async fn recv(&mut self) -> Option<(T, usize)> {
         let message = self.receiver.recv().await;
         if let Some(msg) = message {
-            let size = size_of_val(&msg);
-            self.semaphore.release(size);
+            let size = msg.1;
+            let n_permits = min(size, self.capacity);
+            self.semaphore.release(n_permits);
             Some(msg)
         } else {
             message
@@ -57,17 +62,19 @@ impl<T> ChannelReceiver<T> {
     }
 }
 
-pub fn create_channel<T>(capacity: usize) -> (ChannelSender<T>, ChannelReceiver<T>) {
+pub fn create_channel<U>(capacity: usize) -> (ChannelSender<U>, ChannelReceiver<U>) {
     let (tx, rx) = unbounded_channel();
     let semaphore = Semaphore::new(true, capacity);
     let semaphore_arc = Arc::new(semaphore);
     let sender = ChannelSender {
         sender: tx,
         semaphore: semaphore_arc.clone(),
+        capacity,
     };
     let receiver = ChannelReceiver {
         receiver: rx,
         semaphore: semaphore_arc,
+        capacity,
     };
     (sender, receiver)
 }
@@ -77,8 +84,6 @@ mod tests {
     use super::create_channel;
     use std::{thread, time};
     use tokio::runtime::Runtime;
-    use std::thread::Thread;
-    use std::mem::size_of_val;
     use tokio::sync::mpsc::error::SendError;
 
     #[test]
@@ -96,13 +101,13 @@ mod tests {
         let (tx, mut rx) = create_channel(4);
 
         tokio::spawn(async move {
-            if let Err(_) = tx.send(1).await {
+            if let Err(_) = tx.send((1, 4)).await {
                 println!("receiver dropped");
             }
         });
 
         if let Some(i) = rx.recv().await {
-            assert_eq!(i, 1);
+            assert_eq!(i, (1, 4));
         } else {
             panic!("Test failed");
         }
@@ -115,27 +120,27 @@ mod tests {
         let tx1 = tx.clone();
         tokio::spawn(async move {
             thread::sleep(time::Duration::from_secs(1));
-            if let Err(_) = tx1.send(1).await {
+            if let Err(_) = tx1.send((1, 4)).await {
                 println!("receiver dropped");
             }
         });
 
         let tx2 = tx.clone();
         tokio::spawn(async move {
-            if let Err(_) = tx2.send(2).await {
+            if let Err(_) = tx2.send((2, 4)).await {
                 println!("receiver dropped");
             }
         });
 
         // 2 should come first.
         if let Some(i) = rx.recv().await {
-            assert_eq!(i, 2);
+            assert_eq!(i, (2, 4));
         } else {
             panic!("test failed");
         }
 
         if let Some(i) = rx.recv().await {
-            assert_eq!(i, 1);
+            assert_eq!(i, (1, 4));
         } else {
             panic!("test failed");
         }
@@ -148,7 +153,7 @@ mod tests {
         let tx1 = tx.clone();
         // need 2 bytes.
         tokio::spawn(async move {
-            if let Err(_) = tx1.send(1).await {
+            if let Err(_) = tx1.send((1, 4)).await {
                 println!("receiver dropped");
             }
         });
@@ -156,33 +161,32 @@ mod tests {
         // need 4 bytes. (will block)
         let tx2 = tx.clone();
         tokio::spawn(async move {
-            if let Err(_) = tx2.send(2).await {
+            if let Err(_) = tx2.send((2, 4)).await {
                 println!("receiver dropped");
             }
         });
 
         let tx3 = tx.clone();
         tokio::spawn(async move {
-            if let Err(_) = tx3.send(3).await {
+            if let Err(_) = tx3.send((3, 4)).await {
                 println!("receiver dropped");
             }
         });
 
-
         if let Some(message) = rx.recv().await {
-            assert_eq!(message, 1);
+            assert_eq!(message, (1, 4));
         } else {
             panic!("test failed");
         }
 
         if let Some(message) = rx.recv().await {
-            assert_eq!(message, 2);
+            assert_eq!(message, (2, 4));
         } else {
             panic!("test failed");
         }
 
         if let Some(message) = rx.recv().await {
-            assert_eq!(message, 3);
+            assert_eq!(message, (3, 4));
         } else {
             panic!("test failed");
         }
@@ -194,17 +198,17 @@ mod tests {
 
         // tx would drop in this thread
         tokio::spawn(async move {
-           for i in 0..10 {
-               if let Err(_) = tx.send(i).await {
-                   println!("receiver dropped");
-                   return;
-               }
-           }
+            for i in 0..10 {
+                if let Err(_) = tx.send((i, 4)).await {
+                    println!("receiver dropped");
+                    return;
+                }
+            }
         });
 
         for i in 0..10 {
             if let Some(j) = rx.recv().await {
-                assert_eq!(i, j);
+                assert_eq!((i, 4), j);
             }
         }
 
@@ -219,20 +223,20 @@ mod tests {
 
     async fn test_receive_close_first() {
         let (tx, mut rx) = create_channel(100);
-        tx.send(1).await;
+        tx.send((1, 4)).await.expect("send message to channel");
 
         tokio::spawn(async move {
             if let Some(i) = rx.recv().await {
-                assert_eq!(i, 1);
+                assert_eq!(i, (1, 4));
                 return;
             }
         });
         thread::sleep(time::Duration::from_secs(1));
-        let result = tx.send(2).await;
+        let result = tx.send((2, 4)).await;
 
         if let Err(e) = result {
-            if let SendError{0: value} = e {
-                assert_eq!(value, 2);
+            if let SendError { 0: value } = e {
+                assert_eq!(value, (2, 4));
             } else {
                 panic!("Test failed");
             }
