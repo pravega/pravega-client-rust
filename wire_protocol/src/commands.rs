@@ -2159,6 +2159,8 @@ pub struct TableKey {
 }
 
 impl TableKey {
+    pub const KEY_NO_VERSION: i64 = i64::min_value();
+    pub const NOT_EXISTS: i64 = -1i64;
     const HEADER_BYTES: i32 = 2 * 4;
     pub fn new(data: Vec<u8>, key_version: i64) -> TableKey {
         let payload = (4 + data.len() + 8) as i32;
