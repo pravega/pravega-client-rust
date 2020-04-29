@@ -22,7 +22,6 @@ pub struct ChannelSender<T> {
 impl<T> ChannelSender<T> {
     pub async fn send(&self, message: T) -> Result<(), SendError<T>> {
         let size = size_of_val(&message);
-        println!("size is {}", size);
         let mut result = self.semaphore.acquire(size).await;
         //disable the automatically drop
         GenericSemaphoreReleaser::disarm(&mut result);
@@ -80,6 +79,7 @@ mod tests {
     use tokio::runtime::Runtime;
     use std::thread::Thread;
     use std::mem::size_of_val;
+    use tokio::sync::mpsc::error::SendError;
 
     #[test]
     fn test_wrapper() {
@@ -208,6 +208,8 @@ mod tests {
             }
         }
 
+        // `None` is returned when all `Sender` halves have dropped, indicating
+        // that no further values can be sent on the channel.
         if let None = rx.recv().await {
             println!("Test passed");
         } else {
@@ -228,6 +230,14 @@ mod tests {
         thread::sleep(time::Duration::from_secs(1));
         let result = tx.send(2).await;
 
-        
+        if let Err(e) = result {
+            if let SendError{0: value} = e {
+                assert_eq!(value, 2);
+            } else {
+                panic!("Test failed");
+            }
+        } else {
+            panic!("Test failed");
+        }
     }
 }
