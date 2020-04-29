@@ -10,7 +10,6 @@
 
 use std::net::SocketAddr;
 use std::result::Result as StdResult;
-use std::sync::atomic::{AtomicI64, Ordering};
 
 use snafu::Snafu;
 
@@ -22,8 +21,8 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
 use crate::client_factory::ClientFactoryInternal;
 use crate::error::RawClientError;
+use crate::get_request_id;
 use crate::raw_client::RawClient;
-use crate::REQUEST_ID_GENERATOR;
 
 #[derive(Debug, Snafu)]
 pub enum ReaderError {
@@ -65,10 +64,9 @@ pub trait AsyncSegmentReader {
 }
 
 #[derive(new)]
-pub(crate) struct AsyncSegmentReaderImpl<'a> {
+pub struct AsyncSegmentReaderImpl<'a> {
     segment: ScopedSegment,
     raw_client: Box<dyn RawClient<'a> + 'a>,
-    id: &'static AtomicI64,
 }
 
 impl<'a> AsyncSegmentReaderImpl<'a> {
@@ -87,7 +85,6 @@ impl<'a> AsyncSegmentReaderImpl<'a> {
         AsyncSegmentReaderImpl {
             segment,
             raw_client: Box::new(factory.create_raw_client(endpoint)),
-            id: &REQUEST_ID_GENERATOR,
         }
     }
 }
@@ -100,7 +97,7 @@ impl AsyncSegmentReader for AsyncSegmentReaderImpl<'_> {
             offset,
             suggested_length: length,
             delegation_token: String::from(""),
-            request_id: self.id.fetch_add(1, Ordering::SeqCst) + 1, // add_fetch implementation
+            request_id: get_request_id(),
         });
 
         let reply = self.raw_client.as_ref().send_request(&request).await;
@@ -241,8 +238,7 @@ mod tests {
                 })),
             }
         });
-        let async_segment_reader =
-            AsyncSegmentReaderImpl::new(segment_name, Box::new(raw_client), &REQUEST_ID_GENERATOR);
+        let async_segment_reader = AsyncSegmentReaderImpl::new(segment_name, Box::new(raw_client));
         let data = async_segment_reader.read(0, 11).await;
         let segment_read_result: SegmentReadCommand = data.unwrap();
         assert_eq!(
