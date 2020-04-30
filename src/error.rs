@@ -11,7 +11,7 @@
 use pravega_connection_pool::connection_pool::ConnectionPoolError;
 use pravega_controller_client::ControllerError;
 use pravega_rust_client_retry::retry_result::RetryError;
-use pravega_rust_client_shared::TxId;
+use pravega_rust_client_shared::{TransactionStatus, TxId};
 use pravega_wire_protocol::error::*;
 use pravega_wire_protocol::wire_commands::Replies;
 use snafu::Snafu;
@@ -84,8 +84,8 @@ pub enum TransactionalEventStreamWriterError {
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
 pub enum TransactionError {
-    #[snafu(display("Transaction failed due to {:?}", source))]
-    TransactionFailed {
+    #[snafu(display("Transactional writer failed due to {:?}", source))]
+    TransactionWriterError {
         source: TransactionalEventStreamWriterError,
     },
 
@@ -94,4 +94,10 @@ pub enum TransactionError {
 
     #[snafu(display("Transaction failed due to controller error: {:?}", source))]
     TransactionControllerError { source: ControllerError },
+
+    #[snafu(display("Commit Transaction {:?} error due to Transaction {:?}", id, status))]
+    TransactionCommitError { id: TxId, status: TransactionStatus },
+
+    #[snafu(display("Abort Transaction {:?} error due to Transaction {:?}", id, status))]
+    TransactionAbortError { id: TxId, status: TransactionStatus },
 }

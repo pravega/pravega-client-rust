@@ -12,7 +12,7 @@ use std::net::SocketAddr;
 
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
-use pravega_rust_client_shared::{ScopedSegment, ScopedStream};
+use pravega_rust_client_shared::{ScopedSegment, ScopedStream, WriterId};
 use pravega_wire_protocol::client_config::ClientConfig;
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 
@@ -22,6 +22,7 @@ use crate::segment_reader::AsyncSegmentReaderImpl;
 use crate::setup_logger;
 use crate::transactional_event_stream_writer::TransactionalEventStreamWriter;
 use std::sync::Arc;
+use uuid::Uuid;
 
 pub struct ClientFactory(Arc<ClientFactoryInternal>);
 
@@ -43,7 +44,7 @@ impl ClientFactory {
     }
 
     #[allow(clippy::needless_lifetimes)] //Normally the compiler could infer lifetimes but async is throwing it for a loop.
-    pub(crate) async fn create_async_event_reader<'a>(
+    pub async fn create_async_event_reader<'a>(
         &'a self,
         segment: ScopedSegment,
     ) -> AsyncSegmentReaderImpl<'a> {
@@ -63,7 +64,13 @@ impl ClientFactory {
         stream: ScopedStream,
         config: ClientConfig,
     ) -> TransactionalEventStreamWriter {
-        TransactionalEventStreamWriter::new(stream, self.0.clone(), config).await
+        TransactionalEventStreamWriter::new(
+            stream,
+            WriterId(Uuid::new_v4().as_u128() as u64),
+            self.0.clone(),
+            config,
+        )
+        .await
     }
 
     pub fn get_controller_client(&self) -> &dyn ControllerClient {

@@ -19,9 +19,12 @@ use std::net::SocketAddr;
 
 use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
+use pravega_client_rust::transactional_event_stream_writer::TransactionalEventStreamWriter;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
+use pravega_client_rust::segment_reader::AsyncSegmentReader;
 
 pub async fn test_transactional_event_stream_writer() {
+    info!("test TransactionalEventStreamWriter");
     // spin up Pravega standalone
     let scope_name = Scope::new("testScopeTxnWriter".into());
     let stream_name = Stream::new("testStreamTxnWriter".into());
@@ -36,27 +39,88 @@ pub async fn test_transactional_event_stream_writer() {
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config.clone());
-    let mut writer = client_factory.create_event_stream_writer(scoped_stream.clone(), config);
+    let mut writer = client_factory
+        .create_transactional_event_stream_writer(scoped_stream.clone(), config)
+        .await;
+    test_commit_transaction(&mut writer).await;
+    test_abort_transaction(&mut writer).await;
+    test_write_transaction(&mut writer, &client_factory);
 
-    test_simple_transaction(&mut writer).await;
+    info!("test TransactionalEventStreamWriter passed");
 }
 
-async fn test_simple_transaction(writer: &mut EventStreamWriter) {
-    info!("test simple write");
-    let mut receivers = vec![];
-    let count = 10;
-    let mut i = 0;
-    while i < count {
-        let rx = writer.write_event(String::from("hello").into_bytes()).await;
-        receivers.push(rx);
-        i += 1;
-    }
-    assert_eq!(receivers.len(), count);
+async fn test_commit_transaction(writer: &mut TransactionalEventStreamWriter) {
+    info!("test commit transaction");
 
-    for rx in receivers {
-        let _reply = rx.await.expect("wait for result from oneshot");
+    let mut transaction = writer.begin().await.expect("begin transaction");
+
+    assert_eq!(
+        transaction.check_status().await.expect("get transaction status"),
+        TransactionStatus::Open
+    );
+
+    transaction
+        .commit(Timestamp(0u64))
+        .await
+        .expect("commit transaction");
+
+    assert_eq!(
+        transaction.check_status().await.expect("commit transaction"),
+        TransactionStatus::Committed
+    );
+
+    info!("test commit transaction passed");
+}
+
+async fn test_abort_transaction(writer: &mut TransactionalEventStreamWriter) {
+    info!("test abort transaction");
+
+    let mut transaction = writer.begin().await.expect("begin transaction");
+
+    assert_eq!(
+        transaction.check_status().await.expect("get transaction status"),
+        TransactionStatus::Open
+    );
+
+    transaction.abort().await.expect("abort transaction");
+
+    assert_eq!(
+        transaction.check_status().await.expect("abort transaction"),
+        TransactionStatus::Aborted
+    );
+
+    info!("test abort transaction passed");
+}
+
+async fn test_write_transaction(writer: &mut TransactionalEventStreamWriter, factory: &ClientFactory) {
+    info!("test write transaction");
+
+    let mut transaction = writer.begin().await.expect("begin transaction");
+
+    assert_eq!(
+        transaction.check_status().await.expect("get transaction status"),
+        TransactionStatus::Open
+    );
+
+    for i in 0..100 {
+        transaction.write_event(None, String::from("hello").into_bytes())
     }
-    info!("test simple write passed");
+    transaction.commit(Timestamp(0u64)).await.expect("abort transaction");
+
+    let segments = factory.get_controller_client().get_current_segments(&transaction.get_stream()).await.expect("get segments");
+    let mut readers = vec!();
+    for segment in segments {
+        let reader = factory.create_async_event_reader(segment).await;
+        reader.
+    }
+
+
+    assert_eq!(
+        transaction.check_status().await.expect("abort transaction"),
+        TransactionStatus::Aborted
+    );
+
+    info!("test write transaction passed");
 }
 
 // helper function
@@ -81,7 +145,7 @@ async fn setup_test(scope_name: &Scope, stream_name: &Stream) -> ControllerClien
             scale_type: ScaleType::FixedNumSegments,
             target_rate: 0,
             scale_factor: 0,
-            min_num_segments: 2,
+            min_num_segments: 1,
         },
         retention: Retention {
             retention_type: RetentionType::None,

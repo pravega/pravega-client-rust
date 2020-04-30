@@ -856,7 +856,7 @@ async fn abort_transaction(
     };
     let op_status: StdResult<tonic::Response<TxnStatus>, tonic::Status> = connection
         .channel
-        .commit_transaction(tonic::Request::new(request))
+        .abort_transaction(tonic::Request::new(request))
         .await;
     let operation_name = "abortTransaction";
     match op_status {

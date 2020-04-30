@@ -13,7 +13,6 @@ use crate::error::*;
 use crate::event_stream_writer::{hash_string_to_f64, EventSegmentWriter, Incoming, PendingEvent};
 use log::{debug, error, info, warn};
 use pravega_controller_client::ControllerClient;
-use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_shared::{
     PingStatus, ScopedSegment, ScopedStream, StreamSegments, Timestamp, TransactionStatus, TxId, WriterId,
 };
@@ -29,7 +28,10 @@ use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
 use tokio::time::delay_for;
-use uuid::Uuid;
+
+use pravega_rust_client_retry::retry_async::retry_async;
+use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
+use pravega_rust_client_retry::retry_result::RetryResult;
 
 pub struct TransactionalEventStreamWriter {
     stream: ScopedStream,
@@ -38,28 +40,26 @@ pub struct TransactionalEventStreamWriter {
     config: ClientConfig,
     pinger_handle: PingerHandle,
 }
-
 impl TransactionalEventStreamWriter {
     pub(crate) async fn new(
         stream: ScopedStream,
+        writer_id: WriterId,
         factory: Arc<ClientFactoryInternal>,
         config: ClientConfig,
     ) -> Self {
         let (mut pinger, handle) =
             Pinger::new(stream.clone(), config.transaction_timeout_time, factory.clone());
-        tokio::spawn(async move {
-            pinger.start_ping().await;
-        });
+        tokio::spawn(async move { pinger.start_ping().await });
         TransactionalEventStreamWriter {
             stream,
-            writer_id: WriterId(Uuid::new_v4().as_u128() as u64),
+            writer_id,
             factory,
             config,
             pinger_handle: handle,
         }
     }
 
-    async fn begin(&mut self) -> Result<Transaction, TransactionalEventStreamWriterError> {
+    pub async fn begin(&mut self) -> Result<Transaction, TransactionalEventStreamWriterError> {
         let txn_segments = self
             .factory
             .controller_client
@@ -85,11 +85,12 @@ impl TransactionalEventStreamWriter {
             self.stream.clone(),
             self.pinger_handle.clone(),
             self.factory.clone(),
+            self.config.retry_policy,
             false,
         ))
     }
 
-    async fn get_txn(&self, txn_id: TxId) -> Transaction {
+    pub async fn get_txn(&self, txn_id: TxId) -> Transaction {
         let segments = self
             .factory
             .controller_client
@@ -111,6 +112,7 @@ impl TransactionalEventStreamWriter {
                 self.stream.clone(),
                 self.pinger_handle.clone(),
                 self.factory.clone(),
+                self.config.retry_policy,
                 true,
             );
         }
@@ -127,11 +129,12 @@ impl TransactionalEventStreamWriter {
             self.stream.clone(),
             self.pinger_handle.clone(),
             self.factory.clone(),
+            self.config.retry_policy,
             false,
         )
     }
 
-    fn get_config(&self) -> ClientConfig {
+    pub fn get_config(&self) -> ClientConfig {
         self.config.clone()
     }
 }
@@ -267,13 +270,14 @@ impl TransactionalEventSegmentWriter {
 }
 
 pub struct Transaction {
-    writer_id: WriterId,
     txn_id: TxId,
+    writer_id: WriterId,
     inner: HashMap<ScopedSegment, TransactionalEventSegmentWriter>,
     segments: StreamSegments,
     stream: ScopedStream,
     handle: PingerHandle,
     factory: Arc<ClientFactoryInternal>,
+    retry_policy: RetryWithBackoff,
     closed: bool,
 }
 
@@ -286,18 +290,32 @@ impl Transaction {
         stream: ScopedStream,
         handle: PingerHandle,
         factory: Arc<ClientFactoryInternal>,
+        retry_policy: RetryWithBackoff,
         closed: bool,
     ) -> Self {
         Transaction {
-            writer_id,
             txn_id,
+            writer_id,
             inner: transactions,
             segments,
             stream,
             handle,
             factory,
+            retry_policy,
             closed,
         }
+    }
+
+    pub fn get_txn_id(&self) -> TxId {
+        self.txn_id
+    }
+
+    pub fn get_writer_id(&self) -> WriterId {
+        self.writer_id
+    }
+
+    pub fn get_stream(&self) -> ScopedStream {
+        self.stream.clone()
     }
 
     pub async fn write_event(&mut self, key: Option<String>, event: Vec<u8>) -> Result<(), TransactionError> {
@@ -316,36 +334,75 @@ impl Transaction {
         transaction
             .write_event(event, &self.factory)
             .await
-            .context(TransactionFailed {})?;
+            .context(TransactionWriterError {})?;
         Ok(())
     }
 
     pub async fn commit(&mut self, timestamp: Timestamp) -> Result<(), TransactionError> {
+        debug!("committing transaction {:?}", self.txn_id);
+
         self.error_if_closed()?;
+        self.closed = true;
 
         for (_, writer) in &mut self.inner {
-            writer.flush(&self.factory).await.context(TransactionFailed {})?;
+            writer
+                .flush(&self.factory)
+                .await
+                .context(TransactionWriterError {})?;
         }
-        self.inner.clear(); // release the ownership of all event segment writer
+        self.inner.clear(); // release the ownership of all event segment writers
         self.factory
             .controller_client
             .commit_transaction(&self.stream, self.txn_id, self.writer_id, timestamp)
             .await
             .expect("commit transaction");
-        self.closed = true;
+
+        if let Err(e) = retry_async(self.retry_policy, || async {
+            match self.check_status().await {
+                Ok(status) => match status {
+                    TransactionStatus::Committed => RetryResult::Success(status),
+                    TransactionStatus::Committing => {
+                        RetryResult::Retry(TransactionError::TransactionCommitError {
+                            id: self.txn_id,
+                            status,
+                        })
+                    }
+                    _ => RetryResult::Fail(TransactionError::TransactionCommitError {
+                        id: self.txn_id,
+                        status,
+                    }),
+                },
+                Err(e) => {
+                    warn!("retry controller due to error {:?}", e);
+                    RetryResult::Retry(e)
+                }
+            }
+        })
+        .await
+        {
+            return Err(e.error);
+        };
+
+        debug!("transaction {:?} committed", self.txn_id);
         Ok(())
     }
 
     pub async fn abort(&mut self) -> Result<(), TransactionError> {
+        debug!("aborting transaction {:?}", self.txn_id);
+
         self.error_if_closed()?;
+        self.closed = true;
 
         self.handle
             .remove(self.txn_id)
             .await
-            .context(TransactionFailed {})?;
+            .context(TransactionWriterError {})?;
 
         for (_, writer) in &mut self.inner {
-            writer.flush(&self.factory).await.context(TransactionFailed {})?;
+            writer
+                .flush(&self.factory)
+                .await
+                .context(TransactionWriterError {})?;
         }
         self.inner.clear(); // release the ownership of all event segment writer
         self.factory
@@ -353,7 +410,34 @@ impl Transaction {
             .abort_transaction(&self.stream, self.txn_id)
             .await
             .expect("abort transaction");
-        self.closed = true;
+
+        if let Err(e) = retry_async(self.retry_policy, || async {
+            match self.check_status().await {
+                Ok(status) => match status {
+                    TransactionStatus::Aborted => RetryResult::Success(status),
+                    TransactionStatus::Aborting => {
+                        RetryResult::Retry(TransactionError::TransactionAbortError {
+                            id: self.txn_id,
+                            status,
+                        })
+                    }
+                    _ => RetryResult::Fail(TransactionError::TransactionAbortError {
+                        id: self.txn_id,
+                        status,
+                    }),
+                },
+                Err(e) => {
+                    warn!("retry controller due to error {:?}", e);
+                    RetryResult::Retry(e)
+                }
+            }
+        })
+        .await
+        {
+            return Err(e.error);
+        };
+
+        debug!("transaction {:?} aborted", self.txn_id);
         Ok(())
     }
 
