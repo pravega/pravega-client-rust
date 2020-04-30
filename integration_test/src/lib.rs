@@ -11,11 +11,16 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
+mod controller_tests;
 #[cfg(test)]
 //mod disconnection_tests;
 mod event_stream_writer_tests;
 mod pravega_service;
+<<<<<<< HEAD
 mod transactional_event_stream_writer_tests;
+=======
+mod tablemap_tests;
+>>>>>>> master
 mod wirecommand_tests;
 
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
@@ -59,9 +64,13 @@ mod test {
         let mut pravega = PravegaStandaloneService::start(false);
         wait_for_standalone_with_timeout(true, 30);
 
-        //        rt.block_on(wirecommand_tests::wirecommand_test_wrapper());
-
-        //        rt.block_on(event_stream_writer_tests::test_event_stream_writer());
+//        rt.block_on(controller_tests::test_controller_apis());
+//
+//        rt.block_on(wirecommand_tests::wirecommand_test_wrapper());
+//
+//        rt.block_on(tablemap_tests::test_tablemap());
+//
+//        rt.block_on(event_stream_writer_tests::test_event_stream_writer());
 
         rt.block_on(transactional_event_stream_writer_tests::test_transactional_event_stream_writer());
         // Shut down Pravega standalone

@@ -8,6 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use bincode2::Error as BincodeError;
 use pravega_connection_pool::connection_pool::ConnectionPoolError;
 use pravega_controller_client::ControllerError;
 use pravega_rust_client_retry::retry_result::RetryError;
@@ -17,6 +18,7 @@ use pravega_wire_protocol::wire_commands::Replies;
 use snafu::Snafu;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::oneshot;
+use std::fmt::Debug;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
@@ -100,4 +102,8 @@ pub enum TransactionError {
 
     #[snafu(display("Abort Transaction {:?} error due to Transaction {:?}", id, status))]
     TransactionAbortError { id: TxId, status: TransactionStatus },
+
+pub enum SerdeError {
+    #[snafu(display("Failed to {:?} due to {:?}", msg, source))]
+    Serde { msg: String, source: BincodeError },
 }

@@ -21,14 +21,15 @@ use crate::raw_client::RawClientImpl;
 use crate::segment_reader::AsyncSegmentReaderImpl;
 use crate::setup_logger;
 use crate::transactional_event_stream_writer::TransactionalEventStreamWriter;
+use crate::tablemap::TableMap;
 use std::sync::Arc;
 use uuid::Uuid;
 
 pub struct ClientFactory(Arc<ClientFactoryInternal>);
 
-pub(crate) struct ClientFactoryInternal {
-    pub(crate) connection_pool: ConnectionPool<SegmentConnectionManager>,
-    pub(crate) controller_client: ControllerClientImpl,
+pub struct ClientFactoryInternal {
+    connection_pool: ConnectionPool<SegmentConnectionManager>,
+    controller_client: ControllerClientImpl,
 }
 
 impl ClientFactory {
@@ -49,6 +50,25 @@ impl ClientFactory {
         segment: ScopedSegment,
     ) -> AsyncSegmentReaderImpl<'a> {
         AsyncSegmentReaderImpl::init(segment, &self.0).await
+    }
+
+    #[allow(clippy::needless_lifetimes)] //Normally the compiler could infer lifetimes but async is throwing it for a loop.
+    pub async fn create_table_map<'a>(&'a self, name: String) -> TableMap<'a> {
+        TableMap::new(name, &self.0)
+            .await
+            .expect("Failed to create Table map")
+    }
+
+    pub async fn create_raw_client(&self, segment: &ScopedSegment) -> RawClientImpl<'_> {
+        let endpoint = self
+            .0
+            .controller_client
+            .get_endpoint_for_segment(segment)
+            .await
+            .expect("get endpoint for segment")
+            .parse::<SocketAddr>()
+            .expect("convert to socketaddr");
+        self.0.create_raw_client(endpoint)
     }
 
     pub fn create_event_stream_writer(
