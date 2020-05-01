@@ -106,7 +106,7 @@ async fn test_segment_scaling_up(writer: &mut EventStreamWriter, factory: &Clien
                 scope: Scope::new("testScopeWriter".into()),
                 stream: Stream::new("testStreamWriter".into()),
             };
-            let sealed_segments = [Segment { number: 0 }];
+            let sealed_segments = [Segment::new(0)];
 
             let new_range = [(0.0, 0.5), (0.5, 1.0)];
 
@@ -147,14 +147,7 @@ async fn test_segment_scaling_down(writer: &mut EventStreamWriter, factory: &Cli
                 scope: Scope::new("testScopeWriter".into()),
                 stream: Stream::new("testStreamWriter".into()),
             };
-            let sealed_segments = [
-                Segment {
-                    number: 4_294_967_297,
-                },
-                Segment {
-                    number: 4_294_967_298,
-                },
-            ];
+            let sealed_segments = [Segment::new(4_294_967_297), Segment::new(4_294_967_297)];
             let new_range = [(0.0, 1.0)];
             let scale_result = factory
                 .get_controller_client()
@@ -190,7 +183,7 @@ async fn test_write_correctness(writer: &mut EventStreamWriter, factory: &Client
     let segment_name = ScopedSegment {
         scope: scope_name,
         stream: stream_name,
-        segment: Segment { number: 0 },
+        segment: Segment::new(0),
     };
 
     let async_segment_reader = factory.create_async_event_reader(segment_name).await;
@@ -222,7 +215,7 @@ async fn test_write_correctness_while_scaling(writer: &mut EventStreamWriter, fa
                 scope: scope_name.clone(),
                 stream: stream_name.clone(),
             };
-            let sealed_segments = [Segment { number: 0 }];
+            let sealed_segments = [Segment::new(0)];
 
             let new_range = [(0.0, 0.5), (0.5, 1.0)];
 
@@ -262,7 +255,7 @@ async fn test_write_correctness_while_scaling(writer: &mut EventStreamWriter, fa
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 0 },
+        segment: Segment::new(0),
     };
 
     let async_segment_reader = factory.create_async_event_reader(segment_name.clone()).await;
@@ -285,17 +278,13 @@ async fn test_write_correctness_while_scaling(writer: &mut EventStreamWriter, fa
     let segment_name1 = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment {
-            number: 4_294_967_297,
-        },
+        segment: Segment::new(4_294_967_297),
     };
     let reader1 = factory.create_async_event_reader(segment_name1.clone()).await;
     let segment_name2 = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment {
-            number: 4_294_967_298,
-        },
+        segment: Segment::new(4_294_967_297),
     };
     let reader2 = factory.create_async_event_reader(segment_name2.clone()).await;
 
@@ -353,13 +342,13 @@ async fn test_write_correctness_with_routing_key(writer: &mut EventStreamWriter,
     let first_segment = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 0 },
+        segment: Segment::new(0),
     };
 
     let second_segment = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 1 },
+        segment: Segment::new(1),
     };
     let reader1 = factory.create_async_event_reader(first_segment.clone()).await;
     let reader2 = factory.create_async_event_reader(second_segment.clone()).await;

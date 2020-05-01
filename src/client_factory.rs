@@ -20,8 +20,8 @@ use crate::event_stream_writer::EventStreamWriter;
 use crate::raw_client::RawClientImpl;
 use crate::segment_reader::AsyncSegmentReaderImpl;
 use crate::setup_logger;
-use crate::transactional_event_stream_writer::TransactionalEventStreamWriter;
 use crate::tablemap::TableMap;
+use crate::transactional_event_stream_writer::TransactionalEventStreamWriter;
 use std::sync::Arc;
 use uuid::Uuid;
 

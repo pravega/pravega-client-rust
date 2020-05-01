@@ -14,14 +14,18 @@ use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
-use pravega_wire_protocol::wire_commands::Requests;
+use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
 
 use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
+use pravega_client_rust::raw_client::RawClient;
+use pravega_client_rust::segment_reader::AsyncSegmentReader;
 use pravega_client_rust::transactional_event_stream_writer::TransactionalEventStreamWriter;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
-use pravega_client_rust::segment_reader::AsyncSegmentReader;
+use pravega_wire_protocol::commands::{
+    Command, EventCommand, GetStreamSegmentInfoCommand, StreamSegmentInfoCommand,
+};
 
 pub async fn test_transactional_event_stream_writer() {
     info!("test TransactionalEventStreamWriter");
@@ -44,7 +48,7 @@ pub async fn test_transactional_event_stream_writer() {
         .await;
     test_commit_transaction(&mut writer).await;
     test_abort_transaction(&mut writer).await;
-    test_write_transaction(&mut writer, &client_factory);
+    test_write_and_read_transaction(&mut writer, &client_factory).await;
 
     info!("test TransactionalEventStreamWriter passed");
 }
@@ -92,7 +96,10 @@ async fn test_abort_transaction(writer: &mut TransactionalEventStreamWriter) {
     info!("test abort transaction passed");
 }
 
-async fn test_write_transaction(writer: &mut TransactionalEventStreamWriter, factory: &ClientFactory) {
+async fn test_write_and_read_transaction(
+    writer: &mut TransactionalEventStreamWriter,
+    factory: &ClientFactory,
+) {
     info!("test write transaction");
 
     let mut transaction = writer.begin().await.expect("begin transaction");
@@ -102,24 +109,62 @@ async fn test_write_transaction(writer: &mut TransactionalEventStreamWriter, fac
         TransactionStatus::Open
     );
 
-    for i in 0..100 {
-        transaction.write_event(None, String::from("hello").into_bytes())
-    }
-    transaction.commit(Timestamp(0u64)).await.expect("abort transaction");
-
-    let segments = factory.get_controller_client().get_current_segments(&transaction.get_stream()).await.expect("get segments");
-    let mut readers = vec!();
-    for segment in segments {
-        let reader = factory.create_async_event_reader(segment).await;
-        reader.
+    // write to server
+    let num_events: i32 = 100;
+    for _ in 0..num_events {
+        transaction
+            .write_event(None, String::from("hello").into_bytes())
+            .await
+            .expect("write to transaction");
     }
 
+    let segments = factory
+        .get_controller_client()
+        .get_current_segments(&transaction.get_stream())
+        .await
+        .expect("get segments");
+    // should not be able to see the write before commit
+    for segment in segments.get_segments() {
+        let segment_info = get_segment_info(&segment, factory).await;
+        assert_eq!(segment_info.write_offset, 0);
+    }
+    transaction
+        .commit(Timestamp(0u64))
+        .await
+        .expect("commit transaction");
 
-    assert_eq!(
-        transaction.check_status().await.expect("abort transaction"),
-        TransactionStatus::Aborted
-    );
+    // read from server after commit
+    let mut count: i32 = 0;
+    let data: &str = "hello";
+    for segment in segments.get_segments() {
+        info!("creating reader for segment {:?}", segment);
+        let reader = factory.create_async_event_reader(segment.clone()).await;
+        let segment_info = get_segment_info(&segment, factory).await;
+        let mut offset = 0;
+        let end_offset = segment_info.write_offset;
+        loop {
+            if offset >= end_offset {
+                break;
+            }
+            match reader.read(offset, data.len() as i32 + 8).await {
+                Ok(reply) => {
+                    count += 1;
+                    offset += data.len() as i64 + 8;
+                    let expected = EventCommand {
+                        data: String::from("hello").into_bytes(),
+                    }
+                    .write_fields()
+                    .expect("serialize cmd");
+                    assert_eq!(reply.data, expected);
+                }
+                Err(_) => {
+                    panic!("failed to read data from segmentstore");
+                }
+            }
+        }
+    }
 
+    assert_eq!(count, num_events);
     info!("test write transaction passed");
 }
 
@@ -145,7 +190,7 @@ async fn setup_test(scope_name: &Scope, stream_name: &Stream) -> ControllerClien
             scale_type: ScaleType::FixedNumSegments,
             target_rate: 0,
             scale_factor: 0,
-            min_num_segments: 1,
+            min_num_segments: 2,
         },
         retention: Retention {
             retention_type: RetentionType::None,
@@ -158,4 +203,23 @@ async fn setup_test(scope_name: &Scope, stream_name: &Stream) -> ControllerClien
         .expect("create stream");
     info!("Stream created");
     controller_client
+}
+
+async fn get_segment_info(segment: &ScopedSegment, factory: &ClientFactory) -> StreamSegmentInfoCommand {
+    let cmd = GetStreamSegmentInfoCommand {
+        request_id: 0,
+        segment_name: segment.to_string(),
+        delegation_token: "".to_string(),
+    };
+    let request = Requests::GetStreamSegmentInfo(cmd);
+    let rawclient = factory.create_raw_client(segment).await;
+    let reply = rawclient
+        .send_request(&request)
+        .await
+        .expect("send get segment info cmd");
+    if let Replies::StreamSegmentInfo(r) = reply {
+        return r;
+    } else {
+        panic!("wrong reply from segment {:?}", reply);
+    }
 }

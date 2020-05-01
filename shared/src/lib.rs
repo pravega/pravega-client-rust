@@ -26,7 +26,7 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
-mod naming_utils;
+pub mod naming_utils;
 
 use crate::naming_utils::NameUtils;
 use im::HashMap as ImHashMap;
@@ -66,9 +66,23 @@ pub struct Stream {
     pub name: String,
 }
 
-#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Segment {
     pub number: i64,
+    pub tx_id: Option<TxId>,
+}
+
+impl Segment {
+    pub fn new(number: i64) -> Self {
+        Segment { number, tx_id: None }
+    }
+
+    pub fn new_txn(number: i64, tx_id: TxId) -> Self {
+        Segment {
+            number,
+            tx_id: Some(tx_id),
+        }
+    }
 }
 
 #[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
@@ -102,6 +116,7 @@ impl From<String> for ScopedSegment {
                     stream: Stream { name: stream_name },
                     segment: Segment {
                         number: segment_id.parse::<i64>().expect("parse string to i64"),
+                        tx_id: None,
                     },
                 }
             } else {
@@ -113,6 +128,7 @@ impl From<String> for ScopedSegment {
                     stream: Stream { name: stream_name },
                     segment: Segment {
                         number: segment_id.parse::<i64>().expect("parse string to i64"),
+                        tx_id: None,
                     },
                 }
             }
@@ -120,7 +136,7 @@ impl From<String> for ScopedSegment {
     }
 }
 
-#[derive(new, Shrinkwrap, Copy, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Shrinkwrap, Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TxId(pub u128);
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -169,6 +185,7 @@ impl Display for ScopedSegment {
             &self.scope.name,
             &self.stream.name,
             self.segment.number,
+            self.segment.tx_id,
         ))?;
         Ok(())
     }

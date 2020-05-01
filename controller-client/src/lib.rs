@@ -591,7 +591,7 @@ impl ControllerClient for ControllerClientImpl {
         };
         let op_status: StdResult<tonic::Response<TxnStatus>, tonic::Status> = self
             .get_controller_client()
-            .commit_transaction(tonic::Request::new(request))
+            .abort_transaction(tonic::Request::new(request))
             .await;
         let operation_name = "abortTransaction";
         match op_status {
@@ -831,92 +831,9 @@ impl ControllerClientImpl {
             _ => ControllerError::OperationError {
                 can_retry: true, // retry is enabled for all other errors
                 operation: operation_name.into(),
-<<<<<<< HEAD
-                error_msg: "Operation failed".into(),
-            }),
-        },
-        Err(status) => Err(map_grpc_error(operation_name, status)),
-    }
-}
-
-/// Async helper function to abort a Transaction.
-async fn abort_transaction(
-    stream: &ScopedStream,
-    tx_id: TxId,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<()> {
-    use txn_status::Status;
-    let request = TxnRequest {
-        stream_info: Some(StreamInfo::from(stream)),
-        txn_id: Some(TxnId::from(tx_id)),
-        writer_id: "".to_string(),
-        timestamp: 0,
-    };
-    let op_status: StdResult<tonic::Response<TxnStatus>, tonic::Status> = connection
-        .channel
-        .abort_transaction(tonic::Request::new(request))
-        .await;
-    let operation_name = "abortTransaction";
-    match op_status {
-        Ok(code) => match code.into_inner().status() {
-            Status::Success => Ok(()),
-            Status::TransactionNotFound => Err(ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: operation_name.into(),
-                error_msg: "Abort transaction failed, Reason:TransactionNotFound".into(),
-            }),
-            Status::StreamNotFound => Err(ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: operation_name.into(),
-                error_msg: "Abort transaction failed, Reason:StreamNotFound".into(),
-            }),
-            _ => Err(ControllerError::OperationError {
-                can_retry: true, // retry for all other errors
-                operation: operation_name.into(),
-                error_msg: "Operation failed".into(),
-            }),
-        },
-        Err(status) => Err(map_grpc_error(operation_name, status)),
-    }
-}
-
-/// Async helper function to check Transaction status.
-async fn check_transaction_status(
-    stream: &ScopedStream,
-    tx_id: TxId,
-    mut connection: PooledConnection<'_, ControllerConnection>,
-) -> Result<TransactionStatus> {
-    use txn_state::State;
-    let request = TxnRequest {
-        stream_info: Some(StreamInfo::from(stream)),
-        txn_id: Some(TxnId::from(tx_id)),
-        writer_id: "".to_string(),
-        timestamp: 0,
-    };
-    let op_status: StdResult<tonic::Response<TxnState>, tonic::Status> = connection
-        .channel
-        .check_transaction_state(tonic::Request::new(request))
-        .await;
-    let operation_name = "checkTransactionStatus";
-    match op_status {
-        Ok(code) => match code.into_inner().state() {
-            State::Open => Ok(TransactionStatus::Open),
-            State::Committing => Ok(TransactionStatus::Committing),
-            State::Committed => Ok(TransactionStatus::Committed),
-            State::Aborting => Ok(TransactionStatus::Aborting),
-            State::Aborted => Ok(TransactionStatus::Aborted),
-            _ => Err(ControllerError::OperationError {
-                can_retry: true, // retry for all other errors
-                operation: operation_name.into(),
-                error_msg: "Operation failed".into(),
-            }),
-        },
-        Err(status) => Err(map_grpc_error(operation_name, status)),
-=======
                 error_msg: format!("{:?}", status.code()),
             },
         }
->>>>>>> master
     }
 
     // Helper method which checks for the completion of the Stream scale for the given epoch with the specified retry policy.

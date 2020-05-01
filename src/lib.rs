@@ -36,9 +36,9 @@ pub mod error;
 pub mod event_stream_writer;
 pub mod raw_client;
 pub mod segment_reader;
-pub mod transactional_event_stream_writer;
 mod stream;
 pub mod tablemap;
+pub mod transactional_event_stream_writer;
 
 pub static REQUEST_ID_GENERATOR: AtomicI64 = AtomicI64::new(0);
 
@@ -65,7 +65,7 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
                 message
             ))
         })
-        .level(log::LevelFilter::Debug)
+        .level(log::LevelFilter::Info)
         .chain(std::io::stdout())
         .chain(fern::log_file("./output.log")?)
         .apply()?;

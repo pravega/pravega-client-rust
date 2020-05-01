@@ -16,9 +16,9 @@ use pravega_rust_client_shared::{TransactionStatus, TxId};
 use pravega_wire_protocol::error::*;
 use pravega_wire_protocol::wire_commands::Replies;
 use snafu::Snafu;
+use std::fmt::Debug;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::oneshot;
-use std::fmt::Debug;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
@@ -102,7 +102,10 @@ pub enum TransactionError {
 
     #[snafu(display("Abort Transaction {:?} error due to Transaction {:?}", id, status))]
     TransactionAbortError { id: TxId, status: TransactionStatus },
+}
 
+#[derive(Debug, Snafu)]
+#[snafu(visibility = "pub")]
 pub enum SerdeError {
     #[snafu(display("Failed to {:?} due to {:?}", msg, source))]
     Serde { msg: String, source: BincodeError },

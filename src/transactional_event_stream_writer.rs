@@ -12,7 +12,6 @@ use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
 use crate::event_stream_writer::{hash_string_to_f64, EventSegmentWriter, Incoming, PendingEvent};
 use log::{debug, error, info, warn};
-use pravega_controller_client::ControllerClient;
 use pravega_rust_client_shared::{
     PingStatus, ScopedSegment, ScopedStream, StreamSegments, Timestamp, TransactionStatus, TxId, WriterId,
 };
@@ -62,7 +61,7 @@ impl TransactionalEventStreamWriter {
     pub async fn begin(&mut self) -> Result<Transaction, TransactionalEventStreamWriterError> {
         let txn_segments = self
             .factory
-            .controller_client
+            .get_controller_client()
             .create_transaction(
                 &self.stream,
                 Duration::from_millis(self.config.transaction_timeout_time),
@@ -73,7 +72,10 @@ impl TransactionalEventStreamWriter {
         let txn_id = txn_segments.tx_id;
         let mut transactions = HashMap::new();
         for s in txn_segments.stream_segments.get_segments() {
-            let writer = TransactionalEventSegmentWriter::new(s.clone(), self.config.retry_policy);
+            let mut txn_semgnet = s.clone();
+            txn_semgnet.segment.tx_id = Some(txn_id);
+            let mut writer = TransactionalEventSegmentWriter::new(txn_semgnet, self.config.retry_policy);
+            writer.initialize(&self.factory).await;
             transactions.insert(s, writer);
         }
         self.pinger_handle.add(txn_id).await?;
@@ -93,13 +95,13 @@ impl TransactionalEventStreamWriter {
     pub async fn get_txn(&self, txn_id: TxId) -> Transaction {
         let segments = self
             .factory
-            .controller_client
+            .get_controller_client()
             .get_current_segments(&self.stream)
             .await
             .expect("get current segments");
         let status = self
             .factory
-            .controller_client
+            .get_controller_client()
             .check_transaction_status(&self.stream, txn_id)
             .await
             .expect("get transaction status");
@@ -157,6 +159,12 @@ impl TransactionalEventSegmentWriter {
             event_segment_writer,
             recevier: rx,
             outstanding: VecDeque::new(),
+        }
+    }
+
+    async fn initialize(&mut self, factory: &ClientFactoryInternal) {
+        if let Err(_e) = self.event_segment_writer.setup_connection(&factory).await {
+            self.event_segment_writer.reconnect(&factory).await;
         }
     }
 
@@ -352,7 +360,7 @@ impl Transaction {
         }
         self.inner.clear(); // release the ownership of all event segment writers
         self.factory
-            .controller_client
+            .get_controller_client()
             .commit_transaction(&self.stream, self.txn_id, self.writer_id, timestamp)
             .await
             .expect("commit transaction");
@@ -406,7 +414,7 @@ impl Transaction {
         }
         self.inner.clear(); // release the ownership of all event segment writer
         self.factory
-            .controller_client
+            .get_controller_client()
             .abort_transaction(&self.stream, self.txn_id)
             .await
             .expect("abort transaction");
@@ -443,7 +451,7 @@ impl Transaction {
 
     pub async fn check_status(&self) -> Result<TransactionStatus, TransactionError> {
         self.factory
-            .controller_client
+            .get_controller_client()
             .check_transaction_status(&self.stream, self.txn_id)
             .await
             .context(TransactionControllerError {})
@@ -549,7 +557,7 @@ impl Pinger {
                 );
                 let status = self
                     .factory
-                    .controller_client
+                    .get_controller_client()
                     .ping_transaction(
                         &self.stream,
                         txn_id.clone(),

@@ -122,7 +122,7 @@ async fn test_hello() {
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 0 },
+        segment: Segment::new(0),
     };
     let endpoint = CONTROLLER_CLIENT
         .get_endpoint_for_segment(&segment_name)
@@ -156,7 +156,7 @@ async fn test_keep_alive() {
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 0 },
+        segment: Segment::new(0),
     };
 
     let endpoint = CONTROLLER_CLIENT
@@ -181,7 +181,7 @@ async fn test_setup_append() {
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 0 },
+        segment: Segment::new(0),
     };
 
     let endpoint = CONTROLLER_CLIENT
@@ -217,7 +217,7 @@ async fn test_setup_append() {
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 1 },
+        segment: Segment::new(1),
     };
     let request = Requests::SetupAppend(SetupAppendCommand {
         request_id: 1,
@@ -244,7 +244,7 @@ async fn test_create_segment() {
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 1 },
+        segment: Segment::new(1),
     };
 
     let endpoint = CONTROLLER_CLIENT
@@ -296,7 +296,7 @@ async fn test_seal_segment() {
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 1 },
+        segment: Segment::new(1),
     };
 
     let endpoint = CONTROLLER_CLIENT
@@ -331,7 +331,7 @@ async fn test_update_and_get_segment_attribute() {
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 0 },
+        segment: Segment::new(0),
     };
 
     let endpoint = CONTROLLER_CLIENT
@@ -393,7 +393,7 @@ async fn test_get_stream_segment_info() {
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 0 },
+        segment: Segment::new(0),
     };
 
     let endpoint = CONTROLLER_CLIENT
@@ -428,7 +428,7 @@ async fn test_delete_segment() {
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 0 },
+        segment: Segment::new(0),
     };
 
     let endpoint = CONTROLLER_CLIENT
@@ -463,7 +463,7 @@ async fn test_conditional_append_and_read_segment() {
     let segment_name = ScopedSegment {
         scope: scope_name,
         stream: stream_name,
-        segment: Segment { number: 0 },
+        segment: Segment::new(0),
     };
 
     let endpoint = CONTROLLER_CLIENT
@@ -548,7 +548,7 @@ async fn test_update_segment_policy() {
     let segment_name = ScopedSegment {
         scope: scope_name,
         stream: stream_name,
-        segment: Segment { number: 0 },
+        segment: Segment::new(0),
     };
 
     let endpoint = CONTROLLER_CLIENT
@@ -585,7 +585,7 @@ async fn test_merge_segment() {
     let segment_name = ScopedSegment {
         scope: scope_name,
         stream: stream_name,
-        segment: Segment { number: 1 },
+        segment: Segment::new(1),
     };
 
     let endpoint = CONTROLLER_CLIENT
@@ -645,7 +645,7 @@ async fn test_merge_segment() {
     let target_segment_name = ScopedSegment {
         scope: scope_name,
         stream: stream_name,
-        segment: Segment { number: 0 },
+        segment: Segment::new(0),
     };
 
     let request = Requests::MergeSegments(MergeSegmentsCommand {
@@ -675,7 +675,7 @@ async fn test_truncate_segment() {
     let segment_name = ScopedSegment {
         scope: scope_name,
         stream: stream_name,
-        segment: Segment { number: 0 },
+        segment: Segment::new(0),
     };
 
     let endpoint = CONTROLLER_CLIENT
@@ -712,7 +712,7 @@ async fn test_update_table_entries() {
     let segment_name = ScopedSegment {
         scope: scope_name,
         stream: stream_name,
-        segment: Segment { number: 2 },
+        segment: Segment::new(2),
     };
 
     let endpoint = CONTROLLER_CLIENT
@@ -817,7 +817,7 @@ async fn test_read_table_key() {
     let segment_name = ScopedSegment {
         scope: scope_name,
         stream: stream_name,
-        segment: Segment { number: 2 },
+        segment: Segment::new(2),
     };
 
     let endpoint = CONTROLLER_CLIENT
@@ -857,7 +857,7 @@ async fn test_read_table() {
     let segment_name = ScopedSegment {
         scope: scope_name,
         stream: stream_name,
-        segment: Segment { number: 2 },
+        segment: Segment::new(2),
     };
 
     let endpoint = CONTROLLER_CLIENT
@@ -909,7 +909,7 @@ async fn test_read_table_entries() {
     let segment_name = ScopedSegment {
         scope: scope_name,
         stream: stream_name,
-        segment: Segment { number: 2 },
+        segment: Segment::new(2),
     };
 
     let endpoint = CONTROLLER_CLIENT
