@@ -237,8 +237,6 @@ mod tests {
         if let Err(e) = result {
             if let SendError { 0: value } = e {
                 assert_eq!(value, (2, 4));
-            } else {
-                panic!("Test failed");
             }
         } else {
             panic!("Test failed");
