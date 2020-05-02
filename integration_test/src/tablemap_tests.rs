@@ -8,6 +8,9 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use futures::pin_mut;
+use futures::stream::Stream;
+use futures::stream::StreamExt;
 use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::tablemap::{TableError, TableMap};
@@ -17,6 +20,7 @@ use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder, TE
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 
 use pravega_wire_protocol::commands::TableKey;
+
 pub async fn test_tablemap() {
     let config = ClientConfigBuilder::default()
         .controller_uri(TEST_CONTROLLER_URI)
@@ -24,8 +28,72 @@ pub async fn test_tablemap() {
         .expect("creating config");
 
     let client_factory = ClientFactory::new(config.clone());
-    test_single_key_operations(&client_factory).await;
-    test_multiple_key_operations(&client_factory).await;
+    //test_single_key_operations(&client_factory).await;
+    //test_multiple_key_operations(&client_factory).await;
+    test_iterators(&client_factory).await;
+}
+
+async fn test_iterators(client_factory: &ClientFactory) {
+    let map = client_factory.create_table_map("m2".into()).await;
+    let k1: String = "k1".into();
+    let k2: String = "k2".into();
+    let k3: String = "k3".into();
+    let k4: String = "k4".into();
+    let k5: String = "k5".into();
+    let k6: String = "k6".into();
+    let v: String = "val".into();
+    let r = map.insert(&k1, &v).await;
+    let r = map.insert(&k2, &v).await;
+    let r = map.insert(&k3, &v).await;
+    // let r = map.insert(&k4, &v).await;
+    // let r = map.insert(&k5, &v).await;
+    // let r = map.insert(&k6, &v).await;
+    let r: Result<Option<(String, i64)>, TableError> = map.get(&k6).await;
+    println!("==> GET {:?}", r);
+
+    let s = map.read_keys_raw_stream(2);
+    pin_mut!(s);
+
+    // while let Some(value) = s.next().await {
+    //     match value {
+    //         Ok(t) => println!("got {:?}", t),
+    //         Err(e) => print!("Error"),
+    //     }
+    // }
+    let r: Result<Option<(String, i64)>, TableError> = map.get(&k6).await;
+
+    // let mut token: Vec<u8> = vec![];
+    // let keys_at_once = 2;
+    // loop {
+    //     println!("===> ");
+    //     let res: (Vec<String>, Vec<u8>) = map.get_keys(keys_at_once, &token).await.unwrap();
+    //     let (keys, t) = res
+    //     if keys.is_empty() {
+    //         break;
+    //     } else {
+    //         for x in keys {
+    //             println!("{:?}", x);
+    //         }
+    //         token = t;
+    //     }
+    // }
+    // while
+    // let res: (Vec<String>, Vec<u8>) = map.get_keys(3, vec![]).await.unwrap();
+    // let (keys, token) = res;
+    //
+    // for x in keys {
+    //     println!("{:?}", x);
+    // }
+    // println!("===========");
+    // let res: (Vec<String>, Vec<u8>) = map.get_keys(2, token).await.unwrap();
+    // let (keys, t) = res;
+    // println!("{:?}", t);
+    // for x in keys {
+    //     println!("{:?}", x);
+    // }
+    // keys.iter().map(|k| info!("= {}",k))
+
+    println!("completed");
 }
 
 async fn test_single_key_operations(client_factory: &ClientFactory) {

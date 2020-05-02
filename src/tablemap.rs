@@ -12,13 +12,16 @@ use crate::client_factory::ClientFactoryInternal;
 use crate::error::RawClientError;
 use crate::get_request_id;
 use crate::raw_client::RawClient;
+use async_stream::try_stream;
 use bincode2::{deserialize_from, serialize};
+use futures::stream::Stream;
 use log::debug;
 use log::info;
-use pravega_rust_client_shared::{Scope, ScopedSegment, Segment, Stream};
+use pravega_rust_client_shared::Stream as PravegaStream;
+use pravega_rust_client_shared::{Scope, ScopedSegment, Segment};
 use pravega_wire_protocol::commands::{
-    CreateTableSegmentCommand, ReadTableCommand, RemoveTableKeysCommand, TableEntries, TableKey, TableValue,
-    UpdateTableEntriesCommand,
+    CreateTableSegmentCommand, ReadTableCommand, ReadTableKeysCommand, RemoveTableKeysCommand, TableEntries,
+    TableKey, TableValue, UpdateTableEntriesCommand,
 };
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use serde::{Deserialize, Serialize};
@@ -53,7 +56,7 @@ impl<'a> TableMap<'a> {
     pub async fn new(name: String, factory: &'a ClientFactoryInternal) -> Result<TableMap<'a>, TableError> {
         let segment = ScopedSegment {
             scope: Scope::new("_tables".into()),
-            stream: Stream::new(name),
+            stream: PravegaStream::new(name),
             segment: Segment::new(0),
         };
         let endpoint = factory
@@ -257,6 +260,75 @@ impl<'a> TableMap<'a> {
         self.insert_raw_values(r).await
     }
 
+    pub fn read_keys_raw_stream<'b: 'a>(
+        &'b self,
+        max_keys_at_once: i32,
+    ) -> impl Stream<Item = Result<Vec<u8>, TableError>> + 'b {
+        try_stream! {
+            let mut token: Vec<u8> = vec![];
+            loop {
+                println!("===> ");
+                let res: (Vec<Vec<u8>>, Vec<u8>) = self.read_keys(max_keys_at_once, &token).await?;
+                let (keys, t) = res;
+                if keys.is_empty() {
+                    break;
+                } else {
+                    for x in keys {
+                        yield x
+                    }
+                    token = t;
+                }
+             }
+        }
+    }
+
+    pub fn read_keys_stream<K: 'a>(
+        &'a self,
+        max_keys_at_once: i32,
+    ) -> impl Stream<Item = Result<K, TableError>> + 'a
+    where
+        K: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
+    {
+        try_stream! {
+            let mut token: Vec<u8> = vec![];
+            loop {
+                println!("===> ");
+                let res: (Vec<K>, Vec<u8>) = self.get_keys(max_keys_at_once, &token).await?;
+                let (keys, t) = res;
+                if keys.is_empty() {
+                    break;
+                } else {
+                for x in keys {
+                    yield x
+                }
+                token = t;
+                }
+             }
+        }
+    }
+
+    pub async fn get_keys<K>(
+        &self,
+        max_keys_at_once: i32,
+        token: &Vec<u8>,
+    ) -> Result<(Vec<K>, Vec<u8>), TableError>
+    where
+        K: Serialize + serde::de::DeserializeOwned,
+    {
+        let res = self.read_keys(max_keys_at_once, &token).await;
+        res.map(|(keys, token)| {
+            let r: Vec<K> = keys
+                .iter()
+                .map(|k| {
+                    let key: K =
+                        deserialize_from(k.as_slice().clone()).expect("error during deserialization");
+                    key
+                })
+                .collect();
+
+            (r, token)
+        })
+    }
     ///
     /// Insert key value pairs without serialization.
     /// The function returns the newer version number post the insert operation.
@@ -370,5 +442,40 @@ impl<'a> TableMap<'a> {
             // unexpected response from Segment store causes a panic.
             _ => panic!("Unexpected response while deleting keys"),
         })
+    }
+
+    pub async fn read_keys(
+        &self,
+        max_keys_at_once: i32,
+        token: &Vec<u8>,
+    ) -> Result<(Vec<Vec<u8>>, Vec<u8>), TableError> {
+        {
+            let op = "Read keys";
+            let req = Requests::ReadTableKeys(ReadTableKeysCommand {
+                request_id: get_request_id(),
+                segment: self.name.clone(),
+                delegation_token: "".to_string(),
+                suggested_key_count: max_keys_at_once,
+                continuation_token: token.clone(),
+            });
+            let re = self.raw_client.as_ref().send_request(&req).await;
+            debug!("Reply for Get tableKeys request {:?}", re);
+            re.map_err(|e| TableError::ConnectionError {
+                can_retry: true,
+                operation: op.into(),
+                source: e,
+            })
+            .and_then(|r| {
+                match r {
+                    Replies::TableKeysRead(c) => {
+                        let keys: Vec<Vec<u8>> = c.keys.iter().map(|k| k.data.clone()).collect();
+
+                        Ok((keys, c.continuation_token.clone()))
+                    }
+                    // unexpected response from Segment store causes a panic.
+                    _ => panic!("Unexpected response while deleting keys"),
+                }
+            })
+        }
     }
 }
