@@ -227,14 +227,14 @@ async fn test_iterators(client_factory: &ClientFactory) {
             Ok(t) => {
                 let k: Vec<u8> = t.0;
                 assert_eq!(false, k.is_empty());
-                key_count = key_count + 1;
+                key_count += 1;
             }
             Err(_e) => panic!("Failed fetch keys."),
         }
     }
     assert_eq!(6, key_count);
 
-    let key_set: Result<(Vec<(String, i64)>, Vec<u8>), TableError> = map.get_keys(6, &vec![]).await;
+    let key_set: Result<(Vec<(String, i64)>, Vec<u8>), TableError> = map.get_keys(6, &[]).await;
     assert!(key_set.is_ok());
     assert_eq!(6, key_set.unwrap().0.len());
 
@@ -247,15 +247,14 @@ async fn test_iterators(client_factory: &ClientFactory) {
             Ok((k, v, _ver)) => {
                 assert_eq!(false, k.is_empty());
                 assert_eq!(false, v.is_empty());
-                entry_count = entry_count + 1;
+                entry_count += 1;
             }
             Err(_e) => panic!("Failed fetch entries."),
         }
     }
     assert_eq!(6, entry_count);
 
-    let entry_set: Result<(Vec<(String, String, i64)>, Vec<u8>), TableError> =
-        map.get_entries(6, &vec![]).await;
+    let entry_set: Result<(Vec<(String, String, i64)>, Vec<u8>), TableError> = map.get_entries(6, &[]).await;
     assert!(entry_set.is_ok());
     assert_eq!(6, entry_set.unwrap().0.len());
 }

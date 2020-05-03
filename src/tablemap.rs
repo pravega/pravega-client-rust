@@ -273,18 +273,17 @@ impl<'a> TableMap<'a> {
     pub async fn get_keys<K>(
         &self,
         max_keys_at_once: i32,
-        token: &Vec<u8>,
+        token: &[u8],
     ) -> Result<(Vec<(K, i64)>, Vec<u8>), TableError>
     where
         K: Serialize + serde::de::DeserializeOwned,
     {
-        let res = self.read_keys_raw(max_keys_at_once, &token).await;
+        let res = self.read_keys_raw(max_keys_at_once, token).await;
         res.map(|(keys, token)| {
             let keys_de: Vec<(K, i64)> = keys
                 .iter()
                 .map(|(k, version)| {
-                    let key: K =
-                        deserialize_from(k.as_slice().clone()).expect("error during deserialization");
+                    let key: K = deserialize_from(k.as_slice()).expect("error during deserialization");
                     (key, *version)
                 })
                 .collect();
@@ -301,21 +300,19 @@ impl<'a> TableMap<'a> {
     pub async fn get_entries<K, V>(
         &self,
         max_entries_at_once: i32,
-        token: &Vec<u8>,
+        token: &[u8],
     ) -> Result<(Vec<(K, V, i64)>, Vec<u8>), TableError>
     where
         K: Serialize + serde::de::DeserializeOwned,
         V: Serialize + serde::de::DeserializeOwned,
     {
-        let res = self.read_entries_raw(max_entries_at_once, &token).await;
+        let res = self.read_entries_raw(max_entries_at_once, token).await;
         res.map(|(entries, token)| {
             let entries_de: Vec<(K, V, i64)> = entries
                 .iter()
                 .map(|(k, v, version)| {
-                    let key: K =
-                        deserialize_from(k.as_slice().clone()).expect("error during deserialization");
-                    let value: V =
-                        deserialize_from(v.as_slice().clone()).expect("error during deserialization");
+                    let key: K = deserialize_from(k.as_slice()).expect("error during deserialization");
+                    let value: V = deserialize_from(v.as_slice()).expect("error during deserialization");
                     (key, value, *version)
                 })
                 .collect();
@@ -492,7 +489,7 @@ impl<'a> TableMap<'a> {
     async fn read_keys_raw(
         &self,
         max_keys_at_once: i32,
-        token: &Vec<u8>,
+        token: &[u8],
     ) -> Result<(Vec<(Vec<u8>, i64)>, Vec<u8>), TableError> {
         {
             let op = "Read keys";
@@ -501,7 +498,7 @@ impl<'a> TableMap<'a> {
                 segment: self.name.clone(),
                 delegation_token: "".to_string(),
                 suggested_key_count: max_keys_at_once,
-                continuation_token: token.clone(),
+                continuation_token: token.to_vec(),
             });
             let re = self.raw_client.as_ref().send_request(&req).await;
             debug!("Reply for read tableKeys request {:?}", re);
@@ -516,7 +513,7 @@ impl<'a> TableMap<'a> {
                         let keys: Vec<(Vec<u8>, i64)> =
                             c.keys.iter().map(|k| (k.data.clone(), k.key_version)).collect();
 
-                        Ok((keys, c.continuation_token.clone()))
+                        Ok((keys, c.continuation_token))
                     }
                     // unexpected response from Segment store causes a panic.
                     _ => panic!("Unexpected response while reading keys keys"),
@@ -531,7 +528,7 @@ impl<'a> TableMap<'a> {
     async fn read_entries_raw(
         &self,
         max_entries_at_once: i32,
-        token: &Vec<u8>,
+        token: &[u8],
     ) -> Result<(Vec<(Vec<u8>, Vec<u8>, i64)>, Vec<u8>), TableError> {
         {
             let op = "Read entries";
@@ -540,7 +537,7 @@ impl<'a> TableMap<'a> {
                 segment: self.name.clone(),
                 delegation_token: "".to_string(),
                 suggested_entry_count: max_entries_at_once,
-                continuation_token: token.clone(),
+                continuation_token: token.to_vec(),
             });
             let re = self.raw_client.as_ref().send_request(&req).await;
             debug!("Reply for read tableEntries request {:?}", re);
@@ -559,7 +556,7 @@ impl<'a> TableMap<'a> {
                             .map(|(k, v)| (k.data.clone(), v.data.clone(), k.key_version))
                             .collect();
 
-                        Ok((entries, c.continuation_token.clone()))
+                        Ok((entries, c.continuation_token))
                     }
                     // unexpected response from Segment store causes a panic.
                     _ => panic!("Unexpected response while reading entries keys"),
