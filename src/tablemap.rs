@@ -293,6 +293,37 @@ impl<'a> TableMap<'a> {
     }
 
     ///
+    /// Get a list of keys in the table map for a given continuation token.
+    /// It returns a Vector of Key with its version and a continuation token that can be used to
+    /// fetch the next set of keys.An empty Vector as the continuation token will result in the keys
+    /// being fetched from the beginning.
+    ///
+    pub async fn get_entries<K, V>(
+        &self,
+        max_entries_at_once: i32,
+        token: &Vec<u8>,
+    ) -> Result<(Vec<(K, V, i64)>, Vec<u8>), TableError>
+    where
+        K: Serialize + serde::de::DeserializeOwned,
+        V: Serialize + serde::de::DeserializeOwned,
+    {
+        let res = self.read_entries_raw(max_entries_at_once, &token).await;
+        res.map(|(entries, token)| {
+            let entries_de: Vec<(K, V, i64)> = entries
+                .iter()
+                .map(|(k, v, version)| {
+                    let key: K =
+                        deserialize_from(k.as_slice().clone()).expect("error during deserialization");
+                    let value: V =
+                        deserialize_from(v.as_slice().clone()).expect("error during deserialization");
+                    (key, value, *version)
+                })
+                .collect();
+            (entries_de, token)
+        })
+    }
+
+    ///
     /// Read keys as an Async Stream.
     ///
     pub fn read_keys_raw_stream<'b, 'c: 'b>(
@@ -308,6 +339,30 @@ impl<'a> TableMap<'a> {
                     break;
                 } else {
                     for x in keys {
+                        yield x
+                    }
+                    token = t;
+                }
+             }
+        }
+    }
+
+    ///
+    /// Read entries as an Async Stream.
+    ///
+    pub fn read_entries_raw_stream<'b, 'c: 'b>(
+        &'c self,
+        max_keys_at_once: i32,
+    ) -> impl Stream<Item = Result<(Vec<u8>, Vec<u8>, i64), TableError>> + Captures<'a> + 'b {
+        try_stream! {
+            let mut token: Vec<u8> = vec![];
+            loop {
+                let res: (Vec<(Vec<u8>, Vec<u8>,i64)>, Vec<u8>) = self.read_entries_raw(max_keys_at_once, &token).await?;
+                let (entries, t) = res;
+                if entries.is_empty() {
+                    break;
+                } else {
+                    for x in entries {
                         yield x
                     }
                     token = t;
@@ -432,7 +487,7 @@ impl<'a> TableMap<'a> {
     }
 
     ///
-    /// Read the raw keys from the table map. It returns a tuple which consists of vector of keys and continuation token.
+    /// Read the raw keys from the table map. It returns a list of keys and its versions with a continuation token.
     ///
     async fn read_keys_raw(
         &self,
@@ -464,7 +519,50 @@ impl<'a> TableMap<'a> {
                         Ok((keys, c.continuation_token.clone()))
                     }
                     // unexpected response from Segment store causes a panic.
-                    _ => panic!("Unexpected response while deleting keys"),
+                    _ => panic!("Unexpected response while reading keys keys"),
+                }
+            })
+        }
+    }
+
+    ///
+    /// Read the raw entries from the table map. It returns a list of key-values and its versions with a continuation token.
+    ///
+    async fn read_entries_raw(
+        &self,
+        max_entries_at_once: i32,
+        token: &Vec<u8>,
+    ) -> Result<(Vec<(Vec<u8>, Vec<u8>, i64)>, Vec<u8>), TableError> {
+        {
+            let op = "Read entries";
+            let req = Requests::ReadTableEntries(ReadTableEntriesCommand {
+                request_id: get_request_id(),
+                segment: self.name.clone(),
+                delegation_token: "".to_string(),
+                suggested_entry_count: max_entries_at_once,
+                continuation_token: token.clone(),
+            });
+            let re = self.raw_client.as_ref().send_request(&req).await;
+            debug!("Reply for read tableEntries request {:?}", re);
+            re.map_err(|e| TableError::ConnectionError {
+                can_retry: true,
+                operation: op.into(),
+                source: e,
+            })
+            .and_then(|r| {
+                match r {
+                    Replies::TableEntriesRead(c) => {
+                        let entries: Vec<(Vec<u8>, Vec<u8>, i64)> = c
+                            .entries
+                            .entries
+                            .iter()
+                            .map(|(k, v)| (k.data.clone(), v.data.clone(), k.key_version))
+                            .collect();
+
+                        Ok((entries, c.continuation_token.clone()))
+                    }
+                    // unexpected response from Segment store causes a panic.
+                    _ => panic!("Unexpected response while reading entries keys"),
                 }
             })
         }

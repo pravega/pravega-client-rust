@@ -29,8 +29,8 @@ pub async fn test_tablemap() {
         .expect("creating config");
 
     let client_factory = ClientFactory::new(config.clone());
-    //test_single_key_operations(&client_factory).await;
-    //test_multiple_key_operations(&client_factory).await;
+    test_single_key_operations(&client_factory).await;
+    test_multiple_key_operations(&client_factory).await;
     test_iterators(&client_factory).await;
 }
 
@@ -237,4 +237,25 @@ async fn test_iterators(client_factory: &ClientFactory) {
     let key_set: Result<(Vec<(String, i64)>, Vec<u8>), TableError> = map.get_keys(6, &vec![]).await;
     assert!(key_set.is_ok());
     assert_eq!(6, key_set.unwrap().0.len());
+
+    let entry_stream = map.read_entries_raw_stream(2);
+    pin_mut!(entry_stream);
+
+    let mut entry_count: i32 = 0;
+    while let Some(value) = entry_stream.next().await {
+        match value {
+            Ok((k, v, _ver)) => {
+                assert_eq!(false, k.is_empty());
+                assert_eq!(false, v.is_empty());
+                entry_count = entry_count + 1;
+            }
+            Err(_e) => panic!("Failed fetch entries."),
+        }
+    }
+    assert_eq!(6, entry_count);
+
+    let entry_set: Result<(Vec<(String, String, i64)>, Vec<u8>), TableError> =
+        map.get_entries(6, &vec![]).await;
+    assert!(entry_set.is_ok());
+    assert_eq!(6, entry_set.unwrap().0.len());
 }
