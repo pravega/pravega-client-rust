@@ -20,8 +20,8 @@ use log::info;
 use pravega_rust_client_shared::Stream as PravegaStream;
 use pravega_rust_client_shared::{Scope, ScopedSegment, Segment};
 use pravega_wire_protocol::commands::{
-    CreateTableSegmentCommand, ReadTableCommand, ReadTableKeysCommand, RemoveTableKeysCommand, TableEntries,
-    TableKey, TableValue, UpdateTableEntriesCommand,
+    CreateTableSegmentCommand, ReadTableCommand, ReadTableEntriesCommand, ReadTableKeysCommand,
+    RemoveTableKeysCommand, TableEntries, TableKey, TableValue, UpdateTableEntriesCommand,
 };
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use serde::{Deserialize, Serialize};
@@ -33,6 +33,10 @@ pub struct TableMap<'a> {
     name: String,
     raw_client: Box<dyn RawClient<'a> + 'a>,
 }
+
+pub trait Captures<'a> {}
+
+impl<'a, T: ?Sized> Captures<'a> for T {}
 
 #[derive(Debug, Snafu)]
 pub enum TableError {
@@ -260,15 +264,45 @@ impl<'a> TableMap<'a> {
         self.insert_raw_values(r).await
     }
 
-    pub fn read_keys_raw_stream<'b: 'a>(
-        &'b self,
+    ///
+    /// Get a list of keys in the table map for a given continuation token.
+    /// It returns a Vector of Key with its version and a continuation token that can be used to
+    /// fetch the next set of keys.An empty Vector as the continuation token will result in the keys
+    /// being fetched from the beginning.
+    ///
+    pub async fn get_keys<K>(
+        &self,
         max_keys_at_once: i32,
-    ) -> impl Stream<Item = Result<Vec<u8>, TableError>> + 'b {
+        token: &Vec<u8>,
+    ) -> Result<(Vec<(K, i64)>, Vec<u8>), TableError>
+    where
+        K: Serialize + serde::de::DeserializeOwned,
+    {
+        let res = self.read_keys_raw(max_keys_at_once, &token).await;
+        res.map(|(keys, token)| {
+            let keys_de: Vec<(K, i64)> = keys
+                .iter()
+                .map(|(k, version)| {
+                    let key: K =
+                        deserialize_from(k.as_slice().clone()).expect("error during deserialization");
+                    (key, *version)
+                })
+                .collect();
+            (keys_de, token)
+        })
+    }
+
+    ///
+    /// Read keys as an Async Stream.
+    ///
+    pub fn read_keys_raw_stream<'b, 'c: 'b>(
+        &'c self,
+        max_keys_at_once: i32,
+    ) -> impl Stream<Item = Result<(Vec<u8>, i64), TableError>> + Captures<'a> + 'b {
         try_stream! {
             let mut token: Vec<u8> = vec![];
             loop {
-                println!("===> ");
-                let res: (Vec<Vec<u8>>, Vec<u8>) = self.read_keys(max_keys_at_once, &token).await?;
+                let res: (Vec<(Vec<u8>, i64)>, Vec<u8>) = self.read_keys_raw(max_keys_at_once, &token).await?;
                 let (keys, t) = res;
                 if keys.is_empty() {
                     break;
@@ -282,53 +316,6 @@ impl<'a> TableMap<'a> {
         }
     }
 
-    pub fn read_keys_stream<K: 'a>(
-        &'a self,
-        max_keys_at_once: i32,
-    ) -> impl Stream<Item = Result<K, TableError>> + 'a
-    where
-        K: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
-    {
-        try_stream! {
-            let mut token: Vec<u8> = vec![];
-            loop {
-                println!("===> ");
-                let res: (Vec<K>, Vec<u8>) = self.get_keys(max_keys_at_once, &token).await?;
-                let (keys, t) = res;
-                if keys.is_empty() {
-                    break;
-                } else {
-                for x in keys {
-                    yield x
-                }
-                token = t;
-                }
-             }
-        }
-    }
-
-    pub async fn get_keys<K>(
-        &self,
-        max_keys_at_once: i32,
-        token: &Vec<u8>,
-    ) -> Result<(Vec<K>, Vec<u8>), TableError>
-    where
-        K: Serialize + serde::de::DeserializeOwned,
-    {
-        let res = self.read_keys(max_keys_at_once, &token).await;
-        res.map(|(keys, token)| {
-            let r: Vec<K> = keys
-                .iter()
-                .map(|k| {
-                    let key: K =
-                        deserialize_from(k.as_slice().clone()).expect("error during deserialization");
-                    key
-                })
-                .collect();
-
-            (r, token)
-        })
-    }
     ///
     /// Insert key value pairs without serialization.
     /// The function returns the newer version number post the insert operation.
@@ -444,11 +431,14 @@ impl<'a> TableMap<'a> {
         })
     }
 
-    pub async fn read_keys(
+    ///
+    /// Read the raw keys from the table map. It returns a tuple which consists of vector of keys and continuation token.
+    ///
+    async fn read_keys_raw(
         &self,
         max_keys_at_once: i32,
         token: &Vec<u8>,
-    ) -> Result<(Vec<Vec<u8>>, Vec<u8>), TableError> {
+    ) -> Result<(Vec<(Vec<u8>, i64)>, Vec<u8>), TableError> {
         {
             let op = "Read keys";
             let req = Requests::ReadTableKeys(ReadTableKeysCommand {
@@ -459,7 +449,7 @@ impl<'a> TableMap<'a> {
                 continuation_token: token.clone(),
             });
             let re = self.raw_client.as_ref().send_request(&req).await;
-            debug!("Reply for Get tableKeys request {:?}", re);
+            debug!("Reply for read tableKeys request {:?}", re);
             re.map_err(|e| TableError::ConnectionError {
                 can_retry: true,
                 operation: op.into(),
@@ -468,7 +458,8 @@ impl<'a> TableMap<'a> {
             .and_then(|r| {
                 match r {
                     Replies::TableKeysRead(c) => {
-                        let keys: Vec<Vec<u8>> = c.keys.iter().map(|k| k.data.clone()).collect();
+                        let keys: Vec<(Vec<u8>, i64)> =
+                            c.keys.iter().map(|k| (k.data.clone(), k.key_version)).collect();
 
                         Ok((keys, c.continuation_token.clone()))
                     }
