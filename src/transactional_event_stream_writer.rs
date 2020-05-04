@@ -620,8 +620,3 @@ enum PingerEvent {
     Remove(TxId),
     Terminate,
 }
-
-#[cfg(test)]
-mod test {
-    use super::*;
-}
