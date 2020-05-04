@@ -17,7 +17,7 @@ use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnec
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
 
-use log::info;
+use log::{error, info};
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::raw_client::RawClient;
 use pravega_client_rust::segment_reader::AsyncSegmentReader;
@@ -157,7 +157,8 @@ async fn test_write_and_read_transaction(
                     .expect("serialize cmd");
                     assert_eq!(reply.data, expected);
                 }
-                Err(_e) => {
+                Err(e) => {
+                    error!("error {:?} when reading from segment", e);
                     panic!("failed to read data from segmentstore");
                 }
             }
