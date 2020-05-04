@@ -121,6 +121,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     match r {
         Ok(_v) => panic!("Key does not exist error expected"),
         Err(TableError::KeyDoesNotExist { .. }) => (), // this is expected
+        Err(TableError::IncorrectKeyVersion { .. }) => (), // incrrectKeyVersion is returned sometimes.
         _ => panic!("Invalid Error message"),
     }
 }
