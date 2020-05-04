@@ -34,8 +34,9 @@ pub struct TableMap<'a> {
     raw_client: Box<dyn RawClient<'a> + 'a>,
 }
 
+// Workaround for issue https://github.com/rust-lang/rust/issues/63066 as specified in
+//https://github.com/rust-lang/rust/issues/34511#issuecomment-373423999
 pub trait Captures<'a> {}
-
 impl<'a, T: ?Sized> Captures<'a> for T {}
 
 #[derive(Debug, Snafu)]
