@@ -13,7 +13,7 @@
 
 mod controller_tests;
 #[cfg(test)]
-//mod disconnection_tests;
+mod disconnection_tests;
 mod event_stream_writer_tests;
 mod pravega_service;
 mod tablemap_tests;
