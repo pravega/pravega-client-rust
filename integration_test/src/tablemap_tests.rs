@@ -229,12 +229,13 @@ async fn test_iterators(client_factory: &ClientFactory) {
                 assert_eq!(false, k.is_empty());
                 key_count += 1;
             }
-            Err(_e) => panic!("Failed fetch keys."),
+            _ => panic!("Failed fetch keys."),
         }
     }
     assert_eq!(6, key_count);
+    type Token = Vec<u8>;
 
-    let key_set: Result<(Vec<(String, i64)>, Vec<u8>), TableError> = map.get_keys(6, &[]).await;
+    let key_set: Result<(Vec<(String, i64)>, Token), TableError> = map.get_keys(6, &[]).await;
     assert!(key_set.is_ok());
     assert_eq!(6, key_set.unwrap().0.len());
 
@@ -249,12 +250,13 @@ async fn test_iterators(client_factory: &ClientFactory) {
                 assert_eq!(false, v.is_empty());
                 entry_count += 1;
             }
-            Err(_e) => panic!("Failed fetch entries."),
+            _ => panic!("Failed fetch entries."),
         }
     }
     assert_eq!(6, entry_count);
 
-    let entry_set: Result<(Vec<(String, String, i64)>, Vec<u8>), TableError> = map.get_entries(6, &[]).await;
+    type KeyValueVersion = (String, String, i64);
+    let entry_set: Result<(Vec<KeyValueVersion>, Token), TableError> = map.get_entries(6, &[]).await;
     assert!(entry_set.is_ok());
     assert_eq!(6, entry_set.unwrap().0.len());
 }
