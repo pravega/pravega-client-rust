@@ -55,7 +55,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>>
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 0 },
+        segment: Segment { number: 0, tx_id: None },
     };
 
     let endpoint_result = controller_client.get_endpoint_for_segment(&segment_name).await;
@@ -72,7 +72,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>>
         current_segments_result
     );
 
-    let sealed_segments = [Segment { number: 0 }];
+    let sealed_segments = [Segment { number: 0, tx_id: None }];
 
     let new_range = [(0.0, 0.5), (0.5, 1.0)];
 
