@@ -122,7 +122,6 @@ impl NameUtils {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use uuid::Uuid;
 
     #[test]
     fn test_get_segment_number() {
@@ -173,14 +172,18 @@ mod tests {
     #[test]
     fn test_get_parent_stream_segment_name() {
         let segment_id = NameUtils::compute_segment_id(10, 100);
-        let qualified_name =
+        let transaction_id = TxId(1);
+        let transaction_name = NameUtils::get_qualified_stream_segment_name(
+            "testScope",
+            "testStream",
+            segment_id,
+            Some(transaction_id),
+        );
+        let parent_name =
             NameUtils::get_qualified_stream_segment_name("testScope", "testStream", segment_id, None);
-
-        let transaction_id = TxId(Uuid::new_v4().as_u128());
-        let txn_segment = NameUtils::get_transaction_name_from_id(&qualified_name, transaction_id);
         assert_eq!(
-            NameUtils::get_parent_stream_segment_name(&txn_segment),
-            qualified_name
+            NameUtils::get_parent_stream_segment_name(&transaction_name),
+            parent_name
         );
     }
 
