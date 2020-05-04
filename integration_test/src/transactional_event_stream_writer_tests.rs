@@ -157,7 +157,7 @@ async fn test_write_and_read_transaction(
                     .expect("serialize cmd");
                     assert_eq!(reply.data, expected);
                 }
-                Err(_) => {
+                Err(_e) => {
                     panic!("failed to read data from segmentstore");
                 }
             }
@@ -218,7 +218,7 @@ async fn get_segment_info(segment: &ScopedSegment, factory: &ClientFactory) -> S
         .await
         .expect("send get segment info cmd");
     if let Replies::StreamSegmentInfo(r) = reply {
-        return r;
+        r
     } else {
         panic!("wrong reply from segment {:?}", reply);
     }
