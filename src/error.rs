@@ -67,8 +67,8 @@ pub enum EventStreamWriterError {
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
 pub enum TransactionalEventStreamWriterError {
-    #[snafu(display("Pinger has gone"))]
-    PingerGone {},
+    #[snafu(display("Pinger failed to {:?}", msg))]
+    PingerError { msg: String },
 
     #[snafu(display("Mpsc failed with error {:?}", source))]
     MpscError { source: TryRecvError },

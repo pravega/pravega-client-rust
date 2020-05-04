@@ -32,6 +32,8 @@ use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_retry::retry_result::RetryResult;
 
+/// A writer that writes Events to an Event stream transactionally. Events that are written to the
+/// transaction can be committed atomically, which means that reader cannot see any writes prior to committing.
 pub struct TransactionalEventStreamWriter {
     stream: ScopedStream,
     writer_id: WriterId,
@@ -39,6 +41,7 @@ pub struct TransactionalEventStreamWriter {
     config: ClientConfig,
     pinger_handle: PingerHandle,
 }
+
 impl TransactionalEventStreamWriter {
     pub(crate) async fn new(
         stream: ScopedStream,
@@ -80,15 +83,12 @@ impl TransactionalEventStreamWriter {
         }
         self.pinger_handle.add(txn_id).await?;
         Ok(Transaction::new(
-            self.writer_id,
-            txn_id,
+            TransactionInfo::new(txn_id, self.writer_id, self.stream.clone(), false),
             transactions,
             txn_segments.stream_segments,
-            self.stream.clone(),
             self.pinger_handle.clone(),
             self.factory.clone(),
             self.config.retry_policy,
-            false,
         ))
     }
 
@@ -107,15 +107,12 @@ impl TransactionalEventStreamWriter {
             .expect("get transaction status");
         if status != TransactionStatus::Open {
             return Transaction::new(
-                self.writer_id,
-                txn_id,
+                TransactionInfo::new(txn_id, self.writer_id, self.stream.clone(), true),
                 HashMap::new(),
                 StreamSegments::new(BTreeMap::new()),
-                self.stream.clone(),
                 self.pinger_handle.clone(),
                 self.factory.clone(),
                 self.config.retry_policy,
-                true,
             );
         }
         let mut transactions = HashMap::new();
@@ -124,15 +121,12 @@ impl TransactionalEventStreamWriter {
             transactions.insert(s, writer);
         }
         Transaction::new(
-            self.writer_id,
-            txn_id,
+            TransactionInfo::new(txn_id, self.writer_id, self.stream.clone(), true),
             transactions,
             segments,
-            self.stream.clone(),
             self.pinger_handle.clone(),
             self.factory.clone(),
             self.config.retry_policy,
-            false,
         )
     }
 
@@ -163,8 +157,8 @@ impl TransactionalEventSegmentWriter {
     }
 
     async fn initialize(&mut self, factory: &ClientFactoryInternal) {
-        if let Err(_e) = self.event_segment_writer.setup_connection(&factory).await {
-            self.event_segment_writer.reconnect(&factory).await;
+        if let Err(_e) = self.event_segment_writer.setup_connection(factory).await {
+            self.event_segment_writer.reconnect(factory).await;
         }
     }
 
@@ -266,7 +260,7 @@ impl TransactionalEventSegmentWriter {
                             source: e,
                         });
                     } else {
-                        return Ok(());
+                        continue;
                     }
                 }
                 Err(e) => {
@@ -277,53 +271,52 @@ impl TransactionalEventSegmentWriter {
     }
 }
 
-pub struct Transaction {
+#[derive(new)]
+struct TransactionInfo {
     txn_id: TxId,
     writer_id: WriterId,
+    stream: ScopedStream,
+    closed: bool,
+}
+
+pub struct Transaction {
+    info: TransactionInfo,
     inner: HashMap<ScopedSegment, TransactionalEventSegmentWriter>,
     segments: StreamSegments,
-    stream: ScopedStream,
     handle: PingerHandle,
     factory: Arc<ClientFactoryInternal>,
     retry_policy: RetryWithBackoff,
-    closed: bool,
 }
 
 impl Transaction {
     fn new(
-        writer_id: WriterId,
-        txn_id: TxId,
+        info: TransactionInfo,
         transactions: HashMap<ScopedSegment, TransactionalEventSegmentWriter>,
         segments: StreamSegments,
-        stream: ScopedStream,
         handle: PingerHandle,
         factory: Arc<ClientFactoryInternal>,
         retry_policy: RetryWithBackoff,
-        closed: bool,
     ) -> Self {
         Transaction {
-            txn_id,
-            writer_id,
+            info,
             inner: transactions,
             segments,
-            stream,
             handle,
             factory,
             retry_policy,
-            closed,
         }
     }
 
     pub fn get_txn_id(&self) -> TxId {
-        self.txn_id
+        self.info.txn_id
     }
 
     pub fn get_writer_id(&self) -> WriterId {
-        self.writer_id
+        self.info.writer_id
     }
 
     pub fn get_stream(&self) -> ScopedStream {
-        self.stream.clone()
+        self.info.stream.clone()
     }
 
     pub async fn write_event(&mut self, key: Option<String>, event: Vec<u8>) -> Result<(), TransactionError> {
@@ -347,21 +340,33 @@ impl Transaction {
     }
 
     pub async fn commit(&mut self, timestamp: Timestamp) -> Result<(), TransactionError> {
-        debug!("committing transaction {:?}", self.txn_id);
+        debug!("committing transaction {:?}", self.info.txn_id);
 
         self.error_if_closed()?;
-        self.closed = true;
+        self.info.closed = true;
 
-        for (_, writer) in &mut self.inner {
+        for writer in self.inner.values_mut() {
             writer
                 .flush(&self.factory)
                 .await
                 .context(TransactionWriterError {})?;
         }
         self.inner.clear(); // release the ownership of all event segment writers
+
+        // remove this transaction from ping list
+        self.handle
+            .remove(self.info.txn_id)
+            .await
+            .context(TransactionWriterError {})?;
+
         self.factory
             .get_controller_client()
-            .commit_transaction(&self.stream, self.txn_id, self.writer_id, timestamp)
+            .commit_transaction(
+                &self.info.stream,
+                self.info.txn_id,
+                self.info.writer_id,
+                timestamp,
+            )
             .await
             .expect("commit transaction");
 
@@ -371,12 +376,12 @@ impl Transaction {
                     TransactionStatus::Committed => RetryResult::Success(status),
                     TransactionStatus::Committing => {
                         RetryResult::Retry(TransactionError::TransactionCommitError {
-                            id: self.txn_id,
+                            id: self.info.txn_id,
                             status,
                         })
                     }
                     _ => RetryResult::Fail(TransactionError::TransactionCommitError {
-                        id: self.txn_id,
+                        id: self.info.txn_id,
                         status,
                     }),
                 },
@@ -391,22 +396,23 @@ impl Transaction {
             return Err(e.error);
         };
 
-        debug!("transaction {:?} committed", self.txn_id);
+        debug!("transaction {:?} committed", self.info.txn_id);
         Ok(())
     }
 
     pub async fn abort(&mut self) -> Result<(), TransactionError> {
-        debug!("aborting transaction {:?}", self.txn_id);
+        debug!("aborting transaction {:?}", self.info.txn_id);
 
         self.error_if_closed()?;
-        self.closed = true;
+        self.info.closed = true;
 
+        // remove this transaction from ping list
         self.handle
-            .remove(self.txn_id)
+            .remove(self.info.txn_id)
             .await
             .context(TransactionWriterError {})?;
 
-        for (_, writer) in &mut self.inner {
+        for writer in self.inner.values_mut() {
             writer
                 .flush(&self.factory)
                 .await
@@ -415,7 +421,7 @@ impl Transaction {
         self.inner.clear(); // release the ownership of all event segment writer
         self.factory
             .get_controller_client()
-            .abort_transaction(&self.stream, self.txn_id)
+            .abort_transaction(&self.info.stream, self.info.txn_id)
             .await
             .expect("abort transaction");
 
@@ -425,12 +431,12 @@ impl Transaction {
                     TransactionStatus::Aborted => RetryResult::Success(status),
                     TransactionStatus::Aborting => {
                         RetryResult::Retry(TransactionError::TransactionAbortError {
-                            id: self.txn_id,
+                            id: self.info.txn_id,
                             status,
                         })
                     }
                     _ => RetryResult::Fail(TransactionError::TransactionAbortError {
-                        id: self.txn_id,
+                        id: self.info.txn_id,
                         status,
                     }),
                 },
@@ -445,21 +451,21 @@ impl Transaction {
             return Err(e.error);
         };
 
-        debug!("transaction {:?} aborted", self.txn_id);
+        debug!("transaction {:?} aborted", self.info.txn_id);
         Ok(())
     }
 
     pub async fn check_status(&self) -> Result<TransactionStatus, TransactionError> {
         self.factory
             .get_controller_client()
-            .check_transaction_status(&self.stream, self.txn_id)
+            .check_transaction_status(&self.info.stream, self.info.txn_id)
             .await
             .context(TransactionControllerError {})
     }
 
     fn error_if_closed(&self) -> Result<(), TransactionError> {
-        if self.closed {
-            Err(TransactionError::TransactionClosed { id: self.txn_id })
+        if self.info.closed {
+            Err(TransactionError::TransactionClosed { id: self.info.txn_id })
         } else {
             Ok(())
         }
@@ -479,27 +485,33 @@ pub struct PingerHandle(Sender<PingerEvent>);
 
 impl PingerHandle {
     pub async fn add(&mut self, txn_id: TxId) -> Result<(), TransactionalEventStreamWriterError> {
-        if let Err(_) = self.0.send(PingerEvent::Add(txn_id)).await {
-            error!("pinger has gone");
-            Err(TransactionalEventStreamWriterError::PingerGone {})
+        if let Err(e) = self.0.send(PingerEvent::Add(txn_id)).await {
+            error!("pinger failed to add transaction: {:?}", e);
+            Err(TransactionalEventStreamWriterError::PingerError {
+                msg: String::from("add transaction"),
+            })
         } else {
             Ok(())
         }
     }
 
     pub async fn remove(&mut self, txn_id: TxId) -> Result<(), TransactionalEventStreamWriterError> {
-        if let Err(_) = self.0.send(PingerEvent::Remove(txn_id)).await {
-            error!("pinger has gone");
-            Err(TransactionalEventStreamWriterError::PingerGone {})
+        if let Err(e) = self.0.send(PingerEvent::Remove(txn_id)).await {
+            error!("pinger failed to remove transaction: {:?}", e);
+            Err(TransactionalEventStreamWriterError::PingerError {
+                msg: String::from("remove transaction"),
+            })
         } else {
             Ok(())
         }
     }
 
     pub async fn shutdown(&mut self) -> Result<(), TransactionalEventStreamWriterError> {
-        if let Err(_) = self.0.send(PingerEvent::Terminate).await {
-            error!("pinger has gone");
-            Err(TransactionalEventStreamWriterError::PingerGone {})
+        if let Err(e) = self.0.send(PingerEvent::Terminate).await {
+            error!("pinger failed to shutdown: {:?}", e);
+            Err(TransactionalEventStreamWriterError::PingerError {
+                msg: String::from("shutdown"),
+            })
         } else {
             Ok(())
         }
@@ -525,9 +537,15 @@ impl Pinger {
     }
 
     async fn start_ping(&mut self) {
+        // this set is used to store the transactions that are alive and
+        // needs to be pinged periodically.
         let mut txn_list: HashSet<TxId> = HashSet::new();
+
+        // this set is used to store the transaction that are aborted or committed
         let mut completed_txns: HashSet<TxId> = HashSet::new();
+
         loop {
+            // try receive any incoming events
             match self.receiver.try_recv() {
                 Ok(event) => match event {
                     PingerEvent::Add(id) => {
@@ -548,8 +566,12 @@ impl Pinger {
             }
 
             info!("start sending transaction pings.");
+
+            // remove completed transactions from the ping list
             txn_list.retain(|i| !completed_txns.contains(i));
             completed_txns.clear();
+
+            // for each transaction in the ping list, send ping to the server
             for txn_id in txn_list.iter() {
                 debug!(
                     "sending ping request for txn ID: {:?} with lease: {:?}",
@@ -592,6 +614,7 @@ impl Pinger {
     }
 }
 
+#[derive(Debug)]
 enum PingerEvent {
     Add(TxId),
     Remove(TxId),
