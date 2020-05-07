@@ -27,7 +27,7 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 use std::net::SocketAddr;
-type Version = i64;
+pub type Version = i64;
 
 pub struct TableMap<'a> {
     /// name of the map
@@ -37,6 +37,8 @@ pub struct TableMap<'a> {
 
 // Workaround for issue https://github.com/rust-lang/rust/issues/63066 as specified in
 //https://github.com/rust-lang/rust/issues/34511#issuecomment-373423999
+// Without the workaround we get the following error
+// error[E0700]: hidden type for `impl Trait` captures lifetime that does not appear in bounds
 pub trait Captures<'a> {}
 impl<'a, T: ?Sized> Captures<'a> for T {}
 
@@ -274,10 +276,10 @@ impl<'a> TableMap<'a> {
     ///
     /// Read keys as an Async Stream. This method deserializes the Key based on the type.
     ///
-    pub fn read_keys_stream<'b, 'c: 'b, K: 'c>(
-        &'c self,
+    pub fn read_keys_stream<'stream, 'map: 'stream, K: 'stream>(
+        &'map self,
         max_keys_at_once: i32,
-    ) -> impl Stream<Item = Result<(K, Version), TableError>> + Captures<'a> + 'b
+    ) -> impl Stream<Item = Result<(K, Version), TableError>> + Captures<'a> + 'stream
     where
         K: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
     {
@@ -303,10 +305,10 @@ impl<'a> TableMap<'a> {
     /// Read entries as an Async Stream. This method deserialized the Key and Value based on the
     /// inferred type.
     ///
-    pub fn read_entries_stream<'b, 'c: 'b, K: 'c, V: 'c>(
-        &'c self,
-        max_keys_at_once: i32,
-    ) -> impl Stream<Item = Result<(K, V, Version), TableError>> + Captures<'a> + 'b
+    pub fn read_entries_stream<'stream, 'map: 'stream, K: 'map, V: 'map>(
+        &'map self,
+        max_entries_at_once: i32,
+    ) -> impl Stream<Item = Result<(K, V, Version), TableError>> + Captures<'a> + 'stream
     where
         K: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
         V: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
@@ -314,7 +316,7 @@ impl<'a> TableMap<'a> {
         try_stream! {
             let mut token: Vec<u8> = Vec::new();
             loop {
-                let res: (Vec<(Vec<u8>, Vec<u8>,Version)>, Vec<u8>)  = self.read_entries_raw(max_keys_at_once, &token).await?;
+                let res: (Vec<(Vec<u8>, Vec<u8>,Version)>, Vec<u8>)  = self.read_entries_raw(max_entries_at_once, &token).await?;
                 let (entries, t) = res;
                 if entries.is_empty() {
                     break;
@@ -336,7 +338,7 @@ impl<'a> TableMap<'a> {
     /// fetch the next set of keys.An empty Vector as the continuation token will result in the keys
     /// being fetched from the beginning.
     ///
-    pub async fn get_keys<K>(
+    async fn get_keys<K>(
         &self,
         max_keys_at_once: i32,
         token: &[u8],
@@ -358,12 +360,12 @@ impl<'a> TableMap<'a> {
     }
 
     ///
-    /// Get a list of keys in the table map for a given continuation token.
+    /// Get a list of entries in the table map for a given continuation token.
     /// It returns a Vector of Key with its version and a continuation token that can be used to
-    /// fetch the next set of keys.An empty Vector as the continuation token will result in the keys
+    /// fetch the next set of entries.An empty Vector as the continuation token will result in the keys
     /// being fetched from the beginning.
     ///
-    pub async fn get_entries<K, V>(
+    async fn get_entries<K, V>(
         &self,
         max_entries_at_once: i32,
         token: &[u8],
@@ -384,54 +386,6 @@ impl<'a> TableMap<'a> {
                 .collect();
             (entries_de, token)
         })
-    }
-
-    ///
-    /// Read keys as an Async Stream. This function returns the keys a Vec<u8>.
-    ///
-    pub fn read_keys_raw_stream<'b, 'c: 'b>(
-        &'c self,
-        max_keys_at_once: i32,
-    ) -> impl Stream<Item = Result<(Vec<u8>, Version), TableError>> + Captures<'a> + 'b {
-        try_stream! {
-            let mut token: Vec<u8> = Vec::new();
-            loop {
-                let res: (Vec<(Vec<u8>, Version)>, Vec<u8>) = self.read_keys_raw(max_keys_at_once, &token).await?;
-                let (keys, t) = res;
-                if keys.is_empty() {
-                    break;
-                } else {
-                    for x in keys {
-                        yield x
-                    }
-                    token = t;
-                }
-             }
-        }
-    }
-
-    ///
-    /// Read entries as an Async Stream.
-    ///
-    pub fn read_entries_raw_stream<'b, 'c: 'b>(
-        &'c self,
-        max_keys_at_once: i32,
-    ) -> impl Stream<Item = Result<(Vec<u8>, Vec<u8>, Version), TableError>> + Captures<'a> + 'b {
-        try_stream! {
-            let mut token: Vec<u8> = Vec::new();
-            loop {
-                let res: (Vec<(Vec<u8>, Vec<u8>,Version)>, Vec<u8>) = self.read_entries_raw(max_keys_at_once, &token).await?;
-                let (entries, t) = res;
-                if entries.is_empty() {
-                    break;
-                } else {
-                    for x in entries {
-                        yield x
-                    }
-                    token = t;
-                }
-             }
-        }
     }
 
     ///
