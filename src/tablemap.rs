@@ -336,7 +336,7 @@ impl<'a> TableMap<'a> {
     /// fetch the next set of keys.An empty Vector as the continuation token will result in the keys
     /// being fetched from the beginning.
     ///
-    async fn get_keys<K>(
+    pub async fn get_keys<K>(
         &self,
         max_keys_at_once: i32,
         token: &[u8],
@@ -363,7 +363,7 @@ impl<'a> TableMap<'a> {
     /// fetch the next set of keys.An empty Vector as the continuation token will result in the keys
     /// being fetched from the beginning.
     ///
-    async fn get_entries<K, V>(
+    pub async fn get_entries<K, V>(
         &self,
         max_entries_at_once: i32,
         token: &[u8],
