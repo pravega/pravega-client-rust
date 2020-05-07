@@ -236,17 +236,54 @@ async fn test_iterators(client_factory: &ClientFactory) {
     assert_eq!(6, key_count);
     type Token = Vec<u8>;
 
+    let key_deser_stream = map.read_keys_stream(2);
+    pin_mut!(key_deser_stream);
+    info!("Reading keys from table map");
+    let mut key_count: i32 = 0;
+    while let Some(value) = key_deser_stream.next().await {
+        match value {
+            Ok(t) => {
+                let k: String = t.0;
+                info!("key {:?} version {:?}", k, t.1);
+                assert_eq!(false, k.is_empty());
+                key_count += 1;
+            }
+            _ => panic!("Failed fetch keys."),
+        }
+    }
+    assert_eq!(6, key_count);
+
     let key_set: Result<(Vec<(String, i64)>, Token), TableError> = map.get_keys(6, &[]).await;
     assert!(key_set.is_ok());
     assert_eq!(6, key_set.unwrap().0.len());
 
     let entry_stream = map.read_entries_raw_stream(2);
     pin_mut!(entry_stream);
-
+    info!("Reading entries from table map");
     let mut entry_count: i32 = 0;
     while let Some(value) = entry_stream.next().await {
         match value {
             Ok((k, v, _ver)) => {
+                assert_eq!(false, k.is_empty());
+                assert_eq!(false, v.is_empty());
+                entry_count += 1;
+            }
+            _ => panic!("Failed fetch entries."),
+        }
+    }
+    assert_eq!(6, entry_count);
+
+    let entry_deser_stream = map.read_entries_stream(2);
+    pin_mut!(entry_deser_stream);
+
+    let mut entry_count: i32 = 0;
+    while let Some(entry) = entry_deser_stream.next().await {
+        match entry {
+            Ok(t) => {
+                let k: String = t.0;
+                let v: String = t.1;
+
+                info!("key {:?} value {:?} version {:?}", k, v, t.2);
                 assert_eq!(false, k.is_empty());
                 assert_eq!(false, v.is_empty());
                 entry_count += 1;
