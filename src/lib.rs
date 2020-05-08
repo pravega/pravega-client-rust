@@ -27,7 +27,6 @@
     clippy::similar_names
 )]
 #![allow(clippy::multiple_crate_versions)]
-#![recursion_limit = "256"]
 
 use std::sync::atomic::{AtomicI64, Ordering};
 

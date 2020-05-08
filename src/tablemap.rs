@@ -27,6 +27,7 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 use std::net::SocketAddr;
+
 pub type Version = i64;
 
 pub struct TableMap<'a> {
@@ -58,6 +59,8 @@ pub enum TableError {
         error_msg
     ))]
     IncorrectKeyVersion { operation: String, error_msg: String },
+    #[snafu(display("Error observed while performing {} due to {}", operation, error_msg,))]
+    OperationError { operation: String, error_msg: String },
 }
 impl<'a> TableMap<'a> {
     /// create a table map
@@ -86,6 +89,7 @@ impl<'a> TableMap<'a> {
             delegation_token: String::from(""),
         });
 
+        let op = "Create table segment";
         table_map
             .raw_client
             .as_ref()
@@ -93,18 +97,18 @@ impl<'a> TableMap<'a> {
             .await
             .map_err(|e| TableError::ConnectionError {
                 can_retry: true,
-                operation: "Create table segment".to_string(),
+                operation: op.to_string(),
                 source: e,
             })
-            .map(|r| {
-                match r {
-                    Replies::SegmentCreated(..) | Replies::SegmentAlreadyExists(..) => {
-                        info!("Table segment {} created", table_map.name);
-                        table_map
-                    }
-                    // unexpected response from Segment store causes a panic.
-                    _ => panic!("Invalid response during creation of TableSegment"),
+            .and_then(|r| match r {
+                Replies::SegmentCreated(..) | Replies::SegmentAlreadyExists(..) => {
+                    info!("Table segment {} created", table_map.name);
+                    Ok(table_map)
                 }
+                _ => Err(TableError::OperationError {
+                    operation: op.to_string(),
+                    error_msg: r.to_string(),
+                }),
             })
     }
 
@@ -427,7 +431,10 @@ impl<'a> TableMap<'a> {
                 error_msg: c.to_string(),
             }),
             // unexpected response from Segment store causes a panic.
-            _ => panic!("Unexpected response for update tableEntries"),
+            _ => Err(TableError::OperationError {
+                operation: op.into(),
+                error_msg: r.to_string(),
+            }),
         })
     }
 
@@ -449,12 +456,13 @@ impl<'a> TableMap<'a> {
         });
         let re = self.raw_client.as_ref().send_request(&req).await;
         debug!("Read Response {:?}", re);
+        let op = "Read from tablemap";
         re.map_err(|e| TableError::ConnectionError {
             can_retry: true,
-            operation: "Read from tablemap".to_string(),
+            operation: op.into(),
             source: e,
         })
-        .map(|reply| match reply {
+        .and_then(|reply| match reply {
             Replies::TableRead(c) => {
                 let v: Vec<(TableKey, TableValue)> = c.entries.entries;
                 if v.is_empty() {
@@ -464,11 +472,13 @@ impl<'a> TableMap<'a> {
                     //fetch value and corresponding version.
                     let result: Vec<(Vec<u8>, Version)> =
                         v.iter().map(|(l, r)| (r.data.clone(), l.key_version)).collect();
-                    result
+                    Ok(result)
                 }
             }
-            // unexpected response from Segment store causes a panic.
-            _ => panic!("Unexpected response for update tableEntries"),
+            _ => Err(TableError::OperationError {
+                operation: op.into(),
+                error_msg: reply.to_string(),
+            }),
         })
     }
 
@@ -501,8 +511,10 @@ impl<'a> TableMap<'a> {
                 operation: op.into(),
                 error_msg: c.to_string(),
             }),
-            // unexpected response from Segment store causes a panic.
-            _ => panic!("Unexpected response while deleting keys"),
+            _ => Err(TableError::OperationError {
+                operation: op.into(),
+                error_msg: r.to_string(),
+            }),
         })
     }
 
@@ -530,17 +542,17 @@ impl<'a> TableMap<'a> {
                 operation: op.into(),
                 source: e,
             })
-            .and_then(|r| {
-                match r {
-                    Replies::TableKeysRead(c) => {
-                        let keys: Vec<(Vec<u8>, Version)> =
-                            c.keys.iter().map(|k| (k.data.clone(), k.key_version)).collect();
+            .and_then(|r| match r {
+                Replies::TableKeysRead(c) => {
+                    let keys: Vec<(Vec<u8>, Version)> =
+                        c.keys.iter().map(|k| (k.data.clone(), k.key_version)).collect();
 
-                        Ok((keys, c.continuation_token))
-                    }
-                    // unexpected response from Segment store causes a panic.
-                    _ => panic!("Unexpected response while reading keys keys"),
+                    Ok((keys, c.continuation_token))
                 }
+                _ => Err(TableError::OperationError {
+                    operation: op.into(),
+                    error_msg: r.to_string(),
+                }),
             })
         }
     }
@@ -582,7 +594,10 @@ impl<'a> TableMap<'a> {
                         Ok((entries, c.continuation_token))
                     }
                     // unexpected response from Segment store causes a panic.
-                    _ => panic!("Unexpected response while reading entries keys"),
+                    _ => Err(TableError::OperationError {
+                        operation: op.into(),
+                        error_msg: r.to_string(),
+                    }),
                 }
             })
         }
