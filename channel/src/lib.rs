@@ -82,6 +82,7 @@ pub fn create_channel<U>(capacity: usize) -> (ChannelSender<U>, ChannelReceiver<
 #[cfg(test)]
 mod tests {
     use super::create_channel;
+    use std::sync::mpsc::SendError;
     use std::{thread, time};
     use tokio::runtime::Runtime;
     use tokio::sync::mpsc::error::SendError;
@@ -166,14 +167,6 @@ mod tests {
             }
         });
 
-        // need another 4 bytes. (will block)
-        let tx3 = tx.clone();
-        tokio::spawn(async move {
-            if let Err(_) = tx3.send((3, 4)).await {
-                println!("receiver dropped");
-            }
-        });
-
         if let Some(message) = rx.recv().await {
             assert_eq!(message, (1, 4));
         } else {
@@ -182,12 +175,6 @@ mod tests {
 
         if let Some(message) = rx.recv().await {
             assert_eq!(message, (2, 4));
-        } else {
-            panic!("test failed");
-        }
-
-        if let Some(message) = rx.recv().await {
-            assert_eq!(message, (3, 4));
         } else {
             panic!("test failed");
         }
@@ -234,10 +221,8 @@ mod tests {
         thread::sleep(time::Duration::from_secs(1));
         let result = tx.send((2, 4)).await;
 
-        if let Err(e) = result {
-            if let SendError { 0: value } = e {
-                assert_eq!(value, (2, 4));
-            }
+        if let Err(error) = result {
+            assert_eq!(error, SendError((2, 4)));
         } else {
             panic!("Test failed");
         }
