@@ -13,13 +13,25 @@ pub struct TableSynchronizer<'a> {
 /// Fixme: Do we also need to support Any trait for Key?
 pub struct Key {
     key: String,
-    key_version: i64, /// TableKey::KEY_NO_VERSION means inserting a new value,
+    key_version: i64,
+}
+
+impl ParticalEq for Key {
+
+}
+
+impl Eq for Key {
+
+}
+
+impl Hash for Key {
+
 }
 
 pub struct Update {
     key: Key,
     update_type: UpdateType,
-    value: Box<dyn Any>,
+    new_value: Box<dyn Any>,
 }
 
 pub enum UpdateType {
@@ -27,10 +39,6 @@ pub enum UpdateType {
     Remove,
 }
 
-pub struct Return {
-    key: String,
-    value: Box<dyn Any>,
-}
 
 impl<'a> TableSynchronizer<'a> {
     pub fn new(name: String, factory: &'a ClientFactoryInternal)  -> TableSynchronizer<'a> {
@@ -57,19 +65,27 @@ impl<'a> TableSynchronizer<'a> {
     }
 
     /// Create a list of updates and applies it atomically.
-    pub fn update_map_conditionally(&self, mut updates_generator: impl FnMut(HashMap<String, Box<dyn Any>>) -> Vec<Update>) -> Result<(), TableError>{
-        conditionally_write(updates_generator, &self);
+    pub fn insert_map_conditionally(&mut self, mut updates_generator: impl FnMut(HashMap<String, Box<dyn Any>>) -> Vec<Update>) -> Result<(), TableError>{
+        conditionally_write(updates_generator, self)
     }
 
     /// Create a list of deletes and applies it atomically.
-    pub fn remove_map_conditionally(&self, mut deletes_generateor: impl FnMut(HashMap<String, Box<dyn Any>>) -> Vec<Update>) {
+    pub fn remove_map_conditionally(&mut self, mut deletes_generateor: impl FnMut(HashMap<String, Box<dyn Any>>) -> Vec<Update>) {
+        conditonally_remove(deletes_generateor, self)
+    }
+
+    ///
+    pub fn inert_map_unconditionally() {
 
     }
 
     ///
+    pub fn remove_map_unconditionally() {
+
+    }
 }
 
-async fn conditionally_write(updates_generator: impl FnMut(HashMap<String, Box<dyn Any>>) -> Vec<Update>, table_synchronizer: &TableSynchronizer) -> Result<(), TableError>{
+async fn conditionally_write(updates_generator: impl FnMut(HashMap<String, Box<dyn Any>>) -> Vec<Update>, table_synchronizer: &mut TableSynchronizer) -> Result<(), TableError>{
     loop {
         let map = table_synchronizer.get_current_map();
         let to_updates = updates_generator(map);
@@ -105,10 +121,27 @@ async fn conditionally_write(updates_generator: impl FnMut(HashMap<String, Box<d
     Ok(())
 }
 
-fn applyUpdatesToLocalMap(to_updates: vec<Update>, new_version: Vec<i64>, table_synchronizer: &TableSynchronizer) {
+fn applyUpdatesToLocalMap(to_updates: Vec<Update>, new_version: Vec<i64>, table_synchronizer: &mut TableSynchronizer) {
+    let mut i = 0;
     for update in to_updates {
-        let
+
+        match update.update_type {
+            UpdateType::UpdatesOrInsert {
+
+            }
+
+        }
+
+        let new_key = Key{
+            key,
+            key_version,
+        };
+        let new_value = update.new_value;
+        table_synchronizer.in_memory_map.insert(new_key, new_value);
+        i += 1;
     }
 }
 
-async fn conditinally_remove()
+async fn conditionally_remove(delete_generator: impl FnMut(HashMap<String, Box<dyn Any>>) -> Vec<Update>, table_synchronizer: &mut TableSynchronizer) {
+
+}
