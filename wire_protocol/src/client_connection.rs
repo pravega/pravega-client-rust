@@ -37,11 +37,11 @@ pub struct ClientConnectionImpl<'a> {
 }
 
 pub struct ReadingClientConnection {
-    read_half: ReadingConnection,
+    read_half: Box<dyn ReadingConnection>,
 }
 
 pub struct WritingClientConnection {
-    write_half: WritingConnection,
+    write_half: Box<dyn WritingConnection>,
 }
 
 impl<'a> ClientConnectionImpl<'a> {

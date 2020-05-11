@@ -64,7 +64,7 @@ pub trait Connection: Send + Sync {
     /// ```
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError>;
 
-    fn split(&mut self) -> (ReadingConnection, WritingConnection);
+    fn split(&mut self) -> (Box<dyn ReadingConnection>, Box<dyn WritingConnection>);
 
     fn get_endpoint(&self) -> SocketAddr;
 
@@ -107,20 +107,20 @@ impl Connection for TokioConnection {
         Ok(())
     }
 
-    fn split(&mut self) -> (ReadingConnection, WritingConnection) {
+    fn split(&mut self) -> (Box<dyn ReadingConnection>, Box<dyn WritingConnection>) {
         assert!(!self.stream.is_none());
 
         let (read_half, write_half) = tokio::io::split(self.stream.take().expect("take connection"));
-        let read = ReadingConnection {
+        let read = Box::new(ReadingConnectionImpl {
             uuid: self.uuid,
             endpoint: self.endpoint,
             read_half,
-        };
-        let write = WritingConnection {
+        }) as Box<dyn ReadingConnection>;
+        let write = Box::new(WritingConnectionImpl {
             uuid: self.uuid,
             endpoint: self.endpoint,
             write_half,
-        };
+        }) as Box<dyn WritingConnection>;
         (read, write)
     }
 
@@ -141,14 +141,21 @@ impl Connection for TokioConnection {
     }
 }
 
-pub struct ReadingConnection {
+#[async_trait]
+pub trait ReadingConnection: Send + Sync {
+    async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError>;
+    fn get_id(&self) -> Uuid;
+}
+
+pub struct ReadingConnectionImpl {
     uuid: Uuid,
     endpoint: SocketAddr,
     read_half: ReadHalf<TcpStream>,
 }
 
-impl ReadingConnection {
-    pub async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError> {
+#[async_trait]
+impl ReadingConnection for ReadingConnectionImpl {
+    async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError> {
         let endpoint = self.endpoint;
         self.read_half
             .read_exact(buf)
@@ -157,19 +164,26 @@ impl ReadingConnection {
         Ok(())
     }
 
-    pub fn get_id(&self) -> Uuid {
+    fn get_id(&self) -> Uuid {
         self.uuid
     }
 }
 
-pub struct WritingConnection {
+#[async_trait]
+pub trait WritingConnection: Send + Sync {
+    async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError>;
+    fn get_id(&self) -> Uuid;
+}
+
+pub struct WritingConnectionImpl {
     uuid: Uuid,
     endpoint: SocketAddr,
     write_half: WriteHalf<TcpStream>,
 }
 
-impl WritingConnection {
-    pub async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
+#[async_trait]
+impl WritingConnection for WritingConnectionImpl {
+    async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
         let endpoint = self.endpoint;
         self.write_half
             .write_all(payload)
@@ -178,7 +192,7 @@ impl WritingConnection {
         Ok(())
     }
 
-    pub fn get_id(&self) -> Uuid {
+    fn get_id(&self) -> Uuid {
         self.uuid
     }
 }
