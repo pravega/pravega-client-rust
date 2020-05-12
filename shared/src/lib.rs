@@ -83,6 +83,10 @@ impl Segment {
             tx_id: Some(tx_id),
         }
     }
+
+    pub fn is_transaction_segment(&self) -> bool {
+        self.tx_id.is_some()
+    }
 }
 
 #[derive(new, Debug, Clone, Hash, PartialEq, Eq)]

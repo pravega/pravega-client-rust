@@ -21,11 +21,13 @@ use log::{error, info};
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::raw_client::RawClient;
 use pravega_client_rust::segment_reader::AsyncSegmentReader;
-use pravega_client_rust::transactional_event_stream_writer::TransactionalEventStreamWriter;
+use pravega_client_rust::transactional_event_stream_writer::{Transaction, TransactionalEventStreamWriter};
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{
     Command, EventCommand, GetStreamSegmentInfoCommand, StreamSegmentInfoCommand,
 };
+use std::time::Duration;
+use tokio::time::delay_for;
 
 pub async fn test_transactional_event_stream_writer() {
     info!("test TransactionalEventStreamWriter");
@@ -68,10 +70,7 @@ async fn test_commit_transaction(writer: &mut TransactionalEventStreamWriter) {
         .await
         .expect("commit transaction");
 
-    assert_eq!(
-        transaction.check_status().await.expect("commit transaction"),
-        TransactionStatus::Committed
-    );
+    wait_for_transaction_with_timeout(&transaction, TransactionStatus::Committed, 10).await;
 
     info!("test commit transaction passed");
 }
@@ -88,10 +87,7 @@ async fn test_abort_transaction(writer: &mut TransactionalEventStreamWriter) {
 
     transaction.abort().await.expect("abort transaction");
 
-    assert_eq!(
-        transaction.check_status().await.expect("abort transaction"),
-        TransactionStatus::Aborted
-    );
+    wait_for_transaction_with_timeout(&transaction, TransactionStatus::Aborted, 10).await;
 
     info!("test abort transaction passed");
 }
@@ -132,6 +128,8 @@ async fn test_write_and_read_transaction(
         .commit(Timestamp(0u64))
         .await
         .expect("commit transaction");
+
+    wait_for_transaction_with_timeout(&transaction, TransactionStatus::Committed, 10).await;
 
     // read from server after commit
     let mut count: i32 = 0;
@@ -223,4 +221,21 @@ async fn get_segment_info(segment: &ScopedSegment, factory: &ClientFactory) -> S
     } else {
         panic!("wrong reply from segment {:?}", reply);
     }
+}
+
+async fn wait_for_transaction_with_timeout(
+    transaction: &Transaction,
+    expected_status: TransactionStatus,
+    timeout_second: i32,
+) {
+    for _i in 0..timeout_second {
+        if expected_status == transaction.check_status().await.expect("get transaction status") {
+            return;
+        }
+        delay_for(Duration::from_secs(1)).await;
+    }
+    panic!(
+        "timeout {:?} exceeded, Transaction is not {:?}",
+        timeout_second, expected_status
+    );
 }

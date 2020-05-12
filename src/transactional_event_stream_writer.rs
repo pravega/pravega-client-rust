@@ -12,6 +12,7 @@ use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
 use crate::event_stream_writer::{hash_string_to_f64, EventSegmentWriter, Incoming, PendingEvent};
 use log::{debug, error, info, warn};
+use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_shared::{
     PingStatus, ScopedSegment, ScopedStream, StreamSegments, Timestamp, TransactionStatus, TxId, WriterId,
 };
@@ -27,10 +28,6 @@ use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
 use tokio::time::delay_for;
-
-use pravega_rust_client_retry::retry_async::retry_async;
-use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
-use pravega_rust_client_retry::retry_result::RetryResult;
 
 /// A writer that writes Events to an Event stream transactionally. Events that are written to the
 /// transaction can be committed atomically, which means that reader cannot see any writes prior to committing.
@@ -88,7 +85,6 @@ impl TransactionalEventStreamWriter {
             txn_segments.stream_segments,
             self.pinger_handle.clone(),
             self.factory.clone(),
-            self.config.retry_policy,
         ))
     }
 
@@ -112,7 +108,6 @@ impl TransactionalEventStreamWriter {
                 StreamSegments::new(BTreeMap::new()),
                 self.pinger_handle.clone(),
                 self.factory.clone(),
-                self.config.retry_policy,
             );
         }
         let mut transactions = HashMap::new();
@@ -126,7 +121,6 @@ impl TransactionalEventStreamWriter {
             segments,
             self.pinger_handle.clone(),
             self.factory.clone(),
-            self.config.retry_policy,
         )
     }
 
@@ -285,7 +279,6 @@ pub struct Transaction {
     segments: StreamSegments,
     handle: PingerHandle,
     factory: Arc<ClientFactoryInternal>,
-    retry_policy: RetryWithBackoff,
 }
 
 impl Transaction {
@@ -295,7 +288,6 @@ impl Transaction {
         segments: StreamSegments,
         handle: PingerHandle,
         factory: Arc<ClientFactoryInternal>,
-        retry_policy: RetryWithBackoff,
     ) -> Self {
         Transaction {
             info,
@@ -303,7 +295,6 @@ impl Transaction {
             segments,
             handle,
             factory,
-            retry_policy,
         }
     }
 
@@ -370,32 +361,6 @@ impl Transaction {
             .await
             .expect("commit transaction");
 
-        if let Err(e) = retry_async(self.retry_policy, || async {
-            match self.check_status().await {
-                Ok(status) => match status {
-                    TransactionStatus::Committed => RetryResult::Success(status),
-                    TransactionStatus::Committing => {
-                        RetryResult::Retry(TransactionError::TransactionCommitError {
-                            id: self.info.txn_id,
-                            status,
-                        })
-                    }
-                    _ => RetryResult::Fail(TransactionError::TransactionCommitError {
-                        id: self.info.txn_id,
-                        status,
-                    }),
-                },
-                Err(e) => {
-                    warn!("retry controller due to error {:?}", e);
-                    RetryResult::Retry(e)
-                }
-            }
-        })
-        .await
-        {
-            return Err(e.error);
-        };
-
         debug!("transaction {:?} committed", self.info.txn_id);
         Ok(())
     }
@@ -424,32 +389,6 @@ impl Transaction {
             .abort_transaction(&self.info.stream, self.info.txn_id)
             .await
             .expect("abort transaction");
-
-        if let Err(e) = retry_async(self.retry_policy, || async {
-            match self.check_status().await {
-                Ok(status) => match status {
-                    TransactionStatus::Aborted => RetryResult::Success(status),
-                    TransactionStatus::Aborting => {
-                        RetryResult::Retry(TransactionError::TransactionAbortError {
-                            id: self.info.txn_id,
-                            status,
-                        })
-                    }
-                    _ => RetryResult::Fail(TransactionError::TransactionAbortError {
-                        id: self.info.txn_id,
-                        status,
-                    }),
-                },
-                Err(e) => {
-                    warn!("retry controller due to error {:?}", e);
-                    RetryResult::Retry(e)
-                }
-            }
-        })
-        .await
-        {
-            return Err(e.error);
-        };
 
         debug!("transaction {:?} aborted", self.info.txn_id);
         Ok(())
