@@ -135,11 +135,10 @@ fn mock_server(c: &mut Criterion) {
 
     info!("start mock server performance testing");
 
-    c.bench_function("my_bench", |b| {
-        // Per-sample (note that a sample can be many iterations) setup goes here
+    c.bench_function("mock server", |b| {
         b.iter(|| {
             let mut receivers = vec![];
-            let count = 10000;
+            let count = 2000;
             for _i in 0..count {
                 let rx = rt.block_on(writer.write_event(String::from("hello").into_bytes()));
                 receivers.push(rx);
@@ -187,11 +186,10 @@ fn mock_connection(c: &mut Criterion) {
 
     info!("start mock connection performance testing");
 
-    c.bench_function("my_bench", |b| {
-        // Per-sample (note that a sample can be many iterations) setup goes here
+    c.bench_function("mock connection", |b| {
         b.iter(|| {
             let mut receivers = vec![];
-            let count = 10000;
+            let count = 2000;
             for _i in 0..count {
                 let rx = rt.block_on(writer.write_event(String::from("hello").into_bytes()));
                 receivers.push(rx);
