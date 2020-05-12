@@ -183,3 +183,57 @@ impl Manager for SegmentConnectionManager {
         self.max_connections_in_pool
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::wire_commands::{Decode, Encode};
+    use log::info;
+    use std::net::SocketAddr;
+    use tokio::runtime::Runtime;
+
+    #[test]
+    fn test_mock_connection() {
+        info!("test mock connection factory");
+        let mut rt = Runtime::new().unwrap();
+
+        let connection_factory = ConnectionFactory::create(ConnectionType::Mock);
+        let connection_future =
+            connection_factory.establish_connection("127.1.1.1:9090".parse::<SocketAddr>().unwrap());
+        let mut mock_connection = rt.block_on(connection_future).unwrap();
+
+        let request = Requests::Hello(HelloCommand {
+            high_version: 9,
+            low_version: 5,
+        })
+        .write_fields()
+        .unwrap();
+        let len = request.len();
+        rt.block_on(mock_connection.send_async(&request))
+            .expect("write to mock connection");
+        let mut buf = vec![0; len];
+        rt.block_on(mock_connection.read_async(&mut buf))
+            .expect("read from mock connection");
+        let reply = Replies::read_from(&buf).unwrap();
+        let expected = Replies::Hello(HelloCommand {
+            high_version: 9,
+            low_version: 5,
+        });
+        assert_eq!(reply, expected);
+        info!("mock connection factory test passed");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_tokio_connection() {
+        info!("test tokio connection factory");
+        let mut rt = Runtime::new().unwrap();
+
+        let connection_factory = ConnectionFactory::create(ConnectionType::Tokio);
+        let connection_future =
+            connection_factory.establish_connection("127.1.1.1:9090".parse::<SocketAddr>().unwrap());
+        let mut _connection = rt.block_on(connection_future).expect("create tokio connection");
+
+        info!("tokio connection factory test passed");
+    }
+}
