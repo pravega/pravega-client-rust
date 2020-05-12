@@ -19,7 +19,6 @@ use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 
-use futures::async_await::assert_fused_future;
 use pravega_wire_protocol::commands::TableKey;
 
 pub async fn test_tablemap() {
