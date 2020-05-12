@@ -198,13 +198,14 @@ async fn test_multiple_key_operations(client_factory: &ClientFactory) {
 }
 
 async fn test_multiple_key_remove_operations(client_factory: &ClientFactory) {
-    let map = client_factory.create_table_map("t3".into()).await;
+    let map = client_factory.create_table_map("t4".into()).await;
     let k1: String = "k1".into();
     let k2: String = "k2".into();
     let k3: String = "k3".into();
     let k4: String = "k4".into();
+    let k5: String = "k5".into();
     let v: String = "v".into();
-    let data = vec![(&k1, &v), (&k2, &v), (&k3, &v), (&k4, &v)];
+    let data = vec![(&k1, &v), (&k2, &v), (&k3, &v), (&k4, &v), (&k5, &v)];
     let insert = map.insert_all(data).await.unwrap();
 
     // test remove unconditional
@@ -242,6 +243,11 @@ async fn test_multiple_key_remove_operations(client_factory: &ClientFactory) {
     let r: Vec<Option<(String, Version)>> = map.get_all(vec![&k3, &k4]).await.unwrap();
     assert!(r[0].is_none());
     assert!(r[1].is_none());
+
+    // test unconditional remove with already deleted keys.
+    // k4 is already removed.
+    let unconditional_remove = map.remove_all(vec![&k4, &k5]).await;
+    assert!(unconditional_remove.is_ok());
 }
 
 async fn test_iterators(client_factory: &ClientFactory) {
