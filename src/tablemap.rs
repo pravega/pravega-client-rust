@@ -178,8 +178,7 @@ impl<'a> TableMap<'a> {
     ///Unconditionally remove a key from the Tablemap. If the key does not exist an Ok(()) is returned.
     ///
     pub async fn remove<K: Serialize + Deserialize<'a>>(&self, k: &K) -> Result<(), TableError> {
-        let key = serialize(k).expect("error during serialization.");
-        self.remove_raw_value(key, TableKey::KEY_NO_VERSION).await
+        self.remove_conditionally(k, TableKey::KEY_NO_VERSION).await
     }
 
     ///
@@ -191,7 +190,7 @@ impl<'a> TableMap<'a> {
         K: Serialize + Deserialize<'a>,
     {
         let key = serialize(k).expect("error during serialization.");
-        self.remove_raw_value(key, key_version).await
+        self.remove_raw_values(vec![(key, key_version)]).await
     }
 
     ///
@@ -275,6 +274,32 @@ impl<'a> TableMap<'a> {
             })
             .collect();
         self.insert_raw_values(r).await
+    }
+
+    ///
+    /// Unconditionally remove the provided keys from the table map.
+    ///
+    pub async fn remove_all<K>(&self, keys: Vec<&K>) -> Result<(), TableError>
+    where
+        K: Serialize + Deserialize<'a>,
+    {
+        let r: Vec<(&K, Version)> = keys.iter().map(|k| (*k, TableKey::KEY_NO_VERSION)).collect();
+        self.remove_conditionally_all(r).await
+    }
+
+    ///
+    /// Conditionally remove keys after checking the key version. In-case of a failure none of the keys
+    /// are removed.
+    ///
+    pub async fn remove_conditionally_all<K>(&self, keys: Vec<(&K, Version)>) -> Result<(), TableError>
+    where
+        K: Serialize + Deserialize<'a>,
+    {
+        let r: Vec<(Vec<u8>, Version)> = keys
+            .iter()
+            .map(|(k, v)| (serialize(k).expect("error during serialization."), *v))
+            .collect();
+        self.remove_raw_values(r).await
     }
 
     ///
@@ -483,16 +508,20 @@ impl<'a> TableMap<'a> {
     }
 
     ///
-    /// Remove an entry for given key as Vec<u8>
+    /// Remove a list of keys where the key, represented in raw bytes, and version of the corresponding
+    /// keys is specified.
     ///
-    async fn remove_raw_value(&self, key: Vec<u8>, key_version: Version) -> Result<(), TableError> {
+    async fn remove_raw_values(&self, keys: Vec<(Vec<u8>, Version)>) -> Result<(), TableError> {
         let op = "Remove keys from tablemap";
-        let tk = TableKey::new(key, key_version);
+        let tks: Vec<TableKey> = keys
+            .iter()
+            .map(|(k, ver)| TableKey::new(k.clone(), *ver))
+            .collect();
         let req = Requests::RemoveTableKeys(RemoveTableKeysCommand {
             request_id: get_request_id(),
             segment: self.name.clone(),
             delegation_token: "".to_string(),
-            keys: vec![tk],
+            keys: tks,
         });
         let re = self.raw_client.as_ref().send_request(&req).await;
         debug!("Reply for RemoveTableKeys request {:?}", re);
