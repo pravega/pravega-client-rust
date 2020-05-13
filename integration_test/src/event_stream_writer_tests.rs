@@ -44,7 +44,7 @@ pub async fn test_event_stream_writer() {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
     };
-    let mut writer = client_factory.create_event_stream_writer(scoped_stream.clone(), config.clone());
+    let mut writer = client_factory.create_event_stream_writer(scoped_stream.clone());
 
     test_simple_write(&mut writer).await;
 
@@ -59,7 +59,7 @@ pub async fn test_event_stream_writer() {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
     };
-    let mut writer = client_factory.create_event_stream_writer(scoped_stream.clone(), config.clone());
+    let mut writer = client_factory.create_event_stream_writer(scoped_stream.clone());
 
     test_write_correctness(&mut writer, &client_factory).await;
     test_write_correctness_while_scaling(&mut writer, &client_factory).await;
@@ -71,7 +71,7 @@ pub async fn test_event_stream_writer() {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
     };
-    let mut writer = client_factory.create_event_stream_writer(scoped_stream.clone(), config.clone());
+    let mut writer = client_factory.create_event_stream_writer(scoped_stream.clone());
     test_write_correctness_with_routing_key(&mut writer, &client_factory).await;
 }
 

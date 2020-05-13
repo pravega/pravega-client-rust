@@ -21,7 +21,9 @@ use log::{error, info};
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::raw_client::RawClient;
 use pravega_client_rust::segment_reader::AsyncSegmentReader;
-use pravega_client_rust::transactional_event_stream_writer::{Transaction, TransactionalEventStreamWriter};
+use pravega_client_rust::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
+use pravega_client_rust::transaction::Transaction;
+
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{
     Command, EventCommand, GetStreamSegmentInfoCommand, StreamSegmentInfoCommand,
@@ -46,7 +48,7 @@ pub async fn test_transactional_event_stream_writer() {
         .expect("creating config");
     let client_factory = ClientFactory::new(config.clone());
     let mut writer = client_factory
-        .create_transactional_event_stream_writer(scoped_stream.clone(), config)
+        .create_transactional_event_stream_writer(scoped_stream.clone())
         .await;
     test_commit_transaction(&mut writer).await;
     test_abort_transaction(&mut writer).await;

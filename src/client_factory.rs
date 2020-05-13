@@ -21,7 +21,7 @@ use crate::raw_client::RawClientImpl;
 use crate::segment_reader::AsyncSegmentReaderImpl;
 use crate::setup_logger;
 use crate::tablemap::TableMap;
-use crate::transactional_event_stream_writer::TransactionalEventStreamWriter;
+use crate::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -30,6 +30,7 @@ pub struct ClientFactory(Arc<ClientFactoryInternal>);
 pub struct ClientFactoryInternal {
     connection_pool: ConnectionPool<SegmentConnectionManager>,
     controller_client: ControllerClientImpl,
+    config: ClientConfig,
 }
 
 impl ClientFactory {
@@ -37,10 +38,11 @@ impl ClientFactory {
         let _ = setup_logger(); //Ignore failure
         let cf = ConnectionFactory::create(config.connection_type);
         let pool = ConnectionPool::new(SegmentConnectionManager::new(cf, config.max_connections_in_pool));
-        let controller = ControllerClientImpl::new(config);
+        let controller = ControllerClientImpl::new(config.clone());
         ClientFactory(Arc::new(ClientFactoryInternal {
             connection_pool: pool,
             controller_client: controller,
+            config,
         }))
     }
 
@@ -71,24 +73,19 @@ impl ClientFactory {
         self.0.create_raw_client(endpoint)
     }
 
-    pub fn create_event_stream_writer(
-        &self,
-        stream: ScopedStream,
-        config: ClientConfig,
-    ) -> EventStreamWriter {
-        EventStreamWriter::new(stream, config, self.0.clone())
+    pub fn create_event_stream_writer(&self, stream: ScopedStream) -> EventStreamWriter {
+        EventStreamWriter::new(stream, self.0.config.clone(), self.0.clone())
     }
 
     pub async fn create_transactional_event_stream_writer(
         &self,
         stream: ScopedStream,
-        config: ClientConfig,
     ) -> TransactionalEventStreamWriter {
         TransactionalEventStreamWriter::new(
             stream,
             WriterId(Uuid::new_v4().as_u128() as u64),
             self.0.clone(),
-            config,
+            self.0.config.clone(),
         )
         .await
     }

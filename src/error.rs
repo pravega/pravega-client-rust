@@ -70,38 +70,50 @@ pub enum TransactionalEventStreamWriterError {
     #[snafu(display("Pinger failed to {:?}", msg))]
     PingerError { msg: String },
 
+    #[snafu(display("Controller client failed with error {:?}", source))]
+    TxnStreamControllerError { source: ControllerError },
+}
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility = "pub")]
+pub enum TransactionalEventSegmentWriterError {
     #[snafu(display("Mpsc failed with error {:?}", source))]
     MpscError { source: TryRecvError },
 
     #[snafu(display("Oneshot failed with error {:?}", source))]
     OneshotError { source: oneshot::error::TryRecvError },
 
-    #[snafu(display("Unexpected reply from segmentstore {:?}", error))]
-    UnexpectedReply { error: Replies },
-
     #[snafu(display("EventSegmentWriter failed due to {:?}", source))]
     EventSegmentWriterError { source: EventStreamWriterError },
+
+    #[snafu(display("Unexpected reply from segmentstore {:?}", error))]
+    UnexpectedReply { error: Replies },
 }
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
 pub enum TransactionError {
-    #[snafu(display("Transactional writer failed due to {:?}", source))]
-    TransactionWriterError {
+    #[snafu(display("Transactional segment writer failed due to {:?}", source))]
+    TxnSegmentWriterError {
+        source: TransactionalEventSegmentWriterError,
+    },
+
+    #[snafu(display("Transactional stream writer failed due to {:?}", source))]
+    TxnStreamWriterError {
         source: TransactionalEventStreamWriterError,
     },
 
     #[snafu(display("Transaction {:?} already closed", id))]
-    TransactionClosed { id: TxId },
+    TxnClosed { id: TxId },
 
     #[snafu(display("Transaction failed due to controller error: {:?}", source))]
-    TransactionControllerError { source: ControllerError },
+    TxnControllerError { source: ControllerError },
 
     #[snafu(display("Commit Transaction {:?} error due to Transaction {:?}", id, status))]
-    TransactionCommitError { id: TxId, status: TransactionStatus },
+    TxnCommitError { id: TxId, status: TransactionStatus },
 
     #[snafu(display("Abort Transaction {:?} error due to Transaction {:?}", id, status))]
-    TransactionAbortError { id: TxId, status: TransactionStatus },
+    TxnAbortError { id: TxId, status: TransactionStatus },
 }
 
 #[derive(Debug, Snafu)]

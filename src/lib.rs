@@ -26,7 +26,11 @@
     clippy::result_unwrap_used,
     clippy::similar_names
 )]
-#![allow(clippy::multiple_crate_versions)]
+#![allow(
+    clippy::cognitive_complexity,
+    clippy::multiple_crate_versions,
+    clippy::needless_doctest_main
+)]
 
 use std::sync::atomic::{AtomicI64, Ordering};
 
@@ -38,7 +42,7 @@ pub mod raw_client;
 pub mod segment_reader;
 mod stream;
 pub mod tablemap;
-pub mod transactional_event_stream_writer;
+pub mod transaction;
 
 pub static REQUEST_ID_GENERATOR: AtomicI64 = AtomicI64::new(0);
 
