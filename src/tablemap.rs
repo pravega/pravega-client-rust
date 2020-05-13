@@ -12,24 +12,36 @@ use crate::client_factory::ClientFactoryInternal;
 use crate::error::RawClientError;
 use crate::get_request_id;
 use crate::raw_client::RawClient;
+use async_stream::try_stream;
 use bincode2::{deserialize_from, serialize};
+use futures::stream::Stream;
 use log::debug;
 use log::info;
-use pravega_rust_client_shared::{Scope, ScopedSegment, Segment, Stream};
+use pravega_rust_client_shared::Stream as PravegaStream;
+use pravega_rust_client_shared::{Scope, ScopedSegment, Segment};
 use pravega_wire_protocol::commands::{
-    CreateTableSegmentCommand, ReadTableCommand, RemoveTableKeysCommand, TableEntries, TableKey, TableValue,
-    UpdateTableEntriesCommand,
+    CreateTableSegmentCommand, ReadTableCommand, ReadTableEntriesCommand, ReadTableKeysCommand,
+    RemoveTableKeysCommand, TableEntries, TableKey, TableValue, UpdateTableEntriesCommand,
 };
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 use std::net::SocketAddr;
 
+pub type Version = i64;
+
 pub struct TableMap<'a> {
     /// name of the map
     name: String,
     raw_client: Box<dyn RawClient<'a> + 'a>,
 }
+
+// Workaround for issue https://github.com/rust-lang/rust/issues/63066 as specified in
+//https://github.com/rust-lang/rust/issues/34511#issuecomment-373423999
+// Without the workaround we get the following error
+// error[E0700]: hidden type for `impl Trait` captures lifetime that does not appear in bounds
+pub trait Captures<'a> {}
+impl<'a, T: ?Sized> Captures<'a> for T {}
 
 #[derive(Debug, Snafu)]
 pub enum TableError {
@@ -47,13 +59,15 @@ pub enum TableError {
         error_msg
     ))]
     IncorrectKeyVersion { operation: String, error_msg: String },
+    #[snafu(display("Error observed while performing {} due to {}", operation, error_msg,))]
+    OperationError { operation: String, error_msg: String },
 }
 impl<'a> TableMap<'a> {
     /// create a table map
     pub async fn new(name: String, factory: &'a ClientFactoryInternal) -> Result<TableMap<'a>, TableError> {
         let segment = ScopedSegment {
             scope: Scope::new("_tables".into()),
-            stream: Stream::new(name),
+            stream: PravegaStream::new(name),
             segment: Segment::new(0),
         };
         let endpoint = factory
@@ -75,6 +89,7 @@ impl<'a> TableMap<'a> {
             delegation_token: String::from(""),
         });
 
+        let op = "Create table segment";
         table_map
             .raw_client
             .as_ref()
@@ -82,18 +97,18 @@ impl<'a> TableMap<'a> {
             .await
             .map_err(|e| TableError::ConnectionError {
                 can_retry: true,
-                operation: "Create table segment".to_string(),
+                operation: op.to_string(),
                 source: e,
             })
-            .map(|r| {
-                match r {
-                    Replies::SegmentCreated(..) | Replies::SegmentAlreadyExists(..) => {
-                        info!("Table segment {} created", table_map.name);
-                        table_map
-                    }
-                    // unexpected response from Segment store causes a panic.
-                    _ => panic!("Invalid response during creation of TableSegment"),
+            .and_then(|r| match r {
+                Replies::SegmentCreated(..) | Replies::SegmentAlreadyExists(..) => {
+                    info!("Table segment {} created", table_map.name);
+                    Ok(table_map)
                 }
+                _ => Err(TableError::OperationError {
+                    operation: op.to_string(),
+                    error_msg: r.to_string(),
+                }),
             })
     }
 
@@ -103,7 +118,7 @@ impl<'a> TableMap<'a> {
     /// If the map does not have the key [`None`] is returned. The version number of the Value is
     /// returned by the API.
     ///
-    pub async fn get<K, V>(&self, k: &K) -> Result<Option<(V, i64)>, TableError>
+    pub async fn get<K, V>(&self, k: &K) -> Result<Option<(V, Version)>, TableError>
     where
         K: Serialize + serde::de::DeserializeOwned,
         V: Serialize + serde::de::DeserializeOwned,
@@ -125,7 +140,7 @@ impl<'a> TableMap<'a> {
     /// Unconditionally inserts a new or update an existing entry for the given key.
     /// Once the update is performed the newer version is returned.
     ///
-    pub async fn insert<K, V>(&self, k: &K, v: &V) -> Result<i64, TableError>
+    pub async fn insert<K, V>(&self, k: &K, v: &V) -> Result<Version, TableError>
     where
         K: Serialize + Deserialize<'a>,
         V: Serialize + Deserialize<'a>,
@@ -142,7 +157,12 @@ impl<'a> TableMap<'a> {
     /// Once the update is done the newer version is returned.
     /// TableError::BadKeyVersion is returned incase of an incorrect key version.
     ///
-    pub async fn insert_conditionally<K, V>(&self, k: &K, v: &V, key_version: i64) -> Result<i64, TableError>
+    pub async fn insert_conditionally<K, V>(
+        &self,
+        k: &K,
+        v: &V,
+        key_version: Version,
+    ) -> Result<Version, TableError>
     where
         K: Serialize + Deserialize<'a>,
         V: Serialize + Deserialize<'a>,
@@ -166,7 +186,7 @@ impl<'a> TableMap<'a> {
     /// Conditionally remove a key from the Tablemap if it matches the provided key version.
     /// TableError::BadKeyVersion is returned incase the version does not exist.
     ///
-    pub async fn remove_conditionally<K>(&self, k: &K, key_version: i64) -> Result<(), TableError>
+    pub async fn remove_conditionally<K>(&self, k: &K, key_version: Version) -> Result<(), TableError>
     where
         K: Serialize + Deserialize<'a>,
     {
@@ -179,7 +199,7 @@ impl<'a> TableMap<'a> {
     ///key a `None` is returned for the corresponding key. The version number of the Value is also
     ///returned by the API
     ///
-    pub async fn get_all<K, V>(&self, keys: Vec<&K>) -> Result<Vec<Option<(V, i64)>>, TableError>
+    pub async fn get_all<K, V>(&self, keys: Vec<&K>) -> Result<Vec<Option<(V, Version)>>, TableError>
     where
         K: Serialize + serde::de::DeserializeOwned,
         V: Serialize + serde::de::DeserializeOwned,
@@ -189,7 +209,7 @@ impl<'a> TableMap<'a> {
             .map(|k| serialize(*k).expect("error during serialization."))
             .collect();
 
-        let read_result: Result<Vec<(Vec<u8>, i64)>, TableError> = self.get_raw_values(keys_raw).await;
+        let read_result: Result<Vec<(Vec<u8>, Version)>, TableError> = self.get_raw_values(keys_raw).await;
         read_result.map(|v| {
             v.iter()
                 .map(|(data, version)| {
@@ -209,12 +229,12 @@ impl<'a> TableMap<'a> {
     /// Unconditionally inserts a new or updates an existing entry for the given keys.
     /// Once the update is performed the newer versions are returned.
     ///
-    pub async fn insert_all<K, V>(&self, kvps: Vec<(&K, &V)>) -> Result<Vec<i64>, TableError>
+    pub async fn insert_all<K, V>(&self, kvps: Vec<(&K, &V)>) -> Result<Vec<Version>, TableError>
     where
         K: Serialize + Deserialize<'a>,
         V: Serialize + Deserialize<'a>,
     {
-        let r: Vec<(Vec<u8>, Vec<u8>, i64)> = kvps
+        let r: Vec<(Vec<u8>, Vec<u8>, Version)> = kvps
             .iter()
             .map(|(k, v)| {
                 (
@@ -238,13 +258,13 @@ impl<'a> TableMap<'a> {
     ///
     pub async fn insert_conditionally_all<K, V>(
         &self,
-        kvps: Vec<(&K, &V, i64)>,
-    ) -> Result<Vec<i64>, TableError>
+        kvps: Vec<(&K, &V, Version)>,
+    ) -> Result<Vec<Version>, TableError>
     where
         K: Serialize + Deserialize<'a>,
         V: Serialize + Deserialize<'a>,
     {
-        let r: Vec<(Vec<u8>, Vec<u8>, i64)> = kvps
+        let r: Vec<(Vec<u8>, Vec<u8>, Version)> = kvps
             .iter()
             .map(|(k, v, ver)| {
                 (
@@ -258,10 +278,128 @@ impl<'a> TableMap<'a> {
     }
 
     ///
+    /// Read keys as an Async Stream. This method deserializes the Key based on the type.
+    ///
+    pub fn read_keys_stream<'stream, 'map: 'stream, K: 'stream>(
+        &'map self,
+        max_keys_at_once: i32,
+    ) -> impl Stream<Item = Result<(K, Version), TableError>> + Captures<'a> + 'stream
+    where
+        K: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
+    {
+        try_stream! {
+            let mut token: Vec<u8> = Vec::new();
+            loop {
+                let res: (Vec<(Vec<u8>, Version)>, Vec<u8>) = self.read_keys_raw(max_keys_at_once, &token).await?;
+                let (keys, t) = res;
+                if keys.is_empty() {
+                    break;
+                } else {
+                    for (key_raw, version) in keys {
+                       let key: K = deserialize_from(key_raw.as_slice()).expect("error during deserialization");
+                        yield (key, version)
+                    }
+                    token = t;
+                }
+             }
+        }
+    }
+
+    ///
+    /// Read entries as an Async Stream. This method deserialized the Key and Value based on the
+    /// inferred type.
+    ///
+    pub fn read_entries_stream<'stream, 'map: 'stream, K: 'map, V: 'map>(
+        &'map self,
+        max_entries_at_once: i32,
+    ) -> impl Stream<Item = Result<(K, V, Version), TableError>> + Captures<'a> + 'stream
+    where
+        K: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
+        V: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
+    {
+        try_stream! {
+            let mut token: Vec<u8> = Vec::new();
+            loop {
+                let res: (Vec<(Vec<u8>, Vec<u8>,Version)>, Vec<u8>)  = self.read_entries_raw(max_entries_at_once, &token).await?;
+                let (entries, t) = res;
+                if entries.is_empty() {
+                    break;
+                } else {
+                    for (key_raw, value_raw, version) in entries {
+                        let key: K = deserialize_from(key_raw.as_slice()).expect("error during deserialization");
+                        let value: V = deserialize_from(value_raw.as_slice()).expect("error during deserialization");
+                        yield (key, value, version)
+                    }
+                    token = t;
+                }
+            }
+        }
+    }
+
+    ///
+    /// Get a list of keys in the table map for a given continuation token.
+    /// It returns a Vector of Key with its version and a continuation token that can be used to
+    /// fetch the next set of keys.An empty Vector as the continuation token will result in the keys
+    /// being fetched from the beginning.
+    ///
+    async fn get_keys<K>(
+        &self,
+        max_keys_at_once: i32,
+        token: &[u8],
+    ) -> Result<(Vec<(K, Version)>, Vec<u8>), TableError>
+    where
+        K: Serialize + serde::de::DeserializeOwned,
+    {
+        let res = self.read_keys_raw(max_keys_at_once, token).await;
+        res.map(|(keys, token)| {
+            let keys_de: Vec<(K, Version)> = keys
+                .iter()
+                .map(|(k, version)| {
+                    let key: K = deserialize_from(k.as_slice()).expect("error during deserialization");
+                    (key, *version)
+                })
+                .collect();
+            (keys_de, token)
+        })
+    }
+
+    ///
+    /// Get a list of entries in the table map for a given continuation token.
+    /// It returns a Vector of Key with its version and a continuation token that can be used to
+    /// fetch the next set of entries.An empty Vector as the continuation token will result in the keys
+    /// being fetched from the beginning.
+    ///
+    async fn get_entries<K, V>(
+        &self,
+        max_entries_at_once: i32,
+        token: &[u8],
+    ) -> Result<(Vec<(K, V, Version)>, Vec<u8>), TableError>
+    where
+        K: Serialize + serde::de::DeserializeOwned,
+        V: Serialize + serde::de::DeserializeOwned,
+    {
+        let res = self.read_entries_raw(max_entries_at_once, token).await;
+        res.map(|(entries, token)| {
+            let entries_de: Vec<(K, V, Version)> = entries
+                .iter()
+                .map(|(k, v, version)| {
+                    let key: K = deserialize_from(k.as_slice()).expect("error during deserialization");
+                    let value: V = deserialize_from(v.as_slice()).expect("error during deserialization");
+                    (key, value, *version)
+                })
+                .collect();
+            (entries_de, token)
+        })
+    }
+
+    ///
     /// Insert key value pairs without serialization.
     /// The function returns the newer version number post the insert operation.
     ///
-    async fn insert_raw_values(&self, kvps: Vec<(Vec<u8>, Vec<u8>, i64)>) -> Result<Vec<i64>, TableError> {
+    async fn insert_raw_values(
+        &self,
+        kvps: Vec<(Vec<u8>, Vec<u8>, Version)>,
+    ) -> Result<Vec<Version>, TableError> {
         let op = "Insert into tablemap";
 
         let entries: Vec<(TableKey, TableValue)> = kvps
@@ -293,7 +431,10 @@ impl<'a> TableMap<'a> {
                 error_msg: c.to_string(),
             }),
             // unexpected response from Segment store causes a panic.
-            _ => panic!("Unexpected response for update tableEntries"),
+            _ => Err(TableError::OperationError {
+                operation: op.into(),
+                error_msg: r.to_string(),
+            }),
         })
     }
 
@@ -301,7 +442,7 @@ impl<'a> TableMap<'a> {
     /// Get raw bytes for a givenKey. If not value is present then None is returned.
     /// The read result and the corresponding version is returned as a tuple.
     ///
-    async fn get_raw_values(&self, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, i64)>, TableError> {
+    async fn get_raw_values(&self, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, Version)>, TableError> {
         let table_keys: Vec<TableKey> = keys
             .iter()
             .map(|k| TableKey::new(k.clone(), TableKey::KEY_NO_VERSION))
@@ -315,12 +456,13 @@ impl<'a> TableMap<'a> {
         });
         let re = self.raw_client.as_ref().send_request(&req).await;
         debug!("Read Response {:?}", re);
+        let op = "Read from tablemap";
         re.map_err(|e| TableError::ConnectionError {
             can_retry: true,
-            operation: "Read from tablemap".to_string(),
+            operation: op.into(),
             source: e,
         })
-        .map(|reply| match reply {
+        .and_then(|reply| match reply {
             Replies::TableRead(c) => {
                 let v: Vec<(TableKey, TableValue)> = c.entries.entries;
                 if v.is_empty() {
@@ -328,20 +470,22 @@ impl<'a> TableMap<'a> {
                     panic!("Invalid response from the Segment store");
                 } else {
                     //fetch value and corresponding version.
-                    let result: Vec<(Vec<u8>, i64)> =
+                    let result: Vec<(Vec<u8>, Version)> =
                         v.iter().map(|(l, r)| (r.data.clone(), l.key_version)).collect();
-                    result
+                    Ok(result)
                 }
             }
-            // unexpected response from Segment store causes a panic.
-            _ => panic!("Unexpected response for update tableEntries"),
+            _ => Err(TableError::OperationError {
+                operation: op.into(),
+                error_msg: reply.to_string(),
+            }),
         })
     }
 
     ///
     /// Remove an entry for given key as Vec<u8>
     ///
-    async fn remove_raw_value(&self, key: Vec<u8>, key_version: i64) -> Result<(), TableError> {
+    async fn remove_raw_value(&self, key: Vec<u8>, key_version: Version) -> Result<(), TableError> {
         let op = "Remove keys from tablemap";
         let tk = TableKey::new(key, key_version);
         let req = Requests::RemoveTableKeys(RemoveTableKeysCommand {
@@ -367,8 +511,95 @@ impl<'a> TableMap<'a> {
                 operation: op.into(),
                 error_msg: c.to_string(),
             }),
-            // unexpected response from Segment store causes a panic.
-            _ => panic!("Unexpected response while deleting keys"),
+            _ => Err(TableError::OperationError {
+                operation: op.into(),
+                error_msg: r.to_string(),
+            }),
         })
+    }
+
+    ///
+    /// Read the raw keys from the table map. It returns a list of keys and its versions with a continuation token.
+    ///
+    async fn read_keys_raw(
+        &self,
+        max_keys_at_once: i32,
+        token: &[u8],
+    ) -> Result<(Vec<(Vec<u8>, Version)>, Vec<u8>), TableError> {
+        {
+            let op = "Read keys";
+            let req = Requests::ReadTableKeys(ReadTableKeysCommand {
+                request_id: get_request_id(),
+                segment: self.name.clone(),
+                delegation_token: "".to_string(),
+                suggested_key_count: max_keys_at_once,
+                continuation_token: token.to_vec(),
+            });
+            let re = self.raw_client.as_ref().send_request(&req).await;
+            debug!("Reply for read tableKeys request {:?}", re);
+            re.map_err(|e| TableError::ConnectionError {
+                can_retry: true,
+                operation: op.into(),
+                source: e,
+            })
+            .and_then(|r| match r {
+                Replies::TableKeysRead(c) => {
+                    let keys: Vec<(Vec<u8>, Version)> =
+                        c.keys.iter().map(|k| (k.data.clone(), k.key_version)).collect();
+
+                    Ok((keys, c.continuation_token))
+                }
+                _ => Err(TableError::OperationError {
+                    operation: op.into(),
+                    error_msg: r.to_string(),
+                }),
+            })
+        }
+    }
+
+    ///
+    /// Read the raw entries from the table map. It returns a list of key-values and its versions with a continuation token.
+    ///
+    async fn read_entries_raw(
+        &self,
+        max_entries_at_once: i32,
+        token: &[u8],
+    ) -> Result<(Vec<(Vec<u8>, Vec<u8>, Version)>, Vec<u8>), TableError> {
+        {
+            let op = "Read entries";
+            let req = Requests::ReadTableEntries(ReadTableEntriesCommand {
+                request_id: get_request_id(),
+                segment: self.name.clone(),
+                delegation_token: "".to_string(),
+                suggested_entry_count: max_entries_at_once,
+                continuation_token: token.to_vec(),
+            });
+            let re = self.raw_client.as_ref().send_request(&req).await;
+            debug!("Reply for read tableEntries request {:?}", re);
+            re.map_err(|e| TableError::ConnectionError {
+                can_retry: true,
+                operation: op.into(),
+                source: e,
+            })
+            .and_then(|r| {
+                match r {
+                    Replies::TableEntriesRead(c) => {
+                        let entries: Vec<(Vec<u8>, Vec<u8>, Version)> = c
+                            .entries
+                            .entries
+                            .iter()
+                            .map(|(k, v)| (k.data.clone(), v.data.clone(), k.key_version))
+                            .collect();
+
+                        Ok((entries, c.continuation_token))
+                    }
+                    // unexpected response from Segment store causes a panic.
+                    _ => Err(TableError::OperationError {
+                        operation: op.into(),
+                        error_msg: r.to_string(),
+                    }),
+                }
+            })
+        }
     }
 }

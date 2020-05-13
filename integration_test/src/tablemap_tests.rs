@@ -8,15 +8,20 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use futures::pin_mut;
+use futures::stream::Stream;
+use futures::stream::StreamExt;
 use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
-use pravega_client_rust::tablemap::{TableError, TableMap};
+use pravega_client_rust::tablemap::{TableError, TableMap, Version};
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 
+use futures::async_await::assert_fused_future;
 use pravega_wire_protocol::commands::TableKey;
+
 pub async fn test_tablemap() {
     let config = ClientConfigBuilder::default()
         .controller_uri(TEST_CONTROLLER_URI)
@@ -26,6 +31,7 @@ pub async fn test_tablemap() {
     let client_factory = ClientFactory::new(config.clone());
     test_single_key_operations(&client_factory).await;
     test_multiple_key_operations(&client_factory).await;
+    test_iterators(&client_factory).await;
 }
 
 async fn test_single_key_operations(client_factory: &ClientFactory) {
@@ -34,7 +40,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     let v: String = "val".into();
     let r = map.insert(&k, &v).await;
     info!("==> PUT {:?}", r);
-    let r: Result<Option<(String, i64)>, TableError> = map.get(&k).await;
+    let r: Result<Option<(String, Version)>, TableError> = map.get(&k).await;
     info!("==> GET {:?}", r);
 
     // versioning test
@@ -43,12 +49,12 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     let v_1: String = "v_1".to_string();
     let v_100: String = "v_100".to_string();
 
-    let rr: Result<Option<(String, i64)>, TableError> = map.get(&k).await;
+    let rr: Result<Option<(String, Version)>, TableError> = map.get(&k).await;
     assert!(rr.is_ok() && rr.unwrap().is_none());
     let r = map.insert_conditionally(&k, &v, TableKey::NOT_EXISTS).await;
     assert!(r.is_ok());
     let version = r.unwrap();
-    let rr: Result<Option<(String, i64)>, TableError> = map.get(&k).await;
+    let rr: Result<Option<(String, Version)>, TableError> = map.get(&k).await;
     assert!(rr.is_ok());
     let temp = rr.unwrap();
     assert!(temp.is_some());
@@ -68,7 +74,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
         .await;
     assert!(r.is_ok());
     // verify if the write was successful.
-    let rr: Result<Option<(String, i64)>, TableError> = map.get(&k).await;
+    let rr: Result<Option<(String, Version)>, TableError> = map.get(&k).await;
     assert!(rr.is_ok());
     let temp = rr.unwrap();
     assert!(temp.is_some());
@@ -80,7 +86,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
         .await;
     assert!(r.is_ok());
     // verify if the write was successful.
-    let rr: Result<Option<(String, i64)>, TableError> = map.get(&k).await;
+    let rr: Result<Option<(String, Version)>, TableError> = map.get(&k).await;
     assert!(rr.is_ok());
     let temp = rr.unwrap();
     assert!(temp.is_some());
@@ -105,7 +111,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     let r = map.remove(&key).await;
     assert!(r.is_ok());
     // verify with get.
-    let rr: Result<Option<(String, i64)>, TableError> = map.get(&k).await;
+    let rr: Result<Option<(String, Version)>, TableError> = map.get(&k).await;
     assert!(rr.is_ok());
     assert!(rr.unwrap().is_none());
     // verify conditional delete post delete.
@@ -115,6 +121,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     match r {
         Ok(_v) => panic!("Key does not exist error expected"),
         Err(TableError::KeyDoesNotExist { .. }) => (), // this is expected
+        Err(TableError::IncorrectKeyVersion { .. }) => (), // incorrectKeyVersion is returned sometimes.
         _ => panic!("Invalid Error message"),
     }
 }
@@ -129,14 +136,14 @@ async fn test_multiple_key_operations(client_factory: &ClientFactory) {
 
     let data = vec![(&k1, &v1), (&k2, &v2)];
     let versions = map.insert_all(data).await;
-    let r: Result<Option<(String, i64)>, TableError> = map.get(&k1).await;
+    let r: Result<Option<(String, Version)>, TableError> = map.get(&k1).await;
     info!("==> GET {:?}", r);
     assert!(r.is_ok());
     let temp = r.unwrap();
     assert!(temp.is_some());
     assert_eq!(temp.unwrap().0, "v".to_string());
 
-    let r: Result<Option<(String, i64)>, TableError> = map.get(&k2).await;
+    let r: Result<Option<(String, Version)>, TableError> = map.get(&k2).await;
     info!("==> GET {:?}", r);
     assert!(r.is_ok());
     let temp = r.unwrap();
@@ -158,21 +165,21 @@ async fn test_multiple_key_operations(client_factory: &ClientFactory) {
         _ => panic!("Invalid Error message"),
     }
     // verify no new updates have happened.
-    let r: Result<Option<(String, i64)>, TableError> = map.get(&k1).await;
+    let r: Result<Option<(String, Version)>, TableError> = map.get(&k1).await;
     info!("==> GET {:?}", r);
     assert!(r.is_ok());
     let temp = r.unwrap();
     assert!(temp.is_some());
     assert_eq!(temp.unwrap().0, "v".to_string());
 
-    let r: Result<Option<(String, i64)>, TableError> = map.get(&k3).await;
+    let r: Result<Option<(String, Version)>, TableError> = map.get(&k3).await;
     info!("==> GET {:?}", r);
     assert!(r.is_ok());
     let temp = r.unwrap();
     assert!(temp.is_none());
 
     let keys = vec![&k1, &k2];
-    let r: Result<Vec<Option<(String, i64)>>, TableError> = map.get_all(keys).await;
+    let r: Result<Vec<Option<(String, Version)>>, TableError> = map.get_all(keys).await;
     info!("==> GET ALL {:?}", r);
     assert!(r.is_ok());
     let test = r.unwrap();
@@ -182,10 +189,70 @@ async fn test_multiple_key_operations(client_factory: &ClientFactory) {
         assert_eq!(data, "v".to_string());
     }
 
-    let r: Result<Vec<Option<(String, i64)>>, TableError> = map.get_all(vec![&k1, &k3]).await;
+    let r: Result<Vec<Option<(String, Version)>>, TableError> = map.get_all(vec![&k1, &k3]).await;
     info!("==> GET ALL {:?}", r);
     assert!(r.is_ok());
     let result = r.unwrap();
     assert!(result[0].is_some());
     assert!(result[1].is_none()); // key k3 is not present.
+}
+
+async fn test_iterators(client_factory: &ClientFactory) {
+    let map = client_factory.create_table_map("stream_test".into()).await;
+    let k1: String = "k1".into();
+    let k2: String = "k2".into();
+    let k3: String = "k3".into();
+    let k4: String = "k4".into();
+    let k5: String = "k5".into();
+    let k6: String = "k6".into();
+    let v: String = "val".into();
+    // insert data.
+    let r = map
+        .insert_all(vec![
+            (&k1, &v),
+            (&k2, &v),
+            (&k3, &v),
+            (&k4, &v),
+            (&k5, &v),
+            (&k6, &v),
+        ])
+        .await;
+    assert!(r.is_ok());
+
+    let key_deser_stream = map.read_keys_stream(2);
+    pin_mut!(key_deser_stream);
+    info!("Reading keys from table map");
+    let mut key_count: i32 = 0;
+    while let Some(value) = key_deser_stream.next().await {
+        match value {
+            Ok(t) => {
+                let k: String = t.0;
+                info!("key {:?} version {:?}", k, t.1);
+                assert_eq!(false, k.is_empty());
+                key_count += 1;
+            }
+            _ => panic!("Failed fetch keys."),
+        }
+    }
+    assert_eq!(6, key_count);
+
+    let entry_deser_stream = map.read_entries_stream(2);
+    pin_mut!(entry_deser_stream);
+    info!("Reading keys from table map");
+    let mut entry_count: i32 = 0;
+    while let Some(entry) = entry_deser_stream.next().await {
+        match entry {
+            Ok(t) => {
+                let k: String = t.0;
+                let v: String = t.1;
+
+                info!("key {:?} value {:?} version {:?}", k, v, t.2);
+                assert_eq!(false, k.is_empty());
+                assert_eq!(false, v.is_empty());
+                entry_count += 1;
+            }
+            _ => panic!("Failed fetch entries."),
+        }
+    }
+    assert_eq!(6, entry_count);
 }

@@ -26,7 +26,7 @@ pravega-rust-client-retry = {path = "./retry"}
 pravega-connection-pool = {path = "./connection_pool"}
 pravega-rust-client-channel = {path = "./channel"}
 async-trait = "0.1.29"
-futures = "0.3.1"
+futures = "0.3.5"
 snafu = "0.6.2"
 tokio = { version = "0.2.16", features = ["full"] }
 tracing = "0.1"
@@ -42,7 +42,8 @@ structopt = {version = "0.3", optional = true}
 derive-new = "0.5"
 bincode2 = "2.0.1"
 futures-intrusive = "0.3.0"
-serde_json = "1.0.52"
+async-stream = "0.2.1"
+
 
 [dev-dependencies]
 pravega-rust-client-integration-test = { path = "./integration_test"}
