@@ -1,0 +1,87 @@
+[2020-05-14][12:18:36][pravega_rust_client_integration_test::pravega_service][INFO] done
+[2020-05-14][12:18:36][pravega_rust_client_integration_test::pravega_service][INFO] start running pravega under path ./pravega/bin/pravega-standalone
+[2020-05-14][12:18:36][pravega_rust_client_integration_test::pravega_service][INFO] child pid: 15981
+[2020-05-14][12:18:42][pravega_rust_client_integration_test::controller_tests][INFO] Response for create_scope is Ok(true)
+[2020-05-14][12:18:54][pravega_rust_client_integration_test::controller_tests][INFO] Response for create_stream is Ok(true)
+[2020-05-14][12:18:54][pravega_rust_client_integration_test::controller_tests][INFO] Response for get_current_segments is Ok(StreamSegments { key_segment_map: {OrderedFloat(1.0): SegmentWithRange { scoped_segment: ScopedSegment { scope: Scope { name: "testScope123" }, stream: Stream { name: "testStream" }, segment: Segment { number: 0, tx_id: None } }, min_key: OrderedFloat(0.0), max_key: OrderedFloat(1.0) }} })
+[2020-05-14][12:19:05][pravega_rust_client_integration_test::controller_tests][INFO] Response for scale_stream is Ok(())
+[2020-05-14][12:19:05][pravega_rust_client_integration_test::controller_tests][INFO] Response for get_current_segments is Ok(StreamSegments { key_segment_map: {OrderedFloat(0.5): SegmentWithRange { scoped_segment: ScopedSegment { scope: Scope { name: "testScope123" }, stream: Stream { name: "testStream" }, segment: Segment { number: 4294967298, tx_id: None } }, min_key: OrderedFloat(0.0), max_key: OrderedFloat(0.5) }, OrderedFloat(1.0): SegmentWithRange { scoped_segment: ScopedSegment { scope: Scope { name: "testScope123" }, stream: Stream { name: "testStream" }, segment: Segment { number: 4294967297, tx_id: None } }, min_key: OrderedFloat(0.5), max_key: OrderedFloat(1.0) }} })
+[2020-05-14][12:19:06][pravega_client_rust::tablemap][INFO] Table segment _tables/t1/0.#epoch.0 created
+[2020-05-14][12:19:06][pravega_rust_client_integration_test::tablemap_tests][INFO] ==> PUT Ok(0)
+[2020-05-14][12:19:06][pravega_rust_client_integration_test::tablemap_tests][INFO] ==> GET Ok(Some(("val", 0)))
+[2020-05-14][12:19:07][pravega_client_rust::tablemap][INFO] Table segment _tables/t2/0.#epoch.0 created
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] ==> GET Ok(Some(("v", 0)))
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] ==> GET Ok(Some(("v", 36)))
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] ==> Insert_all Err(IncorrectKeyVersion { operation: "Insert into tablemap", error_msg: "Conditional table update failed since the key version is incorrect : _tables/t2/0.#epoch.0" })
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] ==> GET Ok(Some(("v", 0)))
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] ==> GET Ok(None)
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] ==> GET ALL Ok([Some(("v", 0)), Some(("v", 36))])
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] ==> GET ALL Ok([Some(("v", 0)), None])
+[2020-05-14][12:19:07][pravega_client_rust::tablemap][INFO] Table segment _tables/stream_test/0.#epoch.0 created
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] Reading keys from table map
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] key "k4" version 114
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] key "k3" version 76
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] key "k2" version 38
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] key "k5" version 152
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] key "k1" version 0
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] key "k6" version 190
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] Reading keys from table map
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] key "k4" value "val" version 114
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] key "k3" value "val" version 76
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] key "k2" value "val" version 38
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] key "k5" value "val" version 152
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] key "k1" value "val" version 0
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::tablemap_tests][INFO] key "k6" value "val" version 190
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] Scope created
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] Stream created
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test simple write
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test simple write passed
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer with segment scaled up
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer with segment scaled up passed
+[2020-05-14][12:19:07][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer with segment sealed
+[2020-05-14][12:19:08][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer with segment sealed passed
+[2020-05-14][12:19:08][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] Scope created
+[2020-05-14][12:19:08][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] Stream created
+[2020-05-14][12:19:08][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test read and write
+[2020-05-14][12:19:08][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test read and write passed
+[2020-05-14][12:19:08][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer writes without loss or duplicate when scaling up
+[2020-05-14][12:19:09][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer writes without loss or duplicate when scaling up passed
+[2020-05-14][12:19:09][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] Scope created
+[2020-05-14][12:19:09][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] Stream created
+[2020-05-14][12:19:09][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer writes to a stream with routing key
+[2020-05-14][12:19:10][pravega_rust_client_integration_test::event_stream_writer_tests][INFO] test event stream writer writes to a stream with routing key  passed
+[2020-05-14][12:19:10][pravega_rust_client_integration_test::transactional_event_stream_writer_tests][INFO] test TransactionalEventStreamWriter
+[2020-05-14][12:19:10][pravega_rust_client_integration_test::transactional_event_stream_writer_tests][INFO] Scope created
+[2020-05-14][12:19:10][pravega_rust_client_integration_test::transactional_event_stream_writer_tests][INFO] Stream created
+[2020-05-14][12:19:10][pravega_rust_client_integration_test::transactional_event_stream_writer_tests][INFO] test commit transaction
+[2020-05-14][12:19:10][pravega_client_rust::transaction::pinger][INFO] start sending transaction pings.
+[2020-05-14][12:19:10][pravega_client_rust::transaction::pinger][INFO] completed sending transaction pings.
+[2020-05-14][12:19:10][pravega_client_rust::transaction::transactional_event_stream_writer][INFO] Transaction 00000000-0000-0000-0000-000000000001 created
+[2020-05-14][12:19:11][pravega_rust_client_integration_test::transactional_event_stream_writer_tests][INFO] test commit transaction passed
+[2020-05-14][12:19:11][pravega_rust_client_integration_test::transactional_event_stream_writer_tests][INFO] test abort transaction
+[2020-05-14][12:19:11][pravega_client_rust::transaction::transactional_event_stream_writer][INFO] Transaction 00000000-0000-0000-0000-000000000002 created
+[2020-05-14][12:19:12][pravega_rust_client_integration_test::transactional_event_stream_writer_tests][INFO] test abort transaction passed
+[2020-05-14][12:19:12][pravega_rust_client_integration_test::transactional_event_stream_writer_tests][INFO] test write transaction
+[2020-05-14][12:19:12][pravega_client_rust::transaction::transactional_event_stream_writer][INFO] Transaction 00000000-0000-0000-0000-000000000003 created
+[2020-05-14][12:19:14][pravega_rust_client_integration_test::transactional_event_stream_writer_tests][INFO] creating reader for segment ScopedSegment { scope: Scope { name: "testScopeTxnWriter" }, stream: Stream { name: "testStreamTxnWriter" }, segment: Segment { number: 0, tx_id: None } }
+[2020-05-14][12:19:14][pravega_rust_client_integration_test::transactional_event_stream_writer_tests][INFO] creating reader for segment ScopedSegment { scope: Scope { name: "testScopeTxnWriter" }, stream: Stream { name: "testStreamTxnWriter" }, segment: Segment { number: 1, tx_id: None } }
+[2020-05-14][12:19:14][pravega_rust_client_integration_test::transactional_event_stream_writer_tests][INFO] test write transaction passed
+[2020-05-14][12:19:14][pravega_rust_client_integration_test::transactional_event_stream_writer_tests][INFO] test TransactionalEventStreamWriter passed
+[2020-05-14][12:19:14][pravega_client_rust::event_stream_writer][WARN] connection c69b1f8d-d087-482d-b0ad-21e53ced386e failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-05-14][12:19:14][pravega_client_rust::event_stream_writer][WARN] connection d4c6bbef-acaa-48ea-b9d1-13e181067f87 failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-05-14][12:19:14][pravega_client_rust::event_stream_writer][WARN] connection dc441e52-fae8-4dbe-b271-38ad4a2fa370 failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-05-14][12:19:14][pravega_client_rust::event_stream_writer][WARN] connection 94b16dea-b0d0-45e2-b5e8-d4e76e510886 failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-05-14][12:19:14][pravega_client_rust::event_stream_writer][WARN] connection de7cc746-280d-45e7-a034-29e530c23a41 failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-05-14][12:19:14][pravega_client_rust::event_stream_writer][WARN] connection 9a75e2ae-1352-4ac5-a63f-048f06c28e7f failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-05-14][12:19:14][pravega_client_rust::event_stream_writer][WARN] connection ac9429a0-2785-48e7-9011-0f2e2358f2f2 failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-05-14][12:19:14][pravega_client_rust::event_stream_writer][WARN] connection 8486426d-9fd6-486c-a05e-587f5172dd23 failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-05-14][12:19:14][pravega_client_rust::event_stream_writer][WARN] connection b6eff850-6c15-40a4-b299-20d96264e51d failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-05-14][12:19:14][pravega_client_rust::event_stream_writer][WARN] connection 2834e70a-bf4b-4bf6-bb81-f9ec24c694e2 failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-05-14][12:19:14][pravega_client_rust::event_stream_writer][WARN] connection 9bffae03-5004-4d54-a9d7-ba897b2f17b1 failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-05-14][12:19:14][pravega_client_rust::event_stream_writer][WARN] connection 6ead3577-6775-489f-a73f-957b213cd142 failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-05-14][12:19:14][pravega_client_rust::event_stream_writer][WARN] connection d4cefcd8-c67d-4e4a-873c-636749d4887a failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-05-14][12:19:14][pravega_client_rust::event_stream_writer][WARN] connection 3f72d399-c027-43a0-840a-55e4d5ef43c1 failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-05-14][12:19:14][pravega_client_rust::event_stream_writer][WARN] connection 249ebfc4-a7a3-418a-b67b-4538064cfe4b failed to read data back from segmentstore due to Read { part: "header", source: ReadData { endpoint: V4(127.0.1.1:6000), source: Custom { kind: UnexpectedEof, error: "early eof" }, backtrace: Backtrace(()) }, backtrace: Backtrace(()) }, closing the listener task 
+[2020-05-14][12:19:16][pravega_rust_client_integration_test::pravega_service][INFO] done
+[2020-05-14][12:19:16][pravega_rust_client_integration_test::pravega_service][INFO] start running pravega under path ./pravega/bin/pravega-standalone
+[2020-05-14][12:19:16][pravega_rust_client_integration_test::pravega_service][INFO] child pid: 16901

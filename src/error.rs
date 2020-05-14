@@ -84,7 +84,7 @@ pub enum TransactionalEventSegmentWriterError {
     OneshotError { source: oneshot::error::TryRecvError },
 
     #[snafu(display("EventSegmentWriter failed due to {:?}", source))]
-    EventSegmentWriterError { source: EventStreamWriterError },
+    WriterError { source: EventStreamWriterError },
 
     #[snafu(display("Unexpected reply from segmentstore {:?}", error))]
     UnexpectedReply { error: Replies },

@@ -66,15 +66,14 @@ impl TransactionalEventSegmentWriter {
                                     self.event_segment_writer.get_uuid(),
                                     cmd.event_number
                                 );
+
                                 self.event_segment_writer.ack(cmd.event_number);
-                                match self.event_segment_writer.flush().await {
-                                    Ok(()) => {
-                                        continue;
-                                    }
-                                    Err(e) => {
-                                        warn!("writer {:?} failed to flush data to segment {:?} due to {:?}, reconnecting", self.event_segment_writer.get_uuid(), self.event_segment_writer.get_segment_name(), e);
-                                        self.event_segment_writer.reconnect(factory).await;
-                                    }
+                                if let Err(e) = self.event_segment_writer.flush().await {
+                                    warn!("writer {:?} failed to flush data to segment {:?} due to {:?}, reconnecting",
+                                              self.event_segment_writer.get_uuid(),
+                                              self.event_segment_writer.get_segment_name(),
+                                              e);
+                                    self.event_segment_writer.reconnect(factory).await;
                                 }
                             }
                             _ => {
@@ -92,12 +91,8 @@ impl TransactionalEventSegmentWriter {
                     }
                 }
                 Err(e) => match e {
-                    TryRecvError::Empty => {
-                        return Ok(());
-                    }
-                    _ => {
-                        return Err(TransactionalEventSegmentWriterError::MpscError { source: e });
-                    }
+                    TryRecvError::Empty => return Ok(()),
+                    _ => return Err(TransactionalEventSegmentWriterError::MpscError { source: e }),
                 },
             }
         }
@@ -114,7 +109,7 @@ impl TransactionalEventSegmentWriter {
             self.event_segment_writer
                 .write(pending_event)
                 .await
-                .context(EventSegmentWriterError {})?;
+                .context(WriterError {})?;
         }
         self.outstanding.push_back(oneshot_rx);
         self.remove_completed()?;
@@ -143,9 +138,7 @@ impl TransactionalEventSegmentWriter {
 
                 Ok(reply) => {
                     if let Err(e) = reply {
-                        return Err(TransactionalEventSegmentWriterError::EventSegmentWriterError {
-                            source: e,
-                        });
+                        return Err(TransactionalEventSegmentWriterError::WriterError { source: e });
                     }
                 }
                 Err(e) => {

@@ -77,6 +77,12 @@ impl Segment {
         Segment { number, tx_id: None }
     }
 
+    pub fn from_id_and_epoch(segment_id: i32, epoch: i32) -> Self {
+        let epoch_i64 = (epoch as i64) << 32;
+        let id_i64 = segment_id as i64;
+        Segment(epoch_i64 + id_i64)
+    }
+
     pub fn new_txn(number: i64, tx_id: TxId) -> Self {
         Segment {
             number,
