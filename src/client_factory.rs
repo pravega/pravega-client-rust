@@ -23,7 +23,6 @@ use crate::setup_logger;
 use crate::tablemap::TableMap;
 use crate::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
 use std::sync::Arc;
-use uuid::Uuid;
 
 pub struct ClientFactory(Arc<ClientFactoryInternal>);
 
@@ -80,14 +79,9 @@ impl ClientFactory {
     pub async fn create_transactional_event_stream_writer(
         &self,
         stream: ScopedStream,
+        writer_id: WriterId,
     ) -> TransactionalEventStreamWriter {
-        TransactionalEventStreamWriter::new(
-            stream,
-            WriterId(Uuid::new_v4().as_u128() as u64),
-            self.0.clone(),
-            self.0.config.clone(),
-        )
-        .await
+        TransactionalEventStreamWriter::new(stream, writer_id, self.0.clone(), self.0.config.clone()).await
     }
 
     pub fn get_controller_client(&self) -> &dyn ControllerClient {

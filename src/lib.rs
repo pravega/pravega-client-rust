@@ -32,6 +32,9 @@
     clippy::needless_doctest_main
 )]
 
+use pcg_rand::Pcg32;
+use rand::{Rng, SeedableRng};
+use std::cell::RefCell;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 pub mod byte_stream;
@@ -44,6 +47,10 @@ mod stream;
 pub mod tablemap;
 pub mod transaction;
 
+thread_local! {
+    pub static RNG: RefCell<Pcg32> = RefCell::new(Pcg32::from_entropy());
+}
+
 pub static REQUEST_ID_GENERATOR: AtomicI64 = AtomicI64::new(0);
 
 ///
@@ -51,6 +58,16 @@ pub static REQUEST_ID_GENERATOR: AtomicI64 = AtomicI64::new(0);
 ///
 pub fn get_request_id() -> i64 {
     REQUEST_ID_GENERATOR.fetch_add(1, Ordering::SeqCst) + 1
+}
+
+/// Function used to generate random u64.
+pub fn get_random_u64() -> u64 {
+    RNG.with(|rng| rng.borrow_mut().gen())
+}
+
+/// Function used to generate random i64.
+pub fn get_random_f64() -> f64 {
+    RNG.with(|rng| rng.borrow_mut().gen())
 }
 
 #[macro_use]

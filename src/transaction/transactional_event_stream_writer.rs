@@ -28,8 +28,9 @@ use std::time::Duration;
 /// ```no_run
 /// use std::net::SocketAddr;
 /// use tokio;
-/// use pravega_rust_client_shared::{Timestamp, ScopedStream, Scope, Stream};
+/// use pravega_rust_client_shared::{Timestamp, ScopedStream, Scope, Stream, WriterId};
 /// use pravega_client_rust::client_factory::ClientFactory;
+/// use pravega_wire_protocol::client_config::ClientConfigBuilder;
 ///
 /// #[tokio::main]
 /// async fn main() {
@@ -47,7 +48,7 @@ use std::time::Duration;
 ///         .expect("creating config");
 ///     let client_factory = ClientFactory::new(config.clone());
 ///     let mut writer = client_factory
-///         .create_transactional_event_stream_writer(scoped_stream.clone())
+///         .create_transactional_event_stream_writer(scoped_stream.clone(), WriterId(0))
 ///         .await;
 ///
 ///     // start a transaction

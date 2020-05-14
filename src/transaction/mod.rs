@@ -15,13 +15,12 @@ pub mod transactional_event_stream_writer;
 use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
 use crate::event_stream_writer::hash_string_to_f64;
+use crate::get_random_f64;
 use crate::transaction::pinger::PingerHandle;
 use log::debug;
 use pravega_rust_client_shared::{
     ScopedSegment, ScopedStream, StreamSegments, Timestamp, TransactionStatus, TxId, WriterId,
 };
-use rand::rngs::SmallRng;
-use rand::{Rng, SeedableRng};
 use snafu::ResultExt;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -86,11 +85,10 @@ impl Transaction {
     pub async fn write_event(&mut self, key: Option<String>, event: Vec<u8>) -> Result<(), TransactionError> {
         self.error_if_closed()?;
 
-        let mut small_rng = SmallRng::from_entropy();
         let segment = if let Some(key) = key {
             self.segments.get_segment(hash_string_to_f64(&key))
         } else {
-            self.segments.get_segment(small_rng.gen::<f64>())
+            self.segments.get_segment(get_random_f64())
         };
         let transaction = self
             .inner

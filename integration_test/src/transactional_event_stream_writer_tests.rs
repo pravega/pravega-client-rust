@@ -48,7 +48,7 @@ pub async fn test_transactional_event_stream_writer() {
         .expect("creating config");
     let client_factory = ClientFactory::new(config.clone());
     let mut writer = client_factory
-        .create_transactional_event_stream_writer(scoped_stream.clone())
+        .create_transactional_event_stream_writer(scoped_stream.clone(), WriterId(0))
         .await;
     test_commit_transaction(&mut writer).await;
     test_abort_transaction(&mut writer).await;

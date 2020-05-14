@@ -14,8 +14,9 @@ use std::hash::Hasher;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use crate::{get_random_f64, get_request_id};
 use rand::rngs::SmallRng;
-use rand::{Rng, SeedableRng};
+use rand::SeedableRng;
 use snafu::ResultExt;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
@@ -115,7 +116,6 @@ pub struct Processor {
 }
 
 impl Processor {
-    #[allow(clippy::cognitive_complexity)]
     pub async fn run(mut self) {
         // get the current segments and create corresponding event segment writers
         self.selector.initialize().await;
@@ -246,9 +246,6 @@ pub(crate) struct EventSegmentWriter {
     /// incremental event id
     event_num: i64,
 
-    /// the random generator for request id
-    rng: SmallRng,
-
     /// the sender that sends back reply to processor
     sender: Sender<Incoming>,
 
@@ -274,7 +271,6 @@ impl EventSegmentWriter {
             inflight: VecDeque::new(),
             pending: VecDeque::new(),
             event_num: 0,
-            rng: SmallRng::from_entropy(),
             sender,
             retry_policy,
         }
@@ -315,7 +311,7 @@ impl EventSegmentWriter {
         self.endpoint = uri.0.parse::<SocketAddr>().expect("should parse to socketaddr");
 
         let request = Requests::SetupAppend(SetupAppendCommand {
-            request_id: self.rng.gen::<i64>(),
+            request_id: get_request_id(),
             writer_id: self.id.as_u128(),
             segment: self.segment.to_string(),
             delegation_token: "".to_string(),
@@ -457,7 +453,7 @@ impl EventSegmentWriter {
             data: to_send,
             num_event: self.inflight.len() as i32,
             last_event_number: self.inflight.back().expect("last event").event_id,
-            request_id: self.rng.gen::<i64>(),
+            request_id: get_request_id(),
         });
 
         let writer = self.writer.as_mut().expect("must have writer");
@@ -553,8 +549,11 @@ pub(crate) struct SegmentSelector {
     /// client config that contains the retry policy
     config: ClientConfig,
 
-    //Used to gain access to the controller and connection pool
+    /// Used to gain access to the controller and connection pool
     factory: Arc<ClientFactoryInternal>,
+
+    /// the random generator for request id
+    rng: SmallRng,
 }
 
 impl SegmentSelector {
@@ -571,6 +570,7 @@ impl SegmentSelector {
             sender,
             config,
             factory,
+            rng: SmallRng::from_entropy(),
         }
     }
 
@@ -593,12 +593,11 @@ impl SegmentSelector {
     }
 
     /// get the Segment by passing a routing key
-    fn get_segment_for_event(&self, routing_key: &Option<String>) -> ScopedSegment {
-        let mut small_rng = SmallRng::from_entropy();
+    fn get_segment_for_event(&mut self, routing_key: &Option<String>) -> ScopedSegment {
         if let Some(key) = routing_key {
             self.current_segments.get_segment(hash_string_to_f64(key))
         } else {
-            self.current_segments.get_segment(small_rng.gen::<f64>())
+            self.current_segments.get_segment(get_random_f64())
         }
     }
 

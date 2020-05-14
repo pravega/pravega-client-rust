@@ -21,6 +21,8 @@ use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{channel, Receiver};
 use tokio::sync::oneshot;
 
+/// TransactionalEventSegmentWriter contains a EventSegmentWriter that writes to a specific
+/// transaction segment.
 pub(super) struct TransactionalEventSegmentWriter {
     segment: ScopedSegment,
     event_segment_writer: EventSegmentWriter,
@@ -42,6 +44,7 @@ impl TransactionalEventSegmentWriter {
         }
     }
 
+    /// set up connection for this transaction segment by sending wirecommand SetupAppend.
     pub(super) async fn initialize(&mut self, factory: &ClientFactoryInternal) {
         if let Err(_e) = self.event_segment_writer.setup_connection(factory).await {
             self.event_segment_writer.reconnect(factory).await;
@@ -132,7 +135,7 @@ impl TransactionalEventSegmentWriter {
     fn remove_completed(&mut self) -> Result<(), TransactionalEventSegmentWriterError> {
         while let Some(mut rx) = self.outstanding.pop_front() {
             match rx.try_recv() {
-                // the first write hasn't been acked
+                // the first write hasn't been acked, so we can just return ok
                 Err(oneshot::error::TryRecvError::Empty) => {
                     self.outstanding.push_front(rx);
                     return Ok(());
