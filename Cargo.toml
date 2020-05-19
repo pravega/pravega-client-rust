@@ -15,7 +15,7 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 
 [workspace]
 members = [
-    "controller-client", "shared", "wire_protocol", "retry", "integration_test", "connection_pool", "channel"
+    "controller-client", "shared", "wire_protocol", "retry", "integration_test", "connection_pool", "channel",
 ]
 
 [dependencies]
@@ -49,6 +49,8 @@ async-stream = "0.2.1"
 pravega-rust-client-integration-test = { path = "./integration_test"}
 mockall = "0.7.0"
 ordered-float = { version= "1.0.2", features = ["serde"]}
+criterion = "0.3"
+byteorder = "1.3"
 
 [[bin]]
 name = "server-cli"
@@ -60,5 +62,7 @@ required-features = ["cli"]
 default = ["cli"]
 cli = ["clap", "structopt"]
 
-
+[[bench]]
+name = "benchmark"
+harness = false
 
