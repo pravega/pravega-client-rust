@@ -15,8 +15,6 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use crate::{get_random_f64, get_request_id};
-use rand::rngs::SmallRng;
-use rand::SeedableRng;
 use snafu::ResultExt;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
@@ -116,6 +114,7 @@ pub struct Processor {
 }
 
 impl Processor {
+    #[allow(clippy::cognitive_complexity)]
     pub async fn run(mut self) {
         // get the current segments and create corresponding event segment writers
         self.selector.initialize().await;
@@ -551,9 +550,6 @@ pub(crate) struct SegmentSelector {
 
     /// Used to gain access to the controller and connection pool
     factory: Arc<ClientFactoryInternal>,
-
-    /// the random generator for request id
-    rng: SmallRng,
 }
 
 impl SegmentSelector {
@@ -570,7 +566,6 @@ impl SegmentSelector {
             sender,
             config,
             factory,
-            rng: SmallRng::from_entropy(),
         }
     }
 

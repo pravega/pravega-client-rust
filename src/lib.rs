@@ -26,11 +26,7 @@
     clippy::result_unwrap_used,
     clippy::similar_names
 )]
-#![allow(
-    clippy::cognitive_complexity,
-    clippy::multiple_crate_versions,
-    clippy::needless_doctest_main
-)]
+#![allow(clippy::multiple_crate_versions, clippy::needless_doctest_main)]
 
 use pcg_rand::Pcg32;
 use rand::{Rng, SeedableRng};
