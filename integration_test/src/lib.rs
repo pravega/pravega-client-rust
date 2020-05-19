@@ -18,7 +18,7 @@ mod event_stream_writer_tests;
 mod pravega_service;
 mod tablemap_tests;
 mod wirecommand_tests;
-
+mod tablesynchronizer_tests;
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
 use pravega_client_rust::setup_logger;
 use std::process::Command;
@@ -62,17 +62,19 @@ mod test {
 
         rt.block_on(controller_tests::test_controller_apis());
 
-        rt.block_on(wirecommand_tests::wirecommand_test_wrapper());
+        //rt.block_on(wirecommand_tests::wirecommand_test_wrapper());
 
-        rt.block_on(tablemap_tests::test_tablemap());
+        //rt.block_on(tablemap_tests::test_tablemap());
 
-        rt.block_on(event_stream_writer_tests::test_event_stream_writer());
+        //rt.block_on(event_stream_writer_tests::test_event_stream_writer());
+
+        //rt.block_on(tablesynchronizer_tests::test_tablesynchronizer());
 
         // Shut down Pravega standalone
         pravega.stop().unwrap();
         wait_for_standalone_with_timeout(false, 30);
 
         // disconnection test will start its own Pravega Standalone.
-        rt.block_on(disconnection_tests::disconnection_test_wrapper());
+        //rt.block_on(disconnection_tests::disconnection_test_wrapper());
     }
 }
