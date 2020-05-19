@@ -33,8 +33,8 @@ pub mod commands;
 pub mod connection;
 pub mod connection_factory;
 pub mod error;
-pub mod mock_connection;
 pub mod wire_commands;
 
+pub mod mock_connection;
 #[cfg(test)]
 mod tests;

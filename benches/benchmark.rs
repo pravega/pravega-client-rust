@@ -128,6 +128,28 @@ fn mock_server(c: &mut Criterion) {
     info!("mock server performance testing finished");
 }
 
+// This benchmark test uses a mock server that replies ok to any requests instantly. It involves
+// kernel latency. It does not wait for reply.
+fn mock_server_no_block(c: &mut Criterion) {
+    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let mock_server = rt.block_on(MockServer::new());
+    let config = ClientConfigBuilder::default()
+        .controller_uri(mock_server.address)
+        .mock(true)
+        .build()
+        .expect("creating config");
+    let mut writer = rt.block_on(set_up(config));
+    rt.spawn(async { MockServer::run(mock_server).await });
+
+    info!("start mock server(no block) performance testing");
+    c.bench_function("mock server(no block)", |b| {
+        b.iter(|| {
+            rt.block_on(run_no_block(&mut writer));
+        });
+    });
+    info!("mock server(no block) performance testing finished");
+}
+
 // This benchmark test uses a mock connection that replies ok to any requests instantly. It does not
 // involve kernel latency.
 fn mock_connection(c: &mut Criterion) {
@@ -149,7 +171,28 @@ fn mock_connection(c: &mut Criterion) {
     info!("mock server connection testing finished");
 }
 
-// helper function
+// This benchmark test uses a mock connection that replies ok to any requests instantly. It does not
+// involve kernel latency. It does not wait for reply.
+fn mock_connection_no_block(c: &mut Criterion) {
+    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let config = ClientConfigBuilder::default()
+        .controller_uri("127.0.0.1:9090".parse::<SocketAddr>().unwrap())
+        .mock(true)
+        .connection_type(ConnectionType::Mock)
+        .build()
+        .expect("creating config");
+    let mut writer = rt.block_on(set_up(config));
+
+    info!("start mock connection(no block) performance testing");
+    c.bench_function("mock connection(no block)", |b| {
+        b.iter(|| {
+            rt.block_on(run_no_block(&mut writer));
+        });
+    });
+    info!("mock server connection(no block) testing finished");
+}
+
+// helper functions
 async fn set_up(config: ClientConfig) -> EventStreamWriter {
     let scope_name = Scope::new("testWriterPerf".into());
     let stream_name = Stream::new("testWriterPerf".into());
@@ -197,6 +240,7 @@ async fn create_scope_stream(
     info!("Stream created");
 }
 
+// run sends request to server and wait for the reply
 async fn run(writer: &mut EventStreamWriter) {
     let mut receivers = vec![];
     for _i in 0..EVENT_NUM {
@@ -211,5 +255,21 @@ async fn run(writer: &mut EventStreamWriter) {
     }
 }
 
-criterion_group!(performance, mock_server, mock_connection);
+// run no block sends request to server and does not wait for the reply
+async fn run_no_block(writer: &mut EventStreamWriter) {
+    let mut receivers = vec![];
+    for _i in 0..EVENT_NUM {
+        let rx = writer.write_event(vec![0; EVENT_SIZE]).await;
+        receivers.push(rx);
+    }
+    assert_eq!(receivers.len(), EVENT_NUM);
+}
+
+criterion_group!(
+    performance,
+    mock_server,
+    mock_server_no_block,
+    mock_connection,
+    mock_connection_no_block
+);
 criterion_main!(performance);
