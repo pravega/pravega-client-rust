@@ -38,6 +38,10 @@ pub struct ClientConfig {
     #[get_copy = "pub"]
     #[builder(setter(into))]
     pub controller_uri: SocketAddr,
+
+    #[get_copy = "pub"]
+    #[builder(default = "false")]
+    pub mock: bool,
 }
 
 #[cfg(test)]

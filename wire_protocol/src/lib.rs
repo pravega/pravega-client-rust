@@ -35,5 +35,6 @@ pub mod connection_factory;
 pub mod error;
 pub mod wire_commands;
 
+pub mod mock_connection;
 #[cfg(test)]
 mod tests;

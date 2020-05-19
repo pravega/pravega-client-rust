@@ -12,6 +12,7 @@ use crate::client_connection::{read_wirecommand, write_wirecommand};
 use crate::commands::{HelloCommand, OLDEST_COMPATIBLE_VERSION, WIRE_VERSION};
 use crate::connection::{Connection, TokioConnection};
 use crate::error::*;
+use crate::mock_connection::MockConnection;
 use crate::wire_commands::{Replies, Requests};
 use async_trait::async_trait;
 use pravega_connection_pool::connection_pool::{ConnectionPoolError, Manager};
@@ -108,18 +109,8 @@ impl ConnectionFactory for MockConnectionFactory {
         &self,
         endpoint: SocketAddr,
     ) -> Result<Box<dyn Connection>, ConnectionFactoryError> {
-        let connection_type = ConnectionType::Mock;
-        let uuid = Uuid::new_v4();
-        let stream = TcpStream::connect(endpoint).await.context(Connect {
-            connection_type,
-            endpoint,
-        })?;
-        let tokio_connection: Box<dyn Connection> = Box::new(TokioConnection {
-            uuid,
-            endpoint,
-            stream: Some(stream),
-        }) as Box<dyn Connection>;
-        Ok(tokio_connection)
+        let mock = MockConnection::new(endpoint);
+        Ok(Box::new(mock) as Box<dyn Connection>)
     }
 }
 
@@ -196,54 +187,53 @@ impl Manager for SegmentConnectionManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
-    use std::net::{SocketAddr, TcpListener};
+    use crate::wire_commands::{Decode, Encode};
+    use log::info;
+    use std::net::SocketAddr;
     use tokio::runtime::Runtime;
 
-    struct Server {
-        address: SocketAddr,
-        listener: TcpListener,
-    }
+    #[test]
+    fn test_mock_connection() {
+        info!("test mock connection factory");
+        let mut rt = Runtime::new().unwrap();
 
-    impl Server {
-        pub fn new() -> Server {
-            let listener = TcpListener::bind("127.0.0.1:0").expect("local server");
-            let address = listener.local_addr().unwrap();
-            Server { address, listener }
-        }
+        let connection_factory = ConnectionFactory::create(ConnectionType::Mock);
+        let connection_future =
+            connection_factory.establish_connection("127.1.1.1:9090".parse::<SocketAddr>().unwrap());
+        let mut mock_connection = rt.block_on(connection_future).unwrap();
 
-        pub fn echo(&mut self) {
-            for stream in self.listener.incoming() {
-                let mut stream = stream.unwrap();
-                stream.write(b"Hello World\r\n").unwrap();
-                break;
-            }
-        }
+        let request = Requests::Hello(HelloCommand {
+            high_version: 9,
+            low_version: 5,
+        })
+        .write_fields()
+        .unwrap();
+        let len = request.len();
+        rt.block_on(mock_connection.send_async(&request))
+            .expect("write to mock connection");
+        let mut buf = vec![0; len];
+        rt.block_on(mock_connection.read_async(&mut buf))
+            .expect("read from mock connection");
+        let reply = Replies::read_from(&buf).unwrap();
+        let expected = Replies::Hello(HelloCommand {
+            high_version: 9,
+            low_version: 5,
+        });
+        assert_eq!(reply, expected);
+        info!("mock connection factory test passed");
     }
 
     #[test]
-    fn test_connection() {
+    #[should_panic]
+    fn test_tokio_connection() {
+        info!("test tokio connection factory");
         let mut rt = Runtime::new().unwrap();
 
-        let mut server = Server::new();
+        let connection_factory = ConnectionFactory::create(ConnectionType::Tokio);
+        let connection_future =
+            connection_factory.establish_connection("127.1.1.1:9090".parse::<SocketAddr>().unwrap());
+        let mut _connection = rt.block_on(connection_future).expect("create tokio connection");
 
-        let connection_factory = ConnectionFactory::create(ConnectionType::Mock);
-        let connection_future = connection_factory.establish_connection(server.address);
-        let mut connection = rt.block_on(connection_future).unwrap();
-
-        let mut payload: Vec<u8> = Vec::new();
-        payload.push(12);
-        let fut = connection.send_async(&payload);
-
-        let _res = rt.block_on(fut).unwrap();
-
-        server.echo();
-        let mut buf = [0; 13];
-
-        let fut = connection.read_async(&mut buf);
-        let _res = rt.block_on(fut).unwrap();
-
-        let echo = "Hello World\r\n".as_bytes();
-        assert_eq!(buf, &echo[..]);
+        info!("tokio connection factory test passed");
     }
 }

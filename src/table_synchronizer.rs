@@ -459,7 +459,7 @@ mod test {
             key_version: 1,
         };
         let value2 = 2;
-        let result = map.insert(key1, value1);
+        let result = map.insert(key1.clone(), value1);
         assert!(result.is_none());
         let result = map.insert(key2.clone(), value2);
         assert!(result.is_some());
@@ -479,11 +479,12 @@ mod test {
             key: "a".to_string(),
             key_version: 1,
         };
-        let value2 =2;
+        let value2 = 2;
         map.insert(key1.clone(), value1);
         map.insert(key2.clone(), value2);
         let new_map = map.clone();
         let result = new_map.get(&key1);
+        assert_eq!(new_map.len(), 1);
         assert!(result.is_some());
         let result = new_map.get(&key2);
         assert!(result.is_some());
