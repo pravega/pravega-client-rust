@@ -42,6 +42,9 @@ pub struct ClientConfig {
     #[get_copy = "pub"]
     #[builder(default = "90 * 1000")]
     pub transaction_timeout_time: u64,
+
+    #[builder(default = "false")]
+    pub mock: bool,
 }
 
 #[cfg(test)]

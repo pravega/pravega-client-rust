@@ -12,28 +12,45 @@ use super::ControllerClient;
 use super::ControllerError;
 use async_trait::async_trait;
 use ordered_float::OrderedFloat;
+use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_connection::ClientConnection;
+use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{CreateSegmentCommand, DeleteSegmentCommand, MergeSegmentsCommand};
+use pravega_wire_protocol::connection_factory::{
+    ConnectionFactory, ConnectionType, SegmentConnectionManager,
+};
 use pravega_wire_protocol::error::ClientConnectionError;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::collections::HashSet;
 use std::collections::{BTreeMap, HashMap};
+use std::net::SocketAddr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
-use tokio::sync::{Mutex, RwLock, RwLockReadGuard};
+use tokio::sync::{RwLock, RwLockReadGuard};
 use uuid::Uuid;
 
 static ID_GENERATOR: AtomicUsize = AtomicUsize::new(0);
 
-struct MockController {
-    endpoint: String,
-    port: i32,
-    connection: Mutex<Box<dyn ClientConnection>>, // a fake client connection to send wire command.
+pub struct MockController {
+    endpoint: SocketAddr,
+    pool: ConnectionPool<SegmentConnectionManager>,
     created_scopes: RwLock<HashMap<String, HashSet<ScopedStream>>>,
     created_streams: RwLock<HashMap<ScopedStream, StreamConfiguration>>,
 }
 
+impl MockController {
+    pub fn new(endpoint: SocketAddr) -> Self {
+        let cf = ConnectionFactory::create(ConnectionType::Mock) as Box<dyn ConnectionFactory>;
+        let manager = SegmentConnectionManager::new(cf, 10);
+        let pool = ConnectionPool::new(manager);
+        MockController {
+            endpoint,
+            pool,
+            created_scopes: RwLock::new(HashMap::new()),
+            created_streams: RwLock::new(HashMap::new()),
+        }
+    }
+}
 #[async_trait]
 impl ControllerClient for MockController {
     async fn create_scope(&self, scope: &Scope) -> Result<bool, ControllerError> {
@@ -251,8 +268,7 @@ impl ControllerClient for MockController {
         &self,
         _segment: &ScopedSegment,
     ) -> Result<PravegaNodeUri, ControllerError> {
-        let uri = self.endpoint.clone() + ":" + &self.port.to_string();
-        Ok(PravegaNodeUri(uri))
+        Ok(PravegaNodeUri(self.endpoint.to_string()))
     }
 
     async fn get_or_refresh_delegation_token_for(
@@ -578,6 +594,14 @@ async fn send_request_over_connection(
     command: &Requests,
     controller: &MockController,
 ) -> Result<Replies, ClientConnectionError> {
-    controller.connection.lock().await.write(command).await?;
-    controller.connection.lock().await.read().await
+    let pooled_connection = controller
+        .pool
+        .get_connection(controller.endpoint)
+        .await
+        .expect("get connection from pool");
+    let mut connection = ClientConnectionImpl {
+        connection: pooled_connection,
+    };
+    connection.write(command).await?;
+    connection.read().await
 }

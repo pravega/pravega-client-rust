@@ -11,6 +11,7 @@
 use std::net::SocketAddr;
 
 use pravega_connection_pool::connection_pool::ConnectionPool;
+use pravega_controller_client::mock_controller::MockController;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream, WriterId};
 use pravega_wire_protocol::client_config::ClientConfig;
@@ -28,7 +29,7 @@ pub struct ClientFactory(Arc<ClientFactoryInternal>);
 
 pub struct ClientFactoryInternal {
     connection_pool: ConnectionPool<SegmentConnectionManager>,
-    controller_client: ControllerClientImpl,
+    controller_client: Box<dyn ControllerClient>,
     config: ClientConfig,
 }
 
@@ -37,7 +38,11 @@ impl ClientFactory {
         let _ = setup_logger(); //Ignore failure
         let cf = ConnectionFactory::create(config.connection_type);
         let pool = ConnectionPool::new(SegmentConnectionManager::new(cf, config.max_connections_in_pool));
-        let controller = ControllerClientImpl::new(config.clone());
+        let controller = if config.mock {
+            Box::new(MockController::new(config.controller_uri)) as Box<dyn ControllerClient>
+        } else {
+            Box::new(ControllerClientImpl::new(config)) as Box<dyn ControllerClient>
+        };
         ClientFactory(Arc::new(ClientFactoryInternal {
             connection_pool: pool,
             controller_client: controller,
@@ -85,7 +90,7 @@ impl ClientFactory {
     }
 
     pub fn get_controller_client(&self) -> &dyn ControllerClient {
-        &self.0.controller_client
+        &*self.0.controller_client
     }
 }
 
@@ -99,6 +104,6 @@ impl ClientFactoryInternal {
     }
 
     pub(crate) fn get_controller_client(&self) -> &dyn ControllerClient {
-        &self.controller_client
+        &*self.controller_client
     }
 }

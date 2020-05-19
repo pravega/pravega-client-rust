@@ -37,11 +37,11 @@ pub struct ClientConnectionImpl<'a> {
 }
 
 pub struct ReadingClientConnection {
-    read_half: ReadingConnection,
+    read_half: Box<dyn ReadingConnection>,
 }
 
 pub struct WritingClientConnection {
-    write_half: WritingConnection,
+    write_half: Box<dyn WritingConnection>,
 }
 
 impl<'a> ClientConnectionImpl<'a> {
@@ -149,59 +149,34 @@ mod tests {
     use super::*;
     use crate::commands::HelloCommand;
     use crate::connection_factory::{ConnectionFactory, ConnectionType, SegmentConnectionManager};
-    use crate::wire_commands::{Encode, Replies};
+    use crate::wire_commands::Replies;
     use pravega_connection_pool::connection_pool::ConnectionPool;
-    use std::io::Write;
-    use std::net::{SocketAddr, TcpListener};
+    use std::net::SocketAddr;
     use tokio::runtime::Runtime;
 
-    struct Server {
-        address: SocketAddr,
-        listener: TcpListener,
-    }
-
-    impl Server {
-        pub fn new() -> Server {
-            let listener = TcpListener::bind("127.0.0.1:0").expect("local server");
-            let address = listener.local_addr().expect("get listener address");
-            Server { address, listener }
-        }
-
-        pub fn send_hello_wirecommand(&mut self) {
-            let hello = Replies::Hello(HelloCommand {
-                high_version: 9,
-                low_version: 5,
-            })
-            .write_fields()
-            .expect("serialize wirecommand");
-            for stream in self.listener.incoming() {
-                let mut stream = stream.expect("get tcp stream");
-                stream.write(&hello).expect("reply with hello wirecommand");
-                break;
-            }
-        }
-    }
     #[test]
-    fn client_connection_read() {
+    fn client_connection_write_and_read() {
         let mut rt = Runtime::new().expect("create tokio Runtime");
-
-        let mut server = Server::new();
 
         let connection_factory = ConnectionFactory::create(ConnectionType::Mock);
         let manager = SegmentConnectionManager::new(connection_factory, 1);
         let pool = ConnectionPool::new(manager);
         let connection = rt
-            .block_on(pool.get_connection(server.address))
+            .block_on(pool.get_connection("127.0.0.1:9090".parse::<SocketAddr>().unwrap()))
             .expect("get connection from pool");
 
-        // server send wirecommand
-        server.send_hello_wirecommand();
-
+        let mut client_connection = ClientConnectionImpl::new(connection);
+        // write wirecommand
+        let request = Requests::Hello(HelloCommand {
+            high_version: 9,
+            low_version: 5,
+        });
+        rt.block_on(client_connection.write(&request))
+            .expect("client connection write");
         // read wirecommand
-        let mut reader = ClientConnectionImpl::new(connection);
-
-        let fut = reader.read();
-        let reply = rt.block_on(fut).expect("get reply from server");
+        let reply = rt
+            .block_on(client_connection.read())
+            .expect("client connection read");
 
         assert_eq!(
             reply,

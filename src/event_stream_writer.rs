@@ -480,10 +480,10 @@ impl EventSegmentWriter {
             }
 
             let acked = self.inflight.pop_front().expect("must have");
-            if let Err(e) = acked.event.oneshot_sender.send(Result::Ok(())) {
-                error!(
-                    "failed to send ack back to caller using oneshot due to {:?}: event id {:?}",
-                    e, acked.event_id
+            if acked.event.oneshot_sender.send(Result::Ok(())).is_err() {
+                debug!(
+                    "failed to send ack back to caller using oneshot due to Receiver dropped: event id {:?}",
+                    acked.event_id
                 );
             }
 
