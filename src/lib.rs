@@ -37,8 +37,8 @@ pub mod event_stream_writer;
 pub mod raw_client;
 pub mod segment_reader;
 mod stream;
-pub mod tablemap;
 pub mod table_synchronizer;
+pub mod tablemap;
 pub static REQUEST_ID_GENERATOR: AtomicI64 = AtomicI64::new(0);
 
 ///

@@ -21,13 +21,13 @@ use crate::event_stream_writer::EventStreamWriter;
 use crate::raw_client::RawClientImpl;
 use crate::segment_reader::AsyncSegmentReaderImpl;
 use crate::setup_logger;
-use crate::tablemap::TableMap;
 use crate::table_synchronizer::TableSynchronizer;
-use std::sync::Arc;
-use serde::Serialize;
+use crate::tablemap::TableMap;
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::sync::Arc;
 
 pub struct ClientFactory(Arc<ClientFactoryInternal>);
 
@@ -67,12 +67,11 @@ impl ClientFactory {
             .expect("Failed to create Table map")
     }
     #[allow(clippy::needless_lifetimes)]
-    pub async fn create_table_synchronizer<'a, K> (&'a self, name: String) -> TableSynchronizer<'a, K>
+    pub async fn create_table_synchronizer<'a, K>(&'a self, name: String) -> TableSynchronizer<'a, K>
     where
-        K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone
+        K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
     {
-        TableSynchronizer::new(name, &self.0)
-            .await
+        TableSynchronizer::new(name, &self.0).await
     }
 
     pub async fn create_raw_client(&self, segment: &ScopedSegment) -> RawClientImpl<'_> {

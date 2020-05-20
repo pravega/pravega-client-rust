@@ -1,18 +1,18 @@
-use std::collections::HashMap;
-use crate::tablemap::{TableMap, TableError, Version};
 use crate::client_factory::ClientFactoryInternal;
-use std::cmp::{PartialEq, Eq};
-use std::hash::{Hash, Hasher};
-use tracing::{debug};
-use serde::de::DeserializeOwned;
-use futures::stream::StreamExt;
+use crate::tablemap::{TableError, TableMap, Version};
 use futures::pin_mut;
-use std::marker::{Sized, Unpin};
-use std::fmt::{Debug};
-use std::clone::Clone;
-use serde_cbor::ser::Serializer as CborSerializer;
+use futures::stream::StreamExt;
 use pravega_wire_protocol::commands::TableKey;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use serde_cbor::ser::Serializer as CborSerializer;
+use std::clone::Clone;
+use std::cmp::{Eq, PartialEq};
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::hash::{Hash, Hasher};
+use std::marker::{Sized, Unpin};
+use tracing::debug;
 
 /// The trait bound for the Key. The Key should
 /// support Debug, Equal Hash, Clone, Serialize and DeserialzeOwned.
@@ -43,7 +43,7 @@ pub struct Value {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ValueType{
+pub enum ValueType {
     Integer,
     Long,
     Float,
@@ -53,18 +53,18 @@ pub enum ValueType{
 
 pub struct UpdateOrInsert<K>
 where
-    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone
+    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
-    pub key: Key<K>,
+    pub key: K,
     pub type_code: ValueType,
     pub new_value: Box<dyn ValueData>,
 }
 
 pub struct Remove<K>
 where
-    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone
+    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
-    pub key: Key<K>
+    pub key: K,
 }
 
 /// The trait bound for the ValueData.
@@ -73,7 +73,7 @@ pub trait ValueData: ValueSerialize + ValueDeserialize + ValueClone + Debug {}
 impl<T> ValueData for T where T: 'static + Serialize + DeserializeOwned + Clone + Debug {}
 
 /// Clone trait helper.
-pub trait ValueClone  {
+pub trait ValueClone {
     fn clone_box(&self) -> Box<dyn ValueData>;
 }
 
@@ -92,40 +92,44 @@ impl Clone for Box<dyn ValueData> {
     }
 }
 
-
 /// Serialize trait helper, we need to serialize the ValueData.
 pub trait ValueSerialize {
-    fn serialize_value(&self, seralizer: &mut CborSerializer<&mut Vec<u8>>) -> Result<(), serde_cbor::error::Error>;
+    fn serialize_value(
+        &self,
+        seralizer: &mut CborSerializer<&mut Vec<u8>>,
+    ) -> Result<(), serde_cbor::error::Error>;
 }
 
 impl<T> ValueSerialize for T
 where
-    T: Serialize
+    T: Serialize,
 {
-    fn serialize_value(&self, serializer: &mut CborSerializer<&mut Vec<u8>>) -> Result<(), serde_cbor::error::Error> {
+    fn serialize_value(
+        &self,
+        serializer: &mut CborSerializer<&mut Vec<u8>>,
+    ) -> Result<(), serde_cbor::error::Error> {
         self.serialize(serializer)
-
     }
 }
 
 /// Deserialize Trait Helper.
 pub trait ValueDeserialize {
-    fn deserialize_value(reader: &[u8]) -> Result<Self, serde_cbor::error::Error> where Self:Sized;
+    fn deserialize_value(reader: &[u8]) -> Result<Self, serde_cbor::error::Error>
+    where
+        Self: Sized;
 }
 
 impl<T> ValueDeserialize for T
 where
     T: DeserializeOwned + Debug,
 {
-    fn deserialize_value(reader: &[u8]) -> Result<Self, serde_cbor::error::Error>
-    {
+    fn deserialize_value(reader: &[u8]) -> Result<Self, serde_cbor::error::Error> {
         serde_cbor::from_slice(reader)
     }
 }
 
 /// Serialize the ValueSerialize into an Vec<u8> by using the CborSerializer.
-pub fn serialize(value: &dyn ValueData) -> Result<Vec<u8>, serde_cbor::error::Error>
-{
+pub fn serialize(value: &dyn ValueData) -> Result<Vec<u8>, serde_cbor::error::Error> {
     let mut vec = Vec::new();
     value.serialize_value(&mut CborSerializer::new(&mut vec))?;
     Ok(vec)
@@ -134,29 +138,29 @@ pub fn serialize(value: &dyn ValueData) -> Result<Vec<u8>, serde_cbor::error::Er
 /// Deserialize the [u8] to Box<dyn Value> by using the CborDserializer.
 pub fn deserialize_from<T>(reader: &[u8]) -> Result<T, serde_cbor::error::Error>
 where
-    T: ValueData
+    T: ValueData,
 {
     ValueDeserialize::deserialize_value(reader)
 }
 
-
 pub struct TableSynchronizer<'a, K>
 where
-    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone
+    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
     name: String,
     table_map: TableMap<'a>,
     in_memory_map: HashMap<Key<K>, Value>,
 }
 
-
 impl<'a, K> TableSynchronizer<'a, K>
 where
-    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone
+    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
-    pub async fn new(name: String, factory: &'a ClientFactoryInternal)  -> TableSynchronizer<'a, K> {
-        let table_map = TableMap::new(name.clone(), factory).await.expect("create table map");
-        TableSynchronizer{
+    pub async fn new(name: String, factory: &'a ClientFactoryInternal) -> TableSynchronizer<'a, K> {
+        let table_map = TableMap::new(name.clone(), factory)
+            .await
+            .expect("create table map");
+        TableSynchronizer {
             name: name.clone(),
             table_map,
             in_memory_map: HashMap::new(),
@@ -165,12 +169,11 @@ where
 
     /// Gets the map object currently held in memory.
     /// This is a non-blocking call.
-    /// used
-    fn get_current_map(&self) -> HashMap<Key<K>, Box<dyn ValueData>> {
+    pub fn get_current_map(&self) -> HashMap<K, Box<dyn ValueData>> {
         let mut result = HashMap::new();
         for (key, value) in self.in_memory_map.iter() {
             let new_value = deserialize_value(value);
-            result.insert(key.clone(), new_value);
+            result.insert(key.key.clone(), new_value);
         }
         result
     }
@@ -180,7 +183,6 @@ where
         self.name.clone()
     }
 
-    ///Gets the current map
     /// Gets the Value of the GivenKey,
     /// This is a non-blocking call.
     pub fn get(&self, key: K) -> Option<Box<dyn ValueData>> {
@@ -190,7 +192,7 @@ where
         };
         let value = self.in_memory_map.get(&search_key);
 
-        if let Some(data) = value  {
+        if let Some(data) = value {
             let result = deserialize_value(data);
             Some(result)
         } else {
@@ -198,18 +200,33 @@ where
         }
     }
 
-    /// Gets the Key Value Pair of the GivenKey,
+    /// Gets the Key version of the GivenKey,
     /// This is a non-blocking call.
-    pub fn get_key_value(&self, key: K) -> Option<(Key<K>, Box<dyn ValueData>)> {
+    pub fn get_key_version(&self, key: K) -> Option<Version> {
         let search_key = Key {
             key,
             key_version: TableKey::KEY_NO_VERSION,
         };
-        let entry  = self.in_memory_map.get_key_value(&search_key);
+        let option = self.in_memory_map.get_key_value(&search_key);
+        if let Some((key, _value)) = option {
+            Some(key.key_version)
+        } else {
+            None
+        }
+    }
+
+    /// Gets the Key Value Pair of the GivenKey,
+    /// This is a non-blocking call.
+    pub fn get_key_value(&self, key: K) -> Option<(K, Box<dyn ValueData>)> {
+        let search_key = Key {
+            key,
+            key_version: TableKey::KEY_NO_VERSION,
+        };
+        let entry = self.in_memory_map.get_key_value(&search_key);
 
         if let Some(data) = entry {
             let result = deserialize_value(data.1);
-            Some((data.0.clone(), result))
+            Some((data.0.key.clone(), result))
         } else {
             None
         }
@@ -219,6 +236,7 @@ where
         debug!("fetch the latest map and apply to the local map");
         let reply = self.table_map.read_entries_stream(3);
         pin_mut!(reply);
+        self.in_memory_map.clear();
         let mut entry_count: i32 = 0;
         while let Some(entry) = reply.next().await {
             match entry {
@@ -236,7 +254,7 @@ where
                 _ => {
                     return Err(TableError::OperationError {
                         operation: "fetch_updates".to_string(),
-                        error_msg: "fetch entries error".to_string()
+                        error_msg: "fetch entries error".to_string(),
                     });
                 }
             }
@@ -246,29 +264,37 @@ where
     }
 
     /// Insert/Updates a list of keys and applies it atomically.
-    pub async fn insert_map_conditionally(&mut self, updates_generator: impl FnMut(HashMap<Key<K>, Box<dyn ValueData>>)
-        -> Vec<UpdateOrInsert<K>>) -> Result<(), TableError> {
+    pub async fn insert_conditionally(
+        &mut self,
+        updates_generator: impl FnMut(HashMap<K, Box<dyn ValueData>>) -> Vec<UpdateOrInsert<K>>,
+    ) -> Result<(), TableError> {
         conditionally_write(updates_generator, self).await
     }
 
     /// Remove a list of keys unconditionally.
-    pub async fn remove_map_conditionally(&mut self, deletes_generateor: impl FnMut(HashMap<Key<K>, Box<dyn ValueData>>)
-        -> Vec<Remove<K>>) -> Result<(), TableError> {
+    pub async fn remove_conditionally(
+        &mut self,
+        deletes_generateor: impl FnMut(HashMap<K, Box<dyn ValueData>>) -> Vec<Remove<K>>,
+    ) -> Result<(), TableError> {
         conditionally_remove(deletes_generateor, self).await
     }
-
 }
 
-async fn conditionally_write<K>(mut updates_generator: impl FnMut(HashMap<Key<K>, Box<dyn ValueData>>) -> Vec<UpdateOrInsert<K>>, table_synchronizer: &mut TableSynchronizer<'_, K>) -> Result<(), TableError>
-    where
-        K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
+async fn conditionally_write<K>(
+    mut updates_generator: impl FnMut(HashMap<K, Box<dyn ValueData>>) -> Vec<UpdateOrInsert<K>>,
+    table_synchronizer: &mut TableSynchronizer<'_, K>,
+) -> Result<(), TableError>
+where
+    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
     loop {
         let map = table_synchronizer.get_current_map();
         let to_update = updates_generator(map);
         if to_update.len() == 0 {
-            debug!("Conditionally Write to {} completed, as there is nothing to update for map",
-                   table_synchronizer.get_name());
+            debug!(
+                "Conditionally Write to {} completed, as there is nothing to update for map",
+                table_synchronizer.get_name()
+            );
             break;
         }
         let mut to_send = Vec::new();
@@ -278,29 +304,34 @@ async fn conditionally_write<K>(mut updates_generator: impl FnMut(HashMap<Key<K>
                 type_code: update.type_code.clone(),
                 data,
             };
-            to_send.push((update.key.key.clone(), value, update.key.key_version))
+            let key_version = table_synchronizer.get_key_version(update.key.clone());
+
+            if key_version.is_some() {
+                to_send.push((update.key.clone(), value, key_version.unwrap()));
+            } else {
+                to_send.push((update.key.clone(), value, TableKey::KEY_NO_VERSION));
+            }
         }
         let send = to_send.iter().map(|x| (&x.0, &x.1, x.2)).rev().collect();
-        info!("write {:?} to server", send);
         let result = table_synchronizer.table_map.insert_conditionally_all(send).await;
         match result {
-            Err(e) => {
-                match e {
-                    TableError::IncorrectKeyVersion{
-                        operation: _, error_msg: _,
-                    } => {
-                        table_synchronizer.fetch_updates().await.expect("fetch update");
-                    }
-                    TableError::KeyDoesNotExist{
-                        operation: _, error_msg: _,
-                    } => {
-                        table_synchronizer.fetch_updates().await.expect("fetch update");
-                    }
-                    _ => {
-                        return Err(e);
-                    }
+            Err(e) => match e {
+                TableError::IncorrectKeyVersion {
+                    operation: _,
+                    error_msg: _,
+                } => {
+                    table_synchronizer.fetch_updates().await.expect("fetch update");
                 }
-            }
+                TableError::KeyDoesNotExist {
+                    operation: _,
+                    error_msg: _,
+                } => {
+                    table_synchronizer.fetch_updates().await.expect("fetch update");
+                }
+                _ => {
+                    return Err(e);
+                }
+            },
             Ok(res) => {
                 apply_updates_to_localmap(to_update, res, table_synchronizer);
             }
@@ -309,14 +340,17 @@ async fn conditionally_write<K>(mut updates_generator: impl FnMut(HashMap<Key<K>
     Ok(())
 }
 
-fn apply_updates_to_localmap<K>(to_update: Vec<UpdateOrInsert<K>>, new_version: Vec<Version>, table_synchronizer: &mut TableSynchronizer<'_, K>)
-    where
-        K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
+fn apply_updates_to_localmap<K>(
+    to_update: Vec<UpdateOrInsert<K>>,
+    new_version: Vec<Version>,
+    table_synchronizer: &mut TableSynchronizer<'_, K>,
+) where
+    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
     let mut i = 0;
     for update in to_update {
-        let new_key = Key{
-            key: update.key.key,
+        let new_key = Key {
+            key: update.key,
             key_version: new_version.get(i).expect("get new version").clone(),
         };
         let new_value = Value {
@@ -329,40 +363,53 @@ fn apply_updates_to_localmap<K>(to_update: Vec<UpdateOrInsert<K>>, new_version: 
     debug!("Updates {} entries in local map ", i);
 }
 
-async fn conditionally_remove<K>(mut delete_generator: impl FnMut(HashMap<Key<K>, Box<dyn ValueData>>) -> Vec<Remove<K>>, table_synchronizer: &mut TableSynchronizer<'_, K>) -> Result<(), TableError>
-    where
-        K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
+async fn conditionally_remove<K>(
+    mut delete_generator: impl FnMut(HashMap<K, Box<dyn ValueData>>) -> Vec<Remove<K>>,
+    table_synchronizer: &mut TableSynchronizer<'_, K>,
+) -> Result<(), TableError>
+where
+    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
     loop {
         let map = table_synchronizer.get_current_map();
         let to_delete = delete_generator(map);
         if to_delete.len() == 0 {
-            debug!("Conditionally remove to {} completed, as there is nothing to remove for map",
-                   table_synchronizer.get_name());
+            debug!(
+                "Conditionally remove to {} completed, as there is nothing to remove for map",
+                table_synchronizer.get_name()
+            );
             break;
         }
+        let mut to_send = Vec::new();
+        for delete in to_delete.iter() {
+            let key_version = table_synchronizer
+                .get_key_version(delete.key.clone())
+                .expect("get key version");
+            to_send.push((&delete.key, key_version))
+        }
 
-        let vec = to_delete.iter().map(|x| (&x.key.key, x.key.key_version)).rev().collect();
-
-        let result = table_synchronizer.table_map.remove_conditionally_all(vec).await;
+        let result = table_synchronizer
+            .table_map
+            .remove_conditionally_all(to_send)
+            .await;
         match result {
-            Err(e) => {
-                match e {
-                    TableError::IncorrectKeyVersion{
-                        operation: _, error_msg: _,
-                    } => {
-                        table_synchronizer.fetch_updates().await.expect("fetch update");
-                    }
-                    TableError::KeyDoesNotExist{
-                        operation: _, error_msg: _,
-                    } => {
-                        table_synchronizer.fetch_updates().await.expect("fetch update");
-                    }
-                    _ => {
-                        return Err(e);
-                    }
+            Err(e) => match e {
+                TableError::IncorrectKeyVersion {
+                    operation: _,
+                    error_msg: _,
+                } => {
+                    table_synchronizer.fetch_updates().await.expect("fetch update");
                 }
-            }
+                TableError::KeyDoesNotExist {
+                    operation: _,
+                    error_msg: _,
+                } => {
+                    table_synchronizer.fetch_updates().await.expect("fetch update");
+                }
+                _ => {
+                    return Err(e);
+                }
+            },
             Ok(()) => {
                 apply_deletes_to_localmap(to_delete, table_synchronizer);
             }
@@ -371,14 +418,17 @@ async fn conditionally_remove<K>(mut delete_generator: impl FnMut(HashMap<Key<K>
     Ok(())
 }
 
-
 fn apply_deletes_to_localmap<K>(to_delete: Vec<Remove<K>>, table_synchronizer: &mut TableSynchronizer<K>)
-    where
-        K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
+where
+    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
     let mut i = 0;
     for delete in to_delete {
-        table_synchronizer.in_memory_map.remove(&delete.key);
+        let delete_key = Key {
+            key: delete.key,
+            key_version: TableKey::KEY_NO_VERSION,
+        };
+        table_synchronizer.in_memory_map.remove(&delete_key);
         i += 1;
     }
     debug!("Deletes {} entries in local map ", i);
@@ -389,8 +439,7 @@ fn apply_deletes_to_localmap<K>(to_delete: Vec<Remove<K>>, table_synchronizer: &
 /// But do we need to support struct is a thing need to carefully consider.
 /// The scenario is if one user create a new struct and insert into map,
 /// how does another user know this struct?
-fn deserialize_value(value: &Value) -> Box<dyn ValueData>
-{
+fn deserialize_value(value: &Value) -> Box<dyn ValueData> {
     match value.type_code {
         ValueType::Integer => {
             let data: i32 = deserialize_from(&value.data).expect("deserialize i32");
@@ -422,10 +471,10 @@ fn deserialize_value(value: &Value) -> Box<dyn ValueData>
 #[cfg(test)]
 mod test {
     use super::Key;
-    use std::collections::HashMap;
-    use crate::table_synchronizer::{serialize, UpdateOrInsert, ValueType, Value};
     use crate::table_synchronizer::{deserialize_from, deserialize_value};
+    use crate::table_synchronizer::{serialize, UpdateOrInsert, Value, ValueType};
     use bincode2::{deserialize_from as bincode_deserialize, serialize as bincode_serialize};
+    use std::collections::HashMap;
     #[test]
     fn test_insert_keys() {
         let mut map: HashMap<Key<String>, i32> = HashMap::new();
@@ -503,40 +552,38 @@ mod test {
         let result: String = deserialize_from(&t).expect("deserialize value");
         assert_eq!(value1, result);
 
-        let t  = serialize(&value2).expect("serialize value2");
+        let t = serialize(&value2).expect("serialize value2");
         let result: i32 = deserialize_from(&t).expect("deserialize value");
         assert_eq!(value2, result);
 
-        let t  = serialize(&value3).expect("serialize value2");
+        let t = serialize(&value3).expect("serialize value2");
         let result: Vec<i32> = deserialize_from(&t).expect("deserialize value");
         assert_eq!(value3, result);
     }
 
     #[test]
     fn test_update_or_insert() {
-        let key = Key {
-            key: "a".to_string(),
-            key_version: 0,
-        };
         let insert = UpdateOrInsert {
-            key: key.clone(),
+            key: "a".to_string(),
             type_code: ValueType::Integer,
-            new_value: Box::new(1)
+            new_value: Box::new(1),
         };
         let data = serialize(&*insert.new_value).expect("serialize value");
+
         let value = Value {
             type_code: insert.type_code,
-            data
+            data,
         };
         // mock serialize/deserialize in table_map
-        let serialized_key = bincode_serialize(&key.key).expect("serialize key");
+        let serialized_key = bincode_serialize(&insert.key).expect("serialize key");
         let serialized_value = bincode_serialize(&value).expect("serialize value");
 
         let deserialized_k: String = bincode_deserialize(serialized_key.as_slice()).expect("deserialize key");
-        assert_eq!(deserialized_k, key.key);
-        let deserialized_v: Value = bincode_deserialize(serialized_value.as_slice()).expect("deserialize value");
+        assert_eq!(deserialized_k, insert.key);
+        let deserialized_v: Value =
+            bincode_deserialize(serialized_value.as_slice()).expect("deserialize value");
         let deserialize_data = deserialize_value(&deserialized_v);
         let data = format!("{:?}", deserialize_data);
         assert_eq!(data, String::from("1"));
     }
- }
+}
