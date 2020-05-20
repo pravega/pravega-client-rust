@@ -145,7 +145,7 @@ where
     K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone
 {
     name: String,
-    table_maps: TableMap<'a>,
+    table_map: TableMap<'a>,
     in_memory_map: HashMap<Key<K>, Value>,
 }
 
@@ -155,9 +155,10 @@ where
     K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone
 {
     pub async fn new(name: String, factory: &'a ClientFactoryInternal)  -> TableSynchronizer<'a, K> {
+        let table_map = TableMap::new(name.clone(), factory).await.expect("create table map");
         TableSynchronizer{
             name: name.clone(),
-            table_maps: TableMap::new(name.clone(), factory).await.expect("create table map"),
+            table_map,
             in_memory_map: HashMap::new(),
         }
     }
@@ -216,7 +217,7 @@ where
 
     pub async fn fetch_updates(&mut self) -> Result<(), TableError> {
         debug!("fetch the latest map and apply to the local map");
-        let reply = self.table_maps.read_entries_stream(3);
+        let reply = self.table_map.read_entries_stream(3);
         pin_mut!(reply);
         let mut entry_count: i32 = 0;
         while let Some(entry) = reply.next().await {
@@ -280,7 +281,7 @@ async fn conditionally_write<K>(mut updates_generator: impl FnMut(HashMap<Key<K>
             to_send.push((update.key.key.clone(), value, update.key.key_version))
         }
         let send = to_send.iter().map(|x| (&x.0, &x.1, x.2)).rev().collect();
-        let result = table_synchronizer.table_maps.insert_conditionally_all(send).await;
+        let result = table_synchronizer.table_map.insert_conditionally_all(send).await;
         match result {
             Err(e) => {
                 match e {
@@ -342,7 +343,7 @@ async fn conditionally_remove<K>(mut delete_generator: impl FnMut(HashMap<Key<K>
 
         let vec = to_delete.iter().map(|x| (&x.key.key, x.key.key_version)).rev().collect();
 
-        let result = table_synchronizer.table_maps.remove_conditionally_all(vec).await;
+        let result = table_synchronizer.table_map.remove_conditionally_all(vec).await;
         match result {
             Err(e) => {
                 match e {
