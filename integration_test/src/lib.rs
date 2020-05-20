@@ -57,16 +57,16 @@ mod test {
         let mut rt = tokio::runtime::Runtime::new().expect("create runtime");
 
         setup_logger().expect("setup logger");
-        let mut pravega = PravegaStandaloneService::start(false);
+        let mut pravega = PravegaStandaloneService::start(true);
         wait_for_standalone_with_timeout(true, 30);
 
         rt.block_on(controller_tests::test_controller_apis());
 
-        //rt.block_on(wirecommand_tests::wirecommand_test_wrapper());
+        rt.block_on(wirecommand_tests::wirecommand_test_wrapper());
 
-        //rt.block_on(tablemap_tests::test_tablemap());
+        rt.block_on(tablemap_tests::test_tablemap());
 
-        //rt.block_on(event_stream_writer_tests::test_event_stream_writer());
+        rt.block_on(event_stream_writer_tests::test_event_stream_writer());
 
         //rt.block_on(tablesynchronizer_tests::test_tablesynchronizer());
 
