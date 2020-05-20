@@ -281,6 +281,7 @@ async fn conditionally_write<K>(mut updates_generator: impl FnMut(HashMap<Key<K>
             to_send.push((update.key.key.clone(), value, update.key.key_version))
         }
         let send = to_send.iter().map(|x| (&x.0, &x.1, x.2)).rev().collect();
+        info!("write {:?} to server", send);
         let result = table_synchronizer.table_map.insert_conditionally_all(send).await;
         match result {
             Err(e) => {

@@ -12,9 +12,8 @@ pub async fn test_tablesynchronizer() {
 }
 
 async fn test_insert_conditionally(client_factory: &ClientFactory) {
-    let _map = client_factory.create_table_map("synchronizer".into()).await;
-    let _synchronizer: TableSynchronizer<String> = client_factory.create_table_synchronizer("synchronizer1".into()).await;
-    /*
+    let mut synchronizer: TableSynchronizer<String> = client_factory.create_table_synchronizer("synchronizer".into()).await;
+
     let result = synchronizer.insert_map_conditionally(|map| {
         let mut to_update = Vec::new();
         if map.len() == 0 {
@@ -32,5 +31,4 @@ async fn test_insert_conditionally(client_factory: &ClientFactory) {
         to_update
     }).await;
     assert!(result.is_ok());
-    */
 }

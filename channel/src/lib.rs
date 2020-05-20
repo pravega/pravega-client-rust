@@ -82,7 +82,6 @@ pub fn create_channel<U>(capacity: usize) -> (ChannelSender<U>, ChannelReceiver<
 #[cfg(test)]
 mod tests {
     use super::create_channel;
-    use std::sync::mpsc::SendError;
     use std::{thread, time};
     use tokio::runtime::Runtime;
     use tokio::sync::mpsc::error::SendError;
@@ -222,7 +221,7 @@ mod tests {
         let result = tx.send((2, 4)).await;
 
         if let Err(error) = result {
-            assert_eq!(error, SendError((2, 4)));
+            assert_eq!(error, SendError{0: 21, 4)});
         } else {
             panic!("Test failed");
         }
