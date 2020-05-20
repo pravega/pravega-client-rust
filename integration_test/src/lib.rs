@@ -73,8 +73,7 @@ mod test {
         // Shut down Pravega standalone
         pravega.stop().unwrap();
         wait_for_standalone_with_timeout(false, 30);
-        wait_for_standalone_with_timeout(false, 30);
-
+        
         // disconnection test will start its own Pravega Standalone.
         rt.block_on(disconnection_tests::disconnection_test_wrapper());
     }
