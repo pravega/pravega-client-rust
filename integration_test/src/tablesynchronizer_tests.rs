@@ -52,7 +52,7 @@ async fn test_remove_conditionally(client_factory: &ClientFactory) {
                 let update = Insert {
                     key: "test".to_string(),
                     type_id: 1,
-                    new_value: Box::new(1),
+                    new_value: Box::new(2),
                 };
                 to_update.push(update);
             }
