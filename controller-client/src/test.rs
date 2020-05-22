@@ -19,7 +19,7 @@ async fn test_create_scope_error() {
         .build()
         .expect("build client config");
 
-    let client = ControllerClientImpl::new(config);
+    let client = ControllerClientImpl::new(config).await;
 
     let request = Scope::new("testScope124".into());
     let create_scope_result = client.create_scope(&request).await;
@@ -40,7 +40,7 @@ async fn test_create_stream_error() {
         .controller_uri("127.0.0.1:9090".parse::<SocketAddr>().unwrap())
         .build()
         .expect("build client config");
-    let client = ControllerClientImpl::new(config);
+    let client = ControllerClientImpl::new(config).await;
 
     let request = StreamConfiguration {
         scoped_stream: ScopedStream {
