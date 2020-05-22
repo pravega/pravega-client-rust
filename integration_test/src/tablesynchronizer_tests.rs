@@ -21,7 +21,7 @@ async fn test_insert_conditionally(client_factory: &ClientFactory) {
     let result = synchronizer
         .insert_conditionally(|map| {
             let mut to_update = Vec::new();
-            if map.len() == 0 {
+            if map.is_empty() {
                 let update = Insert {
                     key: "test".to_string(),
                     type_id: 1,
@@ -48,7 +48,7 @@ async fn test_remove_conditionally(client_factory: &ClientFactory) {
     let result = synchronizer
         .insert_conditionally(|map| {
             let mut to_update = Vec::new();
-            if map.len() == 0 {
+            if map.is_empty() {
                 let update = Insert {
                     key: "test".to_string(),
                     type_id: 1,

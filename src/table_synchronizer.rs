@@ -274,7 +274,7 @@ where
     loop {
         let map = table_synchronizer.get_current_map();
         let to_update = updates_generator(map);
-        if to_update.len() == 0 {
+        if to_update.is_empty() {
             debug!(
                 "Conditionally Write to {} completed, as there is nothing to update for map",
                 table_synchronizer.get_name()
@@ -335,7 +335,7 @@ fn apply_updates_to_localmap<K>(
     for update in to_update {
         let new_key = Key {
             key: update.key,
-            key_version: new_version.get(i).expect("get new version").clone(),
+            key_version: *new_version.get(i).expect("get new version"),
         };
         let new_value = Value {
             type_id: update.type_id,
@@ -357,7 +357,7 @@ where
     loop {
         let map = table_synchronizer.get_current_map();
         let to_delete = delete_generator(map);
-        if to_delete.len() == 0 {
+        if to_delete.is_empty() {
             debug!(
                 "Conditionally remove to {} completed, as there is nothing to remove for map",
                 table_synchronizer.get_name()
