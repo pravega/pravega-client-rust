@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2018"
 categories = ["Network programming"]
 keywords = ["streaming", "client", "pravega"]
-readme = "Readme.md"
+readme = "README.md"
 repository = "https://github.com/pravega/pravega-client-rust"
 license = "Apache-2.0"
 description = "A Rust client for Pravega. (Pravega.io)"
@@ -51,6 +51,14 @@ mockall = "0.7.0"
 ordered-float = { version= "1.0.2", features = ["serde"]}
 criterion = "0.3"
 byteorder = "1.3"
+
+[lib]
+name = "pravega_client_rust"
+crate-type = ["cdylib"]
+
+[dependencies.pyo3]
+version = "0.10.1"
+features = ["extension-module"]
 
 [[bin]]
 name = "server-cli"
