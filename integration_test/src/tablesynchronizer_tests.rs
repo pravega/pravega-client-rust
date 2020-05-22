@@ -1,5 +1,5 @@
 use pravega_client_rust::client_factory::ClientFactory;
-use pravega_client_rust::table_synchronizer::{Key, Remove, TableSynchronizer, UpdateOrInsert, ValueType};
+use pravega_client_rust::table_synchronizer::{Insert, Key, Remove, TableSynchronizer};
 use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_wire_protocol::commands::TableKey;
 
@@ -22,9 +22,9 @@ async fn test_insert_conditionally(client_factory: &ClientFactory) {
         .insert_conditionally(|map| {
             let mut to_update = Vec::new();
             if map.len() == 0 {
-                let update = UpdateOrInsert {
+                let update = Insert {
                     key: "test".to_string(),
-                    type_code: ValueType::Integer,
+                    type_id: 1,
                     new_value: Box::new(1),
                 };
                 to_update.push(update);
@@ -33,12 +33,10 @@ async fn test_insert_conditionally(client_factory: &ClientFactory) {
         })
         .await;
     assert!(result.is_ok());
-    let map = synchronizer.get_current_map();
-    assert_eq!(map.len(), 1);
-    let value_option = synchronizer.get("test".to_string());
+    let value_option = synchronizer.get(&"test".into());
     assert!(value_option.is_some());
     let version = synchronizer
-        .get_key_version("test".to_string())
+        .get_key_version(&"test".into())
         .expect("get the key and value");
     assert_eq!(version, 0);
 }
@@ -51,9 +49,9 @@ async fn test_remove_conditionally(client_factory: &ClientFactory) {
         .insert_conditionally(|map| {
             let mut to_update = Vec::new();
             if map.len() == 0 {
-                let update = UpdateOrInsert {
+                let update = Insert {
                     key: "test".to_string(),
-                    type_code: ValueType::Integer,
+                    type_id: 1,
                     new_value: Box::new(1),
                 };
                 to_update.push(update);
@@ -61,6 +59,7 @@ async fn test_remove_conditionally(client_factory: &ClientFactory) {
             to_update
         })
         .await;
+
     assert!(result.is_ok());
     let result = synchronizer
         .remove_conditionally(|map| {
@@ -75,6 +74,7 @@ async fn test_remove_conditionally(client_factory: &ClientFactory) {
         })
         .await;
     assert!(result.is_ok());
-    let map = synchronizer.get_current_map();
-    assert_eq!(map.len(), 0);
+
+    let value_option = synchronizer.get(&"test".into());
+    assert!(value_option.is_none());
 }
