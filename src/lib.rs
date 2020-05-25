@@ -44,25 +44,25 @@ pub mod tablemap;
 pub mod transaction;
 
 thread_local! {
-    pub static RNG: RefCell<Pcg32> = RefCell::new(Pcg32::from_entropy());
+    pub(crate) static RNG: RefCell<Pcg32> = RefCell::new(Pcg32::from_entropy());
 }
 
-pub static REQUEST_ID_GENERATOR: AtomicI64 = AtomicI64::new(0);
+pub(crate) static REQUEST_ID_GENERATOR: AtomicI64 = AtomicI64::new(0);
 
 ///
 /// Function used to generate request ids for all the modules.
 ///
-pub fn get_request_id() -> i64 {
+pub(crate) fn get_request_id() -> i64 {
     REQUEST_ID_GENERATOR.fetch_add(1, Ordering::SeqCst) + 1
 }
 
 /// Function used to generate random u64.
-pub fn get_random_u64() -> u64 {
+pub(crate) fn get_random_u64() -> u64 {
     RNG.with(|rng| rng.borrow_mut().gen())
 }
 
 /// Function used to generate random i64.
-pub fn get_random_f64() -> f64 {
+pub(crate) fn get_random_f64() -> f64 {
     RNG.with(|rng| rng.borrow_mut().gen())
 }
 
@@ -71,7 +71,7 @@ extern crate derive_new;
 
 /// There is a known issue that rust doesn't print log from thread even when nocapture is not set.
 /// This will setup logger globally so logs can be printed to the same place.
-pub fn setup_logger() -> Result<(), fern::InitError> {
+pub(crate) fn setup_logger() -> Result<(), fern::InitError> {
     fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(

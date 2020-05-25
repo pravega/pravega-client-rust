@@ -17,9 +17,11 @@ use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::wire_commands::Replies;
 use snafu::ResultExt;
 use std::collections::VecDeque;
+use std::time::Duration;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{channel, Receiver};
 use tokio::sync::oneshot;
+use tokio::time::delay_for;
 
 /// TransactionalEventSegmentWriter contains a EventSegmentWriter that writes to a specific
 /// transaction segment.
@@ -44,21 +46,27 @@ impl TransactionalEventSegmentWriter {
         }
     }
 
-    /// set up connection for this transaction segment by sending wirecommand SetupAppend.
+    /// sets up connection for this transaction segment by sending wirecommand SetupAppend.
+    /// If an error happened, try to reconnect to the server.
     pub(super) async fn initialize(&mut self, factory: &ClientFactoryInternal) {
         if let Err(_e) = self.event_segment_writer.setup_connection(factory).await {
             self.event_segment_writer.reconnect(factory).await;
         }
     }
 
-    async fn receive(
+    /// check if there are any acks from the server and call event_segment_writer to write
+    /// the remaining pending events if a current inflight event has been acked.
+    async fn process_waiting_acks(
         &mut self,
         factory: &ClientFactoryInternal,
     ) -> Result<(), TransactionalEventSegmentWriterError> {
         loop {
             match self.recevier.try_recv() {
                 Ok(event) => {
+                    // The incoming reply should always be ServerReply type.
                     if let Incoming::ServerReply(reply) = event {
+                        // The reply is expected to be DataAppended wirecommand, other wirecommand
+                        // indicates that something went wrong.
                         match reply.reply {
                             Replies::DataAppended(cmd) => {
                                 debug!(
@@ -68,7 +76,7 @@ impl TransactionalEventSegmentWriter {
                                 );
 
                                 self.event_segment_writer.ack(cmd.event_number);
-                                if let Err(e) = self.event_segment_writer.flush().await {
+                                if let Err(e) = self.event_segment_writer.write_pending_events().await {
                                     warn!("writer {:?} failed to flush data to segment {:?} due to {:?}, reconnecting",
                                               self.event_segment_writer.get_uuid(),
                                               self.event_segment_writer.get_segment_name(),
@@ -91,6 +99,7 @@ impl TransactionalEventSegmentWriter {
                     }
                 }
                 Err(e) => match e {
+                    // No reply from the server yet, just return ok.
                     TryRecvError::Empty => return Ok(()),
                     _ => return Err(TransactionalEventSegmentWriterError::MpscError { source: e }),
                 },
@@ -98,12 +107,13 @@ impl TransactionalEventSegmentWriter {
         }
     }
 
+    /// writes event to the sever by calling event_segment_writer.
     pub(super) async fn write_event(
         &mut self,
         event: Vec<u8>,
         factory: &ClientFactoryInternal,
     ) -> Result<(), TransactionalEventSegmentWriterError> {
-        self.receive(factory).await?;
+        self.process_waiting_acks(factory).await?;
         let (oneshot_tx, oneshot_rx) = oneshot::channel();
         if let Some(pending_event) = PendingEvent::with_header(None, event, oneshot_tx) {
             self.event_segment_writer
@@ -116,21 +126,24 @@ impl TransactionalEventSegmentWriter {
         Ok(())
     }
 
+    /// wait until all the outstanding events has been acked. This is a blocking call.
     pub(super) async fn flush(
         &mut self,
         factory: &ClientFactoryInternal,
     ) -> Result<(), TransactionalEventSegmentWriterError> {
         while !self.outstanding.is_empty() {
-            self.receive(factory).await?;
+            self.process_waiting_acks(factory).await?;
             self.remove_completed()?;
+            delay_for(Duration::from_millis(10)).await;
         }
         Ok(())
     }
 
+    /// removes the completed events from the outstanding queue.
     fn remove_completed(&mut self) -> Result<(), TransactionalEventSegmentWriterError> {
         while let Some(mut rx) = self.outstanding.pop_front() {
             match rx.try_recv() {
-                // the first write hasn't been acked, so we can just return ok
+                // the first outstanding event hasn't been acked, so we can just return ok
                 Err(oneshot::error::TryRecvError::Empty) => {
                     self.outstanding.push_front(rx);
                     return Ok(());

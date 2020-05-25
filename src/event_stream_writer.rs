@@ -152,7 +152,7 @@ impl Processor {
                                 writer.id, cmd.event_number
                             );
                             writer.ack(cmd.event_number);
-                            match writer.flush().await {
+                            match writer.write_pending_events().await {
                                 Ok(()) => {
                                     continue;
                                 }
@@ -390,10 +390,10 @@ impl EventSegmentWriter {
     }
 
     /// first add the event to the pending list
-    /// then flush the pending list is the inflight list is empty
+    /// then write the pending list if the inflight list is empty
     pub(crate) async fn write(&mut self, event: PendingEvent) -> Result<(), EventStreamWriterError> {
         self.add_pending(event);
-        self.flush().await
+        self.write_pending_events().await
     }
 
     /// add the event to the pending list
@@ -405,9 +405,9 @@ impl EventSegmentWriter {
         });
     }
 
-    /// flush the pending events. It will grab at most MAX_WRITE_SIZE of data
+    /// write the pending events to the server. It will grab at most MAX_WRITE_SIZE of data
     /// from the pending list and send them to the server. Those events will be moved to inflight list waiting to be acked.
-    pub(crate) async fn flush(&mut self) -> Result<(), EventStreamWriterError> {
+    pub(crate) async fn write_pending_events(&mut self) -> Result<(), EventStreamWriterError> {
         if !self.inflight.is_empty() || self.pending.is_empty() {
             return Ok(());
         }
@@ -522,7 +522,7 @@ impl EventSegmentWriter {
             }
 
             // flush any pending events
-            let flush_res = self.flush().await;
+            let flush_res = self.write_pending_events().await;
             if flush_res.is_err() {
                 continue;
             }
