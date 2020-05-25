@@ -10,8 +10,8 @@
 
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
-// mod stream_manager;
-// use stream_manager::StreamManager;
+mod stream_manager;
+use stream_manager::StreamManager;
 /// Formats the sum of two numbers as string.
 #[pyfunction]
 fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
@@ -20,8 +20,8 @@ fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
 
 #[pymodule]
 /// A Python module implemented in Rust.
-fn bindings(_py: Python, m: &PyModule) -> PyResult<()> {
+fn pravega_client(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(sum_as_string))?;
-    //m.add_class::<StreamManager>()?;
+    m.add_class::<StreamManager>()?;
     Ok(())
 }
