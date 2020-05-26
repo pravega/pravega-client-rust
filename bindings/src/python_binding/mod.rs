@@ -11,7 +11,10 @@
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 mod stream_manager;
+mod stream_writer;
 use stream_manager::StreamManager;
+use stream_writer::StreamWriter;
+
 /// Formats the sum of two numbers as string.
 #[pyfunction]
 fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
@@ -23,5 +26,6 @@ fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
 fn pravega_client(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(sum_as_string))?;
     m.add_class::<StreamManager>()?;
+    m.add_class::<StreamWriter>()?;
     Ok(())
 }

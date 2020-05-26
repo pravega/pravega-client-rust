@@ -8,9 +8,10 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::python_binding::stream_writer::StreamWriter;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
+use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
 use pyo3::exceptions;
 use pyo3::prelude::*;
 use pyo3::PyResult;
@@ -19,9 +20,10 @@ use tokio::runtime::Runtime;
 
 #[pyclass]
 pub(crate) struct StreamManager {
-    controller_ip: String,
+    _controller_ip: String,
     rt: Runtime,
     cf: ClientFactory,
+    config: ClientConfig,
 }
 
 #[pymethods]
@@ -41,38 +43,68 @@ impl StreamManager {
         let client_factory = handle.block_on(ClientFactory::new(config.clone()));
 
         StreamManager {
-            controller_ip: controller_uri,
+            _controller_ip: controller_uri,
             rt: runtime,
             cf: client_factory,
+            config,
         }
     }
 
-    pub fn create_scope(&self, scope: &str) -> PyResult<bool> {
+    ///
+    /// Create a Scope in Pravega.
+    ///
+    pub fn create_scope(&self, scope_name: &str) -> PyResult<bool> {
         let handle = self.rt.handle().clone();
-        println!("creating scope {:?}", scope);
+        println!("creating scope {:?}", scope_name);
 
         let controller = self.cf.get_controller_client();
-        let scope_name = Scope::new(scope.to_string());
-        // let stream_name = Stream::new("testStream".into());
+        let scope_name = Scope::new(scope_name.to_string());
 
         let scope_result = handle.block_on(controller.create_scope(&scope_name));
-        println!("Scope Creation {:?}", scope_result);
+        println!("Scope creation status {:?}", scope_result);
         match scope_result {
             Ok(t) => Ok(t),
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
         }
     }
 
-    pub fn create_stream(&self, scope: &str, stream: &str, initial_segments: i32) -> PyResult<bool> {
+    ///
+    /// Delete a Scope in Pravega.
+    ///
+    pub fn delete_scope(&self, scope_name: &str) -> PyResult<bool> {
+        let handle = self.rt.handle().clone();
+        println!("Delete scope {:?}", scope_name);
+
+        let controller = self.cf.get_controller_client();
+        let scope_name = Scope::new(scope_name.to_string());
+        // let stream_name = Stream::new("testStream".into());
+
+        let scope_result = handle.block_on(controller.delete_scope(&scope_name));
+        println!("Scope deletion status {:?}", scope_result);
+        match scope_result {
+            Ok(t) => Ok(t),
+            Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
+        }
+    }
+
+    ///
+    /// Create a Stream in Pravega.
+    ///
+    pub fn create_stream(
+        &self,
+        scope_name: &str,
+        stream_name: &str,
+        initial_segments: i32,
+    ) -> PyResult<bool> {
         let handle = self.rt.handle().clone();
         println!(
             "creating stream {:?} under scope {:?} with segment count {:?}",
-            stream, scope, initial_segments
+            stream_name, scope_name, initial_segments
         );
         let stream_cfg = StreamConfiguration {
             scoped_stream: ScopedStream {
-                scope: Scope::new(scope.to_string()),
-                stream: Stream::new(stream.to_string()),
+                scope: Scope::new(scope_name.to_string()),
+                stream: Stream::new(stream_name.to_string()),
             },
             scaling: Scaling {
                 scale_type: ScaleType::FixedNumSegments,
@@ -88,10 +120,69 @@ impl StreamManager {
         let controller = self.cf.get_controller_client();
 
         let stream_result = handle.block_on(controller.create_stream(&stream_cfg));
-        println!("Stream creation result {:?}", stream_result);
+        println!("Stream creation status {:?}", stream_result);
         match stream_result {
             Ok(t) => Ok(t),
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
         }
+    }
+
+    ///
+    /// Create a Stream in Pravega.
+    ///
+    pub fn seal_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
+        let handle = self.rt.handle().clone();
+        println!("Sealing stream {:?} under scope {:?} ", stream_name, scope_name);
+        let scoped_stream = ScopedStream {
+            scope: Scope::new(scope_name.to_string()),
+            stream: Stream::new(stream_name.to_string()),
+        };
+
+        let controller = self.cf.get_controller_client();
+
+        let stream_result = handle.block_on(controller.seal_stream(&scoped_stream));
+        println!("Sealing stream status {:?}", stream_result);
+        match stream_result {
+            Ok(t) => Ok(t),
+            Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
+        }
+    }
+
+    ///
+    /// Delete a Stream in Pravega.
+    ///
+    pub fn delete_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
+        let handle = self.rt.handle().clone();
+        println!("Deleting stream {:?} under scope {:?} ", stream_name, scope_name);
+        let scoped_stream = ScopedStream {
+            scope: Scope::new(scope_name.to_string()),
+            stream: Stream::new(stream_name.to_string()),
+        };
+
+        let controller = self.cf.get_controller_client();
+        let stream_result = handle.block_on(controller.delete_stream(&scoped_stream));
+        println!("Deleting stream status {:?}", stream_result);
+        match stream_result {
+            Ok(t) => Ok(t),
+            Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
+        }
+    }
+
+    ///
+    /// Create a Writer for a given Stream.
+    ///
+    pub fn create_writer(&self, scope_name: &str, stream_name: &str) -> PyResult<StreamWriter> {
+        let scoped_stream = ScopedStream {
+            scope: Scope::new(scope_name.to_string()),
+            stream: Stream::new(stream_name.to_string()),
+        };
+        let stream_writer = self.rt.handle().clone().block_on(async {
+            StreamWriter::new(
+                self.cf
+                    .create_event_stream_writer(scoped_stream, self.config.clone()),
+                self.rt.handle().clone(),
+            )
+        });
+        Ok(stream_writer)
     }
 }

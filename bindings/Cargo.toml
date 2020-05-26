@@ -1,14 +1,22 @@
 [package]
 name = "bindings"
 version = "0.1.0"
-authors = ["Sandeep <sandeep.shridhar@emc.com>"]
 edition = "2018"
+categories = ["Network programming"]
+keywords = ["streaming", "client", "pravega"]
+readme = "Readme.md"
+repository = "https://github.com/pravega/pravega-client-rust"
+license = "Apache-2.0"
+description = "An internal library used by the Rust client for Pravega to generated language bindings for Python and WASM."
+authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.com>",
+           "Sandeep Shridhar <sandeep.shridhar@dell.com>", "Wenxiao Zhang <wenxiao.zhang@dell.com>"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
 name = "pravega_client"
 crate-type = ["cdylib"]
+
 [dependencies.pyo3]
 version = "0.10.1"
 features = ["extension-module"]
@@ -25,3 +33,4 @@ tokio = { version = "0.2.13", features = ["full"] }
 lazy_static = "1.4.0"
 uuid = {version = "0.8", features = ["v4"]}
 futures = "0.3.5"
+derive-new = "0.5"

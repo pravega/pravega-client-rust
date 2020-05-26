@@ -1,4 +1,6 @@
 mod python_binding;
+#[macro_use]
+extern crate derive_new;
 
 #[cfg(test)]
 mod tests {
