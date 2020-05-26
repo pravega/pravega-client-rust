@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::Unpin;
-use tracing::debug;
+use tracing::{debug, info};
 
 /// Provides a means to have map that is synchronized between many processes.
 /// The pattern is to have a map that can be update by Insert or Remove,
@@ -48,8 +48,8 @@ impl<K: Debug + Eq + Hash + PartialEq + Clone + Serialize + DeserializeOwned> Ha
 /// data: the Value data after serialized.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Value {
-    type_id: u64,
-    data: Vec<u8>,
+    pub type_id: u64,
+    pub data: Vec<u8>,
 }
 
 /// The Insert struct. It contains three fields.
@@ -243,7 +243,7 @@ where
                 }
             }
         }
-        debug!("finish fetch updates, now the map has {} entries", entry_count);
+        info!("finish fetch updates, now the map has {} entries", entry_count);
         Ok(())
     }
 
@@ -300,24 +300,22 @@ where
         let result = table_synchronizer.table_map.insert_conditionally_all(send).await;
         match result {
             Err(e) => match e {
-                TableError::IncorrectKeyVersion {
-                    operation: _,
-                    error_msg: _,
-                } => {
+                TableError::IncorrectKeyVersion { operation, error_msg } => {
+                    debug!(" IncorrectKeyVersion {}, {}", operation, error_msg);
                     table_synchronizer.fetch_updates().await.expect("fetch update");
                 }
-                TableError::KeyDoesNotExist {
-                    operation: _,
-                    error_msg: _,
-                } => {
+                TableError::KeyDoesNotExist { operation, error_msg } => {
+                    debug!(" KeyDoesNotExist {}, {}", operation, error_msg);
                     table_synchronizer.fetch_updates().await.expect("fetch update");
                 }
                 _ => {
+                    debug!("Error message is {}", e);
                     return Err(e);
                 }
             },
             Ok(res) => {
                 apply_updates_to_localmap(to_update, res, table_synchronizer);
+                break;
             }
         }
     }
@@ -378,24 +376,22 @@ where
             .await;
         match result {
             Err(e) => match e {
-                TableError::IncorrectKeyVersion {
-                    operation: _,
-                    error_msg: _,
-                } => {
+                TableError::IncorrectKeyVersion { operation, error_msg } => {
+                    debug!("IncorrectKeyVersion {}, {}", operation, error_msg);
                     table_synchronizer.fetch_updates().await.expect("fetch update");
                 }
-                TableError::KeyDoesNotExist {
-                    operation: _,
-                    error_msg: _,
-                } => {
+                TableError::KeyDoesNotExist { operation, error_msg } => {
+                    debug!("KeyDoesNotExist {}, {}", operation, error_msg);
                     table_synchronizer.fetch_updates().await.expect("fetch update");
                 }
                 _ => {
+                    debug!("Error message is {}", e);
                     return Err(e);
                 }
             },
             Ok(()) => {
                 apply_deletes_to_localmap(to_delete, table_synchronizer);
+                break;
             }
         }
     }
@@ -521,27 +517,10 @@ mod test {
             data,
         };
 
-        map.insert(key, value);
-
-        let insert = Insert {
-            key: "b".to_string(),
-            type_id: 2,
-            new_value: Box::new("abc".to_string()),
-        };
-        let key = Key {
-            key: insert.key,
-            key_version: 0,
-        };
-        let data = serialize(&*insert.new_value).expect("serialize value");
-        let value = Value {
-            type_id: insert.type_id,
-            data,
-        };
-
         map.insert(key.clone(), value);
         let value = map.get(&key).expect("get the value");
-        let deserialized_data: String = deserialize_from(&value.data).expect("deserialize");
-        assert_eq!(deserialized_data, "abc".to_string());
+        let deserialized_data: i32 = deserialize_from(&value.data).expect("deserialize");
+        assert_eq!(deserialized_data, 1);
     }
 
     #[test]
