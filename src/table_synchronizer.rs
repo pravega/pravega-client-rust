@@ -14,11 +14,11 @@ use std::hash::{Hash, Hasher};
 use std::marker::Unpin;
 use tracing::{debug, info};
 
-/// Provides a means to have map that is synchronized between many processes.
+/// Provides a mean to have a map that is synchronized between many processes.
 /// The pattern is to have a map that can be update by Insert or Remove,
 /// Each host can perform logic based on its in_memory map and apply updates by supplying a
 /// function to create Insert/Remove objects.
-/// Update from other hosts can be obtained by calling fetchUpdate().
+/// Update from other hosts can be obtained by calling fetchUpdates().
 
 /// The Key struct in the in_memory map. it contains two fields, the key and key_version.
 /// key should be serialized and deserialized.
@@ -42,9 +42,8 @@ impl<K: Debug + Eq + Hash + PartialEq + Clone + Serialize + DeserializeOwned> Ha
     }
 }
 
-/// The Value struct in the in_memory map. It contains three fields.
-/// type_id of the data. It is used for deserialize data between different process.
-/// type_version of the data.
+/// The Value struct in the in_memory map. It contains two fields.
+/// type_id of the data. It is used for deserializing data between different processes..
 /// data: the Value data after serialized.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Value {
@@ -53,7 +52,8 @@ pub struct Value {
 }
 
 /// The Insert struct. It contains three fields.
-/// The key to insert or update, the type_id for the data, and the data.
+/// The key to insert or update,
+/// the type_id for the data, and the data.
 pub struct Insert<K>
 where
     K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
@@ -63,7 +63,7 @@ where
     pub new_value: Box<dyn ValueData>,
 }
 
-/// The key they wants to remove.
+/// The Remove struct.
 pub struct Remove<K>
 where
     K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
@@ -96,7 +96,7 @@ impl Clone for Box<dyn ValueData> {
     }
 }
 
-/// Serialize trait helper, we need to serialize the ValueData in Insert into Vec<u8>.
+/// Serialize trait helper, we need to serialize the ValueData in Insert struct into Vec<u8>.
 pub trait ValueSerialize {
     fn serialize_value(
         &self,
@@ -124,7 +124,8 @@ pub(crate) fn serialize(value: &dyn ValueData) -> Result<Vec<u8>, serde_cbor::er
     Ok(vec)
 }
 
-/// Deserialize the Value into the type T bt using cbor deserializer.
+/// Deserialize the Value into the type T by using cbor deserializer.
+/// THis method would be used by the user after calling get() of table_synchronizer.
 pub fn deserialize_from<T>(reader: &[u8]) -> Result<T, serde_cbor::error::Error>
 where
     T: DeserializeOwned,
@@ -176,6 +177,7 @@ where
 
     /// Gets the Value of the GivenKey,
     /// This is a non-blocking call.
+    /// The data in Value is not deserialized and the caller should call deserialize_from to deserialize.
     pub fn get(&self, key: &K) -> Option<&Value> {
         let search_key = Key {
             key: key.clone(),
@@ -216,6 +218,7 @@ where
         }
     }
 
+    /// Fetch the latest map in remote server and apply it to the local map.
     pub async fn fetch_updates(&mut self) -> Result<(), TableError> {
         debug!("fetch the latest map and apply to the local map");
         let reply = self.table_map.read_entries_stream(3);
@@ -255,7 +258,7 @@ where
         conditionally_write(updates_generator, self).await
     }
 
-    /// Remove a list of keys unconditionally.
+    /// Remove a list of keys conditionally and applies it atomically.
     pub async fn remove_conditionally(
         &mut self,
         deletes_generateor: impl FnMut(HashMap<K, Value>) -> Vec<Remove<K>>,

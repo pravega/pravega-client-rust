@@ -160,7 +160,8 @@ mod tests {
         // need another 4 bytes. (will block)
         let tx2 = tx.clone();
         tokio::spawn(async move {
-            thread::sleep(time::Duration::from_secs(1));
+            //make sure, this send is later the previous one.
+            tokio::time::delay_for(time::Duration::from_secs(1)).await;
             if let Err(_) = tx2.send((2, 4)).await {
                 println!("receiver dropped");
             }
