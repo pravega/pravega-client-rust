@@ -12,7 +12,6 @@ use super::wait_for_standalone_with_timeout;
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
 use log::info;
 use pravega_client_rust::raw_client::{RawClient, RawClientImpl};
-use pravega_client_rust::setup_logger;
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl, ControllerError};
 use pravega_rust_client_retry::retry_async::retry_async;

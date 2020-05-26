@@ -14,6 +14,7 @@ use crate::event_stream_writer::{EventSegmentWriter, Incoming, PendingEvent};
 use log::{debug, error, warn};
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_shared::ScopedSegment;
+use pravega_wire_protocol::commands::DataAppendedCommand;
 use pravega_wire_protocol::wire_commands::Replies;
 use snafu::ResultExt;
 use std::collections::VecDeque;
@@ -54,59 +55,6 @@ impl TransactionalEventSegmentWriter {
         }
     }
 
-    /// check if there are any acks from the server and call event_segment_writer to write
-    /// the remaining pending events if a current inflight event has been acked.
-    async fn process_waiting_acks(
-        &mut self,
-        factory: &ClientFactoryInternal,
-    ) -> Result<(), TransactionalEventSegmentWriterError> {
-        loop {
-            match self.recevier.try_recv() {
-                Ok(event) => {
-                    // The incoming reply should always be ServerReply type.
-                    if let Incoming::ServerReply(reply) = event {
-                        // The reply is expected to be DataAppended wirecommand, other wirecommand
-                        // indicates that something went wrong.
-                        match reply.reply {
-                            Replies::DataAppended(cmd) => {
-                                debug!(
-                                    "data appended for writer {:?}, latest event id is: {:?}",
-                                    self.event_segment_writer.get_uuid(),
-                                    cmd.event_number
-                                );
-
-                                self.event_segment_writer.ack(cmd.event_number);
-                                if let Err(e) = self.event_segment_writer.write_pending_events().await {
-                                    warn!("writer {:?} failed to flush data to segment {:?} due to {:?}, reconnecting",
-                                              self.event_segment_writer.get_uuid(),
-                                              self.event_segment_writer.get_segment_name(),
-                                              e);
-                                    self.event_segment_writer.reconnect(factory).await;
-                                }
-                            }
-                            _ => {
-                                error!(
-                                    "unexpected reply from segmentstore, transaction failed due to {:?}",
-                                    reply
-                                );
-                                return Err(TransactionalEventSegmentWriterError::UnexpectedReply {
-                                    error: reply.reply,
-                                });
-                            }
-                        }
-                    } else {
-                        panic!("should always be ServerReply");
-                    }
-                }
-                Err(e) => match e {
-                    // No reply from the server yet, just return ok.
-                    TryRecvError::Empty => return Ok(()),
-                    _ => return Err(TransactionalEventSegmentWriterError::MpscError { source: e }),
-                },
-            }
-        }
-    }
-
     /// writes event to the sever by calling event_segment_writer.
     pub(super) async fn write_event(
         &mut self,
@@ -137,6 +85,65 @@ impl TransactionalEventSegmentWriter {
             delay_for(Duration::from_millis(10)).await;
         }
         Ok(())
+    }
+
+    /// check if there are any acks from the server and call event_segment_writer to write
+    /// the remaining pending events if a current inflight event has been acked.
+    async fn process_waiting_acks(
+        &mut self,
+        factory: &ClientFactoryInternal,
+    ) -> Result<(), TransactionalEventSegmentWriterError> {
+        loop {
+            match self.recevier.try_recv() {
+                Ok(event) => {
+                    // The incoming reply should always be ServerReply type.
+                    if let Incoming::ServerReply(reply) = event {
+                        // The reply is expected to be DataAppended wirecommand, other wirecommand
+                        // indicates that something went wrong.
+                        match reply.reply {
+                            Replies::DataAppended(cmd) => {
+                                self.process_data_appended(factory, cmd).await;
+                            }
+                            _ => {
+                                error!(
+                                    "unexpected reply from segmentstore, transaction failed due to {:?}",
+                                    reply
+                                );
+                                return Err(TransactionalEventSegmentWriterError::UnexpectedReply {
+                                    error: reply.reply,
+                                });
+                            }
+                        }
+                    } else {
+                        panic!("should always be ServerReply");
+                    }
+                }
+                Err(e) => match e {
+                    // No reply from the server yet, just return ok.
+                    TryRecvError::Empty => return Ok(()),
+                    _ => return Err(TransactionalEventSegmentWriterError::MpscError { source: e }),
+                },
+            }
+        }
+    }
+
+    async fn process_data_appended(&mut self, factory: &ClientFactoryInternal, cmd: DataAppendedCommand) {
+        debug!(
+            "data appended for writer {:?}, latest event id is: {:?}",
+            self.event_segment_writer.get_uuid(),
+            cmd.event_number
+        );
+
+        self.event_segment_writer.ack(cmd.event_number);
+        if let Err(e) = self.event_segment_writer.write_pending_events().await {
+            warn!(
+                "writer {:?} failed to flush data to segment {:?} due to {:?}, reconnecting",
+                self.event_segment_writer.get_uuid(),
+                self.event_segment_writer.get_segment_name(),
+                e
+            );
+            self.event_segment_writer.reconnect(factory).await;
+        }
     }
 
     /// removes the completed events from the outstanding queue.
