@@ -94,7 +94,7 @@ impl TransactionalEventSegmentWriter {
                 self.process_server_reply(event, factory).await?;
                 Ok(())
             }
-            None => return Err(TransactionalEventSegmentWriterError::MpscSenderDropped {}),
+            None => Err(TransactionalEventSegmentWriterError::MpscSenderDropped {}),
         }
     }
 
