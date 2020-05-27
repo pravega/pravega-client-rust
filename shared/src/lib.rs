@@ -71,7 +71,7 @@ pub struct Segment {
     pub number: i64,
 }
 
-#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScopedStream {
     pub scope: Scope,
     pub stream: Stream,
@@ -82,6 +82,12 @@ pub struct ScopedSegment {
     pub scope: Scope,
     pub stream: Stream,
     pub segment: Segment,
+}
+
+impl ScopedSegment {
+    pub fn get_scoped_stream(&self) -> ScopedStream {
+        ScopedStream::new(self.scope.clone(), self.stream.clone())
+    }
 }
 
 impl From<String> for ScopedSegment {

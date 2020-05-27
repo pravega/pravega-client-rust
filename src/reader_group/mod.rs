@@ -8,10 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-pub(crate) mod checkpoint;
-pub(crate) mod event_pointer;
-pub(crate) mod position;
-pub(crate) mod stream_cut;
+pub(crate) mod reader_group_config;
 
 use bincode2::Config;
 use bincode2::LengthOption;
