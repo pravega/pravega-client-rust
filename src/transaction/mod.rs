@@ -131,7 +131,7 @@ impl Transaction {
                 timestamp,
             )
             .await
-            .expect("commit transaction");
+            .context(TxnControllerError {})?;
 
         debug!("transaction {:?} committed", self.info.txn_id);
         Ok(())
@@ -161,7 +161,7 @@ impl Transaction {
             .get_controller_client()
             .abort_transaction(&self.info.stream, self.info.txn_id)
             .await
-            .expect("abort transaction");
+            .context(TxnControllerError {})?;
 
         debug!("transaction {:?} aborted", self.info.txn_id);
         Ok(())
