@@ -80,6 +80,9 @@ pub enum TransactionalEventSegmentWriterError {
     #[snafu(display("Mpsc failed with error {:?}", source))]
     MpscError { source: TryRecvError },
 
+    #[snafu(display("Mpsc closed with sender dropped"))]
+    MpscSenderDropped {},
+
     #[snafu(display("Oneshot failed with error {:?}", source))]
     OneshotError { source: oneshot::error::TryRecvError },
 

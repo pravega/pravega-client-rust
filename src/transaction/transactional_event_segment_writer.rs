@@ -17,12 +17,9 @@ use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::commands::DataAppendedCommand;
 use pravega_wire_protocol::wire_commands::Replies;
 use snafu::ResultExt;
-use std::collections::VecDeque;
-use std::time::Duration;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{channel, Receiver};
 use tokio::sync::oneshot;
-use tokio::time::delay_for;
 
 /// TransactionalEventSegmentWriter contains a EventSegmentWriter that writes to a specific
 /// transaction segment.
@@ -30,7 +27,8 @@ pub(super) struct TransactionalEventSegmentWriter {
     segment: ScopedSegment,
     event_segment_writer: EventSegmentWriter,
     recevier: Receiver<Incoming>,
-    outstanding: VecDeque<oneshot::Receiver<Result<(), EventStreamWriterError>>>,
+    // Only need to hold onto the lastest event since if any previous events failed, the last one will also fail
+    outstanding: Option<oneshot::Receiver<Result<(), EventStreamWriterError>>>,
 }
 
 impl TransactionalEventSegmentWriter {
@@ -43,7 +41,7 @@ impl TransactionalEventSegmentWriter {
             segment,
             event_segment_writer,
             recevier: rx,
-            outstanding: VecDeque::new(),
+            outstanding: None,
         }
     }
 
@@ -61,7 +59,7 @@ impl TransactionalEventSegmentWriter {
         event: Vec<u8>,
         factory: &ClientFactoryInternal,
     ) -> Result<(), TransactionalEventSegmentWriterError> {
-        self.process_waiting_acks(factory).await?;
+        self.try_process_waiting_acks(factory).await?;
         let (oneshot_tx, oneshot_rx) = oneshot::channel();
         if let Some(pending_event) = PendingEvent::with_header(None, event, oneshot_tx) {
             self.event_segment_writer
@@ -69,55 +67,46 @@ impl TransactionalEventSegmentWriter {
                 .await
                 .context(WriterError {})?;
         }
-        self.outstanding.push_back(oneshot_rx);
-        self.remove_completed()?;
+        // set the latest outstanding event.
+        self.outstanding = Some(oneshot_rx);
         Ok(())
     }
 
-    /// wait until all the outstanding events has been acked. This is a blocking call.
+    /// wait until all the outstanding events has been acked.
     pub(super) async fn flush(
         &mut self,
         factory: &ClientFactoryInternal,
     ) -> Result<(), TransactionalEventSegmentWriterError> {
-        while !self.outstanding.is_empty() {
+        if self.outstanding.is_some() {
             self.process_waiting_acks(factory).await?;
             self.remove_completed()?;
-            delay_for(Duration::from_millis(10)).await;
         }
         Ok(())
     }
 
-    /// check if there are any acks from the server and call event_segment_writer to write
-    /// the remaining pending events if a current inflight event has been acked.
+    /// process any events that are waiting for server acks. It will wait until responses arrive.
     async fn process_waiting_acks(
+        &mut self,
+        factory: &ClientFactoryInternal,
+    ) -> Result<(), TransactionalEventSegmentWriterError> {
+        match self.recevier.recv().await {
+            Some(event) => {
+                self.process_server_reply(event, factory).await?;
+                Ok(())
+            }
+            None => return Err(TransactionalEventSegmentWriterError::MpscSenderDropped {}),
+        }
+    }
+
+    /// try to process events that are waiting for server acks. If there is no response from server
+    /// then return immediately.
+    async fn try_process_waiting_acks(
         &mut self,
         factory: &ClientFactoryInternal,
     ) -> Result<(), TransactionalEventSegmentWriterError> {
         loop {
             match self.recevier.try_recv() {
-                Ok(event) => {
-                    // The incoming reply should always be ServerReply type.
-                    if let Incoming::ServerReply(reply) = event {
-                        // The reply is expected to be DataAppended wirecommand, other wirecommand
-                        // indicates that something went wrong.
-                        match reply.reply {
-                            Replies::DataAppended(cmd) => {
-                                self.process_data_appended(factory, cmd).await;
-                            }
-                            _ => {
-                                error!(
-                                    "unexpected reply from segmentstore, transaction failed due to {:?}",
-                                    reply
-                                );
-                                return Err(TransactionalEventSegmentWriterError::UnexpectedReply {
-                                    error: reply.reply,
-                                });
-                            }
-                        }
-                    } else {
-                        panic!("should always be ServerReply");
-                    }
-                }
+                Ok(event) => self.process_server_reply(event, factory).await?,
                 Err(e) => match e {
                     // No reply from the server yet, just return ok.
                     TryRecvError::Empty => return Ok(()),
@@ -127,6 +116,33 @@ impl TransactionalEventSegmentWriter {
         }
     }
 
+    /// processes the sever reply.
+    async fn process_server_reply(
+        &mut self,
+        income: Incoming,
+        factory: &ClientFactoryInternal,
+    ) -> Result<(), TransactionalEventSegmentWriterError> {
+        match income {
+            Incoming::ServerReply(reply) => match reply.reply {
+                Replies::DataAppended(cmd) => {
+                    self.process_data_appended(factory, cmd).await;
+                    Ok(())
+                }
+                _ => {
+                    error!(
+                        "unexpected reply from segmentstore, transaction failed due to {:?}",
+                        reply
+                    );
+                    Err(TransactionalEventSegmentWriterError::UnexpectedReply { error: reply.reply })
+                }
+            },
+            _ => {
+                panic!("should always receive ServerReply type");
+            }
+        }
+    }
+
+    /// processes the data appended wirecommand.
     async fn process_data_appended(&mut self, factory: &ClientFactoryInternal, cmd: DataAppendedCommand) {
         debug!(
             "data appended for writer {:?}, latest event id is: {:?}",
@@ -146,26 +162,23 @@ impl TransactionalEventSegmentWriter {
         }
     }
 
-    /// removes the completed events from the outstanding queue.
+    /// check if the latest inflight event has completed. If it has completed then there are no
+    /// more inflight events.
     fn remove_completed(&mut self) -> Result<(), TransactionalEventSegmentWriterError> {
-        while let Some(mut rx) = self.outstanding.pop_front() {
-            match rx.try_recv() {
-                // the first outstanding event hasn't been acked, so we can just return ok
-                Err(oneshot::error::TryRecvError::Empty) => {
-                    self.outstanding.push_front(rx);
-                    return Ok(());
-                }
+        assert!(self.outstanding.is_some());
 
-                Ok(reply) => {
-                    if let Err(e) = reply {
-                        return Err(TransactionalEventSegmentWriterError::WriterError { source: e });
-                    }
-                }
-                Err(e) => {
-                    return Err(TransactionalEventSegmentWriterError::OneshotError { source: e });
-                }
+        let mut rx = self.outstanding.take().expect("outstanding event is not empty");
+        match rx.try_recv() {
+            // the outstanding event hasn't been acked, just return ok.
+            Err(oneshot::error::TryRecvError::Empty) => {
+                self.outstanding = Some(rx);
+                Ok(())
             }
+            Ok(reply) => match reply {
+                Ok(()) => Ok(()),
+                Err(e) => Err(TransactionalEventSegmentWriterError::WriterError { source: e }),
+            },
+            Err(e) => Err(TransactionalEventSegmentWriterError::OneshotError { source: e }),
         }
-        Ok(())
     }
 }
