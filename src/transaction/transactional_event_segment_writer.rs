@@ -89,12 +89,11 @@ impl TransactionalEventSegmentWriter {
         &mut self,
         factory: &ClientFactoryInternal,
     ) -> Result<(), TransactionalEventSegmentWriterError> {
-        match self.recevier.recv().await {
-            Some(event) => {
-                self.process_server_reply(event, factory).await?;
-                Ok(())
-            }
-            None => Err(TransactionalEventSegmentWriterError::MpscSenderDropped {}),
+        if let Some(event) = self.recevier.recv().await {
+            self.process_server_reply(event, factory).await?;
+            Ok(())
+        } else {
+            Err(TransactionalEventSegmentWriterError::MpscSenderDropped {})
         }
     }
 
@@ -122,23 +121,19 @@ impl TransactionalEventSegmentWriter {
         income: Incoming,
         factory: &ClientFactoryInternal,
     ) -> Result<(), TransactionalEventSegmentWriterError> {
-        match income {
-            Incoming::ServerReply(reply) => match reply.reply {
-                Replies::DataAppended(cmd) => {
-                    self.process_data_appended(factory, cmd).await;
-                    Ok(())
-                }
-                _ => {
-                    error!(
-                        "unexpected reply from segmentstore, transaction failed due to {:?}",
-                        reply
-                    );
-                    Err(TransactionalEventSegmentWriterError::UnexpectedReply { error: reply.reply })
-                }
-            },
-            _ => {
-                panic!("should always receive ServerReply type");
+        if let Incoming::ServerReply(reply) = income {
+            if let Replies::DataAppended(cmd) = reply.reply {
+                self.process_data_appended(factory, cmd).await;
+                Ok(())
+            } else {
+                error!(
+                    "unexpected reply from server, transaction failed due to {:?}",
+                    reply
+                );
+                Err(TransactionalEventSegmentWriterError::UnexpectedReply { error: reply.reply })
             }
+        } else {
+            panic!("should always receive ServerReply type");
         }
     }
 
@@ -169,16 +164,16 @@ impl TransactionalEventSegmentWriter {
 
         let mut rx = self.outstanding.take().expect("outstanding event is not empty");
         match rx.try_recv() {
-            // the outstanding event hasn't been acked, just return ok.
-            Err(oneshot::error::TryRecvError::Empty) => {
-                self.outstanding = Some(rx);
-                Ok(())
+            Ok(reply) => reply.context(WriterError {}),
+            Err(e) => {
+                // the outstanding event hasn't been acked, keep the Receiver and return ok
+                if e == oneshot::error::TryRecvError::Empty {
+                    self.outstanding = Some(rx);
+                    Ok(())
+                } else {
+                    Err(TransactionalEventSegmentWriterError::OneshotError { source: e })
+                }
             }
-            Ok(reply) => match reply {
-                Ok(()) => Ok(()),
-                Err(e) => Err(TransactionalEventSegmentWriterError::WriterError { source: e }),
-            },
-            Err(e) => Err(TransactionalEventSegmentWriterError::OneshotError { source: e }),
         }
     }
 }
