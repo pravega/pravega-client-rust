@@ -106,11 +106,9 @@ impl TransactionalEventSegmentWriter {
         loop {
             match self.recevier.try_recv() {
                 Ok(event) => self.process_server_reply(event, factory).await?,
-                Err(e) => match e {
-                    // No reply from the server yet, just return ok.
-                    TryRecvError::Empty => return Ok(()),
-                    _ => return Err(TransactionalEventSegmentWriterError::MpscError { source: e }),
-                },
+                // No reply from the server yet, just return ok.
+                Err(TryRecvError::Empty) => return Ok(()),
+                Err(e) => return Err(TransactionalEventSegmentWriterError::MpscError { source: e }),
             }
         }
     }
@@ -165,15 +163,12 @@ impl TransactionalEventSegmentWriter {
         let mut rx = self.outstanding.take().expect("outstanding event is not empty");
         match rx.try_recv() {
             Ok(reply) => reply.context(WriterError {}),
-            Err(e) => {
+            Err(oneshot::error::TryRecvError::Empty) => {
                 // the outstanding event hasn't been acked, keep the Receiver and return ok
-                if e == oneshot::error::TryRecvError::Empty {
-                    self.outstanding = Some(rx);
-                    Ok(())
-                } else {
-                    Err(TransactionalEventSegmentWriterError::OneshotError { source: e })
-                }
+                self.outstanding = Some(rx);
+                Ok(())
             }
+            Err(e) => Err(TransactionalEventSegmentWriterError::OneshotError { source: e }),
         }
     }
 }

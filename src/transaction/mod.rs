@@ -150,12 +150,6 @@ impl Transaction {
             .await
             .context(TxnStreamWriterError {})?;
 
-        for writer in self.inner.values_mut() {
-            writer
-                .flush(&self.factory)
-                .await
-                .context(TxnSegmentWriterError {})?;
-        }
         self.inner.clear(); // release the ownership of all event segment writer
         self.factory
             .get_controller_client()
