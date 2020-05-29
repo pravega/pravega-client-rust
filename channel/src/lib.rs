@@ -84,7 +84,6 @@ mod tests {
     use super::create_channel;
     use std::{thread, time};
     use tokio::runtime::Runtime;
-    use tokio::sync::mpsc::error::SendError;
 
     #[test]
     fn test_wrapper() {
@@ -161,18 +160,12 @@ mod tests {
         // need another 4 bytes. (will block)
         let tx2 = tx.clone();
         tokio::spawn(async move {
+            tokio::time::delay_for(time::Duration::from_secs(1)).await;
             if let Err(_) = tx2.send((2, 4)).await {
                 println!("receiver dropped");
             }
         });
 
-        // need another 4 bytes. (will block)
-        let tx3 = tx.clone();
-        tokio::spawn(async move {
-            if let Err(_) = tx3.send((3, 4)).await {
-                println!("receiver dropped");
-            }
-        });
 
         if let Some(message) = rx.recv().await {
             assert_eq!(message, (1, 4));
@@ -182,12 +175,6 @@ mod tests {
 
         if let Some(message) = rx.recv().await {
             assert_eq!(message, (2, 4));
-        } else {
-            panic!("test failed");
-        }
-
-        if let Some(message) = rx.recv().await {
-            assert_eq!(message, (3, 4));
         } else {
             panic!("test failed");
         }
@@ -233,13 +220,6 @@ mod tests {
         });
         thread::sleep(time::Duration::from_secs(1));
         let result = tx.send((2, 4)).await;
-
-        if let Err(e) = result {
-            if let SendError { 0: value } = e {
-                assert_eq!(value, (2, 4));
-            }
-        } else {
-            panic!("Test failed");
-        }
+        assert!(result.is_err());
     }
 }

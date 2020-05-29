@@ -611,6 +611,7 @@ fn test_update_table_entries() {
             segment: segment_name,
             delegation_token: token,
             table_entries,
+            table_segment_offset: -1,
         }));
 
     test_command(update_table_entries);
@@ -640,6 +641,7 @@ fn test_remove_table_keys() {
             segment,
             delegation_token: token,
             keys,
+            table_segment_offset: -1,
         }));
     test_command(remove_table_keys_command);
 }

@@ -248,6 +248,9 @@ enum Command {
         /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
+        /// The expected offset to update.
+        #[structopt(short = "t", long, default_value = "-1")]
+        table_segment_offset: i64,
     },
     /// Remove table keys.
     RemoveTableKeys {
@@ -263,6 +266,9 @@ enum Command {
         /// The delegation token, default value is null.
         #[structopt(short = "d", long, default_value = "")]
         delegation_token: String,
+        /// The expected offset to update.
+        #[structopt(short = "t", long, default_value = "-1")]
+        table_segment_offset: i64,
     },
     /// Read table.
     ReadTable {
@@ -646,6 +652,7 @@ async fn main() {
             key_version,
             value,
             delegation_token,
+            table_segment_offset,
         } => {
             let id = ID_GENERATOR.fetch_add(1, Ordering::SeqCst) as i64;
             let mut entries = Vec::new();
@@ -659,6 +666,7 @@ async fn main() {
                 segment,
                 table_entries: table,
                 delegation_token,
+                table_segment_offset,
             });
             let reply = raw_client
                 .send_request(&request)
@@ -671,6 +679,7 @@ async fn main() {
             table_keys,
             keys_version,
             delegation_token,
+            table_segment_offset,
         } => {
             let id = ID_GENERATOR.fetch_add(1, Ordering::SeqCst) as i64;
             let mut keys = Vec::new();
@@ -685,6 +694,7 @@ async fn main() {
                 segment,
                 keys,
                 delegation_token,
+                table_segment_offset,
             });
             let reply = raw_client
                 .send_request(&request)

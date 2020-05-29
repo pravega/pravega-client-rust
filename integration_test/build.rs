@@ -6,8 +6,8 @@ use std::path::Path;
 use tar::Archive;
 
 const LIBRARY: &str = "pravega";
-const VERSION: &str = "0.6.2";
-const TAG: &str = "v0.6.2";
+const VERSION: &str = "0.8.0-2561.f9abb46-SNAPSHOT";
+const TAG: &str = "table_synchronizer";
 const BASE: &str = "./";
 
 fn main() {
@@ -37,7 +37,7 @@ fn remove_suffix(value: &mut String, suffix: &str) {
 /// Downloads and unpacks a prebuilt binary. Only works for certain platforms.
 fn install_prebuilt() {
     let url = format!(
-        "https://github.com/pravega/pravega/releases/download/{}/pravega-{}.tgz",
+        "https://github.com/zwx14700/pravega/releases/download/{}/pravega-{}.tgz",
         TAG, VERSION
     );
     let short_file_name = url.split('/').last().unwrap();

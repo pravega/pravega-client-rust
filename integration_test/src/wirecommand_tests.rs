@@ -134,12 +134,12 @@ async fn test_hello() {
     // send hello to Pravega standalone
     let request = Requests::Hello(HelloCommand {
         low_version: 5,
-        high_version: 9,
+        high_version: 10,
     });
 
     let reply = Replies::Hello(HelloCommand {
         low_version: 5,
-        high_version: 9,
+        high_version: 10,
     });
 
     let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
@@ -750,6 +750,7 @@ async fn test_update_table_entries() {
         segment: segment_name.to_string(),
         delegation_token: String::from(""),
         table_entries: table,
+        table_segment_offset: -1,
     });
     let mut versions = Vec::new();
     versions.push(0 as i64);
@@ -776,6 +777,7 @@ async fn test_update_table_entries() {
         segment: segment_name.to_string(),
         delegation_token: String::from(""),
         table_entries: table,
+        table_segment_offset: -1,
     });
     let reply = Replies::TableKeyDoesNotExist(TableKeyDoesNotExistCommand {
         request_id: 20,
@@ -799,6 +801,7 @@ async fn test_update_table_entries() {
         segment: segment_name.to_string(),
         delegation_token: String::from(""),
         table_entries: table,
+        table_segment_offset: -1,
     });
     let reply = Replies::TableKeyBadVersion(TableKeyBadVersionCommand {
         request_id: 21,

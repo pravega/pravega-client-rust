@@ -441,6 +441,7 @@ impl<'a> TableMap<'a> {
             segment: self.name.clone(),
             delegation_token: "".to_string(),
             table_entries: te,
+            table_segment_offset: -1,
         });
         let re = self.raw_client.as_ref().send_request(&req).await;
         debug!("Reply for UpdateTableEntries request {:?}", re);
@@ -522,6 +523,7 @@ impl<'a> TableMap<'a> {
             segment: self.name.clone(),
             delegation_token: "".to_string(),
             keys: tks,
+            table_segment_offset: -1,
         });
         let re = self.raw_client.as_ref().send_request(&req).await;
         debug!("Reply for RemoveTableKeys request {:?}", re);
