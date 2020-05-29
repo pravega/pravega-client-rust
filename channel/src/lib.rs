@@ -166,7 +166,6 @@ mod tests {
             }
         });
 
-
         if let Some(message) = rx.recv().await {
             assert_eq!(message, (1, 4));
         } else {
