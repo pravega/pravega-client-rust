@@ -29,7 +29,7 @@ async fn test_insert_conditionally(client_factory: &ClientFactory) {
             if map.is_empty() {
                 let update = Insert {
                     key: "test".to_string(),
-                    type_id: 1,
+                    type_id: "i32".into(),
                     new_value: Box::new(1),
                 };
                 to_update.push(update);
@@ -69,7 +69,7 @@ async fn test_remove_conditionally(client_factory: &ClientFactory) {
             if map.is_empty() {
                 let update = Insert {
                     key: "test".to_string(),
-                    type_id: 1,
+                    type_id: "i32".into(),
                     new_value: Box::new(2),
                 };
                 to_update.push(update);
@@ -126,7 +126,7 @@ async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory
                 if data == 1 {
                     let update = Insert {
                         key: "test".to_string(),
-                        type_id: 1,
+                        type_id: "i32".into(),
                         new_value: Box::new(2),
                     };
                     to_update.push(update);
@@ -147,7 +147,7 @@ async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory
                 if data == 1 {
                     let update = Insert {
                         key: "test".to_string(),
-                        type_id: 1,
+                        type_id: "i32".into(),
                         new_value: Box::new(4),
                     };
                     to_update.push(update);
@@ -156,7 +156,7 @@ async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory
                 if data == 2 {
                     let update = Insert {
                         key: "test".to_string(),
-                        type_id: 1,
+                        type_id: "i32".into(),
                         new_value: Box::new(3),
                     };
                     to_update.push(update);
@@ -209,7 +209,7 @@ async fn test_remove_with_two_table_synchronizers(client_factory: &ClientFactory
                 // This update should failed, because the key is already removed.
                 let update = Insert {
                     key: "test".to_string(),
-                    type_id: 1,
+                    type_id: "i32".into(),
                     new_value: Box::new(4),
                 };
                 to_update.push(update);
@@ -243,7 +243,7 @@ async fn test_insert_and_get_with_customize_struct(client_factory: &ClientFactor
             let mut to_update = Vec::new();
             let insert = Insert {
                 key: "test1".to_string(),
-                type_id: 1,
+                type_id: "Test1".into(),
                 new_value: Box::new(Test1 {
                     name: "test1".to_string(),
                 }),
@@ -251,7 +251,7 @@ async fn test_insert_and_get_with_customize_struct(client_factory: &ClientFactor
             to_update.push(insert);
             let insert = Insert {
                 key: "test2".to_string(),
-                type_id: 2,
+                type_id: "Test2".into(),
                 new_value: Box::new(Test2 { age: 10 }),
             };
             to_update.push(insert);
@@ -268,8 +268,8 @@ async fn test_insert_and_get_with_customize_struct(client_factory: &ClientFactor
 
     let value = synchronizer2.get(&"test1".to_string()).expect("get value");
 
-    match value.type_id {
-        1 => {
+    match value.type_id.as_str() {
+        "Test1" => {
             let result: Test1 = deserialize_from(&value.data).expect("deserialize");
             assert_eq!(result.name, "test1".to_string());
         }

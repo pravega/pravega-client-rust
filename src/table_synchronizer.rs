@@ -47,7 +47,7 @@ impl<K: Debug + Eq + Hash + PartialEq + Clone + Serialize + DeserializeOwned> Ha
 /// data: the Value data after serialized.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Value {
-    pub type_id: u64,
+    pub type_id: String,
     pub data: Vec<u8>,
 }
 
@@ -59,7 +59,7 @@ where
     K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
     pub key: K,
-    pub type_id: u64,
+    pub type_id: String,
     pub new_value: Box<dyn ValueData>,
 }
 
@@ -288,7 +288,7 @@ where
         for update in to_update.iter() {
             let data = serialize(&*update.new_value).expect("serialize value");
             let value = Value {
-                type_id: update.type_id,
+                type_id: update.type_id.clone(),
                 data,
             };
             let key_version = table_synchronizer.get_key_version(&update.key);
@@ -302,20 +302,18 @@ where
         let send = to_send.iter().map(|x| (&x.0, &x.1, x.2)).rev().collect();
         let result = table_synchronizer.table_map.insert_conditionally_all(send).await;
         match result {
-            Err(e) => match e {
-                TableError::IncorrectKeyVersion { operation, error_msg } => {
-                    debug!(" IncorrectKeyVersion {}, {}", operation, error_msg);
-                    table_synchronizer.fetch_updates().await.expect("fetch update");
-                }
-                TableError::KeyDoesNotExist { operation, error_msg } => {
-                    debug!(" KeyDoesNotExist {}, {}", operation, error_msg);
-                    table_synchronizer.fetch_updates().await.expect("fetch update");
-                }
-                _ => {
-                    debug!("Error message is {}", e);
-                    return Err(e);
-                }
-            },
+            Err(TableError::IncorrectKeyVersion { operation, error_msg }) => {
+                debug!("IncorrectKeyVersion {}, {}", operation, error_msg);
+                table_synchronizer.fetch_updates().await.expect("fetch update");
+            }
+            Err(TableError::KeyDoesNotExist { operation, error_msg }) => {
+                debug!("KeyDoesNotExist {}, {}", operation, error_msg);
+                table_synchronizer.fetch_updates().await.expect("fetch update");
+            }
+            Err(e) => {
+                debug!("Error message is {}", e);
+                return Err(e);
+            }
             Ok(res) => {
                 apply_updates_to_localmap(to_update, res, table_synchronizer);
                 break;
@@ -378,20 +376,18 @@ where
             .remove_conditionally_all(to_send)
             .await;
         match result {
-            Err(e) => match e {
-                TableError::IncorrectKeyVersion { operation, error_msg } => {
-                    debug!("IncorrectKeyVersion {}, {}", operation, error_msg);
-                    table_synchronizer.fetch_updates().await.expect("fetch update");
-                }
-                TableError::KeyDoesNotExist { operation, error_msg } => {
-                    debug!("KeyDoesNotExist {}, {}", operation, error_msg);
-                    table_synchronizer.fetch_updates().await.expect("fetch update");
-                }
-                _ => {
-                    debug!("Error message is {}", e);
-                    return Err(e);
-                }
-            },
+            Err(TableError::IncorrectKeyVersion { operation, error_msg }) => {
+                debug!("IncorrectKeyVersion {}, {}", operation, error_msg);
+                table_synchronizer.fetch_updates().await.expect("fetch update");
+            }
+            Err(TableError::KeyDoesNotExist { operation, error_msg }) => {
+                debug!("KeyDoesNotExist {}, {}", operation, error_msg);
+                table_synchronizer.fetch_updates().await.expect("fetch update");
+            }
+            Err(e) => {
+                debug!("Error message is {}", e);
+                return Err(e);
+            }
             Ok(()) => {
                 apply_deletes_to_localmap(to_delete, table_synchronizer);
                 break;
@@ -433,7 +429,10 @@ mod test {
             key_version: 0,
         };
         let data = serialize(&"value".to_string()).expect("serialize");
-        let value1 = Value { type_id: 1, data };
+        let value1 = Value {
+            type_id: "String".into(),
+            data,
+        };
 
         let key2 = Key {
             key: "b".to_string(),
@@ -441,7 +440,10 @@ mod test {
         };
 
         let data = serialize(&1).expect("serialize");
-        let value2 = Value { type_id: 2, data };
+        let value2 = Value {
+            type_id: "i32".into(),
+            data,
+        };
         let result = map.insert(key1, value1);
         assert!(result.is_none());
         let result = map.insert(key2, value2);
@@ -458,13 +460,19 @@ mod test {
         };
 
         let data = serialize(&"value".to_string()).expect("serialize");
-        let value1 = Value { type_id: 1, data };
+        let value1 = Value {
+            type_id: "String".into(),
+            data,
+        };
         let key2 = Key {
             key: "a".to_string(),
             key_version: 1,
         };
         let data = serialize(&1).expect("serialize");
-        let value2 = Value { type_id: 2, data };
+        let value2 = Value {
+            type_id: "i32".into(),
+            data,
+        };
 
         let result = map.insert(key1.clone(), value1);
         assert!(result.is_none());
@@ -482,7 +490,10 @@ mod test {
         };
 
         let data = serialize(&"value".to_string()).expect("serialize");
-        let value1 = Value { type_id: 1, data };
+        let value1 = Value {
+            type_id: "String".into(),
+            data,
+        };
 
         let key2 = Key {
             key: "a".to_string(),
@@ -490,7 +501,10 @@ mod test {
         };
 
         let data = serialize(&1).expect("serialize");
-        let value2 = Value { type_id: 2, data };
+        let value2 = Value {
+            type_id: "i32".into(),
+            data,
+        };
 
         map.insert(key1.clone(), value1.clone());
         map.insert(key2.clone(), value2.clone());
@@ -505,7 +519,7 @@ mod test {
         let mut map: HashMap<Key<String>, Value> = HashMap::new();
         let insert = Insert {
             key: "a".to_string(),
-            type_id: 1,
+            type_id: "i32".into(),
             new_value: Box::new(1),
         };
 
@@ -530,7 +544,7 @@ mod test {
     fn test_insert_and_get_with_serialize() {
         let insert = Insert {
             key: "a".to_string(),
-            type_id: 1,
+            type_id: "i32".into(),
             new_value: Box::new(1),
         };
 
