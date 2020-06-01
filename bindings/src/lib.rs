@@ -8,6 +8,19 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-mod python_binding;
 #[macro_use]
 extern crate derive_new;
+
+use pyo3::prelude::*;
+mod stream_manager;
+mod stream_writer;
+use stream_manager::StreamManager;
+use stream_writer::StreamWriter;
+
+#[pymodule]
+/// A Python module implemented in Rust.
+fn pravega_client(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_class::<StreamManager>()?;
+    m.add_class::<StreamWriter>()?;
+    Ok(())
+}

@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::python_binding::stream_writer::StreamWriter;
+use crate::stream_writer::StreamWriter;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
