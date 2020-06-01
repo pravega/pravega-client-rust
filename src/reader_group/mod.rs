@@ -9,6 +9,7 @@
 //
 
 pub(crate) mod reader_group_config;
+pub(crate) mod reader_group_state;
 
 use bincode2::Config;
 use bincode2::LengthOption;

@@ -7,16 +7,6 @@
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
-
-//
-// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
 use super::BINCODE_CONFIG;
 use crate::error::*;
 use crate::stream::stream_cut::{StreamCutV1, StreamCutVersioned};
@@ -25,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use std::collections::HashMap;
 
-/// StreamCutVersioned enum contains all versions of StreamCut struct
+/// CheckpointVersioned enum contains all versions of StreamCut struct
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) enum CheckpointVersioned {
     V1(CheckpointV1),
