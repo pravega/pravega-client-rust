@@ -12,15 +12,15 @@ use crate::python_binding::stream_writer::StreamWriter;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
-use pyo3::exceptions;
 use pyo3::prelude::*;
 use pyo3::PyResult;
+use pyo3::{exceptions, PyObjectProtocol};
 use std::net::SocketAddr;
 use tokio::runtime::Runtime;
 
 #[pyclass]
 pub(crate) struct StreamManager {
-    _controller_ip: String,
+    controller_ip: String,
     rt: Runtime,
     cf: ClientFactory,
     config: ClientConfig,
@@ -43,7 +43,7 @@ impl StreamManager {
         let client_factory = handle.block_on(ClientFactory::new(config.clone()));
 
         StreamManager {
-            _controller_ip: controller_uri,
+            controller_ip: controller_uri,
             rt: runtime,
             cf: client_factory,
             config,
@@ -184,5 +184,25 @@ impl StreamManager {
             )
         });
         Ok(stream_writer)
+    }
+
+    /// Returns the facet string representation.
+    fn to_str(&self) -> String {
+        format!(
+            "Controller ip: {:?} ClientConfig: {:?}",
+            self.controller_ip, self.config
+        )
+    }
+}
+
+///
+/// Refer https://docs.python.org/3/reference/datamodel.html#basic-customization
+/// This function will be called by the repr() built-in function to compute the “official” string
+/// representation of an Python object.
+///
+#[pyproto]
+impl PyObjectProtocol for StreamManager {
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("StreamManager({})", self.to_str()))
     }
 }
