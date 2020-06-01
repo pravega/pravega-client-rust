@@ -16,12 +16,14 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 [lib]
 name = "pravega_client"
 crate-type = ["cdylib"]
+harness = false
 
 [features]
 # optional bindings.
 #javascript_dev = ["wasm-bindgen"]
 
 # python binding is enabled by default
+# This causes cargo test to break ref: https://github.com/PyO3/pyo3/issues/341
 [dependencies.pyo3]
 version = "0.10.1"
 features = ["extension-module"]
