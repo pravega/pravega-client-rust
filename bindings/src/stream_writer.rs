@@ -8,13 +8,18 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use pravega_client_rust::error::EventStreamWriterError;
-use pravega_client_rust::event_stream_writer::EventStreamWriter;
-use pyo3::exceptions;
-use pyo3::prelude::*;
-use pyo3::PyResult;
-use tokio::runtime::Handle;
+cfg_if! {
+    if #[cfg(feature = "python_binding")] {
+        use pravega_client_rust::error::EventStreamWriterError;
+        use pravega_client_rust::event_stream_writer::EventStreamWriter;
+        use pyo3::exceptions;
+        use pyo3::prelude::*;
+        use pyo3::PyResult;
+        use tokio::runtime::Handle;
+    }
+}
 
+#[cfg(feature = "python_binding")]
 #[pyclass]
 #[derive(new)] // this ensures the python object cannot be created without the using StreamManager.
 pub(crate) struct StreamWriter {
@@ -22,6 +27,7 @@ pub(crate) struct StreamWriter {
     handle: Handle,
 }
 
+#[cfg(feature = "python_binding")]
 #[pymethods]
 impl StreamWriter {
     ///

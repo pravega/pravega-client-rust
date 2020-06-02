@@ -1,5 +1,5 @@
 [package]
-name = "bindings"
+name = "pravega-rust-client-bindings"
 version = "0.1.0"
 edition = "2018"
 categories = ["Network programming"]
@@ -16,17 +16,13 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 [lib]
 name = "pravega_client"
 crate-type = ["cdylib"]
-harness = false
 
 [features]
-# optional bindings.
-#javascript_dev = ["wasm-bindgen"]
+default = ["python_binding"]
+javascript_binding = ["wasm-bindgen"]
+python_binding = ["pyo3"]
 
-# python binding is enabled by default
-# This causes cargo test to break ref: https://github.com/PyO3/pyo3/issues/341
-[dependencies.pyo3]
-version = "0.10.1"
-features = ["extension-module"]
+#Run tests for bindings using command cargo test --no-default-features
 
 [dependencies]
 log = "0.4"
@@ -41,5 +37,8 @@ lazy_static = "1.4.0"
 uuid = {version = "0.8", features = ["v4"]}
 futures = "0.3.5"
 derive-new = "0.5"
+#Python bindings
+pyo3 = { features = ["extension-module"], optional = true, version = "0.10.1" }
 #WASM bindings
-#wasm-bindgen = { version = "0.2.63", optional = true }
+wasm-bindgen = { version = "0.2.63", optional = true }
+cfg-if = "0.1.10"

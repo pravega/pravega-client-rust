@@ -8,16 +8,21 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::stream_writer::StreamWriter;
-use pravega_client_rust::client_factory::ClientFactory;
-use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
-use pyo3::prelude::*;
-use pyo3::PyResult;
-use pyo3::{exceptions, PyObjectProtocol};
-use std::net::SocketAddr;
-use tokio::runtime::Runtime;
+cfg_if! {
+    if #[cfg(feature = "python_binding")] {
+        use crate::stream_writer::StreamWriter;
+        use pravega_client_rust::client_factory::ClientFactory;
+        use pravega_rust_client_shared::*;
+        use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
+        use pyo3::prelude::*;
+        use pyo3::PyResult;
+        use pyo3::{exceptions, PyObjectProtocol};
+        use std::net::SocketAddr;
+        use tokio::runtime::Runtime;
+    }
+}
 
+#[cfg(feature = "python_binding")]
 #[pyclass]
 pub(crate) struct StreamManager {
     controller_ip: String,
@@ -26,6 +31,7 @@ pub(crate) struct StreamManager {
     config: ClientConfig,
 }
 
+#[cfg(feature = "python_binding")]
 #[pymethods]
 impl StreamManager {
     #[new]
@@ -200,6 +206,7 @@ impl StreamManager {
 /// This function will be called by the repr() built-in function to compute the “official” string
 /// representation of an Python object.
 ///
+#[cfg(feature = "python_binding")]
 #[pyproto]
 impl PyObjectProtocol for StreamManager {
     fn __repr__(&self) -> PyResult<String> {

@@ -9,14 +9,21 @@
 //
 
 #[macro_use]
-extern crate derive_new;
+extern crate cfg_if;
 
-use pyo3::prelude::*;
 mod stream_manager;
 mod stream_writer;
-use stream_manager::StreamManager;
-use stream_writer::StreamWriter;
+cfg_if! {
+    if #[cfg(feature = "python_binding")] {
+        use pyo3::prelude::*;
+        use stream_manager::StreamManager;
+        #[macro_use]
+        extern crate derive_new;
+        use stream_writer::StreamWriter;
+    }
+}
 
+#[cfg(feature = "python_binding")]
 #[pymodule]
 /// A Python module implemented in Rust.
 fn pravega_client(_py: Python, m: &PyModule) -> PyResult<()> {
@@ -24,3 +31,5 @@ fn pravega_client(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<StreamWriter>()?;
     Ok(())
 }
+
+fn main() {}
