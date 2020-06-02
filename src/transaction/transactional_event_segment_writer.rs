@@ -59,7 +59,7 @@ impl TransactionalEventSegmentWriter {
         event: Vec<u8>,
         factory: &ClientFactoryInternal,
     ) -> Result<(), TransactionalEventSegmentWriterError> {
-        self.try_process_waiting_acks(factory).await?;
+        self.try_process_unacked_events(factory).await?;
         let (oneshot_tx, oneshot_rx) = oneshot::channel();
         if let Some(pending_event) = PendingEvent::with_header(None, event, oneshot_tx) {
             self.event_segment_writer
@@ -78,14 +78,14 @@ impl TransactionalEventSegmentWriter {
         factory: &ClientFactoryInternal,
     ) -> Result<(), TransactionalEventSegmentWriterError> {
         if self.outstanding.is_some() {
-            self.process_waiting_acks(factory).await?;
+            self.process_unacked_events(factory).await?;
             self.remove_completed()?;
         }
         Ok(())
     }
 
     /// process any events that are waiting for server acks. It will wait until responses arrive.
-    async fn process_waiting_acks(
+    async fn process_unacked_events(
         &mut self,
         factory: &ClientFactoryInternal,
     ) -> Result<(), TransactionalEventSegmentWriterError> {
@@ -99,7 +99,7 @@ impl TransactionalEventSegmentWriter {
 
     /// try to process events that are waiting for server acks. If there is no response from server
     /// then return immediately.
-    async fn try_process_waiting_acks(
+    async fn try_process_unacked_events(
         &mut self,
         factory: &ClientFactoryInternal,
     ) -> Result<(), TransactionalEventSegmentWriterError> {
