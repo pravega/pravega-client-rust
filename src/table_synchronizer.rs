@@ -294,7 +294,7 @@ where
     K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
     loop {
-        let mut to_update  = Vec::new();
+        let mut to_update = Vec::new();
         let map = table_synchronizer.get_current_map();
         updates_generator(&mut to_update, map);
         if to_update.is_empty() {
@@ -394,10 +394,7 @@ where
             send.push((&delete.key, key_version))
         }
 
-        let result = table_synchronizer
-            .table_map
-            .remove_conditionally_all(send)
-            .await;
+        let result = table_synchronizer.table_map.remove_conditionally_all(send).await;
 
         match result {
             Err(TableError::IncorrectKeyVersion { operation, error_msg }) => {
@@ -441,8 +438,8 @@ async fn conditionally_get<K>(
     mut get_generator: impl FnMut(&mut Vec<Get<K>>, HashMap<K, Value>),
     table_synchronizer: &mut TableSynchronizer<'_, K>,
 ) -> Result<(), TableError>
-    where
-        K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
+where
+    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
     loop {
         let mut to_get = Vec::new();
@@ -484,9 +481,12 @@ async fn conditionally_get<K>(
     Ok(())
 }
 
-fn apply_gets_to_localmap<K>(to_get: Vec<Get<K>>, res: Vec<Option<(Value, i64)>>, table_synchronizer: &mut TableSynchronizer<K>)
-    where
-        K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
+fn apply_gets_to_localmap<K>(
+    to_get: Vec<Get<K>>,
+    res: Vec<Option<(Value, i64)>>,
+    table_synchronizer: &mut TableSynchronizer<K>,
+) where
+    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
     let mut i = 0;
     for get in to_get {
@@ -508,7 +508,7 @@ fn apply_gets_to_localmap<K>(to_get: Vec<Get<K>>, res: Vec<Option<(Value, i64)>>
                 table_synchronizer.in_memory_map.remove(&search_key);
             }
         }
-        i+=1;
+        i += 1;
     }
     debug!("Gets {} entries in local map ", i);
 }
