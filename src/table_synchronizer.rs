@@ -508,9 +508,9 @@ fn apply_gets_to_localmap<K>(to_get: Vec<Get<K>>, res: Vec<Option<(Value, i64)>>
                 table_synchronizer.in_memory_map.remove(&search_key);
             }
         }
-
         i+=1;
     }
+    debug!("Gets {} entries in local map ", i);
 }
 
 #[cfg(test)]
