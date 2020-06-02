@@ -71,6 +71,14 @@ where
     pub key: K,
 }
 
+///The Get struct.
+pub struct Get<K>
+where
+    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
+{
+    pub key: K,
+}
+
 /// The trait bound for the ValueData
 pub trait ValueData: ValueSerialize + ValueClone + Debug {}
 
@@ -161,7 +169,7 @@ where
 
     /// Gets the map object currently held in memory.
     /// it will remove the version information of key.
-    pub(crate) fn get_current_map(&self) -> HashMap<K, Value> {
+    pub fn get_current_map(&self) -> HashMap<K, Value> {
         let mut result = HashMap::new();
         for (key, value) in self.in_memory_map.iter() {
             let new_value = value.clone();
@@ -175,7 +183,7 @@ where
         self.name.clone()
     }
 
-    /// Gets the Value of the GivenKey,
+    /// Gets the Value of the GivenKey in the local map,
     /// This is a non-blocking call.
     /// The data in Value is not deserialized and the caller should call deserialize_from to deserialize.
     pub fn get(&self, key: &K) -> Option<&Value> {
@@ -250,33 +258,45 @@ where
         Ok(())
     }
 
-    /// Insert/Updates a list of keys and applies it atomically.
-    pub async fn insert_conditionally(
+    /// Insert/Updates a list of keys and applies it atomically to local map.
+    /// This will update the local_map to latest version.
+    pub async fn insert(
         &mut self,
-        updates_generator: impl FnMut(HashMap<K, Value>) -> Vec<Insert<K>>,
+        updates_generator: impl FnMut(&mut Vec<Insert<K>>, HashMap<K, Value>),
     ) -> Result<(), TableError> {
         conditionally_write(updates_generator, self).await
     }
 
-    /// Remove a list of keys conditionally and applies it atomically.
-    pub async fn remove_conditionally(
+    /// Get the value of a list of keys and applies it atomically to local map.
+    /// This will update the local_map to latest version.
+    pub async fn get_remote(
         &mut self,
-        deletes_generateor: impl FnMut(HashMap<K, Value>) -> Vec<Remove<K>>,
+        get_generator: impl FnMut(&mut Vec<Get<K>>, HashMap<K, Value>),
+    ) -> Result<(), TableError> {
+        conditionally_get(get_generator, self).await
+    }
+
+    /// Remove a list of keys and applies it atomically to local map.
+    /// This will update the local_map to latest version.
+    pub async fn remove(
+        &mut self,
+        deletes_generateor: impl FnMut(&mut Vec<Remove<K>>, HashMap<K, Value>),
     ) -> Result<(), TableError> {
         conditionally_remove(deletes_generateor, self).await
     }
 }
 
 async fn conditionally_write<K>(
-    mut updates_generator: impl FnMut(HashMap<K, Value>) -> Vec<Insert<K>>,
+    mut updates_generator: impl FnMut(&mut Vec<Insert<K>>, HashMap<K, Value>),
     table_synchronizer: &mut TableSynchronizer<'_, K>,
 ) -> Result<(), TableError>
 where
     K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
     loop {
+        let mut to_update  = Vec::new();
         let map = table_synchronizer.get_current_map();
-        let to_update = updates_generator(map);
+        updates_generator(&mut to_update, map);
         if to_update.is_empty() {
             debug!(
                 "Conditionally Write to {} completed, as there is nothing to update for map",
@@ -284,6 +304,7 @@ where
             );
             break;
         }
+
         let mut to_send = Vec::new();
         for update in to_update.iter() {
             let data = serialize(&*update.new_value).expect("serialize value");
@@ -347,15 +368,16 @@ fn apply_updates_to_localmap<K>(
 }
 
 async fn conditionally_remove<K>(
-    mut delete_generator: impl FnMut(HashMap<K, Value>) -> Vec<Remove<K>>,
+    mut delete_generator: impl FnMut(&mut Vec<Remove<K>>, HashMap<K, Value>),
     table_synchronizer: &mut TableSynchronizer<'_, K>,
 ) -> Result<(), TableError>
 where
     K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
     loop {
+        let mut to_delete = Vec::new();
         let map = table_synchronizer.get_current_map();
-        let to_delete = delete_generator(map);
+        delete_generator(&mut to_delete, map);
         if to_delete.is_empty() {
             debug!(
                 "Conditionally remove to {} completed, as there is nothing to remove for map",
@@ -363,18 +385,20 @@ where
             );
             break;
         }
-        let mut to_send = Vec::new();
+
+        let mut send = Vec::new();
         for delete in to_delete.iter() {
             let key_version = table_synchronizer
                 .get_key_version(&delete.key)
                 .expect("get key version");
-            to_send.push((&delete.key, key_version))
+            send.push((&delete.key, key_version))
         }
 
         let result = table_synchronizer
             .table_map
-            .remove_conditionally_all(to_send)
+            .remove_conditionally_all(send)
             .await;
+
         match result {
             Err(TableError::IncorrectKeyVersion { operation, error_msg }) => {
                 debug!("IncorrectKeyVersion {}, {}", operation, error_msg);
@@ -411,6 +435,82 @@ where
         i += 1;
     }
     debug!("Deletes {} entries in local map ", i);
+}
+
+async fn conditionally_get<K>(
+    mut get_generator: impl FnMut(&mut Vec<Get<K>>, HashMap<K, Value>),
+    table_synchronizer: &mut TableSynchronizer<'_, K>,
+) -> Result<(), TableError>
+    where
+        K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
+{
+    loop {
+        let mut to_get = Vec::new();
+        let map = table_synchronizer.get_current_map();
+        get_generator(&mut to_get, map);
+        if to_get.is_empty() {
+            debug!(
+                "Conditionally get to {} completed, as there is nothing to remove for map",
+                table_synchronizer.get_name()
+            );
+            break;
+        }
+
+        let mut send = Vec::new();
+        for get in to_get.iter() {
+            send.push(&get.key);
+        }
+
+        let result = table_synchronizer.table_map.get_all(send).await;
+        match result {
+            Err(TableError::IncorrectKeyVersion { operation, error_msg }) => {
+                debug!("IncorrectKeyVersion {}, {}", operation, error_msg);
+                table_synchronizer.fetch_updates().await.expect("fetch update");
+            }
+            Err(TableError::KeyDoesNotExist { operation, error_msg }) => {
+                debug!("KeyDoesNotExist {}, {}", operation, error_msg);
+                table_synchronizer.fetch_updates().await.expect("fetch update");
+            }
+            Err(e) => {
+                debug!("Error message is {}", e);
+                return Err(e);
+            }
+            Ok(res) => {
+                apply_gets_to_localmap(to_get, res, table_synchronizer);
+                break;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn apply_gets_to_localmap<K>(to_get: Vec<Get<K>>, res: Vec<Option<(Value, i64)>>, table_synchronizer: &mut TableSynchronizer<K>)
+    where
+        K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
+{
+    let mut i = 0;
+    for get in to_get {
+        let value_option = res.get(i).expect("get ith value and versrion");
+
+        if value_option.is_some() {
+            let (value, version) = value_option.as_ref().expect("get value and versrion");
+            let key = Key {
+                key: get.key,
+                key_version: *version,
+            };
+            table_synchronizer.in_memory_map.insert(key, value.clone());
+        } else {
+            let search_key = Key {
+                key: get.key,
+                key_version: TableKey::KEY_NO_VERSION,
+            };
+            if table_synchronizer.in_memory_map.contains_key(&search_key) {
+                table_synchronizer.in_memory_map.remove(&search_key);
+            }
+        }
+
+        i+=1;
+    }
 }
 
 #[cfg(test)]

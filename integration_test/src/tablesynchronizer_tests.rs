@@ -1,6 +1,8 @@
 use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
-use pravega_client_rust::table_synchronizer::{deserialize_from, Insert, Key, Remove, TableSynchronizer};
+use pravega_client_rust::table_synchronizer::{
+    deserialize_from, Get, Insert, Key, Remove, TableSynchronizer,
+};
 use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_wire_protocol::commands::TableKey;
 use serde::{Deserialize, Serialize};
@@ -11,35 +13,36 @@ pub async fn test_tablesynchronizer() {
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config.clone());
-    test_insert_conditionally(&client_factory).await;
-    test_remove_conditionally(&client_factory).await;
+    test_insert(&client_factory).await;
+    test_remove(&client_factory).await;
+    test_get_remote(&client_factory).await;
     test_insert_with_two_table_synchronizers(&client_factory).await;
     test_remove_with_two_table_synchronizers(&client_factory).await;
     test_insert_and_get_with_customize_struct(&client_factory).await;
 }
 
-async fn test_insert_conditionally(client_factory: &ClientFactory) {
+async fn test_insert(client_factory: &ClientFactory) {
     let mut synchronizer: TableSynchronizer<String> = client_factory
         .create_table_synchronizer("synchronizer".into())
         .await;
 
     let result = synchronizer
-        .insert_conditionally(|map| {
-            let mut to_update = Vec::new();
+        .insert(|to_insert, map| {
             if map.is_empty() {
                 let update = Insert {
                     key: "test".to_string(),
                     type_id: "i32".into(),
                     new_value: Box::new(1),
                 };
-                to_update.push(update);
+                to_insert.push(update);
             }
-            to_update
         })
         .await;
+
     assert!(result.is_ok());
     let value_option = synchronizer.get(&"test".to_string());
     assert!(value_option.is_some());
+
     let version = synchronizer
         .get_key_version(&"test".into())
         .expect("get the key version");
@@ -59,36 +62,32 @@ async fn test_insert_conditionally(client_factory: &ClientFactory) {
     assert_eq!(version, 0);
 }
 
-async fn test_remove_conditionally(client_factory: &ClientFactory) {
+async fn test_remove(client_factory: &ClientFactory) {
     let mut synchronizer: TableSynchronizer<String> = client_factory
         .create_table_synchronizer("synchronizer1".into())
         .await;
     let result = synchronizer
-        .insert_conditionally(|map| {
-            let mut to_update = Vec::new();
+        .insert(|to_insert, map| {
             if map.is_empty() {
                 let update = Insert {
                     key: "test".to_string(),
                     type_id: "i32".into(),
                     new_value: Box::new(2),
                 };
-                to_update.push(update);
+                to_insert.push(update);
             }
-            to_update
         })
         .await;
-
     assert!(result.is_ok());
+
     let result = synchronizer
-        .remove_conditionally(|map| {
-            let mut to_remove = Vec::new();
+        .remove(|to_remove, map| {
             if map.get("test").is_some() {
                 let remove = Remove {
                     key: "test".to_string(),
                 };
                 to_remove.push(remove);
             }
-            to_remove
         })
         .await;
     assert!(result.is_ok());
@@ -106,6 +105,46 @@ async fn test_remove_conditionally(client_factory: &ClientFactory) {
     assert!(value_option.is_none());
 }
 
+async fn test_get_remote(client_factory: &ClientFactory) {
+    let mut synchronizer: TableSynchronizer<String> = client_factory
+        .create_table_synchronizer("synchronizer2".into())
+        .await;
+
+    let result = synchronizer
+        .insert(|to_insert, map| {
+            if map.is_empty() {
+                let update = Insert {
+                    key: "test".to_string(),
+                    type_id: "i32".into(),
+                    new_value: Box::new(4),
+                };
+                to_insert.push(update);
+            }
+        })
+        .await;
+    assert!(result.is_ok());
+
+    let mut synchronizer2: TableSynchronizer<String> = client_factory
+        .create_table_synchronizer("synchronizer2".into())
+        .await;
+
+    let result = synchronizer2
+        .get_remote(|to_get, map| {
+            // the local map is empty
+            if map.is_empty() {
+                // try to get from remote.
+                let get = Get {
+                    key: "test".to_string(),
+                };
+                to_get.push(get);
+            }
+        })
+        .await;
+    assert!(result.is_ok());
+    let value_option = synchronizer2.get(&"test".to_string());
+    assert!(value_option.is_some());
+}
+
 async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory) {
     let mut synchronizer: TableSynchronizer<String> = client_factory
         .create_table_synchronizer("synchronizer".into())
@@ -118,8 +157,7 @@ async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory
     synchronizer2.fetch_updates().await.expect("fetch updates");
 
     let result = synchronizer
-        .insert_conditionally(|map| {
-            let mut to_update = Vec::new();
+        .insert(|to_update, map| {
             if map.contains_key(&"test".to_string()) {
                 let value = map.get(&"test".to_string()).expect("get value");
                 let data: i32 = deserialize_from(&value.data).expect("deserialize value data");
@@ -132,15 +170,14 @@ async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory
                     to_update.push(update);
                 }
             }
-            to_update
         })
         .await;
     assert!(result.is_ok());
 
     let result = synchronizer2
-        .insert_conditionally(|map| {
-            let mut to_update = Vec::new();
+        .insert(|to_update, map| {
             if map.contains_key(&"test".to_string()) {
+                let map = synchronizer.get_current_map();
                 let value = map.get(&"test".to_string()).expect("get value");
                 let data: i32 = deserialize_from(&value.data).expect("deserialize value data");
                 // Incorrect, because the value is already changed to 2.
@@ -162,7 +199,6 @@ async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory
                     to_update.push(update);
                 }
             }
-            to_update
         })
         .await;
     assert!(result.is_ok());
@@ -186,8 +222,7 @@ async fn test_remove_with_two_table_synchronizers(client_factory: &ClientFactory
     synchronizer2.fetch_updates().await.expect("fetch updates");
 
     let result = synchronizer
-        .remove_conditionally(|map| {
-            let mut to_remove = Vec::new();
+        .remove(|to_remove, map| {
             let value = map.get(&"test".to_string()).expect("get value");
             let data: i32 = deserialize_from(&value.data).expect("deserialize value data");
             if data == 3 {
@@ -196,15 +231,13 @@ async fn test_remove_with_two_table_synchronizers(client_factory: &ClientFactory
                 };
                 to_remove.push(remove);
             }
-            to_remove
         })
         .await;
     assert!(result.is_ok());
 
     let result = synchronizer2
-        .insert_conditionally(|map| {
-            let mut to_update = Vec::new();
-            if map.is_empty() {
+        .insert(|to_update, map| {
+            if !map.is_empty() {
                 // Even if it matches in in_memory map.
                 // This update should failed, because the key is already removed.
                 let update = Insert {
@@ -214,7 +247,6 @@ async fn test_remove_with_two_table_synchronizers(client_factory: &ClientFactory
                 };
                 to_update.push(update);
             }
-            to_update
         })
         .await;
 
@@ -239,8 +271,7 @@ async fn test_insert_and_get_with_customize_struct(client_factory: &ClientFactor
         .await;
 
     let result = synchronizer
-        .insert_conditionally(|_map| {
-            let mut to_update = Vec::new();
+        .insert(|to_update, _map| {
             let insert = Insert {
                 key: "test1".to_string(),
                 type_id: "Test1".into(),
@@ -255,7 +286,6 @@ async fn test_insert_and_get_with_customize_struct(client_factory: &ClientFactor
                 new_value: Box::new(Test2 { age: 10 }),
             };
             to_update.push(insert);
-            to_update
         })
         .await;
     assert!(result.is_ok());
