@@ -60,7 +60,7 @@ impl StreamWriter {
             self.handle.block_on(result).expect("Write failed");
 
         match result_oneshot {
-            Ok(t) => Ok(t),
+            Ok(_t) => Ok(()),
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
         }
     }
@@ -79,7 +79,7 @@ impl StreamWriter {
             .expect("Write for specified routing key failed");
 
         match result_oneshot {
-            Ok(t) => Ok(t),
+            Ok(_t) => Ok(()),
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
         }
     }
