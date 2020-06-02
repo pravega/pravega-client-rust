@@ -31,5 +31,3 @@ fn pravega_client(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<StreamWriter>()?;
     Ok(())
 }
-
-fn main() {}
