@@ -591,7 +591,7 @@ impl ControllerClient for ControllerClientImpl {
         };
         let op_status: StdResult<tonic::Response<TxnStatus>, tonic::Status> = self
             .get_controller_client()
-            .commit_transaction(tonic::Request::new(request))
+            .abort_transaction(tonic::Request::new(request))
             .await;
         let operation_name = "abortTransaction";
         match op_status {

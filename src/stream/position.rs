@@ -78,7 +78,10 @@ mod tests {
                 stream: Stream {
                     name: "test".to_string(),
                 },
-                segment: Segment { number: 0 },
+                segment: Segment {
+                    number: 0,
+                    tx_id: None,
+                },
             },
             min_key: OrderedFloat::from(0.0),
             max_key: OrderedFloat::from(1.0),
