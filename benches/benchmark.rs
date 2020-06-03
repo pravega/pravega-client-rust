@@ -196,7 +196,7 @@ fn mock_connection_no_block(c: &mut Criterion) {
 async fn set_up(config: ClientConfig) -> EventStreamWriter {
     let scope_name = Scope::new("testWriterPerf".into());
     let stream_name = Stream::new("testWriterPerf".into());
-    let client_factory = ClientFactory::new(config.clone());
+    let client_factory = ClientFactory::new(config.clone()).await;
     let controller_client = client_factory.get_controller_client();
     create_scope_stream(controller_client, &scope_name, &stream_name, 1).await;
     let scoped_stream = ScopedStream {

@@ -25,6 +25,7 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 #![allow(dead_code)]
+#![allow(clippy::similar_names)]
 
 use std::result::Result as StdResult;
 use std::time::{Duration, Instant};
@@ -229,7 +230,7 @@ pub struct ControllerClientImpl {
     channel: RwLock<ControllerServiceClient<Channel>>,
 }
 
-fn get_channel(config: &ClientConfig) -> Channel {
+async fn get_channel(config: &ClientConfig) -> Channel {
     const HTTP_PREFIX: &str = "http://";
 
     // Placeholder to add authentication headers.
@@ -243,8 +244,7 @@ fn get_channel(config: &ClientConfig) -> Channel {
 
     let iterable_endpoints =
         (0..config.max_controller_connections).map(|_a| Channel::builder(uri_result.clone()));
-
-    Channel::balance_list(iterable_endpoints)
+    async { Channel::balance_list(iterable_endpoints) }.await
 }
 
 #[allow(unused_variables)]
@@ -275,7 +275,7 @@ impl ControllerClient for ControllerClientImpl {
                     error_msg: "Operation failed".into(),
                 }),
             },
-            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }
 
@@ -306,7 +306,7 @@ impl ControllerClient for ControllerClientImpl {
                     error_msg: "Operation failed".into(),
                 }),
             },
-            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }
 
@@ -336,7 +336,7 @@ impl ControllerClient for ControllerClientImpl {
                     error_msg: "Operation failed".into(),
                 }),
             },
-            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }
 
@@ -365,7 +365,7 @@ impl ControllerClient for ControllerClientImpl {
                     error_msg: "Operation failed".into(),
                 }),
             },
-            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }
 
@@ -394,7 +394,7 @@ impl ControllerClient for ControllerClientImpl {
                     error_msg: "Operation failed".into(),
                 }),
             },
-            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }
 
@@ -423,7 +423,7 @@ impl ControllerClient for ControllerClientImpl {
                     error_msg: "Operation failed".into(),
                 }),
             },
-            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }
 
@@ -453,7 +453,7 @@ impl ControllerClient for ControllerClientImpl {
                     error_msg: "Operation failed".into(),
                 }),
             },
-            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }
 
@@ -466,7 +466,7 @@ impl ControllerClient for ControllerClientImpl {
         let operation_name = "getCurrentSegments";
         match op_status {
             Ok(segment_ranges) => Ok(StreamSegments::from(segment_ranges.into_inner())),
-            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }
 
@@ -483,7 +483,7 @@ impl ControllerClient for ControllerClientImpl {
         let operation_name = "createTransaction";
         match op_status {
             Ok(create_txn_response) => Ok(TxnSegments::from(create_txn_response.into_inner())),
-            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }
 
@@ -535,7 +535,7 @@ impl ControllerClient for ControllerClientImpl {
                     error_msg: "Operation failed".into(),
                 }),
             },
-            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }
 
@@ -577,7 +577,7 @@ impl ControllerClient for ControllerClientImpl {
                     error_msg: "Operation failed".into(),
                 }),
             },
-            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }
 
@@ -613,7 +613,7 @@ impl ControllerClient for ControllerClientImpl {
                     error_msg: "Operation failed".into(),
                 }),
             },
-            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }
 
@@ -647,7 +647,7 @@ impl ControllerClient for ControllerClientImpl {
                     error_msg: "Operation failed".into(),
                 }),
             },
-            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }
 
@@ -659,7 +659,7 @@ impl ControllerClient for ControllerClientImpl {
         let operation_name = "get_endpoint";
         match op_status {
             Ok(response) => Ok(response.into_inner()),
-            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
         .map(PravegaNodeUri::from)
     }
@@ -685,7 +685,7 @@ impl ControllerClient for ControllerClientImpl {
         let operation_name = "get_successors_segment";
         match op_status {
             Ok(response) => Ok(response.into_inner()),
-            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
         .map(StreamSegmentsWithPredecessors::from)
     }
@@ -734,7 +734,7 @@ impl ControllerClient for ControllerClientImpl {
                     }),
                 }
             }
-            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }
 
@@ -767,7 +767,7 @@ impl ControllerClient for ControllerClientImpl {
                     error_msg: "Operation failed".into(),
                 }),
             },
-            Err(status) => Err(self.map_grpc_error(operation_name, status)),
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }
 }
@@ -778,9 +778,9 @@ impl ControllerClientImpl {
     /// The requests will be load balanced across multiple connections and every connection supports
     /// multiplexing of requests.
     ///
-    pub fn new(config: ClientConfig) -> Self {
+    pub async fn new(config: ClientConfig) -> Self {
         // actual connection is established lazily.
-        let ch = get_channel(&config);
+        let ch = get_channel(&config).await;
         ControllerClientImpl {
             config,
             channel: RwLock::new(ControllerServiceClient::new(ch)),
@@ -791,8 +791,8 @@ impl ControllerClientImpl {
     /// reset method needs to be invoked in the case of ConnectionError.
     /// This logic can be removed once https://github.com/tower-rs/tower/issues/383 is fixed.
     ///
-    pub fn reset(&self) {
-        let ch = get_channel(&self.config);
+    pub async fn reset(&self) {
+        let ch = get_channel(&self.config).await;
         let mut x = self.channel.write().unwrap();
         *x = ControllerServiceClient::new(ch);
     }
@@ -808,7 +808,7 @@ impl ControllerClientImpl {
     }
 
     // Method used to translate grpc errors to ControllerError.
-    fn map_grpc_error(&self, operation_name: &str, status: Status) -> ControllerError {
+    async fn map_grpc_error(&self, operation_name: &str, status: Status) -> ControllerError {
         match status.code() {
             Code::InvalidArgument
             | Code::NotFound
@@ -822,7 +822,7 @@ impl ControllerClientImpl {
                 error_msg: status.to_string(),
             },
             Code::Unknown => {
-                self.reset();
+                self.reset().await;
                 ControllerError::ConnectionError {
                     can_retry: true,
                     error_msg: status.to_string(),

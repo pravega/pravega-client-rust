@@ -1,0 +1,44 @@
+[package]
+name = "pravega-rust-client-bindings"
+version = "0.1.0"
+edition = "2018"
+categories = ["Network programming"]
+keywords = ["streaming", "client", "pravega"]
+readme = "Readme.md"
+repository = "https://github.com/pravega/pravega-client-rust"
+license = "Apache-2.0"
+description = "An internal library used by the Rust client for Pravega to generated language bindings for Python and WASM."
+authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.com>",
+           "Sandeep Shridhar <sandeep.shridhar@dell.com>", "Wenxiao Zhang <wenxiao.zhang@dell.com>"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "pravega_client"
+crate-type = ["cdylib"]
+
+[features]
+default = ["python_binding"]
+javascript_binding = ["wasm-bindgen"]
+python_binding = ["pyo3"]
+
+#Run tests for bindings using command cargo test --no-default-features
+
+[dependencies]
+log = "0.4"
+pravega-client-rust = { path = "../" }
+pravega-wire-protocol = { path = "../wire_protocol"}
+pravega-controller-client = { path = "../controller-client"}
+pravega-rust-client-shared = { path = "../shared"}
+pravega-rust-client-retry = {path = "../retry"}
+pravega-connection-pool = {path= "../connection_pool"}
+tokio = { version = "0.2.13", features = ["full"] }
+lazy_static = "1.4.0"
+uuid = {version = "0.8", features = ["v4"]}
+futures = "0.3.5"
+derive-new = "0.5"
+#Python bindings
+pyo3 = { features = ["extension-module"], optional = true, version = "0.10.1" }
+#WASM bindings
+wasm-bindgen = { version = "0.2.63", optional = true }
+cfg-if = "0.1.10"

@@ -24,7 +24,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + 'static>>
         .build()
         .expect("creating config");
     // start Pravega standalone before invoking this function.
-    let controller_client = ControllerClientImpl::new(config);
+    let controller_client = ControllerClientImpl::new(config).await;
 
     let scope_name = Scope::new("testScope123".into());
     let stream_name = Stream::new("testStream".into());

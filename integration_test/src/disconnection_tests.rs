@@ -85,7 +85,7 @@ async fn test_retry_while_start_pravega() {
         .controller_uri(controller_uri)
         .build()
         .expect("build client config");
-    let controller_client = ControllerClientImpl::new(config);
+    let controller_client = ControllerClientImpl::new(config).await;
 
     let scope_name = Scope::new("retryScope".into());
 
@@ -142,7 +142,7 @@ async fn test_retry_with_unexpected_reply() {
         .build()
         .expect("build client config");
 
-    let controller_client = ControllerClientImpl::new(config);
+    let controller_client = ControllerClientImpl::new(config).await;
 
     //Get the endpoint.
     let segment_name = ScopedSegment {

@@ -34,7 +34,7 @@ pub struct ClientFactoryInternal {
 }
 
 impl ClientFactory {
-    pub fn new(config: ClientConfig) -> ClientFactory {
+    pub async fn new(config: ClientConfig) -> ClientFactory {
         let _ = setup_logger(); //Ignore failure
         let cf = ConnectionFactory::create(config.connection_type);
         let pool = ConnectionPool::new(SegmentConnectionManager::new(cf, config.max_connections_in_pool));

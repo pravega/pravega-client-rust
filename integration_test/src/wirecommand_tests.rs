@@ -39,61 +39,85 @@ lazy_static! {
         let manager = SegmentConnectionManager::new(cf, CONFIG.max_connections_in_pool);
         ConnectionPool::new(manager)
     };
-    static ref CONTROLLER_CLIENT: ControllerClientImpl = { ControllerClientImpl::new(CONFIG.clone()) };
 }
 
 pub async fn wirecommand_test_wrapper() {
+    let controller: ControllerClientImpl = ControllerClientImpl::new(CONFIG.clone()).await;
+
     let timeout_second = time::Duration::from_secs(30);
 
-    timeout(timeout_second, test_hello()).await.unwrap();
+    timeout(timeout_second, test_hello(&controller)).await.unwrap();
 
-    timeout(timeout_second, test_keep_alive()).await.unwrap();
-
-    timeout(timeout_second, test_setup_append()).await.unwrap();
-
-    timeout(timeout_second, test_create_segment()).await.unwrap();
-
-    timeout(timeout_second, test_update_and_get_segment_attribute())
+    timeout(timeout_second, test_keep_alive(&controller))
         .await
         .unwrap();
 
-    timeout(timeout_second, test_get_stream_segment_info())
+    timeout(timeout_second, test_setup_append(&controller))
         .await
         .unwrap();
 
-    timeout(timeout_second, test_seal_segment()).await.unwrap();
-
-    timeout(timeout_second, test_delete_segment()).await.unwrap();
-
-    timeout(timeout_second, test_conditional_append_and_read_segment())
+    timeout(timeout_second, test_create_segment(&controller))
         .await
         .unwrap();
 
-    timeout(timeout_second, test_update_segment_policy())
+    timeout(timeout_second, test_update_and_get_segment_attribute(&controller))
         .await
         .unwrap();
 
-    timeout(timeout_second, test_merge_segment()).await.unwrap();
-
-    timeout(timeout_second, test_truncate_segment()).await.unwrap();
-
-    timeout(timeout_second, test_update_table_entries())
+    timeout(timeout_second, test_get_stream_segment_info(&controller))
         .await
         .unwrap();
 
-    timeout(timeout_second, test_read_table_key()).await.unwrap();
+    timeout(timeout_second, test_seal_segment(&controller))
+        .await
+        .unwrap();
 
-    timeout(timeout_second, test_read_table()).await.unwrap();
+    timeout(timeout_second, test_delete_segment(&controller))
+        .await
+        .unwrap();
 
-    timeout(timeout_second, test_read_table_entries()).await.unwrap();
+    timeout(
+        timeout_second,
+        test_conditional_append_and_read_segment(&controller),
+    )
+    .await
+    .unwrap();
+
+    timeout(timeout_second, test_update_segment_policy(&controller))
+        .await
+        .unwrap();
+
+    timeout(timeout_second, test_merge_segment(&controller))
+        .await
+        .unwrap();
+
+    timeout(timeout_second, test_truncate_segment(&controller))
+        .await
+        .unwrap();
+
+    timeout(timeout_second, test_update_table_entries(&controller))
+        .await
+        .unwrap();
+
+    timeout(timeout_second, test_read_table_key(&controller))
+        .await
+        .unwrap();
+
+    timeout(timeout_second, test_read_table(&controller))
+        .await
+        .unwrap();
+
+    timeout(timeout_second, test_read_table_entries(&controller))
+        .await
+        .unwrap();
 }
 
-async fn test_hello() {
+async fn test_hello(controller_client: &ControllerClientImpl) {
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     // Create scope and stream
 
-    CONTROLLER_CLIENT
+    controller_client
         .create_scope(&scope_name)
         .await
         .expect("create scope");
@@ -114,7 +138,7 @@ async fn test_hello() {
             retention_param: 0,
         },
     };
-    CONTROLLER_CLIENT
+    controller_client
         .create_stream(&request)
         .await
         .expect("create stream");
@@ -124,7 +148,7 @@ async fn test_hello() {
         stream: stream_name.clone(),
         segment: Segment::new(0),
     };
-    let endpoint = CONTROLLER_CLIENT
+    let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -150,7 +174,7 @@ async fn test_hello() {
 }
 
 // KeepAlive would not send back reply.
-async fn test_keep_alive() {
+async fn test_keep_alive(controller_client: &ControllerClientImpl) {
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     let segment_name = ScopedSegment {
@@ -159,7 +183,7 @@ async fn test_keep_alive() {
         segment: Segment::new(0),
     };
 
-    let endpoint = CONTROLLER_CLIENT
+    let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -175,7 +199,7 @@ async fn test_keep_alive() {
     client_connection.write(&request).await.expect("send request");
 }
 
-async fn test_setup_append() {
+async fn test_setup_append(controller_client: &ControllerClientImpl) {
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     let segment_name = ScopedSegment {
@@ -184,7 +208,7 @@ async fn test_setup_append() {
         segment: Segment::new(0),
     };
 
-    let endpoint = CONTROLLER_CLIENT
+    let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -238,7 +262,7 @@ async fn test_setup_append() {
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_create_segment() {
+async fn test_create_segment(controller_client: &ControllerClientImpl) {
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     let segment_name = ScopedSegment {
@@ -247,7 +271,7 @@ async fn test_create_segment() {
         segment: Segment::new(1),
     };
 
-    let endpoint = CONTROLLER_CLIENT
+    let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -290,7 +314,7 @@ async fn test_create_segment() {
     );
 }
 
-async fn test_seal_segment() {
+async fn test_seal_segment(controller_client: &ControllerClientImpl) {
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     let segment_name = ScopedSegment {
@@ -299,7 +323,7 @@ async fn test_seal_segment() {
         segment: Segment::new(1),
     };
 
-    let endpoint = CONTROLLER_CLIENT
+    let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -325,7 +349,7 @@ async fn test_seal_segment() {
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_update_and_get_segment_attribute() {
+async fn test_update_and_get_segment_attribute(controller_client: &ControllerClientImpl) {
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     let segment_name = ScopedSegment {
@@ -334,7 +358,7 @@ async fn test_update_and_get_segment_attribute() {
         segment: Segment::new(0),
     };
 
-    let endpoint = CONTROLLER_CLIENT
+    let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -379,7 +403,7 @@ async fn test_update_and_get_segment_attribute() {
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_get_stream_segment_info() {
+async fn test_get_stream_segment_info(controller_client: &ControllerClientImpl) {
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     let stream = ScopedStream {
@@ -388,7 +412,7 @@ async fn test_get_stream_segment_info() {
     };
 
     //seal this stream.
-    CONTROLLER_CLIENT.seal_stream(&stream).await.expect("seal stream");
+    controller_client.seal_stream(&stream).await.expect("seal stream");
 
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
@@ -396,7 +420,7 @@ async fn test_get_stream_segment_info() {
         segment: Segment::new(0),
     };
 
-    let endpoint = CONTROLLER_CLIENT
+    let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -422,7 +446,7 @@ async fn test_get_stream_segment_info() {
     }
 }
 
-async fn test_delete_segment() {
+async fn test_delete_segment(controller_client: &ControllerClientImpl) {
     let scope_name = Scope::new("testScope".into());
     let stream_name = Stream::new("testStream".into());
     let segment_name = ScopedSegment {
@@ -431,7 +455,7 @@ async fn test_delete_segment() {
         segment: Segment::new(0),
     };
 
-    let endpoint = CONTROLLER_CLIENT
+    let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -455,7 +479,7 @@ async fn test_delete_segment() {
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_conditional_append_and_read_segment() {
+async fn test_conditional_append_and_read_segment(controller_client: &ControllerClientImpl) {
     // create a segment.
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
@@ -466,7 +490,7 @@ async fn test_conditional_append_and_read_segment() {
         segment: Segment::new(0),
     };
 
-    let endpoint = CONTROLLER_CLIENT
+    let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -541,7 +565,7 @@ async fn test_conditional_append_and_read_segment() {
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_update_segment_policy() {
+async fn test_update_segment_policy(controller_client: &ControllerClientImpl) {
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
 
@@ -551,7 +575,7 @@ async fn test_update_segment_policy() {
         segment: Segment::new(0),
     };
 
-    let endpoint = CONTROLLER_CLIENT
+    let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -578,7 +602,7 @@ async fn test_update_segment_policy() {
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_merge_segment() {
+async fn test_merge_segment(controller_client: &ControllerClientImpl) {
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
 
@@ -588,7 +612,7 @@ async fn test_merge_segment() {
         segment: Segment::new(1),
     };
 
-    let endpoint = CONTROLLER_CLIENT
+    let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -668,7 +692,7 @@ async fn test_merge_segment() {
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_truncate_segment() {
+async fn test_truncate_segment(controller_client: &ControllerClientImpl) {
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
 
@@ -678,7 +702,7 @@ async fn test_truncate_segment() {
         segment: Segment::new(0),
     };
 
-    let endpoint = CONTROLLER_CLIENT
+    let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -705,7 +729,7 @@ async fn test_truncate_segment() {
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_update_table_entries() {
+async fn test_update_table_entries(controller_client: &ControllerClientImpl) {
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
     // create a new segment.
@@ -715,7 +739,7 @@ async fn test_update_table_entries() {
         segment: Segment::new(2),
     };
 
-    let endpoint = CONTROLLER_CLIENT
+    let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -811,7 +835,7 @@ async fn test_update_table_entries() {
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_read_table_key() {
+async fn test_read_table_key(controller_client: &ControllerClientImpl) {
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
     let segment_name = ScopedSegment {
@@ -820,7 +844,7 @@ async fn test_read_table_key() {
         segment: Segment::new(2),
     };
 
-    let endpoint = CONTROLLER_CLIENT
+    let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -851,7 +875,7 @@ async fn test_read_table_key() {
     }
 }
 
-async fn test_read_table() {
+async fn test_read_table(controller_client: &ControllerClientImpl) {
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
     let segment_name = ScopedSegment {
@@ -860,7 +884,7 @@ async fn test_read_table() {
         segment: Segment::new(2),
     };
 
-    let endpoint = CONTROLLER_CLIENT
+    let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")
@@ -903,7 +927,7 @@ async fn test_read_table() {
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_read_table_entries() {
+async fn test_read_table_entries(controller_client: &ControllerClientImpl) {
     let scope_name = Scope::new("scope".into());
     let stream_name = Stream::new("stream".into());
     let segment_name = ScopedSegment {
@@ -912,7 +936,7 @@ async fn test_read_table_entries() {
         segment: Segment::new(2),
     };
 
-    let endpoint = CONTROLLER_CLIENT
+    let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
         .expect("get endpoint for segment")

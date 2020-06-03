@@ -19,3 +19,6 @@ pravega-*.tgz
 .vscode
 /shared/target/
 .gradle
+*.log
+
+__pycache__/
