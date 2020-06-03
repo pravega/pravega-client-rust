@@ -12,7 +12,7 @@ pub async fn test_tablesynchronizer() {
         .controller_uri(TEST_CONTROLLER_URI)
         .build()
         .expect("creating config");
-    let client_factory = ClientFactory::new(config.clone());
+    let client_factory = ClientFactory::new(config.clone()).await;
     test_insert(&client_factory).await;
     test_remove(&client_factory).await;
     test_get_remote(&client_factory).await;
