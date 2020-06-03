@@ -27,7 +27,7 @@ pub async fn test_tablemap() {
         .build()
         .expect("creating config");
 
-    let client_factory = ClientFactory::new(config.clone());
+    let client_factory = ClientFactory::new(config.clone()).await;
     test_single_key_operations(&client_factory).await;
     test_multiple_key_operations(&client_factory).await;
     test_multiple_key_remove_operations(&client_factory).await;
