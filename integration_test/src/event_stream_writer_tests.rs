@@ -36,7 +36,7 @@ pub async fn test_event_stream_writer() {
         .controller_uri(TEST_CONTROLLER_URI)
         .build()
         .expect("creating config");
-    let client_factory = ClientFactory::new(config.clone());
+    let client_factory = ClientFactory::new(config.clone()).await;
     let controller_client = client_factory.get_controller_client();
     create_scope_stream(controller_client, &scope_name, &stream_name, 1).await;
 
