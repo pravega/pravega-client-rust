@@ -184,7 +184,7 @@ impl StreamManager {
         let stream_writer = self.rt.handle().clone().block_on(async {
             StreamWriter::new(
                 self.cf
-                    .create_event_stream_writer(scoped_stream, self.config.clone()),
+                    .create_event_stream_writer(scoped_stream),
                 self.rt.handle().clone(),
             )
         });
