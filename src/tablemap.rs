@@ -455,6 +455,10 @@ impl<'a> TableMap<'a> {
                 operation: op.into(),
                 error_msg: c.to_string(),
             }),
+            Replies::TableKeyDoesNotExist(c) => Err(TableError::KeyDoesNotExist {
+                operation: op.into(),
+                error_msg: c.to_string(),
+            }),
             // unexpected response from Segment store causes a panic.
             _ => Err(TableError::OperationError {
                 operation: op.into(),

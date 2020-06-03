@@ -60,6 +60,7 @@ async fn test_insert(client_factory: &ClientFactory) {
         .get_key_version(&"test".into())
         .expect("get the key version");
     assert_eq!(version, 0);
+    info!("test_insert passed");
 }
 
 async fn test_remove(client_factory: &ClientFactory) {
@@ -103,6 +104,7 @@ async fn test_remove(client_factory: &ClientFactory) {
     assert!(result.is_ok());
     let value_option = synchronizer2.get(&"test".to_string());
     assert!(value_option.is_none());
+    info!("test_remove passed");
 }
 
 async fn test_get_remote(client_factory: &ClientFactory) {
@@ -143,6 +145,7 @@ async fn test_get_remote(client_factory: &ClientFactory) {
     assert!(result.is_ok());
     let value_option = synchronizer2.get(&"test".to_string());
     assert!(value_option.is_some());
+    info!("test_get_remote passed");
 }
 
 async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory) {
@@ -208,6 +211,7 @@ async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory
     let value = synchronizer.get(&"test".to_string()).expect("get value");
     let data: i32 = deserialize_from(&value.data).expect("deserialize value data");
     assert_eq!(data, 3);
+    info!("test_insert_with_two_table_synchronizers passed");
 }
 
 async fn test_remove_with_two_table_synchronizers(client_factory: &ClientFactory) {
@@ -234,7 +238,7 @@ async fn test_remove_with_two_table_synchronizers(client_factory: &ClientFactory
         })
         .await;
     assert!(result.is_ok());
-
+    info!("start to update a non-existed key");
     let result = synchronizer2
         .insert(|to_update, map| {
             if !map.is_empty() {
@@ -253,6 +257,7 @@ async fn test_remove_with_two_table_synchronizers(client_factory: &ClientFactory
     assert!(result.is_ok());
     let value_option = synchronizer.get(&"test".to_string());
     assert!(value_option.is_none());
+    info!("test_remove_with_two_table_synchronizers passed");
 }
 
 async fn test_insert_and_get_with_customize_struct(client_factory: &ClientFactory) {
@@ -305,4 +310,5 @@ async fn test_insert_and_get_with_customize_struct(client_factory: &ClientFactor
         }
         _ => panic!("Wrong type id"),
     }
+    info!("test_insert_and_get_with_customize_struct passed");
 }

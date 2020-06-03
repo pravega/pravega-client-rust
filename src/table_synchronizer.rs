@@ -304,7 +304,6 @@ where
             );
             break;
         }
-
         let mut to_send = Vec::new();
         for update in to_update.iter() {
             let data = serialize(&*update.new_value).expect("serialize value");
