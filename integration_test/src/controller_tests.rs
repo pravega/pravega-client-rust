@@ -65,7 +65,7 @@ pub async fn test_scale_stream(controller: &dyn ControllerClient) {
     assert!(current_segments_result.is_ok());
     assert_eq!(1, current_segments_result.unwrap().key_segment_map.len());
 
-    let sealed_segments = [Segment { number: 0 }];
+    let sealed_segments = [Segment::new(0)];
 
     let new_range = [(0.0, 0.5), (0.5, 1.0)];
 

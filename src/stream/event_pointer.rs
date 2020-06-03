@@ -49,7 +49,10 @@ mod tests {
     #[test]
     fn test_event_pointer_serde() {
         let v1 = EventPointerV1 {
-            segment: Segment { number: 0 },
+            segment: Segment {
+                number: 0,
+                tx_id: None,
+            },
             event_start_offset: 0,
             event_length: 0,
         };
