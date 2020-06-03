@@ -46,7 +46,7 @@ pub async fn test_transactional_event_stream_writer() {
         .controller_uri(TEST_CONTROLLER_URI)
         .build()
         .expect("creating config");
-    let client_factory = ClientFactory::new(config.clone());
+    let client_factory = ClientFactory::new(config.clone()).await;
     let mut writer = client_factory
         .create_transactional_event_stream_writer(scoped_stream.clone(), WriterId(0))
         .await;
@@ -176,7 +176,7 @@ async fn setup_test(scope_name: &Scope, stream_name: &Stream) -> ControllerClien
         .build()
         .expect("build client config");
 
-    let controller_client = ControllerClientImpl::new(config);
+    let controller_client = ControllerClientImpl::new(config).await;
     controller_client
         .create_scope(scope_name)
         .await
