@@ -141,7 +141,7 @@ impl Pinger {
                     .get_controller_client()
                     .ping_transaction(
                         &self.stream,
-                        txn_id.clone(),
+                        txn_id.to_owned(),
                         Duration::from_millis(self.txn_lease_millis),
                     )
                     .await
@@ -151,7 +151,7 @@ impl Pinger {
                     debug!("successfully pinged transaction {:?}", txn_id);
                 } else {
                     debug!("transaction {:?} is committed/aborted", txn_id);
-                    completed_txns.insert(txn_id.clone());
+                    completed_txns.insert(txn_id.to_owned());
                 }
             }
             info!("completed sending transaction pings.");

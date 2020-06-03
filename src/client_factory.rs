@@ -41,7 +41,7 @@ impl ClientFactory {
         let controller = if config.mock {
             Box::new(MockController::new(config.controller_uri)) as Box<dyn ControllerClient>
         } else {
-            Box::new(ControllerClientImpl::new(config.clone())) as Box<dyn ControllerClient>
+            Box::new(ControllerClientImpl::new(config.clone()).await) as Box<dyn ControllerClient>
         };
         ClientFactory(Arc::new(ClientFactoryInternal {
             connection_pool: pool,
