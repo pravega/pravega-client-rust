@@ -19,7 +19,7 @@ pub async fn test_controller_apis() {
         .controller_uri(TEST_CONTROLLER_URI)
         .build()
         .expect("creating config");
-    let client_factory = ClientFactory::new(config.clone());
+    let client_factory = ClientFactory::new(config.clone()).await;
 
     let controller = client_factory.get_controller_client();
     let scope_name = Scope::new("testScope123".into());

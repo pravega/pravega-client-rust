@@ -121,7 +121,7 @@ impl Into<crate::controller::StreamCut> for pravega_rust_client_shared::StreamCu
     fn into(self) -> crate::controller::StreamCut {
         crate::controller::StreamCut {
             stream_info: Some(self.scoped_stream.into()),
-            cut: self.segment_offset_map.to_owned(), // create a clone
+            cut: self.segment_offset_map,
         }
     }
 }

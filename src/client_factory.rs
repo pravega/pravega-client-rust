@@ -32,14 +32,14 @@ pub struct ClientFactoryInternal {
 }
 
 impl ClientFactory {
-    pub fn new(config: ClientConfig) -> ClientFactory {
+    pub async fn new(config: ClientConfig) -> ClientFactory {
         let _ = setup_logger(); //Ignore failure
         let cf = ConnectionFactory::create(config.connection_type);
         let pool = ConnectionPool::new(SegmentConnectionManager::new(cf, config.max_connections_in_pool));
         let controller = if config.mock {
             Box::new(MockController::new(config.controller_uri)) as Box<dyn ControllerClient>
         } else {
-            Box::new(ControllerClientImpl::new(config)) as Box<dyn ControllerClient>
+            Box::new(ControllerClientImpl::new(config).await) as Box<dyn ControllerClient>
         };
         ClientFactory(Arc::new(ClientFactoryInternal {
             connection_pool: pool,
