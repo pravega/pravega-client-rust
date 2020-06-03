@@ -43,7 +43,7 @@ pub(crate) struct PositionV1 {
 }
 
 impl PositionV1 {
-    fn new(segments: HashMap<SegmentWithRange, i64>) -> Self {
+    pub(crate) fn new(segments: HashMap<SegmentWithRange, i64>) -> Self {
         let mut owned_segments = HashMap::with_capacity(segments.len());
         let mut segment_ranges = HashMap::with_capacity(segments.len());
         for (k, v) in segments {
@@ -54,6 +54,10 @@ impl PositionV1 {
             owned_segments,
             segment_ranges,
         }
+    }
+
+    pub(crate) fn get_owned_segments_with_offsets(&self) -> HashMap<Segment, i64> {
+        self.owned_segments.to_owned()
     }
 }
 
