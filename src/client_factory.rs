@@ -13,7 +13,7 @@ use std::net::SocketAddr;
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::mock_controller::MockController;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
-use pravega_rust_client_shared::{ScopedSegment, ScopedStream};
+use pravega_rust_client_shared::{ScopedSegment, ScopedStream, WriterId};
 use pravega_wire_protocol::client_config::ClientConfig;
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 
@@ -22,6 +22,7 @@ use crate::raw_client::RawClientImpl;
 use crate::segment_reader::AsyncSegmentReaderImpl;
 use crate::setup_logger;
 use crate::tablemap::TableMap;
+use crate::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
 use std::sync::Arc;
 
 pub struct ClientFactory(Arc<ClientFactoryInternal>);
@@ -29,6 +30,7 @@ pub struct ClientFactory(Arc<ClientFactoryInternal>);
 pub struct ClientFactoryInternal {
     connection_pool: ConnectionPool<SegmentConnectionManager>,
     controller_client: Box<dyn ControllerClient>,
+    config: ClientConfig,
 }
 
 impl ClientFactory {
@@ -39,11 +41,12 @@ impl ClientFactory {
         let controller = if config.mock {
             Box::new(MockController::new(config.controller_uri)) as Box<dyn ControllerClient>
         } else {
-            Box::new(ControllerClientImpl::new(config).await) as Box<dyn ControllerClient>
+            Box::new(ControllerClientImpl::new(config.clone()).await) as Box<dyn ControllerClient>
         };
         ClientFactory(Arc::new(ClientFactoryInternal {
             connection_pool: pool,
             controller_client: controller,
+            config,
         }))
     }
 
@@ -74,12 +77,16 @@ impl ClientFactory {
         self.0.create_raw_client(endpoint)
     }
 
-    pub fn create_event_stream_writer(
+    pub fn create_event_stream_writer(&self, stream: ScopedStream) -> EventStreamWriter {
+        EventStreamWriter::new(stream, self.0.config.clone(), self.0.clone())
+    }
+
+    pub async fn create_transactional_event_stream_writer(
         &self,
         stream: ScopedStream,
-        config: ClientConfig,
-    ) -> EventStreamWriter {
-        EventStreamWriter::new(stream, config, self.0.clone())
+        writer_id: WriterId,
+    ) -> TransactionalEventStreamWriter {
+        TransactionalEventStreamWriter::new(stream, writer_id, self.0.clone(), self.0.config.clone()).await
     }
 
     pub fn get_controller_client(&self) -> &dyn ControllerClient {

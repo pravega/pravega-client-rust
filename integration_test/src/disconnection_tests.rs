@@ -12,7 +12,6 @@ use super::wait_for_standalone_with_timeout;
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
 use log::info;
 use pravega_client_rust::raw_client::{RawClient, RawClientImpl};
-use pravega_client_rust::setup_logger;
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl, ControllerError};
 use pravega_rust_client_retry::retry_async::retry_async;
@@ -149,7 +148,10 @@ async fn test_retry_with_unexpected_reply() {
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment { number: 0 },
+        segment: Segment {
+            number: 0,
+            tx_id: None,
+        },
     };
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
