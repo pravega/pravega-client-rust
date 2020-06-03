@@ -83,7 +83,6 @@ impl StreamManager {
 
         let controller = self.cf.get_controller_client();
         let scope_name = Scope::new(scope_name.to_string());
-        // let stream_name = Stream::new("testStream".into());
 
         let scope_result = handle.block_on(controller.delete_scope(&scope_name));
         println!("Scope deletion status {:?}", scope_result);
