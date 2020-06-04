@@ -338,7 +338,7 @@ fn get_segments_for_stream(
         result.push(ScopedSegment {
             scope: stream.scope.clone(),
             stream: stream.stream.clone(),
-            segment: Segment { number: i as i64 },
+            segment: Segment::new(i as i64),
         });
     }
 

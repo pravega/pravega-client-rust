@@ -12,10 +12,13 @@ use bincode2::Error as BincodeError;
 use pravega_connection_pool::connection_pool::ConnectionPoolError;
 use pravega_controller_client::ControllerError;
 use pravega_rust_client_retry::retry_result::RetryError;
+use pravega_rust_client_shared::{TransactionStatus, TxId};
 use pravega_wire_protocol::error::*;
 use pravega_wire_protocol::wire_commands::Replies;
 use snafu::Snafu;
 use std::fmt::Debug;
+use tokio::sync::mpsc::error::TryRecvError;
+use tokio::sync::oneshot;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
@@ -59,6 +62,61 @@ pub enum EventStreamWriterError {
 
     #[snafu(display("Wrong reply, expected {:?} but get {:?}", expected, actual))]
     WrongReply { expected: String, actual: Replies },
+}
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility = "pub")]
+pub enum TransactionalEventStreamWriterError {
+    #[snafu(display("Pinger failed to {:?}", msg))]
+    PingerError { msg: String },
+
+    #[snafu(display("Controller client failed with error {:?}", source))]
+    TxnStreamControllerError { source: ControllerError },
+}
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility = "pub")]
+pub enum TransactionalEventSegmentWriterError {
+    #[snafu(display("Mpsc failed with error {:?}", source))]
+    MpscError { source: TryRecvError },
+
+    #[snafu(display("Mpsc closed with sender dropped"))]
+    MpscSenderDropped {},
+
+    #[snafu(display("Oneshot failed with error {:?}", source))]
+    OneshotError { source: oneshot::error::TryRecvError },
+
+    #[snafu(display("EventSegmentWriter failed due to {:?}", source))]
+    WriterError { source: EventStreamWriterError },
+
+    #[snafu(display("Unexpected reply from segmentstore {:?}", error))]
+    UnexpectedReply { error: Replies },
+}
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility = "pub")]
+pub enum TransactionError {
+    #[snafu(display("Transactional segment writer failed due to {:?}", source))]
+    TxnSegmentWriterError {
+        source: TransactionalEventSegmentWriterError,
+    },
+
+    #[snafu(display("Transactional stream writer failed due to {:?}", source))]
+    TxnStreamWriterError {
+        source: TransactionalEventStreamWriterError,
+    },
+
+    #[snafu(display("Transaction {:?} already closed", id))]
+    TxnClosed { id: TxId },
+
+    #[snafu(display("Transaction failed due to controller error: {:?}", source))]
+    TxnControllerError { source: ControllerError },
+
+    #[snafu(display("Commit Transaction {:?} error due to Transaction {:?}", id, status))]
+    TxnCommitError { id: TxId, status: TransactionStatus },
+
+    #[snafu(display("Abort Transaction {:?} error due to Transaction {:?}", id, status))]
+    TxnAbortError { id: TxId, status: TransactionStatus },
 }
 
 #[derive(Debug, Snafu)]

@@ -193,7 +193,10 @@ mod tests {
         let segment_name = ScopedSegment {
             scope: scope_name,
             stream: stream_name,
-            segment: Segment { number: 0 },
+            segment: Segment {
+                number: 0,
+                tx_id: None,
+            },
         };
 
         let segment_name_copy = segment_name.clone();
