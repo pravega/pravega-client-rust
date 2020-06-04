@@ -22,7 +22,7 @@ use std::i64;
 use std::io::Cursor;
 use std::io::{Read, Write};
 
-pub const WIRE_VERSION: i32 = 9;
+pub const WIRE_VERSION: i32 = 10;
 pub const OLDEST_COMPATIBLE_VERSION: i32 = 5;
 pub const TYPE_SIZE: u32 = 4;
 pub const TYPE_PLUS_LENGTH_SIZE: u32 = 8;
@@ -1713,6 +1713,7 @@ pub struct UpdateTableEntriesCommand {
     pub segment: String,
     pub delegation_token: String,
     pub table_entries: TableEntries,
+    pub table_segment_offset: i64,
 }
 
 impl Command for UpdateTableEntriesCommand {
@@ -1781,6 +1782,7 @@ pub struct RemoveTableKeysCommand {
     pub segment: String,
     pub delegation_token: String,
     pub keys: Vec<TableKey>,
+    pub table_segment_offset: i64,
 }
 
 impl Command for RemoveTableKeysCommand {
