@@ -51,6 +51,7 @@ pub enum Requests {
     ReadTable(ReadTableCommand),
     ReadTableKeys(ReadTableKeysCommand),
     ReadTableEntries(ReadTableEntriesCommand),
+    ReadTableEntriesDelta(ReadTableEntriesDeltaCommand),
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -86,6 +87,7 @@ pub enum Replies {
     TableEntriesRead(TableEntriesReadCommand),
     TableKeyDoesNotExist(TableKeyDoesNotExistCommand),
     TableKeyBadVersion(TableKeyBadVersionCommand),
+    TableEntriesDeltaRead(TableEntriesDeltaReadCommand),
 }
 
 impl fmt::Display for Replies {
@@ -136,6 +138,9 @@ impl Request for Requests {
             Requests::ReadTable(read_table_cmd) => read_table_cmd.get_request_id(),
             Requests::ReadTableKeys(read_table_keys_cmd) => read_table_keys_cmd.get_request_id(),
             Requests::ReadTableEntries(read_table_entries_cmd) => read_table_entries_cmd.get_request_id(),
+            Requests::ReadTableEntriesDelta(read_table_entries_delta_cmd) => {
+                read_table_entries_delta_cmd.get_request_id()
+            }
             _ => -1,
         }
     }
@@ -192,6 +197,9 @@ impl Reply for Replies {
             }
             Replies::TableKeyBadVersion(table_key_bad_version_cmd) => {
                 table_key_bad_version_cmd.get_request_id()
+            }
+            Replies::TableEntriesDeltaRead(table_entries_delta_read_cmd) => {
+                table_entries_delta_read_cmd.get_request_id()
             }
         }
     }
@@ -376,6 +384,12 @@ impl Encode for Requests {
             Requests::ReadTableEntries(read_table_entries_cmd) => {
                 res.extend_from_slice(&ReadTableEntriesCommand::TYPE_CODE.to_be_bytes());
                 let se = read_table_entries_cmd.write_fields()?;
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
+                res.extend(se);
+            }
+            Requests::ReadTableEntriesDelta(read_table_entries_delta_cmd) => {
+                res.extend_from_slice(&ReadTableEntriesDeltaCommand::TYPE_CODE.to_be_bytes());
+                let se = read_table_entries_delta_cmd.write_fields()?;
                 res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
@@ -574,6 +588,12 @@ impl Encode for Replies {
                 res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
+            Replies::TableEntriesDeltaRead(table_entries_delta_read_cmd) => {
+                res.extend_from_slice(&TableEntriesDeltaReadCommand::TYPE_CODE.to_be_bytes());
+                let se = table_entries_delta_read_cmd.write_fields()?;
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
+                res.extend(se);
+            }
         }
         Ok(res)
     }
@@ -657,6 +677,9 @@ impl Decode for Requests {
             }
             ReadTableEntriesCommand::TYPE_CODE => Ok(Requests::ReadTableEntries(
                 ReadTableEntriesCommand::read_from(input)?,
+            )),
+            ReadTableEntriesDeltaCommand::TYPE_CODE => Ok(Requests::ReadTableEntriesDelta(
+                ReadTableEntriesDeltaCommand::read_from(input)?,
             )),
 
             AppendBlockCommand::TYPE_CODE => Ok(Requests::AppendBlock(AppendBlockCommand::read_from(input)?)),
@@ -768,6 +791,9 @@ impl Decode for Replies {
             )),
             TableKeyBadVersionCommand::TYPE_CODE => Ok(Replies::TableKeyBadVersion(
                 TableKeyBadVersionCommand::read_from(input)?,
+            )),
+            TableEntriesDeltaReadCommand::TYPE_CODE => Ok(Replies::TableEntriesDeltaRead(
+                TableEntriesDeltaReadCommand::read_from(input)?,
             )),
             _ => InvalidType {
                 command_type: type_code,

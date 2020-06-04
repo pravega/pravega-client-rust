@@ -780,6 +780,40 @@ fn table_key_bad_version() {
     test_command(table_key_bad_version);
 }
 
+#[test]
+fn test_read_table_entries_delta() {
+    let segment_name = String::from("segment-1");
+    let token = String::from("delegation_token");
+    let read_table_entries_delta =
+        WireCommands::Requests(Requests::ReadTableEntriesDelta(ReadTableEntriesDeltaCommand {
+            request_id: 0,
+            segment: segment_name,
+            delegation_token: token,
+            from_version: 0,
+            suggested_entry_count: 3,
+        }));
+    test_command(read_table_entries_delta);
+}
+#[test]
+fn test_table_entries_delta_read() {
+    let segment_name = String::from("segment-1");
+    let mut entries = Vec::<(TableKey, TableValue)>::new();
+    let key_data = String::from("key-1").into_bytes();
+    let value_data = String::from("value-1").into_bytes();
+    entries.push((TableKey::new(key_data, 1), TableValue::new(value_data)));
+    let table_entries = TableEntries { entries };
+    let table_entries_delta_read =
+        WireCommands::Replies(Replies::TableEntriesDeltaRead(TableEntriesDeltaReadCommand {
+            request_id: 0,
+            segment: segment_name,
+            entries: table_entries,
+            should_clear: false,
+            reached_end: false,
+            last_version: 0,
+        }));
+    test_command(table_entries_delta_read);
+}
+
 fn test_command(command: WireCommands) -> WireCommands {
     let encoded: Vec<u8> = command.write_fields().unwrap();
     let decoded = WireCommands::read_from(&encoded).unwrap();
