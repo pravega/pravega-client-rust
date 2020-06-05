@@ -22,7 +22,7 @@ use std::i64;
 use std::io::Cursor;
 use std::io::{Read, Write};
 
-pub const WIRE_VERSION: i32 = 9;
+pub const WIRE_VERSION: i32 = 10;
 pub const OLDEST_COMPATIBLE_VERSION: i32 = 5;
 pub const TYPE_SIZE: u32 = 4;
 pub const TYPE_PLUS_LENGTH_SIZE: u32 = 8;
@@ -1713,6 +1713,7 @@ pub struct UpdateTableEntriesCommand {
     pub segment: String,
     pub delegation_token: String,
     pub table_entries: TableEntries,
+    pub table_segment_offset: i64,
 }
 
 impl Command for UpdateTableEntriesCommand {
@@ -1781,6 +1782,7 @@ pub struct RemoveTableKeysCommand {
     pub segment: String,
     pub delegation_token: String,
     pub keys: Vec<TableKey>,
+    pub table_segment_offset: i64,
 }
 
 impl Command for RemoveTableKeysCommand {
@@ -2206,5 +2208,78 @@ impl TableEntries {
         }
 
         data_bytes + TableEntries::get_header_byte(self.entries.len() as i32)
+    }
+}
+
+/**
+ * 58 ReadTableEntriesDelta Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct ReadTableEntriesDeltaCommand {
+    pub request_id: i64,
+    pub segment: String,
+    pub delegation_token: String,
+    pub from_version: i64,
+    pub suggested_entry_count: i32,
+}
+
+impl Command for ReadTableEntriesDeltaCommand {
+    const TYPE_CODE: i32 = 87;
+
+    fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
+        let encoded = CONFIG.serialize(&self).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(encoded)
+    }
+
+    fn read_from(input: &[u8]) -> Result<Self, CommandError> {
+        let decoded: ReadTableEntriesDeltaCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(decoded)
+    }
+}
+
+impl Request for ReadTableEntriesDeltaCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 59 TableEntriesDeltaRead Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct TableEntriesDeltaReadCommand {
+    pub request_id: i64,
+    pub segment: String,
+    pub entries: TableEntries,
+    pub should_clear: bool,
+    pub reached_end: bool,
+    pub last_version: i64,
+}
+
+impl Command for TableEntriesDeltaReadCommand {
+    const TYPE_CODE: i32 = 88;
+
+    fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
+        let encoded = CONFIG.serialize(&self).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(encoded)
+    }
+
+    fn read_from(input: &[u8]) -> Result<Self, CommandError> {
+        let decoded: TableEntriesDeltaReadCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(decoded)
+    }
+}
+
+impl Reply for TableEntriesDeltaReadCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
     }
 }
