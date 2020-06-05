@@ -39,23 +39,19 @@ impl ReaderGroupConfigVersioned {
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) struct ReaderGroupConfigV1 {
+    /// maximum delay by which the readers return the latest read offsets of their
+    /// assigned segments.
     group_refresh_time_millis: u64,
-    automatic_checkpoint_interval_millis: u64,
-
     starting_stream_cuts: HashMap<ScopedStream, StreamCutVersioned>,
     ending_stream_cuts: HashMap<ScopedStream, StreamCutVersioned>,
-
-    max_outstanding_checkpoint_request: i32,
 }
 
 impl ReaderGroupConfigV1 {
     pub(crate) fn new() -> Self {
         ReaderGroupConfigV1 {
             group_refresh_time_millis: 3000,
-            automatic_checkpoint_interval_millis: 30000,
             starting_stream_cuts: HashMap::new(),
             ending_stream_cuts: HashMap::new(),
-            max_outstanding_checkpoint_request: 3,
         }
     }
 
@@ -83,14 +79,6 @@ impl ReaderGroupConfigV1 {
     }
 
     pub(crate) fn start_from_stream_cuts(
-        mut self,
-        stream_cuts: HashMap<ScopedStream, StreamCutVersioned>,
-    ) -> ReaderGroupConfigV1 {
-        self.starting_stream_cuts = stream_cuts;
-        self
-    }
-
-    pub(crate) fn start_from_checkpoint(
         mut self,
         stream_cuts: HashMap<ScopedStream, StreamCutVersioned>,
     ) -> ReaderGroupConfigV1 {
