@@ -142,9 +142,7 @@ impl ReaderGroupStateV1 {
                 let offset = owned_segments
                     .get(&segment.scoped_segment)
                     .map_or(pos, |v| v.to_owned());
-                self.unassigned_segments
-                    .insert(segment, offset)
-                    .expect("reader offline, failed to insert owned segment back to unassigned map");
+                self.unassigned_segments.insert(segment, offset);
             }
         });
         self.distance_to_tail.remove(reader);
@@ -169,17 +167,40 @@ impl ReaderGroupStateV1 {
         result
     }
 
-    /// Returns the list of segments assigned to the requested reader, or None if this reader does not exist.
-    pub(crate) fn get_segments_for_reader(&self, reader: &str) -> Option<HashSet<ScopedSegment>> {
+    /// Assigns an unassigned segment to a given reader
+    pub(crate) fn assign_segment_to_reader(&mut self, reader: &str, segment: &ScopedSegment) {
+        let assigned = self
+            .assigned_segments
+            .get_mut(reader)
+            .expect("reader doesn't exist in reader group");
+        let mut newly_assigned = self
+            .unassigned_segments
+            .keys()
+            .filter(|&s| s.scoped_segment == *segment)
+            .map(|s| s.clone())
+            .collect::<Vec<SegmentWithRange>>();
+        assert!(
+            !newly_assigned.is_empty(),
+            "segment does not exist in reader group"
+        );
+
+        let new_segment_with_range = newly_assigned.pop().expect("get segment with range");
+        let offset = self
+            .unassigned_segments
+            .remove(&new_segment_with_range)
+            .expect("remove segment from unassigned list");
+        assigned.insert(new_segment_with_range, offset);
+    }
+
+    /// Returns the list of segments assigned to the requested reader.
+    pub(crate) fn get_segments_for_reader(&self, reader: &str) -> HashSet<ScopedSegment> {
         self.assigned_segments.get(reader).map_or_else(
-            || None,
+            || panic!("reader does not exist"),
             |segments| {
-                Some(
-                    segments
-                        .keys()
-                        .map(|s| s.scoped_segment.to_owned())
-                        .collect::<HashSet<ScopedSegment>>(),
-                )
+                segments
+                    .keys()
+                    .map(|s| s.scoped_segment.to_owned())
+                    .collect::<HashSet<ScopedSegment>>()
             },
         )
     }
@@ -257,7 +278,77 @@ pub(crate) struct Offset {
 
 #[cfg(test)]
 mod test {
+    use super::*;
+    use crate::reader_group::reader_group_config::ReaderGroupConfigV1;
+    use ordered_float::OrderedFloat;
+    use pravega_rust_client_shared::{Scope, Segment, Stream};
 
+    fn set_up() -> ReaderGroupStateV1 {
+        let internal_stream =
+            ScopedStream::new(Scope::new("system".to_owned()), Stream::new("stream".to_owned()));
+        let mut segments = HashMap::new();
+        segments.insert(
+            SegmentWithRange::new(
+                ScopedSegment::new(
+                    Scope::new("scope".to_owned()),
+                    Stream::new("stream".to_owned()),
+                    Segment::new(0),
+                ),
+                OrderedFloat::from(0.0),
+                OrderedFloat::from(1.0),
+            ),
+            Offset::new(0, 0),
+        );
+        ReaderGroupStateV1::new(
+            internal_stream,
+            ReaderGroupConfigVersioned::V1(ReaderGroupConfigV1::new()),
+            segments,
+        )
+    }
     #[test]
-    fn test_reader_group_state() {}
+    fn test_reader_group_state() {
+        let mut state = set_up();
+        assert_eq!(state.get_segments().len(), 1);
+
+        // test add reader
+        let reader = "reader".to_owned();
+        state.add_reader(&reader);
+        assert!(state.is_reader_online(&reader));
+        assert_eq!(state.get_number_of_readers(), 1);
+        assert_eq!(state.get_online_readers().len(), 1);
+
+        // test assign segment
+        let scoped_segment = ScopedSegment::new(
+            Scope::new("scope".to_owned()),
+            Stream::new("stream".to_owned()),
+            Segment::new(0),
+        );
+        state.assign_segment_to_reader(&reader, &scoped_segment);
+        assert_eq!(state.get_segments_for_reader(&reader).len(), 1);
+
+        // test update reader position
+        let mut latest_offsets = HashMap::new();
+        let segment_with_range = SegmentWithRange::new(
+            ScopedSegment::new(
+                Scope::new("scope".to_owned()),
+                Stream::new("stream".to_owned()),
+                Segment::new(0),
+            ),
+            OrderedFloat::from(0.0),
+            OrderedFloat::from(1.0),
+        );
+        let offset = Offset::new(10, 10);
+        latest_offsets.insert(segment_with_range.clone(), offset.clone());
+        state.update_reader_positions(&reader, latest_offsets);
+        let updated_offsets = state.get_reader_positions(&reader);
+        let updated_offset = updated_offsets
+            .get(&segment_with_range)
+            .expect("should contain segment");
+
+        assert_eq!(*updated_offset, offset);
+
+        // test remove reader
+        state.remove_reader(&reader, HashMap::new());
+        assert_eq!(state.get_online_readers().len(), 0);
+    }
 }
