@@ -177,7 +177,7 @@ impl ReaderGroupStateV1 {
             .unassigned_segments
             .keys()
             .filter(|&s| s.scoped_segment == *segment)
-            .map(|s| s.clone())
+            .map(|s| s.to_owned())
             .collect::<Vec<SegmentWithRange>>();
         assert!(
             !newly_assigned.is_empty(),
