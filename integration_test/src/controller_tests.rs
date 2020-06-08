@@ -19,7 +19,7 @@ pub fn test_controller_apis() {
         .controller_uri(TEST_CONTROLLER_URI)
         .build()
         .expect("creating config");
-    let client_factory = ClientFactory::new(config.clone());
+    let client_factory = ClientFactory::new(config);
 
     let controller = client_factory.get_controller_client();
     let scope_name = Scope::new("testScope123".into());
@@ -31,8 +31,8 @@ pub fn test_controller_apis() {
 
     let stream_cfg = StreamConfiguration {
         scoped_stream: ScopedStream {
-            scope: scope_name.clone(),
-            stream: stream_name.clone(),
+            scope: scope_name,
+            stream: stream_name,
         },
         scaling: Scaling {
             scale_type: ScaleType::FixedNumSegments,

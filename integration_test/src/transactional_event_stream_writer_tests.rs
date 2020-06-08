@@ -44,13 +44,12 @@ pub fn test_transactional_event_stream_writer() {
         .controller_uri(TEST_CONTROLLER_URI)
         .build()
         .expect("creating config");
-    let client_factory = ClientFactory::new(config.clone());
+    let client_factory = ClientFactory::new(config);
     let handle = client_factory.get_runtime_handle();
     handle.block_on(setup_test(&scope_name, &stream_name));
 
-    let mut writer = handle.block_on(
-        client_factory.create_transactional_event_stream_writer(scoped_stream.clone(), WriterId(0)),
-    );
+    let mut writer =
+        handle.block_on(client_factory.create_transactional_event_stream_writer(scoped_stream, WriterId(0)));
 
     handle.block_on(test_commit_transaction(&mut writer));
     handle.block_on(test_abort_transaction(&mut writer));

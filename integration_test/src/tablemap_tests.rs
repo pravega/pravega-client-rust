@@ -27,7 +27,7 @@ pub fn test_tablemap() {
         .build()
         .expect("creating config");
 
-    let client_factory = ClientFactory::new(config.clone());
+    let client_factory = ClientFactory::new(config);
     let handle = client_factory.get_runtime_handle();
     handle.block_on(test_single_key_operations(&client_factory));
     handle.block_on(test_multiple_key_operations(&client_factory));

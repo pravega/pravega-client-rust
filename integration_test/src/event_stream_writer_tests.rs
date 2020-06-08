@@ -36,7 +36,7 @@ pub fn test_event_stream_writer() {
         .controller_uri(TEST_CONTROLLER_URI)
         .build()
         .expect("creating config");
-    let client_factory = ClientFactory::new(config.clone());
+    let client_factory = ClientFactory::new(config);
     let controller_client = client_factory.get_controller_client();
     let handle = client_factory.get_runtime_handle();
     handle.block_on(create_scope_stream(
@@ -47,10 +47,10 @@ pub fn test_event_stream_writer() {
     ));
 
     let scoped_stream = ScopedStream {
-        scope: scope_name.clone(),
-        stream: stream_name.clone(),
+        scope: scope_name,
+        stream: stream_name,
     };
-    let mut writer = client_factory.create_event_stream_writer(scoped_stream.clone());
+    let mut writer = client_factory.create_event_stream_writer(scoped_stream);
 
     handle.block_on(test_simple_write(&mut writer));
 
@@ -67,10 +67,10 @@ pub fn test_event_stream_writer() {
         1,
     ));
     let scoped_stream = ScopedStream {
-        scope: scope_name.clone(),
-        stream: stream_name.clone(),
+        scope: scope_name,
+        stream: stream_name,
     };
-    let mut writer = client_factory.create_event_stream_writer(scoped_stream.clone());
+    let mut writer = client_factory.create_event_stream_writer(scoped_stream);
 
     handle.block_on(test_write_correctness(&mut writer, &client_factory));
     handle.block_on(test_write_correctness_while_scaling(&mut writer, &client_factory));
@@ -84,10 +84,10 @@ pub fn test_event_stream_writer() {
         2,
     ));
     let scoped_stream = ScopedStream {
-        scope: scope_name.clone(),
-        stream: stream_name.clone(),
+        scope: scope_name,
+        stream: stream_name,
     };
-    let mut writer = client_factory.create_event_stream_writer(scoped_stream.clone());
+    let mut writer = client_factory.create_event_stream_writer(scoped_stream);
     handle.block_on(test_write_correctness_with_routing_key(
         &mut writer,
         &client_factory,
