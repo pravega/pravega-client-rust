@@ -31,13 +31,11 @@ use pravega_wire_protocol::commands::{
 use std::time::Duration;
 use tokio::time::delay_for;
 
-pub async fn test_transactional_event_stream_writer() {
+pub fn test_transactional_event_stream_writer() {
     info!("test TransactionalEventStreamWriter");
     // spin up Pravega standalone
     let scope_name = Scope::new("testScopeTxnWriter".into());
     let stream_name = Stream::new("testStreamTxnWriter".into());
-    setup_test(&scope_name, &stream_name).await;
-
     let scoped_stream = ScopedStream {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
@@ -46,13 +44,17 @@ pub async fn test_transactional_event_stream_writer() {
         .controller_uri(TEST_CONTROLLER_URI)
         .build()
         .expect("creating config");
-    let client_factory = ClientFactory::new(config.clone()).await;
-    let mut writer = client_factory
-        .create_transactional_event_stream_writer(scoped_stream.clone(), WriterId(0))
-        .await;
-    test_commit_transaction(&mut writer).await;
-    test_abort_transaction(&mut writer).await;
-    test_write_and_read_transaction(&mut writer, &client_factory).await;
+    let client_factory = ClientFactory::new(config.clone());
+    let handle = client_factory.get_runtime_handle();
+    handle.block_on(setup_test(&scope_name, &stream_name));
+
+    let mut writer = handle.block_on(
+        client_factory.create_transactional_event_stream_writer(scoped_stream.clone(), WriterId(0)),
+    );
+
+    handle.block_on(test_commit_transaction(&mut writer));
+    handle.block_on(test_abort_transaction(&mut writer));
+    handle.block_on(test_write_and_read_transaction(&mut writer, &client_factory));
 
     info!("test TransactionalEventStreamWriter passed");
 }

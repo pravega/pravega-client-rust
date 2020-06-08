@@ -24,6 +24,7 @@ use crate::setup_logger;
 use crate::tablemap::TableMap;
 use crate::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
 use std::sync::Arc;
+use tokio::runtime::{Handle, Runtime};
 
 pub struct ClientFactory(Arc<ClientFactoryInternal>);
 
@@ -31,23 +32,33 @@ pub struct ClientFactoryInternal {
     connection_pool: ConnectionPool<SegmentConnectionManager>,
     controller_client: Box<dyn ControllerClient>,
     config: ClientConfig,
+    runtime: Runtime,
 }
 
 impl ClientFactory {
-    pub async fn new(config: ClientConfig) -> ClientFactory {
+    pub fn new(config: ClientConfig) -> ClientFactory {
         let _ = setup_logger(); //Ignore failure
+        let mut rt = tokio::runtime::Runtime::new().expect("create runtime");
         let cf = ConnectionFactory::create(config.connection_type);
         let pool = ConnectionPool::new(SegmentConnectionManager::new(cf, config.max_connections_in_pool));
         let controller = if config.mock {
             Box::new(MockController::new(config.controller_uri)) as Box<dyn ControllerClient>
         } else {
-            Box::new(ControllerClientImpl::new(config.clone()).await) as Box<dyn ControllerClient>
+            Box::new(rt.block_on(ControllerClientImpl::new(config.clone()))) as Box<dyn ControllerClient>
         };
         ClientFactory(Arc::new(ClientFactoryInternal {
             connection_pool: pool,
             controller_client: controller,
             config,
+            runtime: rt,
         }))
+    }
+
+    ///
+    /// Get the Runtime handle.
+    ///
+    pub fn get_runtime_handle(&self) -> Handle {
+        self.0.get_runtime_handle()
     }
 
     #[allow(clippy::needless_lifetimes)] //Normally the compiler could infer lifetimes but async is throwing it for a loop.
@@ -105,5 +116,12 @@ impl ClientFactoryInternal {
 
     pub(crate) fn get_controller_client(&self) -> &dyn ControllerClient {
         &*self.controller_client
+    }
+
+    ///
+    /// Get the Runtime handle. The Handle is internally reference counted and can be cloned.
+    ///
+    pub(crate) fn get_runtime_handle(&self) -> Handle {
+        self.runtime.handle().clone()
     }
 }

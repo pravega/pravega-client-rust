@@ -28,7 +28,7 @@ use pravega_wire_protocol::connection_factory::{
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
 
-pub async fn test_event_stream_writer() {
+pub fn test_event_stream_writer() {
     // spin up Pravega standalone
     let scope_name = Scope::new("testScopeWriter".into());
     let stream_name = Stream::new("testStreamWriter".into());
@@ -36,9 +36,15 @@ pub async fn test_event_stream_writer() {
         .controller_uri(TEST_CONTROLLER_URI)
         .build()
         .expect("creating config");
-    let client_factory = ClientFactory::new(config.clone()).await;
+    let client_factory = ClientFactory::new(config.clone());
     let controller_client = client_factory.get_controller_client();
-    create_scope_stream(controller_client, &scope_name, &stream_name, 1).await;
+    let handle = client_factory.get_runtime_handle();
+    handle.block_on(create_scope_stream(
+        controller_client,
+        &scope_name,
+        &stream_name,
+        1,
+    ));
 
     let scoped_stream = ScopedStream {
         scope: scope_name.clone(),
@@ -46,33 +52,46 @@ pub async fn test_event_stream_writer() {
     };
     let mut writer = client_factory.create_event_stream_writer(scoped_stream.clone());
 
-    test_simple_write(&mut writer).await;
+    handle.block_on(test_simple_write(&mut writer));
 
-    test_segment_scaling_up(&mut writer, &client_factory).await;
+    handle.block_on(test_segment_scaling_up(&mut writer, &client_factory));
 
-    test_segment_scaling_down(&mut writer, &client_factory).await;
+    handle.block_on(test_segment_scaling_down(&mut writer, &client_factory));
 
     let scope_name = Scope::new("testScopeWriter2".into());
     let stream_name = Stream::new("testStreamWriter2".into());
-    create_scope_stream(controller_client, &scope_name, &stream_name, 1).await;
+    handle.block_on(create_scope_stream(
+        controller_client,
+        &scope_name,
+        &stream_name,
+        1,
+    ));
     let scoped_stream = ScopedStream {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
     };
     let mut writer = client_factory.create_event_stream_writer(scoped_stream.clone());
 
-    test_write_correctness(&mut writer, &client_factory).await;
-    test_write_correctness_while_scaling(&mut writer, &client_factory).await;
+    handle.block_on(test_write_correctness(&mut writer, &client_factory));
+    handle.block_on(test_write_correctness_while_scaling(&mut writer, &client_factory));
 
     let scope_name = Scope::new("testScopeWriter3".into());
     let stream_name = Stream::new("testStreamWriter3".into());
-    create_scope_stream(controller_client, &scope_name, &stream_name, 2).await;
+    handle.block_on(create_scope_stream(
+        controller_client,
+        &scope_name,
+        &stream_name,
+        2,
+    ));
     let scoped_stream = ScopedStream {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
     };
     let mut writer = client_factory.create_event_stream_writer(scoped_stream.clone());
-    test_write_correctness_with_routing_key(&mut writer, &client_factory).await;
+    handle.block_on(test_write_correctness_with_routing_key(
+        &mut writer,
+        &client_factory,
+    ));
 }
 
 async fn test_simple_write(writer: &mut EventStreamWriter) {
