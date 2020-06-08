@@ -28,7 +28,7 @@ use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 
-static EVENT_NUM: usize = 1000;
+static EVENT_NUM: usize = 10000;
 static EVENT_SIZE: usize = 100;
 
 struct MockServer {
@@ -203,7 +203,7 @@ async fn set_up(config: ClientConfig) -> EventStreamWriter {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
     };
-    client_factory.create_event_stream_writer(scoped_stream, config.clone())
+    client_factory.create_event_stream_writer(scoped_stream)
 }
 
 async fn create_scope_stream(
@@ -265,11 +265,10 @@ async fn run_no_block(writer: &mut EventStreamWriter) {
     assert_eq!(receivers.len(), EVENT_NUM);
 }
 
-criterion_group!(
-    performance,
-    mock_server,
-    mock_server_no_block,
-    mock_connection,
-    mock_connection_no_block
-);
+criterion_group! {
+    name = performance;
+    config = Criterion::default().sample_size(10);
+    targets = mock_server,mock_server_no_block,mock_connection,mock_connection_no_block
+}
+
 criterion_main!(performance);

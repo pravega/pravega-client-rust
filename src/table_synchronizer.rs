@@ -13,133 +13,13 @@ use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::Unpin;
 use tracing::{debug, info};
+use std::slice::Iter;
 
 /// Provides a mean to have a map that is synchronized between many processes.
 /// The pattern is to have a map that can be update by Insert or Remove,
 /// Each host can perform logic based on its in_memory map and apply updates by supplying a
 /// function to create Insert/Remove objects.
 /// Update from other hosts can be obtained by calling fetchUpdates().
-
-/// The Key struct in the in_memory map. it contains two fields, the key and key_version.
-/// key should be serialized and deserialized.
-#[derive(Debug, Clone)]
-pub struct Key<K: Debug + Eq + Hash + PartialEq + Clone + Serialize + DeserializeOwned> {
-    pub key: K,
-    pub key_version: Version,
-}
-
-impl<K: Debug + Eq + Hash + PartialEq + Clone + Serialize + DeserializeOwned> PartialEq for Key<K> {
-    fn eq(&self, other: &Self) -> bool {
-        self.key == other.key
-    }
-}
-
-impl<K: Debug + Eq + Hash + PartialEq + Clone + Serialize + DeserializeOwned> Eq for Key<K> {}
-
-impl<K: Debug + Eq + Hash + PartialEq + Clone + Serialize + DeserializeOwned> Hash for Key<K> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.key.hash(state)
-    }
-}
-
-/// The Value struct in the in_memory map. It contains two fields.
-/// type_id of the data. It is used for deserializing data between different processes..
-/// data: the Value data after serialized.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Value {
-    pub type_id: String,
-    pub data: Vec<u8>,
-}
-
-/// The Insert struct. It contains three fields.
-/// The key to insert or update,
-/// the type_id for the data, and the data.
-pub struct Insert<K>
-where
-    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
-{
-    pub key: K,
-    pub type_id: String,
-    pub new_value: Box<dyn ValueData>,
-}
-
-/// The Remove struct.
-pub struct Remove<K>
-where
-    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
-{
-    pub key: K,
-}
-
-///The Get struct.
-pub struct Get<K>
-where
-    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
-{
-    pub key: K,
-}
-
-/// The trait bound for the ValueData
-pub trait ValueData: ValueSerialize + ValueClone + Debug {}
-
-impl<T> ValueData for T where T: 'static + Serialize + DeserializeOwned + Clone + Debug {}
-
-/// Clone trait helper.
-pub trait ValueClone {
-    fn clone_box(&self) -> Box<dyn ValueData>;
-}
-
-impl<T> ValueClone for T
-where
-    T: 'static + ValueData + Clone,
-{
-    fn clone_box(&self) -> Box<dyn ValueData> {
-        Box::new(self.clone())
-    }
-}
-
-impl Clone for Box<dyn ValueData> {
-    fn clone(&self) -> Self {
-        self.clone_box()
-    }
-}
-
-/// Serialize trait helper, we need to serialize the ValueData in Insert struct into Vec<u8>.
-pub trait ValueSerialize {
-    fn serialize_value(
-        &self,
-        seralizer: &mut CborSerializer<&mut Vec<u8>>,
-    ) -> Result<(), serde_cbor::error::Error>;
-}
-
-impl<T> ValueSerialize for T
-where
-    T: Serialize,
-{
-    fn serialize_value(
-        &self,
-        serializer: &mut CborSerializer<&mut Vec<u8>>,
-    ) -> Result<(), serde_cbor::error::Error> {
-        self.serialize(serializer)
-    }
-}
-
-/// Serialize the <dyn ValueData> into the Vec<u8> by using cbor serializer.
-/// This method would be used by the update method in table_synchronizer.
-pub(crate) fn serialize(value: &dyn ValueData) -> Result<Vec<u8>, serde_cbor::error::Error> {
-    let mut vec = Vec::new();
-    value.serialize_value(&mut CborSerializer::new(&mut vec))?;
-    Ok(vec)
-}
-
-/// Deserialize the Value into the type T by using cbor deserializer.
-/// THis method would be used by the user after calling get() of table_synchronizer.
-pub fn deserialize_from<T>(reader: &[u8]) -> Result<T, serde_cbor::error::Error>
-where
-    T: DeserializeOwned,
-{
-    serde_cbor::de::from_slice(reader)
-}
 
 /// TableSynchronizer contains a name, a table_map that send the map entries to server
 /// and an in_memory map.
@@ -153,8 +33,8 @@ where
 }
 
 impl<'a, K> TableSynchronizer<'a, K>
-where
-    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
+    where
+        K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
     pub async fn new(name: String, factory: &'a ClientFactoryInternal) -> TableSynchronizer<'a, K> {
         let table_map = TableMap::new(name.clone(), factory)
@@ -262,50 +142,212 @@ where
     /// This will update the local_map to latest version.
     pub async fn insert(
         &mut self,
-        updates_generator: impl FnMut(&mut Vec<Insert<K>>, HashMap<K, Value>),
+        updates_generator: impl FnMut(&mut Table<K>),
     ) -> Result<(), TableError> {
         conditionally_write(updates_generator, self).await
     }
 
-    /// Get the value of a list of keys and applies it atomically to local map.
-    /// This will update the local_map to latest version.
-    pub async fn get_remote(
-        &mut self,
-        get_generator: impl FnMut(&mut Vec<Get<K>>, HashMap<K, Value>),
-    ) -> Result<(), TableError> {
-        conditionally_get(get_generator, self).await
-    }
 
     /// Remove a list of keys and applies it atomically to local map.
     /// This will update the local_map to latest version.
     pub async fn remove(
         &mut self,
-        deletes_generateor: impl FnMut(&mut Vec<Remove<K>>, HashMap<K, Value>),
+        deletes_generateor: impl FnMut(&mut Table<K>),
     ) -> Result<(), TableError> {
         conditionally_remove(deletes_generateor, self).await
     }
 }
 
+
+/// The Key struct in the in_memory map. it contains two fields, the key and key_version.
+/// key should be serialized and deserialized.
+#[derive(Debug, Clone)]
+pub struct Key<K: Debug + Eq + Hash + PartialEq + Clone + Serialize + DeserializeOwned> {
+    pub key: K,
+    pub key_version: Version,
+}
+
+impl<K: Debug + Eq + Hash + PartialEq + Clone + Serialize + DeserializeOwned> PartialEq for Key<K> {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+
+impl<K: Debug + Eq + Hash + PartialEq + Clone + Serialize + DeserializeOwned> Eq for Key<K> {}
+
+impl<K: Debug + Eq + Hash + PartialEq + Clone + Serialize + DeserializeOwned> Hash for Key<K> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.key.hash(state)
+    }
+}
+
+/// The Value struct in the in_memory map. It contains two fields.
+/// type_id of the data. It is used for deserializing data between different processes..
+/// data: the Value data after serialized.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Value {
+    pub type_id: String,
+    pub data: Vec<u8>,
+}
+
+/// The Updates struct. It would be supplied to insert/remove methods.
+pub struct Table<K>
+{
+    map: HashMap<K, Value>,
+    insert: Vec<Insert<K>>,
+    remove: Vec<K>,
+}
+
+impl<K> Table<K>
+where
+    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
+{
+    pub fn insert(&mut self, key: K, type_id: String, new_value: Box<dyn ValueData>) {
+        let insert = Insert{
+            key,
+            type_id,
+            new_value
+        };
+        self.insert.push(insert);
+    }
+
+    pub fn remove(&mut self, key: K) {
+
+        self.remove.push(key);
+    }
+
+    pub fn get(&self, key: &K) -> Option<&Value> {
+        self.map.get(key)
+    }
+
+    pub fn contains_key(&self, key: &K) -> bool {
+        self.map.contains_key(key)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.map.is_empty()
+    }
+
+    pub(crate) fn insert_is_empty(&self) -> bool {
+        self.insert.is_empty()
+    }
+
+    pub(crate) fn remove_is_empty(&self) -> bool {
+        self.remove.is_empty()
+    }
+
+    pub(crate) fn get_insert_iter(&self) -> Iter<Insert<K>> {
+        self.insert.iter()
+    }
+
+    pub(crate) fn get_remove_iter(&self) -> Iter<K> {
+        self.remove.iter()
+    }
+
+}
+
+/// The Insert struct. It contains three fields.
+/// The key to insert or update,
+/// the type_id for the data, and the data.
+pub(crate) struct Insert<K>
+{
+    key: K,
+    type_id: String,
+    new_value: Box<dyn ValueData>,
+}
+
+/// The trait bound for the ValueData
+pub trait ValueData: ValueSerialize + ValueClone + Debug {}
+
+impl<T> ValueData for T where T: 'static + Serialize + DeserializeOwned + Clone + Debug {}
+
+/// Clone trait helper.
+pub trait ValueClone {
+    fn clone_box(&self) -> Box<dyn ValueData>;
+}
+
+impl<T> ValueClone for T
+    where
+        T: 'static + ValueData + Clone,
+{
+    fn clone_box(&self) -> Box<dyn ValueData> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn ValueData> {
+    fn clone(&self) -> Self {
+        self.clone_box()
+    }
+}
+
+/// Serialize trait helper, we need to serialize the ValueData in Insert struct into Vec<u8>.
+pub trait ValueSerialize {
+    fn serialize_value(
+        &self,
+        seralizer: &mut CborSerializer<&mut Vec<u8>>,
+    ) -> Result<(), serde_cbor::error::Error>;
+}
+
+impl<T> ValueSerialize for T
+    where
+        T: Serialize,
+{
+    fn serialize_value(
+        &self,
+        serializer: &mut CborSerializer<&mut Vec<u8>>,
+    ) -> Result<(), serde_cbor::error::Error> {
+        self.serialize(serializer)
+    }
+}
+
+
+/// Serialize the <dyn ValueData> into the Vec<u8> by using cbor serializer.
+/// This method would be used by the insert method in table_synchronizer.
+pub(crate) fn serialize(value: &dyn ValueData) -> Result<Vec<u8>, serde_cbor::error::Error> {
+    let mut vec = Vec::new();
+    value.serialize_value(&mut CborSerializer::new(&mut vec))?;
+    Ok(vec)
+}
+
+
+/// Deserialize the Value into the type T by using cbor deserializer.
+/// THis method would be used by the user after calling get() of table_synchronizer.
+pub fn deserialize_from<T>(reader: &[u8]) -> Result<T, serde_cbor::error::Error>
+    where
+        T: DeserializeOwned,
+{
+    serde_cbor::de::from_slice(reader)
+}
+
+
 async fn conditionally_write<K>(
-    mut updates_generator: impl FnMut(&mut Vec<Insert<K>>, HashMap<K, Value>),
+    mut updates_generator: impl FnMut(&mut Table<K>),
     table_synchronizer: &mut TableSynchronizer<'_, K>,
 ) -> Result<(), TableError>
 where
     K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
     loop {
-        let mut to_update = Vec::new();
         let map = table_synchronizer.get_current_map();
-        updates_generator(&mut to_update, map);
-        if to_update.is_empty() {
+        let mut to_update = Table {
+            map,
+            insert: Vec::new(),
+            remove: Vec::new(),
+        };
+
+        updates_generator(&mut to_update);
+
+        if to_update.insert_is_empty() {
             debug!(
                 "Conditionally Write to {} completed, as there is nothing to update for map",
                 table_synchronizer.get_name()
             );
             break;
         }
+
         let mut to_send = Vec::new();
-        for update in to_update.iter() {
+        for update in to_update.get_insert_iter() {
             let data = serialize(&*update.new_value).expect("serialize value");
             let value = Value {
                 type_id: update.type_id.clone(),
@@ -319,6 +361,7 @@ where
                 to_send.push((update.key.clone(), value, TableKey::KEY_NO_VERSION));
             }
         }
+
         let send = to_send.iter().map(|x| (&x.0, &x.1, x.2)).rev().collect();
         let result = table_synchronizer.table_map.insert_conditionally_all(send).await;
         match result {
@@ -335,7 +378,7 @@ where
                 return Err(e);
             }
             Ok(res) => {
-                apply_updates_to_localmap(to_update, res, table_synchronizer);
+                apply_inserts_to_localmap(to_update, res, table_synchronizer);
                 break;
             }
         }
@@ -343,41 +386,24 @@ where
     Ok(())
 }
 
-fn apply_updates_to_localmap<K>(
-    to_update: Vec<Insert<K>>,
-    new_version: Vec<Version>,
-    table_synchronizer: &mut TableSynchronizer<'_, K>,
-) where
-    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
-{
-    let mut i = 0;
-    for update in to_update {
-        let new_key = Key {
-            key: update.key,
-            key_version: *new_version.get(i).expect("get new version"),
-        };
-        let new_value = Value {
-            type_id: update.type_id,
-            data: serialize(&*update.new_value).expect("serialize value"),
-        };
-        table_synchronizer.in_memory_map.insert(new_key, new_value);
-        i += 1;
-    }
-    debug!("Updates {} entries in local map ", i);
-}
-
 async fn conditionally_remove<K>(
-    mut delete_generator: impl FnMut(&mut Vec<Remove<K>>, HashMap<K, Value>),
+    mut delete_generator: impl FnMut(&mut Table<K>),
     table_synchronizer: &mut TableSynchronizer<'_, K>,
 ) -> Result<(), TableError>
 where
     K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
     loop {
-        let mut to_delete = Vec::new();
+
         let map = table_synchronizer.get_current_map();
-        delete_generator(&mut to_delete, map);
-        if to_delete.is_empty() {
+        let mut to_delete = Table {
+            map,
+            insert: Vec::new(),
+            remove: Vec::new(),
+        };
+        delete_generator(&mut to_delete);
+
+        if to_delete.remove_is_empty() {
             debug!(
                 "Conditionally remove to {} completed, as there is nothing to remove for map",
                 table_synchronizer.get_name()
@@ -386,11 +412,11 @@ where
         }
 
         let mut send = Vec::new();
-        for delete in to_delete.iter() {
+        for delete in to_delete.get_remove_iter() {
             let key_version = table_synchronizer
-                .get_key_version(&delete.key)
+                .get_key_version(delete)
                 .expect("get key version");
-            send.push((&delete.key, key_version))
+            send.push((delete, key_version))
         }
 
         let result = table_synchronizer.table_map.remove_conditionally_all(send).await;
@@ -417,99 +443,43 @@ where
     Ok(())
 }
 
-fn apply_deletes_to_localmap<K>(to_delete: Vec<Remove<K>>, table_synchronizer: &mut TableSynchronizer<K>)
+fn apply_inserts_to_localmap<K>(
+    to_update: Table<K>,
+    new_version: Vec<Version>,
+    table_synchronizer: &mut TableSynchronizer<'_, K>,
+) where
+    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
+{
+    let mut i = 0;
+    for update in to_update.get_insert_iter() {
+        let new_key = Key {
+            key: update.key.clone(),
+            key_version: *new_version.get(i).expect("get new version"),
+        };
+        let new_value = Value {
+            type_id: update.type_id.clone(),
+            data: serialize(&*update.new_value).expect("serialize value"),
+        };
+        table_synchronizer.in_memory_map.insert(new_key, new_value);
+        i += 1;
+    }
+    debug!("Updates {} entries in local map ", i);
+}
+
+fn apply_deletes_to_localmap<K>(to_delete: Table<K>, table_synchronizer: &mut TableSynchronizer<K>)
 where
     K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
     let mut i = 0;
-    for delete in to_delete {
+    for delete in to_delete.get_remove_iter() {
         let delete_key = Key {
-            key: delete.key,
+            key: delete.clone(),
             key_version: TableKey::KEY_NO_VERSION,
         };
         table_synchronizer.in_memory_map.remove(&delete_key);
         i += 1;
     }
     debug!("Deletes {} entries in local map ", i);
-}
-
-async fn conditionally_get<K>(
-    mut get_generator: impl FnMut(&mut Vec<Get<K>>, HashMap<K, Value>),
-    table_synchronizer: &mut TableSynchronizer<'_, K>,
-) -> Result<(), TableError>
-where
-    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
-{
-    loop {
-        let mut to_get = Vec::new();
-        let map = table_synchronizer.get_current_map();
-        get_generator(&mut to_get, map);
-        if to_get.is_empty() {
-            debug!(
-                "Conditionally get to {} completed, as there is nothing to remove for map",
-                table_synchronizer.get_name()
-            );
-            break;
-        }
-
-        let mut send = Vec::new();
-        for get in to_get.iter() {
-            send.push(&get.key);
-        }
-
-        let result = table_synchronizer.table_map.get_all(send).await;
-        match result {
-            Err(TableError::IncorrectKeyVersion { operation, error_msg }) => {
-                debug!("IncorrectKeyVersion {}, {}", operation, error_msg);
-                table_synchronizer.fetch_updates().await.expect("fetch update");
-            }
-            Err(TableError::KeyDoesNotExist { operation, error_msg }) => {
-                debug!("KeyDoesNotExist {}, {}", operation, error_msg);
-                table_synchronizer.fetch_updates().await.expect("fetch update");
-            }
-            Err(e) => {
-                debug!("Error message is {}", e);
-                return Err(e);
-            }
-            Ok(res) => {
-                apply_gets_to_localmap(to_get, res, table_synchronizer);
-                break;
-            }
-        }
-    }
-    Ok(())
-}
-
-fn apply_gets_to_localmap<K>(
-    to_get: Vec<Get<K>>,
-    res: Vec<Option<(Value, i64)>>,
-    table_synchronizer: &mut TableSynchronizer<K>,
-) where
-    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
-{
-    let mut i = 0;
-    for get in to_get {
-        let value_option = res.get(i).expect("get ith value and versrion");
-
-        if value_option.is_some() {
-            let (value, version) = value_option.as_ref().expect("get value and versrion");
-            let key = Key {
-                key: get.key,
-                key_version: *version,
-            };
-            table_synchronizer.in_memory_map.insert(key, value.clone());
-        } else {
-            let search_key = Key {
-                key: get.key,
-                key_version: TableKey::KEY_NO_VERSION,
-            };
-            if table_synchronizer.in_memory_map.contains_key(&search_key) {
-                table_synchronizer.in_memory_map.remove(&search_key);
-            }
-        }
-        i += 1;
-    }
-    debug!("Gets {} entries in local map ", i);
 }
 
 #[cfg(test)]

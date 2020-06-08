@@ -168,13 +168,17 @@ mod tests {
         });
 
         if let Some(message) = rx.recv().await {
-            assert_eq!(message, (1, 4));
-        } else {
-            panic!("test failed");
-        }
-
-        if let Some(message) = rx.recv().await {
-            assert_eq!(message, (2, 4));
+            match message {
+                (1, 4) => {
+                    let second = rx.recv().await.expect("get second message");
+                    assert_eq!(second, (2, 4));
+                }
+                (2, 4) => {
+                    let second = rx.recv().await.expect("get second message");
+                    assert_eq!(second, (1, 4));
+                }
+                _ => panic!("test failed"),
+            }
         } else {
             panic!("test failed");
         }

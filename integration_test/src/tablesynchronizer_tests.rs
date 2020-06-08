@@ -1,8 +1,6 @@
 use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
-use pravega_client_rust::table_synchronizer::{
-    deserialize_from, Get, Insert, Key, Remove, TableSynchronizer,
-};
+use pravega_client_rust::table_synchronizer::{deserialize_from, Key, TableSynchronizer};
 use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_wire_protocol::commands::TableKey;
 use serde::{Deserialize, Serialize};
@@ -15,7 +13,6 @@ pub async fn test_tablesynchronizer() {
     let client_factory = ClientFactory::new(config.clone()).await;
     test_insert(&client_factory).await;
     test_remove(&client_factory).await;
-    test_get_remote(&client_factory).await;
     test_insert_with_two_table_synchronizers(&client_factory).await;
     test_remove_with_two_table_synchronizers(&client_factory).await;
     test_insert_and_get_with_customize_struct(&client_factory).await;
@@ -27,14 +24,9 @@ async fn test_insert(client_factory: &ClientFactory) {
         .await;
 
     let result = synchronizer
-        .insert(|to_insert, map| {
-            if map.is_empty() {
-                let update = Insert {
-                    key: "test".to_string(),
-                    type_id: "i32".into(),
-                    new_value: Box::new(1),
-                };
-                to_insert.push(update);
+        .insert(|table| {
+            if table.is_empty() {
+                table.insert("test".to_string(), "i32".into(), Box::new(1));
             }
         })
         .await;
@@ -68,26 +60,18 @@ async fn test_remove(client_factory: &ClientFactory) {
         .create_table_synchronizer("synchronizer1".into())
         .await;
     let result = synchronizer
-        .insert(|to_insert, map| {
-            if map.is_empty() {
-                let update = Insert {
-                    key: "test".to_string(),
-                    type_id: "i32".into(),
-                    new_value: Box::new(2),
-                };
-                to_insert.push(update);
+        .insert(|table| {
+            if table.is_empty() {
+                table.insert("test".to_string(), "i32".into(), Box::new(2));
             }
         })
         .await;
     assert!(result.is_ok());
 
     let result = synchronizer
-        .remove(|to_remove, map| {
-            if map.get("test").is_some() {
-                let remove = Remove {
-                    key: "test".to_string(),
-                };
-                to_remove.push(remove);
+        .remove(|table| {
+            if table.get(&"test".to_string()).is_some() {
+                table.remove("test".to_string());
             }
         })
         .await;
@@ -107,47 +91,6 @@ async fn test_remove(client_factory: &ClientFactory) {
     info!("test_remove passed");
 }
 
-async fn test_get_remote(client_factory: &ClientFactory) {
-    let mut synchronizer: TableSynchronizer<String> = client_factory
-        .create_table_synchronizer("synchronizer2".into())
-        .await;
-
-    let result = synchronizer
-        .insert(|to_insert, map| {
-            if map.is_empty() {
-                let update = Insert {
-                    key: "test".to_string(),
-                    type_id: "i32".into(),
-                    new_value: Box::new(4),
-                };
-                to_insert.push(update);
-            }
-        })
-        .await;
-    assert!(result.is_ok());
-
-    let mut synchronizer2: TableSynchronizer<String> = client_factory
-        .create_table_synchronizer("synchronizer2".into())
-        .await;
-
-    let result = synchronizer2
-        .get_remote(|to_get, map| {
-            // the local map is empty
-            if map.is_empty() {
-                // try to get from remote.
-                let get = Get {
-                    key: "test".to_string(),
-                };
-                to_get.push(get);
-            }
-        })
-        .await;
-    assert!(result.is_ok());
-    let value_option = synchronizer2.get(&"test".to_string());
-    assert!(value_option.is_some());
-    info!("test_get_remote passed");
-}
-
 async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory) {
     let mut synchronizer: TableSynchronizer<String> = client_factory
         .create_table_synchronizer("synchronizer".into())
@@ -160,17 +103,12 @@ async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory
     synchronizer2.fetch_updates().await.expect("fetch updates");
 
     let result = synchronizer
-        .insert(|to_update, map| {
-            if map.contains_key(&"test".to_string()) {
-                let value = map.get(&"test".to_string()).expect("get value");
+        .insert(|table| {
+            if table.contains_key(&"test".to_string()) {
+                let value = table.get(&"test".to_string()).expect("get value");
                 let data: i32 = deserialize_from(&value.data).expect("deserialize value data");
                 if data == 1 {
-                    let update = Insert {
-                        key: "test".to_string(),
-                        type_id: "i32".into(),
-                        new_value: Box::new(2),
-                    };
-                    to_update.push(update);
+                    table.insert("test".to_string(), "i32".into(), Box::new(2));
                 }
             }
         })
@@ -178,28 +116,17 @@ async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory
     assert!(result.is_ok());
 
     let result = synchronizer2
-        .insert(|to_update, map| {
-            if map.contains_key(&"test".to_string()) {
-                let map = synchronizer.get_current_map();
-                let value = map.get(&"test".to_string()).expect("get value");
+        .insert(|table| {
+            if table.contains_key(&"test".to_string()) {
+                let value = table.get(&"test".to_string()).expect("get value");
                 let data: i32 = deserialize_from(&value.data).expect("deserialize value data");
                 // Incorrect, because the value is already changed to 2.
                 if data == 1 {
-                    let update = Insert {
-                        key: "test".to_string(),
-                        type_id: "i32".into(),
-                        new_value: Box::new(4),
-                    };
-                    to_update.push(update);
+                    table.insert("test".to_string(), "i32".into(), Box::new(4));
                 }
                 // Correct
                 if data == 2 {
-                    let update = Insert {
-                        key: "test".to_string(),
-                        type_id: "i32".into(),
-                        new_value: Box::new(3),
-                    };
-                    to_update.push(update);
+                    table.insert("test".to_string(), "i32".into(), Box::new(3));
                 }
             }
         })
@@ -226,30 +153,23 @@ async fn test_remove_with_two_table_synchronizers(client_factory: &ClientFactory
     synchronizer2.fetch_updates().await.expect("fetch updates");
 
     let result = synchronizer
-        .remove(|to_remove, map| {
-            let value = map.get(&"test".to_string()).expect("get value");
+        .remove(|table| {
+            let value = table.get(&"test".to_string()).expect("get value");
             let data: i32 = deserialize_from(&value.data).expect("deserialize value data");
             if data == 3 {
-                let remove = Remove {
-                    key: "test".to_string(),
-                };
-                to_remove.push(remove);
+                table.remove("test".to_string());
             }
         })
         .await;
     assert!(result.is_ok());
+
     info!("start to update a non-existed key");
     let result = synchronizer2
-        .insert(|to_update, map| {
-            if !map.is_empty() {
+        .insert(|table| {
+            if !table.is_empty() {
                 // Even if it matches in in_memory map.
                 // This update should failed, because the key is already removed.
-                let update = Insert {
-                    key: "test".to_string(),
-                    type_id: "i32".into(),
-                    new_value: Box::new(4),
-                };
-                to_update.push(update);
+                table.insert("test".to_string(), "i32".into(), Box::new(4));
             }
         })
         .await;
@@ -276,21 +196,16 @@ async fn test_insert_and_get_with_customize_struct(client_factory: &ClientFactor
         .await;
 
     let result = synchronizer
-        .insert(|to_update, _map| {
-            let insert = Insert {
-                key: "test1".to_string(),
-                type_id: "Test1".into(),
-                new_value: Box::new(Test1 {
+        .insert(|table| {
+            table.insert(
+                "test1".to_string(),
+                "Test1".into(),
+                Box::new(Test1 {
                     name: "test1".to_string(),
                 }),
-            };
-            to_update.push(insert);
-            let insert = Insert {
-                key: "test2".to_string(),
-                type_id: "Test2".into(),
-                new_value: Box::new(Test2 { age: 10 }),
-            };
-            to_update.push(insert);
+            );
+
+            table.insert("test2".to_string(), "Test2".into(), Box::new(Test2 { age: 10 }));
         })
         .await;
     assert!(result.is_ok());

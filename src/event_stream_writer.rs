@@ -14,8 +14,7 @@ use std::hash::Hasher;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use rand::rngs::SmallRng;
-use rand::{Rng, SeedableRng};
+use crate::{get_random_f64, get_request_id};
 use snafu::ResultExt;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
@@ -153,7 +152,7 @@ impl Processor {
                                 writer.id, cmd.event_number
                             );
                             writer.ack(cmd.event_number);
-                            match writer.flush().await {
+                            match writer.write_pending_events().await {
                                 Ok(()) => {
                                     continue;
                                 }
@@ -206,25 +205,25 @@ impl Processor {
 }
 
 #[derive(Debug)]
-enum Incoming {
+pub(crate) enum Incoming {
     AppendEvent(AppendEvent),
     ServerReply(ServerReply),
 }
 
 #[derive(Debug)]
-struct AppendEvent {
+pub(crate) struct AppendEvent {
     inner: Vec<u8>,
     routing_key: Option<String>,
     oneshot_sender: oneshot::Sender<Result<(), EventStreamWriterError>>,
 }
 
 #[derive(Debug)]
-struct ServerReply {
-    segment: ScopedSegment,
-    reply: Replies,
+pub(crate) struct ServerReply {
+    pub(crate) segment: ScopedSegment,
+    pub(crate) reply: Replies,
 }
 
-struct EventSegmentWriter {
+pub(crate) struct EventSegmentWriter {
     /// unique id for each EventSegmentWriter
     id: Uuid,
 
@@ -246,9 +245,6 @@ struct EventSegmentWriter {
     /// incremental event id
     event_num: i64,
 
-    /// the random generator for request id
-    rng: SmallRng,
-
     /// the sender that sends back reply to processor
     sender: Sender<Incoming>,
 
@@ -261,7 +257,11 @@ impl EventSegmentWriter {
     const MAX_WRITE_SIZE: i32 = 8 * 1024 * 1024 + 8;
     const MAX_EVENTS: i32 = 500;
 
-    fn new(segment: ScopedSegment, sender: Sender<Incoming>, retry_policy: RetryWithBackoff) -> Self {
+    pub(crate) fn new(
+        segment: ScopedSegment,
+        sender: Sender<Incoming>,
+        retry_policy: RetryWithBackoff,
+    ) -> Self {
         EventSegmentWriter {
             endpoint: "127.0.0.1:0".parse::<SocketAddr>().expect("get socketaddr"), //Dummy address
             id: Uuid::new_v4(),
@@ -270,17 +270,20 @@ impl EventSegmentWriter {
             inflight: VecDeque::new(),
             pending: VecDeque::new(),
             event_num: 0,
-            rng: SmallRng::from_entropy(),
             sender,
             retry_policy,
         }
     }
 
-    pub fn get_segment_name(&self) -> String {
+    pub(crate) fn get_uuid(&self) -> Uuid {
+        self.id
+    }
+
+    pub(crate) fn get_segment_name(&self) -> String {
         self.segment.to_string()
     }
 
-    pub async fn setup_connection(
+    pub(crate) async fn setup_connection(
         &mut self,
         factory: &ClientFactoryInternal,
     ) -> Result<(), EventStreamWriterError> {
@@ -307,7 +310,7 @@ impl EventSegmentWriter {
         self.endpoint = uri.0.parse::<SocketAddr>().expect("should parse to socketaddr");
 
         let request = Requests::SetupAppend(SetupAppendCommand {
-            request_id: self.rng.gen::<i64>(),
+            request_id: get_request_id(),
             writer_id: self.id.as_u128(),
             segment: self.segment.to_string(),
             delegation_token: "".to_string(),
@@ -387,14 +390,14 @@ impl EventSegmentWriter {
     }
 
     /// first add the event to the pending list
-    /// then flush the pending list if the inflight list is empty
-    pub async fn write(&mut self, event: PendingEvent) -> Result<(), EventStreamWriterError> {
+    /// then write the pending list if the inflight list is empty
+    pub(crate) async fn write(&mut self, event: PendingEvent) -> Result<(), EventStreamWriterError> {
         self.add_pending(event);
-        self.flush().await
+        self.write_pending_events().await
     }
 
     /// add the event to the pending list
-    pub fn add_pending(&mut self, event: PendingEvent) {
+    pub(crate) fn add_pending(&mut self, event: PendingEvent) {
         self.event_num += 1;
         self.pending.push_back(Append {
             event_id: self.event_num,
@@ -402,9 +405,9 @@ impl EventSegmentWriter {
         });
     }
 
-    /// flush the pending events. It will grab at most MAX_WRITE_SIZE of data
+    /// write the pending events to the server. It will grab at most MAX_WRITE_SIZE of data
     /// from the pending list and send them to the server. Those events will be moved to inflight list waiting to be acked.
-    pub async fn flush(&mut self) -> Result<(), EventStreamWriterError> {
+    pub(crate) async fn write_pending_events(&mut self) -> Result<(), EventStreamWriterError> {
         if !self.inflight.is_empty() || self.pending.is_empty() {
             return Ok(());
         }
@@ -449,7 +452,7 @@ impl EventSegmentWriter {
             data: to_send,
             num_event: self.inflight.len() as i32,
             last_event_number: self.inflight.back().expect("last event").event_id,
-            request_id: self.rng.gen::<i64>(),
+            request_id: get_request_id(),
         });
 
         let writer = self.writer.as_mut().expect("must have writer");
@@ -457,7 +460,7 @@ impl EventSegmentWriter {
     }
 
     /// ack inflight events. It will send the reply from server back to the caller using oneshot.
-    pub fn ack(&mut self, event_id: i64) {
+    pub(crate) fn ack(&mut self, event_id: i64) {
         // no events need to ack
         if self.inflight.is_empty() {
             return;
@@ -493,7 +496,7 @@ impl EventSegmentWriter {
 
     /// get the unacked events. Notice that it will pass the ownership
     /// of the unacked events to the caller, which means this method can only be called once.
-    pub fn get_unacked_events(&mut self) -> Vec<PendingEvent> {
+    pub(crate) fn get_unacked_events(&mut self) -> Vec<PendingEvent> {
         let mut ret = vec![];
         while let Some(append) = self.inflight.pop_front() {
             ret.push(append.event);
@@ -504,7 +507,7 @@ impl EventSegmentWriter {
         ret
     }
 
-    pub async fn reconnect(&mut self, factory: &ClientFactoryInternal) {
+    pub(crate) async fn reconnect(&mut self, factory: &ClientFactoryInternal) {
         loop {
             debug!("Reconnecting event segment writer {:?}", self.id);
             // setup the connection
@@ -519,7 +522,7 @@ impl EventSegmentWriter {
             }
 
             // flush any pending events
-            let flush_res = self.flush().await;
+            let flush_res = self.write_pending_events().await;
             if flush_res.is_err() {
                 continue;
             }
@@ -529,7 +532,7 @@ impl EventSegmentWriter {
     }
 }
 
-pub struct SegmentSelector {
+pub(crate) struct SegmentSelector {
     /// Stream that this SegmentSelector is on
     stream: ScopedStream,
 
@@ -545,7 +548,7 @@ pub struct SegmentSelector {
     /// client config that contains the retry policy
     config: ClientConfig,
 
-    //Used to gain access to the controller and connection pool
+    /// Used to gain access to the controller and connection pool
     factory: Arc<ClientFactoryInternal>,
 }
 
@@ -585,12 +588,11 @@ impl SegmentSelector {
     }
 
     /// get the Segment by passing a routing key
-    fn get_segment_for_event(&self, routing_key: &Option<String>) -> ScopedSegment {
-        let mut small_rng = SmallRng::from_entropy();
+    fn get_segment_for_event(&mut self, routing_key: &Option<String>) -> ScopedSegment {
         if let Some(key) = routing_key {
             self.current_segments.get_segment(hash_string_to_f64(key))
         } else {
-            self.current_segments.get_segment(small_rng.gen::<f64>())
+            self.current_segments.get_segment(get_random_f64())
         }
     }
 
@@ -692,7 +694,7 @@ struct Append {
     event: PendingEvent,
 }
 
-struct PendingEvent {
+pub(crate) struct PendingEvent {
     routing_key: Option<String>,
     data: Vec<u8>,
     oneshot_sender: oneshot::Sender<Result<(), EventStreamWriterError>>,
@@ -701,7 +703,7 @@ struct PendingEvent {
 impl PendingEvent {
     const MAX_WRITE_SIZE: i32 = 8 * 1024 * 1024 + 8;
 
-    fn new(
+    pub(crate) fn new(
         routing_key: Option<String>,
         data: Vec<u8>,
         oneshot_sender: oneshot::Sender<Result<(), EventStreamWriterError>>,
@@ -728,7 +730,7 @@ impl PendingEvent {
         }
     }
 
-    fn with_header(
+    pub(crate) fn with_header(
         routing_key: Option<String>,
         data: Vec<u8>,
         oneshot_sender: oneshot::Sender<Result<(), EventStreamWriterError>>,
@@ -746,7 +748,7 @@ impl PendingEvent {
         }
     }
 
-    fn without_header(
+    pub(crate) fn without_header(
         routing_key: Option<String>,
         data: Vec<u8>,
         oneshot_sender: oneshot::Sender<Result<(), EventStreamWriterError>>,
@@ -756,7 +758,7 @@ impl PendingEvent {
 }
 
 // hash string to 0.0 - 1.0 in f64
-fn hash_string_to_f64(s: &str) -> f64 {
+pub(crate) fn hash_string_to_f64(s: &str) -> f64 {
     let mut hasher = DefaultHasher::new();
     hasher.write(s.as_bytes());
     let hash_u64 = hasher.finish();

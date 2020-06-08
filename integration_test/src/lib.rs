@@ -18,9 +18,9 @@ mod event_stream_writer_tests;
 mod pravega_service;
 mod tablemap_tests;
 mod tablesynchronizer_tests;
+mod transactional_event_stream_writer_tests;
 mod wirecommand_tests;
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
-use pravega_client_rust::setup_logger;
 use std::process::Command;
 use std::{thread, time};
 
@@ -56,7 +56,6 @@ mod test {
     fn integration_test() {
         let mut rt = tokio::runtime::Runtime::new().expect("create runtime");
 
-        setup_logger().expect("setup logger");
         let mut pravega = PravegaStandaloneService::start(false);
         wait_for_standalone_with_timeout(true, 30);
 
@@ -69,6 +68,8 @@ mod test {
         rt.block_on(event_stream_writer_tests::test_event_stream_writer());
 
         rt.block_on(tablesynchronizer_tests::test_tablesynchronizer());
+
+        rt.block_on(transactional_event_stream_writer_tests::test_transactional_event_stream_writer());
 
         // Shut down Pravega standalone
         pravega.stop().unwrap();
