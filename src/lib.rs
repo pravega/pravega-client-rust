@@ -37,7 +37,7 @@ pub mod client_factory;
 pub mod error;
 pub mod event_stream_writer;
 pub mod raw_client;
-mod reader_group;
+pub mod reader_group;
 pub mod segment_reader;
 mod stream;
 pub mod tablemap;
