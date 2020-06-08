@@ -14,7 +14,6 @@ pub mod transactional_event_stream_writer;
 
 use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
-use crate::event_stream_writer::hash_string_to_f64;
 use crate::get_random_f64;
 use crate::transaction::pinger::PingerHandle;
 use log::debug;
@@ -86,7 +85,7 @@ impl Transaction {
         self.error_if_closed()?;
 
         let segment = if let Some(key) = key {
-            self.segments.get_segment(hash_string_to_f64(&key))
+            self.segments.get_segment_for_bytes(key.as_bytes())
         } else {
             self.segments.get_segment(get_random_f64())
         };
