@@ -12,8 +12,8 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::Unpin;
-use tracing::{debug, info};
 use std::slice::Iter;
+use tracing::{debug, info};
 
 /// Provides a mean to have a map that is synchronized between many processes.
 /// The pattern is to have a map that can be update by Insert or Remove,
@@ -33,8 +33,8 @@ where
 }
 
 impl<'a, K> TableSynchronizer<'a, K>
-    where
-        K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
+where
+    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
     pub async fn new(name: String, factory: &'a ClientFactoryInternal) -> TableSynchronizer<'a, K> {
         let table_map = TableMap::new(name.clone(), factory)
@@ -140,24 +140,16 @@ impl<'a, K> TableSynchronizer<'a, K>
 
     /// Insert/Updates a list of keys and applies it atomically to local map.
     /// This will update the local_map to latest version.
-    pub async fn insert(
-        &mut self,
-        updates_generator: impl FnMut(&mut Table<K>),
-    ) -> Result<(), TableError> {
+    pub async fn insert(&mut self, updates_generator: impl FnMut(&mut Table<K>)) -> Result<(), TableError> {
         conditionally_write(updates_generator, self).await
     }
 
-
     /// Remove a list of keys and applies it atomically to local map.
     /// This will update the local_map to latest version.
-    pub async fn remove(
-        &mut self,
-        deletes_generateor: impl FnMut(&mut Table<K>),
-    ) -> Result<(), TableError> {
+    pub async fn remove(&mut self, deletes_generateor: impl FnMut(&mut Table<K>)) -> Result<(), TableError> {
         conditionally_remove(deletes_generateor, self).await
     }
 }
-
 
 /// The Key struct in the in_memory map. it contains two fields, the key and key_version.
 /// key should be serialized and deserialized.
@@ -191,8 +183,7 @@ pub struct Value {
 }
 
 /// The Updates struct. It would be supplied to insert/remove methods.
-pub struct Table<K>
-{
+pub struct Table<K> {
     map: HashMap<K, Value>,
     insert: Vec<Insert<K>>,
     remove: Vec<K>,
@@ -203,16 +194,15 @@ where
     K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
     pub fn insert(&mut self, key: K, type_id: String, new_value: Box<dyn ValueData>) {
-        let insert = Insert{
+        let insert = Insert {
             key,
             type_id,
-            new_value
+            new_value,
         };
         self.insert.push(insert);
     }
 
     pub fn remove(&mut self, key: K) {
-
         self.remove.push(key);
     }
 
@@ -243,14 +233,12 @@ where
     pub(crate) fn get_remove_iter(&self) -> Iter<K> {
         self.remove.iter()
     }
-
 }
 
 /// The Insert struct. It contains three fields.
 /// The key to insert or update,
 /// the type_id for the data, and the data.
-pub(crate) struct Insert<K>
-{
+pub(crate) struct Insert<K> {
     key: K,
     type_id: String,
     new_value: Box<dyn ValueData>,
@@ -267,8 +255,8 @@ pub trait ValueClone {
 }
 
 impl<T> ValueClone for T
-    where
-        T: 'static + ValueData + Clone,
+where
+    T: 'static + ValueData + Clone,
 {
     fn clone_box(&self) -> Box<dyn ValueData> {
         Box::new(self.clone())
@@ -290,8 +278,8 @@ pub trait ValueSerialize {
 }
 
 impl<T> ValueSerialize for T
-    where
-        T: Serialize,
+where
+    T: Serialize,
 {
     fn serialize_value(
         &self,
@@ -301,7 +289,6 @@ impl<T> ValueSerialize for T
     }
 }
 
-
 /// Serialize the <dyn ValueData> into the Vec<u8> by using cbor serializer.
 /// This method would be used by the insert method in table_synchronizer.
 pub(crate) fn serialize(value: &dyn ValueData) -> Result<Vec<u8>, serde_cbor::error::Error> {
@@ -310,16 +297,14 @@ pub(crate) fn serialize(value: &dyn ValueData) -> Result<Vec<u8>, serde_cbor::er
     Ok(vec)
 }
 
-
 /// Deserialize the Value into the type T by using cbor deserializer.
 /// THis method would be used by the user after calling get() of table_synchronizer.
 pub fn deserialize_from<T>(reader: &[u8]) -> Result<T, serde_cbor::error::Error>
-    where
-        T: DeserializeOwned,
+where
+    T: DeserializeOwned,
 {
     serde_cbor::de::from_slice(reader)
 }
-
 
 async fn conditionally_write<K>(
     mut updates_generator: impl FnMut(&mut Table<K>),
@@ -394,7 +379,6 @@ where
     K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
     loop {
-
         let map = table_synchronizer.get_current_map();
         let mut to_delete = Table {
             map,

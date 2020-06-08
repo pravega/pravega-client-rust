@@ -23,11 +23,11 @@ use crate::segment_reader::AsyncSegmentReaderImpl;
 use crate::setup_logger;
 use crate::table_synchronizer::TableSynchronizer;
 use crate::tablemap::TableMap;
+use crate::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::fmt::Debug;
 use std::hash::Hash;
-use crate::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
 use std::sync::Arc;
 
 pub struct ClientFactory(Arc<ClientFactoryInternal>);
