@@ -54,14 +54,12 @@ mod test {
 
     #[test]
     fn integration_test() {
-        let mut rt = tokio::runtime::Runtime::new().expect("create runtime");
-
         let mut pravega = PravegaStandaloneService::start(false);
         wait_for_standalone_with_timeout(true, 30);
 
         controller_tests::test_controller_apis();
 
-        rt.block_on(wirecommand_tests::wirecommand_test_wrapper());
+        wirecommand_tests::wirecommand_test_wrapper();
 
         tablemap_tests::test_tablemap();
 
@@ -73,6 +71,6 @@ mod test {
         wait_for_standalone_with_timeout(false, 30);
 
         // disconnection test will start its own Pravega Standalone.
-        rt.block_on(disconnection_tests::disconnection_test_wrapper());
+        disconnection_tests::disconnection_test_wrapper();
     }
 }

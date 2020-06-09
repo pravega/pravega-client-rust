@@ -29,6 +29,7 @@ use pravega_wire_protocol::commands::{
     Command, EventCommand, GetStreamSegmentInfoCommand, StreamSegmentInfoCommand,
 };
 use std::time::Duration;
+use tokio::runtime::Handle;
 use tokio::time::delay_for;
 
 pub fn test_transactional_event_stream_writer() {
@@ -46,7 +47,11 @@ pub fn test_transactional_event_stream_writer() {
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
     let handle = client_factory.get_runtime_handle();
-    handle.block_on(setup_test(&scope_name, &stream_name));
+    handle.block_on(setup_test(
+        &scope_name,
+        &stream_name,
+        client_factory.get_controller_client(),
+    ));
 
     let mut writer =
         handle.block_on(client_factory.create_transactional_event_stream_writer(scoped_stream, WriterId(0)));
@@ -171,13 +176,7 @@ async fn test_write_and_read_transaction(
 }
 
 // helper function
-async fn setup_test(scope_name: &Scope, stream_name: &Stream) -> ControllerClientImpl {
-    let config = ClientConfigBuilder::default()
-        .controller_uri(TEST_CONTROLLER_URI)
-        .build()
-        .expect("build client config");
-
-    let controller_client = ControllerClientImpl::new(config).await;
+async fn setup_test(scope_name: &Scope, stream_name: &Stream, controller_client: &dyn ControllerClient) {
     controller_client
         .create_scope(scope_name)
         .await
@@ -204,7 +203,6 @@ async fn setup_test(scope_name: &Scope, stream_name: &Stream) -> ControllerClien
         .await
         .expect("create stream");
     info!("Stream created");
-    controller_client
 }
 
 async fn get_segment_info(segment: &ScopedSegment, factory: &ClientFactory) -> StreamSegmentInfoCommand {

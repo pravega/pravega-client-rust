@@ -38,13 +38,14 @@ pub struct ClientFactoryInternal {
 impl ClientFactory {
     pub fn new(config: ClientConfig) -> ClientFactory {
         let _ = setup_logger(); //Ignore failure
-        let mut rt = tokio::runtime::Runtime::new().expect("create runtime");
+        let rt = tokio::runtime::Runtime::new().expect("create runtime");
         let cf = ConnectionFactory::create(config.connection_type);
         let pool = ConnectionPool::new(SegmentConnectionManager::new(cf, config.max_connections_in_pool));
         let controller = if config.mock {
             Box::new(MockController::new(config.controller_uri)) as Box<dyn ControllerClient>
         } else {
-            Box::new(rt.block_on(ControllerClientImpl::new(config.clone()))) as Box<dyn ControllerClient>
+            Box::new(ControllerClientImpl::new(config.clone(), rt.handle().clone()))
+                as Box<dyn ControllerClient>
         };
         ClientFactory(Arc::new(ClientFactoryInternal {
             connection_pool: pool,
