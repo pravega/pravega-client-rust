@@ -25,7 +25,7 @@
     clippy::similar_names
 )]
 #![allow(clippy::multiple_crate_versions)]
-
+#![allow(clippy::needless_lifetimes)]
 pub mod client_config;
 pub mod client_connection;
 pub mod commands;
