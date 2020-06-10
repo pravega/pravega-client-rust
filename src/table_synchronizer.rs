@@ -199,10 +199,7 @@ where
 
         self.insert.push(insert);
         //Also insert into map.
-        self.map.insert(key, Value{
-            type_id,
-            data,
-        });
+        self.map.insert(key, Value { type_id, data });
     }
 
     pub fn remove(&mut self, key: K) {
@@ -348,7 +345,10 @@ where
             }
         }
 
-        let result = table_synchronizer.table_map.insert_conditionally_all(to_send).await;
+        let result = table_synchronizer
+            .table_map
+            .insert_conditionally_all(to_send)
+            .await;
         match result {
             Err(TableError::IncorrectKeyVersion { operation, error_msg }) => {
                 debug!("IncorrectKeyVersion {}, {}", operation, error_msg);
@@ -467,8 +467,7 @@ where
 mod test {
     use super::Key;
     use crate::table_synchronizer::{deserialize_from, Table};
-    use crate::table_synchronizer::{serialize, Insert, Value};
-    use bincode2::{deserialize_from as bincode_deserialize, serialize as bincode_serialize};
+    use crate::table_synchronizer::{serialize, Value};
     use std::collections::HashMap;
 
     #[test]
@@ -566,13 +565,13 @@ mod test {
 
     #[test]
     fn test_insert_and_get() {
-        let mut table = Table{
+        let mut table = Table {
             map: HashMap::new(),
             insert: Vec::new(),
             remove: Vec::new(),
         };
-        table.insert("test".into_string(), "i32".into_string(),Box::new(1));
-        let value = table.get(&"test".into_string()).expect("get value");
+        table.insert("test".to_string(), "i32".to_string(), Box::new(1));
+        let value = table.get(&"test".to_string()).expect("get value");
         let deserialized_data: i32 = deserialize_from(&value.data).expect("deserialize");
         assert_eq!(deserialized_data, 1);
     }

@@ -5,12 +5,12 @@ use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder, TE
 use pravega_wire_protocol::commands::TableKey;
 use serde::{Deserialize, Serialize};
 
-pub async fn test_tablesynchronizer() {
+pub fn test_tablesynchronizer() {
     let config = ClientConfigBuilder::default()
         .controller_uri(TEST_CONTROLLER_URI)
         .build()
         .expect("creating config");
-    let client_factory = ClientFactory::new(config.clone());
+    let client_factory = ClientFactory::new(config);
     let handle = client_factory.get_runtime_handle();
     handle.block_on(test_insert(&client_factory));
     handle.block_on(test_remove(&client_factory));
