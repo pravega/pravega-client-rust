@@ -18,7 +18,6 @@ cfg_if! {
         use pyo3::PyResult;
         use pyo3::{exceptions, PyObjectProtocol};
         use std::net::SocketAddr;
-        use tokio::runtime::Runtime;
     }
 }
 
@@ -26,7 +25,6 @@ cfg_if! {
 #[pyclass]
 pub(crate) struct StreamManager {
     controller_ip: String,
-    rt: Runtime,
     cf: ClientFactory,
     config: ClientConfig,
 }
@@ -36,8 +34,6 @@ pub(crate) struct StreamManager {
 impl StreamManager {
     #[new]
     fn new(controller_uri: String) -> Self {
-        let runtime = tokio::runtime::Runtime::new().expect("create runtime");
-        let handle = runtime.handle().clone();
         let config = ClientConfigBuilder::default()
             .controller_uri(
                 controller_uri
@@ -46,11 +42,10 @@ impl StreamManager {
             )
             .build()
             .expect("creating config");
-        let client_factory = handle.block_on(ClientFactory::new(config.clone()));
+        let client_factory = ClientFactory::new(config.clone());
 
         StreamManager {
             controller_ip: controller_uri,
-            rt: runtime,
             cf: client_factory,
             config,
         }
@@ -60,7 +55,7 @@ impl StreamManager {
     /// Create a Scope in Pravega.
     ///
     pub fn create_scope(&self, scope_name: &str) -> PyResult<bool> {
-        let handle = self.rt.handle().clone();
+        let handle = self.cf.get_runtime_handle();
         println!("creating scope {:?}", scope_name);
 
         let controller = self.cf.get_controller_client();
@@ -78,7 +73,7 @@ impl StreamManager {
     /// Delete a Scope in Pravega.
     ///
     pub fn delete_scope(&self, scope_name: &str) -> PyResult<bool> {
-        let handle = self.rt.handle().clone();
+        let handle = self.cf.get_runtime_handle();
         println!("Delete scope {:?}", scope_name);
 
         let controller = self.cf.get_controller_client();
@@ -101,7 +96,7 @@ impl StreamManager {
         stream_name: &str,
         initial_segments: i32,
     ) -> PyResult<bool> {
-        let handle = self.rt.handle().clone();
+        let handle = self.cf.get_runtime_handle();
         println!(
             "creating stream {:?} under scope {:?} with segment count {:?}",
             stream_name, scope_name, initial_segments
@@ -136,7 +131,7 @@ impl StreamManager {
     /// Create a Stream in Pravega.
     ///
     pub fn seal_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
-        let handle = self.rt.handle().clone();
+        let handle = self.cf.get_runtime_handle();
         println!("Sealing stream {:?} under scope {:?} ", stream_name, scope_name);
         let scoped_stream = ScopedStream {
             scope: Scope::new(scope_name.to_string()),
@@ -157,7 +152,7 @@ impl StreamManager {
     /// Delete a Stream in Pravega.
     ///
     pub fn delete_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
-        let handle = self.rt.handle().clone();
+        let handle = self.cf.get_runtime_handle();
         println!("Deleting stream {:?} under scope {:?} ", stream_name, scope_name);
         let scoped_stream = ScopedStream {
             scope: Scope::new(scope_name.to_string()),
@@ -181,12 +176,10 @@ impl StreamManager {
             scope: Scope::new(scope_name.to_string()),
             stream: Stream::new(stream_name.to_string()),
         };
-        let stream_writer = self.rt.handle().clone().block_on(async {
-            StreamWriter::new(
-                self.cf.create_event_stream_writer(scoped_stream),
-                self.rt.handle().clone(),
-            )
-        });
+        let stream_writer = StreamWriter::new(
+            self.cf.create_event_stream_writer(scoped_stream),
+            self.cf.get_runtime_handle(),
+        );
         Ok(stream_writer)
     }
 
