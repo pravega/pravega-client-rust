@@ -65,6 +65,11 @@ pub struct Stream {
     pub name: String,
 }
 
+#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Reader {
+    pub name: String,
+}
+
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Segment {
     pub number: i64,

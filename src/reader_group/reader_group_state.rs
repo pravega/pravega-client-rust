@@ -8,18 +8,19 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use super::BINCODE_CONFIG;
 use crate::error::*;
 use crate::reader_group::reader_group_config::ReaderGroupConfigVersioned;
-use pravega_rust_client_shared::{ScopedSegment, ScopedStream, SegmentWithRange};
+use pravega_rust_client_shared::{Reader, ScopedSegment, ScopedStream, SegmentWithRange};
 use serde::{Deserialize, Serialize};
+use serde_cbor::from_slice;
+use serde_cbor::to_vec;
 use snafu::ResultExt;
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 
 const ASSUMED_LAG_MILLIS: u64 = 30000;
 
-/// EventPointerVersioned enum contains all versions of EventPointer
+/// ReaderGroupStateVersioned enum contains all versions of ReaderGroupState
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) enum ReaderGroupStateVersioned {
     V1(ReaderGroupStateV1),
@@ -27,14 +28,14 @@ pub(crate) enum ReaderGroupStateVersioned {
 
 impl ReaderGroupStateVersioned {
     fn to_bytes(&self) -> Result<Vec<u8>, SerdeError> {
-        let encoded = BINCODE_CONFIG.serialize(&self).context(Serde {
+        let encoded = to_vec(&self).context(Cbor {
             msg: String::from("serialize ReaderGroupStateVersioned"),
         })?;
         Ok(encoded)
     }
 
     fn from_bytes(input: &[u8]) -> Result<ReaderGroupStateVersioned, SerdeError> {
-        let decoded: ReaderGroupStateVersioned = BINCODE_CONFIG.deserialize(&input[..]).context(Serde {
+        let decoded: ReaderGroupStateVersioned = from_slice(&input[..]).context(Cbor {
             msg: String::from("deserialize ReaderGroupStateVersioned"),
         })?;
         Ok(decoded)
@@ -50,14 +51,14 @@ pub(crate) struct ReaderGroupStateV1 {
     config: ReaderGroupConfigVersioned,
 
     /// This is used to balance the workload among readers in this reader group.
-    distance_to_tail: HashMap<String, u64>,
+    distance_to_tail: HashMap<Reader, u64>,
 
     /// Maps successor segments to their predecessors. A successor segment will ready to be
     /// read if all its predecessors have been read.
     future_segments: HashMap<SegmentWithRange, HashSet<i64>>,
 
     /// Maps active readers to their currently assigned segments.
-    assigned_segments: HashMap<String, HashMap<SegmentWithRange, Offset>>,
+    assigned_segments: HashMap<Reader, HashMap<SegmentWithRange, Offset>>,
 
     /// Segments waiting to be assigned to readers.
     unassigned_segments: HashMap<SegmentWithRange, Offset>,
@@ -80,7 +81,7 @@ impl ReaderGroupStateV1 {
     }
 
     /// Adds a reader to the reader group state.
-    pub(crate) fn add_reader(&mut self, reader: &str) {
+    pub(crate) fn add_reader(&mut self, reader: &Reader) {
         assert!(
             !self.assigned_segments.contains_key(reader),
             "should not add an existing online reader"
@@ -96,20 +97,20 @@ impl ReaderGroupStateV1 {
     }
 
     /// Checks if the given reader is online or not.
-    pub(crate) fn is_reader_online(&self, reader: &str) -> bool {
+    pub(crate) fn is_reader_online(&self, reader: &Reader) -> bool {
         self.assigned_segments.contains_key(reader)
     }
 
     /// Returns the active readers in a vector.
-    pub(crate) fn get_online_readers(&self) -> Vec<String> {
+    pub(crate) fn get_online_readers(&self) -> Vec<Reader> {
         self.assigned_segments
             .keys()
             .map(|k| k.to_owned())
-            .collect::<Vec<String>>()
+            .collect::<Vec<Reader>>()
     }
 
     /// Gets the latest positions for the given reader.
-    pub(crate) fn get_reader_positions(&self, reader: &str) -> HashMap<SegmentWithRange, Offset> {
+    pub(crate) fn get_reader_positions(&self, reader: &Reader) -> HashMap<SegmentWithRange, Offset> {
         self.assigned_segments
             .get(reader)
             .expect("reader must exist")
@@ -119,7 +120,7 @@ impl ReaderGroupStateV1 {
     /// Updates the latest positions for the given reader.
     pub(crate) fn update_reader_positions(
         &mut self,
-        reader: &str,
+        reader: &Reader,
         latest_positions: HashMap<SegmentWithRange, Offset>,
     ) {
         let current_segments_with_offsets =
@@ -136,7 +137,7 @@ impl ReaderGroupStateV1 {
 
     /// Removes the given reader from the reader group state and puts the segments that are previously
     /// owned by the removed reader to the unassigned list for redistribution.
-    pub(crate) fn remove_reader(&mut self, reader: &str, owned_segments: HashMap<ScopedSegment, Offset>) {
+    pub(crate) fn remove_reader(&mut self, reader: &Reader, owned_segments: HashMap<ScopedSegment, Offset>) {
         self.assigned_segments.remove(reader).map_or((), |segments| {
             for (segment, pos) in segments {
                 let offset = owned_segments
@@ -168,7 +169,7 @@ impl ReaderGroupStateV1 {
     }
 
     /// Assigns an unassigned segment to a given reader
-    pub(crate) fn assign_segment_to_reader(&mut self, reader: &str, segment: &ScopedSegment) {
+    pub(crate) fn assign_segment_to_reader(&mut self, reader: &Reader, segment: &ScopedSegment) {
         let assigned = self
             .assigned_segments
             .get_mut(reader)
@@ -193,7 +194,7 @@ impl ReaderGroupStateV1 {
     }
 
     /// Returns the list of segments assigned to the requested reader.
-    pub(crate) fn get_segments_for_reader(&self, reader: &str) -> HashSet<ScopedSegment> {
+    pub(crate) fn get_segments_for_reader(&self, reader: &Reader) -> HashSet<ScopedSegment> {
         self.assigned_segments.get(reader).map_or_else(
             || panic!("reader does not exist"),
             |segments| {
@@ -206,7 +207,7 @@ impl ReaderGroupStateV1 {
     }
 
     /// Releases a currently assigned segment from the given reader.
-    pub(crate) fn release_segment(&mut self, reader: &str, segment: ScopedSegment, offset: Offset) {
+    pub(crate) fn release_segment(&mut self, reader: &Reader, segment: ScopedSegment, offset: Offset) {
         let assigned = self
             .assigned_segments
             .get(reader)
@@ -231,7 +232,7 @@ impl ReaderGroupStateV1 {
     /// Removes the completed segments and add its successors for next to read.
     pub(crate) fn segment_completed(
         &mut self,
-        reader: &str,
+        reader: &Reader,
         segment_completed: SegmentWithRange,
         successors_mapped_to_their_predecessors: HashMap<SegmentWithRange, Vec<i64>>,
     ) {
@@ -268,11 +269,13 @@ impl ReaderGroupStateV1 {
 
 #[derive(new, Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) struct Offset {
-    /// The client has read to this offset and handle the result to the caller. But some of the events
-    /// before this offset may not have been processed. In case of a failure, some of the events before
-    /// this offset may be read again.
+    /// The client has read to this offset and handle the result to the application/caller.
+    /// But some events before this offset may not have been processed by application/caller.
+    /// In case of failure, those unprocessed events may need to be read from application/caller
+    /// again.
     read: u64,
-    /// The caller has processed up to this offset, this is less than or equal to the read offset.
+    /// The application/caller has processed up to this offset, this is less than or equal to the
+    /// read offset.
     processed: u64,
 }
 
@@ -311,7 +314,7 @@ mod test {
         assert_eq!(state.get_segments().len(), 1);
 
         // test add reader
-        let reader = "reader".to_owned();
+        let reader = Reader::new("reader".to_owned());
         state.add_reader(&reader);
         assert!(state.is_reader_online(&reader));
         assert_eq!(state.get_number_of_readers(), 1);

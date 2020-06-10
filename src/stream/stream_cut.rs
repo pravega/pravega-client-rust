@@ -7,10 +7,11 @@
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
-use super::BINCODE_CONFIG;
 use crate::error::*;
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream};
 use serde::{Deserialize, Serialize};
+use serde_cbor::from_slice;
+use serde_cbor::to_vec;
 use snafu::ResultExt;
 use std::collections::HashMap;
 
@@ -23,14 +24,14 @@ pub(crate) enum StreamCutVersioned {
 
 impl StreamCutVersioned {
     fn to_bytes(&self) -> Result<Vec<u8>, SerdeError> {
-        let encoded = BINCODE_CONFIG.serialize(&self).context(Serde {
+        let encoded = to_vec(&self).context(Cbor {
             msg: String::from("serialize StreamCutVersioned"),
         })?;
         Ok(encoded)
     }
 
     fn from_bytes(input: &[u8]) -> Result<StreamCutVersioned, SerdeError> {
-        let decoded: StreamCutVersioned = BINCODE_CONFIG.deserialize(&input[..]).context(Serde {
+        let decoded: StreamCutVersioned = from_slice(&input[..]).context(Cbor {
             msg: String::from("serialize StreamCutVersioned"),
         })?;
         Ok(decoded)

@@ -8,13 +8,13 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use bincode2::Error as BincodeError;
 use pravega_connection_pool::connection_pool::ConnectionPoolError;
 use pravega_controller_client::ControllerError;
 use pravega_rust_client_retry::retry_result::RetryError;
 use pravega_rust_client_shared::{TransactionStatus, TxId};
 use pravega_wire_protocol::error::*;
 use pravega_wire_protocol::wire_commands::Replies;
+use serde_cbor::Error as CborError;
 use snafu::Snafu;
 use std::fmt::Debug;
 use tokio::sync::mpsc::error::TryRecvError;
@@ -123,5 +123,5 @@ pub enum TransactionError {
 #[snafu(visibility = "pub")]
 pub enum SerdeError {
     #[snafu(display("Failed to {:?} due to {:?}", msg, source))]
-    Serde { msg: String, source: BincodeError },
+    Cbor { msg: String, source: CborError },
 }

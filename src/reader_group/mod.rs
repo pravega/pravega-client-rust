@@ -10,18 +10,3 @@
 
 pub(crate) mod reader_group_config;
 pub(crate) mod reader_group_state;
-
-use bincode2::Config;
-use bincode2::LengthOption;
-use lazy_static::*;
-
-lazy_static! {
-    static ref BINCODE_CONFIG: Config = {
-        let mut config = bincode2::config();
-        config.big_endian();
-        config.limit(0x007f_ffff);
-        config.array_length(LengthOption::U32);
-        config.string_length(LengthOption::U16);
-        config
-    };
-}
