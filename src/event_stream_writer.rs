@@ -48,13 +48,16 @@ impl EventStreamWriter {
         factory: Arc<ClientFactoryInternal>,
     ) -> Self {
         let (tx, rx) = channel(EventStreamWriter::CHANNEL_CAPACITY);
+        let handle = factory.get_runtime_handle();
+
         let selector = SegmentSelector::new(stream, tx.clone(), config, factory.clone());
         let processor = Processor {
             receiver: rx,
             selector,
             factory,
         };
-        tokio::spawn(Processor::run(processor));
+        // tokio::spawn is tied to the factory runtime.
+        handle.enter(|| tokio::spawn(Processor::run(processor)));
         EventStreamWriter {
             writer_id: Uuid::new_v4(),
             sender: tx,
