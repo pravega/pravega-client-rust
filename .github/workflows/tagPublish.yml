@@ -45,7 +45,7 @@ jobs:
             path: bindings/dist/
       - name: Publish to TestPyPI
             env:
-              # this needs to be changed.
+              # the username and the repository needs to be changed before release.
               TWINE_USERNAME: shrids
               TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
               TWINE_REPOSITORY: testpypi
