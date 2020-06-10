@@ -30,6 +30,7 @@ where
     name: String,
     table_map: TableMap<'a>,
     in_memory_map: HashMap<Key<K>, Value>,
+    table_segment_offset: i64,
 }
 
 impl<'a, K> TableSynchronizer<'a, K>
@@ -44,6 +45,7 @@ where
             name: name.clone(),
             table_map,
             in_memory_map: HashMap::new(),
+            table_segment_offset: -1,
         }
     }
 
@@ -347,7 +349,7 @@ where
 
         let result = table_synchronizer
             .table_map
-            .insert_conditionally_all(to_send)
+            .insert_conditionally_all(to_send, table_synchronizer.table_segment_offset)
             .await;
         match result {
             Err(TableError::IncorrectKeyVersion { operation, error_msg }) => {
@@ -403,7 +405,8 @@ where
             send.push((delete, key_version))
         }
 
-        let result = table_synchronizer.table_map.remove_conditionally_all(send).await;
+        let result = table_synchronizer.table_map.remove_conditionally_all(send,
+        table_synchronizer.table_segment_offset).await;
 
         match result {
             Err(TableError::IncorrectKeyVersion { operation, error_msg }) => {

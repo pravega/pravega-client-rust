@@ -140,13 +140,13 @@ impl<'a> TableMap<'a> {
     /// Unconditionally inserts a new or update an existing entry for the given key.
     /// Once the update is performed the newer version is returned.
     ///
-    pub async fn insert<K, V>(&self, k: &K, v: &V) -> Result<Version, TableError>
+    pub async fn insert<K, V>(&self, k: &K, v: &V, offset: i64) -> Result<Version, TableError>
     where
         K: Serialize + Deserialize<'a>,
         V: Serialize + Deserialize<'a>,
     {
         // use KEY_NO_VERSION to ensure unconditional update.
-        self.insert_conditionally(k, v, TableKey::KEY_NO_VERSION).await
+        self.insert_conditionally(k, v, TableKey::KEY_NO_VERSION, offset).await
     }
 
     ///
@@ -162,6 +162,7 @@ impl<'a> TableMap<'a> {
         k: &K,
         v: &V,
         key_version: Version,
+        offset: i64,
     ) -> Result<Version, TableError>
     where
         K: Serialize + Deserialize<'a>,
@@ -169,7 +170,7 @@ impl<'a> TableMap<'a> {
     {
         let key = serialize(k).expect("error during serialization.");
         let val = serialize(v).expect("error during serialization.");
-        self.insert_raw_values(vec![(key, val, key_version)])
+        self.insert_raw_values(vec![(key, val, key_version)], offset)
             .await
             .map(|versions| versions[0])
     }
@@ -177,20 +178,20 @@ impl<'a> TableMap<'a> {
     ///
     ///Unconditionally remove a key from the Tablemap. If the key does not exist an Ok(()) is returned.
     ///
-    pub async fn remove<K: Serialize + Deserialize<'a>>(&self, k: &K) -> Result<(), TableError> {
-        self.remove_conditionally(k, TableKey::KEY_NO_VERSION).await
+    pub async fn remove<K: Serialize + Deserialize<'a>>(&self, k: &K, offset: i64) -> Result<(), TableError> {
+        self.remove_conditionally(k, TableKey::KEY_NO_VERSION, offset).await
     }
 
     ///
     /// Conditionally remove a key from the Tablemap if it matches the provided key version.
     /// TableError::BadKeyVersion is returned incase the version does not exist.
     ///
-    pub async fn remove_conditionally<K>(&self, k: &K, key_version: Version) -> Result<(), TableError>
+    pub async fn remove_conditionally<K>(&self, k: &K, key_version: Version, offset: i64) -> Result<(), TableError>
     where
         K: Serialize + Deserialize<'a>,
     {
         let key = serialize(k).expect("error during serialization.");
-        self.remove_raw_values(vec![(key, key_version)]).await
+        self.remove_raw_values(vec![(key, key_version)], offset).await
     }
 
     ///
@@ -228,7 +229,7 @@ impl<'a> TableMap<'a> {
     /// Unconditionally inserts a new or updates an existing entry for the given keys.
     /// Once the update is performed the newer versions are returned.
     ///
-    pub async fn insert_all<K, V>(&self, kvps: Vec<(&K, &V)>) -> Result<Vec<Version>, TableError>
+    pub async fn insert_all<K, V>(&self, kvps: Vec<(&K, &V)>, offset: i64) -> Result<Vec<Version>, TableError>
     where
         K: Serialize + Deserialize<'a>,
         V: Serialize + Deserialize<'a>,
@@ -243,7 +244,7 @@ impl<'a> TableMap<'a> {
                 )
             })
             .collect();
-        self.insert_raw_values(r).await
+        self.insert_raw_values(r, offset).await
     }
 
     ///
@@ -258,6 +259,7 @@ impl<'a> TableMap<'a> {
     pub async fn insert_conditionally_all<K, V>(
         &self,
         kvps: Vec<(&K, &V, Version)>,
+        offset: i64,
     ) -> Result<Vec<Version>, TableError>
     where
         K: Serialize + Deserialize<'a>,
@@ -273,25 +275,25 @@ impl<'a> TableMap<'a> {
                 )
             })
             .collect();
-        self.insert_raw_values(r).await
+        self.insert_raw_values(r, offset).await
     }
 
     ///
     /// Unconditionally remove the provided keys from the table map.
     ///
-    pub async fn remove_all<K>(&self, keys: Vec<&K>) -> Result<(), TableError>
+    pub async fn remove_all<K>(&self, keys: Vec<&K>, offset: i64) -> Result<(), TableError>
     where
         K: Serialize + Deserialize<'a>,
     {
         let r: Vec<(&K, Version)> = keys.iter().map(|k| (*k, TableKey::KEY_NO_VERSION)).collect();
-        self.remove_conditionally_all(r).await
+        self.remove_conditionally_all(r, offset).await
     }
 
     ///
     /// Conditionally remove keys after checking the key version. In-case of a failure none of the keys
     /// are removed.
     ///
-    pub async fn remove_conditionally_all<K>(&self, keys: Vec<(&K, Version)>) -> Result<(), TableError>
+    pub async fn remove_conditionally_all<K>(&self, keys: Vec<(&K, Version)>, offset: i64) -> Result<(), TableError>
     where
         K: Serialize + Deserialize<'a>,
     {
@@ -299,7 +301,7 @@ impl<'a> TableMap<'a> {
             .iter()
             .map(|(k, v)| (serialize(k).expect("error during serialization."), *v))
             .collect();
-        self.remove_raw_values(r).await
+        self.remove_raw_values(r, offset).await
     }
 
     ///
@@ -424,6 +426,7 @@ impl<'a> TableMap<'a> {
     async fn insert_raw_values(
         &self,
         kvps: Vec<(Vec<u8>, Vec<u8>, Version)>,
+        offset: i64,
     ) -> Result<Vec<Version>, TableError> {
         let op = "Insert into tablemap";
 
@@ -441,7 +444,7 @@ impl<'a> TableMap<'a> {
             segment: self.name.clone(),
             delegation_token: "".to_string(),
             table_entries: te,
-            table_segment_offset: -1,
+            table_segment_offset: offset,
         });
         let re = self.raw_client.as_ref().send_request(&req).await;
         debug!("Reply for UpdateTableEntries request {:?}", re);
@@ -516,7 +519,7 @@ impl<'a> TableMap<'a> {
     /// Remove a list of keys where the key, represented in raw bytes, and version of the corresponding
     /// keys is specified.
     ///
-    async fn remove_raw_values(&self, keys: Vec<(Vec<u8>, Version)>) -> Result<(), TableError> {
+    async fn remove_raw_values(&self, keys: Vec<(Vec<u8>, Version)>, offset: i64) -> Result<(), TableError> {
         let op = "Remove keys from tablemap";
         let tks: Vec<TableKey> = keys
             .iter()
@@ -527,7 +530,7 @@ impl<'a> TableMap<'a> {
             segment: self.name.clone(),
             delegation_token: "".to_string(),
             keys: tks,
-            table_segment_offset: -1,
+            table_segment_offset: offset,
         });
         let re = self.raw_client.as_ref().send_request(&req).await;
         debug!("Reply for RemoveTableKeys request {:?}", re);

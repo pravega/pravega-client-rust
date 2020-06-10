@@ -39,7 +39,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     let map = client_factory.create_table_map("t1".into()).await;
     let k: String = "key".into();
     let v: String = "val".into();
-    let r = map.insert(&k, &v).await;
+    let r = map.insert(&k, &v, -1).await;
     info!("==> PUT {:?}", r);
     let r: Result<Option<(String, Version)>, TableError> = map.get(&k).await;
     info!("==> GET {:?}", r);
@@ -52,7 +52,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
 
     let rr: Result<Option<(String, Version)>, TableError> = map.get(&k).await;
     assert!(rr.is_ok() && rr.unwrap().is_none());
-    let r = map.insert_conditionally(&k, &v, TableKey::NOT_EXISTS).await;
+    let r = map.insert_conditionally(&k, &v, TableKey::NOT_EXISTS, -1).await;
     assert!(r.is_ok());
     let version = r.unwrap();
     let rr: Result<Option<(String, Version)>, TableError> = map.get(&k).await;
@@ -62,7 +62,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     assert_eq!(temp.unwrap().0, v);
 
     // second update with not exists
-    let r = map.insert_conditionally(&k, &v_1, TableKey::NOT_EXISTS).await;
+    let r = map.insert_conditionally(&k, &v_1, TableKey::NOT_EXISTS, -1).await;
     assert!(r.is_err());
     match r {
         Ok(_v) => panic!("Bad version error expected"),
@@ -71,7 +71,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     }
     // update with the write version.
     let r = map
-        .insert_conditionally(&k,  &v_1, version) // specify the correct key version
+        .insert_conditionally(&k,  &v_1, version, -1) // specify the correct key version
         .await;
     assert!(r.is_ok());
     // verify if the write was successful.
@@ -83,7 +83,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
 
     // insert unconditional
     let r = map
-        .insert_conditionally(&k, &v_100, TableKey::KEY_NO_VERSION) // specify the correct key version
+        .insert_conditionally(&k, &v_100, TableKey::KEY_NO_VERSION, -1) // specify the correct key version
         .await;
     assert!(r.is_ok());
     // verify if the write was successful.
@@ -95,12 +95,12 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
 
     // verify delete with a non-existent key
     let key: String = "non-existent-key".into();
-    let r = map.remove_conditionally(&key, TableKey::KEY_NO_VERSION).await;
+    let r = map.remove_conditionally(&key, TableKey::KEY_NO_VERSION, -1).await;
     assert!(r.is_ok());
 
     // verify conditional delete
     let key: String = k.clone();
-    let r = map.remove_conditionally(&key, 0i64).await;
+    let r = map.remove_conditionally(&key, 0i64, -1).await;
     assert!(r.is_err());
     match r {
         Ok(_v) => panic!("Bad version error expected"),
@@ -109,7 +109,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     }
     //verify unconditional delete
     let key: String = k.clone();
-    let r = map.remove(&key).await;
+    let r = map.remove(&key, -1).await;
     assert!(r.is_ok());
     // verify with get.
     let rr: Result<Option<(String, Version)>, TableError> = map.get(&k).await;
@@ -117,7 +117,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     assert!(rr.unwrap().is_none());
     // verify conditional delete post delete.
     let key: String = k.clone();
-    let r = map.remove_conditionally(&key, 0i64).await;
+    let r = map.remove_conditionally(&key, 0i64, -1).await;
     assert!(r.is_err());
     match r {
         Ok(_v) => panic!("Key does not exist error expected"),
@@ -136,7 +136,7 @@ async fn test_multiple_key_operations(client_factory: &ClientFactory) {
     let v2: String = "v".into();
 
     let data = vec![(&k1, &v1), (&k2, &v2)];
-    let versions = map.insert_all(data).await;
+    let versions = map.insert_all(data, -1).await;
     let r: Result<Option<(String, Version)>, TableError> = map.get(&k1).await;
     info!("==> GET {:?}", r);
     assert!(r.is_ok());
@@ -157,7 +157,7 @@ async fn test_multiple_key_operations(client_factory: &ClientFactory) {
         (&k1, &v1, versions.unwrap()[1]), // incorrect version
         (&k3, &v1, TableKey::NOT_EXISTS),
     ];
-    let versions = map.insert_conditionally_all(data).await;
+    let versions = map.insert_conditionally_all(data, -1).await;
     info!("==> Insert_all {:?}", versions);
     assert!(versions.is_err());
     match versions {
@@ -207,10 +207,10 @@ async fn test_multiple_key_remove_operations(client_factory: &ClientFactory) {
     let k5: String = "k5".into();
     let v: String = "v".into();
     let data = vec![(&k1, &v), (&k2, &v), (&k3, &v), (&k4, &v), (&k5, &v)];
-    let insert = map.insert_all(data).await.unwrap();
+    let insert = map.insert_all(data, -1).await.unwrap();
 
     // test remove unconditional
-    let unconditional_remove = map.remove_all(vec![&k1, &k2]).await;
+    let unconditional_remove = map.remove_all(vec![&k1, &k2], -1).await;
     assert!(unconditional_remove.is_ok());
     // verify is remove is successful.
     let r: Result<Vec<Option<(String, Version)>>, TableError> = map.get_all(vec![&k1, &k2]).await;
@@ -221,7 +221,7 @@ async fn test_multiple_key_remove_operations(client_factory: &ClientFactory) {
 
     // test remove conditional failure
     let r = map
-        .remove_conditionally_all(vec![(&k3, insert[3]), (&k4, TableKey::NOT_EXISTS)])
+        .remove_conditionally_all(vec![(&k3, insert[3]), (&k4, TableKey::NOT_EXISTS)], -1)
         .await;
     assert!(r.is_err());
     match r {
@@ -236,7 +236,7 @@ async fn test_multiple_key_remove_operations(client_factory: &ClientFactory) {
 
     //test conditional remove
     let r = map
-        .remove_conditionally_all(vec![(&k3, insert[2]), (&k4, insert[3])])
+        .remove_conditionally_all(vec![(&k3, insert[2]), (&k4, insert[3])], -1)
         .await;
     assert!(r.is_ok());
 
@@ -247,7 +247,7 @@ async fn test_multiple_key_remove_operations(client_factory: &ClientFactory) {
 
     // test unconditional remove with already deleted keys.
     // k4 is already removed.
-    let unconditional_remove = map.remove_all(vec![&k4, &k5]).await;
+    let unconditional_remove = map.remove_all(vec![&k4, &k5], -1).await;
     assert!(unconditional_remove.is_ok());
 }
 
@@ -269,7 +269,7 @@ async fn test_iterators(client_factory: &ClientFactory) {
             (&k4, &v),
             (&k5, &v),
             (&k6, &v),
-        ])
+        ], -1)
         .await;
     assert!(r.is_ok());
 
