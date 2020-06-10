@@ -11,18 +11,19 @@ use pravega_wire_protocol::client_config::ClientConfigBuilder;
 
 use super::*;
 use std::net::SocketAddr;
-
-#[tokio::test]
-async fn test_create_scope_error() {
+use tokio::runtime::Runtime;
+#[test]
+fn test_create_scope_error() {
+    let mut rt = Runtime::new().unwrap();
     let config = ClientConfigBuilder::default()
         .controller_uri("127.0.0.1:9090".parse::<SocketAddr>().unwrap())
         .build()
         .expect("build client config");
 
-    let client = ControllerClientImpl::new(config).await;
+    let client = ControllerClientImpl::new(config, rt.handle().clone());
 
     let request = Scope::new("testScope124".into());
-    let create_scope_result = client.create_scope(&request).await;
+    let create_scope_result = rt.block_on(client.create_scope(&request));
     assert!(create_scope_result.is_err());
     match create_scope_result {
         Ok(_) => assert!(false, "Failure excepted"),
@@ -34,13 +35,14 @@ async fn test_create_scope_error() {
     };
 }
 
-#[tokio::test]
-async fn test_create_stream_error() {
+#[test]
+fn test_create_stream_error() {
+    let mut rt = Runtime::new().unwrap();
     let config = ClientConfigBuilder::default()
         .controller_uri("127.0.0.1:9090".parse::<SocketAddr>().unwrap())
         .build()
         .expect("build client config");
-    let client = ControllerClientImpl::new(config).await;
+    let client = ControllerClientImpl::new(config, rt.handle().clone());
 
     let request = StreamConfiguration {
         scoped_stream: ScopedStream {
@@ -60,7 +62,7 @@ async fn test_create_stream_error() {
             retention_param: 0,
         },
     };
-    let create_stream_result = client.create_stream(&request).await;
+    let create_stream_result = rt.block_on(client.create_stream(&request));
     assert!(create_stream_result.is_err());
     match create_stream_result {
         Ok(_) => assert!(false, "Failure excepted"),

@@ -78,7 +78,7 @@ fn main() {
         .build()
         .expect("creating config");
     // create a controller client.
-    let controller_client = rt.block_on(ControllerClientImpl::new(config));
+    let controller_client = ControllerClientImpl::new(config, rt.handle().clone());
     match opt.cmd {
         Command::CreateScope { scope_name } => {
             let scope_result = rt.block_on(controller_client.create_scope(&Scope::new(scope_name)));

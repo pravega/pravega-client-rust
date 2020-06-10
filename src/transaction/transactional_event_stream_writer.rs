@@ -46,7 +46,7 @@ use std::time::Duration;
 ///         .controller_uri("127.0.0.1:9090".parse::<SocketAddr>().unwrap())
 ///         .build()
 ///         .expect("creating config");
-///     let client_factory = ClientFactory::new(config.clone()).await;
+///     let client_factory = ClientFactory::new(config.clone());
 ///     let mut writer = client_factory
 ///         .create_transactional_event_stream_writer(scoped_stream.clone(), WriterId(0))
 ///         .await;
