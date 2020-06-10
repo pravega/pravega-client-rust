@@ -90,6 +90,7 @@ impl<'a> AsyncSegmentReaderImpl<'a> {
 }
 
 #[async_trait]
+#[allow(clippy::needless_lifetimes)] //Normally the compiler could infer lifetimes but async is throwing it for a loop.
 impl AsyncSegmentReader for AsyncSegmentReaderImpl<'_> {
     async fn read(&self, offset: i64, length: i32) -> StdResult<SegmentReadCommand, ReaderError> {
         let request = Requests::ReadSegment(ReadSegmentCommand {

@@ -21,17 +21,18 @@ use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnec
 
 use pravega_wire_protocol::commands::TableKey;
 
-pub async fn test_tablemap() {
+pub fn test_tablemap() {
     let config = ClientConfigBuilder::default()
         .controller_uri(TEST_CONTROLLER_URI)
         .build()
         .expect("creating config");
 
-    let client_factory = ClientFactory::new(config.clone()).await;
-    test_single_key_operations(&client_factory).await;
-    test_multiple_key_operations(&client_factory).await;
-    test_multiple_key_remove_operations(&client_factory).await;
-    test_iterators(&client_factory).await;
+    let client_factory = ClientFactory::new(config);
+    let handle = client_factory.get_runtime_handle();
+    handle.block_on(test_single_key_operations(&client_factory));
+    handle.block_on(test_multiple_key_operations(&client_factory));
+    handle.block_on(test_multiple_key_remove_operations(&client_factory));
+    handle.block_on(test_iterators(&client_factory));
 }
 
 async fn test_single_key_operations(client_factory: &ClientFactory) {
