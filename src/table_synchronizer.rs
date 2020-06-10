@@ -115,10 +115,7 @@ where
         let mut entry_count: i32 = 0;
         while let Some(entry) = reply.next().await {
             match entry {
-                Ok(t) => {
-                    let k = t.0;
-                    let v = t.1;
-                    let version: Version = t.2;
+                Ok((k, v, version)) => {
                     let key = Key {
                         key: k,
                         key_version: version,
@@ -152,7 +149,7 @@ where
 }
 
 /// The Key struct in the in_memory map. it contains two fields, the key and key_version.
-/// key should be serialized and deserialized.
+/// key shoulda.
 #[derive(Debug, Clone)]
 pub struct Key<K: Debug + Eq + Hash + PartialEq + Clone + Serialize + DeserializeOwned> {
     pub key: K,
@@ -194,15 +191,23 @@ where
     K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
 {
     pub fn insert(&mut self, key: K, type_id: String, new_value: Box<dyn ValueData>) {
+        let data = serialize(&*new_value).expect("serialize value");
         let insert = Insert {
-            key,
-            type_id,
-            new_value,
+            key: key.clone(),
+            type_id: type_id.clone(),
         };
+
         self.insert.push(insert);
+        //Also insert into map.
+        self.map.insert(key, Value{
+            type_id,
+            data,
+        });
     }
 
     pub fn remove(&mut self, key: K) {
+        //Also remove from the map.
+        self.map.remove(&key);
         self.remove.push(key);
     }
 
@@ -235,13 +240,13 @@ where
     }
 }
 
-/// The Insert struct. It contains three fields.
+/// The Insert struct. It contains two fields.
 /// The key to insert or update,
-/// the type_id for the data, and the data.
+/// the type_id for the data.
+/// The data is already insert into the map.
 pub(crate) struct Insert<K> {
     key: K,
     type_id: String,
-    new_value: Box<dyn ValueData>,
 }
 
 /// The trait bound for the ValueData
@@ -333,22 +338,17 @@ where
 
         let mut to_send = Vec::new();
         for update in to_update.get_insert_iter() {
-            let data = serialize(&*update.new_value).expect("serialize value");
-            let value = Value {
-                type_id: update.type_id.clone(),
-                data,
-            };
+            let value = to_update.get(&update.key).expect("get the insert data");
             let key_version = table_synchronizer.get_key_version(&update.key);
 
             if key_version.is_some() {
-                to_send.push((update.key.clone(), value, key_version.expect("get key version")));
+                to_send.push((&update.key, value, key_version.expect("get key version")));
             } else {
-                to_send.push((update.key.clone(), value, TableKey::KEY_NO_VERSION));
+                to_send.push((&update.key, value, TableKey::KEY_NO_VERSION));
             }
         }
 
-        let send = to_send.iter().map(|x| (&x.0, &x.1, x.2)).rev().collect();
-        let result = table_synchronizer.table_map.insert_conditionally_all(send).await;
+        let result = table_synchronizer.table_map.insert_conditionally_all(to_send).await;
         match result {
             Err(TableError::IncorrectKeyVersion { operation, error_msg }) => {
                 debug!("IncorrectKeyVersion {}, {}", operation, error_msg);
@@ -440,10 +440,7 @@ fn apply_inserts_to_localmap<K>(
             key: update.key.clone(),
             key_version: *new_version.get(i).expect("get new version"),
         };
-        let new_value = Value {
-            type_id: update.type_id.clone(),
-            data: serialize(&*update.new_value).expect("serialize value"),
-        };
+        let new_value = to_update.map.get(&update.key).expect("get the Value").clone();
         table_synchronizer.in_memory_map.insert(new_key, new_value);
         i += 1;
     }
@@ -469,7 +466,7 @@ where
 #[cfg(test)]
 mod test {
     use super::Key;
-    use crate::table_synchronizer::deserialize_from;
+    use crate::table_synchronizer::{deserialize_from, Table};
     use crate::table_synchronizer::{serialize, Insert, Value};
     use bincode2::{deserialize_from as bincode_deserialize, serialize as bincode_serialize};
     use std::collections::HashMap;
@@ -569,54 +566,14 @@ mod test {
 
     #[test]
     fn test_insert_and_get() {
-        let mut map: HashMap<Key<String>, Value> = HashMap::new();
-        let insert = Insert {
-            key: "a".to_string(),
-            type_id: "i32".into(),
-            new_value: Box::new(1),
+        let mut table = Table{
+            map: HashMap::new(),
+            insert: Vec::new(),
+            remove: Vec::new(),
         };
-
-        // mock the insertion of local map.
-        let key = Key {
-            key: insert.key,
-            key_version: 0,
-        };
-        let data = serialize(&*insert.new_value).expect("serialize value");
-        let value = Value {
-            type_id: insert.type_id,
-            data,
-        };
-
-        map.insert(key.clone(), value);
-        let value = map.get(&key).expect("get the value");
+        table.insert("test".into_string(), "i32".into_string(),Box::new(1));
+        let value = table.get(&"test".into_string()).expect("get value");
         let deserialized_data: i32 = deserialize_from(&value.data).expect("deserialize");
         assert_eq!(deserialized_data, 1);
-    }
-
-    #[test]
-    fn test_insert_and_get_with_serialize() {
-        let insert = Insert {
-            key: "a".to_string(),
-            type_id: "i32".into(),
-            new_value: Box::new(1),
-        };
-
-        let data = serialize(&*insert.new_value).expect("serialize value");
-        let value = Value {
-            type_id: insert.type_id,
-            data,
-        };
-
-        // mock the send in table_segment(it uses bincode2 serialize/deserialize);
-        let serialized_key = bincode_serialize(&insert.key).expect("serialize key");
-        let serialized_value = bincode_serialize(&value).expect("serialize value");
-
-        // mock the received in table_segment.
-        let deserialized_key: String =
-            bincode_deserialize(serialized_key.as_slice()).expect("deserialize key");
-        let deserialized_value: Value =
-            bincode_deserialize(serialized_value.as_slice()).expect("deserialize value");
-        assert_eq!(deserialized_key, insert.key);
-        assert_eq!(deserialized_value, value);
     }
 }
