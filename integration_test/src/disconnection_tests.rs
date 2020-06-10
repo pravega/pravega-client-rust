@@ -11,6 +11,7 @@ use super::check_standalone_status;
 use super::wait_for_standalone_with_timeout;
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
 use log::info;
+use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::raw_client::{RawClient, RawClientImpl};
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl, ControllerError};
@@ -33,15 +34,20 @@ use std::time::Duration;
 use std::{thread, time};
 use tokio::runtime::Runtime;
 
-pub async fn disconnection_test_wrapper() {
-    test_retry_with_no_connection().await;
+pub fn disconnection_test_wrapper() {
+    let mut rt = tokio::runtime::Runtime::new().expect("create runtime");
+    rt.block_on(test_retry_with_no_connection());
+    rt.shutdown_timeout(Duration::from_millis(100));
+
     let mut pravega = PravegaStandaloneService::start(false);
-    test_retry_while_start_pravega().await;
+    test_retry_while_start_pravega();
     assert_eq!(check_standalone_status(), true);
-    test_retry_with_unexpected_reply().await;
+    test_retry_with_unexpected_reply();
     pravega.stop().unwrap();
     wait_for_standalone_with_timeout(false, 10);
-    test_with_mock_server().await;
+
+    let mut rt = tokio::runtime::Runtime::new().expect("create runtime");
+    rt.block_on(test_with_mock_server());
 }
 
 async fn test_retry_with_no_connection() {
@@ -76,8 +82,7 @@ async fn test_retry_with_no_connection() {
     }
 }
 
-async fn test_retry_while_start_pravega() {
-    let retry_policy = RetryWithBackoff::default().max_tries(10);
+fn test_retry_while_start_pravega() {
     let controller_uri = "127.0.0.1:9090"
         .parse::<SocketAddr>()
         .expect("parse to socketaddr");
@@ -85,8 +90,15 @@ async fn test_retry_while_start_pravega() {
         .controller_uri(controller_uri)
         .build()
         .expect("build client config");
-    let controller_client = ControllerClientImpl::new(config).await;
+    let cf = ClientFactory::new(config);
+    let controller_client = cf.get_controller_client();
 
+    cf.get_runtime_handle()
+        .block_on(create_scope_stream(controller_client));
+}
+
+async fn create_scope_stream(controller_client: &dyn ControllerClient) {
+    let retry_policy = RetryWithBackoff::default().max_tries(10);
     let scope_name = Scope::new("retryScope".into());
 
     let result = retry_async(retry_policy, || async {
@@ -130,7 +142,7 @@ async fn test_retry_while_start_pravega() {
     assert!(result, true);
 }
 
-async fn test_retry_with_unexpected_reply() {
+fn test_retry_with_unexpected_reply() {
     let retry_policy = RetryWithBackoff::default().max_tries(4);
     let scope_name = Scope::new("retryScope".into());
     let stream_name = Stream::new("retryStream".into());
@@ -141,8 +153,8 @@ async fn test_retry_with_unexpected_reply() {
         .controller_uri(controller_uri)
         .build()
         .expect("build client config");
-
-    let controller_client = ControllerClientImpl::new(config).await;
+    let cf = ClientFactory::new(config);
+    let controller_client = cf.get_controller_client();
 
     //Get the endpoint.
     let segment_name = ScopedSegment {
@@ -153,34 +165,35 @@ async fn test_retry_with_unexpected_reply() {
             tx_id: None,
         },
     };
-    let endpoint = controller_client
-        .get_endpoint_for_segment(&segment_name)
-        .await
+    let endpoint = cf
+        .get_runtime_handle()
+        .block_on(controller_client.get_endpoint_for_segment(&segment_name))
         .expect("get endpoint for segment")
         .parse::<SocketAddr>()
         .expect("convert to socketaddr");
 
-    let cf = ConnectionFactory::create(ConnectionType::Tokio);
-    let manager = SegmentConnectionManager::new(cf, 1);
+    let connection_factory = ConnectionFactory::create(ConnectionType::Tokio);
+    let manager = SegmentConnectionManager::new(connection_factory, 1);
     let pool = ConnectionPool::new(manager);
     let raw_client = RawClientImpl::new(&pool, endpoint);
-    let result = retry_async(retry_policy, || async {
-        let request = Requests::SealSegment(SealSegmentCommand {
-            segment: segment_name.to_string(),
-            request_id: 0,
-            delegation_token: String::from(""),
-        });
-        let reply = raw_client.send_request(&request).await;
-        match reply {
-            Ok(r) => match r {
-                Replies::SegmentSealed(_) => RetryResult::Success(r),
-                Replies::NoSuchSegment(_) => RetryResult::Retry("No Such Segment"),
-                _ => RetryResult::Fail("Wrong reply type"),
-            },
-            Err(_error) => RetryResult::Retry("Connection Refused"),
-        }
-    })
-    .await;
+    let result = cf
+        .get_runtime_handle()
+        .block_on(retry_async(retry_policy, || async {
+            let request = Requests::SealSegment(SealSegmentCommand {
+                segment: segment_name.to_string(),
+                request_id: 0,
+                delegation_token: String::from(""),
+            });
+            let reply = raw_client.send_request(&request).await;
+            match reply {
+                Ok(r) => match r {
+                    Replies::SegmentSealed(_) => RetryResult::Success(r),
+                    Replies::NoSuchSegment(_) => RetryResult::Retry("No Such Segment"),
+                    _ => RetryResult::Fail("Wrong reply type"),
+                },
+                Err(_error) => RetryResult::Retry("Connection Refused"),
+            }
+        }));
     if let Err(e) = result {
         assert_eq!(e.error, "No Such Segment");
     } else {
