@@ -10,12 +10,13 @@ pub async fn test_tablesynchronizer() {
         .controller_uri(TEST_CONTROLLER_URI)
         .build()
         .expect("creating config");
-    let client_factory = ClientFactory::new(config.clone()).await;
-    test_insert(&client_factory).await;
-    test_remove(&client_factory).await;
-    test_insert_with_two_table_synchronizers(&client_factory).await;
-    test_remove_with_two_table_synchronizers(&client_factory).await;
-    test_insert_and_get_with_customize_struct(&client_factory).await;
+    let client_factory = ClientFactory::new(config.clone());
+    let handle = client_factory.get_runtime_handle();
+    handle.block_on(test_insert(&client_factory));
+    handle.block_on(test_remove(&client_factory));
+    handle.block_on(test_insert_with_two_table_synchronizers(&client_factory));
+    handle.block_on(test_remove_with_two_table_synchronizers(&client_factory));
+    handle.block_on(test_insert_and_get_with_customize_struct(&client_factory));
 }
 
 async fn test_insert(client_factory: &ClientFactory) {

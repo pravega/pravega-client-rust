@@ -65,8 +65,8 @@ mod test {
 
         event_stream_writer_tests::test_event_stream_writer();
 
-        rt.block_on(tablesynchronizer_tests::test_tablesynchronizer());
-        
+        tablesynchronizer_tests::test_tablesynchronizer();
+
         transactional_event_stream_writer_tests::test_transactional_event_stream_writer();
 
         // Shut down Pravega standalone
