@@ -146,7 +146,8 @@ impl<'a> TableMap<'a> {
         V: Serialize + Deserialize<'a>,
     {
         // use KEY_NO_VERSION to ensure unconditional update.
-        self.insert_conditionally(k, v, TableKey::KEY_NO_VERSION, offset).await
+        self.insert_conditionally(k, v, TableKey::KEY_NO_VERSION, offset)
+            .await
     }
 
     ///
@@ -179,14 +180,20 @@ impl<'a> TableMap<'a> {
     ///Unconditionally remove a key from the Tablemap. If the key does not exist an Ok(()) is returned.
     ///
     pub async fn remove<K: Serialize + Deserialize<'a>>(&self, k: &K, offset: i64) -> Result<(), TableError> {
-        self.remove_conditionally(k, TableKey::KEY_NO_VERSION, offset).await
+        self.remove_conditionally(k, TableKey::KEY_NO_VERSION, offset)
+            .await
     }
 
     ///
     /// Conditionally remove a key from the Tablemap if it matches the provided key version.
     /// TableError::BadKeyVersion is returned incase the version does not exist.
     ///
-    pub async fn remove_conditionally<K>(&self, k: &K, key_version: Version, offset: i64) -> Result<(), TableError>
+    pub async fn remove_conditionally<K>(
+        &self,
+        k: &K,
+        key_version: Version,
+        offset: i64,
+    ) -> Result<(), TableError>
     where
         K: Serialize + Deserialize<'a>,
     {
@@ -293,7 +300,11 @@ impl<'a> TableMap<'a> {
     /// Conditionally remove keys after checking the key version. In-case of a failure none of the keys
     /// are removed.
     ///
-    pub async fn remove_conditionally_all<K>(&self, keys: Vec<(&K, Version)>, offset: i64) -> Result<(), TableError>
+    pub async fn remove_conditionally_all<K>(
+        &self,
+        keys: Vec<(&K, Version)>,
+        offset: i64,
+    ) -> Result<(), TableError>
     where
         K: Serialize + Deserialize<'a>,
     {

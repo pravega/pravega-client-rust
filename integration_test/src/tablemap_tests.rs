@@ -262,14 +262,10 @@ async fn test_iterators(client_factory: &ClientFactory) {
     let v: String = "val".into();
     // insert data.
     let r = map
-        .insert_all(vec![
-            (&k1, &v),
-            (&k2, &v),
-            (&k3, &v),
-            (&k4, &v),
-            (&k5, &v),
-            (&k6, &v),
-        ], -1)
+        .insert_all(
+            vec![(&k1, &v), (&k2, &v), (&k3, &v), (&k4, &v), (&k5, &v), (&k6, &v)],
+            -1,
+        )
         .await;
     assert!(r.is_ok());
 

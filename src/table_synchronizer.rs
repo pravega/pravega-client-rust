@@ -405,8 +405,10 @@ where
             send.push((delete, key_version))
         }
 
-        let result = table_synchronizer.table_map.remove_conditionally_all(send,
-        table_synchronizer.table_segment_offset).await;
+        let result = table_synchronizer
+            .table_map
+            .remove_conditionally_all(send, table_synchronizer.table_segment_offset)
+            .await;
 
         match result {
             Err(TableError::IncorrectKeyVersion { operation, error_msg }) => {
