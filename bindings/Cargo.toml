@@ -1,15 +1,14 @@
 [package]
-name = "pravega-rust-client-bindings"
-version = "0.1.0"
+name = "pravega"
+version = "0.0.1"
 edition = "2018"
 categories = ["Network programming"]
 keywords = ["streaming", "client", "pravega"]
 readme = "Readme.md"
 repository = "https://github.com/pravega/pravega-client-rust"
 license = "Apache-2.0"
-description = "An internal library used by the Rust client for Pravega to generated language bindings for Python and WASM."
-authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.com>",
-           "Sandeep Shridhar <sandeep.shridhar@dell.com>", "Wenxiao Zhang <wenxiao.zhang@dell.com>"]
+description = "Pravega client"
+authors = ["Pravega Community"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
