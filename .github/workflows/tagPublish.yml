@@ -1,0 +1,54 @@
+name: packaging
+
+on:
+  # Trigger this only when a tag is used.
+  push:
+    tags:
+      - "*"
+
+jobs:
+  wheel:
+    name: python${{ matrix.python-version }}-${{ matrix.platform.python-architecture }} ${{ matrix.platform.os }}
+    runs-on: ${{ matrix.platform.os }}
+    strategy:
+      matrix:
+        python-version: [3.5, 3.6, 3.7, 3.8] # This list needs to be kept in sync with maturin_build_wheel.py.
+        platform: [
+        { os: "ubuntu-latest",  python-architecture: "x64", rust-target: "x86_64-unknown-linux-gnu" },
+        { os: "macOS-latest",   python-architecture: "x64", rust-target: "x86_64-apple-darwin" },
+        { os: "windows-latest", python-architecture: "x64", rust-target: "x86_64-pc-windows-msvc" },
+        { os: "windows-latest", python-architecture: "x86", rust-target: "i686-pc-windows-msvc" },
+        ]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: ${{ matrix.platform.python-architecture }}
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+      - run: rustup set default-host ${{ matrix.platform.rust-target }}
+      - name: install maturin
+        run: pip install maturin
+      - name: build wheel
+        id: build_wheel
+        run: python -u .github/workflows/maturin_build_wheel.py
+      - name: Upload Artifacts
+          #Copy the generated artifacts to dist.
+          uses: actions/upload-artifact@v1
+          with:
+            name: dist
+            path: bindings/dist/
+      - name: Publish to TestPyPI
+            env:
+              # the username and the repository needs to be changed before release.
+              TWINE_USERNAME: shrids
+              TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
+              TWINE_REPOSITORY: testpypi
+            run: |
+              pip install -U twine
+              python -m twine upload --skip-existing bindings/dist/*

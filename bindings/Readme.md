@@ -1,3 +1,9 @@
-# Language Bindings
+# Pravega client.
 
-This provides a way to generate multiple language bindings to interact with Pravega.
+This project provides a way to interact with [Pravega](https://github.com/pravega/pravega).
+
+Pravega is an open source distributed storage service implementing Streams. It offers Stream as the main primitive for the foundation of reliable storage systems: a high-performance, durable, elastic, and unlimited append-only byte stream with strict ordering and consistency.
+
+To learn more about Pravega, visit http://pravega.io
+
+Caution: This is a brand new python library. Please expect some build issues on platforms not covered by CI testing.
