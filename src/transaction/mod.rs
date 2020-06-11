@@ -85,7 +85,7 @@ impl Transaction {
         self.error_if_closed()?;
 
         let segment = if let Some(key) = key {
-            self.segments.get_segment_for_bytes(key.as_bytes())
+            self.segments.get_segment_for_string(&key)
         } else {
             self.segments.get_segment(get_random_f64())
         };

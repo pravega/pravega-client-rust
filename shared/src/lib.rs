@@ -28,6 +28,8 @@
 pub mod naming_utils;
 
 use crate::naming_utils::NameUtils;
+use byteorder::{ByteOrder, LittleEndian};
+use encoding_rs::mem;
 use im::HashMap as ImHashMap;
 use im::OrdMap;
 use murmurhash3::murmurhash3_x64_128;
@@ -337,9 +339,20 @@ impl StreamSegments {
         r.1.scoped_segment.to_owned()
     }
 
-    pub fn get_segment_for_bytes(&self, bytes: &[u8]) -> ScopedSegment {
-        let (_upper, lower) = murmurhash3_x64_128(bytes, StreamSegments::SEED);
-        let key = u64_to_f64_fraction(lower);
+    pub fn get_segment_for_string(&self, str: &str) -> ScopedSegment {
+        let mut buffer_u16 = vec![0; str.len()];
+        let mut buffer_u8 = vec![0; str.len() * 2];
+
+        // convert uft-8 encoded Rust string to utf-16.
+        mem::convert_str_to_utf16(str, &mut buffer_u16);
+
+        // the utf-16 is stored as u16 array, convert it to u8 array
+        LittleEndian::write_u16_into(&buffer_u16, &mut buffer_u8);
+
+        let (upper, _lower) = murmurhash3_x64_128(&buffer_u8, StreamSegments::SEED);
+
+        // takes the first 64 bit as Java client uses asLong method.
+        let key = u64_to_f64_fraction(upper);
         self.get_segment(key)
     }
 
@@ -450,4 +463,17 @@ pub struct EventRead {
 }
 
 #[cfg(test)]
-mod test {}
+mod test {
+    use super::*;
+    #[test]
+    fn test() {
+        let s = "hello";
+        let mut buffer_u16 = vec![0; s.len()];
+        let mut buffer_u8 = vec![0; s.len() * 2];
+
+        mem::convert_str_to_utf16(s, &mut buffer_u16);
+        LittleEndian::write_u16_into(&buffer_u16, &mut buffer_u8);
+        let (upper, _lower) = murmurhash3_x64_128(&buffer_u8, StreamSegments::SEED);
+        assert_eq!(u64_to_f64_fraction(upper), 0.658716230571337);
+    }
+}

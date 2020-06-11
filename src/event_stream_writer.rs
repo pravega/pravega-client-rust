@@ -591,7 +591,7 @@ impl SegmentSelector {
     /// get the Segment by passing a routing key
     fn get_segment_for_event(&mut self, routing_key: &Option<String>) -> ScopedSegment {
         if let Some(key) = routing_key {
-            self.current_segments.get_segment_for_bytes(key.as_bytes())
+            self.current_segments.get_segment_for_string(key)
         } else {
             self.current_segments.get_segment(get_random_f64())
         }
