@@ -33,15 +33,19 @@ impl StreamWriter {
     ///
     /// Write an event as a String into to the Pravega Stream. The operation blocks until the write operations is completed.
     ///
-    pub fn write_event(&mut self, event: String) -> PyResult<()> {
-        self.write_event_bytes(event.into_bytes()) //
+    #[cfg(feature = "python_binding")]
+    #[text_signature = "($self, event)"]
+    pub fn write_event(&mut self, event: &str) -> PyResult<()> {
+        self.write_event_bytes(event.as_bytes()) //
     }
 
     ///
     /// Write an event into the Pravega Stream for the given routing key.
     ///
-    pub fn write_event_by_routing_key(&mut self, event: String, routing_key: String) -> PyResult<()> {
-        self.write_event_by_routing_key_bytes(event.into_bytes(), routing_key)
+    #[cfg(feature = "python_binding")]
+    #[text_signature = "($self, routing_key, event)"]
+    pub fn write_event_by_routing_key(&mut self, routing_key: &str, event: &str) -> PyResult<()> {
+        self.write_event_by_routing_key_bytes(routing_key, event.as_bytes())
     }
 
     ///
@@ -53,9 +57,12 @@ impl StreamWriter {
     /// >>> b=e.encode("utf-8") // Python api to convert an object to byte array.
     /// >>> w1.write_event_bytes(b)
     ///
-    pub fn write_event_bytes(&mut self, event: Vec<u8>) -> PyResult<()> {
+    #[cfg(feature = "python_binding")]
+    #[text_signature = "($self, event)"]
+    pub fn write_event_bytes(&mut self, event: &[u8]) -> PyResult<()> {
         println!("Writing a single event");
-        let result = self.handle.block_on(self.writer.write_event(event));
+        // to_vec creates a copy of the python byte object.
+        let result = self.handle.block_on(self.writer.write_event(event.to_vec()));
         let result_oneshot: Result<(), EventStreamWriterError> =
             self.handle.block_on(result).expect("Write failed");
 
@@ -68,11 +75,15 @@ impl StreamWriter {
     ///
     /// Write an event to the Pravega Stream given a routing key.
     ///
-    pub fn write_event_by_routing_key_bytes(&mut self, event: Vec<u8>, routing_key: String) -> PyResult<()> {
+    #[cfg(feature = "python_binding")]
+    #[text_signature = "($self, routing_key, event)"]
+    pub fn write_event_by_routing_key_bytes(&mut self, routing_key: &str, event: &[u8]) -> PyResult<()> {
         println!("Writing a single event for a given routing key");
-        let result = self
-            .handle
-            .block_on(self.writer.write_event_by_routing_key(routing_key, event));
+        let result = self.handle.block_on(
+            // to_vec creates a copy of the python byte object.
+            self.writer
+                .write_event_by_routing_key(routing_key.into(), event.to_vec()),
+        );
         let result_oneshot: Result<(), EventStreamWriterError> = self
             .handle
             .block_on(result)

@@ -23,6 +23,10 @@ cfg_if! {
 
 #[cfg(feature = "python_binding")]
 #[pyclass]
+#[text_signature = "(controller_uri)"]
+///
+/// Create a StreamManager. The default ControllerIP is 127.0.0.1:9090
+///
 pub(crate) struct StreamManager {
     controller_ip: String,
     cf: ClientFactory,
@@ -33,7 +37,8 @@ pub(crate) struct StreamManager {
 #[pymethods]
 impl StreamManager {
     #[new]
-    fn new(controller_uri: String) -> Self {
+    #[args(controller_uri = "\"127.0.0.1:9090\"")]
+    fn new(controller_uri: &str) -> Self {
         let config = ClientConfigBuilder::default()
             .controller_uri(
                 controller_uri
@@ -45,7 +50,7 @@ impl StreamManager {
         let client_factory = ClientFactory::new(config.clone());
 
         StreamManager {
-            controller_ip: controller_uri,
+            controller_ip: controller_uri.into(),
             cf: client_factory,
             config,
         }
@@ -54,6 +59,8 @@ impl StreamManager {
     ///
     /// Create a Scope in Pravega.
     ///
+    #[cfg(feature = "python_binding")]
+    #[text_signature = "($self, scope_name)"]
     pub fn create_scope(&self, scope_name: &str) -> PyResult<bool> {
         let handle = self.cf.get_runtime_handle();
         println!("creating scope {:?}", scope_name);
@@ -72,6 +79,8 @@ impl StreamManager {
     ///
     /// Delete a Scope in Pravega.
     ///
+    #[cfg(feature = "python_binding")]
+    #[text_signature = "($self, scope_name)"]
     pub fn delete_scope(&self, scope_name: &str) -> PyResult<bool> {
         let handle = self.cf.get_runtime_handle();
         println!("Delete scope {:?}", scope_name);
@@ -90,6 +99,8 @@ impl StreamManager {
     ///
     /// Create a Stream in Pravega.
     ///
+    #[cfg(feature = "python_binding")]
+    #[text_signature = "($self, scope_name, stream_name, initial_segments)"]
     pub fn create_stream(
         &self,
         scope_name: &str,
@@ -130,6 +141,8 @@ impl StreamManager {
     ///
     /// Create a Stream in Pravega.
     ///
+    #[cfg(feature = "python_binding")]
+    #[text_signature = "($self, scope_name, stream_name)"]
     pub fn seal_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
         let handle = self.cf.get_runtime_handle();
         println!("Sealing stream {:?} under scope {:?} ", stream_name, scope_name);
@@ -151,6 +164,8 @@ impl StreamManager {
     ///
     /// Delete a Stream in Pravega.
     ///
+    #[cfg(feature = "python_binding")]
+    #[text_signature = "($self, scope_name, stream_name)"]
     pub fn delete_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
         let handle = self.cf.get_runtime_handle();
         println!("Deleting stream {:?} under scope {:?} ", stream_name, scope_name);
@@ -171,6 +186,8 @@ impl StreamManager {
     ///
     /// Create a Writer for a given Stream.
     ///
+    #[cfg(feature = "python_binding")]
+    #[text_signature = "($self, scope_name, stream_name)"]
     pub fn create_writer(&self, scope_name: &str, stream_name: &str) -> PyResult<StreamWriter> {
         let scoped_stream = ScopedStream {
             scope: Scope::new(scope_name.to_string()),
