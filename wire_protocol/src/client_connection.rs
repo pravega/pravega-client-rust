@@ -91,6 +91,7 @@ impl WritingClientConnection {
 }
 
 #[async_trait]
+#[allow(clippy::needless_lifetimes)] //Normally the compiler could infer lifetimes but async is throwing it for a loop.
 impl ClientConnection for ClientConnectionImpl<'_> {
     async fn read(&mut self) -> Result<Replies, ClientConnectionError> {
         read_wirecommand(&mut **self.connection.deref_mut()).await

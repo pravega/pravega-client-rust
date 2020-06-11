@@ -14,24 +14,25 @@ use pravega_controller_client::ControllerClient;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
 
-pub async fn test_controller_apis() {
+pub fn test_controller_apis() {
     let config = ClientConfigBuilder::default()
         .controller_uri(TEST_CONTROLLER_URI)
         .build()
         .expect("creating config");
-    let client_factory = ClientFactory::new(config.clone()).await;
+    let client_factory = ClientFactory::new(config);
 
     let controller = client_factory.get_controller_client();
     let scope_name = Scope::new("testScope123".into());
     let stream_name = Stream::new("testStream".into());
+    let handle = client_factory.get_runtime_handle();
 
-    let scope_result = controller.create_scope(&scope_name).await;
+    let scope_result = handle.block_on(controller.create_scope(&scope_name));
     info!("Response for create_scope is {:?}", scope_result);
 
     let stream_cfg = StreamConfiguration {
         scoped_stream: ScopedStream {
-            scope: scope_name.clone(),
-            stream: stream_name.clone(),
+            scope: scope_name,
+            stream: stream_name,
         },
         scaling: Scaling {
             scale_type: ScaleType::FixedNumSegments,
@@ -45,10 +46,10 @@ pub async fn test_controller_apis() {
         },
     };
 
-    let stream_result = controller.create_stream(&stream_cfg).await;
+    let stream_result = handle.block_on(controller.create_stream(&stream_cfg));
     info!("Response for create_stream is {:?}", stream_result);
 
-    test_scale_stream(controller).await;
+    handle.block_on(test_scale_stream(controller));
 }
 
 pub async fn test_scale_stream(controller: &dyn ControllerClient) {

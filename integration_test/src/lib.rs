@@ -54,25 +54,23 @@ mod test {
 
     #[test]
     fn integration_test() {
-        let mut rt = tokio::runtime::Runtime::new().expect("create runtime");
-
         let mut pravega = PravegaStandaloneService::start(false);
         wait_for_standalone_with_timeout(true, 30);
 
-        rt.block_on(controller_tests::test_controller_apis());
+        controller_tests::test_controller_apis();
 
-        rt.block_on(wirecommand_tests::wirecommand_test_wrapper());
+        wirecommand_tests::wirecommand_test_wrapper();
 
-        rt.block_on(tablemap_tests::test_tablemap());
+        tablemap_tests::test_tablemap();
 
-        rt.block_on(event_stream_writer_tests::test_event_stream_writer());
+        event_stream_writer_tests::test_event_stream_writer();
 
-        rt.block_on(transactional_event_stream_writer_tests::test_transactional_event_stream_writer());
+        transactional_event_stream_writer_tests::test_transactional_event_stream_writer();
         // Shut down Pravega standalone
         pravega.stop().unwrap();
         wait_for_standalone_with_timeout(false, 30);
 
         // disconnection test will start its own Pravega Standalone.
-        rt.block_on(disconnection_tests::disconnection_test_wrapper());
+        disconnection_tests::disconnection_test_wrapper();
     }
 }

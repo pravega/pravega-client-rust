@@ -53,6 +53,7 @@ use pravega_wire_protocol::client_config::ClientConfig;
 use std::convert::{From, Into};
 use std::str::FromStr;
 use std::sync::RwLock;
+use tokio::runtime::Handle;
 use tonic::codegen::http::uri::InvalidUri;
 use tonic::transport::Uri;
 
@@ -244,6 +245,7 @@ async fn get_channel(config: &ClientConfig) -> Channel {
 
     let iterable_endpoints =
         (0..config.max_controller_connections).map(|_a| Channel::builder(uri_result.clone()));
+
     async { Channel::balance_list(iterable_endpoints) }.await
 }
 
@@ -778,9 +780,9 @@ impl ControllerClientImpl {
     /// The requests will be load balanced across multiple connections and every connection supports
     /// multiplexing of requests.
     ///
-    pub async fn new(config: ClientConfig) -> Self {
+    pub fn new(config: ClientConfig, h: Handle) -> Self {
         // actual connection is established lazily.
-        let ch = get_channel(&config).await;
+        let ch = h.block_on(get_channel(&config));
         ControllerClientImpl {
             config,
             channel: RwLock::new(ControllerServiceClient::new(ch)),
