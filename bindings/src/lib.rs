@@ -13,6 +13,9 @@ extern crate cfg_if;
 
 mod stream_manager;
 mod stream_writer;
+mod stream_writer_transactional;
+mod transaction;
+
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pyo3::prelude::*;
@@ -20,6 +23,15 @@ cfg_if! {
         #[macro_use]
         extern crate derive_new;
         use stream_writer::StreamWriter;
+        use pyo3::create_exception;
+        use pyo3::types::IntoPyDict;
+        use pyo3::exceptions::Exception;
+
+        ///
+        ///This exception indicates a transaction has failed. Usually because the
+        /// transaction timed out or someone called transaction.abort()
+        ///
+        create_exception!(pravega_client, TxnFailedException, Exception);
     }
 }
 

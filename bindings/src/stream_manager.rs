@@ -10,6 +10,7 @@
 
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
+        use crate::stream_writer_transactional::StreamTxnWriter;
         use crate::stream_writer::StreamWriter;
         use pravega_client_rust::client_factory::ClientFactory;
         use pravega_rust_client_shared::*;
@@ -198,6 +199,30 @@ impl StreamManager {
             self.cf.get_runtime_handle(),
         );
         Ok(stream_writer)
+    }
+
+    ///
+    /// Create a Transactional Writer for a given Stream.
+    ///
+    #[cfg(feature = "python_binding")]
+    #[text_signature = "($self, scope_name, stream_name)"]
+    pub fn create_transaction_writer(
+        &self,
+        scope_name: &str,
+        stream_name: &str,
+        writer_id: u64,
+    ) -> PyResult<StreamTxnWriter> {
+        let scoped_stream = ScopedStream {
+            scope: Scope::new(scope_name.to_string()),
+            stream: Stream::new(stream_name.to_string()),
+        };
+        let handle = self.cf.get_runtime_handle();
+        let txn_writer = handle.block_on(
+            self.cf
+                .create_transactional_event_stream_writer(scoped_stream, WriterId(writer_id)),
+        );
+        let txn_stream_writer = StreamTxnWriter::new(txn_writer, self.cf.get_runtime_handle());
+        Ok(txn_stream_writer)
     }
 
     /// Returns the facet string representation.
