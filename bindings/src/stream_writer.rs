@@ -61,7 +61,7 @@ impl StreamWriter {
     #[text_signature = "($self, event)"]
     pub fn write_event_bytes(&mut self, event: &[u8]) -> PyResult<()> {
         println!("Writing a single event");
-        // to_vec creates a copy of the python byte array object.
+        // to_vec creates an owned copy of the python byte array object.
         let result = self.handle.block_on(self.writer.write_event(event.to_vec()));
         let result_oneshot: Result<(), EventStreamWriterError> =
             self.handle.block_on(result).expect("Write failed");
