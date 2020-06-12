@@ -38,7 +38,6 @@ jobs:
         id: build_wheel
         run: python -u .github/workflows/maturin_build_wheel.py
       - name: Upload Artifacts
-          # Copy the generated artifacts to dist.
           uses: actions/upload-artifact@v1
           with:
             name: dist
