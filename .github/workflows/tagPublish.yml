@@ -38,16 +38,18 @@ jobs:
         id: build_wheel
         run: python -u .github/workflows/maturin_build_wheel.py
       - name: Upload Artifacts
-          uses: actions/upload-artifact@v1
-          with:
-            name: dist
-            path: bindings/dist/
+        # Copy the generated artifacts to dist.
+        uses: actions/upload-artifact@v1
+        with:
+          name: dist
+          path: bindings/dist/
       - name: Publish to TestPyPI
-            env:
-              # the username and the repository needs to be changed before release.
-              TWINE_USERNAME: shrids
-              TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
-              TWINE_REPOSITORY: testpypi
-            run: |
-              pip install -U twine
-              python -m twine upload --skip-existing bindings/dist/*
+        env:
+          # the username and the repository needs to be changed before release.
+          TWINE_USERNAME: shrids
+          TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
+          TWINE_REPOSITORY: testpypi
+        run: |
+          pip install -U twine
+          python -m twine upload --skip-existing bindings/dist/*
+          
