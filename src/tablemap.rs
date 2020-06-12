@@ -13,7 +13,6 @@ use crate::error::RawClientError;
 use crate::get_request_id;
 use crate::raw_client::RawClient;
 use async_stream::try_stream;
-use bincode2::{deserialize_from, serialize};
 use futures::stream::Stream;
 use log::debug;
 use log::info;
@@ -25,6 +24,8 @@ use pravega_wire_protocol::commands::{
 };
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use serde::{Deserialize, Serialize};
+use serde_cbor::from_slice;
+use serde_cbor::to_vec;
 use snafu::Snafu;
 use std::net::SocketAddr;
 
@@ -123,14 +124,14 @@ impl<'a> TableMap<'a> {
         K: Serialize + serde::de::DeserializeOwned,
         V: Serialize + serde::de::DeserializeOwned,
     {
-        let key = serialize(k).expect("error during serialization.");
+        let key = to_vec(k).expect("error during serialization.");
         let read_result = self.get_raw_values(vec![key]).await;
         read_result.map(|v| {
             let (l, version) = &v[0];
             if l.is_empty() {
                 None
             } else {
-                let value: V = deserialize_from(l.as_slice()).expect("error during deserialization");
+                let value: V = from_slice(l.as_slice()).expect("error during deserialization");
                 Some((value, *version))
             }
         })
@@ -167,8 +168,8 @@ impl<'a> TableMap<'a> {
         K: Serialize + Deserialize<'a>,
         V: Serialize + Deserialize<'a>,
     {
-        let key = serialize(k).expect("error during serialization.");
-        let val = serialize(v).expect("error during serialization.");
+        let key = to_vec(k).expect("error during serialization.");
+        let val = to_vec(v).expect("error during serialization.");
         self.insert_raw_values(vec![(key, val, key_version)])
             .await
             .map(|versions| versions[0])
@@ -189,7 +190,7 @@ impl<'a> TableMap<'a> {
     where
         K: Serialize + Deserialize<'a>,
     {
-        let key = serialize(k).expect("error during serialization.");
+        let key = to_vec(k).expect("error during serialization.");
         self.remove_raw_values(vec![(key, key_version)]).await
     }
 
@@ -205,7 +206,7 @@ impl<'a> TableMap<'a> {
     {
         let keys_raw: Vec<Vec<u8>> = keys
             .iter()
-            .map(|k| serialize(*k).expect("error during serialization."))
+            .map(|k| to_vec(*k).expect("error during serialization."))
             .collect();
 
         let read_result: Result<Vec<(Vec<u8>, Version)>, TableError> = self.get_raw_values(keys_raw).await;
@@ -215,8 +216,7 @@ impl<'a> TableMap<'a> {
                     if data.is_empty() {
                         None
                     } else {
-                        let value: V =
-                            deserialize_from(data.as_slice()).expect("error during deserialization");
+                        let value: V = from_slice(data.as_slice()).expect("error during deserialization");
                         Some((value, *version))
                     }
                 })
@@ -237,8 +237,8 @@ impl<'a> TableMap<'a> {
             .iter()
             .map(|(k, v)| {
                 (
-                    serialize(k).expect("error during serialization."),
-                    serialize(v).expect("error during serialization."),
+                    to_vec(k).expect("error during serialization."),
+                    to_vec(v).expect("error during serialization."),
                     TableKey::KEY_NO_VERSION,
                 )
             })
@@ -267,8 +267,8 @@ impl<'a> TableMap<'a> {
             .iter()
             .map(|(k, v, ver)| {
                 (
-                    serialize(k).expect("error during serialization."),
-                    serialize(v).expect("error during serialization."),
+                    to_vec(k).expect("error during serialization."),
+                    to_vec(v).expect("error during serialization."),
                     *ver,
                 )
             })
@@ -297,7 +297,7 @@ impl<'a> TableMap<'a> {
     {
         let r: Vec<(Vec<u8>, Version)> = keys
             .iter()
-            .map(|(k, v)| (serialize(k).expect("error during serialization."), *v))
+            .map(|(k, v)| (to_vec(k).expect("error during serialization."), *v))
             .collect();
         self.remove_raw_values(r).await
     }
@@ -321,7 +321,7 @@ impl<'a> TableMap<'a> {
                     break;
                 } else {
                     for (key_raw, version) in keys {
-                       let key: K = deserialize_from(key_raw.as_slice()).expect("error during deserialization");
+                       let key: K = from_slice(key_raw.as_slice()).expect("error during deserialization");
                         yield (key, version)
                     }
                     token = t;
@@ -351,8 +351,8 @@ impl<'a> TableMap<'a> {
                     break;
                 } else {
                     for (key_raw, value_raw, version) in entries {
-                        let key: K = deserialize_from(key_raw.as_slice()).expect("error during deserialization");
-                        let value: V = deserialize_from(value_raw.as_slice()).expect("error during deserialization");
+                        let key: K = from_slice(key_raw.as_slice()).expect("error during deserialization");
+                        let value: V = from_slice(value_raw.as_slice()).expect("error during deserialization");
                         yield (key, value, version)
                     }
                     token = t;
@@ -380,7 +380,7 @@ impl<'a> TableMap<'a> {
             let keys_de: Vec<(K, Version)> = keys
                 .iter()
                 .map(|(k, version)| {
-                    let key: K = deserialize_from(k.as_slice()).expect("error during deserialization");
+                    let key: K = from_slice(k.as_slice()).expect("error during deserialization");
                     (key, *version)
                 })
                 .collect();
@@ -408,8 +408,8 @@ impl<'a> TableMap<'a> {
             let entries_de: Vec<(K, V, Version)> = entries
                 .iter()
                 .map(|(k, v, version)| {
-                    let key: K = deserialize_from(k.as_slice()).expect("error during deserialization");
-                    let value: V = deserialize_from(v.as_slice()).expect("error during deserialization");
+                    let key: K = from_slice(k.as_slice()).expect("error during deserialization");
+                    let value: V = from_slice(v.as_slice()).expect("error during deserialization");
                     (key, value, *version)
                 })
                 .collect();

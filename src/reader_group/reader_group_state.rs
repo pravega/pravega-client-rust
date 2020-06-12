@@ -8,43 +8,17 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::error::*;
 use crate::reader_group::reader_group_config::ReaderGroupConfigVersioned;
 use pravega_rust_client_shared::{Reader, ScopedSegment, ScopedStream, SegmentWithRange};
 use serde::{Deserialize, Serialize};
-use serde_cbor::from_slice;
-use serde_cbor::to_vec;
-use snafu::ResultExt;
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 
 const ASSUMED_LAG_MILLIS: u64 = 30000;
 
-/// ReaderGroupStateVersioned enum contains all versions of ReaderGroupState
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-pub(crate) enum ReaderGroupStateVersioned {
-    V1(ReaderGroupStateV1),
-}
-
-impl ReaderGroupStateVersioned {
-    fn to_bytes(&self) -> Result<Vec<u8>, SerdeError> {
-        let encoded = to_vec(&self).context(Cbor {
-            msg: String::from("serialize ReaderGroupStateVersioned"),
-        })?;
-        Ok(encoded)
-    }
-
-    fn from_bytes(input: &[u8]) -> Result<ReaderGroupStateVersioned, SerdeError> {
-        let decoded: ReaderGroupStateVersioned = from_slice(&input[..]).context(Cbor {
-            msg: String::from("deserialize ReaderGroupStateVersioned"),
-        })?;
-        Ok(decoded)
-    }
-}
-
 /// ReaderGroupState encapsulates all readers states.
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-pub(crate) struct ReaderGroupStateV1 {
+#[derive(PartialEq, Debug, Clone)]
+pub(crate) struct ReaderGroupState {
     /// Internal stream that is used to store the ReaderGroupState on the server side.
     scoped_synchronizer_stream: ScopedStream,
 
@@ -64,13 +38,13 @@ pub(crate) struct ReaderGroupStateV1 {
     unassigned_segments: HashMap<SegmentWithRange, Offset>,
 }
 
-impl ReaderGroupStateV1 {
+impl ReaderGroupState {
     pub(crate) fn new(
         scoped_synchronizer_stream: ScopedStream,
         config: ReaderGroupConfigVersioned,
         segments_to_offsets: HashMap<SegmentWithRange, Offset>,
     ) -> Self {
-        ReaderGroupStateV1 {
+        ReaderGroupState {
             scoped_synchronizer_stream,
             config,
             distance_to_tail: HashMap::new(),
@@ -286,7 +260,7 @@ mod test {
     use ordered_float::OrderedFloat;
     use pravega_rust_client_shared::{Scope, Segment, Stream};
 
-    fn set_up() -> ReaderGroupStateV1 {
+    fn set_up() -> ReaderGroupState {
         let internal_stream =
             ScopedStream::new(Scope::new("system".to_owned()), Stream::new("stream".to_owned()));
         let mut segments = HashMap::new();
@@ -302,7 +276,7 @@ mod test {
             ),
             Offset::new(0, 0),
         );
-        ReaderGroupStateV1::new(
+        ReaderGroupState::new(
             internal_stream,
             ReaderGroupConfigVersioned::V1(ReaderGroupConfigV1::new()),
             segments,
