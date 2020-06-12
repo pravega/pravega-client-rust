@@ -345,12 +345,9 @@ impl StreamSegments {
         mem::convert_str_to_utf16(str, &mut buffer_u16);
 
         // the utf-16 is stored as u16 array, convert it to u8 array
-        let buffer_u8 = unsafe {
-            let (prefix, shorts, suffix) = buffer_u16.align_to::<u8>();
-            assert_eq!(prefix.len(), 0);
-            assert_eq!(suffix.len(), 0);
-            shorts
-        };
+        let (prefix, buffer_u8, suffix) = unsafe { buffer_u16.align_to::<u8>() };
+        assert!(prefix.is_empty());
+        assert!(suffix.is_empty());
 
         let (upper, _lower) = murmurhash3_x64_128(buffer_u8, StreamSegments::SEED);
 
@@ -475,12 +472,9 @@ mod test {
 
         mem::convert_str_to_utf16(s, &mut buffer_u16);
 
-        let buffer_u8 = unsafe {
-            let (prefix, shorts, suffix) = buffer_u16.align_to::<u8>();
-            assert_eq!(prefix.len(), 0);
-            assert_eq!(suffix.len(), 0);
-            shorts
-        };
+        let (prefix, buffer_u8, suffix) = unsafe { buffer_u16.align_to::<u8>() };
+        assert!(prefix.is_empty());
+        assert!(suffix.is_empty());
 
         let (upper, _lower) = murmurhash3_x64_128(&buffer_u8, StreamSegments::SEED);
         assert_eq!(u64_to_f64_fraction(upper), 0.658716230571337);
