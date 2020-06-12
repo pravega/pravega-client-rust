@@ -17,9 +17,9 @@ mod disconnection_tests;
 mod event_stream_writer_tests;
 mod pravega_service;
 mod tablemap_tests;
+mod tablesynchronizer_tests;
 mod transactional_event_stream_writer_tests;
 mod wirecommand_tests;
-
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
 use std::process::Command;
 use std::{thread, time};
@@ -65,7 +65,10 @@ mod test {
 
         event_stream_writer_tests::test_event_stream_writer();
 
+        tablesynchronizer_tests::test_tablesynchronizer();
+
         transactional_event_stream_writer_tests::test_transactional_event_stream_writer();
+
         // Shut down Pravega standalone
         pravega.stop().unwrap();
         wait_for_standalone_with_timeout(false, 30);
