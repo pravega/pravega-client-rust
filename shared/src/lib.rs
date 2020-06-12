@@ -28,7 +28,6 @@
 pub mod naming_utils;
 
 use crate::naming_utils::NameUtils;
-use byteorder::{ByteOrder, LittleEndian};
 use encoding_rs::mem;
 use im::HashMap as ImHashMap;
 use im::OrdMap;
@@ -341,15 +340,19 @@ impl StreamSegments {
 
     pub fn get_segment_for_string(&self, str: &str) -> ScopedSegment {
         let mut buffer_u16 = vec![0; str.len()];
-        let mut buffer_u8 = vec![0; str.len() * 2];
 
         // convert uft-8 encoded Rust string to utf-16.
         mem::convert_str_to_utf16(str, &mut buffer_u16);
 
         // the utf-16 is stored as u16 array, convert it to u8 array
-        LittleEndian::write_u16_into(&buffer_u16, &mut buffer_u8);
+        let buffer_u8 = unsafe {
+            let (prefix, shorts, suffix) = buffer_u16.align_to::<u8>();
+            assert_eq!(prefix.len(), 0);
+            assert_eq!(suffix.len(), 0);
+            shorts
+        };
 
-        let (upper, _lower) = murmurhash3_x64_128(&buffer_u8, StreamSegments::SEED);
+        let (upper, _lower) = murmurhash3_x64_128(buffer_u8, StreamSegments::SEED);
 
         // takes the first 64 bit as Java client uses asLong method.
         let key = u64_to_f64_fraction(upper);
@@ -469,10 +472,16 @@ mod test {
     fn test() {
         let s = "hello";
         let mut buffer_u16 = vec![0; s.len()];
-        let mut buffer_u8 = vec![0; s.len() * 2];
 
         mem::convert_str_to_utf16(s, &mut buffer_u16);
-        LittleEndian::write_u16_into(&buffer_u16, &mut buffer_u8);
+
+        let buffer_u8 = unsafe {
+            let (prefix, shorts, suffix) = buffer_u16.align_to::<u8>();
+            assert_eq!(prefix.len(), 0);
+            assert_eq!(suffix.len(), 0);
+            shorts
+        };
+
         let (upper, _lower) = murmurhash3_x64_128(&buffer_u8, StreamSegments::SEED);
         assert_eq!(u64_to_f64_fraction(upper), 0.658716230571337);
     }
