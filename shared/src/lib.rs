@@ -28,8 +28,10 @@
 pub mod naming_utils;
 
 use crate::naming_utils::NameUtils;
+use encoding_rs::mem;
 use im::HashMap as ImHashMap;
 use im::OrdMap;
+use murmurhash3::murmurhash3_x64_128;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use std::cmp::{min, Reverse};
@@ -310,6 +312,8 @@ pub struct StreamSegments {
 }
 
 impl StreamSegments {
+    const SEED: u64 = 1741865571; // This is the hashcode of String "EventRouter" in Java client
+
     pub fn new(map_key_segment: BTreeMap<OrderedFloat<f64>, SegmentWithRange>) -> StreamSegments {
         StreamSegments::is_valid(&map_key_segment).expect("Invalid key segment map");
         StreamSegments {
@@ -328,7 +332,7 @@ impl StreamSegments {
             assert!(max_key.ge(&OrderedFloat(1.0)), "Last Key is missing");
             assert!(
                 max_key.lt(&OrderedFloat(1.0001)),
-                "Segments should have values only upto 1.0"
+                "Segments should have values only up to 1.0"
             );
         }
         Ok(())
@@ -345,12 +349,29 @@ impl StreamSegments {
         r.1.scoped_segment.to_owned()
     }
 
+    pub fn get_segment_for_string(&self, str: &str) -> ScopedSegment {
+        let mut buffer_u16 = vec![0; str.len()];
+
+        // convert uft-8 encoded Rust string to utf-16.
+        mem::convert_str_to_utf16(str, &mut buffer_u16);
+
+        // the utf-16 is stored as u16 array, convert it to u8 array
+        let (prefix, buffer_u8, suffix) = unsafe { buffer_u16.align_to::<u8>() };
+        assert!(prefix.is_empty());
+        assert!(suffix.is_empty());
+
+        let (upper, _lower) = murmurhash3_x64_128(buffer_u8, StreamSegments::SEED);
+
+        // takes the first 64 bit as Java client uses asLong method.
+        let key = u64_to_f64_fraction(upper);
+        self.get_segment(key)
+    }
+
     pub fn get_segments(&self) -> Vec<ScopedSegment> {
-        let mut vec = vec![];
-        for v in self.key_segment_map.values() {
-            vec.push(v.scoped_segment.clone());
-        }
-        vec
+        self.key_segment_map
+            .values()
+            .map(|v| v.scoped_segment.to_owned())
+            .collect::<Vec<ScopedSegment>>()
     }
 
     pub fn apply_replacement_range(
@@ -358,7 +379,6 @@ impl StreamSegments {
         segment_replace: &Segment,
         replacement_ranges: &StreamSegmentsWithPredecessors,
     ) -> Result<StreamSegments, String> {
-        //let segment_to_replace = self.find_segment(segment);
         let mut replaced_ranges = replacement_ranges
             .replacement_segments
             .get(segment_replace)
@@ -442,10 +462,32 @@ impl StreamSegmentsWithPredecessors {
     }
 }
 
+// convert u64 to 0.0 - 1.0 in f64
+pub(crate) fn u64_to_f64_fraction(hash: u64) -> f64 {
+    let shifted = (hash >> 12) & 0x000f_ffff_ffff_ffff_u64;
+    f64::from_bits(0x3ff0_0000_0000_0000_u64 + shifted) - 1.0
+}
+
 #[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct EventRead {
     pub event: Vec<u8>,
 }
 
 #[cfg(test)]
-mod test;
+mod test {
+    use super::*;
+    #[test]
+    fn test() {
+        let s = "hello";
+        let mut buffer_u16 = vec![0; s.len()];
+
+        mem::convert_str_to_utf16(s, &mut buffer_u16);
+
+        let (prefix, buffer_u8, suffix) = unsafe { buffer_u16.align_to::<u8>() };
+        assert!(prefix.is_empty());
+        assert!(suffix.is_empty());
+
+        let (upper, _lower) = murmurhash3_x64_128(&buffer_u8, StreamSegments::SEED);
+        assert_eq!(u64_to_f64_fraction(upper), 0.658716230571337);
+    }
+}

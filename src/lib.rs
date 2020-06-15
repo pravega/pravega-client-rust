@@ -39,6 +39,7 @@ pub mod raw_client;
 pub mod reader_group;
 pub mod segment_reader;
 mod stream;
+pub mod table_synchronizer;
 pub mod tablemap;
 pub mod transaction;
 
