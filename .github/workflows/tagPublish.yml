@@ -17,7 +17,7 @@ jobs:
         { os: "ubuntu-latest",  python-architecture: "x64", rust-target: "x86_64-unknown-linux-gnu" },
         { os: "macOS-latest",   python-architecture: "x64", rust-target: "x86_64-apple-darwin" },
         { os: "windows-latest", python-architecture: "x64", rust-target: "x86_64-pc-windows-msvc" },
-        { os: "windows-latest", python-architecture: "x86", rust-target: "i686-pc-windows-msvc" },
+        # { os: "windows-latest", python-architecture: "x86", rust-target: "i686-pc-windows-msvc" },
         ]
       fail-fast: false
     steps:
@@ -32,6 +32,7 @@ jobs:
         with:
           toolchain: nightly
           override: true
+          components: rustfmt, clippy
       - run: rustup set default-host ${{ matrix.platform.rust-target }}
       - name: install maturin
         run: pip install maturin
