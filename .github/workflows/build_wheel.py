@@ -1,7 +1,6 @@
 #! /usr/bin/env python3
 
 import os
-import platform
 import sys
 from pathlib import Path
 import subprocess
@@ -23,7 +22,7 @@ command = [
     sys.executable,
 ]
 subprocess.run(command, check=True)
-
+os.chdir("..")
 wheels = [x for x in (ROOT / "target" / "wheels").iterdir()]
 if len(wheels) != 1:
     raise RuntimeError("expected one wheel, found " + repr(wheels))
