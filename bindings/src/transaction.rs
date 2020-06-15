@@ -97,7 +97,7 @@ impl StreamTransaction {
                 println!("Transaction is already closed");
                 Err(TxnFailedException::py_err(id.0))
             }
-            Err(e) => Err(exceptions::ValueError::py_err(format!("Generic error {:?}", e))),
+            Err(e) => Err(exceptions::ValueError::py_err(format!("Error {:?}", e))),
         }
     }
 
@@ -110,11 +110,41 @@ impl StreamTransaction {
     #[cfg(feature = "python_binding")]
     #[text_signature = "($self)"]
     pub fn commit(&mut self) -> PyResult<()> {
-        println!("Commiting the transaction");
-        // to_vec creates an owned copy of the python byte array object.
-        let result: Result<(), TransactionError> = self
-            .handle
-            .block_on(self.txn.commit(Timestamp::new(i64::MIN as u64)));
+        self.commit_timestamp(i64::MIN as u64)
+    }
+
+    ///
+    /// Commit the Transaction and the associated timestamp.
+    /// This Causes all messages previously written to the transaction to go into the stream contiguously.
+    //  This operation will either fully succeed making all events consumable or fully fail such that none of them are.
+    //  There may be some time delay before readers see the events after this call has returned.
+    ///
+    #[cfg(feature = "python_binding")]
+    #[text_signature = "($self, timestamp_as_u64)"]
+    pub fn commit_timestamp(&mut self, timestamp: u64) -> PyResult<()> {
+        println!("Committing the transaction");
+        let result: Result<(), TransactionError> =
+            self.handle.block_on(self.txn.commit(Timestamp::new(timestamp)));
+
+        match result {
+            Ok(_t) => Ok(()),
+            Err(TransactionError::TxnClosed { id }) => {
+                println!("Transaction is already closed");
+                Err(TxnFailedException::py_err(id.0))
+            }
+            Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
+        }
+    }
+
+    ///
+    /// Abort the Transaction.
+    /// Drops the transaction, causing all events written to it to be deleted.
+    ///
+    #[cfg(feature = "python_binding")]
+    #[text_signature = "($self)"]
+    pub fn abort(&mut self) -> PyResult<()> {
+        println!("Aborting the transaction");
+        let result: Result<(), TransactionError> = self.handle.block_on(self.txn.abort());
 
         match result {
             Ok(_t) => Ok(()),
