@@ -11,6 +11,7 @@ jobs:
     name: python${{ matrix.python-version }}-${{ matrix.platform.python-architecture }} ${{ matrix.platform.os }}
     runs-on: ${{ matrix.platform.os }}
     strategy:
+      max-parallel: 1
       matrix:
         python-version: [3.5, 3.6, 3.7, 3.8] # This list needs to be kept in sync with maturin_build_wheel.py.
         platform: [
@@ -44,7 +45,7 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: dist
-          path: bindings/dist/
+          path: dist/
       - name: Publish to TestPyPI
         env:
           # the username and the repository needs to be changed before release.
@@ -53,5 +54,5 @@ jobs:
           TWINE_REPOSITORY: testpypi
         run: |
           pip install -U twine
-          python -m twine upload --skip-existing bindings/dist/*
+          python -m twine upload --skip-existing dist/*
           
