@@ -1,11 +1,5 @@
 name: packaging
 
-on:
-  # Trigger this only when a tag is used.
-  push:
-    tags:
-      - "*"
-
 jobs:
   wheel:
     name: python${{ matrix.python-version }}-${{ matrix.platform.python-architecture }} ${{ matrix.platform.os }}
