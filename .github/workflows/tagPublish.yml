@@ -40,12 +40,6 @@ jobs:
       - name: build wheel
         id: build_wheel
         run: python -u .github/workflows/build_wheel.py
-      - name: Upload Artifacts
-        # Copy the generated artifacts to dist.
-        uses: actions/upload-artifact@v1
-        with:
-          name: dist
-          path: dist/
       - name: Publish to TestPyPI
         env:
           # the username and the repository needs to be changed before release.
@@ -54,5 +48,5 @@ jobs:
           TWINE_REPOSITORY: testpypi
         run: |
           pip install -U twine
-          python -m twine upload --skip-existing dist/*
+          python -m twine upload --skip-existing target/wheels/*
           
