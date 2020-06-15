@@ -252,6 +252,9 @@ async fn test_write_correctness_while_scaling(writer: &mut EventStreamWriter, fa
 
         if i % 2 == 0 {
             let data = format!("event{}", i);
+            // Routing key "even" and "odd" works is because their hashed value are in
+            // 0~0.5 and 0.5~1.0 respectively. If the routing key hashing algorithm changed, this
+            // test might fail.
             let rx = writer
                 .write_event_by_routing_key(String::from("even"), data.into_bytes())
                 .await;
