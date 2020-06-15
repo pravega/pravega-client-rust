@@ -30,7 +30,8 @@ jobs:
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
-          profile: minimal
+          toolchain: nightly
+          override: true
       - run: rustup set default-host ${{ matrix.platform.rust-target }}
       - name: install maturin
         run: pip install maturin
