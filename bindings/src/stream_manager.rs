@@ -205,7 +205,7 @@ impl StreamManager {
     /// Create a Transactional Writer for a given Stream.
     ///
     #[cfg(feature = "python_binding")]
-    #[text_signature = "($self, scope_name, stream_name)"]
+    #[text_signature = "($self, scope_name, stream_name, writer_id)"]
     pub fn create_transaction_writer(
         &self,
         scope_name: &str,
@@ -219,9 +219,9 @@ impl StreamManager {
         let handle = self.cf.get_runtime_handle();
         let txn_writer = handle.block_on(
             self.cf
-                .create_transactional_event_stream_writer(scoped_stream, WriterId(writer_id)),
+                .create_transactional_event_stream_writer(scoped_stream.clone(), WriterId(writer_id)),
         );
-        let txn_stream_writer = StreamTxnWriter::new(txn_writer, self.cf.get_runtime_handle());
+        let txn_stream_writer = StreamTxnWriter::new(txn_writer, self.cf.get_runtime_handle(), scoped_stream);
         Ok(txn_stream_writer)
     }
 

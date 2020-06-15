@@ -8,8 +8,6 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use pravega_client_rust::error::TransactionError;
-use pravega_rust_client_shared::{TransactionStatus, TxId};
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client_rust::transaction::Transaction;
@@ -18,12 +16,18 @@ cfg_if! {
         use pyo3::PyResult;
         use tokio::runtime::Handle;
         use crate::TxnFailedException;
+        use pravega_client_rust::error::TransactionError;
+        use pravega_rust_client_shared::{Timestamp, TransactionStatus, TxId};
+        use pyo3::PyObjectProtocol;
     }
 }
 
 #[cfg(feature = "python_binding")]
 #[pyclass]
 #[derive(new)] // this ensures the python object cannot be created without the using StreamTxnWriter.
+///
+/// This represents a transaction on a given Stream.
+///
 pub(crate) struct StreamTransaction {
     txn: Transaction,
     handle: Handle,
@@ -40,7 +44,6 @@ impl StreamTransaction {
     pub fn get_txn_id(&mut self) -> PyResult<u128> {
         let result: TxId = self.txn.get_txn_id();
         Ok(result.0)
-        //TODO: make it a result.
     }
 
     ///
@@ -55,14 +58,24 @@ impl StreamTransaction {
         match result {
             Ok(TransactionStatus::Open) => Ok(true),
             Ok(_t) => Ok(false),
-            Err(TransactionError::TxnClosed { id }) => Err(TxnFailedException::py_err(id.0)),
             Err(t) => Err(exceptions::ValueError::py_err(format!("{:?}", t))),
         }
     }
 
     ///
-    /// Write an event to Pravega Transaction Stream. The operation blocks until the write operations is completed.
-    /// Python can also be used to convert a given object into bytes.
+    /// Write an event of type String into to the Transaction. The operation blocks until the write operations is completed.
+    ///
+    #[cfg(feature = "python_binding")]
+    #[text_signature = "($self, event)"]
+    pub fn write_event(&mut self, event: &str) -> PyResult<()> {
+        self.write_event_bytes(event.as_bytes()) //
+    }
+
+    ///
+    /// Write an event in bytes to a Pravega Transaction that is created by StreamTxnWriter#begin_txn.
+    /// The operation blocks until the write operations is completed.
+    ///
+    /// Note: Python can also be used to convert a given object into bytes.
     ///
     /// E.g:
     /// >>> e="test"
@@ -70,7 +83,7 @@ impl StreamTransaction {
     /// >>> w1.write_event_bytes(b)
     ///
     #[cfg(feature = "python_binding")]
-    #[text_signature = "($self, event)"]
+    #[text_signature = "($self, event_as_byte_array)"]
     pub fn write_event_bytes(&mut self, event: &[u8]) -> PyResult<()> {
         println!("Writing a single event to a transaction");
         // to_vec creates an owned copy of the python byte array object.
@@ -80,7 +93,58 @@ impl StreamTransaction {
 
         match result {
             Ok(_t) => Ok(()),
+            Err(TransactionError::TxnClosed { id }) => {
+                println!("Transaction is already closed");
+                Err(TxnFailedException::py_err(id.0))
+            }
+            Err(e) => Err(exceptions::ValueError::py_err(format!("Generic error {:?}", e))),
+        }
+    }
+
+    ///
+    /// Commit the Transaction.
+    /// This Causes all messages previously written to the transaction to go into the stream contiguously.
+    //  This operation will either fully succeed making all events consumable or fully fail such that none of them are.
+    //  There may be some time delay before readers see the events after this call has returned.
+    ///
+    #[cfg(feature = "python_binding")]
+    #[text_signature = "($self)"]
+    pub fn commit(&mut self) -> PyResult<()> {
+        println!("Commiting the transaction");
+        // to_vec creates an owned copy of the python byte array object.
+        let result: Result<(), TransactionError> = self
+            .handle
+            .block_on(self.txn.commit(Timestamp::new(i64::MIN as u64)));
+
+        match result {
+            Ok(_t) => Ok(()),
+            Err(TransactionError::TxnClosed { id }) => {
+                println!("Transaction is already closed");
+                Err(TxnFailedException::py_err(id.0))
+            }
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
         }
+    }
+
+    /// Returns the facet string representation.
+    fn to_str(&self) -> String {
+        format!(
+            "Txn id: {:?} , {:?}",
+            self.txn.get_txn_id(),
+            self.txn.get_stream()
+        )
+    }
+}
+
+///
+/// Refer https://docs.python.org/3/reference/datamodel.html#basic-customization
+/// This function will be called by the repr() built-in function to compute the “official” string
+/// representation of an Python object.
+///
+#[cfg(feature = "python_binding")]
+#[pyproto]
+impl PyObjectProtocol for StreamTransaction {
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("StreamTransaction({})", self.to_str()))
     }
 }

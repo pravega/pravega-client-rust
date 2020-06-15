@@ -24,13 +24,12 @@ cfg_if! {
         extern crate derive_new;
         use stream_writer::StreamWriter;
         use pyo3::create_exception;
-        use pyo3::types::IntoPyDict;
         use pyo3::exceptions::Exception;
 
-        ///
-        ///This exception indicates a transaction has failed. Usually because the
-        /// transaction timed out or someone called transaction.abort()
-        ///
+        /*
+         *  This exception indicates a transaction has failed. Usually because the
+            transaction timed out or someone called transaction.abort()
+        */
         create_exception!(pravega_client, TxnFailedException, Exception);
     }
 }

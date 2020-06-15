@@ -8,14 +8,16 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::transaction::StreamTransaction;
-use pravega_rust_client_shared::TxId;
+use pravega_rust_client_shared::ScopedStream;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client_rust::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
         use pyo3::exceptions;
         use pyo3::prelude::*;
         use pyo3::PyResult;
+        use pyo3::PyObjectProtocol;
+        use crate::transaction::StreamTransaction;
+        use pravega_rust_client_shared::TxId;
         use tokio::runtime::Handle;
     }
 }
@@ -26,6 +28,7 @@ cfg_if! {
 pub(crate) struct StreamTxnWriter {
     writer: TransactionalEventStreamWriter,
     handle: Handle,
+    stream: ScopedStream,
 }
 
 #[cfg(feature = "python_binding")]
@@ -34,8 +37,7 @@ impl StreamTxnWriter {
     ///
     /// Create a new transaction.
     /// This returns a StreamTransaction which can be perform writes on the created transaction. It
-    /// can also be used to perform commit() and abort() operations.
-    /// TODO: expand
+    /// can also be used to perform commit() and abort() operations on the created transaction.
     ///
     #[cfg(feature = "python_binding")]
     #[text_signature = "($self)"]
@@ -51,7 +53,7 @@ impl StreamTxnWriter {
     /// Get a StreamTransaction for a given transaction id.
     ///
     #[cfg(feature = "python_binding")]
-    #[text_signature = "($self, routing_key, event)"]
+    #[text_signature = "($self, txn_id)"]
     pub fn get_txn(&mut self, txn_id: u128) -> PyResult<StreamTransaction> {
         println!("Writing a single event for a given routing key");
         let result = self.handle.block_on(self.writer.get_txn(TxId(txn_id)));
@@ -60,5 +62,23 @@ impl StreamTxnWriter {
             Ok(txn) => Ok(StreamTransaction::new(txn, self.handle.clone())),
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
         }
+    }
+
+    /// Returns the facet string representation.
+    fn to_str(&self) -> String {
+        format!("Stream: {:?} ", self.stream)
+    }
+}
+
+///
+/// Refer https://docs.python.org/3/reference/datamodel.html#basic-customization
+/// This function will be called by the repr() built-in function to compute the “official” string
+/// representation of an Python object.
+///
+#[cfg(feature = "python_binding")]
+#[pyproto]
+impl PyObjectProtocol for StreamTxnWriter {
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("StreamTxnWriter({})", self.to_str()))
     }
 }
