@@ -17,6 +17,7 @@ ROOT = Path(__file__).parent.parent.parent
 # in this container. Our GitHub config has no effect on the the container, so
 # we could build all the wheels in one job, but we stick to one-wheel-per-job
 # for consistency.
+os.chdir("./bindings")
 if platform.system() == "Linux":
     version_path_components = {
         (3, 5): "cp35-cp35m",
