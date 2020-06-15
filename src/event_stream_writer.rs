@@ -8,9 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap, HashMap, VecDeque};
-use std::hash::Hasher;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -593,7 +591,7 @@ impl SegmentSelector {
     /// get the Segment by passing a routing key
     fn get_segment_for_event(&mut self, routing_key: &Option<String>) -> ScopedSegment {
         if let Some(key) = routing_key {
-            self.current_segments.get_segment(hash_string_to_f64(key))
+            self.current_segments.get_segment_for_string(key)
         } else {
             self.current_segments.get_segment(get_random_f64())
         }
@@ -760,27 +758,11 @@ impl PendingEvent {
     }
 }
 
-// hash string to 0.0 - 1.0 in f64
-pub(crate) fn hash_string_to_f64(s: &str) -> f64 {
-    let mut hasher = DefaultHasher::new();
-    hasher.write(s.as_bytes());
-    let hash_u64 = hasher.finish();
-    let shifted = (hash_u64 >> 12) & 0x000f_ffff_ffff_ffff_u64;
-    f64::from_bits(0x3ff0_0000_0000_0000_u64 + shifted) - 1.0
-}
-
 #[cfg(test)]
 mod tests {
     use tokio::runtime::Runtime;
 
     use super::*;
-
-    #[test]
-    fn test_hash_string() {
-        let hashed = hash_string_to_f64("hello");
-        assert!(hashed >= 0.0);
-        assert!(hashed <= 1.0);
-    }
 
     #[test]
     fn test_pending_event() {
