@@ -26,7 +26,13 @@ cfg_if! {
 #[pyclass]
 #[text_signature = "(controller_uri)"]
 ///
-/// Create a StreamManager. The default ControllerIP is 127.0.0.1:9090
+/// Create a StreamManager by providing a controller uri.
+/// ```
+/// import pravega_client;
+/// manager=pravega_client.StreamManager("127.0.0.1:9090")
+/// // this manager can be used to create scopes, streams, writers and readers against Pravega.
+/// manager.create_scope("scope")
+/// ```
 ///
 pub(crate) struct StreamManager {
     controller_ip: String,
@@ -38,7 +44,6 @@ pub(crate) struct StreamManager {
 #[pymethods]
 impl StreamManager {
     #[new]
-    #[args(controller_uri = "\"127.0.0.1:9090\"")]
     fn new(controller_uri: &str) -> Self {
         let config = ClientConfigBuilder::default()
             .controller_uri(
@@ -182,6 +187,13 @@ impl StreamManager {
     ///
     /// Create a Writer for a given Stream.
     ///
+    /// ```
+    /// import pravega_client;
+    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
+    /// // Create a writer against an already created Pravega scope and Stream.
+    /// writer=manager.create_writer("scope", "stream")
+    /// ```
+    ///
     #[text_signature = "($self, scope_name, stream_name)"]
     pub fn create_writer(&self, scope_name: &str, stream_name: &str) -> PyResult<StreamWriter> {
         let scoped_stream = ScopedStream {
@@ -189,14 +201,22 @@ impl StreamManager {
             stream: Stream::new(stream_name.to_string()),
         };
         let stream_writer = StreamWriter::new(
-            self.cf.create_event_stream_writer(scoped_stream),
+            self.cf.create_event_stream_writer(scoped_stream.clone()),
             self.cf.get_runtime_handle(),
+            scoped_stream,
         );
         Ok(stream_writer)
     }
 
     ///
     /// Create a Transactional Writer for a given Stream.
+    ///
+    /// ```
+    /// import pravega_client;
+    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
+    /// // Create a transactional writer against an already created Pravega scope and Stream.
+    /// writer=manager.create_transaction_writer("scope", "stream", "123")
+    /// ```
     ///
     #[text_signature = "($self, scope_name, stream_name, writer_id)"]
     pub fn create_transaction_writer(

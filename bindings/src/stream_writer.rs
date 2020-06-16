@@ -12,9 +12,11 @@ cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client_rust::error::EventStreamWriterError;
         use pravega_client_rust::event_stream_writer::EventStreamWriter;
+        use pravega_rust_client_shared::ScopedStream;
         use pyo3::exceptions;
         use pyo3::prelude::*;
         use pyo3::PyResult;
+        use pyo3::PyObjectProtocol;
         use tokio::runtime::Handle;
     }
 }
@@ -25,43 +27,78 @@ cfg_if! {
 pub(crate) struct StreamWriter {
     writer: EventStreamWriter,
     handle: Handle,
+    stream: ScopedStream,
 }
 
 #[cfg(feature = "python_binding")]
 #[pymethods]
 impl StreamWriter {
     ///
-    /// Write an event as a String into to the Pravega Stream. The operation blocks until the write operations is completed.
+    /// Write an event into the Pravega Stream. The events that are written will appear
+    /// in the Stream exactly once. The event of type String is converted into bytes with `UTF-8` encoding.
+    /// The user can optionally specify the routing key.
     ///
-    #[text_signature = "($self, event)"]
-    pub fn write_event(&mut self, event: &str) -> PyResult<()> {
-        self.write_event_bytes(event.as_bytes()) //
+    /// Note that the implementation provides retry logic to handle connection failures and service host
+    /// failures. Internal retries will not violate the exactly once semantic so it is better to rely on them
+    /// than to wrap this with custom retry logic.
+    ///
+    /// ```
+    /// import pravega_client;
+    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
+    /// // lets assume the Pravega scope and stream are already created.
+    /// writer=manager.create_writer("scope", "stream")
+    /// // write into Pravega stream without specifying the routing key.
+    /// writer.write_event("e1")
+    /// // write into Pravega stream by specifying the routing key.
+    /// writer.write_event("e2", "key1")
+    /// ```
+    ///
+    #[text_signature = "($self, event, routing_key=None)"]
+    #[args(event, routing_key = "None", "*")]
+    pub fn write_event(&mut self, event: &str, routing_key: Option<&str>) -> PyResult<()> {
+        match routing_key {
+            Option::None => self.write_event_bytes(event.as_bytes(), Option::None),
+            Option::Some(_key) => self.write_event_bytes(event.as_bytes(), routing_key),
+        }
     }
 
     ///
-    /// Write an event into the Pravega Stream for the given routing key.
+    /// Write a byte array into the Pravega Stream. This is similar to `write_event(...)` api except
+    /// that the the event to be written is a byte array. The user can optionally specify the
+    //  routing key.
     ///
-    #[text_signature = "($self, routing_key, event)"]
-    pub fn write_event_by_routing_key(&mut self, routing_key: &str, event: &str) -> PyResult<()> {
-        self.write_event_by_routing_key_bytes(routing_key, event.as_bytes())
-    }
-
+    /// ```
+    /// import pravega_client;
+    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
+    /// // lets assume the Pravega scope and stream are already created.
+    /// writer=manager.create_writer("scope", "stream")
     ///
-    /// Write an event to Pravega Stream. The operation blocks until the write operations is completed.
-    /// Python can also be used to convert a given object into bytes.
+    /// e="eventData"
+    /// // Convert the event object to a byte array.
+    /// e_bytes=e.encode("utf-8")
+    /// // write into Pravega stream without specifying the routing key.
+    /// writer.write_event_bytes("e1")
+    /// // write into Pravega stream by specifying the routing key.
+    /// writer.write_event_bytes("e2", "key1")
+    /// ```
     ///
-    /// E.g:
-    /// >>> e="test"
-    /// >>> b=e.encode("utf-8") // Python api to convert an object to byte array.
-    /// >>> w1.write_event_bytes(b)
-    ///
-    #[text_signature = "($self, event)"]
-    pub fn write_event_bytes(&mut self, event: &[u8]) -> PyResult<()> {
-        println!("Writing a single event");
+    #[text_signature = "($self, event, routing_key=None)"]
+    #[args(event, routing_key = "None", "*")]
+    pub fn write_event_bytes(&mut self, event: &[u8], routing_key: Option<&str>) -> PyResult<()> {
         // to_vec creates an owned copy of the python byte array object.
-        let result = self.handle.block_on(self.writer.write_event(event.to_vec()));
+        let result = match routing_key {
+            Option::None => {
+                println!("Writing a single event with no routing key");
+                self.handle.block_on(self.writer.write_event(event.to_vec()))
+            }
+            Option::Some(key) => {
+                println!("Writing a single event for a given routing key {:?}", key);
+                self.handle
+                    .block_on(self.writer.write_event_by_routing_key(key.into(), event.to_vec()))
+            }
+        };
         let result_oneshot: Result<(), EventStreamWriterError> =
-            self.handle.block_on(result).expect("Write failed");
+            self.handle.block_on(result).expect("Event Write failed");
 
         match result_oneshot {
             Ok(_t) => Ok(()),
@@ -69,25 +106,21 @@ impl StreamWriter {
         }
     }
 
-    ///
-    /// Write an event to the Pravega Stream given a routing key.
-    ///
-    #[text_signature = "($self, routing_key, event)"]
-    pub fn write_event_by_routing_key_bytes(&mut self, routing_key: &str, event: &[u8]) -> PyResult<()> {
-        println!("Writing a single event for a given routing key");
-        let result = self.handle.block_on(
-            // to_vec creates a copy of the python byte array object.
-            self.writer
-                .write_event_by_routing_key(routing_key.into(), event.to_vec()),
-        );
-        let result_oneshot: Result<(), EventStreamWriterError> = self
-            .handle
-            .block_on(result)
-            .expect("Write for specified routing key failed");
+    /// Returns the facet string representation.
+    fn to_str(&self) -> String {
+        format!("Stream: {:?} ", self.stream)
+    }
+}
 
-        match result_oneshot {
-            Ok(_t) => Ok(()),
-            Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
-        }
+///
+/// Refer https://docs.python.org/3/reference/datamodel.html#basic-customization
+/// This function will be called by the repr() built-in function to compute the “official” string
+/// representation of an Python object.
+///
+#[cfg(feature = "python_binding")]
+#[pyproto]
+impl PyObjectProtocol for StreamWriter {
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("StreamWriter({})", self.to_str()))
     }
 }
