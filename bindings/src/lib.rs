@@ -39,10 +39,11 @@ cfg_if! {
 #[cfg(feature = "python_binding")]
 #[pymodule]
 /// A Python module implemented in Rust.
-fn pravega_client(_py: Python, m: &PyModule) -> PyResult<()> {
+fn pravega_client(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<StreamManager>()?;
     m.add_class::<StreamWriter>()?;
     m.add_class::<StreamTxnWriter>()?;
     m.add_class::<StreamTransaction>()?;
+    m.add("TxnFailedException", py.get_type::<TxnFailedException>())?;
     Ok(())
 }
