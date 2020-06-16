@@ -1,10 +1,9 @@
 name: packaging
 
 on:
-  # Trigger this only when a tag is used.
   push:
-  branches:
-    - python-async-poc
+    branches:
+      - python-async-poc
 
 jobs:
   wheel:
