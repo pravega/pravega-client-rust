@@ -60,7 +60,6 @@ impl StreamManager {
     ///
     /// Create a Scope in Pravega.
     ///
-    #[cfg(feature = "python_binding")]
     #[text_signature = "($self, scope_name)"]
     pub fn create_scope(&self, scope_name: &str) -> PyResult<bool> {
         let handle = self.cf.get_runtime_handle();
@@ -80,7 +79,6 @@ impl StreamManager {
     ///
     /// Delete a Scope in Pravega.
     ///
-    #[cfg(feature = "python_binding")]
     #[text_signature = "($self, scope_name)"]
     pub fn delete_scope(&self, scope_name: &str) -> PyResult<bool> {
         let handle = self.cf.get_runtime_handle();
@@ -100,7 +98,6 @@ impl StreamManager {
     ///
     /// Create a Stream in Pravega.
     ///
-    #[cfg(feature = "python_binding")]
     #[text_signature = "($self, scope_name, stream_name, initial_segments)"]
     pub fn create_stream(
         &self,
@@ -142,7 +139,6 @@ impl StreamManager {
     ///
     /// Create a Stream in Pravega.
     ///
-    #[cfg(feature = "python_binding")]
     #[text_signature = "($self, scope_name, stream_name)"]
     pub fn seal_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
         let handle = self.cf.get_runtime_handle();
@@ -165,7 +161,6 @@ impl StreamManager {
     ///
     /// Delete a Stream in Pravega.
     ///
-    #[cfg(feature = "python_binding")]
     #[text_signature = "($self, scope_name, stream_name)"]
     pub fn delete_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
         let handle = self.cf.get_runtime_handle();
@@ -187,7 +182,6 @@ impl StreamManager {
     ///
     /// Create a Writer for a given Stream.
     ///
-    #[cfg(feature = "python_binding")]
     #[text_signature = "($self, scope_name, stream_name)"]
     pub fn create_writer(&self, scope_name: &str, stream_name: &str) -> PyResult<StreamWriter> {
         let scoped_stream = ScopedStream {
@@ -204,7 +198,6 @@ impl StreamManager {
     ///
     /// Create a Transactional Writer for a given Stream.
     ///
-    #[cfg(feature = "python_binding")]
     #[text_signature = "($self, scope_name, stream_name, writer_id)"]
     pub fn create_transaction_writer(
         &self,

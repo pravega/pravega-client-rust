@@ -8,7 +8,6 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use pravega_rust_client_shared::ScopedStream;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client_rust::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
@@ -18,6 +17,7 @@ cfg_if! {
         use pyo3::PyObjectProtocol;
         use crate::transaction::StreamTransaction;
         use pravega_rust_client_shared::TxId;
+        use pravega_rust_client_shared::ScopedStream;
         use tokio::runtime::Handle;
     }
 }
@@ -39,7 +39,6 @@ impl StreamTxnWriter {
     /// This returns a StreamTransaction which can be perform writes on the created transaction. It
     /// can also be used to perform commit() and abort() operations on the created transaction.
     ///
-    #[cfg(feature = "python_binding")]
     #[text_signature = "($self)"]
     pub fn begin_txn(&mut self) -> PyResult<StreamTransaction> {
         let result = self.handle.block_on(self.writer.begin());
@@ -52,7 +51,6 @@ impl StreamTxnWriter {
     ///
     /// Get a StreamTransaction for a given transaction id.
     ///
-    #[cfg(feature = "python_binding")]
     #[text_signature = "($self, txn_id)"]
     pub fn get_txn(&mut self, txn_id: u128) -> PyResult<StreamTransaction> {
         println!("Writing a single event for a given routing key");

@@ -33,7 +33,6 @@ impl StreamWriter {
     ///
     /// Write an event as a String into to the Pravega Stream. The operation blocks until the write operations is completed.
     ///
-    #[cfg(feature = "python_binding")]
     #[text_signature = "($self, event)"]
     pub fn write_event(&mut self, event: &str) -> PyResult<()> {
         self.write_event_bytes(event.as_bytes()) //
@@ -42,7 +41,6 @@ impl StreamWriter {
     ///
     /// Write an event into the Pravega Stream for the given routing key.
     ///
-    #[cfg(feature = "python_binding")]
     #[text_signature = "($self, routing_key, event)"]
     pub fn write_event_by_routing_key(&mut self, routing_key: &str, event: &str) -> PyResult<()> {
         self.write_event_by_routing_key_bytes(routing_key, event.as_bytes())
@@ -57,7 +55,6 @@ impl StreamWriter {
     /// >>> b=e.encode("utf-8") // Python api to convert an object to byte array.
     /// >>> w1.write_event_bytes(b)
     ///
-    #[cfg(feature = "python_binding")]
     #[text_signature = "($self, event)"]
     pub fn write_event_bytes(&mut self, event: &[u8]) -> PyResult<()> {
         println!("Writing a single event");
@@ -75,7 +72,6 @@ impl StreamWriter {
     ///
     /// Write an event to the Pravega Stream given a routing key.
     ///
-    #[cfg(feature = "python_binding")]
     #[text_signature = "($self, routing_key, event)"]
     pub fn write_event_by_routing_key_bytes(&mut self, routing_key: &str, event: &[u8]) -> PyResult<()> {
         println!("Writing a single event for a given routing key");

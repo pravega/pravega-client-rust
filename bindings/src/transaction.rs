@@ -49,7 +49,6 @@ impl StreamTransaction {
     ///
     /// Check if the transaction is an OPEN state.
     ///
-    #[cfg(feature = "python_binding")]
     #[text_signature = "($self)"]
     pub fn is_open(&self) -> PyResult<bool> {
         let result: Result<TransactionStatus, TransactionError> =
@@ -65,7 +64,6 @@ impl StreamTransaction {
     ///
     /// Write an event of type String into to the Transaction. The operation blocks until the write operations is completed.
     ///
-    #[cfg(feature = "python_binding")]
     #[text_signature = "($self, event)"]
     pub fn write_event(&mut self, event: &str) -> PyResult<()> {
         self.write_event_bytes(event.as_bytes()) //
@@ -82,7 +80,6 @@ impl StreamTransaction {
     /// >>> b=e.encode("utf-8") // Python api to convert an object to byte array.
     /// >>> w1.write_event_bytes(b)
     ///
-    #[cfg(feature = "python_binding")]
     #[text_signature = "($self, event_as_byte_array)"]
     pub fn write_event_bytes(&mut self, event: &[u8]) -> PyResult<()> {
         println!("Writing a single event to a transaction");
@@ -107,7 +104,6 @@ impl StreamTransaction {
     //  This operation will either fully succeed making all events consumable or fully fail such that none of them are.
     //  There may be some time delay before readers see the events after this call has returned.
     ///
-    #[cfg(feature = "python_binding")]
     #[text_signature = "($self)"]
     pub fn commit(&mut self) -> PyResult<()> {
         self.commit_timestamp(i64::MIN as u64)
@@ -119,7 +115,6 @@ impl StreamTransaction {
     //  This operation will either fully succeed making all events consumable or fully fail such that none of them are.
     //  There may be some time delay before readers see the events after this call has returned.
     ///
-    #[cfg(feature = "python_binding")]
     #[text_signature = "($self, timestamp_as_u64)"]
     pub fn commit_timestamp(&mut self, timestamp: u64) -> PyResult<()> {
         println!("Committing the transaction");
@@ -140,7 +135,6 @@ impl StreamTransaction {
     /// Abort the Transaction.
     /// Drops the transaction, causing all events written to it to be deleted.
     ///
-    #[cfg(feature = "python_binding")]
     #[text_signature = "($self)"]
     pub fn abort(&mut self) -> PyResult<()> {
         println!("Aborting the transaction");
