@@ -26,6 +26,8 @@
     clippy::similar_names
 )]
 #![allow(clippy::multiple_crate_versions, clippy::needless_doctest_main)]
+#![feature(trait_alias)]
+
 use pcg_rand::Pcg32;
 use rand::{Rng, SeedableRng};
 use std::cell::RefCell;

@@ -170,8 +170,8 @@ impl<'a> TableMap<'a> {
         K: Serialize + Deserialize<'a>,
         V: Serialize + Deserialize<'a>,
     {
-        let key = serialize(k).expect("error during serialization.");
-        let val = serialize(v).expect("error during serialization.");
+        let key = to_vec(k).expect("error during serialization.");
+        let val = to_vec(v).expect("error during serialization.");
         self.insert_raw_values(vec![(key, val, key_version)], offset)
             .await
             .map(|versions| versions[0])
@@ -198,7 +198,7 @@ impl<'a> TableMap<'a> {
     where
         K: Serialize + Deserialize<'a>,
     {
-        let key = serialize(k).expect("error during serialization.");
+        let key = to_vec(k).expect("error during serialization.");
         self.remove_raw_values(vec![(key, key_version)], offset).await
     }
 
@@ -256,12 +256,12 @@ impl<'a> TableMap<'a> {
 
     ///
     /// Conditionally inserts key-value pairs into the table map. The Key and Value are serialized to to bytes using
-    /// bincode2
+    /// cbor
     ///
-    /// The insert is performed after checking the key_version passed, incase of a failure none of the key-value pairs
+    /// The insert is performed after checking the key_version passed, in case of a failure none of the key-value pairs
     /// are persisted.
     /// Once the update is done the newer version is returned.
-    /// TableError::BadKeyVersion is returned incase of an incorrect key version.
+    /// TableError::BadKeyVersion is returned in case of an incorrect key version.
     ///
     pub async fn insert_conditionally_all<K, V>(
         &self,

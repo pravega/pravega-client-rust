@@ -1,3 +1,13 @@
+//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+
 use crate::client_factory::ClientFactoryInternal;
 use crate::tablemap::{TableError, TableMap, Version};
 use futures::pin_mut;
@@ -15,6 +25,8 @@ use std::marker::Unpin;
 use std::slice::Iter;
 use tracing::{debug, info};
 
+pub trait TableKeyBound = Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone;
+
 /// Provides a mean to have a map that is synchronized between many processes.
 /// The pattern is to have a map that can be update by Insert or Remove,
 /// Each host can perform logic based on its in_memory map and apply updates by supplying a
@@ -25,7 +37,7 @@ use tracing::{debug, info};
 /// and an in_memory map.
 pub struct TableSynchronizer<'a, K>
 where
-    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
+    K: TableKeyBound,
 {
     name: String,
     table_map: TableMap<'a>,
@@ -35,7 +47,7 @@ where
 
 impl<'a, K> TableSynchronizer<'a, K>
 where
-    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
+    K: TableKeyBound,
 {
     pub async fn new(name: String, factory: &'a ClientFactoryInternal) -> TableSynchronizer<'a, K> {
         let table_map = TableMap::new(name.clone(), factory)
@@ -107,7 +119,6 @@ where
             None
         }
     }
-
     /// Fetch the latest map in remote server and apply it to the local map.
     pub async fn fetch_updates(&mut self) -> Result<(), TableError> {
         debug!("fetch the latest map and apply to the local map");
@@ -151,22 +162,21 @@ where
 }
 
 /// The Key struct in the in_memory map. it contains two fields, the key and key_version.
-/// key shoulda.
 #[derive(Debug, Clone)]
-pub struct Key<K: Debug + Eq + Hash + PartialEq + Clone + Serialize + DeserializeOwned> {
+pub struct Key<K: TableKeyBound> {
     pub key: K,
     pub key_version: Version,
 }
 
-impl<K: Debug + Eq + Hash + PartialEq + Clone + Serialize + DeserializeOwned> PartialEq for Key<K> {
+impl<K: TableKeyBound> PartialEq for Key<K> {
     fn eq(&self, other: &Self) -> bool {
         self.key == other.key
     }
 }
 
-impl<K: Debug + Eq + Hash + PartialEq + Clone + Serialize + DeserializeOwned> Eq for Key<K> {}
+impl<K: TableKeyBound> Eq for Key<K> {}
 
-impl<K: Debug + Eq + Hash + PartialEq + Clone + Serialize + DeserializeOwned> Hash for Key<K> {
+impl<K: TableKeyBound> Hash for Key<K> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.key.hash(state)
     }
@@ -190,7 +200,7 @@ pub struct Table<K> {
 
 impl<K> Table<K>
 where
-    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
+    K: TableKeyBound,
 {
     pub fn insert(&mut self, key: K, type_id: String, new_value: Box<dyn ValueData>) {
         let data = serialize(&*new_value).expect("serialize value");
@@ -315,7 +325,7 @@ async fn conditionally_write<K>(
     table_synchronizer: &mut TableSynchronizer<'_, K>,
 ) -> Result<(), TableError>
 where
-    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
+    K: TableKeyBound,
 {
     loop {
         let map = table_synchronizer.get_current_map();
@@ -378,7 +388,7 @@ async fn conditionally_remove<K>(
     table_synchronizer: &mut TableSynchronizer<'_, K>,
 ) -> Result<(), TableError>
 where
-    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
+    K: TableKeyBound,
 {
     loop {
         let map = table_synchronizer.get_current_map();
@@ -437,7 +447,7 @@ fn apply_inserts_to_localmap<K>(
     new_version: Vec<Version>,
     table_synchronizer: &mut TableSynchronizer<'_, K>,
 ) where
-    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
+    K: TableKeyBound,
 {
     let mut i = 0;
     for update in to_update.get_insert_iter() {
