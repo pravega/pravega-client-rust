@@ -37,7 +37,7 @@ uuid = {version = "0.8", features = ["v4"]}
 futures = "0.3.5"
 derive-new = "0.5"
 #Python bindings
-pyo3 = { features = ["extension-module"], optional = true, version = "0.10.1" }
+pyo3 = { features = ["extension-module"], optional = true, git = "https://github.com/PyO3/pyo3.git", rev = "299fceca8eb345dd828d81d7f85cf97dc50bcdeb" }
 #WASM bindings
 wasm-bindgen = { version = "0.2.63", optional = true }
 cfg-if = "0.1.10"
