@@ -158,10 +158,7 @@ impl<'a> TableSynchronizer<'a> {
                             key: inner,
                             key_version: version,
                         };
-                        let inner_map = self
-                            .in_memory_map
-                            .entry(outer_key)
-                            .or_insert_with(|| HashMap::new());
+                        let inner_map = self.in_memory_map.entry(outer_key).or_insert_with(HashMap::new);
                         inner_map.insert(inner_map_key, v);
                     } else {
                         self.in_memory_counter
@@ -232,7 +229,8 @@ impl InternalKey {
             let outer = self.key[PREFIX_LENGTH..PREFIX_LENGTH + outer_name_length]
                 .parse::<String>()
                 .expect("parse outer key");
-            let inner = self.key[PREFIX_LENGTH + outer_name_length..]
+            // there is a slash separating outer_key and_inner key
+            let inner = self.key[PREFIX_LENGTH + outer_name_length + 1..]
                 .parse::<String>()
                 .expect("parse inner key");
             (outer, Some(inner))
@@ -264,7 +262,7 @@ pub struct Table {
 
 impl Table {
     /// insert method needs an outer_key and an inner_key to find a value.
-    /// type_id is a string that's defined by caller to identify the type of the serialized
+    /// type_id is a string defined by caller to identify the type of the serialized
     /// value blob.
     pub fn insert(
         &mut self,
@@ -278,12 +276,10 @@ impl Table {
 
         self.insert.push(insert);
         //Also insert into map.
-        let inner_map = self
-            .map
-            .entry(outer_key.clone())
-            .or_insert_with(|| HashMap::new());
+        let inner_map = self.map.entry(outer_key.clone()).or_insert_with(HashMap::new);
         inner_map.insert(inner_key, Value { type_id, data });
 
+        // increment the counter of the map, indicating that this map has changed
         self.increment_counter(outer_key);
     }
 
@@ -296,6 +292,7 @@ impl Table {
         let remove = Remove::new(outer_key.clone(), inner_key);
         self.remove.push(remove);
 
+        // increment the counter of the map, indicating that this map has changed
         self.increment_counter(outer_key);
     }
 
@@ -353,7 +350,7 @@ impl Insert {
         Insert {
             outer_key: outer_key.clone(),
             inner_key: inner_key.clone(),
-            composite_key: format!("{}/{}", outer_key, inner_key),
+            composite_key: format!("{:02}{}/{}", outer_key.len(), outer_key, inner_key),
             type_id,
         }
     }
@@ -373,7 +370,7 @@ impl Remove {
         Remove {
             outer_key: outer_key.clone(),
             inner_key: inner_key.clone(),
-            composite_key: format!("{}/{}", outer_key, inner_key),
+            composite_key: format!("{:02}{}/{}", outer_key.len(), outer_key, inner_key),
         }
     }
 }
@@ -585,7 +582,7 @@ fn apply_inserts_to_localmap(
         let in_mem_inner_map = table_synchronizer
             .in_memory_map
             .entry(update.outer_key.clone())
-            .or_insert_with(|| HashMap::new());
+            .or_insert_with(HashMap::new);
         in_mem_inner_map.insert(new_key, new_value);
 
         let count = table_synchronizer
@@ -608,7 +605,7 @@ fn apply_deletes_to_localmap(to_delete: Table, table_synchronizer: &mut TableSyn
         let in_mem_inner_map = table_synchronizer
             .in_memory_map
             .entry(delete.outer_key.clone())
-            .or_insert_with(|| HashMap::new());
+            .or_insert_with(HashMap::new);
         in_mem_inner_map.remove(&delete_key);
 
         let count = table_synchronizer
@@ -627,6 +624,31 @@ mod test {
     use crate::table_synchronizer::{deserialize_from, Table};
     use crate::table_synchronizer::{serialize, Value};
     use std::collections::HashMap;
+
+    #[test]
+    fn test_intern_key_split() {
+        let key1 = InternalKey {
+            key: "10outer_keys/inner_key".to_owned(),
+        };
+        let (outer, inner) = key1.split();
+        assert_eq!(outer, "outer_keys".to_owned());
+        assert_eq!(inner.expect("should contain inner key"), "inner_key".to_owned());
+
+        let key2 = InternalKey {
+            key: "05outer/inner_key".to_owned(),
+        };
+        let (outer, inner) = key2.split();
+        assert_eq!(outer, "outer".to_owned());
+        assert_eq!(inner.expect("should contain inner key"), "inner_key".to_owned());
+
+        let key3 = InternalKey {
+            key: "05outer".to_owned(),
+        };
+        let (outer, inner) = key3.split();
+        assert_eq!(outer, "outer".to_owned());
+        assert!(inner.is_none());
+    }
+
     #[test]
     fn test_insert_keys() {
         let mut map: HashMap<Key, Value> = HashMap::new();

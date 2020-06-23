@@ -102,7 +102,7 @@ impl ReaderGroupState<'_> {
                     table.insert(
                         "assigned_segments".to_owned(),
                         reader.to_string(),
-                        "HashMap<Reader, HashMap<SegmentWithRange, Offset>>".to_owned(),
+                        "HashMap<SegmentWithRange, Offset>".to_owned(),
                         Box::new(assigned_segments),
                     );
                 }
@@ -116,7 +116,7 @@ impl ReaderGroupState<'_> {
                 table.insert(
                     "distance_to_tail".to_owned(),
                     reader.to_string(),
-                    "HashMap<Reader, u64>".to_owned(),
+                    "u64".to_owned(),
                     Box::new(distance_to_tail),
                 );
             })

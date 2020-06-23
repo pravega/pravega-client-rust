@@ -230,7 +230,7 @@ async fn test_insert_and_get_with_customize_struct(client_factory: &ClientFactor
         .insert(|table| {
             table.insert(
                 "outer_key".to_owned(),
-                "inner_key".to_owned(),
+                "inner_key1".to_owned(),
                 "Test1".to_owned(),
                 Box::new(Test1 {
                     name: "test1".to_owned(),
@@ -239,8 +239,8 @@ async fn test_insert_and_get_with_customize_struct(client_factory: &ClientFactor
 
             table.insert(
                 "outer_key".to_owned(),
-                "inner_key".to_owned(),
-                "Test1".to_owned(),
+                "inner_key2".to_owned(),
+                "Test2".to_owned(),
                 Box::new(Test2 { age: 10 }),
             );
         })
@@ -253,7 +253,7 @@ async fn test_insert_and_get_with_customize_struct(client_factory: &ClientFactor
 
     synchronizer2.fetch_updates().await.expect("fetch updates");
 
-    let value = synchronizer2.get("outer_key", "inner_key").expect("get value");
+    let value = synchronizer2.get("outer_key", "inner_key1").expect("get value");
 
     match value.type_id.as_str() {
         "Test1" => {

@@ -333,7 +333,7 @@ impl FromStr for SegmentWithRange {
     type Err = ();
 
     fn from_str(name: &str) -> Result<Self, Self::Err> {
-        let mut parts: Vec<&str> = name.split("-").collect();
+        let mut parts: Vec<&str> = name.split('-').collect();
         let max_key = parts
             .pop()
             .expect("get max key")
