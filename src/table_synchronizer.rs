@@ -21,35 +21,37 @@ use std::cmp::{Eq, PartialEq};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
-use std::marker::Unpin;
 use std::slice::Iter;
 use tracing::{debug, info};
 
-pub trait TableKeyBound = Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone;
-
-/// Provides a mean to have a map that is synchronized between many processes.
-/// The pattern is to have a map that can be update by Insert or Remove,
-/// Each host can perform logic based on its in_memory map and apply updates by supplying a
+/// Provides a map that is synchronized across different processes.
+/// The pattern is to have a map that can be updated by using Insert or Remove.
+/// Each process can perform logic based on its in memory map and apply updates by supplying a
 /// function to create Insert/Remove objects.
-/// Update from other hosts can be obtained by calling fetchUpdates().
+/// Updates from other processes can be obtained by calling fetchUpdates().
 
-/// TableSynchronizer contains a name, a table_map that send the map entries to server
-/// and an in_memory map.
-pub struct TableSynchronizer<'a, K>
-where
-    K: TableKeyBound,
-{
+/// TableSynchronizer contains a name, a table_map that sends the map entries to server
+/// and an in memory map.
+pub struct TableSynchronizer<'a> {
     name: String,
+    /// TableMap is used to talk to the server.
     table_map: TableMap<'a>,
-    in_memory_map: HashMap<Key<K>, Value>,
+    /// in_memory_map is a two-level nested hash map that uses two keys to identify a value.
+    /// The reason to make it a nested map is that the actual data structures shared across
+    /// different processes are often more complex than a simple hash map. The problem of using a
+    /// simple hash map to model a complex data structure is that the key will be coarse-grained
+    /// and every update will incur a lot of overhead.
+    /// A two-level hash map is fine for now, maybe it will need more nested layers in the future.
+    in_memory_map: HashMap<String, HashMap<Key, Value>>,
+    /// in_memory_counter is a hash map that stores counters for the second level hash maps.
+    /// The idea is to monitor the changes of the second level hash maps besides individual keys
+    /// since some logic may depend on a certain map not being changed during an update.
+    in_memory_counter: HashMap<String, u64>,
     table_segment_offset: i64,
 }
 
-impl<'a, K> TableSynchronizer<'a, K>
-where
-    K: TableKeyBound,
-{
-    pub async fn new(name: String, factory: &'a ClientFactoryInternal) -> TableSynchronizer<'a, K> {
+impl<'a> TableSynchronizer<'a> {
+    pub async fn new(name: String, factory: &'a ClientFactoryInternal) -> TableSynchronizer<'a> {
         let table_map = TableMap::new(name.clone(), factory)
             .await
             .expect("create table map");
@@ -57,84 +59,114 @@ where
             name: name.clone(),
             table_map,
             in_memory_map: HashMap::new(),
+            in_memory_counter: HashMap::new(),
             table_segment_offset: -1,
         }
     }
 
-    /// Gets the map object currently held in memory.
-    /// it will remove the version information of key.
-    pub fn get_current_map(&self) -> HashMap<K, Value> {
-        let mut result = HashMap::new();
-        for (key, value) in self.in_memory_map.iter() {
-            let new_value = value.clone();
-            result.insert(key.key.clone(), new_value);
-        }
-        result
+    /// Gets the map currently held in memory given the outer key.
+    /// The return type does not contain the version information.
+    pub fn get_current_map(&self) -> HashMap<String, HashMap<String, Value>> {
+        self.in_memory_map
+            .iter()
+            .map(|(k, v)| {
+                (
+                    k.clone(),
+                    v.iter()
+                        .map(|(k2, v2)| (k2.key.clone(), v2.clone()))
+                        .collect::<HashMap<String, Value>>(),
+                )
+            })
+            .collect()
     }
 
-    ///Gets the name of the table_synchronizer, the name is same as the stream name.
+    fn get_current_counter(&self) -> HashMap<String, u64> {
+        self.in_memory_counter
+            .iter()
+            .map(|(k, v)| (k.to_owned(), v.to_owned()))
+            .collect()
+    }
+
+    ///Gets the name of the table_synchronizer, the name is the same as the stream name.
     pub fn get_name(&self) -> String {
         self.name.clone()
     }
 
-    /// Gets the Value of the GivenKey in the local map,
+    /// Gets the Value of the given outer key and inner key in the nested map.
     /// This is a non-blocking call.
     /// The data in Value is not deserialized and the caller should call deserialize_from to deserialize.
-    pub fn get(&self, key: &K) -> Option<&Value> {
-        let search_key = Key {
-            key: key.clone(),
+    pub fn get(&self, outer_key: &str, inner_key: &str) -> Option<&Value> {
+        let inner_map = self.in_memory_map.get(outer_key)?;
+
+        let search_key_inner = Key {
+            key: inner_key.to_owned(),
             key_version: TableKey::KEY_NO_VERSION,
         };
-        self.in_memory_map.get(&search_key)
+
+        inner_map.get(&search_key_inner)
     }
 
-    /// Gets the Key version of the GivenKey,
+    /// Gets the Key version of the given key,
     /// This is a non-blocking call.
-    pub fn get_key_version(&self, key: &K) -> Option<Version> {
+    pub fn get_key_version(&self, outer_key: &str, inner_key: &str) -> Option<Version> {
         let search_key = Key {
-            key: key.clone(),
+            key: inner_key.to_owned(),
             key_version: TableKey::KEY_NO_VERSION,
         };
-        let option = self.in_memory_map.get_key_value(&search_key);
-        if let Some((key, _value)) = option {
+        let inner_map = self.in_memory_map.get(outer_key)?;
+        if let Some((key, _value)) = inner_map.get_key_value(&search_key) {
             Some(key.key_version)
         } else {
             None
         }
     }
 
-    /// Gets the Key Value Pair of the GivenKey,
+    /// Gets the key-value pair of given key,
     /// This is a non-blocking call.
     /// It will return a copy of the key-value pair.
-    pub fn get_key_value(&self, key: &K) -> Option<(K, Value)> {
+    pub fn get_key_value(&self, outer_key: &str, inner_key: &str) -> Option<(String, Value)> {
+        let inner_map = self.in_memory_map.get(outer_key)?;
+
         let search_key = Key {
-            key: key.clone(),
+            key: inner_key.to_owned(),
             key_version: TableKey::KEY_NO_VERSION,
         };
-        let entry = self.in_memory_map.get_key_value(&search_key);
 
-        if let Some((key, value)) = entry {
+        if let Some((key, value)) = inner_map.get_key_value(&search_key) {
             Some((key.key.clone(), value.clone()))
         } else {
             None
         }
     }
-    /// Fetch the latest map in remote server and apply it to the local map.
+    /// Fetches the latest map from remote server and applies it to the local map.
     pub async fn fetch_updates(&mut self) -> Result<(), TableError> {
         debug!("fetch the latest map and apply to the local map");
         let reply = self.table_map.read_entries_stream(3);
         pin_mut!(reply);
         self.in_memory_map.clear();
-        let mut entry_count: i32 = 0;
+        self.in_memory_counter.clear();
+
         while let Some(entry) = reply.next().await {
             match entry {
                 Ok((k, v, version)) => {
-                    let key = Key {
-                        key: k,
-                        key_version: version,
-                    };
-                    self.in_memory_map.insert(key, v);
-                    entry_count += 1;
+                    let internal_key = InternalKey { key: k };
+                    let (outer_key, inner_key) = internal_key.split();
+
+                    if let Some(inner) = inner_key {
+                        // the key is a composite key, update the nested hashmap
+                        let inner_map_key = Key {
+                            key: inner,
+                            key_version: version,
+                        };
+                        let inner_map = self
+                            .in_memory_map
+                            .entry(outer_key)
+                            .or_insert_with(|| HashMap::new());
+                        inner_map.insert(inner_map_key, v);
+                    } else {
+                        self.in_memory_counter
+                            .insert(outer_key, deserialize_from(&v.data).expect("deserialize counter"));
+                    }
                 }
                 _ => {
                     return Err(TableError::OperationError {
@@ -144,46 +176,77 @@ where
                 }
             }
         }
-        info!("finish fetch updates, now the map has {} entries", entry_count);
+        info!("finish fetch updates");
         Ok(())
     }
 
-    /// Insert/Updates a list of keys and applies it atomically to local map.
-    /// This will update the local_map to latest version.
-    pub async fn insert(&mut self, updates_generator: impl FnMut(&mut Table<K>)) -> Result<(), TableError> {
+    /// Inserts/Updates a list of keys and applies it atomically to local map.
+    /// This will update the local_map to the latest version.
+    pub async fn insert(&mut self, updates_generator: impl FnMut(&mut Table)) -> Result<(), TableError> {
         conditionally_write(updates_generator, self).await
     }
 
-    /// Remove a list of keys and applies it atomically to local map.
+    /// Removes a list of keys and applies it atomically to local map.
     /// This will update the local_map to latest version.
-    pub async fn remove(&mut self, deletes_generateor: impl FnMut(&mut Table<K>)) -> Result<(), TableError> {
+    pub async fn remove(&mut self, deletes_generateor: impl FnMut(&mut Table)) -> Result<(), TableError> {
         conditionally_remove(deletes_generateor, self).await
     }
 }
 
-/// The Key struct in the in_memory map. it contains two fields, the key and key_version.
+/// The Key struct in the in memory map. It contains two fields, the key and key_version.
+/// The key_version is used for conditional update on server side. If the key_version is i64::MIN,
+/// then the update will be unconditional.
 #[derive(Debug, Clone)]
-pub struct Key<K: TableKeyBound> {
-    pub key: K,
+pub struct Key {
+    pub key: String,
     pub key_version: Version,
 }
 
-impl<K: TableKeyBound> PartialEq for Key<K> {
+impl PartialEq for Key {
     fn eq(&self, other: &Self) -> bool {
         self.key == other.key
     }
 }
 
-impl<K: TableKeyBound> Eq for Key<K> {}
+impl Eq for Key {}
 
-impl<K: TableKeyBound> Hash for Key<K> {
+impl Hash for Key {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.key.hash(state)
     }
 }
 
-/// The Value struct in the in_memory map. It contains two fields.
-/// type_id of the data. It is used for deserializing data between different processes..
+const PREFIX_LENGTH: usize = 2;
+
+/// This is used to parse the key received from the server.
+struct InternalKey {
+    pub key: String,
+}
+
+impl InternalKey {
+    fn split(&self) -> (String, Option<String>) {
+        let outer_name_length: usize = self.key[..PREFIX_LENGTH].parse().expect("parse prefix length");
+        assert!(self.key.len() >= PREFIX_LENGTH + outer_name_length);
+
+        if self.key.len() > PREFIX_LENGTH + outer_name_length {
+            let outer = self.key[PREFIX_LENGTH..PREFIX_LENGTH + outer_name_length]
+                .parse::<String>()
+                .expect("parse outer key");
+            let inner = self.key[PREFIX_LENGTH + outer_name_length..]
+                .parse::<String>()
+                .expect("parse inner key");
+            (outer, Some(inner))
+        } else {
+            let outer = self.key[PREFIX_LENGTH..PREFIX_LENGTH + outer_name_length]
+                .parse::<String>()
+                .expect("parse outer key");
+            (outer, None)
+        }
+    }
+}
+
+/// The Value struct in the in memory map. It contains two fields.
+/// type_id: it is used for caller to figure out the exact type of the data.
 /// data: the Value data after serialized.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Value {
@@ -192,70 +255,127 @@ pub struct Value {
 }
 
 /// The Updates struct. It would be supplied to insert/remove methods.
-pub struct Table<K> {
-    map: HashMap<K, Value>,
-    insert: Vec<Insert<K>>,
-    remove: Vec<K>,
+pub struct Table {
+    map: HashMap<String, HashMap<String, Value>>,
+    counter: HashMap<String, u64>,
+    insert: Vec<Insert>,
+    remove: Vec<Remove>,
 }
 
-impl<K> Table<K>
-where
-    K: TableKeyBound,
-{
-    pub fn insert(&mut self, key: K, type_id: String, new_value: Box<dyn ValueData>) {
+impl Table {
+    /// insert method needs an outer_key and an inner_key to find a value.
+    /// type_id is a string that's defined by caller to identify the type of the serialized
+    /// value blob.
+    pub fn insert(
+        &mut self,
+        outer_key: String,
+        inner_key: String,
+        type_id: String,
+        new_value: Box<dyn ValueData>,
+    ) {
         let data = serialize(&*new_value).expect("serialize value");
-        let insert = Insert {
-            key: key.clone(),
-            type_id: type_id.clone(),
-        };
+        let insert = Insert::new(outer_key.clone(), inner_key.clone(), type_id.clone());
 
         self.insert.push(insert);
         //Also insert into map.
-        self.map.insert(key, Value { type_id, data });
+        let inner_map = self
+            .map
+            .entry(outer_key.clone())
+            .or_insert_with(|| HashMap::new());
+        inner_map.insert(inner_key, Value { type_id, data });
+
+        self.increment_counter(outer_key);
     }
 
-    pub fn remove(&mut self, key: K) {
+    /// remove takes an outer_key and an inner_key and removes a particular entry.
+    pub fn remove(&mut self, outer_key: String, inner_key: String) {
         //Also remove from the map.
-        self.map.remove(&key);
-        self.remove.push(key);
+        let inner_map = self.map.get_mut(&outer_key).expect("should contain outer key");
+        inner_map.remove(&inner_key);
+
+        let remove = Remove::new(outer_key.clone(), inner_key);
+        self.remove.push(remove);
+
+        self.increment_counter(outer_key);
     }
 
-    pub fn get(&self, key: &K) -> Option<&Value> {
-        self.map.get(key)
+    pub fn get(&self, outer_key: &str, inner_key: &str) -> Option<&Value> {
+        let inner_map = self.map.get(outer_key).expect("should contain outer key");
+        inner_map.get(inner_key)
     }
 
-    pub fn contains_key(&self, key: &K) -> bool {
-        self.map.contains_key(key)
+    pub fn contains_key(&self, outer_key: &str, inner_key: &str) -> bool {
+        let inner_map = self.map.get(outer_key).expect("should contain outer key");
+        inner_map.contains_key(inner_key)
     }
 
     pub fn is_empty(&self) -> bool {
         self.map.is_empty()
     }
 
-    pub(crate) fn insert_is_empty(&self) -> bool {
+    fn insert_is_empty(&self) -> bool {
         self.insert.is_empty()
     }
 
-    pub(crate) fn remove_is_empty(&self) -> bool {
+    fn remove_is_empty(&self) -> bool {
         self.remove.is_empty()
     }
 
-    pub(crate) fn get_insert_iter(&self) -> Iter<Insert<K>> {
+    fn get_insert_iter(&self) -> Iter<Insert> {
         self.insert.iter()
     }
 
-    pub(crate) fn get_remove_iter(&self) -> Iter<K> {
+    fn get_remove_iter(&self) -> Iter<Remove> {
         self.remove.iter()
+    }
+
+    fn increment_counter(&mut self, outer_key: String) {
+        let count = self.counter.entry(outer_key).or_insert(0);
+        *count += 1;
     }
 }
 
-/// The Insert struct. It contains two fields.
-/// The key to insert or update,
-/// the type_id for the data.
-/// The data is already insert into the map.
-pub(crate) struct Insert<K> {
-    key: K,
+/// Insert struct is used internally to update the server side of map.
+/// The outer_key and inner_key are combined to identify a value in the nested map.
+/// The composite_key is a derived from outer_key and inner_key, which is the actual key that's
+/// stored on the server side.
+/// The type_id is used to identify the type of the value in the map since the value
+/// is just a serialized blob that does not contain any type information.
+struct Insert {
+    outer_key: String,
+    inner_key: String,
+    composite_key: String,
     type_id: String,
+}
+
+impl Insert {
+    fn new(outer_key: String, inner_key: String, type_id: String) -> Self {
+        Insert {
+            outer_key: outer_key.clone(),
+            inner_key: inner_key.clone(),
+            composite_key: format!("{}/{}", outer_key, inner_key),
+            type_id,
+        }
+    }
+}
+
+/// The remove struct is used internally to remove a value from the server side of map.
+/// Unlike the Insert struct, it does not need to have a type_id since we don't care about
+/// the value.
+struct Remove {
+    outer_key: String,
+    inner_key: String,
+    composite_key: String,
+}
+
+impl Remove {
+    pub(crate) fn new(outer_key: String, inner_key: String) -> Self {
+        Remove {
+            outer_key: outer_key.clone(),
+            inner_key: inner_key.clone(),
+            composite_key: format!("{}/{}", outer_key, inner_key),
+        }
+    }
 }
 
 /// The trait bound for the ValueData
@@ -312,7 +432,7 @@ pub(crate) fn serialize(value: &dyn ValueData) -> Result<Vec<u8>, serde_cbor::er
 }
 
 /// Deserialize the Value into the type T by using cbor deserializer.
-/// THis method would be used by the user after calling get() of table_synchronizer.
+/// This method would be used by the user after calling get() of table_synchronizer.
 pub fn deserialize_from<T>(reader: &[u8]) -> Result<T, serde_cbor::error::Error>
 where
     T: DeserializeOwned,
@@ -320,17 +440,17 @@ where
     serde_cbor::de::from_slice(reader)
 }
 
-async fn conditionally_write<K>(
-    mut updates_generator: impl FnMut(&mut Table<K>),
-    table_synchronizer: &mut TableSynchronizer<'_, K>,
-) -> Result<(), TableError>
-where
-    K: TableKeyBound,
-{
+async fn conditionally_write(
+    mut updates_generator: impl FnMut(&mut Table),
+    table_synchronizer: &mut TableSynchronizer<'_>,
+) -> Result<(), TableError> {
     loop {
         let map = table_synchronizer.get_current_map();
+        let counter = table_synchronizer.get_current_counter();
+
         let mut to_update = Table {
             map,
+            counter,
             insert: Vec::new(),
             remove: Vec::new(),
         };
@@ -347,13 +467,19 @@ where
 
         let mut to_send = Vec::new();
         for update in to_update.get_insert_iter() {
-            let value = to_update.get(&update.key).expect("get the insert data");
-            let key_version = table_synchronizer.get_key_version(&update.key);
+            let value = to_update
+                .get(&update.outer_key, &update.inner_key)
+                .expect("get the insert data");
+            let key_version = table_synchronizer.get_key_version(&update.outer_key, &update.inner_key);
 
             if key_version.is_some() {
-                to_send.push((&update.key, value, key_version.expect("get key version")));
+                to_send.push((
+                    &update.composite_key,
+                    value,
+                    key_version.expect("get key version"),
+                ));
             } else {
-                to_send.push((&update.key, value, TableKey::KEY_NO_VERSION));
+                to_send.push((&update.composite_key, value, TableKey::KEY_NO_VERSION));
             }
         }
 
@@ -383,17 +509,17 @@ where
     Ok(())
 }
 
-async fn conditionally_remove<K>(
-    mut delete_generator: impl FnMut(&mut Table<K>),
-    table_synchronizer: &mut TableSynchronizer<'_, K>,
-) -> Result<(), TableError>
-where
-    K: TableKeyBound,
-{
+async fn conditionally_remove(
+    mut delete_generator: impl FnMut(&mut Table),
+    table_synchronizer: &mut TableSynchronizer<'_>,
+) -> Result<(), TableError> {
     loop {
         let map = table_synchronizer.get_current_map();
+        let counter = table_synchronizer.get_current_counter();
+
         let mut to_delete = Table {
             map,
+            counter,
             insert: Vec::new(),
             remove: Vec::new(),
         };
@@ -410,9 +536,9 @@ where
         let mut send = Vec::new();
         for delete in to_delete.get_remove_iter() {
             let key_version = table_synchronizer
-                .get_key_version(delete)
+                .get_key_version(&delete.outer_key, &delete.inner_key)
                 .expect("get key version");
-            send.push((delete, key_version))
+            send.push((&delete.composite_key, key_version))
         }
 
         let result = table_synchronizer
@@ -442,37 +568,54 @@ where
     Ok(())
 }
 
-fn apply_inserts_to_localmap<K>(
-    to_update: Table<K>,
+fn apply_inserts_to_localmap(
+    to_update: Table,
     new_version: Vec<Version>,
-    table_synchronizer: &mut TableSynchronizer<'_, K>,
-) where
-    K: TableKeyBound,
-{
+    table_synchronizer: &mut TableSynchronizer<'_>,
+) {
     let mut i = 0;
     for update in to_update.get_insert_iter() {
         let new_key = Key {
-            key: update.key.clone(),
+            key: update.inner_key.clone(),
             key_version: *new_version.get(i).expect("get new version"),
         };
-        let new_value = to_update.map.get(&update.key).expect("get the Value").clone();
-        table_synchronizer.in_memory_map.insert(new_key, new_value);
+        let inner_map = to_update.map.get(&update.outer_key).expect("get inner map");
+        let new_value = inner_map.get(&update.inner_key).expect("get the Value").clone();
+
+        let in_mem_inner_map = table_synchronizer
+            .in_memory_map
+            .entry(update.outer_key.clone())
+            .or_insert_with(|| HashMap::new());
+        in_mem_inner_map.insert(new_key, new_value);
+
+        let count = table_synchronizer
+            .in_memory_counter
+            .entry(update.outer_key.clone())
+            .or_insert(0);
+        *count += 1;
         i += 1;
     }
     debug!("Updates {} entries in local map ", i);
 }
 
-fn apply_deletes_to_localmap<K>(to_delete: Table<K>, table_synchronizer: &mut TableSynchronizer<K>)
-where
-    K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
-{
+fn apply_deletes_to_localmap(to_delete: Table, table_synchronizer: &mut TableSynchronizer) {
     let mut i = 0;
     for delete in to_delete.get_remove_iter() {
         let delete_key = Key {
-            key: delete.clone(),
+            key: delete.inner_key.clone(),
             key_version: TableKey::KEY_NO_VERSION,
         };
-        table_synchronizer.in_memory_map.remove(&delete_key);
+        let in_mem_inner_map = table_synchronizer
+            .in_memory_map
+            .entry(delete.outer_key.clone())
+            .or_insert_with(|| HashMap::new());
+        in_mem_inner_map.remove(&delete_key);
+
+        let count = table_synchronizer
+            .in_memory_counter
+            .entry(delete.outer_key.clone())
+            .or_insert(0);
+        *count += 1;
         i += 1;
     }
     debug!("Deletes {} entries in local map ", i);
@@ -480,32 +623,31 @@ where
 
 #[cfg(test)]
 mod test {
-    use super::Key;
+    use super::*;
     use crate::table_synchronizer::{deserialize_from, Table};
     use crate::table_synchronizer::{serialize, Value};
     use std::collections::HashMap;
-
     #[test]
     fn test_insert_keys() {
-        let mut map: HashMap<Key<String>, Value> = HashMap::new();
+        let mut map: HashMap<Key, Value> = HashMap::new();
         let key1 = Key {
-            key: "a".to_string(),
+            key: "a".to_owned(),
             key_version: 0,
         };
-        let data = serialize(&"value".to_string()).expect("serialize");
+        let data = serialize(&"value".to_owned()).expect("serialize");
         let value1 = Value {
-            type_id: "String".into(),
+            type_id: "String".to_owned(),
             data,
         };
 
         let key2 = Key {
-            key: "b".to_string(),
+            key: "b".to_owned(),
             key_version: 0,
         };
 
         let data = serialize(&1).expect("serialize");
         let value2 = Value {
-            type_id: "i32".into(),
+            type_id: "i32".to_owned(),
             data,
         };
         let result = map.insert(key1, value1);
@@ -517,19 +659,19 @@ mod test {
 
     #[test]
     fn test_insert_key_with_different_key_version() {
-        let mut map: HashMap<Key<String>, Value> = HashMap::new();
+        let mut map: HashMap<Key, Value> = HashMap::new();
         let key1 = Key {
-            key: "a".to_string(),
+            key: "a".to_owned(),
             key_version: 0,
         };
 
-        let data = serialize(&"value".to_string()).expect("serialize");
+        let data = serialize(&"value".to_owned()).expect("serialize");
         let value1 = Value {
-            type_id: "String".into(),
+            type_id: "String".to_owned(),
             data,
         };
         let key2 = Key {
-            key: "a".to_string(),
+            key: "a".to_owned(),
             key_version: 1,
         };
         let data = serialize(&1).expect("serialize");
@@ -547,26 +689,26 @@ mod test {
 
     #[test]
     fn test_clone_map() {
-        let mut map: HashMap<Key<String>, Value> = HashMap::new();
+        let mut map: HashMap<Key, Value> = HashMap::new();
         let key1 = Key {
-            key: "a".to_string(),
+            key: "a".to_owned(),
             key_version: 0,
         };
 
-        let data = serialize(&"value".to_string()).expect("serialize");
+        let data = serialize(&"value".to_owned()).expect("serialize");
         let value1 = Value {
-            type_id: "String".into(),
+            type_id: "String".to_owned(),
             data,
         };
 
         let key2 = Key {
-            key: "a".to_string(),
+            key: "a".to_owned(),
             key_version: 1,
         };
 
         let data = serialize(&1).expect("serialize");
         let value2 = Value {
-            type_id: "i32".into(),
+            type_id: "i32".to_owned(),
             data,
         };
 
@@ -582,11 +724,17 @@ mod test {
     fn test_insert_and_get() {
         let mut table = Table {
             map: HashMap::new(),
+            counter: HashMap::new(),
             insert: Vec::new(),
             remove: Vec::new(),
         };
-        table.insert("test".to_string(), "i32".to_string(), Box::new(1));
-        let value = table.get(&"test".to_string()).expect("get value");
+        table.insert(
+            "test_outer".to_owned(),
+            "test_inner".to_owned(),
+            "i32".to_owned(),
+            Box::new(1),
+        );
+        let value = table.get("test_outer", "test_inner").expect("get value");
         let deserialized_data: i32 = deserialize_from(&value.data).expect("deserialize");
         assert_eq!(deserialized_data, 1);
     }

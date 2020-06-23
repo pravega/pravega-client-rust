@@ -40,6 +40,7 @@ use std::fmt;
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
 use std::ops::Index;
+use std::str::FromStr;
 use uuid::Uuid;
 
 #[macro_use]
@@ -70,6 +71,21 @@ pub struct Stream {
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Reader {
     pub name: String,
+}
+
+impl Display for Reader {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
+impl FromStr for Reader {
+    type Err = ();
+    fn from_str(name: &str) -> Result<Self, Self::Err> {
+        Ok(Reader {
+            name: name.to_owned(),
+        })
+    }
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -123,18 +139,19 @@ impl ScopedSegment {
     }
 }
 
-impl From<String> for ScopedSegment {
-    fn from(qualified_name: String) -> Self {
-        if NameUtils::is_transaction_segment(&qualified_name) {
-            let original_segment_name = NameUtils::get_parent_stream_segment_name(&qualified_name);
-            ScopedSegment::from(String::from(original_segment_name))
+impl FromStr for ScopedSegment {
+    type Err = ();
+    fn from_str(qualified_name: &str) -> Result<Self, Self::Err> {
+        if NameUtils::is_transaction_segment(qualified_name) {
+            let original_segment_name = NameUtils::get_parent_stream_segment_name(qualified_name);
+            ScopedSegment::from_str(original_segment_name)
         } else {
-            let mut tokens = NameUtils::extract_segment_tokens(qualified_name);
+            let mut tokens = NameUtils::extract_segment_tokens(qualified_name.to_owned());
             if tokens.len() == 2 {
                 // scope not present
                 let segment_id = tokens.pop().expect("get segment id from tokens");
                 let stream_name = tokens.pop().expect("get stream name from tokens");
-                ScopedSegment {
+                Ok(ScopedSegment {
                     scope: Scope {
                         name: String::from(""),
                     },
@@ -143,19 +160,19 @@ impl From<String> for ScopedSegment {
                         number: segment_id.parse::<i64>().expect("parse string to i64"),
                         tx_id: None,
                     },
-                }
+                })
             } else {
                 let segment_id = tokens.pop().expect("get segment id from tokens");
                 let stream_name = tokens.pop().expect("get stream name from tokens");
                 let scope = tokens.pop().expect("get scope from tokens");
-                ScopedSegment {
+                Ok(ScopedSegment {
                     scope: Scope { name: scope },
                     stream: Stream { name: stream_name },
                     segment: Segment {
                         number: segment_id.parse::<i64>().expect("parse string to i64"),
                         tx_id: None,
                     },
-                }
+                })
             }
         }
     }
@@ -303,6 +320,40 @@ pub struct SegmentWithRange {
 impl SegmentWithRange {
     pub fn get_segment(&self) -> Segment {
         self.scoped_segment.segment.clone()
+    }
+}
+
+impl fmt::Display for SegmentWithRange {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}-{}-{})", self.scoped_segment, self.min_key, self.max_key)
+    }
+}
+
+impl FromStr for SegmentWithRange {
+    type Err = ();
+
+    fn from_str(name: &str) -> Result<Self, Self::Err> {
+        let mut parts: Vec<&str> = name.split("-").collect();
+        let max_key = parts
+            .pop()
+            .expect("get max key")
+            .parse::<OrderedFloat<f64>>()
+            .expect("parse OrderedFloat from str");
+        let min_key = parts
+            .pop()
+            .expect("get max key")
+            .parse::<OrderedFloat<f64>>()
+            .expect("parse OrderedFloat from str");
+        let scoped_segment = parts
+            .pop()
+            .expect("get max key")
+            .parse::<ScopedSegment>()
+            .expect("parse ScopedSegment from str");
+        Ok(SegmentWithRange {
+            scoped_segment,
+            min_key,
+            max_key,
+        })
     }
 }
 

@@ -25,13 +25,17 @@ use tracing::{span, Level};
 #[async_trait]
 pub trait RawClient<'a>: Send + Sync {
     /// Asynchronously send a request to the server and receive a response.
-    async fn send_request(&self, request: &Requests) -> Result<Replies, RawClientError>;
+    async fn send_request(&self, request: &Requests) -> Result<Replies, RawClientError>
+    where
+        'a: 'async_trait;
 
     /// Asynchronously send a request to the server and receive a response and return the connection to the caller.
     async fn send_setup_request(
         &self,
         request: &Requests,
-    ) -> Result<(Replies, Box<dyn ClientConnection + 'a>), RawClientError>;
+    ) -> Result<(Replies, Box<dyn ClientConnection + 'a>), RawClientError>
+    where
+        'a: 'async_trait;
 }
 
 pub struct RawClientImpl<'a> {

@@ -16,7 +16,7 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 [dependencies]
 pravega-rust-client-retry = {path= "../retry"}
 pravega-connection-pool = {path= "../connection_pool"}
-async-trait = "0.1.29"
+async-trait = "0.1.36"
 bincode2 = "2.0.1"
 byteorder = "1.3"
 lazy_static = "1.4.0"
