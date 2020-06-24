@@ -82,7 +82,7 @@ async fn test_remove(client_factory: &ClientFactory) {
     let result = synchronizer
         .remove(|table| {
             if table.get("outer_key", "inner_key").is_some() {
-                table.remove("outer_key".to_owned(), "inner_key".to_owned());
+                table.insert_tombstone("outer_key".to_owned(), "inner_key".to_owned());
             }
         })
         .await;
@@ -183,7 +183,7 @@ async fn test_remove_with_two_table_synchronizers(client_factory: &ClientFactory
             let value = table.get("outer_key", "inner_key").expect("get value");
             let data: i32 = deserialize_from(&value.data).expect("deserialize value data");
             if data == 3 {
-                table.remove("outer_key".to_owned(), "inner_key".to_owned());
+                table.insert_tombstone("outer_key".to_owned(), "inner_key".to_owned());
             }
         })
         .await;

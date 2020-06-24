@@ -10,15 +10,15 @@
 
 use crate::client_factory::ClientFactory;
 use crate::reader_group::reader_group_config::ReaderGroupConfigVersioned;
-use crate::table_synchronizer::{deserialize_from, TableSynchronizer};
+use crate::table_synchronizer::{deserialize_from, Table, TableSynchronizer};
 use pravega_rust_client_shared::{Reader, ScopedSegment, ScopedStream, SegmentWithRange};
 use serde::{Deserialize, Serialize};
-use serde_cbor::from_slice;
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 use std::str::FromStr;
 
 const ASSUMED_LAG_MILLIS: u64 = 30000;
+const DEFAULT_INNER_KEY: &str = "default";
 
 /// ReaderGroupState encapsulates all readers states.
 pub(crate) struct ReaderGroupState<'a> {
@@ -61,13 +61,13 @@ impl ReaderGroupState<'_> {
             if table.is_empty() {
                 table.insert(
                     "scoped_synchronizer_stream".to_owned(),
-                    "inner".to_owned(),
+                    DEFAULT_INNER_KEY.to_owned(),
                     "ScopedStream".to_owned(),
                     Box::new(scoped_synchronizer_stream.clone()),
                 );
                 table.insert(
                     "config".to_owned(),
-                    "inner".to_owned(),
+                    DEFAULT_INNER_KEY.to_owned(),
                     "ReaderGroupConfigVersioned".to_owned(),
                     Box::new(config.clone()),
                 );
@@ -75,7 +75,7 @@ impl ReaderGroupState<'_> {
                     table.insert(
                         "unassigned_segments".to_owned(),
                         segment.to_string(),
-                        "HashMap<SegmentWithRange, Offset>".to_owned(),
+                        "Offset".to_owned(),
                         Box::new(offset.to_owned()),
                     );
                 }
@@ -90,34 +90,24 @@ impl ReaderGroupState<'_> {
     pub(crate) async fn add_reader(&mut self, reader: &Reader) {
         self.sync
             .insert(|table| {
-                let value = table
-                    .get("assigned_segments", &reader.to_string())
-                    .expect("get assigned segments");
-                let mut assigned_segments: HashMap<Reader, HashMap<SegmentWithRange, Offset>> =
-                    from_slice(&value.data).expect("deserialize assigned segments");
-                if assigned_segments.contains_key(reader) {
+                if table.contains_key("assigned_segments", &reader.to_string()) {
                     panic!("should not add existing online reader");
-                } else {
-                    assigned_segments.insert(reader.to_owned(), HashMap::new());
-                    table.insert(
-                        "assigned_segments".to_owned(),
-                        reader.to_string(),
-                        "HashMap<SegmentWithRange, Offset>".to_owned(),
-                        Box::new(assigned_segments),
-                    );
                 }
 
-                let value = table
-                    .get("distance_to_tail", &reader.to_string())
-                    .expect("get distance to tail");
-                let mut distance_to_tail: HashMap<Reader, u64> =
-                    from_slice(&value.data).expect("deserialize distance to tail");
-                distance_to_tail.insert(reader.to_owned(), u64::MAX);
+                // add new reader
+                let empty_map: HashMap<SegmentWithRange, Offset> = HashMap::new();
+                table.insert(
+                    "assigned_segments".to_owned(),
+                    reader.to_string(),
+                    "HashMap<SegmentWithRange, Offset>".to_owned(),
+                    Box::new(empty_map),
+                );
+
                 table.insert(
                     "distance_to_tail".to_owned(),
                     reader.to_string(),
                     "u64".to_owned(),
-                    Box::new(distance_to_tail),
+                    Box::new(u64::MAX),
                 );
             })
             .await
@@ -164,88 +154,53 @@ impl ReaderGroupState<'_> {
     ) {
         self.sync
             .insert(|table| {
-                let value = table
-                    .get(&"assigned_segments".to_owned(), &reader.to_string())
-                    .expect("get assigned segments");
-                let mut assigned_segments: HashMap<Reader, HashMap<SegmentWithRange, Offset>> =
-                    from_slice(&value.data).expect("deserialize assigned segments");
+                let mut assigned_segments =
+                    ReaderGroupState::get_reader_assigned_segments_from_table(table, reader);
 
-                if let Some(segments) = assigned_segments.get_mut(reader) {
-                    for (segment, offset) in &latest_positions {
-                        segments.entry(segment.to_owned()).and_modify(|v| {
-                            v.read = offset.read;
-                            v.processed = offset.processed;
-                        });
-                    }
-                    table.insert(
-                        "assigned_segments".to_owned(),
-                        reader.to_string(),
-                        "HashMap<Reader, HashMap<SegmentWithRange, Offset>>".to_owned(),
-                        Box::new(assigned_segments),
-                    );
-                } else {
-                    panic!("reader must exist");
+                for (segment, offset) in &latest_positions {
+                    assigned_segments.entry(segment.to_owned()).and_modify(|v| {
+                        v.read = offset.read;
+                        v.processed = offset.processed;
+                    });
                 }
+                table.insert(
+                    "assigned_segments".to_owned(),
+                    reader.to_string(),
+                    "HashMap<SegmentWithRange, Offset>".to_owned(),
+                    Box::new(assigned_segments),
+                );
             })
             .await
             .expect("should update reader positions");
     }
 
-    /// Removes the given reader from the reader group state and puts the segments that are previously
+    /// Removes the given reader from the reader group state and puts segments that are previously
     /// owned by the removed reader to the unassigned list for redistribution.
     pub(crate) async fn remove_reader(
         &mut self,
         reader: &Reader,
         owned_segments: HashMap<ScopedSegment, Offset>,
     ) {
-        self.sync.fetch_updates().await.expect("should fetch updates");
         self.sync
             .insert(|table| {
-                let value = table
-                    .get("assigned_segments", &reader.to_string())
-                    .expect("get assigned segments");
-                let mut assigned_segments: HashMap<Reader, HashMap<SegmentWithRange, Offset>> =
-                    from_slice(&value.data).expect("deserialize assigned segments");
+                let assigned_segments =
+                    ReaderGroupState::get_reader_assigned_segments_from_table(table, reader);
 
-                let value = table
-                    .get("unassigned_segments", &reader.to_string())
-                    .expect("get unassigned segments");
-                let mut unassigned_segments: HashMap<SegmentWithRange, Offset> =
-                    from_slice(&value.data).expect("deserialize unassigned segments");
+                for (segment, pos) in assigned_segments {
+                    // update offset using owned_segments
+                    let offset = owned_segments
+                        .get(&segment.scoped_segment)
+                        .map_or(pos, |v| v.to_owned());
 
-                let value = table
-                    .get("distance_to_tail", &reader.to_string())
-                    .expect("get distance to tail");
-                let mut distance_to_tail: HashMap<Reader, u64> =
-                    from_slice(&value.data).expect("deserialize distance to tail");
-
-                assigned_segments.remove(reader).map_or((), |segments| {
-                    for (segment, pos) in segments {
-                        let offset = owned_segments
-                            .get(&segment.scoped_segment)
-                            .map_or(pos, |v| v.to_owned());
-                        unassigned_segments.insert(segment, offset);
-                    }
-                });
-                distance_to_tail.remove(reader);
-                table.insert(
-                    "assigned_segments".to_owned(),
-                    reader.to_string(),
-                    "HashMap<Reader, HashMap<SegmentWithRange, Offset>>".to_owned(),
-                    Box::new(assigned_segments),
-                );
-                table.insert(
-                    "unassigned_segments".to_owned(),
-                    reader.to_string(),
-                    "HashMap<SegmentWithRange, Offset>".to_owned(),
-                    Box::new(unassigned_segments),
-                );
-                table.insert(
-                    "distance_to_tail".to_owned(),
-                    reader.to_string(),
-                    "HashMap<Reader, u64>".to_owned(),
-                    Box::new(distance_to_tail),
-                );
+                    table.insert(
+                        "unassigned_segments".to_owned(),
+                        segment.to_string(),
+                        "Offset".to_owned(),
+                        Box::new(offset),
+                    );
+                }
+                table.insert_tombstone("assigned_segments".to_owned(), reader.to_string());
+                table.insert_tombstone("distance_to_tail".to_owned(), reader.to_string());
             })
             .await
             .expect("should remove reader");
@@ -294,36 +249,16 @@ impl ReaderGroupState<'_> {
     pub(crate) async fn assign_segment_to_reader(&mut self, reader: &Reader, segment: &ScopedSegment) {
         self.sync
             .insert(|table| {
-                let value = table
-                    .get(&"assigned_segments".to_owned(), &reader.to_string())
-                    .expect("get assigned segments");
-                let mut assigned_segments: HashMap<Reader, HashMap<SegmentWithRange, Offset>> =
-                    from_slice(&value.data).expect("deserialize assigned segments");
-
-                let value = table
-                    .get(&"unassigned_segments".to_owned(), &reader.to_string())
-                    .expect("get unassigned segments");
-                let mut unassigned_segments: HashMap<SegmentWithRange, Offset> =
-                    from_slice(&value.data).expect("deserialize unassigned segments");
+                let assigned_segments =
+                    ReaderGroupState::get_reader_assigned_segments_from_table(table, reader);
+                let unassigned_segments = ReaderGroupState::get_unassigned_segments_from_table(table);
 
                 ReaderGroupState::assign_segment_to_reader_internal(
+                    table,
                     reader,
                     segment,
-                    &mut assigned_segments,
-                    &mut unassigned_segments,
-                );
-
-                table.insert(
-                    "assigned_segments".to_owned(),
-                    reader.to_string(),
-                    "HashMap<Reader, HashMap<SegmentWithRange, Offset>>".to_owned(),
-                    Box::new(assigned_segments),
-                );
-                table.insert(
-                    "unassigned_segments".to_owned(),
-                    reader.to_string(),
-                    "HashMap<SegmentWithRange, Offset>".to_owned(),
-                    Box::new(unassigned_segments),
+                    assigned_segments,
+                    unassigned_segments,
                 );
             })
             .await
@@ -331,50 +266,55 @@ impl ReaderGroupState<'_> {
     }
 
     fn assign_segment_to_reader_internal(
+        table: &mut Table,
         reader: &Reader,
         segment: &ScopedSegment,
-        assigned_segments: &mut HashMap<Reader, HashMap<SegmentWithRange, Offset>>,
-        unassigned_segments: &mut HashMap<SegmentWithRange, Offset>,
+        mut assigned_segments: HashMap<SegmentWithRange, Offset>,
+        unassigned_segments: HashMap<SegmentWithRange, Offset>,
     ) {
-        let assigned = assigned_segments
-            .get_mut(reader)
-            .expect("reader doesn't exist in reader group");
-
         let mut newly_assigned = unassigned_segments
             .keys()
             .filter(|&s| s.scoped_segment == *segment)
             .map(|s| s.to_owned())
             .collect::<Vec<SegmentWithRange>>();
-        assert!(
-            !newly_assigned.is_empty(),
-            "segment does not exist in reader group"
+        assert_eq!(
+            newly_assigned.len(),
+            1,
+            "should have one and only one in the unassigned segment list"
         );
+
         let new_segment_with_range = newly_assigned.pop().expect("get segment with range");
         let offset = unassigned_segments
-            .remove(&new_segment_with_range)
+            .get(&new_segment_with_range)
             .expect("remove segment from unassigned list");
-        assigned.insert(new_segment_with_range, offset);
+
+        assigned_segments.insert(new_segment_with_range.clone(), offset.to_owned());
+
+        table.insert(
+            "assigned_segments".to_owned(),
+            reader.to_string(),
+            "HashMap<SegmentWithRange, Offset>".to_owned(),
+            Box::new(assigned_segments),
+        );
+        table.insert_tombstone(
+            "unassigned_segments".to_owned(),
+            new_segment_with_range.to_string(),
+        );
     }
 
     /// Returns the list of segments assigned to the requested reader.
     pub(crate) async fn get_segments_for_reader(&mut self, reader: &Reader) -> HashSet<ScopedSegment> {
         self.sync.fetch_updates().await.expect("should fetch updates");
-        let in_memory_map = self.sync.get_current_map();
-        let assigned_segments = in_memory_map
-            .get("assigned_segments")
-            .expect("get assigned segments");
-
-        assigned_segments.get(&reader.to_string()).map_or_else(
-            || panic!("reader does not exist"),
-            |value| {
-                let segments: HashMap<SegmentWithRange, Offset> =
-                    deserialize_from(&value.data).expect("deserialize SegmentWithRange with Offset");
-                segments
-                    .keys()
-                    .map(|segment| segment.scoped_segment.clone())
-                    .collect::<HashSet<ScopedSegment>>()
-            },
-        )
+        let value = self
+            .sync
+            .get("assigned_segments", &reader.to_string())
+            .expect("reader must exist");
+        let segments: HashMap<SegmentWithRange, Offset> =
+            deserialize_from(&value.data).expect("deserialize reader owned segments");
+        segments
+            .iter()
+            .map(|(k, _v)| k.scoped_segment.clone())
+            .collect::<HashSet<ScopedSegment>>()
     }
 
     /// Releases a currently assigned segment from the given reader.
@@ -386,71 +326,73 @@ impl ReaderGroupState<'_> {
     ) {
         self.sync
             .insert(|table| {
-                let value = table
-                    .get("assigned_segments", &reader.to_string())
-                    .expect("get assigned segments");
-                let mut assigned_segments: HashMap<Reader, HashMap<SegmentWithRange, Offset>> =
-                    from_slice(&value.data).expect("deserialize assigned segments");
-
-                let value = table
-                    .get("unassigned_segments", &reader.to_string())
-                    .expect("get unassigned segments");
-                let mut unassigned_segments: HashMap<SegmentWithRange, Offset> =
-                    from_slice(&value.data).expect("deserialize unassigned segments");
+                let assigned_segments =
+                    ReaderGroupState::get_reader_assigned_segments_from_table(table, reader);
+                let unassigned_segments = ReaderGroupState::get_unassigned_segments_from_table(table);
 
                 ReaderGroupState::release_segment_internal(
+                    table,
                     reader,
                     segment,
+                    assigned_segments,
+                    unassigned_segments,
                     offset,
-                    &mut assigned_segments,
-                    &mut unassigned_segments,
-                );
-
-                table.insert(
-                    "assigned_segments".to_owned(),
-                    reader.to_string(),
-                    "HashMap<Reader, HashMap<SegmentWithRange, Offset>>".to_owned(),
-                    Box::new(assigned_segments),
-                );
-                table.insert(
-                    "unassigned_segments".to_owned(),
-                    reader.to_string(),
-                    "HashMap<SegmentWithRange, Offset>".to_owned(),
-                    Box::new(unassigned_segments),
                 );
             })
             .await
             .expect("should release segment");
     }
 
+    /// Find the corresponding segment in the assigned segment list.
     fn release_segment_internal(
+        table: &mut Table,
         reader: &Reader,
         segment: &ScopedSegment,
+        mut assigned_segments: HashMap<SegmentWithRange, Offset>,
+        unassigned_segments: HashMap<SegmentWithRange, Offset>,
         offset: &Offset,
-        assigned_segments: &mut HashMap<Reader, HashMap<SegmentWithRange, Offset>>,
-        unassigned_segments: &mut HashMap<SegmentWithRange, Offset>,
     ) {
-        let assigned = assigned_segments
-            .get(reader)
-            .expect("reader doesn't exist in reader group");
-        let removed = assigned
+        let mut to_remove_list = assigned_segments
             .iter()
             .filter(|&(s, _pos)| s.scoped_segment == *segment)
             .map(|(s, _pos)| s.to_owned())
             .collect::<Vec<SegmentWithRange>>();
 
         assert_eq!(
-            removed.len(),
+            to_remove_list.len(),
             1,
-            "should have one and only one in the assigned segment list"
+            "should have one and only one such segment in the assigned segment list"
         );
 
-        for segment in removed {
-            unassigned_segments.insert(segment.clone(), offset.clone());
-        }
+        let to_remove_segment = to_remove_list.pop().expect("pop found segment");
+
+        assert!(
+            !unassigned_segments.contains_key(&to_remove_segment),
+            "unassigned_segment should not contain this released segment already"
+        );
+
+        assigned_segments
+            .remove(&to_remove_segment)
+            .expect("should contain the releasing segment");
+
+        table.insert(
+            "assigned_segments".to_owned(),
+            reader.to_string(),
+            "HashMap<SegmentWithRange, Offset>".to_owned(),
+            Box::new(assigned_segments),
+        );
+        table.insert(
+            "unassigned_segments".to_owned(),
+            to_remove_segment.to_string(),
+            "Offset".to_owned(),
+            Box::new(offset.to_owned()),
+        );
     }
 
     /// Removes the completed segments and add its successors for next to read.
+    /// This should be called by the reader who's reading the current segment. Since a segment
+    /// cannot be read by multiple readers, we can assume this won't be called by multiple processors
+    /// at the same time.
     pub(crate) async fn segment_completed(
         &mut self,
         reader: &Reader,
@@ -459,88 +401,127 @@ impl ReaderGroupState<'_> {
     ) {
         self.sync
             .insert(|table| {
-                let value = table
-                    .get(&"assigned_segments".to_owned(), &reader.to_string())
-                    .expect("get assigned segments");
-                let mut assigned_segments: HashMap<Reader, HashMap<SegmentWithRange, Offset>> =
-                    from_slice(&value.data).expect("deserialize assigned segments");
-
-                let value = table
-                    .get(&"unassigned_segments".to_owned(), &reader.to_string())
-                    .expect("get unassigned segments");
-                let mut unassigned_segments: HashMap<SegmentWithRange, Offset> =
-                    from_slice(&value.data).expect("deserialize unassigned segments");
-
-                let value = table
-                    .get(&"future segments".to_owned(), &reader.to_string())
-                    .expect("get future segments");
-                let mut future_segments: HashMap<SegmentWithRange, HashSet<i64>> =
-                    from_slice(&value.data).expect("deserialize future segments");
+                let assigned_segments =
+                    ReaderGroupState::get_reader_assigned_segments_from_table(table, reader);
+                let future_segments = ReaderGroupState::get_future_segments_from_table(table);
 
                 ReaderGroupState::segment_completed_internal(
+                    table,
                     reader,
                     segment_completed,
                     successors_mapped_to_their_predecessors,
-                    &mut assigned_segments,
-                    &mut unassigned_segments,
-                    &mut future_segments,
-                );
-
-                table.insert(
-                    "assigned_segments".to_owned(),
-                    reader.to_string(),
-                    "HashMap<Reader, HashMap<SegmentWithRange, Offset>>".to_owned(),
-                    Box::new(assigned_segments),
-                );
-                table.insert(
-                    "unassigned_segments".to_owned(),
-                    reader.to_string(),
-                    "HashMap<SegmentWithRange, Offset>".to_owned(),
-                    Box::new(unassigned_segments),
-                );
-                table.insert(
-                    "future_segments".to_owned(),
-                    reader.to_string(),
-                    "HashMap<SegmentWithRange, HashSet<i64>>".to_owned(),
-                    Box::new(future_segments),
+                    assigned_segments,
+                    future_segments,
                 );
             })
             .await
             .expect("should update segment complete");
     }
 
-    pub(crate) fn segment_completed_internal(
+    fn segment_completed_internal(
+        table: &mut Table,
         reader: &Reader,
         segment_completed: &SegmentWithRange,
         successors_mapped_to_their_predecessors: &HashMap<SegmentWithRange, Vec<i64>>,
-        assigned_segments: &mut HashMap<Reader, HashMap<SegmentWithRange, Offset>>,
-        unassigned_segments: &mut HashMap<SegmentWithRange, Offset>,
-        future_segments: &mut HashMap<SegmentWithRange, HashSet<i64>>,
+        mut assigned_segments: HashMap<SegmentWithRange, Offset>,
+        mut future_segments: HashMap<SegmentWithRange, HashSet<i64>>,
     ) {
-        let assigned = assigned_segments
-            .get_mut(reader)
-            .expect("reader doesn't exist in reader group");
-        assigned
+        // remove completed segment from assigned_segment list
+        assigned_segments
             .remove(segment_completed)
-            .expect("should have assigned to reader");
+            .expect("should have assigned this segment to reader");
+        table.insert(
+            "assigned_segments".to_owned(),
+            reader.to_string(),
+            "HashMap<SegmentWithRange, Offset>".to_owned(),
+            Box::new(assigned_segments),
+        );
+
+        // add missing successors to future_segments
         for (segment, list) in successors_mapped_to_their_predecessors {
             if !future_segments.contains_key(segment) {
                 let required_to_complete = HashSet::from_iter(list.clone().into_iter());
+                table.insert(
+                    "future_segments".to_owned(),
+                    segment.to_string(),
+                    "HashSet<i64>".to_owned(),
+                    Box::new(required_to_complete.clone()),
+                );
+                // need to update the temp map since later operation may depend on it
                 future_segments.insert(segment.to_owned(), required_to_complete);
             }
         }
-        for required_to_complete in future_segments.values_mut() {
-            required_to_complete.remove(&segment_completed.scoped_segment.segment.number);
+
+        // remove the completed segment from the dependency list
+        for (segment, required_to_complete) in &mut future_segments {
+            // the hash set needs update
+            if required_to_complete.remove(&segment_completed.scoped_segment.segment.number) {
+                table.insert(
+                    "future_segments".to_owned(),
+                    segment.to_string(),
+                    "HashSet<i64>".to_owned(),
+                    Box::new(required_to_complete.to_owned()),
+                );
+            }
         }
+
+        // find successors that are ready to read. A successor is ready to read
+        // once all its predecessors are completed.
         let ready_to_read = future_segments
             .iter()
             .filter(|&(_segment, set)| set.is_empty())
             .map(|(segment, _set)| segment.to_owned())
             .collect::<Vec<SegmentWithRange>>();
+
         for segment in ready_to_read {
-            unassigned_segments.insert(segment.to_owned(), Offset::new(0, 0));
+            // add ready to read segments to unassigned_segments
+            table.insert(
+                "unassigned_segments".to_owned(),
+                segment.to_string(),
+                "Offset".to_owned(),
+                Box::new(Offset::new(0, 0)),
+            );
+            // remove those from the future_segments
+            table.insert_tombstone("future_segments".to_owned(), segment.to_string());
         }
-        future_segments.retain(|_segment, set| !set.is_empty());
+    }
+
+    fn get_reader_assigned_segments_from_table(
+        table: &mut Table,
+        reader: &Reader,
+    ) -> HashMap<SegmentWithRange, Offset> {
+        let value = table
+            .get("assigned_segments", &reader.to_string())
+            .expect("get reader owned segments");
+        let owned_segments: HashMap<SegmentWithRange, Offset> =
+            deserialize_from(&value.data).expect("deserialize reader owned segments");
+        owned_segments
+    }
+
+    fn get_unassigned_segments_from_table(table: &mut Table) -> HashMap<SegmentWithRange, Offset> {
+        table
+            .get_outer("unassigned_segments")
+            .iter()
+            .map(|(k, v)| {
+                (
+                    SegmentWithRange::from_str(k).expect("segmentWithRange from str"),
+                    deserialize_from(&v.data).expect("deserialize offset"),
+                )
+            })
+            .collect::<HashMap<SegmentWithRange, Offset>>()
+    }
+
+    fn get_future_segments_from_table(table: &mut Table) -> HashMap<SegmentWithRange, HashSet<i64>> {
+        table
+            .get_outer("future segments")
+            .iter()
+            .map(|(k, v)| {
+                (
+                    SegmentWithRange::from_str(k).expect("segmentWithRange from str"),
+                    deserialize_from(&v.data).expect("deserialize hashset"),
+                )
+            })
+            .collect::<HashMap<SegmentWithRange, HashSet<i64>>>()
     }
 }
 

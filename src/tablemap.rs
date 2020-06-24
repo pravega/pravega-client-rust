@@ -153,7 +153,7 @@ impl<'a> TableMap<'a> {
 
     ///
     /// Conditionally inserts a key-value pair into the table map. The Key and Value are serialized to to bytes using
-    /// bincode2
+    /// cbor
     ///
     /// The insert is performed after checking the key_version passed.
     /// Once the update is done the newer version is returned.
