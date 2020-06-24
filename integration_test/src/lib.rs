@@ -58,16 +58,16 @@ mod test {
         wait_for_standalone_with_timeout(true, 30);
 
         controller_tests::test_controller_apis();
-        //
-        //        wirecommand_tests::wirecommand_test_wrapper();
-        //
-        //        tablemap_tests::test_tablemap();
-        //
-        //        event_stream_writer_tests::test_event_stream_writer();
+
+        wirecommand_tests::wirecommand_test_wrapper();
+
+        tablemap_tests::test_tablemap();
+
+        event_stream_writer_tests::test_event_stream_writer();
 
         tablesynchronizer_tests::test_tablesynchronizer();
 
-        //        transactional_event_stream_writer_tests::test_transactional_event_stream_writer();
+        transactional_event_stream_writer_tests::test_transactional_event_stream_writer();
 
         // Shut down Pravega standalone
         pravega.stop().unwrap();
