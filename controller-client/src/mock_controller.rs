@@ -13,6 +13,7 @@ use super::ControllerError;
 use async_trait::async_trait;
 use ordered_float::OrderedFloat;
 use pravega_connection_pool::connection_pool::ConnectionPool;
+use pravega_rust_client_retry::retry_result::RetryError;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{CreateSegmentCommand, DeleteSegmentCommand, MergeSegmentsCommand};
@@ -53,7 +54,7 @@ impl MockController {
 }
 #[async_trait]
 impl ControllerClient for MockController {
-    async fn create_scope(&self, scope: &Scope) -> Result<bool, ControllerError> {
+    async fn create_scope(&self, scope: &Scope) -> Result<bool, RetryError<ControllerError>> {
         let scope_name = scope.name.clone();
         if self.created_scopes.read().await.contains_key(&scope_name) {
             return Ok(false);

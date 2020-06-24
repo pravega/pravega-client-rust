@@ -47,7 +47,7 @@ use controller::{
 use log::debug;
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
-use pravega_rust_client_retry::retry_result::RetryResult;
+use pravega_rust_client_retry::retry_result::{RetryError, RetryResult};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfig;
 use std::convert::{From, Into};
@@ -68,6 +68,63 @@ mod model_helper;
 #[cfg(test)]
 mod test;
 
+macro_rules! call_controller_with_retry {
+    ($self:ident, $F:ident) => {
+        retry_async(RetryWithBackoff::default(), || async {
+            let r = $self.$F().await;
+            match r {
+                Ok(res) => RetryResult::Success(res),
+                Err(e) => {
+                    if e.can_retry() {
+                        RetryResult::Retry(e)
+                    } else {
+                        RetryResult::Fail(e)
+                    }
+                }
+            }
+        })
+        .await
+    };
+}
+
+macro_rules! call_controller_with_retry {
+    ($self:ident, $F:ident, $e1:expr) => {
+        retry_async(RetryWithBackoff::default(), || async {
+            let r = $self.$F($e1).await;
+            match r {
+                Ok(res) => RetryResult::Success(res),
+                Err(e) => {
+                    if e.can_retry() {
+                        RetryResult::Retry(e)
+                    } else {
+                        RetryResult::Fail(e)
+                    }
+                }
+            }
+        })
+        .await
+    };
+}
+//
+// macro_rules! call_controller_with_retry {
+//     ($self:ident, $F:ident, $e1:expr, $e2:expr) => {
+//         retry_async(RetryWithBackoff::default(), || async {
+//             let r = $self.$F($e1).await;
+//             match r {
+//                 Ok(res) => RetryResult::Success(res),
+//                 Err(e) => {
+//                     if e.can_retry() {
+//                         RetryResult::Retry(e)
+//                     } else {
+//                         RetryResult::Fail(e)
+//                     }
+//                 }
+//             }
+//         })
+//         .await
+//     };
+// }
+
 #[derive(Debug, Snafu)]
 pub enum ControllerError {
     #[snafu(display(
@@ -86,6 +143,27 @@ pub enum ControllerError {
     InvalidConfiguration { can_retry: bool, error_msg: String },
 }
 
+impl ControllerError {
+    fn can_retry(&self) -> bool {
+        use ControllerError::*;
+        match self {
+            OperationError {
+                can_retry,
+                operation: _,
+                error_msg: _,
+            } => *can_retry,
+            ConnectionError {
+                can_retry,
+                error_msg: _,
+            } => *can_retry,
+            InvalidConfiguration {
+                can_retry,
+                error_msg: _,
+            } => *can_retry,
+        }
+    }
+}
+
 pub type Result<T> = StdResult<T, ControllerError>;
 
 /// Controller APIs for administrative action for streams
@@ -97,7 +175,7 @@ pub trait ControllerClient: Send + Sync {
      * same scope, the future completes with false to indicate that the scope existed when the
      * controller executed the operation.
      */
-    async fn create_scope(&self, scope: &Scope) -> Result<bool>;
+    async fn create_scope(&self, scope: &Scope) -> StdResult<bool, RetryError<ControllerError>>;
 
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>>;
 
@@ -252,33 +330,8 @@ async fn get_channel(config: &ClientConfig) -> Channel {
 #[allow(unused_variables)]
 #[async_trait]
 impl ControllerClient for ControllerClientImpl {
-    async fn create_scope(&self, scope: &Scope) -> Result<bool> {
-        use create_scope_status::Status;
-
-        let request: ScopeInfo = ScopeInfo::from(scope);
-
-        let op_status: StdResult<tonic::Response<CreateScopeStatus>, tonic::Status> = self
-            .get_controller_client()
-            .create_scope(tonic::Request::new(request))
-            .await;
-        let operation_name = "CreateScope";
-        match op_status {
-            Ok(code) => match code.into_inner().status() {
-                Status::Success => Ok(true),
-                Status::ScopeExists => Ok(false),
-                Status::InvalidScopeName => Err(ControllerError::OperationError {
-                    can_retry: false, // do not retry.
-                    operation: operation_name.into(),
-                    error_msg: "Invalid scope".into(),
-                }),
-                _ => Err(ControllerError::OperationError {
-                    can_retry: true,
-                    operation: operation_name.into(),
-                    error_msg: "Operation failed".into(),
-                }),
-            },
-            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
-        }
+    async fn create_scope(&self, scope: &Scope) -> StdResult<bool, RetryError<ControllerError>> {
+        call_controller_with_retry!(self, create_scope_without_retry, scope)
     }
 
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>> {
@@ -869,5 +922,53 @@ impl ControllerClientImpl {
             operation: operation_name.to_string(),
             error_msg: format!("{:?}", retry_error),
         })
+    }
+
+    async fn create_scope_without_retry(&self, scope: &Scope) -> Result<bool> {
+        use create_scope_status::Status;
+        let operation_name = "CreateScope";
+        let request: ScopeInfo = ScopeInfo::from(scope);
+
+        let op_status: StdResult<tonic::Response<CreateScopeStatus>, tonic::Status> = self
+            .get_controller_client()
+            .create_scope(tonic::Request::new(request))
+            .await;
+        match op_status {
+            Ok(code) => match code.into_inner().status() {
+                Status::Success => Ok(true),
+                Status::ScopeExists => Ok(false),
+                Status::InvalidScopeName => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Invalid scope".into(),
+                }),
+                _ => Err(ControllerError::OperationError {
+                    can_retry: true,
+                    operation: operation_name.into(),
+                    error_msg: "Operation failed".into(),
+                }),
+            },
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
+        }
+    }
+
+    async fn get_current_segments_with_retry(
+        &self,
+        stream: &ScopedStream,
+    ) -> StdResult<StreamSegments, RetryError<ControllerError>> {
+        retry_async(RetryWithBackoff::default(), || async {
+            let r = self.get_current_segments(stream).await;
+            match r {
+                Ok(res) => RetryResult::Success(res),
+                Err(e) => {
+                    if e.can_retry() {
+                        RetryResult::Retry(e)
+                    } else {
+                        RetryResult::Fail(e)
+                    }
+                }
+            }
+        })
+        .await
     }
 }
