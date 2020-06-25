@@ -30,8 +30,8 @@ fn test_create_scope_error() {
         Ok(_) => assert!(false, "Failure excepted"),
         Err(RetryError {
             error,
-            total_delay,
-            tries,
+            total_delay: _,
+            tries: _,
         }) => {
             assert!(error.can_retry());
         }
@@ -70,9 +70,14 @@ fn test_create_stream_error() {
     assert!(create_stream_result.is_err());
     match create_stream_result {
         Ok(_) => assert!(false, "Failure excepted"),
-        Err(ControllerError::ConnectionError {
-            can_retry,
-            error_msg: _,
+        Err(RetryError {
+            error:
+                ControllerError::ConnectionError {
+                    can_retry,
+                    error_msg: _,
+                },
+            total_delay: _,
+            tries: _,
         }) => assert_eq!(true, can_retry),
         _ => assert!(false, "Invalid Error"),
     };
