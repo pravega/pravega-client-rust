@@ -68,9 +68,26 @@ mod model_helper;
 #[cfg(test)]
 mod test;
 
+const MAX_RETRIES: i32 = 10;
+
+macro_rules! call_on_self {
+    ($self:ident, $F:ident) => {
+        $self.$F()
+    };
+    ($self:ident, $F:ident, $e1:expr) => {
+        $self.$F($e1)
+    };
+    ($self:ident, $F:ident, $e1:expr, $e2:expr) => {
+        $self.$F($e1, $e2)
+    };
+    ($self:ident, $F:ident, $e1:expr, $e2:expr, $e3:expr) => {
+        $self.$F($e1, $e2, $e3)
+    };
+}
+
 macro_rules! call_controller_with_retry {
     ($self:ident, $F:ident) => {
-        retry_async(RetryWithBackoff::default(), || async {
+        retry_async($self.config.retry_policy.max_tries(MAX_RETRIES), || async {
             let r = $self.$F().await;
             match r {
                 Ok(res) => RetryResult::Success(res),
@@ -85,11 +102,25 @@ macro_rules! call_controller_with_retry {
         })
         .await
     };
-}
-
-macro_rules! call_controller_with_retry {
     ($self:ident, $F:ident, $e1:expr) => {
-        retry_async(RetryWithBackoff::default(), || async {
+        retry_async($self.config.retry_policy.max_tries(MAX_RETRIES), || async {
+            let r = $self.$F($e1).await;
+            match r {
+                Ok(res) => RetryResult::Success(res),
+                Err(e) => {
+                    if e.can_retry() {
+                        RetryResult::Retry(e)
+                    } else {
+                        RetryResult::Fail(e)
+                    }
+                }
+            }
+        })
+        .await
+    };
+
+    ($self:ident, $F:ident, $e1:expr, $e2:expr) => {
+        retry_async($self.config.retry_policy.max_tries(MAX_RETRIES), || async {
             let r = $self.$F($e1).await;
             match r {
                 Ok(res) => RetryResult::Success(res),
@@ -105,25 +136,6 @@ macro_rules! call_controller_with_retry {
         .await
     };
 }
-//
-// macro_rules! call_controller_with_retry {
-//     ($self:ident, $F:ident, $e1:expr, $e2:expr) => {
-//         retry_async(RetryWithBackoff::default(), || async {
-//             let r = $self.$F($e1).await;
-//             match r {
-//                 Ok(res) => RetryResult::Success(res),
-//                 Err(e) => {
-//                     if e.can_retry() {
-//                         RetryResult::Retry(e)
-//                     } else {
-//                         RetryResult::Fail(e)
-//                     }
-//                 }
-//             }
-//         })
-//         .await
-//     };
-// }
 
 #[derive(Debug, Snafu)]
 pub enum ControllerError {
@@ -165,6 +177,7 @@ impl ControllerError {
 }
 
 pub type Result<T> = StdResult<T, ControllerError>;
+pub type ResultRetry<T> = StdResult<T, RetryError<ControllerError>>;
 
 /// Controller APIs for administrative action for streams
 #[async_trait]
@@ -175,7 +188,7 @@ pub trait ControllerClient: Send + Sync {
      * same scope, the future completes with false to indicate that the scope existed when the
      * controller executed the operation.
      */
-    async fn create_scope(&self, scope: &Scope) -> StdResult<bool, RetryError<ControllerError>>;
+    async fn create_scope(&self, scope: &Scope) -> ResultRetry<bool>;
 
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>>;
 
@@ -183,7 +196,7 @@ pub trait ControllerClient: Send + Sync {
      * API to delete a scope. Note that a scope can only be deleted in the case is it empty. If
      * the scope contains at least one stream, then the delete request will fail.
      */
-    async fn delete_scope(&self, scope: &Scope) -> Result<bool>;
+    async fn delete_scope(&self, scope: &Scope) -> ResultRetry<bool>;
 
     /**
      * API to create a stream. The future completes with true in the case the stream did not
@@ -330,39 +343,16 @@ async fn get_channel(config: &ClientConfig) -> Channel {
 #[allow(unused_variables)]
 #[async_trait]
 impl ControllerClient for ControllerClientImpl {
-    async fn create_scope(&self, scope: &Scope) -> StdResult<bool, RetryError<ControllerError>> {
-        call_controller_with_retry!(self, create_scope_without_retry, scope)
+    async fn create_scope(&self, scope: &Scope) -> ResultRetry<bool> {
+        call_controller_with_retry!(self, call_create_scope, scope)
     }
 
     async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>> {
         unimplemented!()
     }
 
-    async fn delete_scope(&self, scope: &Scope) -> Result<bool> {
-        use delete_scope_status::Status;
-
-        let op_status: StdResult<tonic::Response<DeleteScopeStatus>, tonic::Status> = self
-            .get_controller_client()
-            .delete_scope(tonic::Request::new(ScopeInfo::from(scope)))
-            .await;
-        let operation_name = "DeleteScope";
-        match op_status {
-            Ok(code) => match code.into_inner().status() {
-                Status::Success => Ok(true),
-                Status::ScopeNotFound => Ok(false),
-                Status::ScopeNotEmpty => Err(ControllerError::OperationError {
-                    can_retry: false, // do not retry.
-                    operation: operation_name.into(),
-                    error_msg: "Scope not empty".into(),
-                }),
-                _ => Err(ControllerError::OperationError {
-                    can_retry: true,
-                    operation: operation_name.into(),
-                    error_msg: "Operation failed".into(),
-                }),
-            },
-            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
-        }
+    async fn delete_scope(&self, scope: &Scope) -> ResultRetry<bool> {
+        call_controller_with_retry!(self, call_delete_scope, scope)
     }
 
     async fn create_stream(&self, stream_config: &StreamConfiguration) -> Result<bool> {
@@ -924,7 +914,7 @@ impl ControllerClientImpl {
         })
     }
 
-    async fn create_scope_without_retry(&self, scope: &Scope) -> Result<bool> {
+    async fn call_create_scope(&self, scope: &Scope) -> Result<bool> {
         use create_scope_status::Status;
         let operation_name = "CreateScope";
         let request: ScopeInfo = ScopeInfo::from(scope);
@@ -941,6 +931,33 @@ impl ControllerClientImpl {
                     can_retry: false, // do not retry.
                     operation: operation_name.into(),
                     error_msg: "Invalid scope".into(),
+                }),
+                _ => Err(ControllerError::OperationError {
+                    can_retry: true,
+                    operation: operation_name.into(),
+                    error_msg: "Operation failed".into(),
+                }),
+            },
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
+        }
+    }
+
+    async fn call_delete_scope(&self, scope: &Scope) -> Result<bool> {
+        use delete_scope_status::Status;
+
+        let op_status: StdResult<tonic::Response<DeleteScopeStatus>, tonic::Status> = self
+            .get_controller_client()
+            .delete_scope(tonic::Request::new(ScopeInfo::from(scope)))
+            .await;
+        let operation_name = "DeleteScope";
+        match op_status {
+            Ok(code) => match code.into_inner().status() {
+                Status::Success => Ok(true),
+                Status::ScopeNotFound => Ok(false),
+                Status::ScopeNotEmpty => Err(ControllerError::OperationError {
+                    can_retry: false, // do not retry.
+                    operation: operation_name.into(),
+                    error_msg: "Scope not empty".into(),
                 }),
                 _ => Err(ControllerError::OperationError {
                     can_retry: true,

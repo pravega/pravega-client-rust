@@ -83,7 +83,7 @@ impl ControllerClient for MockController {
         Ok(result)
     }
 
-    async fn delete_scope(&self, scope: &Scope) -> Result<bool, ControllerError> {
+    async fn delete_scope(&self, scope: &Scope) -> Result<bool, RetryError<ControllerError>> {
         let scope_name = scope.name.clone();
         if self.created_scopes.read().await.get(&scope_name).is_none() {
             return Ok(false);
@@ -97,10 +97,14 @@ impl ControllerClient for MockController {
             .unwrap()
             .is_empty()
         {
-            Err(ControllerError::OperationError {
-                can_retry: false,
-                operation: "DeleteScope".into(),
-                error_msg: "Scope not empty".into(),
+            Err(RetryError {
+                error: ControllerError::OperationError {
+                    can_retry: false,
+                    operation: "DeleteScope".into(),
+                    error_msg: "Scope not empty".into(),
+                },
+                total_delay: Duration::from_millis(1),
+                tries: 0,
             })
         } else {
             self.created_scopes.write().await.remove(&scope_name);
