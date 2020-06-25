@@ -71,22 +71,6 @@ mod test;
 const MAX_RETRIES: i32 = 10;
 
 macro_rules! call_controller_with_retry {
-    // ($self:ident, $F:ident) => {
-    //     retry_async($self.config.retry_policy.max_tries(MAX_RETRIES), || async {
-    //         let r = $self.$F().await;
-    //         match r {
-    //             Ok(res) => RetryResult::Success(res),
-    //             Err(e) => {
-    //                 if e.can_retry() {
-    //                     RetryResult::Retry(e)
-    //                 } else {
-    //                     RetryResult::Fail(e)
-    //                 }
-    //             }
-    //         }
-    //     })
-    //     .await
-    // };
     ($self:ident, $F:ident, $e1:expr) => {
         retry_async($self.config.retry_policy.max_tries(MAX_RETRIES), || async {
             let r = $self.$F($e1).await;
