@@ -25,7 +25,7 @@ impl RetryWithBackoff {
         let delay = Some(Duration::from_millis(10000));
         RetryWithBackoff {
             current: 1,
-            base: 3,
+            base: 10,
             max_delay: delay,
         }
     }
