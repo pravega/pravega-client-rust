@@ -100,6 +100,7 @@ impl TransactionalEventStreamWriter {
                 Duration::from_millis(self.config.transaction_timeout_time),
             )
             .await
+            .map_err(|e| e.error)
             .context(TxnStreamControllerError {})?;
         info!("Transaction {} created", txn_segments.tx_id);
         let txn_id = txn_segments.tx_id;
@@ -131,6 +132,7 @@ impl TransactionalEventStreamWriter {
             .get_controller_client()
             .check_transaction_status(&self.stream, txn_id)
             .await
+            .map_err(|e| e.error)
             .context(TxnStreamControllerError {})?;
         if status != TransactionStatus::Open {
             return Ok(Transaction::new(
@@ -147,6 +149,7 @@ impl TransactionalEventStreamWriter {
             .get_controller_client()
             .get_current_segments(&self.stream)
             .await
+            .map_err(|e| e.error)
             .context(TxnStreamControllerError {})?;
         for s in segments.get_segments() {
             let writer = TransactionalEventSegmentWriter::new(s.clone(), self.config.retry_policy);

@@ -289,20 +289,10 @@ impl EventSegmentWriter {
         factory: &ClientFactoryInternal,
     ) -> Result<(), EventStreamWriterError> {
         // retry to get latest endpoint
-        let uri = match retry_async(self.retry_policy, || async {
-            match factory
-                .get_controller_client()
-                .get_endpoint_for_segment(&self.segment)
-                .await
-            {
-                Ok(uri) => RetryResult::Success(uri),
-                Err(e) => {
-                    warn!("retry controller due to error {:?}", e);
-                    RetryResult::Retry(e)
-                }
-            }
-        })
-        .await
+        let uri = match factory
+            .get_controller_client()
+            .get_endpoint_for_segment(&self.segment) // retries are internal to the controller client.
+            .await
         {
             Ok(uri) => uri,
             Err(e) => return Err(EventStreamWriterError::RetryControllerWriting { err: e }),
