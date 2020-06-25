@@ -54,7 +54,7 @@ pub struct PravegaNodeUri(pub String);
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct DelegationToken(pub String);
 
-#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub struct Timestamp(pub u64);
 
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
