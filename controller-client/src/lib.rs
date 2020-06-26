@@ -47,7 +47,8 @@ use controller::{
 use log::debug;
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
-use pravega_rust_client_retry::retry_result::{RetryError, RetryResult};
+use pravega_rust_client_retry::retry_result::{RetryError, RetryResult, Retryable};
+use pravega_rust_client_retry::wrap_with_async_retry;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfig;
 use std::convert::{From, Into};
@@ -70,72 +71,6 @@ mod test;
 
 const MAX_RETRIES: i32 = 10;
 
-macro_rules! call_controller_with_retry {
-    ($retrypolicy:expr, $expression:expr) => {
-        retry_async($retrypolicy, || async {
-            let r = $expression.await;
-            match r {
-                Ok(res) => RetryResult::Success(res),
-                Err(e) => {
-                    if e.can_retry() {
-                        RetryResult::Retry(e)
-                    } else {
-                        RetryResult::Fail(e)
-                    }
-                }
-            }
-        })
-        .await
-    }; // ($self:ident, $F:ident, $e1:expr, $e2:expr) => {
-       //     retry_async($self.config.retry_policy.max_tries(MAX_RETRIES), || async {
-       //         let r = $self.$F($e1, $e2).await;
-       //         match r {
-       //             Ok(res) => RetryResult::Success(res),
-       //             Err(e) => {
-       //                 if e.can_retry() {
-       //                     RetryResult::Retry(e)
-       //                 } else {
-       //                     RetryResult::Fail(e)
-       //                 }
-       //             }
-       //         }
-       //     })
-       //     .await
-       // };
-       //
-       // ($self:ident, $F:ident, $e1:expr, $e2:expr, $e3:expr) => {
-       //     retry_async($self.config.retry_policy.max_tries(MAX_RETRIES), || async {
-       //         let r = $self.$F($e1, $e2, $e3).await;
-       //         match r {
-       //             Ok(res) => RetryResult::Success(res),
-       //             Err(e) => {
-       //                 if e.can_retry() {
-       //                     RetryResult::Retry(e)
-       //                 } else {
-       //                     RetryResult::Fail(e)
-       //                 }
-       //             }
-       //         }
-       //     })
-       //     .await
-       // };
-       // ($self:ident, $F:ident, $e1:expr, $e2:expr, $e3:expr, $e4:expr) => {
-       //     retry_async($self.config.retry_policy.max_tries(MAX_RETRIES), || async {
-       //         let r = $self.$F($e1, $e2, $e3, $e4).await;
-       //         match r {
-       //             Ok(res) => RetryResult::Success(res),
-       //             Err(e) => {
-       //                 if e.can_retry() {
-       //                     RetryResult::Retry(e)
-       //                 } else {
-       //                     RetryResult::Fail(e)
-       //                 }
-       //             }
-       //         }
-       //     })
-       //     .await
-       // };
-}
 #[derive(Debug, Snafu)]
 pub enum ControllerError {
     #[snafu(display(
@@ -154,7 +89,9 @@ pub enum ControllerError {
     InvalidConfiguration { can_retry: bool, error_msg: String },
 }
 
-impl ControllerError {
+// Implementation of Retryable trait for the error thrown by the Controller.
+// this ensures we can use the wrap_with_async_retry macros.
+impl Retryable for ControllerError {
     fn can_retry(&self) -> bool {
         use ControllerError::*;
         match self {
@@ -347,7 +284,7 @@ async fn get_channel(config: &ClientConfig) -> Channel {
 #[async_trait]
 impl ControllerClient for ControllerClientImpl {
     async fn create_scope(&self, scope: &Scope) -> ResultRetry<bool> {
-        call_controller_with_retry!(
+        wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_create_scope(scope)
         )
@@ -358,56 +295,56 @@ impl ControllerClient for ControllerClientImpl {
     }
 
     async fn delete_scope(&self, scope: &Scope) -> ResultRetry<bool> {
-        call_controller_with_retry!(
+        wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_delete_scope(scope)
         )
     }
 
     async fn create_stream(&self, stream_config: &StreamConfiguration) -> ResultRetry<bool> {
-        call_controller_with_retry!(
+        wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_create_stream(stream_config)
         )
     }
 
     async fn update_stream(&self, stream_config: &StreamConfiguration) -> ResultRetry<bool> {
-        call_controller_with_retry!(
+        wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_update_stream(stream_config)
         )
     }
 
     async fn truncate_stream(&self, stream_cut: &StreamCut) -> ResultRetry<bool> {
-        call_controller_with_retry!(
+        wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_truncate_stream(stream_cut)
         )
     }
 
     async fn seal_stream(&self, stream: &ScopedStream) -> ResultRetry<bool> {
-        call_controller_with_retry!(
+        wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_seal_stream(stream)
         )
     }
 
     async fn delete_stream(&self, stream: &ScopedStream) -> ResultRetry<bool> {
-        call_controller_with_retry!(
+        wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_delete_stream(stream)
         )
     }
 
     async fn get_current_segments(&self, stream: &ScopedStream) -> ResultRetry<StreamSegments> {
-        call_controller_with_retry!(
+        wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_get_current_segments(stream)
         )
     }
 
     async fn create_transaction(&self, stream: &ScopedStream, lease: Duration) -> ResultRetry<TxnSegments> {
-        call_controller_with_retry!(
+        wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_create_transaction(stream, lease)
         )
@@ -419,7 +356,7 @@ impl ControllerClient for ControllerClientImpl {
         tx_id: TxId,
         lease: Duration,
     ) -> ResultRetry<PingStatus> {
-        call_controller_with_retry!(
+        wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_ping_transaction(stream, tx_id, lease)
         )
@@ -432,14 +369,14 @@ impl ControllerClient for ControllerClientImpl {
         writer_id: WriterId,
         time: Timestamp,
     ) -> ResultRetry<()> {
-        call_controller_with_retry!(
+        wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_commit_transaction(stream, tx_id, writer_id, time)
         )
     }
 
     async fn abort_transaction(&self, stream: &ScopedStream, tx_id: TxId) -> ResultRetry<()> {
-        call_controller_with_retry!(
+        wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_abort_transaction(stream, tx_id)
         )
@@ -450,14 +387,14 @@ impl ControllerClient for ControllerClientImpl {
         stream: &ScopedStream,
         tx_id: TxId,
     ) -> ResultRetry<TransactionStatus> {
-        call_controller_with_retry!(
+        wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_check_transaction_status(stream, tx_id)
         )
     }
 
     async fn get_endpoint_for_segment(&self, segment: &ScopedSegment) -> ResultRetry<PravegaNodeUri> {
-        call_controller_with_retry!(
+        wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_get_endpoint_for_segment(segment)
         )
@@ -471,7 +408,7 @@ impl ControllerClient for ControllerClientImpl {
     }
 
     async fn get_successors(&self, segment: &ScopedSegment) -> ResultRetry<StreamSegmentsWithPredecessors> {
-        call_controller_with_retry!(
+        wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_get_successors(segment)
         )
@@ -483,14 +420,14 @@ impl ControllerClient for ControllerClientImpl {
         sealed_segment_ids: &[Segment],
         new_ranges: &[(f64, f64)],
     ) -> ResultRetry<()> {
-        call_controller_with_retry!(
+        wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_scale_stream(stream, sealed_segment_ids, new_ranges)
         )
     }
 
     async fn check_scale(&self, stream: &ScopedStream, scale_epoch: i32) -> ResultRetry<bool> {
-        call_controller_with_retry!(
+        wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_check_scale(stream, scale_epoch)
         )
