@@ -46,9 +46,12 @@ pub trait Retryable {
 ///
 /// E.g: usage
 ///
-/// ```rust
+/// ```ignore
 /// use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
-///  async fn function_a(param1: &str, param2:u8) {
+/// use pravega_rust_client_retry::retry_async::retry_async;
+/// use pravega_rust_client_retry::wrap_with_async_retry;
+/// //CustomError implements Retrayable trait
+/// async fn function_a(param1: &str, param2:u8) -> Result<(), CustomError> {
 ///
 /// }
 /// let retry_policy = RetryWithBackoff::default().max_tries(10);
@@ -77,19 +80,22 @@ macro_rules! wrap_with_async_retry {
 }
 
 ///
-/// `wrap_with_sync_retry!` macro wraps any arbitrary synchronous function with `pravega_rust_client_retry::retry_async::retry_sync`
+/// `wrap_with_sync_retry!` macro wraps any arbitrary synchronous function with `pravega_rust_client_retry::retry_sync::retry_sync`
 /// This macro takes two parameters. The first parameter is the Retry policy which implements `trait BackoffSchedule`.
 /// The second parameter is the synchrounous function that needs to be wrapped within the retry logic.
 /// The function invocation will be retried only error returned by the function returns `can_retry()` as true.
 ///
 /// E.g: usage
 ///
-/// ```rust
+/// ```ignore
 /// use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
-/// fn function_a(param1: &str, param2:u8) {
+/// use pravega_rust_client_retry::retry_sync::retry_sync;
+/// use pravega_rust_client_retry::wrap_with_sync_retry;
+/// // CustomError implements Retryable trait
+/// fn function_a(param1: &str, param2:u8) -> Result<(), CustomError>{
 ///
 /// }
-/// let retry_policy = RetryWithBackoff::default().max_tries(10);
+/// let retry_policy = RetryWithBackoff::default().max_tries(5);
 /// // the below invocation wraps function_a with the retry logic.
 /// wrap_with_sync_retry!(retry_policy, function_a("test", 1));
 /// ```
