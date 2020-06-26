@@ -232,6 +232,28 @@ impl ControllerClient for MockController {
         })
     }
 
+    async fn get_epoch_segments(
+        &self,
+        stream: &ScopedStream,
+        _epoch: i32,
+    ) -> Result<StreamSegments, RetryError<ControllerError>> {
+        let segments_in_stream = get_segments_for_stream(stream, &self.created_streams.read().await)?;
+        let mut segments = BTreeMap::new();
+        let increment = 1.0 / segments_in_stream.len() as f64;
+        for (number, segment) in segments_in_stream.into_iter().enumerate() {
+            let segment_with_range = SegmentWithRange {
+                scoped_segment: segment,
+                min_key: OrderedFloat(number as f64 * increment),
+                max_key: OrderedFloat((number + 1) as f64 * increment),
+            };
+            segments.insert(segment_with_range.max_key, segment_with_range);
+        }
+
+        Ok(StreamSegments {
+            key_segment_map: segments.into(),
+        })
+    }
+
     async fn create_transaction(
         &self,
         stream: &ScopedStream,

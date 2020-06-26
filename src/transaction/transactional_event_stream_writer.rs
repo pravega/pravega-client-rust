@@ -147,7 +147,7 @@ impl TransactionalEventStreamWriter {
         let segments = self
             .factory
             .get_controller_client()
-            .get_current_segments(&self.stream)
+            .get_epoch_segments(&self.stream, txn_id.get_epoch())
             .await
             .map_err(|e| e.error)
             .context(TxnStreamControllerError {})?;

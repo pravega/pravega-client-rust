@@ -39,10 +39,10 @@ use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
     delete_scope_status, delete_stream_status, ping_txn_status, scale_request, scale_response,
     scale_status_response, txn_state, txn_status, update_stream_status, CreateScopeStatus,
-    CreateStreamStatus, CreateTxnRequest, CreateTxnResponse, DeleteScopeStatus, DeleteStreamStatus, NodeUri,
-    PingTxnRequest, PingTxnStatus, ScaleRequest, ScaleResponse, ScaleStatusRequest, ScaleStatusResponse,
-    ScopeInfo, SegmentId, SegmentRanges, StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest,
-    TxnState, TxnStatus, UpdateStreamStatus,
+    CreateStreamStatus, CreateTxnRequest, CreateTxnResponse, DeleteScopeStatus, DeleteStreamStatus,
+    GetEpochSegmentsRequest, NodeUri, PingTxnRequest, PingTxnStatus, ScaleRequest, ScaleResponse,
+    ScaleStatusRequest, ScaleStatusResponse, ScopeInfo, SegmentId, SegmentRanges, StreamConfig, StreamInfo,
+    SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
 };
 use log::debug;
 use pravega_rust_client_retry::retry_async::retry_async;
@@ -69,6 +69,7 @@ mod model_helper;
 #[cfg(test)]
 mod test;
 
+// Max number of retries by the controller in case of a retryable failure.
 const MAX_RETRIES: i32 = 10;
 
 #[derive(Debug, Snafu)]
@@ -169,6 +170,11 @@ pub trait ControllerClient: Send + Sync {
      * API to get list of current segments for the stream to write to.
      */
     async fn get_current_segments(&self, stream: &ScopedStream) -> ResultRetry<StreamSegments>;
+
+    /**
+     * API to get list of segments for a given stream and epoch.
+     */
+    async fn get_epoch_segments(&self, stream: &ScopedStream, epoch: i32) -> ResultRetry<StreamSegments>;
 
     /**
      * API to create a new transaction. The transaction timeout is relative to the creation time.
@@ -340,6 +346,13 @@ impl ControllerClient for ControllerClientImpl {
         wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_get_current_segments(stream)
+        )
+    }
+
+    async fn get_epoch_segments(&self, stream: &ScopedStream, epoch: i32) -> ResultRetry<StreamSegments> {
+        wrap_with_async_retry!(
+            self.config.retry_policy.max_tries(MAX_RETRIES),
+            self.call_get_epoch_segments(stream, epoch)
         )
     }
 
@@ -733,6 +746,22 @@ impl ControllerClientImpl {
                     error_msg: "Operation failed".into(),
                 }),
             },
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
+        }
+    }
+
+    async fn call_get_epoch_segments(&self, stream: &ScopedStream, epoch: i32) -> Result<StreamSegments> {
+        let request: StreamInfo = StreamInfo::from(stream);
+        let op_status: StdResult<tonic::Response<SegmentRanges>, tonic::Status> = self
+            .get_controller_client()
+            .get_epoch_segments(tonic::Request::new(GetEpochSegmentsRequest {
+                stream_info: Some(request),
+                epoch,
+            }))
+            .await;
+        let operation_name = "getEpochSegments";
+        match op_status {
+            Ok(segment_ranges) => Ok(StreamSegments::from(segment_ranges.into_inner())),
             Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }
