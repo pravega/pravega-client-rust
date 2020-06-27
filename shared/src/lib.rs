@@ -325,7 +325,7 @@ impl SegmentWithRange {
 
 impl fmt::Display for SegmentWithRange {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({}-{}-{})", self.scoped_segment, self.min_key, self.max_key)
+        write!(f, "{}-{}-{}", self.scoped_segment, self.min_key, self.max_key)
     }
 }
 

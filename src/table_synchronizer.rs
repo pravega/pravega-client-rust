@@ -88,6 +88,18 @@ impl<'a> TableSynchronizer<'a> {
             .collect()
     }
 
+    pub fn get_inner_map(&self, outer_key: &str) -> HashMap<String, Value> {
+        self.in_memory_map
+            .get(outer_key)
+            .map_or_else(HashMap::new, |inner| {
+                inner
+                    .iter()
+                    .filter(|(_k, v)| v.type_id != "tombstone")
+                    .map(|(k, v)| (k.key.clone(), v.clone()))
+                    .collect::<HashMap<String, Value>>()
+            })
+    }
+
     fn get_current_counter(&self) -> HashMap<String, Value> {
         self.in_memory_counter
             .iter()
@@ -310,6 +322,20 @@ pub struct Table {
 }
 
 impl Table {
+    pub(crate) fn new(
+        map: HashMap<String, HashMap<String, Value>>,
+        counter: HashMap<String, Value>,
+        insert: Vec<Insert>,
+        remove: Vec<Remove>,
+    ) -> Self {
+        Table {
+            map,
+            counter,
+            insert,
+            remove,
+        }
+    }
+
     /// insert method needs an outer_key and an inner_key to find a value.
     /// It will update map inside the Table.
     pub fn insert(
@@ -402,15 +428,16 @@ impl Table {
         })
     }
 
-    /// get_outer method will take an outer_key return the outer map.
+    /// get_inner_map method will take an outer_key return the outer map.
     /// The returned outer map will not contain value hinted by tombstone.
-    pub fn get_outer(&self, outer_key: &str) -> HashMap<String, Value> {
-        let inner_map = self.map.get(outer_key).expect("should contain outer key");
-        inner_map
-            .iter()
-            .filter(|(_k, v)| v.type_id != "tombstone")
-            .map(|(k, v)| (k.to_owned(), v.clone()))
-            .collect::<HashMap<String, Value>>()
+    pub fn get_inner_map(&self, outer_key: &str) -> HashMap<String, Value> {
+        self.map.get(outer_key).map_or_else(HashMap::new, |inner_map| {
+            inner_map
+                .iter()
+                .filter(|(_k, v)| v.type_id != "tombstone")
+                .map(|(k, v)| (k.to_owned(), v.clone()))
+                .collect::<HashMap<String, Value>>()
+        })
     }
 
     fn is_tombstoned(&self, outer_key: &str, inner_key: &str) -> bool {
@@ -430,12 +457,18 @@ impl Table {
         }
     }
 
-    /// Check if a key exists. The tombstoned value will return a false.
+    /// Check if an inner key exists. The tombstoned value will return a false.
     pub fn contains_key(&self, outer_key: &str, inner_key: &str) -> bool {
-        let inner_map = self.map.get(outer_key).expect("should contain outer key");
-        inner_map
-            .get(inner_key)
-            .map_or(false, |value| value.type_id != "tombstone")
+        self.map.get(outer_key).map_or(false, |inner_map| {
+            inner_map
+                .get(inner_key)
+                .map_or(false, |value| value.type_id != "tombstone")
+        })
+    }
+
+    /// Check if an outer_key exists. The tombstoned value will return a false.
+    pub fn contains_outer_key(&self, outer_key: &str) -> bool {
+        self.map.contains_key(outer_key)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -475,7 +508,7 @@ impl Table {
 /// stored on the server side.
 /// The type_id is used to identify the type of the value in the map since the value
 /// is just a serialized blob that does not contain any type information.
-struct Insert {
+pub(crate) struct Insert {
     outer_key: String,
     inner_key: Option<String>,
     composite_key: String,
@@ -483,7 +516,7 @@ struct Insert {
 }
 
 impl Insert {
-    fn new(outer_key: String, inner_key: Option<String>, type_id: String) -> Self {
+    pub(crate) fn new(outer_key: String, inner_key: Option<String>, type_id: String) -> Self {
         let composite_key = if inner_key.is_some() {
             format!(
                 "{:02}{}/{}",
@@ -507,7 +540,7 @@ impl Insert {
 /// The remove struct is used internally to remove a value from the server side of map.
 /// Unlike the Insert struct, it does not need to have a type_id since we don't care about
 /// the value.
-struct Remove {
+pub(crate) struct Remove {
     outer_key: String,
     inner_key: String,
     composite_key: String,
