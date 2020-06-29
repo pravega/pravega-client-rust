@@ -2,8 +2,8 @@ name: packaging
 
 on:
   push:
-    branches:
-      - python-future-poc
+    tags:
+      - "*"
 
 jobs:
   wheel:
