@@ -40,8 +40,8 @@ jobs:
         id: build_wheel
         run: python -u .github/workflows/build_wheel.py
       - name: build source
-          id: build_source
-          run: python -u .github/workflows/build_source.py
+        id: build_source
+        run: python -u .github/workflows/build_source.py
       - name: Publish to TestPyPI
         env:
           # the username and the repository needs to be changed before release.
