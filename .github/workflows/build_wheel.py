@@ -17,7 +17,6 @@ command = [
     "maturin",
     "build",
     "--release",
-    "--no-sdist",
     "--interpreter",
     sys.executable,
 ]
