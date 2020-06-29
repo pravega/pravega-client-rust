@@ -8,6 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::tablemap::TableError;
 use pravega_connection_pool::connection_pool::ConnectionPoolError;
 use pravega_controller_client::ControllerError;
 use pravega_rust_client_retry::retry_result::RetryError;
@@ -124,4 +125,21 @@ pub enum TransactionError {
 pub enum SerdeError {
     #[snafu(display("Failed to {:?} due to {:?}", msg, source))]
     Cbor { msg: String, source: CborError },
+}
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility = "pub")]
+pub enum SynchronizerError {
+    #[snafu(display(
+        "Table Synchronizer failed while performing {:?} with table error: {:?}",
+        operation,
+        source
+    ))]
+    SyncTableError { operation: String, source: TableError },
+
+    #[snafu(display("Failed to run update function in table synchronizer due to: {:?}", error_msg))]
+    SyncUpdateError { error_msg: String },
+
+    #[snafu(display("Failed insert tombestone in table synchronizer due to: {:?}", error_msg))]
+    SyncTombstoneError { error_msg: String },
 }

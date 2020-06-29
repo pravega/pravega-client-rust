@@ -9,6 +9,7 @@
 //
 
 use crate::client_factory::ClientFactoryInternal;
+use crate::error::*;
 use crate::tablemap::{TableError, TableMap, Version};
 use futures::pin_mut;
 use futures::stream::StreamExt;
@@ -234,13 +235,19 @@ impl<'a> TableSynchronizer<'a> {
 
     /// Inserts/Updates a list of keys and applies it atomically to local map.
     /// This will update the local_map to the latest version.
-    pub async fn insert(&mut self, updates_generator: impl FnMut(&mut Table)) -> Result<(), TableError> {
+    pub async fn insert(
+        &mut self,
+        updates_generator: impl FnMut(&mut Table) -> Result<(), SynchronizerError>,
+    ) -> Result<(), SynchronizerError> {
         conditionally_write(updates_generator, self).await
     }
 
     /// Removes a list of keys and applies it atomically to local map.
     /// This will update the local_map to latest version.
-    pub async fn remove(&mut self, deletes_generateor: impl FnMut(&mut Table)) -> Result<(), TableError> {
+    pub async fn remove(
+        &mut self,
+        deletes_generateor: impl FnMut(&mut Table) -> Result<(), SynchronizerError>,
+    ) -> Result<(), SynchronizerError> {
         conditionally_remove(deletes_generateor, self).await
     }
 }
@@ -357,29 +364,43 @@ impl Table {
         self.increment_counter(outer_key);
     }
 
-    /// insert_tombstone method replace the original value with a tombstone, which means this
+    /// insert_tombstone method replaces the original value with a tombstone, which means that this
     /// key value pair is invalid and will be removed later. The reason of adding a tombstone is
     /// to guarantee the atomicity of a remove-and-insert operation.
-    pub fn insert_tombstone(&mut self, outer_key: String, inner_key: String) {
+    pub fn insert_tombstone(
+        &mut self,
+        outer_key: String,
+        inner_key: String,
+    ) -> Result<(), SynchronizerError> {
         let data = to_vec(&Tombstone {}).expect("serialize tombstone");
         let insert = Insert::new(outer_key.clone(), Some(inner_key.clone()), "tombstone".to_owned());
 
         self.insert.push(insert);
 
-        // Adding a tombstone to a non existing value or a tombstone means the code is not right,
-        // make sure such case will not happen.
         let inner_map = self
             .map
             .get_mut(&outer_key)
-            .expect("should always have outer map when adding tombstone");
-        inner_map.get(&inner_key).map_or_else(
-            || panic!("should always have value when adding tombstone"),
+            .ok_or(SynchronizerError::SyncTombstoneError {
+                error_msg: format!("outer key {} does not exist", outer_key),
+            })?;
+
+        inner_map.get(&inner_key).map_or(
+            Err(SynchronizerError::SyncTombstoneError {
+                error_msg: format!("inner key {} does not exist", inner_key),
+            }),
             |v| {
                 if v.type_id == "tombstone" {
-                    panic!("should not add tombstone to a tombstone");
+                    Err(SynchronizerError::SyncTombstoneError {
+                        error_msg: format!(
+                            "tombstone has already been added for key {}/{}",
+                            outer_key, inner_key
+                        ),
+                    })
+                } else {
+                    Ok(())
                 }
             },
-        );
+        )?;
 
         inner_map.insert(
             inner_key.clone(),
@@ -394,6 +415,8 @@ impl Table {
         // also push this key to remove list, this key will be removed after insert is completed.
         let remove = Remove::new(outer_key.clone(), inner_key);
         self.remove.push(remove);
+
+        Ok(())
     }
 
     /// remove takes an outer_key and an inner_key and removes a particular entry.
@@ -619,9 +642,9 @@ where
 }
 
 async fn conditionally_write(
-    mut updates_generator: impl FnMut(&mut Table),
+    mut updates_generator: impl FnMut(&mut Table) -> Result<(), SynchronizerError>,
     table_synchronizer: &mut TableSynchronizer<'_>,
-) -> Result<(), TableError> {
+) -> Result<(), SynchronizerError> {
     loop {
         let map = table_synchronizer.get_current_map();
         let counter = table_synchronizer.get_current_counter();
@@ -633,7 +656,7 @@ async fn conditionally_write(
             remove: Vec::new(),
         };
 
-        updates_generator(&mut to_update);
+        updates_generator(&mut to_update)?;
 
         if to_update.insert_is_empty() {
             debug!(
@@ -677,11 +700,14 @@ async fn conditionally_write(
             }
             Err(e) => {
                 debug!("Error message is {}", e);
-                return Err(e);
+                return Err(SynchronizerError::SyncTableError {
+                    operation: "insert conditionally_all".to_owned(),
+                    source: e,
+                });
             }
             Ok(res) => {
                 apply_inserts_to_localmap(&mut to_update, res, table_synchronizer);
-                clear_tombstone(&mut to_update, table_synchronizer).await;
+                clear_tombstone(&mut to_update, table_synchronizer).await?;
                 break;
             }
         }
@@ -690,9 +716,9 @@ async fn conditionally_write(
 }
 
 async fn conditionally_remove(
-    mut delete_generator: impl FnMut(&mut Table),
+    mut delete_generator: impl FnMut(&mut Table) -> Result<(), SynchronizerError>,
     table_synchronizer: &mut TableSynchronizer<'_>,
-) -> Result<(), TableError> {
+) -> Result<(), SynchronizerError> {
     loop {
         let map = table_synchronizer.get_current_map();
         let counter = table_synchronizer.get_current_counter();
@@ -703,7 +729,7 @@ async fn conditionally_remove(
             insert: Vec::new(),
             remove: Vec::new(),
         };
-        delete_generator(&mut to_delete);
+        delete_generator(&mut to_delete)?;
 
         if to_delete.remove_is_empty() {
             debug!(
@@ -737,7 +763,10 @@ async fn conditionally_remove(
             }
             Err(e) => {
                 debug!("Error message is {}", e);
-                return Err(e);
+                return Err(SynchronizerError::SyncTableError {
+                    operation: "remove conditionally_all".to_owned(),
+                    source: e,
+                });
             }
             Ok(()) => {
                 apply_deletes_to_localmap(&mut to_delete, table_synchronizer);
@@ -748,7 +777,10 @@ async fn conditionally_remove(
     Ok(())
 }
 
-async fn clear_tombstone(to_remove: &mut Table, table_synchronizer: &mut TableSynchronizer<'_>) {
+async fn clear_tombstone(
+    to_remove: &mut Table,
+    table_synchronizer: &mut TableSynchronizer<'_>,
+) -> Result<(), SynchronizerError> {
     table_synchronizer
         .remove(|table| {
             for remove in to_remove.get_remove_iter() {
@@ -756,9 +788,9 @@ async fn clear_tombstone(to_remove: &mut Table, table_synchronizer: &mut TableSy
                     table.remove(remove.outer_key.to_owned(), remove.inner_key.to_owned());
                 }
             }
+            Ok(())
         })
         .await
-        .expect("remove tombstone");
 }
 
 fn apply_inserts_to_localmap(
