@@ -59,7 +59,7 @@ impl StreamManager {
         println!("creating scope {:?}", scope_name);
 
         let controller = self.cf.get_controller_client();
-        let scope_name = Scope::new(scope_name.to_string());
+        let scope_name = Scope::from(scope_name.to_string());
 
         let scope_result = handle.block_on(controller.create_scope(&scope_name));
         println!("Scope creation status {:?}", scope_result);
@@ -77,7 +77,7 @@ impl StreamManager {
         println!("Delete scope {:?}", scope_name);
 
         let controller = self.cf.get_controller_client();
-        let scope_name = Scope::new(scope_name.to_string());
+        let scope_name = Scope::from(scope_name.to_string());
 
         let scope_result = handle.block_on(controller.delete_scope(&scope_name));
         println!("Scope deletion status {:?}", scope_result);
@@ -103,8 +103,8 @@ impl StreamManager {
         );
         let stream_cfg = StreamConfiguration {
             scoped_stream: ScopedStream {
-                scope: Scope::new(scope_name.to_string()),
-                stream: Stream::new(stream_name.to_string()),
+                scope: Scope::from(scope_name.to_string()),
+                stream: Stream::from(stream_name.to_string()),
             },
             scaling: Scaling {
                 scale_type: ScaleType::FixedNumSegments,
@@ -134,8 +134,8 @@ impl StreamManager {
         let handle = self.cf.get_runtime_handle();
         println!("Sealing stream {:?} under scope {:?} ", stream_name, scope_name);
         let scoped_stream = ScopedStream {
-            scope: Scope::new(scope_name.to_string()),
-            stream: Stream::new(stream_name.to_string()),
+            scope: Scope::from(scope_name.to_string()),
+            stream: Stream::from(stream_name.to_string()),
         };
 
         let controller = self.cf.get_controller_client();
@@ -155,8 +155,8 @@ impl StreamManager {
         let handle = self.cf.get_runtime_handle();
         println!("Deleting stream {:?} under scope {:?} ", stream_name, scope_name);
         let scoped_stream = ScopedStream {
-            scope: Scope::new(scope_name.to_string()),
-            stream: Stream::new(stream_name.to_string()),
+            scope: Scope::from(scope_name.to_string()),
+            stream: Stream::from(stream_name.to_string()),
         };
 
         let controller = self.cf.get_controller_client();
@@ -173,8 +173,8 @@ impl StreamManager {
     ///
     pub fn create_writer(&self, scope_name: &str, stream_name: &str) -> PyResult<StreamWriter> {
         let scoped_stream = ScopedStream {
-            scope: Scope::new(scope_name.to_string()),
-            stream: Stream::new(stream_name.to_string()),
+            scope: Scope::from(scope_name.to_string()),
+            stream: Stream::from(stream_name.to_string()),
         };
         let stream_writer = StreamWriter::new(
             self.cf.create_event_stream_writer(scoped_stream),
