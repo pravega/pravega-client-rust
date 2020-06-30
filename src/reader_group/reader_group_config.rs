@@ -95,8 +95,8 @@ mod tests {
 
     #[test]
     fn test_reader_group_config_serde() {
-        let scope = Scope::new("scope".into());
-        let stream = Stream::new("stream".into());
+        let scope = Scope::from("scope".to_owned());
+        let stream = Stream::from("stream".to_owned());
         let scoped_stream = ScopedStream::new(scope.clone(), stream.clone());
 
         let mut v1 = ReaderGroupConfigV1::new();

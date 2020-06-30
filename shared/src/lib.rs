@@ -28,6 +28,7 @@
 pub mod naming_utils;
 
 use crate::naming_utils::NameUtils;
+use derive_more::{Display, From};
 use encoding_rs::mem;
 use im::HashMap as ImHashMap;
 use im::OrdMap;
@@ -49,53 +50,38 @@ extern crate shrinkwraprs;
 #[macro_use]
 extern crate derive_new;
 
-#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(From, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct PravegaNodeUri(pub String);
 
-#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(From, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct DelegationToken(pub String);
 
-#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(From, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Timestamp(pub u64);
 
-#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(From, Shrinkwrap, Debug, Display, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Scope {
     pub name: String,
 }
 
-#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(From, Shrinkwrap, Debug, Display, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Stream {
     pub name: String,
 }
 
-#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(From, Shrinkwrap, Debug, Display, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Reader {
     pub name: String,
 }
 
-impl Display for Reader {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.name)
-    }
-}
-
-impl FromStr for Reader {
-    type Err = ();
-    fn from_str(name: &str) -> Result<Self, Self::Err> {
-        Ok(Reader {
-            name: name.to_owned(),
-        })
-    }
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(From, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Segment {
     pub number: i64,
     pub tx_id: Option<TxId>,
 }
 
 impl Segment {
-    pub fn new(number: i64) -> Self {
+    pub fn from(number: i64) -> Self {
         Segment { number, tx_id: None }
     }
 
@@ -108,7 +94,7 @@ impl Segment {
         }
     }
 
-    pub fn new_txn(number: i64, tx_id: TxId) -> Self {
+    pub fn from_txn(number: i64, tx_id: TxId) -> Self {
         Segment {
             number,
             tx_id: Some(tx_id),
@@ -178,18 +164,11 @@ impl FromStr for ScopedSegment {
     }
 }
 
-#[derive(new, Shrinkwrap, Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(From, Shrinkwrap, Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TxId(pub u128);
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct WriterId(pub u64);
-
-impl Display for Stream {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.name)?;
-        Ok(())
-    }
-}
 
 impl Display for TxId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -201,13 +180,6 @@ impl Display for TxId {
 impl fmt::Debug for TxId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(Uuid::from_u128(self.0).to_hyphenated().to_string().as_str())?;
-        Ok(())
-    }
-}
-
-impl Display for Scope {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.name)?;
         Ok(())
     }
 }

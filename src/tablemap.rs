@@ -67,9 +67,9 @@ impl<'a> TableMap<'a> {
     /// create a table map
     pub async fn new(name: String, factory: &'a ClientFactoryInternal) -> Result<TableMap<'a>, TableError> {
         let segment = ScopedSegment {
-            scope: Scope::new("_tables".into()),
-            stream: PravegaStream::new(name),
-            segment: Segment::new(0),
+            scope: Scope::from("_tables".to_owned()),
+            stream: PravegaStream::from(name),
+            segment: Segment::from(0),
         };
         let endpoint = factory
             .get_controller_client()

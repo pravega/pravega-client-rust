@@ -22,8 +22,8 @@ pub fn test_controller_apis() {
     let client_factory = ClientFactory::new(config);
 
     let controller = client_factory.get_controller_client();
-    let scope_name = Scope::new("testScope123".into());
-    let stream_name = Stream::new("testStream".into());
+    let scope_name = Scope::from("testScope123".to_owned());
+    let stream_name = Stream::from("testStream".to_owned());
     let handle = client_factory.get_runtime_handle();
 
     let scope_result = handle.block_on(controller.create_scope(&scope_name));
@@ -54,8 +54,8 @@ pub fn test_controller_apis() {
 
 pub async fn test_scale_stream(controller: &dyn ControllerClient) {
     let scoped_stream = ScopedStream::new(
-        Scope::new("testScope123".into()),
-        Stream::new("testStream".into()),
+        Scope::from("testScope123".to_owned()),
+        Stream::from("testStream".to_owned()),
     );
 
     let current_segments_result = controller.get_current_segments(&scoped_stream).await;
@@ -66,7 +66,7 @@ pub async fn test_scale_stream(controller: &dyn ControllerClient) {
     assert!(current_segments_result.is_ok());
     assert_eq!(1, current_segments_result.unwrap().key_segment_map.len());
 
-    let sealed_segments = [Segment::new(0)];
+    let sealed_segments = [Segment::from(0)];
 
     let new_range = [(0.0, 0.5), (0.5, 1.0)];
 

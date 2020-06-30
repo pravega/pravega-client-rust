@@ -150,7 +150,7 @@ impl ReaderGroupState<'_> {
     fn get_online_readers_internal(assigned_segments: HashMap<String, Value>) -> Vec<Reader> {
         assigned_segments
             .keys()
-            .map(|k| Reader::from_str(k).expect("construct reader from str"))
+            .map(|k| Reader::from(k.to_owned()))
             .collect::<Vec<Reader>>()
     }
 
@@ -597,7 +597,7 @@ mod test {
     use pravega_rust_client_shared::{Scope, Segment, Stream};
 
     lazy_static! {
-        static ref READER: Reader = Reader::new("test".to_string());
+        static ref READER: Reader = Reader::from("test".to_owned());
         static ref SEGMENT: ScopedSegment = ScopedSegment {
             scope: Scope {
                 name: "scope".to_string(),

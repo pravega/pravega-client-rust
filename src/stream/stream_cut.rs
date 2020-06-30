@@ -71,13 +71,13 @@ mod tests {
 
     #[test]
     fn test_position_serde() {
-        let scope = Scope::new("scope".into());
-        let stream = Stream::new("stream".into());
+        let scope = Scope::from("scope".to_owned());
+        let stream = Stream::from("stream".to_owned());
         let scoped_stream = ScopedStream::new(scope.clone(), stream.clone());
         let mut positions = HashMap::new();
 
-        let segment0 = ScopedSegment::new(scope.clone(), stream.clone(), Segment::new(0));
-        let segment1 = ScopedSegment::new(scope, stream, Segment::new(1));
+        let segment0 = ScopedSegment::new(scope.clone(), stream.clone(), Segment::from(0));
+        let segment1 = ScopedSegment::new(scope, stream, Segment::from(1));
 
         positions.insert(segment0, 0);
         positions.insert(segment1, 100);
