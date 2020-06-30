@@ -19,14 +19,16 @@ cfg_if! {
         use pravega_client_rust::error::TransactionError;
         use pravega_rust_client_shared::{Timestamp, TransactionStatus, TxId};
         use pyo3::PyObjectProtocol;
+        use log::{debug, info, warn};
     }
 }
 
 #[cfg(feature = "python_binding")]
 #[pyclass]
-#[derive(new)] // this ensures the python object cannot be created without the using StreamTxnWriter.
+#[derive(new)]
 ///
 /// This represents a transaction on a given Stream.
+/// Note: A python object of StreamTransaction cannot be created directly without using the StreamTxnWriter.
 ///
 pub(crate) struct StreamTransaction {
     txn: Transaction,
@@ -82,7 +84,7 @@ impl StreamTransaction {
     ///
     #[text_signature = "($self, event_as_byte_array)"]
     pub fn write_event_bytes(&mut self, event: &[u8]) -> PyResult<()> {
-        println!("Writing a single event to a transaction");
+        debug!("Writing a single event to a transaction");
         // to_vec creates an owned copy of the python byte array object.
         let result: Result<(), TransactionError> = self
             .handle
@@ -91,7 +93,7 @@ impl StreamTransaction {
         match result {
             Ok(_t) => Ok(()),
             Err(TransactionError::TxnClosed { id }) => {
-                println!("Transaction is already closed");
+                warn!("Transaction is already closed");
                 Err(TxnFailedException::py_err(id.0))
             }
             Err(e) => Err(exceptions::ValueError::py_err(format!("Error {:?}", e))),
@@ -117,14 +119,14 @@ impl StreamTransaction {
     ///
     #[text_signature = "($self, timestamp_as_u64)"]
     pub fn commit_timestamp(&mut self, timestamp: u64) -> PyResult<()> {
-        println!("Committing the transaction");
+        debug!("Committing the transaction");
         let result: Result<(), TransactionError> =
             self.handle.block_on(self.txn.commit(Timestamp::new(timestamp)));
 
         match result {
             Ok(_t) => Ok(()),
             Err(TransactionError::TxnClosed { id }) => {
-                println!("Transaction is already closed");
+                warn!("Transaction is already closed");
                 Err(TxnFailedException::py_err(id.0))
             }
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
@@ -137,13 +139,13 @@ impl StreamTransaction {
     ///
     #[text_signature = "($self)"]
     pub fn abort(&mut self) -> PyResult<()> {
-        println!("Aborting the transaction");
+        info!("Aborting the transaction {}", self.txn.get_txn_id());
         let result: Result<(), TransactionError> = self.handle.block_on(self.txn.abort());
 
         match result {
             Ok(_t) => Ok(()),
             Err(TransactionError::TxnClosed { id }) => {
-                println!("Transaction is already closed");
+                warn!("Transaction is already closed");
                 Err(TxnFailedException::py_err(id.0))
             }
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),

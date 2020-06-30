@@ -19,12 +19,17 @@ cfg_if! {
         use pravega_rust_client_shared::TxId;
         use pravega_rust_client_shared::ScopedStream;
         use tokio::runtime::Handle;
+        use log::debug;
     }
 }
 
 #[cfg(feature = "python_binding")]
 #[pyclass]
-#[derive(new)] // this ensures the python object cannot be created without the using StreamManager.
+#[derive(new)]
+///
+/// This represents a Transaction writer for a given Stream.
+/// Note: A python object of StreamTxnWriter cannot be created directly without using the StreamManager.
+///
 pub(crate) struct StreamTxnWriter {
     writer: TransactionalEventStreamWriter,
     handle: Handle,
@@ -53,7 +58,7 @@ impl StreamTxnWriter {
     ///
     #[text_signature = "($self, txn_id)"]
     pub fn get_txn(&mut self, txn_id: u128) -> PyResult<StreamTransaction> {
-        println!("Writing a single event for a given routing key");
+        debug!("Writing a single event for a given routing key");
         let result = self.handle.block_on(self.writer.get_txn(TxId(txn_id)));
 
         match result {

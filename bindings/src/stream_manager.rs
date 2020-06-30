@@ -19,6 +19,7 @@ cfg_if! {
         use pyo3::PyResult;
         use pyo3::{exceptions, PyObjectProtocol};
         use std::net::SocketAddr;
+        use log::info;
     }
 }
 
@@ -68,13 +69,14 @@ impl StreamManager {
     #[text_signature = "($self, scope_name)"]
     pub fn create_scope(&self, scope_name: &str) -> PyResult<bool> {
         let handle = self.cf.get_runtime_handle();
-        println!("creating scope {:?}", scope_name);
+
+        info!("creating scope {:?}", scope_name);
 
         let controller = self.cf.get_controller_client();
         let scope_name = Scope::new(scope_name.to_string());
 
         let scope_result = handle.block_on(controller.create_scope(&scope_name));
-        println!("Scope creation status {:?}", scope_result);
+        info!("Scope creation status {:?}", scope_result);
         match scope_result {
             Ok(t) => Ok(t),
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
@@ -87,13 +89,13 @@ impl StreamManager {
     #[text_signature = "($self, scope_name)"]
     pub fn delete_scope(&self, scope_name: &str) -> PyResult<bool> {
         let handle = self.cf.get_runtime_handle();
-        println!("Delete scope {:?}", scope_name);
+        info!("Delete scope {:?}", scope_name);
 
         let controller = self.cf.get_controller_client();
         let scope_name = Scope::new(scope_name.to_string());
 
         let scope_result = handle.block_on(controller.delete_scope(&scope_name));
-        println!("Scope deletion status {:?}", scope_result);
+        info!("Scope deletion status {:?}", scope_result);
         match scope_result {
             Ok(t) => Ok(t),
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
@@ -111,7 +113,7 @@ impl StreamManager {
         initial_segments: i32,
     ) -> PyResult<bool> {
         let handle = self.cf.get_runtime_handle();
-        println!(
+        info!(
             "creating stream {:?} under scope {:?} with segment count {:?}",
             stream_name, scope_name, initial_segments
         );
@@ -134,7 +136,7 @@ impl StreamManager {
         let controller = self.cf.get_controller_client();
 
         let stream_result = handle.block_on(controller.create_stream(&stream_cfg));
-        println!("Stream creation status {:?}", stream_result);
+        info!("Stream creation status {:?}", stream_result);
         match stream_result {
             Ok(t) => Ok(t),
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
@@ -147,7 +149,7 @@ impl StreamManager {
     #[text_signature = "($self, scope_name, stream_name)"]
     pub fn seal_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
         let handle = self.cf.get_runtime_handle();
-        println!("Sealing stream {:?} under scope {:?} ", stream_name, scope_name);
+        info!("Sealing stream {:?} under scope {:?} ", stream_name, scope_name);
         let scoped_stream = ScopedStream {
             scope: Scope::new(scope_name.to_string()),
             stream: Stream::new(stream_name.to_string()),
@@ -156,7 +158,7 @@ impl StreamManager {
         let controller = self.cf.get_controller_client();
 
         let stream_result = handle.block_on(controller.seal_stream(&scoped_stream));
-        println!("Sealing stream status {:?}", stream_result);
+        info!("Sealing stream status {:?}", stream_result);
         match stream_result {
             Ok(t) => Ok(t),
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
@@ -169,7 +171,7 @@ impl StreamManager {
     #[text_signature = "($self, scope_name, stream_name)"]
     pub fn delete_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
         let handle = self.cf.get_runtime_handle();
-        println!("Deleting stream {:?} under scope {:?} ", stream_name, scope_name);
+        info!("Deleting stream {:?} under scope {:?} ", stream_name, scope_name);
         let scoped_stream = ScopedStream {
             scope: Scope::new(scope_name.to_string()),
             stream: Stream::new(stream_name.to_string()),
@@ -177,7 +179,7 @@ impl StreamManager {
 
         let controller = self.cf.get_controller_client();
         let stream_result = handle.block_on(controller.delete_stream(&scoped_stream));
-        println!("Deleting stream status {:?}", stream_result);
+        info!("Deleting stream status {:?}", stream_result);
         match stream_result {
             Ok(t) => Ok(t),
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),

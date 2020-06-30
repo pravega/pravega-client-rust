@@ -18,12 +18,17 @@ cfg_if! {
         use pyo3::PyResult;
         use pyo3::PyObjectProtocol;
         use tokio::runtime::Handle;
+        use log::debug;
     }
 }
 
 #[cfg(feature = "python_binding")]
 #[pyclass]
-#[derive(new)] // this ensures the python object cannot be created without the using StreamManager.
+#[derive(new)]
+///
+/// This represents a Stream writer for a given Stream.
+/// Note: A python object of StreamWriter cannot be created directly without using the StreamManager.
+///
 pub(crate) struct StreamWriter {
     writer: EventStreamWriter,
     handle: Handle,
@@ -88,11 +93,11 @@ impl StreamWriter {
         // to_vec creates an owned copy of the python byte array object.
         let result = match routing_key {
             Option::None => {
-                println!("Writing a single event with no routing key");
+                debug!("Writing a single event with no routing key");
                 self.handle.block_on(self.writer.write_event(event.to_vec()))
             }
             Option::Some(key) => {
-                println!("Writing a single event for a given routing key {:?}", key);
+                debug!("Writing a single event for a given routing key {:?}", key);
                 self.handle
                     .block_on(self.writer.write_event_by_routing_key(key.into(), event.to_vec()))
             }
