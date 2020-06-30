@@ -22,7 +22,7 @@ fn test_create_scope_error() {
 
     let client = ControllerClientImpl::new(config, rt.handle().clone());
 
-    let request = Scope::new("testScope124".into());
+    let request = Scope::from("testScope124".to_owned());
     let create_scope_result = rt.block_on(client.create_scope(&request));
     assert!(create_scope_result.is_err());
     match create_scope_result {
@@ -46,10 +46,8 @@ fn test_create_stream_error() {
 
     let request = StreamConfiguration {
         scoped_stream: ScopedStream {
-            scope: Scope::new("testScope123".into()),
-            stream: Stream {
-                name: "testStream".into(),
-            },
+            scope: Scope::from("testScope123".to_owned()),
+            stream: Stream::from("testStream".to_owned()),
         },
         scaling: Scaling {
             scale_type: ScaleType::FixedNumSegments,
