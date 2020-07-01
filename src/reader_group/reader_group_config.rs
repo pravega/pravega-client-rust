@@ -25,14 +25,14 @@ pub(crate) enum ReaderGroupConfigVersioned {
 impl ReaderGroupConfigVersioned {
     fn to_bytes(&self) -> Result<Vec<u8>, SerdeError> {
         let encoded = to_vec(&self).context(Cbor {
-            msg: String::from("serialize ReaderGroupConfigVersioned"),
+            msg: "serialize ReaderGroupConfigVersioned".to_owned(),
         })?;
         Ok(encoded)
     }
 
     fn from_bytes(input: &[u8]) -> Result<ReaderGroupConfigVersioned, SerdeError> {
         let decoded: ReaderGroupConfigVersioned = from_slice(&input[..]).context(Cbor {
-            msg: String::from("serialize ReaderGroupConfigVersioned"),
+            msg: "serialize ReaderGroupConfigVersioned".to_owned(),
         })?;
         Ok(decoded)
     }

@@ -282,6 +282,8 @@ pub struct StreamCut {
     pub segment_offset_map: HashMap<i64, i64>,
 }
 
+const PREFIX_LENGTH: usize = 2;
+
 #[derive(new, Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SegmentWithRange {
     pub scoped_segment: ScopedSegment,
@@ -297,7 +299,15 @@ impl SegmentWithRange {
 
 impl fmt::Display for SegmentWithRange {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}-{}-{}", self.scoped_segment, self.min_key, self.max_key)
+        let segment_str = self.scoped_segment.to_string();
+        write!(
+            f,
+            "{:02}{}{}-{}",
+            segment_str.len(),
+            segment_str,
+            self.min_key,
+            self.max_key
+        )
     }
 }
 
@@ -305,7 +315,21 @@ impl FromStr for SegmentWithRange {
     type Err = ();
 
     fn from_str(name: &str) -> Result<Self, Self::Err> {
-        let mut parts: Vec<&str> = name.split('-').collect();
+        let segment_name_length: usize = name[..PREFIX_LENGTH].parse().expect("parse prefix length");
+
+        let segment_str = name[PREFIX_LENGTH..PREFIX_LENGTH + segment_name_length]
+            .parse::<String>()
+            .expect("parse segment name");
+
+        let scoped_segment = segment_str
+            .parse::<ScopedSegment>()
+            .expect("parse ScopedSegment from string");
+
+        let rest_string = name[PREFIX_LENGTH + segment_name_length..]
+            .parse::<String>()
+            .expect("parse segment name");
+
+        let mut parts: Vec<&str> = rest_string.split('-').collect();
         let max_key = parts
             .pop()
             .expect("get max key")
@@ -316,11 +340,7 @@ impl FromStr for SegmentWithRange {
             .expect("get max key")
             .parse::<OrderedFloat<f64>>()
             .expect("parse OrderedFloat from str");
-        let scoped_segment = parts
-            .pop()
-            .expect("get max key")
-            .parse::<ScopedSegment>()
-            .expect("parse ScopedSegment from str");
+
         Ok(SegmentWithRange {
             scoped_segment,
             min_key,
@@ -499,8 +519,10 @@ pub struct EventRead {
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::convert::From;
+
     #[test]
-    fn test() {
+    fn test_hash() {
         let s = "hello";
         let mut buffer_u16 = vec![0; s.len()];
 
@@ -512,5 +534,25 @@ mod test {
 
         let (upper, _lower) = murmurhash3_x64_128(&buffer_u8, StreamSegments::SEED);
         assert_eq!(u64_to_f64_fraction(upper), 0.658716230571337);
+    }
+
+    #[test]
+    fn test_segment_with_range() {
+        let segment = SegmentWithRange {
+            scoped_segment: ScopedSegment {
+                scope: Scope::from("scope".to_owned()),
+                stream: Stream::from("stream".to_owned()),
+                segment: Segment::from(0),
+            },
+            min_key: OrderedFloat::from(0.0),
+            max_key: OrderedFloat::from(1.0),
+        };
+
+        let segment_string = segment.to_string();
+
+        let segment_from_string =
+            SegmentWithRange::from_str(&segment_string).expect("get segment with range from string");
+
+        assert_eq!(segment_from_string, segment);
     }
 }

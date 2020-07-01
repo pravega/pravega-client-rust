@@ -24,14 +24,14 @@ pub(crate) enum PositionVersioned {
 impl PositionVersioned {
     fn to_bytes(&self) -> Result<Vec<u8>, SerdeError> {
         let encoded = to_vec(&self).context(Cbor {
-            msg: String::from("serialize PositionVersioned"),
+            msg: "serialize PositionVersioned".to_owned(),
         })?;
         Ok(encoded)
     }
 
     fn from_bytes(input: &[u8]) -> Result<PositionVersioned, SerdeError> {
         let decoded: PositionVersioned = from_slice(&input[..]).context(Cbor {
-            msg: String::from("serialize PositionVersioned"),
+            msg: "serialize PositionVersioned".to_owned(),
         })?;
         Ok(decoded)
     }

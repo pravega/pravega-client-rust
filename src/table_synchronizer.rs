@@ -49,10 +49,10 @@ pub struct TableSynchronizer<'a> {
     /// A two-level hash map is fine for now, maybe it will need more nested layers in the future.
     in_memory_map: HashMap<String, HashMap<Key, Value>>,
 
-    /// in_memory_counter is a hash map that stores counters for the second level hash maps.
+    /// in_memory_map_version is used to monitor the versions of each second level hash maps.
     /// The idea is to monitor the changes of the second level hash maps besides individual keys
     /// since some logic may depend on a certain map not being changed during an update.
-    in_memory_counter: HashMap<Key, Value>,
+    in_memory_map_version: HashMap<Key, Value>,
 
     /// An offset that is used to make conditional update on the server side.
     table_segment_offset: i64,
@@ -67,7 +67,7 @@ impl<'a> TableSynchronizer<'a> {
             name: name.clone(),
             table_map,
             in_memory_map: HashMap::new(),
-            in_memory_counter: HashMap::new(),
+            in_memory_map_version: HashMap::new(),
             table_segment_offset: -1,
         }
     }
@@ -81,7 +81,7 @@ impl<'a> TableSynchronizer<'a> {
                 (
                     k.clone(),
                     v.iter()
-                        .filter(|(_k2, v2)| v2.type_id != "tombstone")
+                        .filter(|(_k2, v2)| v2.type_id != TOMBSTONE)
                         .map(|(k2, v2)| (k2.key.clone(), v2.clone()))
                         .collect::<HashMap<String, Value>>(),
                 )
@@ -95,14 +95,14 @@ impl<'a> TableSynchronizer<'a> {
             .map_or_else(HashMap::new, |inner| {
                 inner
                     .iter()
-                    .filter(|(_k, v)| v.type_id != "tombstone")
+                    .filter(|(_k, v)| v.type_id != TOMBSTONE)
                     .map(|(k, v)| (k.key.clone(), v.clone()))
                     .collect::<HashMap<String, Value>>()
             })
     }
 
     fn get_current_counter(&self) -> HashMap<String, Value> {
-        self.in_memory_counter
+        self.in_memory_map_version
             .iter()
             .map(|(k, v)| (k.key.clone(), v.clone()))
             .collect()
@@ -124,13 +124,15 @@ impl<'a> TableSynchronizer<'a> {
             key_version: TableKey::KEY_NO_VERSION,
         };
 
-        inner_map.get(&search_key_inner).and_then(|val| {
-            if val.type_id == "tombstone" {
-                None
-            } else {
-                Some(val)
-            }
-        })
+        inner_map.get(&search_key_inner).and_then(
+            |val| {
+                if val.type_id == TOMBSTONE {
+                    None
+                } else {
+                    Some(val)
+                }
+            },
+        )
     }
 
     /// Gets the Key version of the given key,
@@ -165,7 +167,7 @@ impl<'a> TableSynchronizer<'a> {
                 key: outer_key.to_owned(),
                 key_version: TableKey::KEY_NO_VERSION,
             };
-            if let Some((key, _value)) = self.in_memory_counter.get_key_value(&search_key) {
+            if let Some((key, _value)) = self.in_memory_map_version.get_key_value(&search_key) {
                 Some(key.key_version)
             } else {
                 None
@@ -196,7 +198,7 @@ impl<'a> TableSynchronizer<'a> {
         let reply = self.table_map.read_entries_stream(3);
         pin_mut!(reply);
         self.in_memory_map.clear();
-        self.in_memory_counter.clear();
+        self.in_memory_map_version.clear();
 
         while let Some(entry) = reply.next().await {
             match entry {
@@ -218,7 +220,7 @@ impl<'a> TableSynchronizer<'a> {
                             key: outer_key,
                             key_version: version,
                         };
-                        self.in_memory_counter.insert(outer_map_key, v);
+                        self.in_memory_map_version.insert(outer_map_key, v);
                     }
                 }
                 _ => {
@@ -314,6 +316,8 @@ pub struct Value {
     pub data: Vec<u8>,
 }
 
+const TOMBSTONE: &str = "tombstone";
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct Tombstone {}
 
@@ -389,7 +393,7 @@ impl Table {
                 error_msg: format!("inner key {} does not exist", inner_key),
             }),
             |v| {
-                if v.type_id == "tombstone" {
+                if v.type_id == TOMBSTONE {
                     Err(SynchronizerError::SyncTombstoneError {
                         error_msg: format!(
                             "tombstone has already been added for key {}/{}",
@@ -405,7 +409,7 @@ impl Table {
         inner_map.insert(
             inner_key.clone(),
             Value {
-                type_id: "tombstone".to_owned(),
+                type_id: TOMBSTONE.to_owned(),
                 data,
             },
         );
@@ -442,13 +446,9 @@ impl Table {
     /// It will not return value hinted by tombstone.
     pub fn get(&self, outer_key: &str, inner_key: &str) -> Option<&Value> {
         let inner_map = self.map.get(outer_key).expect("should contain outer key");
-        inner_map.get(inner_key).and_then(|val| {
-            if val.type_id == "tombstone" {
-                None
-            } else {
-                Some(val)
-            }
-        })
+        inner_map
+            .get(inner_key)
+            .and_then(|val| if val.type_id == TOMBSTONE { None } else { Some(val) })
     }
 
     /// get_inner_map method will take an outer_key return the outer map.
@@ -457,7 +457,7 @@ impl Table {
         self.map.get(outer_key).map_or_else(HashMap::new, |inner_map| {
             inner_map
                 .iter()
-                .filter(|(_k, v)| v.type_id != "tombstone")
+                .filter(|(_k, v)| v.type_id != TOMBSTONE)
                 .map(|(k, v)| (k.to_owned(), v.clone()))
                 .collect::<HashMap<String, Value>>()
         })
@@ -467,7 +467,7 @@ impl Table {
         self.map.get(outer_key).map_or(false, |inner_map| {
             inner_map
                 .get(inner_key)
-                .map_or(false, |val| val.type_id == "tombstone")
+                .map_or(false, |val| val.type_id == TOMBSTONE)
         })
     }
 
@@ -485,7 +485,7 @@ impl Table {
         self.map.get(outer_key).map_or(false, |inner_map| {
             inner_map
                 .get(inner_key)
-                .map_or(false, |value| value.type_id != "tombstone")
+                .map_or(false, |value| value.type_id != TOMBSTONE)
         })
     }
 
@@ -823,7 +823,9 @@ fn apply_inserts_to_localmap(
                 .get(&update.outer_key)
                 .expect("get the Value")
                 .clone();
-            table_synchronizer.in_memory_counter.insert(new_key, new_value);
+            table_synchronizer
+                .in_memory_map_version
+                .insert(new_key, new_value);
         }
         i += 1;
     }

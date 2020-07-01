@@ -23,14 +23,14 @@ pub(crate) enum EventPointerVersioned {
 impl EventPointerVersioned {
     fn to_bytes(&self) -> Result<Vec<u8>, SerdeError> {
         let encoded = to_vec(&self).context(Cbor {
-            msg: String::from("serialize EventPointerVersioned"),
+            msg: "serialize EventPointerVersioned".to_owned(),
         })?;
         Ok(encoded)
     }
 
     fn from_bytes(input: &[u8]) -> Result<EventPointerVersioned, SerdeError> {
         let decoded: EventPointerVersioned = from_slice(&input[..]).context(Cbor {
-            msg: String::from("deserialize EventPointerVersioned"),
+            msg: "deserialize EventPointerVersioned".to_owned(),
         })?;
         Ok(decoded)
     }

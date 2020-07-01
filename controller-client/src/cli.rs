@@ -95,8 +95,8 @@ fn main() {
         } => {
             let stream_cfg = StreamConfiguration {
                 scoped_stream: ScopedStream {
-                    scope: Scope::from(scope_name),
-                    stream: Stream::from(stream_name),
+                    scope: scope_name.into(),
+                    stream: stream_name.into(),
                 },
                 scaling: Scaling {
                     scale_type: ScaleType::FixedNumSegments,
@@ -116,7 +116,7 @@ fn main() {
             scope_name,
             stream_name,
         } => {
-            let scoped_stream = ScopedStream::new(Scope::from(scope_name), Stream::from(stream_name));
+            let scoped_stream = ScopedStream::new(scope_name.into(), stream_name.into());
             let result = rt.block_on(controller_client.seal_stream(&scoped_stream));
             println!("Seal stream status {:?}", result);
         }
@@ -124,7 +124,7 @@ fn main() {
             scope_name,
             stream_name,
         } => {
-            let scoped_stream = ScopedStream::new(Scope::from(scope_name), Stream::from(stream_name));
+            let scoped_stream = ScopedStream::new(scope_name.into(), stream_name.into());
             let result = rt.block_on(controller_client.delete_stream(&scoped_stream));
             println!("Delete stream status {:?}", result);
         }

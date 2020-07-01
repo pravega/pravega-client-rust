@@ -25,14 +25,14 @@ pub(crate) enum StreamCutVersioned {
 impl StreamCutVersioned {
     fn to_bytes(&self) -> Result<Vec<u8>, SerdeError> {
         let encoded = to_vec(&self).context(Cbor {
-            msg: String::from("serialize StreamCutVersioned"),
+            msg: "serialize StreamCutVersioned".to_owned(),
         })?;
         Ok(encoded)
     }
 
     fn from_bytes(input: &[u8]) -> Result<StreamCutVersioned, SerdeError> {
         let decoded: StreamCutVersioned = from_slice(&input[..]).context(Cbor {
-            msg: String::from("serialize StreamCutVersioned"),
+            msg: "serialize StreamCutVersioned".to_owned(),
         })?;
         Ok(decoded)
     }
