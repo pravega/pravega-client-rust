@@ -54,7 +54,7 @@ pub struct PravegaNodeUri(pub String);
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct DelegationToken(pub String);
 
-#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub struct Timestamp(pub u64);
 
 #[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -152,6 +152,15 @@ impl From<String> for ScopedSegment {
 
 #[derive(new, Shrinkwrap, Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TxId(pub u128);
+
+impl TxId {
+    ///
+    /// Obtain epoch from a given Transaction Id.
+    ///
+    pub fn get_epoch(&self) -> i32 {
+        (self.0 >> 96) as i32
+    }
+}
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct WriterId(pub u64);

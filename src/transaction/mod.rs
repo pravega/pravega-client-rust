@@ -130,6 +130,7 @@ impl Transaction {
                 timestamp,
             )
             .await
+            .map_err(|e| e.error)
             .context(TxnControllerError {})?;
 
         debug!("transaction {:?} committed", self.info.txn_id);
@@ -154,6 +155,7 @@ impl Transaction {
             .get_controller_client()
             .abort_transaction(&self.info.stream, self.info.txn_id)
             .await
+            .map_err(|e| e.error)
             .context(TxnControllerError {})?;
 
         debug!("transaction {:?} aborted", self.info.txn_id);
@@ -166,6 +168,7 @@ impl Transaction {
             .get_controller_client()
             .check_transaction_status(&self.info.stream, self.info.txn_id)
             .await
+            .map_err(|e| e.error)
             .context(TxnControllerError {})
     }
 
