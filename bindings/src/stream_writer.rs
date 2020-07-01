@@ -18,7 +18,10 @@ cfg_if! {
         use pyo3::PyResult;
         use pyo3::PyObjectProtocol;
         use tokio::runtime::Handle;
-        use log::debug;
+        use log::trace;
+        use futures::future::{self, Either};
+        use std::time::Duration;
+        use tokio::time;
     }
 }
 
@@ -34,6 +37,9 @@ pub(crate) struct StreamWriter {
     handle: Handle,
     stream: ScopedStream,
 }
+
+// The amount of time the python api will wait for the underlying write to be completed.
+const TIMEOUT_IN_SECONDS: u64 = 120;
 
 #[cfg(feature = "python_binding")]
 #[pymethods]
@@ -91,23 +97,34 @@ impl StreamWriter {
     #[args(event, routing_key = "None", "*")]
     pub fn write_event_bytes(&mut self, event: &[u8], routing_key: Option<&str>) -> PyResult<()> {
         // to_vec creates an owned copy of the python byte array object.
-        let result = match routing_key {
-            Option::None => {
-                debug!("Writing a single event with no routing key");
-                self.handle.block_on(self.writer.write_event(event.to_vec()))
-            }
-            Option::Some(key) => {
-                debug!("Writing a single event for a given routing key {:?}", key);
-                self.handle
-                    .block_on(self.writer.write_event_by_routing_key(key.into(), event.to_vec()))
-            }
-        };
-        let result_oneshot: Result<(), EventStreamWriterError> =
-            self.handle.block_on(result).expect("Event Write failed");
+        let write_future: tokio::sync::oneshot::Receiver<Result<(), EventStreamWriterError>> =
+            match routing_key {
+                Option::None => {
+                    trace!("Writing a single event with no routing key");
+                    self.handle.block_on(self.writer.write_event(event.to_vec()))
+                }
+                Option::Some(key) => {
+                    trace!("Writing a single event for a given routing key {:?}", key);
+                    self.handle
+                        .block_on(self.writer.write_event_by_routing_key(key.into(), event.to_vec()))
+                }
+            };
 
-        match result_oneshot {
-            Ok(_t) => Ok(()),
-            Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
+        let timeout_fut = self
+            .handle
+            .enter(|| time::delay_for(Duration::from_secs(TIMEOUT_IN_SECONDS)));
+        let result_write = self.handle.block_on(future::select(write_future, timeout_fut));
+        match result_write {
+            Either::Left(x) => match x.0 {
+                Ok(_) => Ok(()),
+                Err(e) => Err(exceptions::ValueError::py_err(format!(
+                    "Error observed while writing an event {:?}",
+                    e
+                ))),
+            },
+            Either::Right(_) => Err(exceptions::ValueError::py_err(
+                "Write timed out, please check connectivity with Pravega",
+            )),
         }
     }
 

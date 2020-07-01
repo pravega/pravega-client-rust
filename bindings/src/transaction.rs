@@ -19,9 +19,16 @@ cfg_if! {
         use pravega_client_rust::error::TransactionError;
         use pravega_rust_client_shared::{Timestamp, TransactionStatus, TxId};
         use pyo3::PyObjectProtocol;
-        use log::{debug, info, warn};
+        use log::{trace, info, warn};
+        use futures::future::{self, Either};
+        use std::time::Duration;
+        use tokio::time;
+        use pin_utils::pin_mut;
     }
 }
+
+// The amount of time the python api will wait for the underlying write to be completed.
+const TIMEOUT_IN_SECONDS: u64 = 120;
 
 #[cfg(feature = "python_binding")]
 #[pyclass]
@@ -84,7 +91,10 @@ impl StreamTransaction {
     ///
     #[text_signature = "($self, event_as_byte_array)"]
     pub fn write_event_bytes(&mut self, event: &[u8]) -> PyResult<()> {
-        debug!("Writing a single event to a transaction");
+        trace!(
+            "Writing a single event to a transaction {:?}",
+            self.txn.get_txn_id()
+        );
         // to_vec creates an owned copy of the python byte array object.
         let result: Result<(), TransactionError> = self
             .handle
@@ -119,17 +129,26 @@ impl StreamTransaction {
     ///
     #[text_signature = "($self, timestamp_as_u64)"]
     pub fn commit_timestamp(&mut self, timestamp: u64) -> PyResult<()> {
-        debug!("Committing the transaction");
-        let result: Result<(), TransactionError> =
-            self.handle.block_on(self.txn.commit(Timestamp::new(timestamp)));
+        info!("Committing the transaction {:?}", self.txn.get_txn_id());
+        let commit_fut = self.txn.commit(Timestamp::new(timestamp));
+        pin_mut!(commit_fut);
+        let timeout_fut = self
+            .handle
+            .enter(|| time::delay_for(Duration::from_secs(TIMEOUT_IN_SECONDS)));
 
-        match result {
-            Ok(_t) => Ok(()),
-            Err(TransactionError::TxnClosed { id }) => {
-                warn!("Transaction is already closed");
-                Err(TxnFailedException::py_err(id.0))
-            }
-            Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
+        let result_commit = self.handle.block_on(future::select(commit_fut, timeout_fut));
+        match result_commit {
+            Either::Left(x) => match x.0 {
+                Ok(_) => Ok(()),
+                Err(TransactionError::TxnClosed { id }) => {
+                    warn!("Transaction is already closed");
+                    Err(TxnFailedException::py_err(id.0))
+                }
+                Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
+            },
+            Either::Right(_) => Err(exceptions::ValueError::py_err(
+                "Commit timed out, please check connectivity with Pravega",
+            )),
         }
     }
 
@@ -140,15 +159,24 @@ impl StreamTransaction {
     #[text_signature = "($self)"]
     pub fn abort(&mut self) -> PyResult<()> {
         info!("Aborting the transaction {}", self.txn.get_txn_id());
-        let result: Result<(), TransactionError> = self.handle.block_on(self.txn.abort());
-
-        match result {
-            Ok(_t) => Ok(()),
-            Err(TransactionError::TxnClosed { id }) => {
-                warn!("Transaction is already closed");
-                Err(TxnFailedException::py_err(id.0))
-            }
-            Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
+        let abort_fut = self.txn.abort();
+        pin_mut!(abort_fut);
+        let timeout_fut = self
+            .handle
+            .enter(|| time::delay_for(Duration::from_secs(TIMEOUT_IN_SECONDS)));
+        let result_abort = self.handle.block_on(future::select(abort_fut, timeout_fut));
+        match result_abort {
+            Either::Left(x) => match x.0 {
+                Ok(_) => Ok(()),
+                Err(TransactionError::TxnClosed { id }) => {
+                    warn!("Transaction is already closed");
+                    Err(TxnFailedException::py_err(id.0))
+                }
+                Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
+            },
+            Either::Right(_) => Err(exceptions::ValueError::py_err(
+                "Abort timed out, please check connectivity with Pravega",
+            )),
         }
     }
 
