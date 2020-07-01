@@ -384,7 +384,7 @@ impl ControllerClient for ControllerClientImpl {
     ) -> ResultRetry<()> {
         wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
-            self.call_commit_transaction(stream, tx_id, writer_id, time)
+            self.call_commit_transaction(stream, tx_id, writer_id, time.clone())
         )
     }
 
