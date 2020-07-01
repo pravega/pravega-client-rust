@@ -172,11 +172,8 @@ mod tests {
     }
 
     #[async_trait]
-    impl<'a> RawClient<'a> for MockRawClientImpl {
-        async fn send_request(&self, request: &Requests) -> Result<Replies, RawClientError>
-        where
-            'a: 'async_trait,
-        {
+    impl RawClient<'static> for MockRawClientImpl {
+        async fn send_request(&self, request: &Requests) -> Result<Replies, RawClientError> {
             delay_for(Duration::from_nanos(1)).await;
             self.send_request(request)
         }
@@ -184,10 +181,7 @@ mod tests {
         async fn send_setup_request(
             &self,
             _request: &Requests,
-        ) -> Result<(Replies, Box<dyn ClientConnection + 'a>), RawClientError>
-        where
-            'a: 'async_trait,
-        {
+        ) -> Result<(Replies, Box<dyn ClientConnection + 'static>), RawClientError> {
             unimplemented!() // Not required for this test.
         }
     }

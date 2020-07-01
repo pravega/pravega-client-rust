@@ -17,6 +17,7 @@ fn test_create_scope_error() {
     let mut rt = Runtime::new().unwrap();
     let config = ClientConfigBuilder::default()
         .controller_uri("127.0.0.1:9090".parse::<SocketAddr>().unwrap())
+        .retry_policy(RetryWithBackoff::default().max_delay(Duration::from_micros(1)))
         .build()
         .expect("build client config");
 
@@ -27,11 +28,13 @@ fn test_create_scope_error() {
     assert!(create_scope_result.is_err());
     match create_scope_result {
         Ok(_) => assert!(false, "Failure excepted"),
-        Err(ControllerError::ConnectionError {
-            can_retry,
-            error_msg: _,
-        }) => assert_eq!(true, can_retry),
-        _ => assert!(false, "Invalid Error"),
+        Err(RetryError {
+            error,
+            total_delay: _,
+            tries: _,
+        }) => {
+            assert!(error.can_retry());
+        }
     };
 }
 
@@ -40,6 +43,7 @@ fn test_create_stream_error() {
     let mut rt = Runtime::new().unwrap();
     let config = ClientConfigBuilder::default()
         .controller_uri("127.0.0.1:9090".parse::<SocketAddr>().unwrap())
+        .retry_policy(RetryWithBackoff::default().max_delay(Duration::from_micros(1)))
         .build()
         .expect("build client config");
     let client = ControllerClientImpl::new(config, rt.handle().clone());
@@ -64,9 +68,14 @@ fn test_create_stream_error() {
     assert!(create_stream_result.is_err());
     match create_stream_result {
         Ok(_) => assert!(false, "Failure excepted"),
-        Err(ControllerError::ConnectionError {
-            can_retry,
-            error_msg: _,
+        Err(RetryError {
+            error:
+                ControllerError::ConnectionError {
+                    can_retry,
+                    error_msg: _,
+                },
+            total_delay: _,
+            tries: _,
         }) => assert_eq!(true, can_retry),
         _ => assert!(false, "Invalid Error"),
     };
