@@ -73,9 +73,10 @@ impl StreamTransaction {
     ///
     /// Write an event of type String into to the Transaction. The operation blocks until the write operations is completed.
     ///
-    #[text_signature = "($self, event)"]
-    pub fn write_event(&mut self, event: &str) -> PyResult<()> {
-        self.write_event_bytes(event.as_bytes()) //
+    #[text_signature = "($self, event, routing_key=None)"]
+    #[args(event, routing_key = "None", "*")]
+    pub fn write_event(&mut self, event: &str, routing_key: Option<&str>) -> PyResult<()> {
+        self.write_event_bytes(event.as_bytes(), routing_key) //
     }
 
     ///
@@ -89,16 +90,17 @@ impl StreamTransaction {
     /// >>> b=e.encode("utf-8") // Python api to convert an object to byte array.
     /// >>> w1.write_event_bytes(b)
     ///
-    #[text_signature = "($self, event_as_byte_array)"]
-    pub fn write_event_bytes(&mut self, event: &[u8]) -> PyResult<()> {
+    #[text_signature = "($self, event, routing_key=None)"]
+    #[args(event, routing_key = "None", "*")]
+    pub fn write_event_bytes(&mut self, event: &[u8], routing_key: Option<&str>) -> PyResult<()> {
         trace!(
             "Writing a single event to a transaction {:?}",
             self.txn.get_txn_id()
         );
+        let key: Option<String> = routing_key.map(|k| k.into());
         // to_vec creates an owned copy of the python byte array object.
-        let result: Result<(), TransactionError> = self
-            .handle
-            .block_on(self.txn.write_event(Option::None, event.to_vec()));
+        let result: Result<(), TransactionError> =
+            self.handle.block_on(self.txn.write_event(key, event.to_vec()));
 
         match result {
             Ok(_t) => Ok(()),
