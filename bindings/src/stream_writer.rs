@@ -19,9 +19,9 @@ cfg_if! {
         use pyo3::PyObjectProtocol;
         use tokio::runtime::Handle;
         use log::trace;
-        use futures::future::{self, Either};
         use std::time::Duration;
-        use tokio::time;
+        use tokio::time::timeout;
+        use tokio::sync::oneshot::error::RecvError;
     }
 }
 
@@ -112,19 +112,27 @@ impl StreamWriter {
 
         let timeout_fut = self
             .handle
-            .enter(|| time::delay_for(Duration::from_secs(TIMEOUT_IN_SECONDS)));
-        let result_write = self.handle.block_on(future::select(write_future, timeout_fut));
-        match result_write {
-            Either::Left(x) => match x.0 {
-                Ok(_) => Ok(()),
+            .enter(|| timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), write_future));
+        let result: Result<Result<Result<(), EventStreamWriterError>, RecvError>, _> =
+            self.handle.block_on(timeout_fut);
+        match result {
+            Ok(t) => match t {
+                Ok(t1) => match t1 {
+                    Ok(_) => Ok(()),
+                    Err(e) => Err(exceptions::ValueError::py_err(format!(
+                        "Error observed while writing an event {:?}",
+                        e
+                    ))),
+                },
                 Err(e) => Err(exceptions::ValueError::py_err(format!(
                     "Error observed while writing an event {:?}",
                     e
                 ))),
             },
-            Either::Right(_) => Err(exceptions::ValueError::py_err(
-                "Write timed out, please check connectivity with Pravega",
-            )),
+            Err(e) => Err(exceptions::ValueError::py_err(format!(
+                "Write timed out, please check connectivity with Pravega. Error : {:?}",
+                e
+            ))),
         }
     }
 

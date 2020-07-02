@@ -20,9 +20,8 @@ cfg_if! {
         use pravega_rust_client_shared::{Timestamp, TransactionStatus, TxId};
         use pyo3::PyObjectProtocol;
         use log::{trace, info, warn};
-        use futures::future::{self, Either};
         use std::time::Duration;
-        use tokio::time;
+        use tokio::time::timeout;
         use pin_utils::pin_mut;
     }
 }
@@ -136,19 +135,22 @@ impl StreamTransaction {
         pin_mut!(commit_fut);
         let timeout_fut = self
             .handle
-            .enter(|| time::delay_for(Duration::from_secs(TIMEOUT_IN_SECONDS)));
+            .enter(|| timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), commit_fut));
+        let result_commit: Result<Result<(), TransactionError>, _> = self.handle.block_on(timeout_fut);
 
-        let result_commit = self.handle.block_on(future::select(commit_fut, timeout_fut));
         match result_commit {
-            Either::Left(x) => match x.0 {
+            Ok(t) => match t {
                 Ok(_) => Ok(()),
                 Err(TransactionError::TxnClosed { id }) => {
-                    warn!("Transaction is already closed");
+                    warn!("Transaction {:?} already closed", id);
                     Err(TxnFailedException::py_err(id.0))
                 }
-                Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
+                Err(e) => Err(exceptions::ValueError::py_err(format!(
+                    " Commit of transaction failed with {:?}",
+                    e
+                ))),
             },
-            Either::Right(_) => Err(exceptions::ValueError::py_err(
+            Err(_) => Err(exceptions::ValueError::py_err(
                 "Commit timed out, please check connectivity with Pravega",
             )),
         }
@@ -165,18 +167,22 @@ impl StreamTransaction {
         pin_mut!(abort_fut);
         let timeout_fut = self
             .handle
-            .enter(|| time::delay_for(Duration::from_secs(TIMEOUT_IN_SECONDS)));
-        let result_abort = self.handle.block_on(future::select(abort_fut, timeout_fut));
+            .enter(|| timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), abort_fut));
+        let result_abort: Result<Result<(), TransactionError>, _> = self.handle.block_on(timeout_fut);
+
         match result_abort {
-            Either::Left(x) => match x.0 {
+            Ok(t) => match t {
                 Ok(_) => Ok(()),
                 Err(TransactionError::TxnClosed { id }) => {
-                    warn!("Transaction is already closed");
+                    warn!("Transaction {:?} already closed", id);
                     Err(TxnFailedException::py_err(id.0))
                 }
-                Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
+                Err(e) => Err(exceptions::ValueError::py_err(format!(
+                    "Abort of transaction failed with {:?}",
+                    e
+                ))),
             },
-            Either::Right(_) => Err(exceptions::ValueError::py_err(
+            Err(_) => Err(exceptions::ValueError::py_err(
                 "Abort timed out, please check connectivity with Pravega",
             )),
         }
