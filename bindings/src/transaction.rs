@@ -22,7 +22,6 @@ cfg_if! {
         use log::{trace, info, warn};
         use std::time::Duration;
         use tokio::time::timeout;
-        use pin_utils::pin_mut;
     }
 }
 
@@ -132,7 +131,6 @@ impl StreamTransaction {
     pub fn commit_timestamp(&mut self, timestamp: u64) -> PyResult<()> {
         info!("Committing the transaction {:?}", self.txn.get_txn_id());
         let commit_fut = self.txn.commit(Timestamp::new(timestamp));
-        pin_mut!(commit_fut);
         let timeout_fut = self
             .handle
             .enter(|| timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), commit_fut));
@@ -164,7 +162,6 @@ impl StreamTransaction {
     pub fn abort(&mut self) -> PyResult<()> {
         info!("Aborting the transaction {}", self.txn.get_txn_id());
         let abort_fut = self.txn.abort();
-        pin_mut!(abort_fut);
         let timeout_fut = self
             .handle
             .enter(|| timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), abort_fut));

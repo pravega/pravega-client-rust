@@ -129,9 +129,8 @@ impl StreamWriter {
                     e
                 ))),
             },
-            Err(e) => Err(exceptions::ValueError::py_err(format!(
-                "Write timed out, please check connectivity with Pravega. Error : {:?}",
-                e
+            Err(_) => Err(exceptions::ValueError::py_err(format!(
+                "Write timed out, please check connectivity with Pravega."
             ))),
         }
     }
