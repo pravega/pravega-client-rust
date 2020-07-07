@@ -428,11 +428,10 @@ async fn test_write_with_stream_sealed(writer: &mut EventStreamWriter, factory: 
     for rx in receivers {
         let reply: Result<(), EventStreamWriterError> = rx.await.expect("wait for result from oneshot");
         if i < 500 {
-            assert_eq!(reply.is_ok(), true);
+            assert!(reply.is_ok());
         } else {
-            assert_eq!(reply.is_ok(), false);
+            assert!(reply.is_err());
         }
-
         i += 1;
     }
 
