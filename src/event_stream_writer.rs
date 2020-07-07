@@ -167,12 +167,16 @@ impl Processor {
                         Replies::SegmentIsSealed(cmd) => {
                             debug!("segment {:?} sealed", cmd.segment);
                             let segment = ScopedSegment::from(cmd.segment);
-                            let inflight = self
+                            if let Some(inflight) = self
                                 .selector
                                 .refresh_segment_event_writers_upon_sealed(&segment)
-                                .await;
-                            self.selector.resend(inflight).await;
-                            self.selector.remove_segment_event_writer(&segment);
+                                .await
+                            {
+                                self.selector.resend(inflight).await;
+                                self.selector.remove_segment_event_writer(&segment);
+                            } else {
+                                break;
+                            }
                         }
 
                         // same handling logic as segment sealed reply
@@ -182,12 +186,16 @@ impl Processor {
                                 cmd.segment, cmd.server_stack_trace
                             );
                             let segment = ScopedSegment::from(cmd.segment);
-                            let inflight = self
+                            if let Some(inflight) = self
                                 .selector
                                 .refresh_segment_event_writers_upon_sealed(&segment)
-                                .await;
-                            self.selector.resend(inflight).await;
-                            self.selector.remove_segment_event_writer(&segment);
+                                .await
+                            {
+                                self.selector.resend(inflight).await;
+                                self.selector.remove_segment_event_writer(&segment);
+                            } else {
+                                break;
+                            }
                         }
 
                         _ => {
@@ -592,7 +600,7 @@ impl SegmentSelector {
     async fn refresh_segment_event_writers_upon_sealed(
         &mut self,
         sealed_segment: &ScopedSegment,
-    ) -> Vec<PendingEvent> {
+    ) -> Option<Vec<PendingEvent>> {
         let stream_segments_with_predecessors = retry_async(self.config.retry_policy, || async {
             match self
                 .factory
@@ -601,10 +609,14 @@ impl SegmentSelector {
                 .await
             {
                 Ok(ss) => {
-                    if !ss.replacement_segments.contains_key(&sealed_segment.segment) {
+                    // implicitly indicating that the current stream is sealed.
+                    // See issue https://github.com/pravega/pravega/issues/1684
+                    if ss.is_empty() {
+                        RetryResult::Success(None)
+                    } else if !ss.replacement_segments.contains_key(&sealed_segment.segment) {
                         RetryResult::Retry("retry get successors due to empty successors")
                     } else {
-                        RetryResult::Success(ss)
+                        RetryResult::Success(Some(ss))
                     }
                 }
                 Err(_e) => RetryResult::Retry("retry controller command due to error"),
@@ -612,8 +624,12 @@ impl SegmentSelector {
         })
         .await
         .expect("retry failed");
-        self.update_segments_upon_sealed(stream_segments_with_predecessors, sealed_segment)
-            .await
+
+        if let Some(ss) = stream_segments_with_predecessors {
+            Some(self.update_segments_upon_sealed(ss, sealed_segment).await)
+        } else {
+            None
+        }
     }
 
     /// create event segment writer for the successor segment of the sealed segment and return the inflight event

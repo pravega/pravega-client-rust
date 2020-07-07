@@ -458,6 +458,10 @@ impl StreamSegmentsWithPredecessors {
             replacement_segments: replacement_map.into(), // convert to immutable map.
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.segment_with_predecessors.is_empty()
+    }
 }
 
 // convert u64 to 0.0 - 1.0 in f64
