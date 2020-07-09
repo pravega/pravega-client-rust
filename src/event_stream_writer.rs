@@ -601,34 +601,17 @@ impl SegmentSelector {
         &mut self,
         sealed_segment: &ScopedSegment,
     ) -> Option<Vec<PendingEvent>> {
-        let stream_segments_with_predecessors = retry_async(self.config.retry_policy, || async {
-            match self
-                .factory
-                .get_controller_client()
-                .get_successors(sealed_segment)
-                .await
-            {
-                Ok(ss) => {
-                    // implicitly indicating that the current stream is sealed.
-                    // See issue https://github.com/pravega/pravega/issues/1684
-                    if ss.is_empty() {
-                        RetryResult::Success(None)
-                    } else if !ss.replacement_segments.contains_key(&sealed_segment.segment) {
-                        RetryResult::Retry("retry get successors due to empty successors")
-                    } else {
-                        RetryResult::Success(Some(ss))
-                    }
-                }
-                Err(_e) => RetryResult::Retry("retry controller command due to error"),
-            }
-        })
-        .await
-        .expect("retry failed");
+        let stream_segments_with_predecessors = self
+            .factory
+            .get_controller_client()
+            .get_successors(sealed_segment)
+            .await
+            .expect("get successors for sealed segment");
 
-        if let Some(ss) = stream_segments_with_predecessors {
-            Some(self.update_segments_upon_sealed(ss, sealed_segment).await)
-        } else {
+        if stream_segments_with_predecessors.is_segment_sealed() {
             None
+        } else {
+            Some(self.update_segments_upon_sealed(stream_segments_with_predecessors, sealed_segment).await)
         }
     }
 
