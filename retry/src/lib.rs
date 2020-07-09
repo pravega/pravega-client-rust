@@ -35,7 +35,6 @@
     clippy::cargo_common_metadata,
     clippy::mutex_integer,
     clippy::needless_borrow,
-    clippy::unwrap_used,
     clippy::similar_names
 )]
 #![allow(clippy::multiple_crate_versions)]
