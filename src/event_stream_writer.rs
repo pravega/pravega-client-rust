@@ -611,7 +611,10 @@ impl SegmentSelector {
         if stream_segments_with_predecessors.is_segment_sealed() {
             None
         } else {
-            Some(self.update_segments_upon_sealed(stream_segments_with_predecessors, sealed_segment).await)
+            Some(
+                self.update_segments_upon_sealed(stream_segments_with_predecessors, sealed_segment)
+                    .await,
+            )
         }
     }
 
