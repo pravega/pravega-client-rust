@@ -10,8 +10,8 @@
 
 use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
-use pravega_client_rust::error::EventStreamWriterError;
-use pravega_client_rust::event_stream_writer::{EventStreamWriter, Processor};
+use pravega_client_rust::error::SegmentWriter;
+use pravega_client_rust::event_stream_writer::EventStreamWriter;
 use pravega_client_rust::raw_client::RawClient;
 use pravega_client_rust::segment_reader::AsyncSegmentReader;
 use pravega_connection_pool::connection_pool::ConnectionPool;
@@ -107,7 +107,7 @@ async fn test_simple_write(writer: &mut EventStreamWriter) {
     assert_eq!(receivers.len(), count);
 
     for rx in receivers {
-        let reply: Result<(), EventStreamWriterError> = rx.await.expect("wait for result from oneshot");
+        let reply: Result<(), SegmentWriter> = rx.await.expect("wait for result from oneshot");
         assert_eq!(reply.is_ok(), true);
     }
     info!("test simple write passed");
@@ -147,7 +147,7 @@ async fn test_segment_scaling_up(writer: &mut EventStreamWriter, factory: &Clien
     assert_eq!(receivers.len(), count);
 
     for rx in receivers {
-        let reply: Result<(), EventStreamWriterError> = rx.await.expect("wait for result from oneshot");
+        let reply: Result<(), SegmentWriter> = rx.await.expect("wait for result from oneshot");
         assert_eq!(reply.is_ok(), true);
     }
 
@@ -186,7 +186,7 @@ async fn test_segment_scaling_down(writer: &mut EventStreamWriter, factory: &Cli
     assert_eq!(receivers.len(), count);
 
     for rx in receivers {
-        let reply: Result<(), EventStreamWriterError> = rx.await.expect("wait for result from oneshot");
+        let reply: Result<(), SegmentWriter> = rx.await.expect("wait for result from oneshot");
         assert_eq!(reply.is_ok(), true);
     }
     info!("test event stream writer with segment sealed passed");
@@ -195,7 +195,7 @@ async fn test_segment_scaling_down(writer: &mut EventStreamWriter, factory: &Cli
 async fn test_write_correctness(writer: &mut EventStreamWriter, factory: &ClientFactory) {
     info!("test read and write");
     let rx = writer.write_event(String::from("event0").into_bytes()).await;
-    let reply: Result<(), EventStreamWriterError> = rx.await.expect("wait for result from oneshot");
+    let reply: Result<(), SegmentWriter> = rx.await.expect("wait for result from oneshot");
     assert_eq!(reply.is_ok(), true);
     let scope_name = Scope::new("testScopeWriter2".into());
     let stream_name = Stream::new("testStreamWriter2".into());
@@ -270,7 +270,7 @@ async fn test_write_correctness_while_scaling(writer: &mut EventStreamWriter, fa
     }
     // the data should write successfully.
     for rx in receivers {
-        let reply: Result<(), EventStreamWriterError> = rx.await.expect("wait for result from oneshot");
+        let reply: Result<(), SegmentWriter> = rx.await.expect("wait for result from oneshot");
         assert_eq!(reply.is_ok(), true);
     }
 

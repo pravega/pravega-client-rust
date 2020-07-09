@@ -10,7 +10,7 @@
 
 use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
-use crate::event_stream_writer::{EventSegmentWriter, Incoming, PendingEvent};
+use crate::stream_writer::{SegmentWriter, Incoming, PendingEvent};
 use log::{debug, error, warn};
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_shared::ScopedSegment;
@@ -25,10 +25,10 @@ use tokio::sync::oneshot;
 /// transaction segment.
 pub(super) struct TransactionalEventSegmentWriter {
     segment: ScopedSegment,
-    event_segment_writer: EventSegmentWriter,
+    event_segment_writer: SegmentWriter,
     recevier: Receiver<Incoming>,
     // Only need to hold onto the lastest event since if any previous events failed, the last one will also fail
-    outstanding: Option<oneshot::Receiver<Result<(), EventStreamWriterError>>>,
+    outstanding: Option<oneshot::Receiver<Result<(), SegmentWriter>>>,
 }
 
 impl TransactionalEventSegmentWriter {
@@ -36,7 +36,7 @@ impl TransactionalEventSegmentWriter {
 
     pub(super) fn new(segment: ScopedSegment, retry_policy: RetryWithBackoff) -> Self {
         let (tx, rx) = channel(TransactionalEventSegmentWriter::CHANNEL_CAPACITY);
-        let event_segment_writer = EventSegmentWriter::new(segment.clone(), tx, retry_policy);
+        let event_segment_writer = SegmentWriter::new(segment.clone(), tx, retry_policy);
         TransactionalEventSegmentWriter {
             segment,
             event_segment_writer,
@@ -120,7 +120,7 @@ impl TransactionalEventSegmentWriter {
         factory: &ClientFactoryInternal,
     ) -> Result<(), TransactionalEventSegmentWriterError> {
         if let Incoming::ServerReply(reply) = income {
-            if let Replies::DataAppended(cmd) = reply.reply {
+            if let Replies::DataAppended(cmd) = reply.reply() {
                 self.process_data_appended(factory, cmd).await;
                 Ok(())
             } else {
@@ -128,7 +128,7 @@ impl TransactionalEventSegmentWriter {
                     "unexpected reply from server, transaction failed due to {:?}",
                     reply
                 );
-                Err(TransactionalEventSegmentWriterError::UnexpectedReply { error: reply.reply })
+                Err(TransactionalEventSegmentWriterError::UnexpectedReply { error: reply.reply() })
             }
         } else {
             panic!("should always receive ServerReply type");

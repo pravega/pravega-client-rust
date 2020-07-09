@@ -56,7 +56,7 @@ impl StreamWriter {
     pub fn write_event_bytes(&mut self, event: Vec<u8>) -> PyResult<()> {
         println!("Writing a single event");
         let result = self.handle.block_on(self.writer.write_event(event));
-        let result_oneshot: Result<(), EventStreamWriterError> =
+        let result_oneshot: Result<(), SegmentWriter> =
             self.handle.block_on(result).expect("Write failed");
 
         match result_oneshot {
@@ -73,7 +73,7 @@ impl StreamWriter {
         let result = self
             .handle
             .block_on(self.writer.write_event_by_routing_key(routing_key, event));
-        let result_oneshot: Result<(), EventStreamWriterError> = self
+        let result_oneshot: Result<(), SegmentWriter> = self
             .handle
             .block_on(result)
             .expect("Write for specified routing key failed");

@@ -38,7 +38,7 @@ pub enum RawClientError {
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
-pub enum EventStreamWriterError {
+pub enum SegmentWriter {
     #[snafu(display("Failed to send request to the processor"))]
     SendToProcessor {},
 
@@ -87,7 +87,7 @@ pub enum TransactionalEventSegmentWriterError {
     OneshotError { source: oneshot::error::TryRecvError },
 
     #[snafu(display("EventSegmentWriter failed due to {:?}", source))]
-    WriterError { source: EventStreamWriterError },
+    WriterError { source: SegmentWriter },
 
     #[snafu(display("Unexpected reply from segmentstore {:?}", error))]
     UnexpectedReply { error: Replies },

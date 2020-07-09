@@ -38,6 +38,7 @@ pub mod event_stream_writer;
 pub mod raw_client;
 pub mod segment_reader;
 mod stream;
+mod stream_writer;
 pub mod table_synchronizer;
 pub mod tablemap;
 pub mod transaction;
