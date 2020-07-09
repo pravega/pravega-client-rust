@@ -16,6 +16,7 @@ use tokio::sync::oneshot;
 use uuid::Uuid;
 
 use crate::client_factory::{ClientFactory, ClientFactoryInternal};
+use crate::error::SegmentWriter;
 use crate::segment_writer::{Reactor, SegmentSelector};
 use pravega_wire_protocol::client_config::ClientConfig;
 use std::sync::Arc;
@@ -53,7 +54,33 @@ impl ByteStreamWriter {
         }
     }
 
-    async fn open(segment: ScopedSegment, factory: &ClientFactory) -> Self {}
+    pub async fn write(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), SegmentWriter>> {
+        let (tx, rx) = oneshot::channel();
+        let append_event = Incoming::AppendEvent(AppendEvent::new(false, event, None, tx));
+        self.writer_event_internal().await
+    }
+
+    pub async fn write_by_routing_key(
+        &mut self,
+        routing_key: String,
+        event: Vec<u8>,
+    ) -> oneshot::Receiver<Result<(), SegmentWriter>> {
+        let (tx, rx) = oneshot::channel();
+        let append_event = Incoming::AppendEvent(AppendEvent::new(false, event, Some(routing_key), tx));
+        self.writer_event_internal().await
+    }
+
+    async fn writer_internal(&mut self) -> oneshot::Receiver<Result<(), SegmentWriter>> {
+        if let Err(_e) = self.sender.send(append_event).await {
+            let (tx_error, rx_error) = oneshot::channel();
+            tx_error
+                .send(Err(SegmentWriter::SendToProcessor {}))
+                .expect("send error");
+            rx_error
+        } else {
+            rx
+        }
+    }
 }
 
 #[derive(Debug, Snafu)]

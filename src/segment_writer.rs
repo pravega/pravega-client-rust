@@ -53,10 +53,14 @@ impl Reactor {
                     let event_segment_writer =
                         self.selector.writers.get_mut(&segment).expect("must have writer");
 
-                    if let Some(event) =
+                    let option = if event.with_header {
                         PendingEvent::with_header(event.routing_key, event.inner, event.oneshot_sender)
-                    {
-                        if let Err(e) = event_segment_writer.write(event).await {
+                    } else {
+                        PendingEvent::without_header(event.routing_key, event.inner, event.oneshot_sender)
+                    };
+
+                    if let Some(pending_event) = option {
+                        if let Err(e) = event_segment_writer.write(pending_event).await {
                             warn!("failed to write append to segment due to {:?}, reconnecting", e);
                             event_segment_writer.reconnect(&self.factory).await;
                         }
@@ -594,6 +598,7 @@ pub(crate) enum Incoming {
 
 #[derive(new, Debug)]
 pub(crate) struct AppendEvent {
+    with_header: bool,
     inner: Vec<u8>,
     routing_key: Option<String>,
     oneshot_sender: oneshot::Sender<Result<(), SegmentWriter>>,

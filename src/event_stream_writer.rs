@@ -51,16 +51,8 @@ impl EventStreamWriter {
 
     pub async fn write_event(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), SegmentWriter>> {
         let (tx, rx) = oneshot::channel();
-        let append_event = Incoming::AppendEvent(AppendEvent::new(event, None, tx));
-        if let Err(_e) = self.sender.send(append_event).await {
-            let (tx_error, rx_error) = oneshot::channel();
-            tx_error
-                .send(Err(SegmentWriter::SendToProcessor {}))
-                .expect("send error");
-            rx_error
-        } else {
-            rx
-        }
+        let append_event = Incoming::AppendEvent(AppendEvent::new(true, event, None, tx));
+        self.writer_event_internal().await
     }
 
     pub async fn write_event_by_routing_key(
@@ -69,7 +61,11 @@ impl EventStreamWriter {
         event: Vec<u8>,
     ) -> oneshot::Receiver<Result<(), SegmentWriter>> {
         let (tx, rx) = oneshot::channel();
-        let append_event = Incoming::AppendEvent(AppendEvent::new(event, Some(routing_key), tx));
+        let append_event = Incoming::AppendEvent(AppendEvent::new(true, event, Some(routing_key), tx));
+        self.writer_event_internal().await
+    }
+
+    async fn writer_event_internal(&mut self) -> oneshot::Receiver<Result<(), SegmentWriter>> {
         if let Err(_e) = self.sender.send(append_event).await {
             let (tx_error, rx_error) = oneshot::channel();
             tx_error
