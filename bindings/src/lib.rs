@@ -13,6 +13,9 @@ extern crate cfg_if;
 
 mod stream_manager;
 mod stream_writer;
+mod stream_writer_transactional;
+mod transaction;
+
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pyo3::prelude::*;
@@ -20,14 +23,27 @@ cfg_if! {
         #[macro_use]
         extern crate derive_new;
         use stream_writer::StreamWriter;
+        use crate::stream_writer_transactional::StreamTxnWriter;
+        use crate::transaction::StreamTransaction;
+        use pyo3::create_exception;
+        use pyo3::exceptions::Exception;
+
+        /*
+         *  This exception indicates a transaction has failed. Usually because the
+            transaction timed out or someone called transaction.abort()
+        */
+        create_exception!(pravega_client, TxnFailedException, Exception);
     }
 }
 
 #[cfg(feature = "python_binding")]
 #[pymodule]
 /// A Python module implemented in Rust.
-fn pravega_client(_py: Python, m: &PyModule) -> PyResult<()> {
+fn pravega_client(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<StreamManager>()?;
     m.add_class::<StreamWriter>()?;
+    m.add_class::<StreamTxnWriter>()?;
+    m.add_class::<StreamTransaction>()?;
+    m.add("TxnFailedException", py.get_type::<TxnFailedException>())?;
     Ok(())
 }

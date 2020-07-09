@@ -3,7 +3,6 @@
 ## Steps to generate and publish Pravega Python bindings.
 
 *Pre-requisites*
-- Nightly version of the rustc is required.
 - Python 3.5 and up.
 
 1. Ensure `cargo build` works fine.
