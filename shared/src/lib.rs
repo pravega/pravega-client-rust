@@ -461,7 +461,7 @@ impl StreamSegmentsWithPredecessors {
 
     // implicitly indicating that the current stream is sealed.
     // See issue https://github.com/pravega/pravega/issues/1684
-    pub fn is_segment_sealed(&self) -> bool {
+    pub fn is_stream_sealed(&self) -> bool {
         self.segment_with_predecessors.is_empty()
     }
 }

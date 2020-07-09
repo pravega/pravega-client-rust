@@ -608,7 +608,7 @@ impl SegmentSelector {
             .await
             .expect("get successors for sealed segment");
 
-        if stream_segments_with_predecessors.is_segment_sealed() {
+        if stream_segments_with_predecessors.is_stream_sealed() {
             None
         } else {
             Some(
