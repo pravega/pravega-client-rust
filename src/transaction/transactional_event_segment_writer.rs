@@ -10,7 +10,7 @@
 
 use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
-use crate::stream_writer::{SegmentWriter, Incoming, PendingEvent};
+use crate::segment_writer::{Incoming, PendingEvent, SegmentWriter};
 use log::{debug, error, warn};
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_shared::ScopedSegment;

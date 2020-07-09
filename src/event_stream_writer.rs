@@ -14,7 +14,7 @@ use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
 use uuid::Uuid;
 
-use crate::stream_writer::{AppendEvent, Incoming, Reactor, SegmentSelector};
+use crate::segment_writer::{AppendEvent, Incoming, Reactor, SegmentSelector};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfig;
 
@@ -22,7 +22,7 @@ use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
 
 /// EventStreamWriter contains a writer id and a mpsc sender which is used to send Event
-/// to the Processor
+/// to the StreamWriter
 pub struct EventStreamWriter {
     writer_id: Uuid,
     sender: Sender<Incoming>,
@@ -49,16 +49,9 @@ impl EventStreamWriter {
         }
     }
 
-    pub async fn write_event(
-        &mut self,
-        event: Vec<u8>,
-    ) -> oneshot::Receiver<Result<(), SegmentWriter>> {
+    pub async fn write_event(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), SegmentWriter>> {
         let (tx, rx) = oneshot::channel();
-        let append_event = Incoming::AppendEvent(AppendEvent::new(
-            event,
-            None,
-            tx,
-        ));
+        let append_event = Incoming::AppendEvent(AppendEvent::new(event, None, tx));
         if let Err(_e) = self.sender.send(append_event).await {
             let (tx_error, rx_error) = oneshot::channel();
             tx_error
@@ -76,11 +69,7 @@ impl EventStreamWriter {
         event: Vec<u8>,
     ) -> oneshot::Receiver<Result<(), SegmentWriter>> {
         let (tx, rx) = oneshot::channel();
-        let append_event = Incoming::AppendEvent(AppendEvent::new(
-            event,
-            Some(routing_key),
-            tx,
-        ));
+        let append_event = Incoming::AppendEvent(AppendEvent::new(event, Some(routing_key), tx));
         if let Err(_e) = self.sender.send(append_event).await {
             let (tx_error, rx_error) = oneshot::channel();
             tx_error
@@ -98,7 +87,7 @@ mod tests {
     use tokio::runtime::Runtime;
 
     use super::*;
-    use crate::stream_writer::PendingEvent;
+    use crate::segment_writer::PendingEvent;
 
     #[test]
     fn test_pending_event() {
