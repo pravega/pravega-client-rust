@@ -18,7 +18,6 @@ use snafu::ResultExt;
 use snafu::{ensure, Snafu};
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
-use std::str::FromStr;
 
 const ASSUMED_LAG_MILLIS: u64 = 30000;
 const DEFAULT_INNER_KEY: &str = "default";
@@ -158,7 +157,7 @@ impl ReaderGroupState<'_> {
     pub(crate) async fn get_reader_positions(
         &mut self,
         reader: &Reader,
-    ) -> HashMap<SegmentWithRange, Offset> {
+    ) -> Result<HashMap<SegmentWithRange, Offset>, SynchronizerError> {
         self.sync.fetch_updates().await.expect("should fetch updates");
         ReaderGroupState::get_reader_positions_internal(reader, self.sync.get_inner_map(ASSIGNED))
     }
@@ -166,14 +165,16 @@ impl ReaderGroupState<'_> {
     fn get_reader_positions_internal(
         reader: &Reader,
         assigned_segments: HashMap<String, Value>,
-    ) -> HashMap<SegmentWithRange, Offset> {
-        deserialize_from(
+    ) -> Result<HashMap<SegmentWithRange, Offset>, SynchronizerError> {
+        ReaderGroupState::check_reader_online(&assigned_segments, reader)?;
+
+        Ok(deserialize_from(
             &assigned_segments
                 .get(&reader.to_string())
                 .expect("reader must exist")
                 .data,
         )
-        .expect("deserialize reader position")
+        .expect("deserialize reader position"))
     }
 
     /// Updates the latest positions for the given reader.
@@ -197,7 +198,7 @@ impl ReaderGroupState<'_> {
         reader: &Reader,
         latest_positions: &HashMap<SegmentWithRange, Offset>,
     ) -> Result<(), SynchronizerError> {
-        let mut owned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader);
+        let mut owned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)?;
 
         for (segment, offset) in latest_positions {
             owned_segments.entry(segment.to_owned()).and_modify(|v| {
@@ -237,7 +238,7 @@ impl ReaderGroupState<'_> {
         reader: &Reader,
         owned_segments: &HashMap<ScopedSegment, Offset>,
     ) -> Result<(), SynchronizerError> {
-        let assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader);
+        let assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)?;
 
         for (segment, pos) in assigned_segments {
             // update offset using owned_segments
@@ -281,10 +282,8 @@ impl ReaderGroupState<'_> {
             unassigned_segments
                 .keys()
                 .map(|segment| {
-                    segment
-                        .parse::<SegmentWithRange>()
-                        .expect("parse SegmentWithRange from str")
-                        .scoped_segment
+                    let segment_str = &*segment.to_owned();
+                    SegmentWithRange::from(segment_str).scoped_segment
                 })
                 .collect::<HashSet<ScopedSegment>>(),
         );
@@ -310,7 +309,7 @@ impl ReaderGroupState<'_> {
         reader: &Reader,
         segment: &ScopedSegment,
     ) -> Result<(), SynchronizerError> {
-        let mut assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader);
+        let mut assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)?;
         let unassigned_segments = ReaderGroupState::get_unassigned_segments_from_table(table);
 
         let mut newly_assigned = unassigned_segments
@@ -349,18 +348,24 @@ impl ReaderGroupState<'_> {
     }
 
     /// Returns the list of segments assigned to the requested reader.
-    pub(crate) async fn get_segments_for_reader(&mut self, reader: &Reader) -> HashSet<ScopedSegment> {
+    pub(crate) async fn get_segments_for_reader(
+        &mut self,
+        reader: &Reader,
+    ) -> Result<HashSet<ScopedSegment>, SynchronizerError> {
         self.sync.fetch_updates().await.expect("should fetch updates");
-        let value = self
-            .sync
-            .get(ASSIGNED, &reader.to_string())
-            .expect("reader must exist");
+        let value =
+            self.sync
+                .get(ASSIGNED, &reader.to_string())
+                .ok_or(SynchronizerError::SyncUpdateError {
+                    error_msg: format!("reader {} is not online", reader),
+                })?;
+
         let segments: HashMap<SegmentWithRange, Offset> =
             deserialize_from(&value.data).expect("deserialize reader owned segments");
-        segments
+        Ok(segments
             .iter()
             .map(|(k, _v)| k.scoped_segment.clone())
-            .collect::<HashSet<ScopedSegment>>()
+            .collect::<HashSet<ScopedSegment>>())
     }
 
     /// Releases a currently assigned segment from the given reader.
@@ -388,7 +393,7 @@ impl ReaderGroupState<'_> {
         segment: &ScopedSegment,
         offset: &Offset,
     ) -> Result<(), SynchronizerError> {
-        let mut assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader);
+        let mut assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)?;
         let unassigned_segments = ReaderGroupState::get_unassigned_segments_from_table(table);
 
         let mut to_remove_list = assigned_segments
@@ -473,7 +478,7 @@ impl ReaderGroupState<'_> {
         segment_completed: &SegmentWithRange,
         successors_mapped_to_their_predecessors: &HashMap<SegmentWithRange, Vec<Segment>>,
     ) -> Result<(), SynchronizerError> {
-        let mut assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader);
+        let mut assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)?;
         let mut future_segments = ReaderGroupState::get_future_segments_from_table(table);
 
         // remove completed segment from assigned_segment list
@@ -540,13 +545,15 @@ impl ReaderGroupState<'_> {
     fn get_reader_owned_segments_from_table(
         table: &mut Table,
         reader: &Reader,
-    ) -> HashMap<SegmentWithRange, Offset> {
+    ) -> Result<HashMap<SegmentWithRange, Offset>, SynchronizerError> {
+        ReaderGroupState::check_reader_online(&table.get_inner_map(ASSIGNED), reader)?;
+
         let value = table
             .get(ASSIGNED, &reader.to_string())
             .expect("get reader owned segments");
         let owned_segments: HashMap<SegmentWithRange, Offset> =
             deserialize_from(&value.data).expect("deserialize reader owned segments");
-        owned_segments
+        Ok(owned_segments)
     }
 
     fn get_unassigned_segments_from_table(table: &mut Table) -> HashMap<SegmentWithRange, Offset> {
@@ -554,8 +561,9 @@ impl ReaderGroupState<'_> {
             .get_inner_map(UNASSIGNED)
             .iter()
             .map(|(k, v)| {
+                let segment_str = &*k.to_owned();
                 (
-                    SegmentWithRange::from_str(k).expect("segmentWithRange from str"),
+                    SegmentWithRange::from(segment_str),
                     deserialize_from(&v.data).expect("deserialize offset"),
                 )
             })
@@ -567,12 +575,26 @@ impl ReaderGroupState<'_> {
             .get_inner_map(FUTURE)
             .iter()
             .map(|(k, v)| {
+                let segment_str = &*k.to_owned();
                 (
-                    SegmentWithRange::from_str(k).expect("segmentWithRange from str"),
+                    SegmentWithRange::from(segment_str),
                     deserialize_from(&v.data).expect("deserialize hashset"),
                 )
             })
             .collect::<HashMap<SegmentWithRange, HashSet<Segment>>>()
+    }
+
+    fn check_reader_online(
+        assigned: &HashMap<String, Value>,
+        reader: &Reader,
+    ) -> Result<(), SynchronizerError> {
+        if assigned.contains_key(&reader.to_string()) {
+            Ok(())
+        } else {
+            Err(SynchronizerError::SyncUpdateError {
+                error_msg: format!("reader {} is not online", reader),
+            })
+        }
     }
 }
 
@@ -673,7 +695,8 @@ mod test {
         ReaderGroupState::assign_segment_to_reader_internal(&mut table, &READER, &SEGMENT)
             .expect("assign segment to reader");
         let segments =
-            ReaderGroupState::get_reader_positions_internal(&READER, table.get_inner_map(ASSIGNED));
+            ReaderGroupState::get_reader_positions_internal(&READER, table.get_inner_map(ASSIGNED))
+                .expect("get reader positions");
 
         assert_eq!(segments.len(), 1, "should have assigned one segment the reader");
         assert_eq!(
@@ -696,7 +719,8 @@ mod test {
         ReaderGroupState::update_reader_positions_internal(&mut table, &READER, &update)
             .expect("update reader position");
         let segments =
-            ReaderGroupState::get_reader_positions_internal(&READER, table.get_inner_map(ASSIGNED));
+            ReaderGroupState::get_reader_positions_internal(&READER, table.get_inner_map(ASSIGNED))
+                .expect("get reader positions");
 
         assert_eq!(segments.len(), 1, "reader should contain one owned segment");
         assert_eq!(
@@ -759,7 +783,8 @@ mod test {
         .expect("release segment");
 
         let segments =
-            ReaderGroupState::get_reader_positions_internal(&READER, table.get_inner_map(ASSIGNED));
+            ReaderGroupState::get_reader_positions_internal(&READER, table.get_inner_map(ASSIGNED))
+                .expect("get reader positions");
         assert_eq!(
             segments.len(),
             1,

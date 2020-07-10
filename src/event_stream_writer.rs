@@ -31,7 +31,6 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
 use crate::raw_client::RawClient;
-use std::str::FromStr;
 
 /// EventStreamWriter contains a writer id and a mpsc sender which is used to send Event
 /// to the Processor
@@ -167,8 +166,7 @@ impl Processor {
 
                         Replies::SegmentIsSealed(cmd) => {
                             debug!("segment {:?} sealed", cmd.segment);
-                            let segment =
-                                ScopedSegment::from_str(&cmd.segment).expect("deserialize from string");
+                            let segment = ScopedSegment::from(&*cmd.segment);
                             let inflight = self
                                 .selector
                                 .refresh_segment_event_writers_upon_sealed(&segment)
@@ -183,8 +181,8 @@ impl Processor {
                                 "no such segment {:?} due to segment truncation: stack trace {}",
                                 cmd.segment, cmd.server_stack_trace
                             );
-                            let segment =
-                                ScopedSegment::from_str(&cmd.segment).expect("deserialize from string");
+                            let segment_str = &*cmd.segment;
+                            let segment = ScopedSegment::from(segment_str);
                             let inflight = self
                                 .selector
                                 .refresh_segment_event_writers_upon_sealed(&segment)

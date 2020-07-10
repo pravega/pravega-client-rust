@@ -37,11 +37,11 @@ use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use std::cmp::{min, Reverse};
 use std::collections::{BTreeMap, HashMap};
+use std::convert::From;
 use std::fmt;
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
 use std::ops::Index;
-use std::str::FromStr;
 use uuid::Uuid;
 
 #[macro_use]
@@ -125,19 +125,18 @@ impl ScopedSegment {
     }
 }
 
-impl FromStr for ScopedSegment {
-    type Err = ();
-    fn from_str(qualified_name: &str) -> Result<Self, Self::Err> {
+impl From<&str> for ScopedSegment {
+    fn from(qualified_name: &str) -> Self {
         if NameUtils::is_transaction_segment(qualified_name) {
             let original_segment_name = NameUtils::get_parent_stream_segment_name(qualified_name);
-            ScopedSegment::from_str(original_segment_name)
+            ScopedSegment::from(original_segment_name)
         } else {
             let mut tokens = NameUtils::extract_segment_tokens(qualified_name.to_owned());
             if tokens.len() == 2 {
                 // scope not present
                 let segment_id = tokens.pop().expect("get segment id from tokens");
                 let stream_name = tokens.pop().expect("get stream name from tokens");
-                Ok(ScopedSegment {
+                ScopedSegment {
                     scope: Scope {
                         name: String::from(""),
                     },
@@ -146,19 +145,19 @@ impl FromStr for ScopedSegment {
                         number: segment_id.parse::<i64>().expect("parse string to i64"),
                         tx_id: None,
                     },
-                })
+                }
             } else {
                 let segment_id = tokens.pop().expect("get segment id from tokens");
                 let stream_name = tokens.pop().expect("get stream name from tokens");
                 let scope = tokens.pop().expect("get scope from tokens");
-                Ok(ScopedSegment {
+                ScopedSegment {
                     scope: Scope { name: scope },
                     stream: Stream { name: stream_name },
                     segment: Segment {
                         number: segment_id.parse::<i64>().expect("parse string to i64"),
                         tx_id: None,
                     },
-                })
+                }
             }
         }
     }
@@ -320,19 +319,15 @@ impl fmt::Display for SegmentWithRange {
     }
 }
 
-impl FromStr for SegmentWithRange {
-    type Err = ();
-
-    fn from_str(name: &str) -> Result<Self, Self::Err> {
+impl From<&str> for SegmentWithRange {
+    fn from(name: &str) -> Self {
         let segment_name_length: usize = name[..PREFIX_LENGTH].parse().expect("parse prefix length");
 
-        let segment_str = name[PREFIX_LENGTH..PREFIX_LENGTH + segment_name_length]
+        let segment_str = &*name[PREFIX_LENGTH..PREFIX_LENGTH + segment_name_length]
             .parse::<String>()
             .expect("parse segment name");
 
-        let scoped_segment = segment_str
-            .parse::<ScopedSegment>()
-            .expect("parse ScopedSegment from string");
+        let scoped_segment: ScopedSegment = segment_str.into();
 
         let rest_string = name[PREFIX_LENGTH + segment_name_length..]
             .parse::<String>()
@@ -350,11 +345,11 @@ impl FromStr for SegmentWithRange {
             .parse::<OrderedFloat<f64>>()
             .expect("parse OrderedFloat from str");
 
-        Ok(SegmentWithRange {
+        SegmentWithRange {
             scoped_segment,
             min_key,
             max_key,
-        })
+        }
     }
 }
 
@@ -557,10 +552,9 @@ mod test {
             max_key: OrderedFloat::from(1.0),
         };
 
-        let segment_string = segment.to_string();
+        let segment_string = &*segment.to_string();
 
-        let segment_from_string =
-            SegmentWithRange::from_str(&segment_string).expect("get segment with range from string");
+        let segment_from_string: SegmentWithRange = segment_string.into();
 
         assert_eq!(segment_from_string, segment);
     }

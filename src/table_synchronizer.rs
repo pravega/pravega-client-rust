@@ -24,6 +24,8 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::slice::Iter;
+use std::time::Duration;
+use tokio::time::delay_for;
 use tracing::{debug, info};
 
 /// Provides a map that is synchronized across different processes.
@@ -57,6 +59,11 @@ pub struct TableSynchronizer<'a> {
     /// An offset that is used to make conditional update on the server side.
     table_segment_offset: i64,
 }
+
+// Max number of retries by the table synchronizer in case of a failure.
+const MAX_RETRIES: i32 = 10;
+// Wait until next attempt.
+const DELAY_MILLIS: u64 = 1000;
 
 impl<'a> TableSynchronizer<'a> {
     pub async fn new(name: String, factory: &'a ClientFactoryInternal) -> TableSynchronizer<'a> {
@@ -241,7 +248,7 @@ impl<'a> TableSynchronizer<'a> {
         &mut self,
         updates_generator: impl FnMut(&mut Table) -> Result<(), SynchronizerError>,
     ) -> Result<(), SynchronizerError> {
-        conditionally_write(updates_generator, self).await
+        conditionally_write(updates_generator, self, MAX_RETRIES).await
     }
 
     /// Removes a list of keys and applies it atomically to local map.
@@ -250,7 +257,7 @@ impl<'a> TableSynchronizer<'a> {
         &mut self,
         deletes_generateor: impl FnMut(&mut Table) -> Result<(), SynchronizerError>,
     ) -> Result<(), SynchronizerError> {
-        conditionally_remove(deletes_generateor, self).await
+        conditionally_remove(deletes_generateor, self, MAX_RETRIES).await
     }
 }
 
@@ -644,8 +651,9 @@ where
 async fn conditionally_write(
     mut updates_generator: impl FnMut(&mut Table) -> Result<(), SynchronizerError>,
     table_synchronizer: &mut TableSynchronizer<'_>,
+    mut retry: i32,
 ) -> Result<(), SynchronizerError> {
-    loop {
+    while retry > 0 {
         let map = table_synchronizer.get_current_map();
         let counter = table_synchronizer.get_current_counter();
 
@@ -700,10 +708,15 @@ async fn conditionally_write(
             }
             Err(e) => {
                 debug!("Error message is {}", e);
-                return Err(SynchronizerError::SyncTableError {
-                    operation: "insert conditionally_all".to_owned(),
-                    source: e,
-                });
+                if retry > 0 {
+                    retry -= 1;
+                    delay_for(Duration::from_millis(DELAY_MILLIS)).await;
+                } else {
+                    return Err(SynchronizerError::SyncTableError {
+                        operation: "insert conditionally_all".to_owned(),
+                        source: e,
+                    });
+                }
             }
             Ok(res) => {
                 apply_inserts_to_localmap(&mut to_update, res, table_synchronizer);
@@ -718,8 +731,9 @@ async fn conditionally_write(
 async fn conditionally_remove(
     mut delete_generator: impl FnMut(&mut Table) -> Result<(), SynchronizerError>,
     table_synchronizer: &mut TableSynchronizer<'_>,
+    mut retry: i32,
 ) -> Result<(), SynchronizerError> {
-    loop {
+    while retry > 0 {
         let map = table_synchronizer.get_current_map();
         let counter = table_synchronizer.get_current_counter();
 
@@ -763,10 +777,15 @@ async fn conditionally_remove(
             }
             Err(e) => {
                 debug!("Error message is {}", e);
-                return Err(SynchronizerError::SyncTableError {
-                    operation: "remove conditionally_all".to_owned(),
-                    source: e,
-                });
+                if retry > 0 {
+                    retry -= 1;
+                    delay_for(Duration::from_millis(DELAY_MILLIS)).await;
+                } else {
+                    return Err(SynchronizerError::SyncTableError {
+                        operation: "remove conditionally_all".to_owned(),
+                        source: e,
+                    });
+                }
             }
             Ok(()) => {
                 apply_deletes_to_localmap(&mut to_delete, table_synchronizer);
