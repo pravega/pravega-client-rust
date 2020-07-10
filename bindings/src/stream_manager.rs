@@ -228,8 +228,8 @@ impl StreamManager {
         writer_id: u64,
     ) -> PyResult<StreamTxnWriter> {
         let scoped_stream = ScopedStream {
-            scope: Scope::new(scope_name.to_string()),
-            stream: Stream::new(stream_name.to_string()),
+            scope: Scope::from(scope_name.to_owned()),
+            stream: Stream::from(stream_name.to_owned()),
         };
         let handle = self.cf.get_runtime_handle();
         let txn_writer = handle.block_on(
