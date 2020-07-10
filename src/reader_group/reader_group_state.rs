@@ -12,6 +12,7 @@ use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::reader_group::reader_group_config::ReaderGroupConfigVersioned;
 use crate::table_synchronizer::{deserialize_from, Table, TableSynchronizer, Value};
+use log::warn;
 use pravega_rust_client_shared::{Reader, ScopedSegment, ScopedStream, Segment, SegmentWithRange};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
@@ -199,6 +200,13 @@ impl ReaderGroupState<'_> {
         latest_positions: &HashMap<SegmentWithRange, Offset>,
     ) -> Result<(), SynchronizerError> {
         let mut owned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)?;
+        if owned_segments.len() != latest_positions.len() {
+            warn!(
+                "owned segments size {} dose not match latest positions size {}",
+                owned_segments.len(),
+                latest_positions.len()
+            );
+        }
 
         for (segment, offset) in latest_positions {
             owned_segments.entry(segment.to_owned()).and_modify(|v| {
