@@ -10,6 +10,7 @@
 
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
+        use crate::stream_writer_transactional::StreamTxnWriter;
         use crate::stream_writer::StreamWriter;
         use pravega_client_rust::client_factory::ClientFactory;
         use pravega_rust_client_shared::*;
@@ -18,11 +19,22 @@ cfg_if! {
         use pyo3::PyResult;
         use pyo3::{exceptions, PyObjectProtocol};
         use std::net::SocketAddr;
+        use log::info;
     }
 }
 
 #[cfg(feature = "python_binding")]
 #[pyclass]
+#[text_signature = "(controller_uri)"]
+///
+/// Create a StreamManager by providing a controller uri.
+/// ```
+/// import pravega_client;
+/// manager=pravega_client.StreamManager("127.0.0.1:9090")
+/// // this manager can be used to create scopes, streams, writers and readers against Pravega.
+/// manager.create_scope("scope")
+/// ```
+///
 pub(crate) struct StreamManager {
     controller_ip: String,
     cf: ClientFactory,
@@ -33,7 +45,7 @@ pub(crate) struct StreamManager {
 #[pymethods]
 impl StreamManager {
     #[new]
-    fn new(controller_uri: String) -> Self {
+    fn new(controller_uri: &str) -> Self {
         let config = ClientConfigBuilder::default()
             .controller_uri(
                 controller_uri
@@ -45,7 +57,7 @@ impl StreamManager {
         let client_factory = ClientFactory::new(config.clone());
 
         StreamManager {
-            controller_ip: controller_uri,
+            controller_ip: controller_uri.into(),
             cf: client_factory,
             config,
         }
@@ -54,15 +66,17 @@ impl StreamManager {
     ///
     /// Create a Scope in Pravega.
     ///
+    #[text_signature = "($self, scope_name)"]
     pub fn create_scope(&self, scope_name: &str) -> PyResult<bool> {
         let handle = self.cf.get_runtime_handle();
-        println!("creating scope {:?}", scope_name);
+
+        info!("creating scope {:?}", scope_name);
 
         let controller = self.cf.get_controller_client();
         let scope_name = Scope::new(scope_name.to_string());
 
         let scope_result = handle.block_on(controller.create_scope(&scope_name));
-        println!("Scope creation status {:?}", scope_result);
+        info!("Scope creation status {:?}", scope_result);
         match scope_result {
             Ok(t) => Ok(t),
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
@@ -72,15 +86,16 @@ impl StreamManager {
     ///
     /// Delete a Scope in Pravega.
     ///
+    #[text_signature = "($self, scope_name)"]
     pub fn delete_scope(&self, scope_name: &str) -> PyResult<bool> {
         let handle = self.cf.get_runtime_handle();
-        println!("Delete scope {:?}", scope_name);
+        info!("Delete scope {:?}", scope_name);
 
         let controller = self.cf.get_controller_client();
         let scope_name = Scope::new(scope_name.to_string());
 
         let scope_result = handle.block_on(controller.delete_scope(&scope_name));
-        println!("Scope deletion status {:?}", scope_result);
+        info!("Scope deletion status {:?}", scope_result);
         match scope_result {
             Ok(t) => Ok(t),
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
@@ -90,6 +105,7 @@ impl StreamManager {
     ///
     /// Create a Stream in Pravega.
     ///
+    #[text_signature = "($self, scope_name, stream_name, initial_segments)"]
     pub fn create_stream(
         &self,
         scope_name: &str,
@@ -97,7 +113,7 @@ impl StreamManager {
         initial_segments: i32,
     ) -> PyResult<bool> {
         let handle = self.cf.get_runtime_handle();
-        println!(
+        info!(
             "creating stream {:?} under scope {:?} with segment count {:?}",
             stream_name, scope_name, initial_segments
         );
@@ -120,7 +136,7 @@ impl StreamManager {
         let controller = self.cf.get_controller_client();
 
         let stream_result = handle.block_on(controller.create_stream(&stream_cfg));
-        println!("Stream creation status {:?}", stream_result);
+        info!("Stream creation status {:?}", stream_result);
         match stream_result {
             Ok(t) => Ok(t),
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
@@ -130,9 +146,10 @@ impl StreamManager {
     ///
     /// Create a Stream in Pravega.
     ///
+    #[text_signature = "($self, scope_name, stream_name)"]
     pub fn seal_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
         let handle = self.cf.get_runtime_handle();
-        println!("Sealing stream {:?} under scope {:?} ", stream_name, scope_name);
+        info!("Sealing stream {:?} under scope {:?} ", stream_name, scope_name);
         let scoped_stream = ScopedStream {
             scope: Scope::new(scope_name.to_string()),
             stream: Stream::new(stream_name.to_string()),
@@ -141,7 +158,7 @@ impl StreamManager {
         let controller = self.cf.get_controller_client();
 
         let stream_result = handle.block_on(controller.seal_stream(&scoped_stream));
-        println!("Sealing stream status {:?}", stream_result);
+        info!("Sealing stream status {:?}", stream_result);
         match stream_result {
             Ok(t) => Ok(t),
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
@@ -151,9 +168,10 @@ impl StreamManager {
     ///
     /// Delete a Stream in Pravega.
     ///
+    #[text_signature = "($self, scope_name, stream_name)"]
     pub fn delete_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
         let handle = self.cf.get_runtime_handle();
-        println!("Deleting stream {:?} under scope {:?} ", stream_name, scope_name);
+        info!("Deleting stream {:?} under scope {:?} ", stream_name, scope_name);
         let scoped_stream = ScopedStream {
             scope: Scope::new(scope_name.to_string()),
             stream: Stream::new(stream_name.to_string()),
@@ -161,7 +179,7 @@ impl StreamManager {
 
         let controller = self.cf.get_controller_client();
         let stream_result = handle.block_on(controller.delete_stream(&scoped_stream));
-        println!("Deleting stream status {:?}", stream_result);
+        info!("Deleting stream status {:?}", stream_result);
         match stream_result {
             Ok(t) => Ok(t),
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
@@ -171,16 +189,55 @@ impl StreamManager {
     ///
     /// Create a Writer for a given Stream.
     ///
+    /// ```
+    /// import pravega_client;
+    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
+    /// // Create a writer against an already created Pravega scope and Stream.
+    /// writer=manager.create_writer("scope", "stream")
+    /// ```
+    ///
+    #[text_signature = "($self, scope_name, stream_name)"]
     pub fn create_writer(&self, scope_name: &str, stream_name: &str) -> PyResult<StreamWriter> {
         let scoped_stream = ScopedStream {
             scope: Scope::new(scope_name.to_string()),
             stream: Stream::new(stream_name.to_string()),
         };
         let stream_writer = StreamWriter::new(
-            self.cf.create_event_stream_writer(scoped_stream),
+            self.cf.create_event_stream_writer(scoped_stream.clone()),
             self.cf.get_runtime_handle(),
+            scoped_stream,
         );
         Ok(stream_writer)
+    }
+
+    ///
+    /// Create a Transactional Writer for a given Stream.
+    ///
+    /// ```
+    /// import pravega_client;
+    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
+    /// // Create a transactional writer against an already created Pravega scope and Stream.
+    /// writer=manager.create_transaction_writer("scope", "stream", "123")
+    /// ```
+    ///
+    #[text_signature = "($self, scope_name, stream_name, writer_id)"]
+    pub fn create_transaction_writer(
+        &self,
+        scope_name: &str,
+        stream_name: &str,
+        writer_id: u64,
+    ) -> PyResult<StreamTxnWriter> {
+        let scoped_stream = ScopedStream {
+            scope: Scope::new(scope_name.to_string()),
+            stream: Stream::new(stream_name.to_string()),
+        };
+        let handle = self.cf.get_runtime_handle();
+        let txn_writer = handle.block_on(
+            self.cf
+                .create_transactional_event_stream_writer(scoped_stream.clone(), WriterId(writer_id)),
+        );
+        let txn_stream_writer = StreamTxnWriter::new(txn_writer, self.cf.get_runtime_handle(), scoped_stream);
+        Ok(txn_stream_writer)
     }
 
     /// Returns the facet string representation.
