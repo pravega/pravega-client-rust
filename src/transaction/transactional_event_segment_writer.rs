@@ -10,7 +10,8 @@
 
 use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
-use crate::segment_writer::{Incoming, PendingEvent, SegmentWriter};
+use crate::reactor::event::{Incoming, PendingEvent};
+use crate::reactor::segment_writer::SegmentWriter;
 use log::{debug, error, warn};
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_shared::ScopedSegment;
@@ -28,7 +29,7 @@ pub(super) struct TransactionalEventSegmentWriter {
     event_segment_writer: SegmentWriter,
     recevier: Receiver<Incoming>,
     // Only need to hold onto the lastest event since if any previous events failed, the last one will also fail
-    outstanding: Option<oneshot::Receiver<Result<(), SegmentWriter>>>,
+    outstanding: Option<oneshot::Receiver<Result<(), SegmentWriterError>>>,
 }
 
 impl TransactionalEventSegmentWriter {
@@ -119,16 +120,18 @@ impl TransactionalEventSegmentWriter {
         income: Incoming,
         factory: &ClientFactoryInternal,
     ) -> Result<(), TransactionalEventSegmentWriterError> {
-        if let Incoming::ServerReply(reply) = income {
-            if let Replies::DataAppended(cmd) = reply.reply() {
+        if let Incoming::ServerReply(server_reply) = income {
+            if let Replies::DataAppended(cmd) = server_reply.reply {
                 self.process_data_appended(factory, cmd).await;
                 Ok(())
             } else {
                 error!(
                     "unexpected reply from server, transaction failed due to {:?}",
-                    reply
+                    server_reply
                 );
-                Err(TransactionalEventSegmentWriterError::UnexpectedReply { error: reply.reply() })
+                Err(TransactionalEventSegmentWriterError::UnexpectedReply {
+                    error: server_reply.reply,
+                })
             }
         } else {
             panic!("should always receive ServerReply type");

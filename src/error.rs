@@ -12,7 +12,7 @@ use bincode2::Error as BincodeError;
 use pravega_connection_pool::connection_pool::ConnectionPoolError;
 use pravega_controller_client::ControllerError;
 use pravega_rust_client_retry::retry_result::RetryError;
-use pravega_rust_client_shared::{TransactionStatus, TxId};
+use pravega_rust_client_shared::{ScopedSegment, TransactionStatus, TxId};
 use pravega_wire_protocol::error::*;
 use pravega_wire_protocol::wire_commands::Replies;
 use snafu::Snafu;
@@ -38,7 +38,7 @@ pub enum RawClientError {
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
-pub enum SegmentWriter {
+pub enum SegmentWriterError {
     #[snafu(display("Failed to send request to the processor"))]
     SendToProcessor {},
 
@@ -62,6 +62,15 @@ pub enum SegmentWriter {
 
     #[snafu(display("Wrong reply, expected {:?} but get {:?}", expected, actual))]
     WrongReply { expected: String, actual: Replies },
+
+    #[snafu(display("Segment {:?} is sealed", segment))]
+    SegmentIsSealed { segment: ScopedSegment },
+
+    #[snafu(display("No such segment {:?}", segment))]
+    NoSuchSegment { segment: ScopedSegment },
+
+    #[snafu(display("Unexpected error from {:?}", segment))]
+    Unexpected { segment: ScopedSegment },
 }
 
 #[derive(Debug, Snafu)]
@@ -87,7 +96,7 @@ pub enum TransactionalEventSegmentWriterError {
     OneshotError { source: oneshot::error::TryRecvError },
 
     #[snafu(display("EventSegmentWriter failed due to {:?}", source))]
-    WriterError { source: SegmentWriter },
+    WriterError { source: SegmentWriterError },
 
     #[snafu(display("Unexpected reply from segmentstore {:?}", error))]
     UnexpectedReply { error: Replies },

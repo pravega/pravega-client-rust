@@ -14,12 +14,13 @@ use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
 use uuid::Uuid;
 
-use crate::segment_writer::{AppendEvent, Incoming, Reactor, SegmentSelector};
+use crate::reactor::StreamReactor;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfig;
 
 use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
+use crate::reactor::event::{AppendEvent, Incoming};
 
 /// EventStreamWriter contains a writer id and a mpsc sender which is used to send Event
 /// to the StreamWriter
@@ -39,37 +40,47 @@ impl EventStreamWriter {
         let (tx, rx) = channel(EventStreamWriter::CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
 
-        let selector = SegmentSelector::new(stream, tx.clone(), config, factory.clone());
-        let reactor = Reactor::new(rx, selector, factory);
         // tokio::spawn is tied to the factory runtime.
-        handle.enter(|| tokio::spawn(Reactor::run(reactor)));
+        handle.enter(|| {
+            tokio::spawn(StreamReactor::run(
+                stream,
+                tx.clone(),
+                rx,
+                factory.clone(),
+                config,
+            ))
+        });
         EventStreamWriter {
             writer_id: Uuid::new_v4(),
             sender: tx,
         }
     }
 
-    pub async fn write_event(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), SegmentWriter>> {
+    pub async fn write_event(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         let (tx, rx) = oneshot::channel();
-        let append_event = Incoming::AppendEvent(AppendEvent::new(true, event, None, tx));
-        self.writer_event_internal().await
+        let append_event = Incoming::AppendEvent(AppendEvent::new(event, None, tx));
+        self.writer_event_internal(append_event, rx).await
     }
 
     pub async fn write_event_by_routing_key(
         &mut self,
         routing_key: String,
         event: Vec<u8>,
-    ) -> oneshot::Receiver<Result<(), SegmentWriter>> {
+    ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         let (tx, rx) = oneshot::channel();
-        let append_event = Incoming::AppendEvent(AppendEvent::new(true, event, Some(routing_key), tx));
-        self.writer_event_internal().await
+        let append_event = Incoming::AppendEvent(AppendEvent::new(event, Some(routing_key), tx));
+        self.writer_event_internal(append_event, rx).await
     }
 
-    async fn writer_event_internal(&mut self) -> oneshot::Receiver<Result<(), SegmentWriter>> {
+    async fn writer_event_internal(
+        &mut self,
+        append_event: Incoming,
+        rx: oneshot::Receiver<Result<(), SegmentWriterError>>,
+    ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         if let Err(_e) = self.sender.send(append_event).await {
             let (tx_error, rx_error) = oneshot::channel();
             tx_error
-                .send(Err(SegmentWriter::SendToProcessor {}))
+                .send(Err(SegmentWriterError::SendToProcessor {}))
                 .expect("send error");
             rx_error
         } else {
@@ -83,7 +94,7 @@ mod tests {
     use tokio::runtime::Runtime;
 
     use super::*;
-    use crate::segment_writer::PendingEvent;
+    use crate::reactor::event::PendingEvent;
 
     #[test]
     fn test_pending_event() {

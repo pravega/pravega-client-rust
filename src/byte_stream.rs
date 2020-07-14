@@ -8,73 +8,74 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use async_trait::async_trait;
-use pravega_rust_client_shared::{ScopedSegment, ScopedStream};
-use snafu::Snafu;
-use tokio::sync::mpsc::{channel, Sender};
-use tokio::sync::oneshot;
+use pravega_rust_client_shared::ScopedSegment;
 use uuid::Uuid;
 
-use crate::client_factory::{ClientFactory, ClientFactoryInternal};
-use crate::error::SegmentWriter;
-use crate::segment_writer::{Reactor, SegmentSelector};
+use crate::client_factory::ClientFactoryInternal;
+use crate::error::*;
+use crate::reactor::event::{AppendEvent, Incoming};
+use crate::reactor::SegmentReactor;
 use pravega_wire_protocol::client_config::ClientConfig;
 use std::sync::Arc;
-
-#[derive(Debug, Snafu)]
-#[snafu(visibility = "pub(crate)")]
-pub enum WriteError {
-    //TODO ...
-}
+use tokio::sync::mpsc::{channel, Sender};
+use tokio::sync::oneshot;
 
 struct ByteStreamWriter {
     writer_id: Uuid,
     sender: Sender<Incoming>,
 }
 
-#[async_trait]
 impl ByteStreamWriter {
     const CHANNEL_CAPACITY: usize = 100;
 
     pub(crate) fn new(
-        stream: ScopedStream,
+        segment: ScopedSegment,
         config: ClientConfig,
         factory: Arc<ClientFactoryInternal>,
     ) -> Self {
-        let (tx, rx) = channel(ByteStreamWriter::CHANNEL_CAPACITY);
+        let (sender, receiver) = channel(ByteStreamWriter::CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
-
-        let selector = SegmentSelector::new(stream, tx.clone(), config, factory.clone());
-        let reactor = Reactor::new(rx, selector, factory);
         // tokio::spawn is tied to the factory runtime.
-        handle.enter(|| tokio::spawn(Reactor::run(reactor)));
+        handle.enter(|| {
+            tokio::spawn(SegmentReactor::run(
+                segment,
+                sender.clone(),
+                receiver,
+                factory,
+                config,
+            ))
+        });
         ByteStreamWriter {
             writer_id: Uuid::new_v4(),
-            sender: tx,
+            sender,
         }
     }
 
-    pub async fn write(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), SegmentWriter>> {
+    pub async fn write(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         let (tx, rx) = oneshot::channel();
-        let append_event = Incoming::AppendEvent(AppendEvent::new(false, event, None, tx));
-        self.writer_event_internal().await
+        let append_event = Incoming::AppendEvent(AppendEvent::new(event, None, tx));
+        self.writer_internal(append_event, rx).await
     }
 
     pub async fn write_by_routing_key(
         &mut self,
         routing_key: String,
         event: Vec<u8>,
-    ) -> oneshot::Receiver<Result<(), SegmentWriter>> {
+    ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         let (tx, rx) = oneshot::channel();
-        let append_event = Incoming::AppendEvent(AppendEvent::new(false, event, Some(routing_key), tx));
-        self.writer_event_internal().await
+        let append_event = Incoming::AppendEvent(AppendEvent::new(event, Some(routing_key), tx));
+        self.writer_internal(append_event, rx).await
     }
 
-    async fn writer_internal(&mut self) -> oneshot::Receiver<Result<(), SegmentWriter>> {
+    async fn writer_internal(
+        &mut self,
+        append_event: Incoming,
+        rx: oneshot::Receiver<Result<(), SegmentWriterError>>,
+    ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         if let Err(_e) = self.sender.send(append_event).await {
             let (tx_error, rx_error) = oneshot::channel();
             tx_error
-                .send(Err(SegmentWriter::SendToProcessor {}))
+                .send(Err(SegmentWriterError::SendToProcessor {}))
                 .expect("send error");
             rx_error
         } else {
@@ -83,13 +84,13 @@ impl ByteStreamWriter {
     }
 }
 
-#[derive(Debug, Snafu)]
-#[snafu(visibility = "pub(crate)")]
-pub enum ReadError {
-    //TODO ...
-}
-
-#[async_trait]
-trait ByteStreamReader: TryStream<Ok = Vec<u8>, Error = ReadError> {
-    async fn open(segment: ScopedSegment, factory: &ClientFactory) -> Self;
-}
+//#[derive(Debug, Snafu)]
+//#[snafu(visibility = "pub(crate)")]
+//pub enum ReadError {
+//    //TODO ...
+//}
+//
+//#[async_trait]
+//trait ByteStreamReader: TryStream<Ok = Vec<u8>, Error = ReadError> {
+//    async fn open(segment: ScopedSegment, factory: &ClientFactory) -> Self;
+//}
