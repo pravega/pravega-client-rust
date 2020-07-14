@@ -83,14 +83,3 @@ impl ByteStreamWriter {
         }
     }
 }
-
-//#[derive(Debug, Snafu)]
-//#[snafu(visibility = "pub(crate)")]
-//pub enum ReadError {
-//    //TODO ...
-//}
-//
-//#[async_trait]
-//trait ByteStreamReader: TryStream<Ok = Vec<u8>, Error = ReadError> {
-//    async fn open(segment: ScopedSegment, factory: &ClientFactory) -> Self;
-//}

@@ -12,7 +12,7 @@ use bincode2::Error as BincodeError;
 use pravega_connection_pool::connection_pool::ConnectionPoolError;
 use pravega_controller_client::ControllerError;
 use pravega_rust_client_retry::retry_result::RetryError;
-use pravega_rust_client_shared::{ScopedSegment, TransactionStatus, TxId};
+use pravega_rust_client_shared::{TransactionStatus, TxId};
 use pravega_wire_protocol::error::*;
 use pravega_wire_protocol::wire_commands::Replies;
 use snafu::Snafu;
@@ -63,14 +63,14 @@ pub enum SegmentWriterError {
     #[snafu(display("Wrong reply, expected {:?} but get {:?}", expected, actual))]
     WrongReply { expected: String, actual: Replies },
 
-    #[snafu(display("Segment {:?} is sealed", segment))]
-    SegmentIsSealed { segment: ScopedSegment },
+    #[snafu(display("Segment {:?} is sealed", msg))]
+    SegmentIsSealed { msg: String },
 
-    #[snafu(display("No such segment {:?}", segment))]
-    NoSuchSegment { segment: ScopedSegment },
+    #[snafu(display("No such segment {:?}", msg))]
+    NoSuchSegment { msg: String },
 
-    #[snafu(display("Unexpected error from {:?}", segment))]
-    Unexpected { segment: ScopedSegment },
+    #[snafu(display("Unexpected error from {:?}", msg))]
+    Unexpected { msg: String },
 }
 
 #[derive(Debug, Snafu)]

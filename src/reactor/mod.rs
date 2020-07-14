@@ -107,11 +107,13 @@ impl StreamReactor {
 
                         _ => {
                             error!(
-                                "receive unexpected reply {:?}, closing event stream writer",
+                                "receive unexpected reply {:?}, closing stream reactor",
                                 server_reply.reply
                             );
                             receiver.close();
-                            panic!("{:?}", server_reply.reply);
+                            drain_recevier(receiver, ErrorType::OTHER, format!("{:?}", server_reply.reply))
+                                .await;
+                            break;
                         }
                     }
                 }
@@ -169,7 +171,7 @@ impl SegmentReactor {
                         Replies::SegmentIsSealed(cmd) => {
                             info!("segment {:?} sealed", cmd.segment);
                             receiver.close();
-
+                            drain_recevier(receiver, ErrorType::SEALED, segment.to_string()).await;
                             break;
                         }
 
@@ -180,16 +182,19 @@ impl SegmentReactor {
                                 cmd.segment, cmd.server_stack_trace
                             );
                             receiver.close();
+                            drain_recevier(receiver, ErrorType::NOTFOUND, segment.to_string()).await;
                             break;
                         }
 
                         _ => {
                             error!(
-                                "receive unexpected reply {:?}, closing event stream writer",
+                                "receive unexpected reply {:?}, closing segment reactor",
                                 server_reply.reply
                             );
                             receiver.close();
-                            panic!("{:?}", server_reply.reply);
+                            drain_recevier(receiver, ErrorType::OTHER, format!("{:?}", server_reply.reply))
+                                .await;
+                            break;
                         }
                     }
                 }
@@ -205,24 +210,15 @@ enum ErrorType {
     OTHER,
 }
 
-async fn drain_recevier(mut receiver: Receiver<Incoming>, error_type: ErrorType, segment: ScopedSegment) {
+async fn drain_recevier(mut receiver: Receiver<Incoming>, error_type: ErrorType, msg: String) {
     while let Some(remaining) = receiver.recv().await {
-        match remaining {
-            Incoming::AppendEvent(event) => {
-                let err = match error_type.clone() {
-                    ErrorType::SEALED => Err(SegmentWriterError::SegmentIsSealed {
-                        segment: segment.clone(),
-                    }),
-                    ErrorType::NOTFOUND => Err(SegmentWriterError::NoSuchSegment {
-                        segment: segment.clone(),
-                    }),
-                    ErrorType::OTHER => Err(SegmentWriterError::Unexpected {
-                        segment: segment.clone(),
-                    }),
-                };
-                event.oneshot_sender.send(err).expect("send error");
-            }
-            _ => {}
+        if let Incoming::AppendEvent(event) = remaining {
+            let err = match error_type.clone() {
+                ErrorType::SEALED => Err(SegmentWriterError::SegmentIsSealed { msg: msg.clone() }),
+                ErrorType::NOTFOUND => Err(SegmentWriterError::NoSuchSegment { msg: msg.clone() }),
+                ErrorType::OTHER => Err(SegmentWriterError::Unexpected { msg: msg.clone() }),
+            };
+            event.oneshot_sender.send(err).expect("send error");
         }
     }
 }

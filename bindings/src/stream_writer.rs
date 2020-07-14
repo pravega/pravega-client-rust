@@ -10,7 +10,7 @@
 
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
-        use pravega_client_rust::error::EventStreamWriterError;
+        use pravega_client_rust::error::SegmentWriterError;
         use pravega_client_rust::event_stream_writer::EventStreamWriter;
         use pyo3::exceptions;
         use pyo3::prelude::*;
@@ -56,7 +56,8 @@ impl StreamWriter {
     pub fn write_event_bytes(&mut self, event: Vec<u8>) -> PyResult<()> {
         println!("Writing a single event");
         let result = self.handle.block_on(self.writer.write_event(event));
-        let result_oneshot: Result<(), SegmentWriter> = self.handle.block_on(result).expect("Write failed");
+        let result_oneshot: Result<(), SegmentWriterError> =
+            self.handle.block_on(result).expect("Write failed");
 
         match result_oneshot {
             Ok(_t) => Ok(()),
@@ -72,7 +73,7 @@ impl StreamWriter {
         let result = self
             .handle
             .block_on(self.writer.write_event_by_routing_key(routing_key, event));
-        let result_oneshot: Result<(), SegmentWriter> = self
+        let result_oneshot: Result<(), SegmentWriterError> = self
             .handle
             .block_on(result)
             .expect("Write for specified routing key failed");
