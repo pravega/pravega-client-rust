@@ -62,12 +62,12 @@ impl SegmentSelector {
     }
 
     pub(crate) async fn initialize(&mut self) {
-        self.factory
+        self.current_segments = self
+            .factory
             .get_controller_client()
             .get_current_segments(&self.stream)
             .await
             .expect("retry failed");
-
         self.create_missing_writers().await;
     }
 
