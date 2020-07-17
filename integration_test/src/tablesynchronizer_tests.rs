@@ -34,7 +34,7 @@ async fn test_insert(client_factory: &ClientFactory) {
                     Box::new(1),
                 );
             }
-            Ok(())
+            Ok(None)
         })
         .await;
 
@@ -76,7 +76,7 @@ async fn test_remove(client_factory: &ClientFactory) {
                     Box::new(2),
                 );
             }
-            Ok(())
+            Ok(None)
         })
         .await;
     assert!(result.is_ok());
@@ -86,7 +86,7 @@ async fn test_remove(client_factory: &ClientFactory) {
             if table.get("outer_key", "inner_key").is_some() {
                 table.insert_tombstone("outer_key".to_owned(), "inner_key".to_owned())?;
             }
-            Ok(())
+            Ok(None)
         })
         .await;
     assert!(result.is_ok());
@@ -130,7 +130,7 @@ async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory
                     );
                 }
             }
-            Ok(())
+            Ok(None)
         })
         .await;
     assert!(result.is_ok());
@@ -159,7 +159,7 @@ async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory
                     );
                 }
             }
-            Ok(())
+            Ok(None)
         })
         .await;
     assert!(result.is_ok());
@@ -190,7 +190,7 @@ async fn test_remove_with_two_table_synchronizers(client_factory: &ClientFactory
             if data == 3 {
                 table.insert_tombstone("outer_key".to_owned(), "inner_key".to_owned())?;
             }
-            Ok(())
+            Ok(None)
         })
         .await;
     assert!(result.is_ok());
@@ -208,7 +208,7 @@ async fn test_remove_with_two_table_synchronizers(client_factory: &ClientFactory
                     Box::new(4),
                 );
             }
-            Ok(())
+            Ok(None)
         })
         .await;
 
@@ -250,7 +250,7 @@ async fn test_insert_and_get_with_customize_struct(client_factory: &ClientFactor
                 "Test2".to_owned(),
                 Box::new(Test2 { age: 10 }),
             );
-            Ok(())
+            Ok(None)
         })
         .await;
     assert!(result.is_ok());

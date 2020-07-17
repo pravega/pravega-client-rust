@@ -246,8 +246,8 @@ impl<'a> TableSynchronizer<'a> {
     /// This will update the local_map to the latest version.
     pub async fn insert(
         &mut self,
-        updates_generator: impl FnMut(&mut Table) -> Result<(), SynchronizerError>,
-    ) -> Result<(), SynchronizerError> {
+        updates_generator: impl FnMut(&mut Table) -> Result<Option<String>, SynchronizerError>,
+    ) -> Result<Option<String>, SynchronizerError> {
         conditionally_write(updates_generator, self, MAX_RETRIES).await
     }
 
@@ -255,8 +255,8 @@ impl<'a> TableSynchronizer<'a> {
     /// This will update the local_map to latest version.
     pub async fn remove(
         &mut self,
-        deletes_generateor: impl FnMut(&mut Table) -> Result<(), SynchronizerError>,
-    ) -> Result<(), SynchronizerError> {
+        deletes_generateor: impl FnMut(&mut Table) -> Result<Option<String>, SynchronizerError>,
+    ) -> Result<Option<String>, SynchronizerError> {
         conditionally_remove(deletes_generateor, self, MAX_RETRIES).await
     }
 }
@@ -649,10 +649,12 @@ where
 }
 
 async fn conditionally_write(
-    mut updates_generator: impl FnMut(&mut Table) -> Result<(), SynchronizerError>,
+    mut updates_generator: impl FnMut(&mut Table) -> Result<Option<String>, SynchronizerError>,
     table_synchronizer: &mut TableSynchronizer<'_>,
     mut retry: i32,
-) -> Result<(), SynchronizerError> {
+) -> Result<Option<String>, SynchronizerError> {
+    let mut update_result = None;
+
     while retry > 0 {
         let map = table_synchronizer.get_current_map();
         let counter = table_synchronizer.get_current_counter();
@@ -664,7 +666,7 @@ async fn conditionally_write(
             remove: Vec::new(),
         };
 
-        updates_generator(&mut to_update)?;
+        update_result = updates_generator(&mut to_update)?;
 
         if to_update.insert_is_empty() {
             debug!(
@@ -725,14 +727,16 @@ async fn conditionally_write(
             }
         }
     }
-    Ok(())
+    Ok(update_result)
 }
 
 async fn conditionally_remove(
-    mut delete_generator: impl FnMut(&mut Table) -> Result<(), SynchronizerError>,
+    mut delete_generator: impl FnMut(&mut Table) -> Result<Option<String>, SynchronizerError>,
     table_synchronizer: &mut TableSynchronizer<'_>,
     mut retry: i32,
-) -> Result<(), SynchronizerError> {
+) -> Result<Option<String>, SynchronizerError> {
+    let mut delete_result = None;
+
     while retry > 0 {
         let map = table_synchronizer.get_current_map();
         let counter = table_synchronizer.get_current_counter();
@@ -743,7 +747,7 @@ async fn conditionally_remove(
             insert: Vec::new(),
             remove: Vec::new(),
         };
-        delete_generator(&mut to_delete)?;
+        delete_result = delete_generator(&mut to_delete)?;
 
         if to_delete.remove_is_empty() {
             debug!(
@@ -793,13 +797,13 @@ async fn conditionally_remove(
             }
         }
     }
-    Ok(())
+    Ok(delete_result)
 }
 
 async fn clear_tombstone(
     to_remove: &mut Table,
     table_synchronizer: &mut TableSynchronizer<'_>,
-) -> Result<(), SynchronizerError> {
+) -> Result<Option<String>, SynchronizerError> {
     table_synchronizer
         .remove(|table| {
             for remove in to_remove.get_remove_iter() {
@@ -807,7 +811,7 @@ async fn clear_tombstone(
                     table.remove(remove.outer_key.to_owned(), remove.inner_key.to_owned());
                 }
             }
-            Ok(())
+            Ok(None)
         })
         .await
 }
