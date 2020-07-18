@@ -308,7 +308,7 @@ impl ReaderGroupState<'_> {
     pub(crate) async fn assign_segment_to_reader(
         &mut self,
         reader: &Reader,
-    ) -> Result<ScopedSegment, ReaderGroupStateError> {
+    ) -> Result<Option<ScopedSegment>, ReaderGroupStateError> {
         let option = self
             .sync
             .insert(|table| ReaderGroupState::assign_segment_to_reader_internal(table, reader))
@@ -316,8 +316,12 @@ impl ReaderGroupState<'_> {
             .context(SyncError {
                 error_msg: format!("assign segment to reader {:?}", reader),
             })?;
-        let segment_str = option.expect("should contain segment string");
-        Ok(ScopedSegment::from(&*segment_str))
+
+        if let Some(segment_str) = option {
+            Ok(Some(ScopedSegment::from(&*segment_str)))
+        } else {
+            Ok(None)
+        }
     }
 
     fn assign_segment_to_reader_internal(
@@ -327,15 +331,10 @@ impl ReaderGroupState<'_> {
         let mut assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)?;
         let unassigned_segments = ReaderGroupState::get_unassigned_segments_from_table(table);
 
-        ensure!(
-            !unassigned_segments.is_empty(),
-            SyncUpdateError {
-                error_msg: format!(
-                    "Failed to assign segment to reader: should contain at least one segment {:?} in unassigned list",
-                    unassigned_segments.len(),
-                ),
-            }
-        );
+        // unassigned segment does not exist
+        if unassigned_segments.is_empty() {
+            return Ok(None);
+        }
 
         // naive way to get an unassigned segment
         let mut segments = unassigned_segments
