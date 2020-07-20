@@ -166,7 +166,7 @@ impl Processor {
 
                         Replies::SegmentIsSealed(cmd) => {
                             debug!("segment {:?} sealed", cmd.segment);
-                            let segment = ScopedSegment::from(cmd.segment);
+                            let segment = ScopedSegment::from(&*cmd.segment);
                             let inflight = self
                                 .selector
                                 .refresh_segment_event_writers_upon_sealed(&segment)
@@ -181,7 +181,8 @@ impl Processor {
                                 "no such segment {:?} due to segment truncation: stack trace {}",
                                 cmd.segment, cmd.server_stack_trace
                             );
-                            let segment = ScopedSegment::from(cmd.segment);
+                            let segment_str = &*cmd.segment;
+                            let segment = ScopedSegment::from(segment_str);
                             let inflight = self
                                 .selector
                                 .refresh_segment_event_writers_upon_sealed(&segment)

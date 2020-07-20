@@ -7,10 +7,11 @@
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
-use super::BINCODE_CONFIG;
 use crate::error::*;
 use pravega_rust_client_shared::{Segment, SegmentWithRange};
 use serde::{Deserialize, Serialize};
+use serde_cbor::from_slice;
+use serde_cbor::to_vec;
 use snafu::ResultExt;
 use std::collections::HashMap;
 
@@ -22,15 +23,15 @@ pub(crate) enum PositionVersioned {
 
 impl PositionVersioned {
     fn to_bytes(&self) -> Result<Vec<u8>, SerdeError> {
-        let encoded = BINCODE_CONFIG.serialize(&self).context(Serde {
-            msg: String::from("serialize PositionVersioned"),
+        let encoded = to_vec(&self).context(Cbor {
+            msg: "serialize PositionVersioned".to_owned(),
         })?;
         Ok(encoded)
     }
 
     fn from_bytes(input: &[u8]) -> Result<PositionVersioned, SerdeError> {
-        let decoded: PositionVersioned = BINCODE_CONFIG.deserialize(&input[..]).context(Serde {
-            msg: String::from("serialize PositionVersioned"),
+        let decoded: PositionVersioned = from_slice(&input[..]).context(Cbor {
+            msg: "serialize PositionVersioned".to_owned(),
         })?;
         Ok(decoded)
     }
@@ -43,7 +44,7 @@ pub(crate) struct PositionV1 {
 }
 
 impl PositionV1 {
-    fn new(segments: HashMap<SegmentWithRange, i64>) -> Self {
+    pub(crate) fn new(segments: HashMap<SegmentWithRange, i64>) -> Self {
         let mut owned_segments = HashMap::with_capacity(segments.len());
         let mut segment_ranges = HashMap::with_capacity(segments.len());
         for (k, v) in segments {
@@ -54,6 +55,10 @@ impl PositionV1 {
             owned_segments,
             segment_ranges,
         }
+    }
+
+    pub(crate) fn get_owned_segments_with_offsets(&self) -> HashMap<Segment, i64> {
+        self.owned_segments.to_owned()
     }
 }
 

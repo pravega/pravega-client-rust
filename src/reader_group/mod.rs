@@ -8,6 +8,5 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-pub(crate) mod event_pointer;
-pub(crate) mod position;
-pub(crate) mod stream_cut;
+pub(crate) mod reader_group_config;
+pub(crate) mod reader_group_state;

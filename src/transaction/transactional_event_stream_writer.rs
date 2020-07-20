@@ -34,8 +34,8 @@ use std::time::Duration;
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     let scope_name = Scope::new("testScope".into());
-///     let stream_name = Stream::new("testStream".into());
+///     let scope_name = Scope::from("testScope".to_owned());
+///     let stream_name = Stream::from("testStream".to_owned());
 ///     let scoped_stream = ScopedStream {
 ///          scope: scope_name.clone(),
 ///          stream: stream_name.clone(),

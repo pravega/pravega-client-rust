@@ -81,11 +81,11 @@ fn main() {
     let controller_client = ControllerClientImpl::new(config, rt.handle().clone());
     match opt.cmd {
         Command::CreateScope { scope_name } => {
-            let scope_result = rt.block_on(controller_client.create_scope(&Scope::new(scope_name)));
+            let scope_result = rt.block_on(controller_client.create_scope(&Scope::from(scope_name)));
             println!("Scope creation status {:?}", scope_result);
         }
         Command::DeleteScope { scope_name } => {
-            let scope_result = rt.block_on(controller_client.delete_scope(&Scope::new(scope_name)));
+            let scope_result = rt.block_on(controller_client.delete_scope(&Scope::from(scope_name)));
             println!("Scope deletion status {:?}", scope_result);
         }
         Command::CreateStream {
@@ -95,8 +95,8 @@ fn main() {
         } => {
             let stream_cfg = StreamConfiguration {
                 scoped_stream: ScopedStream {
-                    scope: Scope::new(scope_name),
-                    stream: Stream::new(stream_name),
+                    scope: scope_name.into(),
+                    stream: stream_name.into(),
                 },
                 scaling: Scaling {
                     scale_type: ScaleType::FixedNumSegments,
@@ -116,7 +116,7 @@ fn main() {
             scope_name,
             stream_name,
         } => {
-            let scoped_stream = ScopedStream::new(Scope::new(scope_name), Stream::new(stream_name));
+            let scoped_stream = ScopedStream::new(scope_name.into(), stream_name.into());
             let result = rt.block_on(controller_client.seal_stream(&scoped_stream));
             println!("Seal stream status {:?}", result);
         }
@@ -124,7 +124,7 @@ fn main() {
             scope_name,
             stream_name,
         } => {
-            let scoped_stream = ScopedStream::new(Scope::new(scope_name), Stream::new(stream_name));
+            let scoped_stream = ScopedStream::new(scope_name.into(), stream_name.into());
             let result = rt.block_on(controller_client.delete_stream(&scoped_stream));
             println!("Delete stream status {:?}", result);
         }
