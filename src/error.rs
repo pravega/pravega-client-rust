@@ -43,7 +43,7 @@ pub enum SegmentWriterError {
     SendToProcessor {},
 
     #[snafu(display("The size limit is {} while actual size is {}", limit, size))]
-    EventSizeTooLarge { limit: i32, size: i32 },
+    EventSizeTooLarge { limit: usize, size: usize },
 
     #[snafu(display("Failed to parse to an Event Command: {}", source))]
     ParseToEventCommand { source: CommandError },

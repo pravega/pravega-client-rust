@@ -42,14 +42,13 @@ pub(crate) struct PendingEvent {
 }
 
 impl PendingEvent {
-    pub(crate) const MAX_WRITE_SIZE: i32 = 8 * 1024 * 1024 + 8;
-
+    pub(crate) const MAX_WRITE_SIZE: usize = 8 * 1024 * 1024 + 8;
     pub(crate) fn new(
         routing_key: Option<String>,
         data: Vec<u8>,
         oneshot_sender: oneshot::Sender<Result<(), SegmentWriterError>>,
     ) -> Option<Self> {
-        if data.len() as i32 > PendingEvent::MAX_WRITE_SIZE {
+        if data.len() > PendingEvent::MAX_WRITE_SIZE {
             warn!(
                 "event size {:?} exceeds limit {:?}",
                 data.len(),
@@ -58,7 +57,7 @@ impl PendingEvent {
             oneshot_sender
                 .send(Err(SegmentWriterError::EventSizeTooLarge {
                     limit: PendingEvent::MAX_WRITE_SIZE,
-                    size: data.len() as i32,
+                    size: data.len(),
                 }))
                 .expect("send error to caller");
             None

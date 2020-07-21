@@ -20,6 +20,8 @@ mod tablemap_tests;
 mod tablesynchronizer_tests;
 mod transactional_event_stream_writer_tests;
 mod wirecommand_tests;
+mod byte_stream_tests;
+mod utils;
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
 use std::process::Command;
 use std::{thread, time};

@@ -27,6 +27,7 @@ use pravega_wire_protocol::connection_factory::{
 };
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
+use crate::utils;
 
 pub fn test_event_stream_writer() {
     // spin up Pravega standalone
@@ -39,7 +40,7 @@ pub fn test_event_stream_writer() {
     let client_factory = ClientFactory::new(config);
     let controller_client = client_factory.get_controller_client();
     let handle = client_factory.get_runtime_handle();
-    handle.block_on(create_scope_stream(
+    handle.block_on(utils::create_scope_stream(
         controller_client,
         &scope_name,
         &stream_name,
@@ -58,9 +59,9 @@ pub fn test_event_stream_writer() {
 
     handle.block_on(test_segment_scaling_down(&mut writer, &client_factory));
 
-    let scope_name = Scope::new("testScopeWriter2".into());
-    let stream_name = Stream::new("testStreamWriter2".into());
-    handle.block_on(create_scope_stream(
+    let scope_name = Scope::from("testScopeWriter2");
+    let stream_name = Stream::from("testStreamWriter2".into());
+    handle.block_on(utils::create_scope_stream(
         controller_client,
         &scope_name,
         &stream_name,
@@ -401,39 +402,4 @@ async fn test_write_correctness_with_routing_key(writer: &mut EventStreamWriter,
         i += 1;
     }
     info!("test event stream writer writes to a stream with routing key  passed");
-}
-
-/// helper function
-async fn create_scope_stream(
-    controller_client: &dyn ControllerClient,
-    scope_name: &Scope,
-    stream_name: &Stream,
-    segment_number: i32,
-) {
-    controller_client
-        .create_scope(scope_name)
-        .await
-        .expect("create scope");
-    info!("Scope created");
-    let request = StreamConfiguration {
-        scoped_stream: ScopedStream {
-            scope: scope_name.clone(),
-            stream: stream_name.clone(),
-        },
-        scaling: Scaling {
-            scale_type: ScaleType::FixedNumSegments,
-            target_rate: 0,
-            scale_factor: 0,
-            min_num_segments: segment_number,
-        },
-        retention: Retention {
-            retention_type: RetentionType::None,
-            retention_param: 0,
-        },
-    };
-    controller_client
-        .create_stream(&request)
-        .await
-        .expect("create stream");
-    info!("Stream created");
 }

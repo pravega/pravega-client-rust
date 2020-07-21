@@ -30,6 +30,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
 use tokio::runtime::{Handle, Runtime};
+use crate::byte_stream::{ByteStreamWriter, ByteStreamReader};
 
 pub struct ClientFactory(Arc<ClientFactoryInternal>);
 
@@ -111,6 +112,14 @@ impl ClientFactory {
         writer_id: WriterId,
     ) -> TransactionalEventStreamWriter {
         TransactionalEventStreamWriter::new(stream, writer_id, self.0.clone(), self.0.config.clone()).await
+    }
+
+    pub fn create_byte_stream_writer(&self, segment: ScopedSegment) -> ByteStreamWriter {
+        ByteStreamWriter::new(segment, self.0.config.clone(), self.0.clone())
+    }
+
+    pub fn create_byte_stream_reader(&self, segment: ScopedSegment) -> ByteStreamReader {
+        ByteStreamReader::new(segment, self.0.config.clone(), self)
     }
 
     pub fn get_controller_client(&self) -> &dyn ControllerClient {
