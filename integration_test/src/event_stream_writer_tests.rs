@@ -30,8 +30,8 @@ use std::net::SocketAddr;
 
 pub fn test_event_stream_writer() {
     // spin up Pravega standalone
-    let scope_name = Scope::new("testScopeWriter".into());
-    let stream_name = Stream::new("testStreamWriter".into());
+    let scope_name = Scope::from("testScopeWriter".to_owned());
+    let stream_name = Stream::from("testStreamWriter".to_owned());
     let config = ClientConfigBuilder::default()
         .controller_uri(TEST_CONTROLLER_URI)
         .build()
@@ -58,8 +58,8 @@ pub fn test_event_stream_writer() {
 
     handle.block_on(test_segment_scaling_down(&mut writer, &client_factory));
 
-    let scope_name = Scope::new("testScopeWriter2".into());
-    let stream_name = Stream::new("testStreamWriter2".into());
+    let scope_name = Scope::from("testScopeWriter2".to_owned());
+    let stream_name = Stream::from("testStreamWriter2".to_owned());
     handle.block_on(create_scope_stream(
         controller_client,
         &scope_name,
@@ -75,8 +75,8 @@ pub fn test_event_stream_writer() {
     handle.block_on(test_write_correctness(&mut writer, &client_factory));
     handle.block_on(test_write_correctness_while_scaling(&mut writer, &client_factory));
 
-    let scope_name = Scope::new("testScopeWriter3".into());
-    let stream_name = Stream::new("testStreamWriter3".into());
+    let scope_name = Scope::from("testScopeWriter3".to_owned());
+    let stream_name = Stream::from("testStreamWriter3".to_owned());
     handle.block_on(create_scope_stream(
         controller_client,
         &scope_name,
@@ -122,10 +122,10 @@ async fn test_segment_scaling_up(writer: &mut EventStreamWriter, factory: &Clien
     while i < count {
         if i == 500 {
             let scoped_stream = ScopedStream {
-                scope: Scope::new("testScopeWriter".into()),
-                stream: Stream::new("testStreamWriter".into()),
+                scope: Scope::from("testScopeWriter".to_owned()),
+                stream: Stream::from("testStreamWriter".to_owned()),
             };
-            let sealed_segments = [Segment::new(0)];
+            let sealed_segments = [Segment::from(0)];
 
             let new_range = [(0.0, 0.5), (0.5, 1.0)];
 
@@ -163,10 +163,10 @@ async fn test_segment_scaling_down(writer: &mut EventStreamWriter, factory: &Cli
     while i < count {
         if i == 500 {
             let scoped_stream = ScopedStream {
-                scope: Scope::new("testScopeWriter".into()),
-                stream: Stream::new("testStreamWriter".into()),
+                scope: Scope::from("testScopeWriter".to_owned()),
+                stream: Stream::from("testStreamWriter".to_owned()),
             };
-            let sealed_segments = [Segment::new(4_294_967_297), Segment::new(4_294_967_298)];
+            let sealed_segments = [Segment::from(4_294_967_297), Segment::from(4_294_967_298)];
             let new_range = [(0.0, 1.0)];
             let scale_result = factory
                 .get_controller_client()
@@ -197,12 +197,12 @@ async fn test_write_correctness(writer: &mut EventStreamWriter, factory: &Client
     let rx = writer.write_event(String::from("event0").into_bytes()).await;
     let reply: Result<(), EventStreamWriterError> = rx.await.expect("wait for result from oneshot");
     assert_eq!(reply.is_ok(), true);
-    let scope_name = Scope::new("testScopeWriter2".into());
-    let stream_name = Stream::new("testStreamWriter2".into());
+    let scope_name = Scope::from("testScopeWriter2".to_owned());
+    let stream_name = Stream::from("testStreamWriter2".to_owned());
     let segment_name = ScopedSegment {
         scope: scope_name,
         stream: stream_name,
-        segment: Segment::new(0),
+        segment: Segment::from(0),
     };
 
     let async_segment_reader = factory.create_async_event_reader(segment_name).await;
@@ -221,10 +221,10 @@ async fn test_write_correctness(writer: &mut EventStreamWriter, factory: &Client
 
 async fn test_write_correctness_while_scaling(writer: &mut EventStreamWriter, factory: &ClientFactory) {
     info!("test event stream writer writes without loss or duplicate when scaling up");
-    let count = 1000;
-    let mut i = 1;
-    let scope_name = Scope::new("testScopeWriter2".into());
-    let stream_name = Stream::new("testStreamWriter2".into());
+    let count: i32 = 1000;
+    let mut i: i32 = 1;
+    let scope_name = Scope::from("testScopeWriter2".to_owned());
+    let stream_name = Stream::from("testStreamWriter2".to_owned());
 
     let mut receivers = vec![];
     while i < count {
@@ -234,7 +234,7 @@ async fn test_write_correctness_while_scaling(writer: &mut EventStreamWriter, fa
                 scope: scope_name.clone(),
                 stream: stream_name.clone(),
             };
-            let sealed_segments = [Segment::new(0)];
+            let sealed_segments = [Segment::from(0)];
 
             let new_range = [(0.0, 0.5), (0.5, 1.0)];
 
@@ -277,11 +277,11 @@ async fn test_write_correctness_while_scaling(writer: &mut EventStreamWriter, fa
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment::new(0),
+        segment: Segment::from(0),
     };
 
     let async_segment_reader = factory.create_async_event_reader(segment_name.clone()).await;
-    let mut i = 0;
+    let mut i: i32 = 0;
     let mut offset = 0;
     // the first 500 go to the first segment.
     while i < 500 {
@@ -300,13 +300,13 @@ async fn test_write_correctness_while_scaling(writer: &mut EventStreamWriter, fa
     let segment_name1 = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment::new(4_294_967_297),
+        segment: Segment::from(4_294_967_297),
     };
     let reader1 = factory.create_async_event_reader(segment_name1.clone()).await;
     let segment_name2 = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment::new(4_294_967_298),
+        segment: Segment::from(4_294_967_298),
     };
     let reader2 = factory.create_async_event_reader(segment_name2.clone()).await;
 
@@ -340,10 +340,10 @@ async fn test_write_correctness_while_scaling(writer: &mut EventStreamWriter, fa
 
 async fn test_write_correctness_with_routing_key(writer: &mut EventStreamWriter, factory: &ClientFactory) {
     info!("test event stream writer writes to a stream with routing key");
-    let count = 1000;
-    let mut i = 0;
-    let scope_name = Scope::new("testScopeWriter3".into());
-    let stream_name = Stream::new("testStreamWriter3".into());
+    let count: i32 = 1000;
+    let mut i: i32 = 0;
+    let scope_name = Scope::from("testScopeWriter3".to_owned());
+    let stream_name = Stream::from("testStreamWriter3".to_owned());
     let mut receivers = vec![];
     while i < count {
         if i % 2 == 0 {
@@ -364,20 +364,20 @@ async fn test_write_correctness_with_routing_key(writer: &mut EventStreamWriter,
     let first_segment = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment::new(0),
+        segment: Segment::from(0),
     };
 
     let second_segment = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment::new(1),
+        segment: Segment::from(1),
     };
     let reader1 = factory.create_async_event_reader(first_segment.clone()).await;
     let reader2 = factory.create_async_event_reader(second_segment.clone()).await;
 
-    let mut i = 0;
-    let mut offset1 = 0;
-    let mut offset2 = 0;
+    let mut i: i32 = 0;
+    let mut offset1: i64 = 0;
+    let mut offset2: i64 = 0;
     while i < count {
         let expect_string = format!("event{}", i);
         let length = (expect_string.len() + 8) as i32;

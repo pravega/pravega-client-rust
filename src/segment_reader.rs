@@ -188,8 +188,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_read_happy_path() {
-        let scope_name = Scope::new("examples".into());
-        let stream_name = Stream::new("someStream".into());
+        let scope_name = Scope::from("examples".to_owned());
+        let stream_name = Stream::from("someStream".to_owned());
 
         let segment_name = ScopedSegment {
             scope: scope_name,

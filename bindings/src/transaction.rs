@@ -130,7 +130,7 @@ impl StreamTransaction {
     #[text_signature = "($self, timestamp_as_u64)"]
     pub fn commit_timestamp(&mut self, timestamp: u64) -> PyResult<()> {
         info!("Committing the transaction {:?}", self.txn.get_txn_id());
-        let commit_fut = self.txn.commit(Timestamp::new(timestamp));
+        let commit_fut = self.txn.commit(Timestamp::from(timestamp));
         let timeout_fut = self
             .handle
             .enter(|| timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), commit_fut));
