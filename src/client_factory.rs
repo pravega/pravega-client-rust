@@ -24,10 +24,6 @@ use crate::setup_logger;
 use crate::table_synchronizer::TableSynchronizer;
 use crate::tablemap::TableMap;
 use crate::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
-use serde::de::DeserializeOwned;
-use serde::Serialize;
-use std::fmt::Debug;
-use std::hash::Hash;
 use std::sync::Arc;
 use tokio::runtime::{Handle, Runtime};
 use crate::byte_stream::{ByteStreamWriter, ByteStreamReader};
@@ -83,10 +79,7 @@ impl ClientFactory {
             .expect("Failed to create Table map")
     }
     #[allow(clippy::needless_lifetimes)]
-    pub async fn create_table_synchronizer<'a, K>(&'a self, name: String) -> TableSynchronizer<'a, K>
-    where
-        K: Serialize + DeserializeOwned + Unpin + Debug + Eq + Hash + PartialEq + Clone,
-    {
+    pub async fn create_table_synchronizer<'a>(&'a self, name: String) -> TableSynchronizer<'a> {
         TableSynchronizer::new(name, &self.0).await
     }
 

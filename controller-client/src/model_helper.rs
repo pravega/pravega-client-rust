@@ -18,7 +18,7 @@ impl From<NodeUri> for PravegaNodeUri {
         let mut uri: String = value.endpoint;
         uri.push_str(":");
         uri.push_str(&value.port.to_string());
-        PravegaNodeUri::new(uri)
+        PravegaNodeUri::from(uri)
     }
 }
 
@@ -149,9 +149,9 @@ impl From<SegmentId> for ScopedSegment {
     fn from(value: SegmentId) -> ScopedSegment {
         let stream_info: StreamInfo = value.stream_info.unwrap();
         ScopedSegment {
-            scope: Scope::new(stream_info.scope),
-            stream: Stream::new(stream_info.stream),
-            segment: Segment::new(value.segment_id),
+            scope: Scope::from(stream_info.scope),
+            stream: Stream::from(stream_info.stream),
+            segment: Segment::from(value.segment_id),
         }
     }
 }
@@ -190,7 +190,7 @@ impl From<CreateTxnResponse> for TxnSegments {
             Some(x) => (x.high_bits as u128) << 64 | (x.low_bits as u128),
             None => panic!("Incorrect response from Controller"),
         };
-        TxnSegments::new(StreamSegments::new(segment_map), TxId::new(txn_uuid))
+        TxnSegments::new(StreamSegments::new(segment_map), TxId::from(txn_uuid))
     }
 }
 
@@ -200,7 +200,11 @@ impl From<SuccessorResponse> for StreamSegmentsWithPredecessors {
         let mut successor_map: HashMap<SegmentWithRange, Vec<Segment>> = HashMap::new();
         for e in &s {
             let seg_range: SegmentWithRange = SegmentWithRange::from(&e.segment.clone().unwrap());
-            let pred_segm: Vec<Segment> = e.value.iter().map(|&x| Segment::new(x)).collect::<Vec<Segment>>();
+            let pred_segm: Vec<Segment> = e
+                .value
+                .iter()
+                .map(|&x| Segment::from(x))
+                .collect::<Vec<Segment>>();
             successor_map.insert(seg_range, pred_segm);
         }
         // convert std::collections::HashMap to im::hashmap::HashMap

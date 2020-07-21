@@ -35,8 +35,8 @@ use tokio::time::delay_for;
 pub fn test_transactional_event_stream_writer() {
     info!("test TransactionalEventStreamWriter");
     // spin up Pravega standalone
-    let scope_name = Scope::new("testScopeTxnWriter".into());
-    let stream_name = Stream::new("testStreamTxnWriter".into());
+    let scope_name = Scope::from("testScopeTxnWriter".to_owned());
+    let stream_name = Stream::from("testStreamTxnWriter".to_owned());
     let scoped_stream = ScopedStream {
         scope: scope_name.clone(),
         stream: stream_name.clone(),

@@ -99,7 +99,7 @@ fn test_retry_while_start_pravega() {
 
 async fn create_scope_stream(controller_client: &dyn ControllerClient) {
     let retry_policy = RetryWithBackoff::default().max_tries(10);
-    let scope_name = Scope::new("retryScope".into());
+    let scope_name = Scope::from("retryScope".to_owned());
 
     let result = retry_async(retry_policy, || async {
         let result = controller_client.create_scope(&scope_name).await;
@@ -112,7 +112,7 @@ async fn create_scope_stream(controller_client: &dyn ControllerClient) {
     .expect("create scope");
     assert!(result, true);
 
-    let stream_name = Stream::new("testStream".into());
+    let stream_name = Stream::from("testStream".to_owned());
     let request = StreamConfiguration {
         scoped_stream: ScopedStream {
             scope: scope_name.clone(),
@@ -144,8 +144,8 @@ async fn create_scope_stream(controller_client: &dyn ControllerClient) {
 
 fn test_retry_with_unexpected_reply() {
     let retry_policy = RetryWithBackoff::default().max_tries(4);
-    let scope_name = Scope::new("retryScope".into());
-    let stream_name = Stream::new("retryStream".into());
+    let scope_name = Scope::from("retryScope".to_owned());
+    let stream_name = Stream::from("retryStream".to_owned());
     let controller_uri = "127.0.0.1:9090"
         .parse::<SocketAddr>()
         .expect("parse to socketaddr");

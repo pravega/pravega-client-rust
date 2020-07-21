@@ -8,13 +8,14 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use bincode2::Error as BincodeError;
+use crate::tablemap::TableError;
 use pravega_connection_pool::connection_pool::ConnectionPoolError;
 use pravega_controller_client::ControllerError;
 use pravega_rust_client_retry::retry_result::RetryError;
 use pravega_rust_client_shared::{TransactionStatus, TxId};
 use pravega_wire_protocol::error::*;
 use pravega_wire_protocol::wire_commands::Replies;
+use serde_cbor::Error as CborError;
 use snafu::Snafu;
 use std::fmt::Debug;
 use tokio::sync::mpsc::error::TryRecvError;
@@ -132,5 +133,22 @@ pub enum TransactionError {
 #[snafu(visibility = "pub")]
 pub enum SerdeError {
     #[snafu(display("Failed to {:?} due to {:?}", msg, source))]
-    Serde { msg: String, source: BincodeError },
+    Cbor { msg: String, source: CborError },
+}
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility = "pub")]
+pub enum SynchronizerError {
+    #[snafu(display(
+        "Table Synchronizer failed while performing {:?} with table error: {:?}",
+        operation,
+        source
+    ))]
+    SyncTableError { operation: String, source: TableError },
+
+    #[snafu(display("Failed to run update function in table synchronizer due to: {:?}", error_msg))]
+    SyncUpdateError { error_msg: String },
+
+    #[snafu(display("Failed insert tombestone in table synchronizer due to: {:?}", error_msg))]
+    SyncTombstoneError { error_msg: String },
 }

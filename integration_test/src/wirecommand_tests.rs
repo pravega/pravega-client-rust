@@ -118,8 +118,8 @@ pub async fn wirecommand_tests(controller: &dyn ControllerClient) {
 }
 
 async fn test_hello(controller_client: &dyn ControllerClient) {
-    let scope_name = Scope::new("testScope".into());
-    let stream_name = Stream::new("testStream".into());
+    let scope_name = Scope::from("testScope".to_owned());
+    let stream_name = Stream::from("testStream".to_owned());
     // Create scope and stream
 
     controller_client
@@ -151,7 +151,7 @@ async fn test_hello(controller_client: &dyn ControllerClient) {
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment::new(0),
+        segment: Segment::from(0),
     };
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
@@ -180,12 +180,12 @@ async fn test_hello(controller_client: &dyn ControllerClient) {
 
 // KeepAlive would not send back reply.
 async fn test_keep_alive(controller_client: &dyn ControllerClient) {
-    let scope_name = Scope::new("testScope".into());
-    let stream_name = Stream::new("testStream".into());
+    let scope_name = Scope::from("testScope".to_owned());
+    let stream_name = Stream::from("testStream".to_owned());
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment::new(0),
+        segment: Segment::from(0),
     };
 
     let endpoint = controller_client
@@ -205,12 +205,12 @@ async fn test_keep_alive(controller_client: &dyn ControllerClient) {
 }
 
 async fn test_setup_append(controller_client: &dyn ControllerClient) {
-    let scope_name = Scope::new("testScope".into());
-    let stream_name = Stream::new("testStream".into());
+    let scope_name = Scope::from("testScope".to_owned());
+    let stream_name = Stream::from("testStream".to_owned());
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment::new(0),
+        segment: Segment::from(0),
     };
 
     let endpoint = controller_client
@@ -246,7 +246,7 @@ async fn test_setup_append(controller_client: &dyn ControllerClient) {
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment::new(1),
+        segment: Segment::from(1),
     };
     let request = Requests::SetupAppend(SetupAppendCommand {
         request_id: 1,
@@ -268,12 +268,12 @@ async fn test_setup_append(controller_client: &dyn ControllerClient) {
 }
 
 async fn test_create_segment(controller_client: &dyn ControllerClient) {
-    let scope_name = Scope::new("testScope".into());
-    let stream_name = Stream::new("testStream".into());
+    let scope_name = Scope::from("testScope".to_owned());
+    let stream_name = Stream::from("testStream".to_owned());
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment::new(1),
+        segment: Segment::from(1),
     };
 
     let endpoint = controller_client
@@ -320,12 +320,12 @@ async fn test_create_segment(controller_client: &dyn ControllerClient) {
 }
 
 async fn test_seal_segment(controller_client: &dyn ControllerClient) {
-    let scope_name = Scope::new("testScope".into());
-    let stream_name = Stream::new("testStream".into());
+    let scope_name = Scope::from("testScope".to_owned());
+    let stream_name = Stream::from("testStream".to_owned());
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment::new(1),
+        segment: Segment::from(1),
     };
 
     let endpoint = controller_client
@@ -355,12 +355,12 @@ async fn test_seal_segment(controller_client: &dyn ControllerClient) {
 }
 
 async fn test_update_and_get_segment_attribute(controller_client: &dyn ControllerClient) {
-    let scope_name = Scope::new("testScope".into());
-    let stream_name = Stream::new("testStream".into());
+    let scope_name = Scope::from("testScope".to_owned());
+    let stream_name = Stream::from("testStream".to_owned());
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment::new(0),
+        segment: Segment::from(0),
     };
 
     let endpoint = controller_client
@@ -409,8 +409,8 @@ async fn test_update_and_get_segment_attribute(controller_client: &dyn Controlle
 }
 
 async fn test_get_stream_segment_info(controller_client: &dyn ControllerClient) {
-    let scope_name = Scope::new("testScope".into());
-    let stream_name = Stream::new("testStream".into());
+    let scope_name = Scope::from("testScope".to_owned());
+    let stream_name = Stream::from("testStream".to_owned());
     let stream = ScopedStream {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
@@ -422,7 +422,7 @@ async fn test_get_stream_segment_info(controller_client: &dyn ControllerClient) 
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment::new(0),
+        segment: Segment::from(0),
     };
 
     let endpoint = controller_client
@@ -452,12 +452,12 @@ async fn test_get_stream_segment_info(controller_client: &dyn ControllerClient) 
 }
 
 async fn test_delete_segment(controller_client: &dyn ControllerClient) {
-    let scope_name = Scope::new("testScope".into());
-    let stream_name = Stream::new("testStream".into());
+    let scope_name = Scope::from("testScope".to_owned());
+    let stream_name = Stream::from("testStream".to_owned());
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment::new(0),
+        segment: Segment::from(0),
     };
 
     let endpoint = controller_client
@@ -485,14 +485,12 @@ async fn test_delete_segment(controller_client: &dyn ControllerClient) {
 }
 
 async fn test_conditional_append_and_read_segment(controller_client: &dyn ControllerClient) {
-    // create a segment.
-    let scope_name = Scope::new("scope".into());
-    let stream_name = Stream::new("stream".into());
-
+    let scope_name = Scope::from("scope".to_owned());
+    let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
-        scope: scope_name,
-        stream: stream_name,
-        segment: Segment::new(0),
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+        segment: Segment::from(0),
     };
 
     let endpoint = controller_client
@@ -571,13 +569,12 @@ async fn test_conditional_append_and_read_segment(controller_client: &dyn Contro
 }
 
 async fn test_update_segment_policy(controller_client: &dyn ControllerClient) {
-    let scope_name = Scope::new("scope".into());
-    let stream_name = Stream::new("stream".into());
-
+    let scope_name = Scope::from("scope".to_owned());
+    let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
-        scope: scope_name,
-        stream: stream_name,
-        segment: Segment::new(0),
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+        segment: Segment::from(0),
     };
 
     let endpoint = controller_client
@@ -608,13 +605,12 @@ async fn test_update_segment_policy(controller_client: &dyn ControllerClient) {
 }
 
 async fn test_merge_segment(controller_client: &dyn ControllerClient) {
-    let scope_name = Scope::new("scope".into());
-    let stream_name = Stream::new("stream".into());
-
+    let scope_name = Scope::from("scope".to_owned());
+    let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
-        scope: scope_name,
-        stream: stream_name,
-        segment: Segment::new(1),
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+        segment: Segment::from(1),
     };
 
     let endpoint = controller_client
@@ -668,13 +664,13 @@ async fn test_merge_segment(controller_client: &dyn ControllerClient) {
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 
     // Merge with scope/stream/0.
-    let scope_name = Scope::new("scope".into());
-    let stream_name = Stream::new("stream".into());
+    let scope_name = Scope::from("scope".to_owned());
+    let stream_name = Stream::from("stream".to_owned());
 
     let target_segment_name = ScopedSegment {
         scope: scope_name,
         stream: stream_name,
-        segment: Segment::new(0),
+        segment: Segment::from(0),
     };
 
     let request = Requests::MergeSegments(MergeSegmentsCommand {
@@ -698,13 +694,12 @@ async fn test_merge_segment(controller_client: &dyn ControllerClient) {
 }
 
 async fn test_truncate_segment(controller_client: &dyn ControllerClient) {
-    let scope_name = Scope::new("scope".into());
-    let stream_name = Stream::new("stream".into());
-
+    let scope_name = Scope::from("scope".to_owned());
+    let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
-        scope: scope_name,
-        stream: stream_name,
-        segment: Segment::new(0),
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+        segment: Segment::from(0),
     };
 
     let endpoint = controller_client
@@ -735,13 +730,12 @@ async fn test_truncate_segment(controller_client: &dyn ControllerClient) {
 }
 
 async fn test_update_table_entries(controller_client: &dyn ControllerClient) {
-    let scope_name = Scope::new("scope".into());
-    let stream_name = Stream::new("stream".into());
-    // create a new segment.
+    let scope_name = Scope::from("scope".to_owned());
+    let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
-        scope: scope_name,
-        stream: stream_name,
-        segment: Segment::new(2),
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+        segment: Segment::from(2),
     };
 
     let endpoint = controller_client
@@ -844,12 +838,12 @@ async fn test_update_table_entries(controller_client: &dyn ControllerClient) {
 }
 
 async fn test_read_table_key(controller_client: &dyn ControllerClient) {
-    let scope_name = Scope::new("scope".into());
-    let stream_name = Stream::new("stream".into());
+    let scope_name = Scope::from("scope".to_owned());
+    let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
-        scope: scope_name,
-        stream: stream_name,
-        segment: Segment::new(2),
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+        segment: Segment::from(2),
     };
 
     let endpoint = controller_client
@@ -884,12 +878,12 @@ async fn test_read_table_key(controller_client: &dyn ControllerClient) {
 }
 
 async fn test_read_table(controller_client: &dyn ControllerClient) {
-    let scope_name = Scope::new("scope".into());
-    let stream_name = Stream::new("stream".into());
+    let scope_name = Scope::from("scope".to_owned());
+    let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
-        scope: scope_name,
-        stream: stream_name,
-        segment: Segment::new(2),
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+        segment: Segment::from(2),
     };
 
     let endpoint = controller_client
@@ -936,12 +930,12 @@ async fn test_read_table(controller_client: &dyn ControllerClient) {
 }
 
 async fn test_read_table_entries(controller_client: &dyn ControllerClient) {
-    let scope_name = Scope::new("scope".into());
-    let stream_name = Stream::new("stream".into());
+    let scope_name = Scope::from("scope".to_owned());
+    let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
-        scope: scope_name,
-        stream: stream_name,
-        segment: Segment::new(2),
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+        segment: Segment::from(2),
     };
 
     let endpoint = controller_client

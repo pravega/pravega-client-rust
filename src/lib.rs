@@ -25,6 +25,7 @@
     clippy::similar_names
 )]
 #![allow(clippy::multiple_crate_versions, clippy::needless_doctest_main)]
+
 use pcg_rand::Pcg32;
 use rand::{Rng, SeedableRng};
 use std::cell::RefCell;
@@ -36,6 +37,7 @@ pub mod error;
 pub mod event_stream_writer;
 pub mod raw_client;
 mod reactor;
+pub mod reader_group;
 pub mod segment_reader;
 mod stream;
 pub mod table_synchronizer;

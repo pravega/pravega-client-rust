@@ -27,6 +27,7 @@
 pub mod naming_utils;
 
 use crate::naming_utils::NameUtils;
+use derive_more::{Display, From};
 use encoding_rs::mem;
 use im::HashMap as ImHashMap;
 use im::OrdMap;
@@ -35,6 +36,7 @@ use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use std::cmp::{min, Reverse};
 use std::collections::{BTreeMap, HashMap};
+use std::convert::From;
 use std::fmt;
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
@@ -47,33 +49,38 @@ extern crate shrinkwraprs;
 #[macro_use]
 extern crate derive_new;
 
-#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(From, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct PravegaNodeUri(pub String);
 
-#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(From, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct DelegationToken(pub String);
 
-#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq, Copy)]
+#[derive(From, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Timestamp(pub u64);
 
-#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(From, Shrinkwrap, Debug, Display, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Scope {
     pub name: String,
 }
 
-#[derive(new, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(From, Shrinkwrap, Debug, Display, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Stream {
     pub name: String,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(From, Shrinkwrap, Debug, Display, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Reader {
+    pub name: String,
+}
+
+#[derive(From, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Segment {
     pub number: i64,
     pub tx_id: Option<TxId>,
 }
 
 impl Segment {
-    pub fn new(number: i64) -> Self {
+    pub fn from(number: i64) -> Self {
         Segment { number, tx_id: None }
     }
 
@@ -86,7 +93,7 @@ impl Segment {
         }
     }
 
-    pub fn new_txn(number: i64, tx_id: TxId) -> Self {
+    pub fn from_txn(number: i64, tx_id: TxId) -> Self {
         Segment {
             number,
             tx_id: Some(tx_id),
@@ -98,7 +105,7 @@ impl Segment {
     }
 }
 
-#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScopedStream {
     pub scope: Scope,
     pub stream: Stream,
@@ -111,13 +118,19 @@ pub struct ScopedSegment {
     pub segment: Segment,
 }
 
-impl From<String> for ScopedSegment {
-    fn from(qualified_name: String) -> Self {
-        if NameUtils::is_transaction_segment(&qualified_name) {
-            let original_segment_name = NameUtils::get_parent_stream_segment_name(&qualified_name);
-            ScopedSegment::from(String::from(original_segment_name))
+impl ScopedSegment {
+    pub fn get_scoped_stream(&self) -> ScopedStream {
+        ScopedStream::new(self.scope.clone(), self.stream.clone())
+    }
+}
+
+impl From<&str> for ScopedSegment {
+    fn from(qualified_name: &str) -> Self {
+        if NameUtils::is_transaction_segment(qualified_name) {
+            let original_segment_name = NameUtils::get_parent_stream_segment_name(qualified_name);
+            ScopedSegment::from(original_segment_name)
         } else {
-            let mut tokens = NameUtils::extract_segment_tokens(qualified_name);
+            let mut tokens = NameUtils::extract_segment_tokens(qualified_name.to_owned());
             if tokens.len() == 2 {
                 // scope not present
                 let segment_id = tokens.pop().expect("get segment id from tokens");
@@ -149,7 +162,7 @@ impl From<String> for ScopedSegment {
     }
 }
 
-#[derive(new, Shrinkwrap, Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(From, Shrinkwrap, Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TxId(pub u128);
 
 impl TxId {
@@ -164,13 +177,6 @@ impl TxId {
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct WriterId(pub u64);
 
-impl Display for Stream {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.name)?;
-        Ok(())
-    }
-}
-
 impl Display for TxId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str(Uuid::from_u128(self.0).to_hyphenated().to_string().as_str())?;
@@ -181,13 +187,6 @@ impl Display for TxId {
 impl fmt::Debug for TxId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(Uuid::from_u128(self.0).to_hyphenated().to_string().as_str())?;
-        Ok(())
-    }
-}
-
-impl Display for Scope {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.name)?;
         Ok(())
     }
 }
@@ -290,6 +289,8 @@ pub struct StreamCut {
     pub segment_offset_map: HashMap<i64, i64>,
 }
 
+const PREFIX_LENGTH: usize = 2;
+
 #[derive(new, Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SegmentWithRange {
     pub scoped_segment: ScopedSegment,
@@ -300,6 +301,54 @@ pub struct SegmentWithRange {
 impl SegmentWithRange {
     pub fn get_segment(&self) -> Segment {
         self.scoped_segment.segment.clone()
+    }
+}
+
+impl fmt::Display for SegmentWithRange {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let segment_str = self.scoped_segment.to_string();
+        write!(
+            f,
+            "{:02}{}{}-{}",
+            segment_str.len(),
+            segment_str,
+            self.min_key,
+            self.max_key
+        )
+    }
+}
+
+impl From<&str> for SegmentWithRange {
+    fn from(name: &str) -> Self {
+        let segment_name_length: usize = name[..PREFIX_LENGTH].parse().expect("parse prefix length");
+
+        let segment_str = &*name[PREFIX_LENGTH..PREFIX_LENGTH + segment_name_length]
+            .parse::<String>()
+            .expect("parse segment name");
+
+        let scoped_segment: ScopedSegment = segment_str.into();
+
+        let rest_string = name[PREFIX_LENGTH + segment_name_length..]
+            .parse::<String>()
+            .expect("parse segment name");
+
+        let mut parts: Vec<&str> = rest_string.split('-').collect();
+        let max_key = parts
+            .pop()
+            .expect("get max key")
+            .parse::<OrderedFloat<f64>>()
+            .expect("parse OrderedFloat from str");
+        let min_key = parts
+            .pop()
+            .expect("get max key")
+            .parse::<OrderedFloat<f64>>()
+            .expect("parse OrderedFloat from str");
+
+        SegmentWithRange {
+            scoped_segment,
+            min_key,
+            max_key,
+        }
     }
 }
 
@@ -473,8 +522,10 @@ pub struct EventRead {
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::convert::From;
+
     #[test]
-    fn test() {
+    fn test_hash() {
         let s = "hello";
         let mut buffer_u16 = vec![0; s.len()];
 
@@ -486,5 +537,24 @@ mod test {
 
         let (upper, _lower) = murmurhash3_x64_128(&buffer_u8, StreamSegments::SEED);
         assert_eq!(u64_to_f64_fraction(upper), 0.658716230571337);
+    }
+
+    #[test]
+    fn test_segment_with_range() {
+        let segment = SegmentWithRange {
+            scoped_segment: ScopedSegment {
+                scope: Scope::from("scope".to_owned()),
+                stream: Stream::from("stream".to_owned()),
+                segment: Segment::from(0),
+            },
+            min_key: OrderedFloat::from(0.0),
+            max_key: OrderedFloat::from(1.0),
+        };
+
+        let segment_string = &*segment.to_string();
+
+        let segment_from_string: SegmentWithRange = segment_string.into();
+
+        assert_eq!(segment_from_string, segment);
     }
 }
