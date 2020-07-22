@@ -412,8 +412,8 @@ async fn test_write_with_stream_sealed(writer: &mut EventStreamWriter, factory: 
     while i < count {
         if i == 500 {
             let scoped_stream = ScopedStream {
-                scope: Scope::new("testScopeWriterStreamSealed".into()),
-                stream: Stream::new("testStreamWriterStreamSealed".into()),
+                scope: Scope::from("testScopeWriterStreamSealed".to_owned()),
+                stream: Stream::from("testStreamWriterStreamSealed".to_owned()),
             };
             let seal_result = factory.get_controller_client().seal_stream(&scoped_stream).await;
             assert!(seal_result.is_ok());
