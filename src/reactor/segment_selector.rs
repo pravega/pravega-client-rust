@@ -142,11 +142,8 @@ impl SegmentSelector {
                     writer.id,
                     scoped_segment.to_string()
                 );
-                match writer.setup_connection(&self.factory).await {
-                    Ok(()) => {}
-                    Err(_) => {
-                        writer.reconnect(&self.factory).await;
-                    }
+                if let Err(_e) = writer.setup_connection(&self.factory).await {
+                    writer.reconnect(&self.factory).await;
                 }
                 self.writers.insert(scoped_segment, writer);
             }

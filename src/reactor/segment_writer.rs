@@ -94,7 +94,6 @@ impl SegmentWriter {
         &mut self,
         factory: &ClientFactoryInternal,
     ) -> Result<(), SegmentWriterError> {
-        // retry to get latest endpoint
         let uri = match factory
             .get_controller_client()
             .get_endpoint_for_segment(&self.segment) // retries are internal to the controller client.
@@ -114,7 +113,7 @@ impl SegmentWriter {
         });
 
         let raw_client = factory.create_raw_client(self.endpoint);
-        let mut connection = match retry_async(self.retry_policy, || async {
+        let result = retry_async(self.retry_policy, || async {
             debug!(
                 "setting up append for writer:{:?}/segment:{}",
                 self.id,
@@ -128,8 +127,9 @@ impl SegmentWriter {
                 }
             }
         })
-        .await
-        {
+        .await;
+
+        let mut connection = match result {
             Ok((reply, connection)) => match reply {
                 Replies::AppendSetup(cmd) => {
                     debug!(
@@ -163,24 +163,25 @@ impl SegmentWriter {
         tokio::spawn(async move {
             loop {
                 // listen to the receiver channel
-                match r.read().await {
-                    Ok(reply) => {
-                        if let Err(e) = sender
-                            .send(Incoming::ServerReply(ServerReply {
-                                segment: segment.clone(),
-                                reply,
-                            }))
-                            .await
-                        {
-                            error!("connection {:?} read data from segmentstore but failed to send reply back to processor due to {:?}", r.get_id() ,e);
-                            return;
-                        }
-                    }
+                let reply = match r.read().await {
+                    Ok(reply) => reply,
                     Err(e) => {
                         warn!("connection {:?} failed to read data back from segmentstore due to {:?}, closing the listener task", r.get_id(), e);
                         return;
                     }
                 };
+
+                let result = sender
+                    .send(Incoming::ServerReply(ServerReply {
+                        segment: segment.clone(),
+                        reply,
+                    }))
+                    .await;
+
+                if let Err(e) = result {
+                    error!("connection {:?} read data from segmentstore but failed to send reply back to processor due to {:?}", r.get_id() ,e);
+                    return;
+                }
             }
         });
         Ok(())

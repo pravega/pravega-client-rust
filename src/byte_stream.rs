@@ -47,20 +47,21 @@ impl Write for ByteStreamWriter {
                 let oneshot = ByteStreamWriter::write_internal(self.sender.clone(), payload).await;
                 oneshot.await
             });
-            match result {
-                Ok(res) => match res {
-                    Ok(()) => {
-                        position += advance;
-                    }
-                    Err(e) => return Err(Error::new(ErrorKind::Other, format!("{:?}", e))),
-                },
+            let reactor_reply = match result {
+                Ok(res) => res,
                 Err(e) => return Err(Error::new(ErrorKind::Other, format!("Oneshot error: {:?}", e))),
+            };
+
+            if let Err(e) = reactor_reply {
+                return Err(Error::new(ErrorKind::Other, format!("{:?}", e)));
+            } else {
+                position += advance;
             }
         }
         Ok(position)
     }
 
-    // write will flush the data internally, so there is no need to call flush
+    // write will flush the data internally, there is no need to call flush.
     fn flush(&mut self) -> Result<(), Error> {
         Ok(())
     }
