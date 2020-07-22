@@ -14,7 +14,7 @@ use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
 use uuid::Uuid;
 
-use crate::reactor::StreamReactor;
+use crate::reactor::reactors::StreamReactor;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfig;
 

@@ -11,7 +11,7 @@
 use crate::client_factory::{ClientFactory, ClientFactoryInternal};
 use crate::error::*;
 use crate::reactor::event::{Incoming, PendingEvent};
-use crate::reactor::SegmentReactor;
+use crate::reactor::reactors::SegmentReactor;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::client_config::ClientConfig;
