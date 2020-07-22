@@ -11,6 +11,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
+mod byte_stream_tests;
 mod controller_tests;
 #[cfg(test)]
 mod disconnection_tests;
@@ -19,9 +20,8 @@ mod pravega_service;
 mod tablemap_tests;
 mod tablesynchronizer_tests;
 mod transactional_event_stream_writer_tests;
-mod wirecommand_tests;
-mod byte_stream_tests;
 mod utils;
+mod wirecommand_tests;
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
 use std::process::Command;
 use std::{thread, time};
@@ -70,6 +70,8 @@ mod test {
         tablesynchronizer_tests::test_tablesynchronizer();
 
         transactional_event_stream_writer_tests::test_transactional_event_stream_writer();
+
+        byte_stream_tests::test_byte_stream();
 
         // Shut down Pravega standalone
         pravega.stop().unwrap();

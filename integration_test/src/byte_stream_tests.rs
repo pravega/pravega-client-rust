@@ -8,7 +8,9 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::utils;
 use log::info;
+use pravega_client_rust::byte_stream::{ByteStreamReader, ByteStreamWriter};
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::error::SegmentWriterError;
 use pravega_client_rust::event_stream_writer::EventStreamWriter;
@@ -26,13 +28,13 @@ use pravega_wire_protocol::connection_factory::{
     ConnectionFactory, ConnectionType, SegmentConnectionManager,
 };
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
+use std::io::{Read, Write};
 use std::net::SocketAddr;
-use crate::utils;
 
 pub fn test_byte_stream() {
     // spin up Pravega standalone
-    let scope_name = Scope::from("testScopeByteStream");
-    let stream_name = Stream::from("testStreamByteStream");
+    let scope_name = Scope::from("testScopeByteStream".to_owned());
+    let stream_name = Stream::from("testStreamByteStream".to_owned());
     let config = ClientConfigBuilder::default()
         .controller_uri(TEST_CONTROLLER_URI)
         .build()
@@ -47,51 +49,40 @@ pub fn test_byte_stream() {
         1,
     ));
 
-    let scoped_stream = ScopedStream {
+    let scoped_segment = ScopedSegment {
         scope: scope_name,
         stream: stream_name,
+        segment: Segment::from(0),
     };
 
-    let mut writer = client_factory.create_event_stream_writer(scoped_stream);
+    let mut writer = client_factory.create_byte_stream_writer(scoped_segment.clone());
+    let mut reader = client_factory.create_byte_stream_reader(scoped_segment);
 
-    handle.block_on(test_simple_write(&mut writer));
+    test_write_and_read(&mut writer, &mut reader);
+}
 
-    handle.block_on(test_segment_scaling_up(&mut writer, &client_factory));
+fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader) {
+    info!("test byte stream write and read");
+    let payload1 = vec![1, 1, 1, 1];
+    let payload2 = vec![2, 2, 2, 2];
+    let expected = [&payload1[..], &payload2[..]].concat();
 
-    handle.block_on(test_segment_scaling_down(&mut writer, &client_factory));
+    let size1 = writer.write(&payload1).expect("write payload1 to byte stream");
+    assert_eq!(size1, 4);
+    info!("wrote first payload {:?}", payload1);
 
-    let scope_name = Scope::new("testScopeWriter2".into());
-    let stream_name = Stream::new("testStreamWriter2".into());
-    handle.block_on(create_scope_stream(
-        controller_client,
-        &scope_name,
-        &stream_name,
-        1,
-    ));
-    let scoped_stream = ScopedStream {
-        scope: scope_name,
-        stream: stream_name,
-    };
-    let mut writer = client_factory.create_event_stream_writer(scoped_stream);
+    let size2 = writer.write(&payload2).expect("write payload2 to byte stream");
+    assert_eq!(size2, 4);
+    info!("wrote second payload {:?}", payload2);
 
-    handle.block_on(test_write_correctness(&mut writer, &client_factory));
-    handle.block_on(test_write_correctness_while_scaling(&mut writer, &client_factory));
+    let mut buf: Vec<u8> = vec![0; 8];
+    loop {
+        let bytes = reader.read(&mut buf).expect("read from byte stream");
+        if bytes > 0 {
+            break;
+        }
+    }
+    assert_eq!(buf, expected);
 
-    let scope_name = Scope::new("testScopeWriter3".into());
-    let stream_name = Stream::new("testStreamWriter3".into());
-    handle.block_on(create_scope_stream(
-        controller_client,
-        &scope_name,
-        &stream_name,
-        2,
-    ));
-    let scoped_stream = ScopedStream {
-        scope: scope_name,
-        stream: stream_name,
-    };
-    let mut writer = client_factory.create_event_stream_writer(scoped_stream);
-    handle.block_on(test_write_correctness_with_routing_key(
-        &mut writer,
-        &client_factory,
-    ));
+    info!("test byte stream write and read passed");
 }

@@ -8,6 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::utils;
 use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::error::SegmentWriterError;
@@ -27,7 +28,6 @@ use pravega_wire_protocol::connection_factory::{
 };
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
-use crate::utils;
 
 pub fn test_event_stream_writer() {
     // spin up Pravega standalone
@@ -61,7 +61,7 @@ pub fn test_event_stream_writer() {
 
     let scope_name = Scope::from("testScopeWriter2".to_owned());
     let stream_name = Stream::from("testStreamWriter2".to_owned());
-    handle.block_on(create_scope_stream(
+    handle.block_on(utils::create_scope_stream(
         controller_client,
         &scope_name,
         &stream_name,
@@ -78,7 +78,7 @@ pub fn test_event_stream_writer() {
 
     let scope_name = Scope::from("testScopeWriter3".to_owned());
     let stream_name = Stream::from("testStreamWriter3".to_owned());
-    handle.block_on(create_scope_stream(
+    handle.block_on(utils::create_scope_stream(
         controller_client,
         &scope_name,
         &stream_name,

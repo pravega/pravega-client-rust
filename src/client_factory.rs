@@ -17,6 +17,7 @@ use pravega_rust_client_shared::{ScopedSegment, ScopedStream, WriterId};
 use pravega_wire_protocol::client_config::ClientConfig;
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 
+use crate::byte_stream::{ByteStreamReader, ByteStreamWriter};
 use crate::event_stream_writer::EventStreamWriter;
 use crate::raw_client::RawClientImpl;
 use crate::segment_reader::AsyncSegmentReaderImpl;
@@ -26,7 +27,6 @@ use crate::tablemap::TableMap;
 use crate::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
 use std::sync::Arc;
 use tokio::runtime::{Handle, Runtime};
-use crate::byte_stream::{ByteStreamWriter, ByteStreamReader};
 
 pub struct ClientFactory(Arc<ClientFactoryInternal>);
 
@@ -112,7 +112,7 @@ impl ClientFactory {
     }
 
     pub fn create_byte_stream_reader(&self, segment: ScopedSegment) -> ByteStreamReader {
-        ByteStreamReader::new(segment, self.0.config.clone(), self)
+        ByteStreamReader::new(segment, self)
     }
 
     pub fn get_controller_client(&self) -> &dyn ControllerClient {

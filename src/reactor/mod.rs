@@ -87,7 +87,7 @@ impl StreamReactor {
 
                         Replies::SegmentIsSealed(cmd) => {
                             debug!("segment {:?} sealed", cmd.segment);
-                            let segment = ScopedSegment::from(cmd.segment);
+                            let segment = ScopedSegment::from(&*cmd.segment);
                             let inflight = selector.refresh_segment_event_writers_upon_sealed(&segment).await;
                             selector.resend(inflight).await;
                             selector.remove_segment_event_writer(&segment);
@@ -99,7 +99,7 @@ impl StreamReactor {
                                 "no such segment {:?} due to segment truncation: stack trace {}",
                                 cmd.segment, cmd.server_stack_trace
                             );
-                            let segment = ScopedSegment::from(cmd.segment);
+                            let segment = ScopedSegment::from(&*cmd.segment);
                             let inflight = selector.refresh_segment_event_writers_upon_sealed(&segment).await;
                             selector.resend(inflight).await;
                             selector.remove_segment_event_writer(&segment);
@@ -135,6 +135,10 @@ impl SegmentReactor {
         config: ClientConfig,
     ) {
         let mut writer = SegmentWriter::new(segment.clone(), sender.clone(), config.retry_policy);
+        if let Err(e) = writer.setup_connection(&factory).await {
+            writer.reconnect(&factory).await;
+        }
+
         loop {
             let event = receiver.recv().await.expect("sender closed, processor exit");
             match event {
@@ -152,6 +156,7 @@ impl SegmentReactor {
                 Incoming::ServerReply(server_reply) => {
                     match server_reply.reply {
                         Replies::DataAppended(cmd) => {
+                            info!("data appended");
                             debug!(
                                 "data appended for writer {:?}, latest event id is: {:?}",
                                 writer.id, cmd.event_number

@@ -8,20 +8,21 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use pravega_rust_client_shared::ScopedSegment;
-use uuid::Uuid;
-use std::io::{Read, Write, ErrorKind};
-use crate::client_factory::{ClientFactoryInternal, ClientFactory};
+use crate::client_factory::{ClientFactory, ClientFactoryInternal};
 use crate::error::*;
 use crate::reactor::event::{AppendEvent, Incoming, PendingEvent};
 use crate::reactor::SegmentReactor;
+use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
+use log::info;
+use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::client_config::ClientConfig;
+use std::io::Error;
+use std::io::{ErrorKind, Read, Write};
 use std::sync::Arc;
+use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
-use std::io::Error;
-use tokio::runtime::Handle;
-use crate::segment_reader::{AsyncSegmentReaderImpl, AsyncSegmentReader};
+use uuid::Uuid;
 
 const BUFFER_SIZE: usize = 4096;
 const CHANNEL_CAPACITY: usize = 100;
@@ -36,13 +37,28 @@ impl Write for ByteStreamWriter {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
         let mut position = 0;
         while position < buf.len() {
-            let advance = if buf.len() - position > PendingEvent::MAX_WRITE_SIZE {PendingEvent::MAX_WRITE_SIZE} else {buf.len() - position};
-            let mut payload = vec!{};
-            payload.extend_from_slice(&buf[position .. position + advance]);
-            self.runtime_handle.block_on(ByteStreamWriter::write_internal(self.sender.clone(), payload));
-            position += advance;
+            let advance = if buf.len() - position > PendingEvent::MAX_WRITE_SIZE {
+                PendingEvent::MAX_WRITE_SIZE
+            } else {
+                buf.len() - position
+            };
+            let mut payload = vec![];
+            payload.extend_from_slice(&buf[position..position + advance]);
+            let result = self.runtime_handle.block_on(async {
+                let oneshot = ByteStreamWriter::write_internal(self.sender.clone(), payload).await;
+                oneshot.await
+            });
+            match result {
+                Ok(res) => match res {
+                    Ok(()) => {
+                        position += advance;
+                    }
+                    Err(e) => return Err(Error::new(ErrorKind::Other, format!("{:?}", e))),
+                },
+                Err(e) => return Err(Error::new(ErrorKind::Other, format!("oneshot error: {:?}", e))),
+            }
         }
-        Ok(buf.len())
+        Ok(position)
     }
 
     // write will flush the data internally, so there is no need to call flush
@@ -76,7 +92,10 @@ impl ByteStreamWriter {
         }
     }
 
-    async fn write_internal(mut sender: Sender<Incoming>, event: Vec<u8>) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
+    async fn write_internal(
+        mut sender: Sender<Incoming>,
+        event: Vec<u8>,
+    ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         let (tx, rx) = oneshot::channel();
         let append_event = Incoming::AppendEvent(AppendEvent::new(event, None, tx));
         if let Err(_e) = sender.send(append_event).await {
@@ -100,30 +119,34 @@ pub struct ByteStreamReader<'a> {
 
 impl Read for ByteStreamReader<'_> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
-        let result = self.runtime_handle.block_on(self.reader.read(self.offset, buf.len() as i32));
+        info!(
+            "initial reading at offset {} for {} length",
+            self.offset,
+            buf.len()
+        );
+        let result = self
+            .runtime_handle
+            .block_on(self.reader.read(self.offset, buf.len() as i32));
         match result {
             Ok(cmd) => {
+                info!("received read {:?}", cmd);
                 if cmd.end_of_segment {
-                    Error::new(ErrorKind::Other, "segment is sealed");
+                    Err(Error::new(ErrorKind::Other, "segment is sealed"))
                 } else {
                     self.offset += cmd.data.len() as i64;
                     buf.copy_from_slice(&cmd.data);
+                    Ok(cmd.data.len())
                 }
             }
-            Err(e) => {}
+            Err(e) => Err(Error::new(ErrorKind::Other, "other")),
         }
-        Ok(0)
     }
 }
 
 impl<'a> ByteStreamReader<'a> {
-    pub(crate) fn new(
-        segment: ScopedSegment,
-        config: ClientConfig,
-        factory: &'a ClientFactory,
-    ) -> Self {
+    pub(crate) fn new(segment: ScopedSegment, factory: &'a ClientFactory) -> Self {
         let handle = factory.get_runtime_handle();
-        let async_reader = handle.block_on(factory.create_async_event_reader(segment.clone()));
+        let async_reader = handle.block_on(factory.create_async_event_reader(segment));
         ByteStreamReader {
             reader_id: Uuid::new_v4(),
             reader: async_reader,
@@ -136,5 +159,5 @@ impl<'a> ByteStreamReader<'a> {
 #[cfg(test)]
 mod test {
     #[test]
-    fn t() {}
+    fn test() {}
 }

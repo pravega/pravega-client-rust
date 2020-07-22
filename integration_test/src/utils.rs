@@ -22,9 +22,6 @@ use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectio
 use pravega_wire_protocol::commands::{
     Command, EventCommand, GetStreamSegmentInfoCommand, SealSegmentCommand,
 };
-use pravega_wire_protocol::connection_factory::{
-    ConnectionFactory, ConnectionType, SegmentConnectionManager,
-};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
 
