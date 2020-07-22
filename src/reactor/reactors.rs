@@ -10,7 +10,7 @@
 
 use std::sync::Arc;
 use tokio::sync::mpsc::{Receiver, Sender};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfig;
@@ -18,7 +18,7 @@ use pravega_wire_protocol::wire_commands::Replies;
 
 use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
-use crate::reactor::event::Incoming;
+use crate::reactor::event::{Incoming, ServerReply};
 use crate::reactor::segment_selector::SegmentSelector;
 use crate::reactor::segment_writer::SegmentWriter;
 
@@ -26,7 +26,6 @@ use crate::reactor::segment_writer::SegmentWriter;
 pub(crate) struct StreamReactor {}
 
 impl StreamReactor {
-    #[allow(clippy::cognitive_complexity)]
     pub(crate) async fn run(
         stream: ScopedStream,
         sender: Sender<Incoming>,
@@ -51,63 +50,76 @@ impl StreamReactor {
                     }
                 }
                 Incoming::ServerReply(server_reply) => {
-                    // it should always have writer because writer will
-                    // not be removed until it receives SegmentSealed reply
-                    let writer = selector
-                        .writers
-                        .get_mut(&server_reply.segment)
-                        .expect("should always be able to get event segment writer");
-
-                    match server_reply.reply {
-                        Replies::DataAppended(cmd) => {
-                            debug!(
-                                "data appended for writer {:?}, latest event id is: {:?}",
-                                writer.id, cmd.event_number
-                            );
-                            writer.ack(cmd.event_number);
-                            match writer.write_pending_events().await {
-                                Ok(()) => {
-                                    continue;
-                                }
-                                Err(e) => {
-                                    warn!("writer {:?} failed to flush data to segment {:?} due to {:?}, reconnecting", writer.id ,writer.segment, e);
-                                    writer.reconnect(&factory).await;
-                                }
-                            }
-                        }
-
-                        Replies::SegmentIsSealed(cmd) => {
-                            debug!("segment {:?} sealed", cmd.segment);
-                            let segment = ScopedSegment::from(&*cmd.segment);
-                            let inflight = selector.refresh_segment_event_writers_upon_sealed(&segment).await;
-                            selector.resend(inflight).await;
-                            selector.remove_segment_event_writer(&segment);
-                        }
-
-                        // same handling logic as segment sealed reply
-                        Replies::NoSuchSegment(cmd) => {
-                            debug!(
-                                "no such segment {:?} due to segment truncation: stack trace {}",
-                                cmd.segment, cmd.server_stack_trace
-                            );
-                            let segment = ScopedSegment::from(&*cmd.segment);
-                            let inflight = selector.refresh_segment_event_writers_upon_sealed(&segment).await;
-                            selector.resend(inflight).await;
-                            selector.remove_segment_event_writer(&segment);
-                        }
-
-                        _ => {
-                            error!(
-                                "receive unexpected reply {:?}, closing stream reactor",
-                                server_reply.reply
-                            );
-                            receiver.close();
-                            drain_recevier(receiver, ErrorType::OTHER, format!("{:?}", server_reply.reply))
-                                .await;
-                            break;
-                        }
+                    if let Err(e) =
+                        StreamReactor::process_server_reply(server_reply, &mut selector, &factory).await
+                    {
+                        receiver.close();
+                        drain_recevier(receiver, e.to_owned()).await;
+                        break;
                     }
                 }
+            }
+        }
+    }
+
+    async fn process_server_reply(
+        server_reply: ServerReply,
+        selector: &mut SegmentSelector,
+        factory: &Arc<ClientFactoryInternal>,
+    ) -> Result<(), &'static str> {
+        // it should always have writer because writer will
+        // not be removed until it receives SegmentSealed reply
+        let writer = selector
+            .writers
+            .get_mut(&server_reply.segment)
+            .expect("should always be able to get event segment writer");
+        match server_reply.reply {
+            Replies::DataAppended(cmd) => {
+                debug!(
+                    "data appended for writer {:?}, latest event id is: {:?}",
+                    writer.id, cmd.event_number
+                );
+                writer.ack(cmd.event_number);
+                if let Err(e) = writer.write_pending_events().await {
+                    warn!(
+                        "writer {:?} failed to flush data to segment {:?} due to {:?}, reconnecting",
+                        writer.id, writer.segment, e
+                    );
+                    writer.reconnect(factory).await;
+                }
+                Ok(())
+            }
+
+            Replies::SegmentIsSealed(cmd) => {
+                debug!(
+                    "segment {:?} sealed: stack trace {}",
+                    cmd.segment, cmd.server_stack_trace
+                );
+                let segment = ScopedSegment::from(&*cmd.segment);
+                let inflight = selector.refresh_segment_event_writers_upon_sealed(&segment).await;
+                selector.resend(inflight).await;
+                selector.remove_segment_event_writer(&segment);
+                Ok(())
+            }
+
+            Replies::NoSuchSegment(cmd) => {
+                debug!(
+                    "no such segment {:?} due to segment truncation: stack trace {}",
+                    cmd.segment, cmd.server_stack_trace
+                );
+                let segment = ScopedSegment::from(&*cmd.segment);
+                let inflight = selector.refresh_segment_event_writers_upon_sealed(&segment).await;
+                selector.resend(inflight).await;
+                selector.remove_segment_event_writer(&segment);
+                Ok(())
+            }
+
+            _ => {
+                error!(
+                    "receive unexpected reply {:?}, closing stream reactor",
+                    server_reply.reply
+                );
+                Err("unexpected reply")
             }
         }
     }
@@ -117,7 +129,6 @@ impl StreamReactor {
 pub(crate) struct SegmentReactor {}
 
 impl SegmentReactor {
-    #[allow(clippy::cognitive_complexity)]
     pub(crate) async fn run(
         segment: ScopedSegment,
         sender: Sender<Incoming>,
@@ -140,75 +151,71 @@ impl SegmentReactor {
                     }
                 }
                 Incoming::ServerReply(server_reply) => {
-                    match server_reply.reply {
-                        Replies::DataAppended(cmd) => {
-                            info!("data appended");
-                            debug!(
-                                "data appended for writer {:?}, latest event id is: {:?}",
-                                writer.id, cmd.event_number
-                            );
-                            writer.ack(cmd.event_number);
-                            match writer.write_pending_events().await {
-                                Ok(()) => {
-                                    continue;
-                                }
-                                Err(e) => {
-                                    warn!("writer {:?} failed to flush data to segment {:?} due to {:?}, reconnecting", writer.id, writer.segment, e);
-                                    writer.reconnect(&factory).await;
-                                }
-                            }
-                        }
-
-                        Replies::SegmentIsSealed(cmd) => {
-                            info!("segment {:?} sealed", cmd.segment);
-                            receiver.close();
-                            drain_recevier(receiver, ErrorType::SEALED, segment.to_string()).await;
-                            break;
-                        }
-
-                        // same handling logic as segment sealed reply
-                        Replies::NoSuchSegment(cmd) => {
-                            info!(
-                                "no such segment {:?} due to segment truncation: stack trace {}",
-                                cmd.segment, cmd.server_stack_trace
-                            );
-                            receiver.close();
-                            drain_recevier(receiver, ErrorType::NOTFOUND, segment.to_string()).await;
-                            break;
-                        }
-
-                        _ => {
-                            error!(
-                                "receive unexpected reply {:?}, closing segment reactor",
-                                server_reply.reply
-                            );
-                            receiver.close();
-                            drain_recevier(receiver, ErrorType::OTHER, format!("{:?}", server_reply.reply))
-                                .await;
-                            break;
-                        }
+                    if let Err(e) =
+                        SegmentReactor::process_server_reply(server_reply, &mut writer, &factory).await
+                    {
+                        receiver.close();
+                        drain_recevier(receiver, e.to_owned()).await;
+                        break;
                     }
                 }
             }
         }
     }
+    async fn process_server_reply(
+        server_reply: ServerReply,
+        writer: &mut SegmentWriter,
+        factory: &Arc<ClientFactoryInternal>,
+    ) -> Result<(), &'static str> {
+        match server_reply.reply {
+            Replies::DataAppended(cmd) => {
+                debug!(
+                    "data appended for writer {:?}, latest event id is: {:?}",
+                    writer.id, cmd.event_number
+                );
+                writer.ack(cmd.event_number);
+                if let Err(e) = writer.write_pending_events().await {
+                    warn!(
+                        "writer {:?} failed to flush data to segment {:?} due to {:?}, reconnecting",
+                        writer.id, writer.segment, e
+                    );
+                    writer.reconnect(factory).await;
+                }
+                Ok(())
+            }
+
+            Replies::SegmentIsSealed(cmd) => {
+                warn!(
+                    "segment {:?} sealed: stack trace {}",
+                    cmd.segment, cmd.server_stack_trace
+                );
+                Err("segment is sealed")
+            }
+
+            // same handling logic as segment sealed reply
+            Replies::NoSuchSegment(cmd) => {
+                warn!(
+                    "no such segment {:?} due to segment truncation: stack trace {}",
+                    cmd.segment, cmd.server_stack_trace
+                );
+                Err("no such segment")
+            }
+
+            _ => {
+                error!(
+                    "receive unexpected reply {:?}, closing segment reactor",
+                    server_reply.reply
+                );
+                Err("unexpected reply")
+            }
+        }
+    }
 }
 
-#[derive(Clone)]
-enum ErrorType {
-    SEALED,
-    NOTFOUND,
-    OTHER,
-}
-
-async fn drain_recevier(mut receiver: Receiver<Incoming>, error_type: ErrorType, msg: String) {
+async fn drain_recevier(mut receiver: Receiver<Incoming>, msg: String) {
     while let Some(remaining) = receiver.recv().await {
         if let Incoming::AppendEvent(event) = remaining {
-            let err = match error_type.clone() {
-                ErrorType::SEALED => Err(SegmentWriterError::SegmentIsSealed { msg: msg.clone() }),
-                ErrorType::NOTFOUND => Err(SegmentWriterError::NoSuchSegment { msg: msg.clone() }),
-                ErrorType::OTHER => Err(SegmentWriterError::Unexpected { msg: msg.clone() }),
-            };
+            let err = Err(SegmentWriterError::ReactorClosed { msg: msg.clone() });
             event.oneshot_sender.send(err).expect("send error");
         }
     }

@@ -64,14 +64,8 @@ pub enum SegmentWriterError {
     #[snafu(display("Wrong reply, expected {:?} but get {:?}", expected, actual))]
     WrongReply { expected: String, actual: Replies },
 
-    #[snafu(display("Segment {:?} is sealed", msg))]
-    SegmentIsSealed { msg: String },
-
-    #[snafu(display("No such segment {:?}", msg))]
-    NoSuchSegment { msg: String },
-
-    #[snafu(display("Unexpected error from {:?}", msg))]
-    Unexpected { msg: String },
+    #[snafu(display("Reactor is closed due to: {:?}", msg))]
+    ReactorClosed { msg: String },
 }
 
 #[derive(Debug, Snafu)]
