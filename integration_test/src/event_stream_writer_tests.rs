@@ -403,6 +403,39 @@ async fn test_write_correctness_with_routing_key(writer: &mut EventStreamWriter,
     info!("test event stream writer writes to a stream with routing key  passed");
 }
 
+async fn test_write_with_stream_sealed(writer: &mut EventStreamWriter, factory: &ClientFactory) {
+    info!("test event stream writer with stream sealed");
+
+    let mut receivers = vec![];
+    let count = 1000;
+    let mut i = 0;
+    while i < count {
+        if i == 500 {
+            let scoped_stream = ScopedStream {
+                scope: Scope::from("testScopeWriterStreamSealed".to_owned()),
+                stream: Stream::from("testStreamWriterStreamSealed".to_owned()),
+            };
+            let seal_result = factory.get_controller_client().seal_stream(&scoped_stream).await;
+            assert!(seal_result.is_ok());
+        }
+        let rx = writer.write_event(String::from("hello").into_bytes()).await;
+        receivers.push(rx);
+        i += 1;
+    }
+    assert_eq!(receivers.len(), count);
+
+    for (i, rx) in receivers.into_iter().enumerate() {
+        let reply: Result<(), EventStreamWriterError> = rx.await.expect("wait for result from oneshot");
+        if i < 500 {
+            assert!(reply.is_ok());
+        } else {
+            assert!(reply.is_err());
+        }
+    }
+
+    info!("test event stream writer with stream sealed passed");
+}
+
 /// helper function
 async fn create_scope_stream(
     controller_client: &dyn ControllerClient,
