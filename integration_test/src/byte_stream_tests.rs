@@ -69,19 +69,13 @@ fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamRea
 
     let size1 = writer.write(&payload1).expect("write payload1 to byte stream");
     assert_eq!(size1, 4);
-    info!("wrote first payload {:?}", payload1);
 
     let size2 = writer.write(&payload2).expect("write payload2 to byte stream");
     assert_eq!(size2, 4);
-    info!("wrote second payload {:?}", payload2);
 
     let mut buf: Vec<u8> = vec![0; 8];
-    loop {
-        let bytes = reader.read(&mut buf).expect("read from byte stream");
-        if bytes > 0 {
-            break;
-        }
-    }
+    let bytes = reader.read(&mut buf).expect("read from byte stream");
+    assert_eq!(bytes, 8);
     assert_eq!(buf, expected);
 
     info!("test byte stream write and read passed");

@@ -10,10 +10,9 @@
 
 use crate::client_factory::{ClientFactory, ClientFactoryInternal};
 use crate::error::*;
-use crate::reactor::event::{AppendEvent, Incoming, PendingEvent};
+use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::SegmentReactor;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
-use log::info;
 use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::client_config::ClientConfig;
 use std::io::Error;
@@ -55,7 +54,7 @@ impl Write for ByteStreamWriter {
                     }
                     Err(e) => return Err(Error::new(ErrorKind::Other, format!("{:?}", e))),
                 },
-                Err(e) => return Err(Error::new(ErrorKind::Other, format!("oneshot error: {:?}", e))),
+                Err(e) => return Err(Error::new(ErrorKind::Other, format!("Oneshot error: {:?}", e))),
             }
         }
         Ok(position)
@@ -97,16 +96,17 @@ impl ByteStreamWriter {
         event: Vec<u8>,
     ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         let (tx, rx) = oneshot::channel();
-        let append_event = Incoming::AppendEvent(AppendEvent::new(event, None, tx));
-        if let Err(_e) = sender.send(append_event).await {
-            let (tx_error, rx_error) = oneshot::channel();
-            tx_error
-                .send(Err(SegmentWriterError::SendToProcessor {}))
-                .expect("send error");
-            rx_error
-        } else {
-            rx
+        if let Some(pending_event) = PendingEvent::new(None, event, tx) {
+            let append_event = Incoming::AppendEvent(pending_event);
+            if let Err(_e) = sender.send(append_event).await {
+                let (tx_error, rx_error) = oneshot::channel();
+                tx_error
+                    .send(Err(SegmentWriterError::SendToProcessor {}))
+                    .expect("send error");
+                return rx_error;
+            }
         }
+        rx
     }
 }
 
@@ -119,17 +119,11 @@ pub struct ByteStreamReader<'a> {
 
 impl Read for ByteStreamReader<'_> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
-        info!(
-            "initial reading at offset {} for {} length",
-            self.offset,
-            buf.len()
-        );
         let result = self
             .runtime_handle
             .block_on(self.reader.read(self.offset, buf.len() as i32));
         match result {
             Ok(cmd) => {
-                info!("received read {:?}", cmd);
                 if cmd.end_of_segment {
                     Err(Error::new(ErrorKind::Other, "segment is sealed"))
                 } else {
@@ -138,7 +132,7 @@ impl Read for ByteStreamReader<'_> {
                     Ok(cmd.data.len())
                 }
             }
-            Err(e) => Err(Error::new(ErrorKind::Other, "other")),
+            Err(e) => Err(Error::new(ErrorKind::Other, format!("Error: {:?}", e))),
         }
     }
 }

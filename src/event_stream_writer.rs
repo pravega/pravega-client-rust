@@ -20,7 +20,7 @@ use pravega_wire_protocol::client_config::ClientConfig;
 
 use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
-use crate::reactor::event::{AppendEvent, Incoming};
+use crate::reactor::event::{Incoming, PendingEvent};
 
 /// EventStreamWriter contains a writer id and a mpsc sender which is used to send Event
 /// to the StreamWriter
@@ -58,8 +58,12 @@ impl EventStreamWriter {
 
     pub async fn write_event(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         let (tx, rx) = oneshot::channel();
-        let append_event = Incoming::AppendEvent(AppendEvent::new(event, None, tx));
-        self.writer_event_internal(append_event, rx).await
+        if let Some(pending_event) = PendingEvent::new(None, event, tx) {
+            let append_event = Incoming::AppendEvent(pending_event);
+            self.writer_event_internal(append_event, rx).await
+        } else {
+            rx
+        }
     }
 
     pub async fn write_event_by_routing_key(
@@ -68,8 +72,12 @@ impl EventStreamWriter {
         event: Vec<u8>,
     ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         let (tx, rx) = oneshot::channel();
-        let append_event = Incoming::AppendEvent(AppendEvent::new(event, Some(routing_key), tx));
-        self.writer_event_internal(append_event, rx).await
+        if let Some(pending_event) = PendingEvent::new(Some(routing_key), event, tx) {
+            let append_event = Incoming::AppendEvent(pending_event);
+            self.writer_event_internal(append_event, rx).await
+        } else {
+            rx
+        }
     }
 
     async fn writer_event_internal(

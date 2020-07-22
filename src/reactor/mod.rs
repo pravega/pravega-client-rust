@@ -22,7 +22,7 @@ use pravega_wire_protocol::wire_commands::Replies;
 
 use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
-use crate::reactor::event::{Incoming, PendingEvent};
+use crate::reactor::event::Incoming;
 use crate::reactor::segment_selector::SegmentSelector;
 use crate::reactor::segment_writer::SegmentWriter;
 
@@ -45,18 +45,13 @@ impl StreamReactor {
         loop {
             let event = receiver.recv().await.expect("sender closed, processor exit");
             match event {
-                Incoming::AppendEvent(event) => {
-                    let segment = selector.get_segment_for_event(&event.routing_key);
+                Incoming::AppendEvent(pending_event) => {
+                    let segment = selector.get_segment_for_event(&pending_event.routing_key);
                     let event_segment_writer = selector.writers.get_mut(&segment).expect("must have writer");
 
-                    let option =
-                        PendingEvent::with_header(event.routing_key, event.inner, event.oneshot_sender);
-
-                    if let Some(pending_event) = option {
-                        if let Err(e) = event_segment_writer.write(pending_event).await {
-                            warn!("failed to write append to segment due to {:?}, reconnecting", e);
-                            event_segment_writer.reconnect(&factory).await;
-                        }
+                    if let Err(e) = event_segment_writer.write(pending_event).await {
+                        warn!("failed to write append to segment due to {:?}, reconnecting", e);
+                        event_segment_writer.reconnect(&factory).await;
                     }
                 }
                 Incoming::ServerReply(server_reply) => {
@@ -135,22 +130,17 @@ impl SegmentReactor {
         config: ClientConfig,
     ) {
         let mut writer = SegmentWriter::new(segment.clone(), sender.clone(), config.retry_policy);
-        if let Err(e) = writer.setup_connection(&factory).await {
+        if let Err(_e) = writer.setup_connection(&factory).await {
             writer.reconnect(&factory).await;
         }
 
         loop {
             let event = receiver.recv().await.expect("sender closed, processor exit");
             match event {
-                Incoming::AppendEvent(event) => {
-                    let option =
-                        PendingEvent::without_header(event.routing_key, event.inner, event.oneshot_sender);
-
-                    if let Some(pending_event) = option {
-                        if let Err(e) = writer.write(pending_event).await {
-                            warn!("failed to write append to segment due to {:?}, reconnecting", e);
-                            writer.reconnect(&factory).await;
-                        }
+                Incoming::AppendEvent(pending_event) => {
+                    if let Err(e) = writer.write(pending_event).await {
+                        warn!("failed to write append to segment due to {:?}, reconnecting", e);
+                        writer.reconnect(&factory).await;
                     }
                 }
                 Incoming::ServerReply(server_reply) => {

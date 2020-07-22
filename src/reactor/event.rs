@@ -18,15 +18,8 @@ use crate::error::*;
 
 #[derive(Debug)]
 pub(crate) enum Incoming {
-    AppendEvent(AppendEvent),
+    AppendEvent(PendingEvent),
     ServerReply(ServerReply),
-}
-
-#[derive(new, Debug)]
-pub(crate) struct AppendEvent {
-    pub(crate) inner: Vec<u8>,
-    pub(crate) routing_key: Option<String>,
-    pub(crate) oneshot_sender: oneshot::Sender<Result<(), SegmentWriterError>>,
 }
 
 #[derive(new, Debug)]
@@ -35,6 +28,7 @@ pub(crate) struct ServerReply {
     pub(crate) reply: Replies,
 }
 
+#[derive(Debug)]
 pub(crate) struct PendingEvent {
     pub(crate) routing_key: Option<String>,
     pub(crate) data: Vec<u8>,
