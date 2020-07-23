@@ -97,7 +97,7 @@ impl ByteStreamWriter {
         event: Vec<u8>,
     ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         let (tx, rx) = oneshot::channel();
-        if let Some(pending_event) = PendingEvent::new(None, event, tx) {
+        if let Some(pending_event) = PendingEvent::without_header(None, event, tx) {
             let append_event = Incoming::AppendEvent(pending_event);
             if let Err(_e) = sender.send(append_event).await {
                 let (tx_error, rx_error) = oneshot::channel();

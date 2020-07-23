@@ -58,7 +58,7 @@ impl EventStreamWriter {
 
     pub async fn write_event(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         let (tx, rx) = oneshot::channel();
-        if let Some(pending_event) = PendingEvent::new(None, event, tx) {
+        if let Some(pending_event) = PendingEvent::with_header(None, event, tx) {
             let append_event = Incoming::AppendEvent(pending_event);
             self.writer_event_internal(append_event, rx).await
         } else {
@@ -72,7 +72,7 @@ impl EventStreamWriter {
         event: Vec<u8>,
     ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         let (tx, rx) = oneshot::channel();
-        if let Some(pending_event) = PendingEvent::new(Some(routing_key), event, tx) {
+        if let Some(pending_event) = PendingEvent::with_header(Some(routing_key), event, tx) {
             let append_event = Incoming::AppendEvent(pending_event);
             self.writer_event_internal(append_event, rx).await
         } else {
