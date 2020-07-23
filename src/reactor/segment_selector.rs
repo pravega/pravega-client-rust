@@ -15,8 +15,6 @@ use crate::get_random_f64;
 use tokio::sync::mpsc::Sender;
 use tracing::{debug, warn};
 
-use pravega_rust_client_retry::retry_async::retry_async;
-use pravega_rust_client_retry::retry_result::RetryResult;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::ClientConfig;
 
@@ -85,28 +83,22 @@ impl SegmentSelector {
     pub(crate) async fn refresh_segment_event_writers_upon_sealed(
         &mut self,
         sealed_segment: &ScopedSegment,
-    ) -> Vec<PendingEvent> {
-        let stream_segments_with_predecessors = retry_async(self.config.retry_policy, || async {
-            match self
-                .factory
-                .get_controller_client()
-                .get_successors(sealed_segment)
-                .await
-            {
-                Ok(ss) => {
-                    if !ss.replacement_segments.contains_key(&sealed_segment.segment) {
-                        RetryResult::Retry("retry get successors due to empty successors")
-                    } else {
-                        RetryResult::Success(ss)
-                    }
-                }
-                Err(_e) => RetryResult::Retry("retry controller command due to error"),
-            }
-        })
-        .await
-        .expect("retry failed");
-        self.update_segments_upon_sealed(stream_segments_with_predecessors, sealed_segment)
+    ) -> Option<Vec<PendingEvent>> {
+        let stream_segments_with_predecessors = self
+            .factory
+            .get_controller_client()
+            .get_successors(sealed_segment)
             .await
+            .expect("get successors for sealed segment");
+
+        if stream_segments_with_predecessors.is_stream_sealed() {
+            None
+        } else {
+            Some(
+                self.update_segments_upon_sealed(stream_segments_with_predecessors, sealed_segment)
+                    .await,
+            )
+        }
     }
 
     /// create event segment writer for the successor segment of the sealed segment and return the inflight event

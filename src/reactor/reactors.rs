@@ -96,10 +96,13 @@ impl StreamReactor {
                     cmd.segment, cmd.server_stack_trace
                 );
                 let segment = ScopedSegment::from(&*cmd.segment);
-                let inflight = selector.refresh_segment_event_writers_upon_sealed(&segment).await;
-                selector.resend(inflight).await;
-                selector.remove_segment_event_writer(&segment);
-                Ok(())
+                if let Some(inflight) = selector.refresh_segment_event_writers_upon_sealed(&segment).await {
+                    selector.resend(inflight).await;
+                    selector.remove_segment_event_writer(&segment);
+                    Ok(())
+                } else {
+                    Err("Stream is sealed")
+                }
             }
 
             Replies::NoSuchSegment(cmd) => {
@@ -108,10 +111,13 @@ impl StreamReactor {
                     cmd.segment, cmd.server_stack_trace
                 );
                 let segment = ScopedSegment::from(&*cmd.segment);
-                let inflight = selector.refresh_segment_event_writers_upon_sealed(&segment).await;
-                selector.resend(inflight).await;
-                selector.remove_segment_event_writer(&segment);
-                Ok(())
+                if let Some(inflight) = selector.refresh_segment_event_writers_upon_sealed(&segment).await {
+                    selector.resend(inflight).await;
+                    selector.remove_segment_event_writer(&segment);
+                    Ok(())
+                } else {
+                    Err("Stream is sealed")
+                }
             }
 
             _ => {
@@ -119,7 +125,7 @@ impl StreamReactor {
                     "receive unexpected reply {:?}, closing stream reactor",
                     server_reply.reply
                 );
-                Err("unexpected reply")
+                Err("Unexpected reply")
             }
         }
     }
@@ -189,7 +195,7 @@ impl SegmentReactor {
                     "segment {:?} sealed: stack trace {}",
                     cmd.segment, cmd.server_stack_trace
                 );
-                Err("segment is sealed")
+                Err("Segment is sealed")
             }
 
             // same handling logic as segment sealed reply
@@ -198,7 +204,7 @@ impl SegmentReactor {
                     "no such segment {:?} due to segment truncation: stack trace {}",
                     cmd.segment, cmd.server_stack_trace
                 );
-                Err("no such segment")
+                Err("No such segment")
             }
 
             _ => {
@@ -206,7 +212,7 @@ impl SegmentReactor {
                     "receive unexpected reply {:?}, closing segment reactor",
                     server_reply.reply
                 );
-                Err("unexpected reply")
+                Err("Unexpected reply")
             }
         }
     }
