@@ -20,49 +20,62 @@ pub fn test_tablesynchronizer() {
 }
 
 async fn test_insert(client_factory: &ClientFactory) {
+    info!("test insert");
     let mut synchronizer: TableSynchronizer = client_factory
+        .create_table_synchronizer("synchronizer".to_owned())
+        .await;
+
+    let mut synchronizer2: TableSynchronizer = client_factory
         .create_table_synchronizer("synchronizer".to_owned())
         .await;
 
     let result = synchronizer
         .insert(|table| {
-            if table.is_empty() {
-                table.insert(
-                    "outer_key".to_owned(),
-                    "inner_key".to_owned(),
-                    "i32".to_owned(),
-                    Box::new(1),
-                );
-            }
+            info!("first sychronzier inserting");
+            table.insert(
+                "outer_key".to_owned(),
+                "inner_key".to_owned(),
+                "i32".to_owned(),
+                Box::new(1),
+            );
             Ok(None)
         })
         .await;
 
     assert!(result.is_ok());
+    let result = synchronizer2
+        .insert(|table| {
+            info!("second sychronzier inserting");
+            table.insert(
+                "outer_key".to_owned(),
+                "inner_key".to_owned(),
+                "i32".to_owned(),
+                Box::new(1),
+            );
+            Ok(None)
+        })
+        .await;
+    assert!(result.is_ok());
+
     let value_option = synchronizer.get("outer_key", "inner_key");
     assert!(value_option.is_some());
 
-    let version = synchronizer
-        .get_key_version("outer_key", "inner_key")
-        .expect("get the key version");
-    assert_eq!(version, 0);
+    let value_option2 = synchronizer2.get("outer_key", "inner_key");
+    assert!(value_option2.is_some());
 
     //check if fetchUpdates work correctly.
     let mut synchronizer2: TableSynchronizer = client_factory
         .create_table_synchronizer("synchronizer".to_owned())
         .await;
-    let result = synchronizer2.fetch_updates().await;
-    assert!(result.is_ok());
+    let entries_num = synchronizer2.fetch_updates().await.expect("fetch updates");
+    assert_eq!(entries_num, 2);
     let value_option = synchronizer2.get("outer_key", "inner_key");
     assert!(value_option.is_some());
-    let version = synchronizer2
-        .get_key_version("outer_key", "inner_key")
-        .expect("get the key version");
-    assert_eq!(version, 0);
-    info!("test_insert passed");
+    info!("test insert passed");
 }
 
 async fn test_remove(client_factory: &ClientFactory) {
+    info!("test remove");
     let mut synchronizer: TableSynchronizer = client_factory
         .create_table_synchronizer("synchronizer1".to_owned())
         .await;
@@ -102,10 +115,11 @@ async fn test_remove(client_factory: &ClientFactory) {
     assert!(result.is_ok());
     let value_option = synchronizer2.get("outer_key", "inner_key");
     assert!(value_option.is_none());
-    info!("test_remove passed");
+    info!("test remove passed");
 }
 
 async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory) {
+    info!("test insert with two table synchronizers");
     let mut synchronizer: TableSynchronizer = client_factory
         .create_table_synchronizer("synchronizer".to_owned())
         .await;
@@ -169,10 +183,11 @@ async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory
     let value = synchronizer.get("outer_key", "inner_key").expect("get value");
     let data: i32 = deserialize_from(&value.data).expect("deserialize value data");
     assert_eq!(data, 3);
-    info!("test_insert_with_two_table_synchronizers passed");
+    info!("test insert with two table synchronizers passed");
 }
 
 async fn test_remove_with_two_table_synchronizers(client_factory: &ClientFactory) {
+    info!("test remove with two table synchronizers");
     let mut synchronizer: TableSynchronizer = client_factory
         .create_table_synchronizer("synchronizer".to_owned())
         .await;
@@ -184,7 +199,7 @@ async fn test_remove_with_two_table_synchronizers(client_factory: &ClientFactory
     synchronizer2.fetch_updates().await.expect("fetch updates");
 
     let result = synchronizer
-        .remove(|table| {
+        .insert(|table| {
             let value = table.get("outer_key", "inner_key").expect("get value");
             let data: i32 = deserialize_from(&value.data).expect("deserialize value data");
             if data == 3 {
@@ -195,7 +210,7 @@ async fn test_remove_with_two_table_synchronizers(client_factory: &ClientFactory
         .await;
     assert!(result.is_ok());
 
-    info!("start to update a non-existed key");
+    info!("start to update a non-existing key");
     let result = synchronizer2
         .insert(|table| {
             if !table.is_empty() {
@@ -215,10 +230,11 @@ async fn test_remove_with_two_table_synchronizers(client_factory: &ClientFactory
     assert!(result.is_ok());
     let value_option = synchronizer.get("outer_key", "inner_key");
     assert!(value_option.is_none());
-    info!("test_remove_with_two_table_synchronizers passed");
+    info!("test remove with two table synchronizers passed");
 }
 
 async fn test_insert_and_get_with_customize_struct(client_factory: &ClientFactory) {
+    info!("test insert and get with customize struct");
     #[derive(Serialize, Deserialize, Debug, Clone)]
     struct Test1 {
         name: String,

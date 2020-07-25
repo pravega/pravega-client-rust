@@ -56,8 +56,10 @@ pub struct TableSynchronizer<'a> {
     /// since some logic may depend on a certain map not being changed during an update.
     in_memory_map_version: HashMap<Key, Value>,
 
-    /// An offset that is used to make conditional update on the server side.
-    table_segment_offset: i64,
+    /// A position that is used to make conditional update on the server side.
+    table_segment_position: i64,
+
+    fetch_position: i64,
 }
 
 // Max number of retries by the table synchronizer in case of a failure.
@@ -75,7 +77,8 @@ impl<'a> TableSynchronizer<'a> {
             table_map,
             in_memory_map: HashMap::new(),
             in_memory_map_version: HashMap::new(),
-            table_segment_offset: -1,
+            table_segment_position: -1,
+            fetch_position: 0,
         }
     }
 
@@ -159,27 +162,27 @@ impl<'a> TableSynchronizer<'a> {
         }
     }
 
-    fn get_key_version_internal(&self, outer_key: &str, inner_key: &Option<String>) -> Option<Version> {
+    pub fn get_key_version_internal(&self, outer_key: &str, inner_key: &Option<String>) -> Version {
         if let Some(inner) = inner_key {
             let search_key = Key {
                 key: inner.to_owned(),
                 key_version: TableKey::KEY_NO_VERSION,
             };
-            let inner_map = self.in_memory_map.get(outer_key)?;
-            if let Some((key, _value)) = inner_map.get_key_value(&search_key) {
-                Some(key.key_version)
-            } else {
-                None
+            if let Some(inner_map) = self.in_memory_map.get(outer_key) {
+                if let Some((key, _value)) = inner_map.get_key_value(&search_key) {
+                    return key.key_version;
+                }
             }
+            TableKey::KEY_NOT_EXISTS
         } else {
             let search_key = Key {
                 key: outer_key.to_owned(),
                 key_version: TableKey::KEY_NO_VERSION,
             };
             if let Some((key, _value)) = self.in_memory_map_version.get_key_value(&search_key) {
-                Some(key.key_version)
+                key.key_version
             } else {
-                None
+                TableKey::KEY_NOT_EXISTS
             }
         }
     }
@@ -202,16 +205,21 @@ impl<'a> TableSynchronizer<'a> {
         }
     }
     /// Fetches the latest map from remote server and applies it to the local map.
-    pub async fn fetch_updates(&mut self) -> Result<(), TableError> {
-        debug!("fetch the latest map and apply to the local map");
-        let reply = self.table_map.read_entries_stream(3);
+    pub async fn fetch_updates(&mut self) -> Result<i32, TableError> {
+        debug!(
+            "fetch the latest map and apply to the local map, fetch from position {}",
+            self.fetch_position
+        );
+        let reply = self
+            .table_map
+            .read_entries_stream_from_position(10, self.fetch_position);
         pin_mut!(reply);
-        self.in_memory_map.clear();
-        self.in_memory_map_version.clear();
 
+        let mut counter: i32 = 0;
         while let Some(entry) = reply.next().await {
             match entry {
-                Ok((k, v, version)) => {
+                Ok((k, v, version, last_position)) => {
+                    debug!("fetched key with version {}", version);
                     let internal_key = InternalKey { key: k };
                     let (outer_key, inner_key) = internal_key.split();
 
@@ -222,6 +230,9 @@ impl<'a> TableSynchronizer<'a> {
                             key_version: version,
                         };
                         let inner_map = self.in_memory_map.entry(outer_key).or_insert_with(HashMap::new);
+
+                        // this is necessary since insert will not update the Key
+                        inner_map.remove(&inner_map_key);
                         inner_map.insert(inner_map_key, v);
                     } else {
                         // the key is an outer key, update the map version
@@ -229,8 +240,12 @@ impl<'a> TableSynchronizer<'a> {
                             key: outer_key,
                             key_version: version,
                         };
+                        // this is necessary since insert will not update the Key
+                        self.in_memory_map_version.remove(&outer_map_key.clone());
                         self.in_memory_map_version.insert(outer_map_key, v);
                     }
+                    self.fetch_position = last_position;
+                    counter += 1;
                 }
                 _ => {
                     return Err(TableError::OperationError {
@@ -240,8 +255,8 @@ impl<'a> TableSynchronizer<'a> {
                 }
             }
         }
-        info!("finish fetch updates");
-        Ok(())
+        debug!("finished fetching updates");
+        Ok(counter)
     }
 
     /// Inserts/Updates a list of keys and applies it atomically to local map.
@@ -369,11 +384,11 @@ impl Table {
         let insert = Insert::new(outer_key.clone(), Some(inner_key.clone()), type_id.clone());
 
         self.insert.push(insert);
-        //Also insert into map.
+        // also insert into map.
         let inner_map = self.map.entry(outer_key.clone()).or_insert_with(HashMap::new);
         inner_map.insert(inner_key, Value { type_id, data });
 
-        // increment the version of the map, indicating this map has changed
+        // increment the version of the map, indicating that this map has changed
         self.increment_map_version(outer_key);
     }
 
@@ -669,7 +684,7 @@ async fn conditionally_write(
         };
 
         update_result = updates_generator(&mut to_update)?;
-
+        info!("number of insert is {}", to_update.insert.len());
         if to_update.insert_is_empty() {
             debug!(
                 "Conditionally Write to {} completed, as there is nothing to update for map",
@@ -686,20 +701,12 @@ async fn conditionally_write(
             let key_version =
                 table_synchronizer.get_key_version_internal(&update.outer_key, &update.inner_key);
 
-            if key_version.is_some() {
-                to_send.push((
-                    &update.composite_key,
-                    value,
-                    key_version.expect("get key version"),
-                ));
-            } else {
-                to_send.push((&update.composite_key, value, TableKey::KEY_NO_VERSION));
-            }
+            to_send.push((&update.composite_key, value, key_version));
         }
 
         let result = table_synchronizer
             .table_map
-            .insert_conditionally_all(to_send, table_synchronizer.table_segment_offset)
+            .insert_conditionally_all(to_send, table_synchronizer.table_segment_position)
             .await;
         match result {
             Err(TableError::IncorrectKeyVersion { operation, error_msg }) => {
@@ -762,14 +769,13 @@ async fn conditionally_remove(
         let mut send = Vec::new();
         for delete in to_delete.get_remove_iter() {
             let key_version = table_synchronizer
-                .get_key_version_internal(&delete.outer_key, &Some(delete.inner_key.to_owned()))
-                .expect("get key version");
+                .get_key_version_internal(&delete.outer_key, &Some(delete.inner_key.to_owned()));
             send.push((&delete.composite_key, key_version))
         }
 
         let result = table_synchronizer
             .table_map
-            .remove_conditionally_all(send, table_synchronizer.table_segment_offset)
+            .remove_conditionally_all(send, table_synchronizer.table_segment_position)
             .await;
 
         match result {
