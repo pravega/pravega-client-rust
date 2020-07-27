@@ -29,6 +29,7 @@ use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
 use crate::raw_client::RawClient;
 use crate::reactor::event::{Incoming, PendingEvent, ServerReply};
+use std::fmt;
 
 pub(crate) struct SegmentWriter {
     /// unique id for each EventSegmentWriter
@@ -90,6 +91,7 @@ impl SegmentWriter {
         self.segment.to_string()
     }
 
+    #[tracing::instrument]
     pub(crate) async fn setup_connection(
         &mut self,
         factory: &ClientFactoryInternal,
@@ -327,6 +329,32 @@ impl SegmentWriter {
 
             return;
         }
+    }
+}
+
+impl fmt::Debug for SegmentWriter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SegmentWriter")
+            .field("segment writer id", &self.id)
+            .field("segment", &self.segment)
+            .field("endpoint", &self.endpoint)
+            .field(
+                "writer",
+                &match &self.writer {
+                    Some(w) => format!("WritingClientConnection id is {}", w.get_id()),
+                    None => "doesn't have writer".to_owned(),
+                },
+            )
+            .field(
+                "inflight",
+                &format!("number of inflight events is {}", &self.inflight.len()),
+            )
+            .field(
+                "pending",
+                &format!("number of pending events is {}", &self.pending.len()),
+            )
+            .field("current event_number", &self.event_num)
+            .finish()
     }
 }
 

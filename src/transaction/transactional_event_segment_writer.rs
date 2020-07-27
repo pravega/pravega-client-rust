@@ -12,7 +12,6 @@ use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::segment_writer::SegmentWriter;
-use log::{debug, error, warn};
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::commands::DataAppendedCommand;
@@ -21,6 +20,7 @@ use snafu::ResultExt;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{channel, Receiver};
 use tokio::sync::oneshot;
+use tracing::{debug, error, warn};
 
 /// TransactionalEventSegmentWriter contains a EventSegmentWriter that writes to a specific
 /// transaction segment.

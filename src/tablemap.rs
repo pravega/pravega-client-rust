@@ -14,8 +14,6 @@ use crate::get_request_id;
 use crate::raw_client::RawClient;
 use async_stream::try_stream;
 use futures::stream::Stream;
-use log::debug;
-use log::info;
 use pravega_rust_client_shared::Stream as PravegaStream;
 use pravega_rust_client_shared::{Scope, ScopedSegment, Segment};
 use pravega_wire_protocol::commands::{
@@ -28,6 +26,7 @@ use serde_cbor::from_slice;
 use serde_cbor::to_vec;
 use snafu::Snafu;
 use std::net::SocketAddr;
+use tracing::{debug, info};
 
 pub type Version = i64;
 

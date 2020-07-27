@@ -25,6 +25,7 @@ use crate::setup_logger;
 use crate::table_synchronizer::TableSynchronizer;
 use crate::tablemap::TableMap;
 use crate::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
+use std::fmt;
 use std::sync::Arc;
 use tokio::runtime::{Handle, Runtime};
 
@@ -138,5 +139,14 @@ impl ClientFactoryInternal {
     ///
     pub(crate) fn get_runtime_handle(&self) -> Handle {
         self.runtime.handle().clone()
+    }
+}
+
+impl fmt::Debug for ClientFactoryInternal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ClientFactoryInternal")
+            .field("connection pool", &self.connection_pool)
+            .field("client config,", &self.config)
+            .finish()
     }
 }

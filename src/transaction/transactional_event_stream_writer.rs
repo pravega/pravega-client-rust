@@ -13,13 +13,13 @@ use crate::error::*;
 use crate::transaction::pinger::{Pinger, PingerHandle};
 use crate::transaction::transactional_event_segment_writer::TransactionalEventSegmentWriter;
 use crate::transaction::{Transaction, TransactionInfo};
-use log::info;
 use pravega_rust_client_shared::{ScopedStream, StreamSegments, TransactionStatus, TxId, WriterId};
 use pravega_wire_protocol::client_config::ClientConfig;
 use snafu::ResultExt;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use std::time::Duration;
+use tracing::info;
 
 /// A writer that writes Events to an Event stream transactionally. Events that are written to the
 /// transaction can be committed atomically, which means that reader cannot see any writes prior to committing.

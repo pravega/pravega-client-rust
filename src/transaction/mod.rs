@@ -16,13 +16,13 @@ use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
 use crate::get_random_f64;
 use crate::transaction::pinger::PingerHandle;
-use log::debug;
 use pravega_rust_client_shared::{
     ScopedSegment, ScopedStream, StreamSegments, Timestamp, TransactionStatus, TxId, WriterId,
 };
 use snafu::ResultExt;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tracing::debug;
 use transactional_event_segment_writer::TransactionalEventSegmentWriter;
 
 // contains metadata of a Transaction

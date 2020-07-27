@@ -10,7 +10,6 @@
 
 use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
-use log::{debug, error, info};
 use pravega_rust_client_shared::{PingStatus, ScopedStream, TxId};
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -18,6 +17,7 @@ use std::time::Duration;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::time::delay_for;
+use tracing::{debug, error, info};
 
 #[derive(Debug)]
 enum PingerEvent {
