@@ -56,9 +56,10 @@ pub struct TableSynchronizer<'a> {
     /// since some logic may depend on a certain map not being changed during an update.
     in_memory_map_version: HashMap<Key, Value>,
 
-    /// A position that is used to make conditional update on the server side.
-    table_segment_position: i64,
+    /// An offset that is used to make conditional update on the server side.
+    table_segment_offset: i64,
 
+    /// The latest fetch position on the server side.
     fetch_position: i64,
 }
 
@@ -77,7 +78,7 @@ impl<'a> TableSynchronizer<'a> {
             table_map,
             in_memory_map: HashMap::new(),
             in_memory_map_version: HashMap::new(),
-            table_segment_position: -1,
+            table_segment_offset: -1,
             fetch_position: 0,
         }
     }
@@ -149,20 +150,7 @@ impl<'a> TableSynchronizer<'a> {
 
     /// Gets the Key version of the given key,
     /// This is a non-blocking call.
-    pub fn get_key_version(&self, outer_key: &str, inner_key: &str) -> Option<Version> {
-        let search_key = Key {
-            key: inner_key.to_owned(),
-            key_version: TableKey::KEY_NO_VERSION,
-        };
-        let inner_map = self.in_memory_map.get(outer_key)?;
-        if let Some((key, _value)) = inner_map.get_key_value(&search_key) {
-            Some(key.key_version)
-        } else {
-            None
-        }
-    }
-
-    pub fn get_key_version_internal(&self, outer_key: &str, inner_key: &Option<String>) -> Version {
+    pub fn get_key_version(&self, outer_key: &str, inner_key: &Option<String>) -> Version {
         if let Some(inner) = inner_key {
             let search_key = Key {
                 key: inner.to_owned(),
@@ -706,7 +694,7 @@ async fn conditionally_write(
 
         let result = table_synchronizer
             .table_map
-            .insert_conditionally_all(to_send, table_synchronizer.table_segment_position)
+            .insert_conditionally_all(to_send, table_synchronizer.table_segment_offset)
             .await;
         match result {
             Err(TableError::IncorrectKeyVersion { operation, error_msg }) => {
@@ -775,7 +763,7 @@ async fn conditionally_remove(
 
         let result = table_synchronizer
             .table_map
-            .remove_conditionally_all(send, table_synchronizer.table_segment_position)
+            .remove_conditionally_all(send, table_synchronizer.table_segment_offset)
             .await;
 
         match result {
