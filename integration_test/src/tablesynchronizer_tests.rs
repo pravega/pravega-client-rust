@@ -17,6 +17,7 @@ pub fn test_tablesynchronizer() {
     handle.block_on(test_insert_with_two_table_synchronizers(&client_factory));
     handle.block_on(test_remove_with_two_table_synchronizers(&client_factory));
     handle.block_on(test_insert_and_get_with_customize_struct(&client_factory));
+    handle.block_on(test_fetching_updates_delta(&client_factory));
 }
 
 async fn test_insert(client_factory: &ClientFactory) {
@@ -31,7 +32,6 @@ async fn test_insert(client_factory: &ClientFactory) {
 
     let result = synchronizer
         .insert(|table| {
-            info!("first sychronzier inserting");
             table.insert(
                 "outer_key".to_owned(),
                 "inner_key".to_owned(),
@@ -45,7 +45,6 @@ async fn test_insert(client_factory: &ClientFactory) {
     assert!(result.is_ok());
     let result = synchronizer2
         .insert(|table| {
-            info!("second sychronzier inserting");
             table.insert(
                 "outer_key".to_owned(),
                 "inner_key".to_owned(),
@@ -287,4 +286,47 @@ async fn test_insert_and_get_with_customize_struct(client_factory: &ClientFactor
         _ => panic!("Wrong type id"),
     }
     info!("test_insert_and_get_with_customize_struct passed");
+}
+
+async fn test_fetching_updates_delta(client_factory: &ClientFactory) {
+    info!("test fetching updates delta");
+    let mut synchronizer: TableSynchronizer = client_factory
+        .create_table_synchronizer("fetch_updates".to_owned())
+        .await;
+
+    let result = synchronizer
+        .insert(|table| {
+            table.insert(
+                "outer_key".to_owned(),
+                "inner_key".to_owned(),
+                "i32".to_owned(),
+                Box::new(1),
+            );
+            Ok(None)
+        })
+        .await;
+    assert!(result.is_ok());
+    let updates1 = synchronizer.fetch_updates().await.expect("fetch updates");
+    assert_eq!(updates1, 2);
+    let result = synchronizer
+        .insert(|table| {
+            table.insert(
+                "outer_key".to_owned(),
+                "inner_key".to_owned(),
+                "i32".to_owned(),
+                Box::new(2),
+            );
+            Ok(None)
+        })
+        .await;
+    let updates2 = synchronizer.fetch_updates().await.expect("fetch updates");
+    assert!(result.is_ok());
+    assert_eq!(updates2, 2);
+    let value = synchronizer.get("outer_key", "inner_key").expect("get value");
+    let data: i32 = deserialize_from(&value.data).expect("deserialize value data");
+    assert_eq!(data, 2);
+
+    let updates3 = synchronizer.fetch_updates().await.expect("fetch updates");
+    assert_eq!(updates3, 0);
+    info!("test insert with two table synchronizers passed");
 }

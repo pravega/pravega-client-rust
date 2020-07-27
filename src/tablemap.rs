@@ -713,6 +713,10 @@ impl<'a> TableMap<'a> {
         }
     }
 
+    ///
+    /// Read the raw entries from the table map from a given position.
+    /// It returns a list of key-values and its versions with a latest position.
+    ///
     async fn read_entries_raw_delta(
         &self,
         max_entries_at_once: i32,
