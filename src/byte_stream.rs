@@ -38,7 +38,7 @@ impl Write for ByteStreamWriter {
         self.runtime_handle.block_on(async {
             while position < buf.len() {
                 let advance = std::cmp::min(buf.len() - position, PendingEvent::MAX_WRITE_SIZE);
-                let mut payload = buf[position..position + advance].to_vec();
+                let payload = buf[position..position + advance].to_vec();
                 let oneshot = ByteStreamWriter::write_internal(self.sender.clone(), payload).await;
                 let reactor_reply = match oneshot.await {
                     Ok(res) => res,
