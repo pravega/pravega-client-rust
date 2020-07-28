@@ -21,6 +21,7 @@ use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
+use tokio::sync::oneshot::error::TryRecvError;
 use uuid::Uuid;
 
 const BUFFER_SIZE: usize = 4096;
@@ -30,34 +31,56 @@ pub struct ByteStreamWriter {
     writer_id: Uuid,
     sender: Sender<Incoming>,
     runtime_handle: Handle,
+    oneshot_receiver: Option<oneshot::Receiver<Result<(), SegmentWriterError>>>,
 }
 
 impl Write for ByteStreamWriter {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
-        let mut position = 0;
-        self.runtime_handle.block_on(async {
-            while position < buf.len() {
+        let oneshot_receiver = self.runtime_handle.block_on(async {
+            let mut position = 0;
+            let mut oneshot_receiver = loop {
                 let advance = std::cmp::min(buf.len() - position, PendingEvent::MAX_WRITE_SIZE);
                 let payload = buf[position..position + advance].to_vec();
-                let oneshot = ByteStreamWriter::write_internal(self.sender.clone(), payload).await;
-                let reactor_reply = match oneshot.await {
-                    Ok(res) => res,
-                    Err(e) => return Err(Error::new(ErrorKind::Other, format!("Oneshot error: {:?}", e))),
-                };
-
-                if let Err(e) = reactor_reply {
-                    return Err(Error::new(ErrorKind::Other, format!("{:?}", e)));
-                } else {
-                    position += advance;
+                let oneshot_receiver = ByteStreamWriter::write_internal(self.sender.clone(), payload).await;
+                position += advance;
+                if position == buf.len() {
+                    break oneshot_receiver;
+                }
+            };
+            match oneshot_receiver.try_recv() {
+                // The channel is currently empty
+                Err(TryRecvError::Empty) => Ok(Some(oneshot_receiver)),
+                Err(e) => Err(Error::new(ErrorKind::Other, format!("oneshot error {:?}", e))),
+                Ok(res) => {
+                    if let Err(e) = res {
+                        Err(Error::new(ErrorKind::Other, format!("{:?}", e)))
+                    } else {
+                        Ok(None)
+                    }
                 }
             }
-            Ok(position)
-        })
+        })?;
+
+        self.oneshot_receiver = oneshot_receiver;
+        Ok(buf.len())
     }
 
-    // write will flush the data internally, there is no need to call flush.
     fn flush(&mut self) -> Result<(), Error> {
-        Ok(())
+        if self.oneshot_receiver.is_none() {
+            return Ok(());
+        }
+        let oneshot_receiver = self.oneshot_receiver.take().expect("get oneshot receiver");
+
+        let result = match self.runtime_handle.block_on(oneshot_receiver) {
+            Err(e) => Err(Error::new(ErrorKind::Other, format!("oneshot error {:?}", e))),
+            Ok(res) => Ok(res),
+        }?;
+
+        if let Err(e) = result {
+            Err(Error::new(ErrorKind::Other, format!("{:?}", e)))
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -83,6 +106,7 @@ impl ByteStreamWriter {
             writer_id: Uuid::new_v4(),
             sender,
             runtime_handle: handle,
+            oneshot_receiver: None,
         }
     }
 
