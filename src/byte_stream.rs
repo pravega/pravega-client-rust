@@ -35,30 +35,24 @@ pub struct ByteStreamWriter {
 impl Write for ByteStreamWriter {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
         let mut position = 0;
-        while position < buf.len() {
-            let advance = if buf.len() - position > PendingEvent::MAX_WRITE_SIZE {
-                PendingEvent::MAX_WRITE_SIZE
-            } else {
-                buf.len() - position
-            };
-            let mut payload = vec![];
-            payload.extend_from_slice(&buf[position..position + advance]);
-            let result = self.runtime_handle.block_on(async {
+        self.runtime_handle.block_on(async {
+            while position < buf.len() {
+                let advance = std::cmp::min(buf.len() - position, PendingEvent::MAX_WRITE_SIZE);
+                let mut payload = buf[position..position + advance].to_vec();
                 let oneshot = ByteStreamWriter::write_internal(self.sender.clone(), payload).await;
-                oneshot.await
-            });
-            let reactor_reply = match result {
-                Ok(res) => res,
-                Err(e) => return Err(Error::new(ErrorKind::Other, format!("Oneshot error: {:?}", e))),
-            };
+                let reactor_reply = match oneshot.await {
+                    Ok(res) => res,
+                    Err(e) => return Err(Error::new(ErrorKind::Other, format!("Oneshot error: {:?}", e))),
+                };
 
-            if let Err(e) = reactor_reply {
-                return Err(Error::new(ErrorKind::Other, format!("{:?}", e)));
-            } else {
-                position += advance;
+                if let Err(e) = reactor_reply {
+                    return Err(Error::new(ErrorKind::Other, format!("{:?}", e)));
+                } else {
+                    position += advance;
+                }
             }
-        }
-        Ok(position)
+            Ok(position)
+        })
     }
 
     // write will flush the data internally, there is no need to call flush.
