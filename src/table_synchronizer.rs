@@ -686,8 +686,7 @@ async fn conditionally_write(
             let value = to_update
                 .get_internal(&update.outer_key, &update.inner_key)
                 .expect("get the insert data");
-            let key_version =
-                table_synchronizer.get_key_version_internal(&update.outer_key, &update.inner_key);
+            let key_version = table_synchronizer.get_key_version(&update.outer_key, &update.inner_key);
 
             to_send.push((&update.composite_key, value, key_version));
         }
@@ -756,8 +755,8 @@ async fn conditionally_remove(
 
         let mut send = Vec::new();
         for delete in to_delete.get_remove_iter() {
-            let key_version = table_synchronizer
-                .get_key_version_internal(&delete.outer_key, &Some(delete.inner_key.to_owned()));
+            let key_version =
+                table_synchronizer.get_key_version(&delete.outer_key, &Some(delete.inner_key.to_owned()));
             send.push((&delete.composite_key, key_version))
         }
 

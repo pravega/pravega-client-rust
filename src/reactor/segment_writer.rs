@@ -14,7 +14,7 @@ use std::net::SocketAddr;
 use crate::get_request_id;
 use snafu::ResultExt;
 use tokio::sync::mpsc::Sender;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use pravega_rust_client_retry::retry_async::retry_async;
@@ -29,6 +29,7 @@ use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
 use crate::raw_client::RawClient;
 use crate::reactor::event::{Incoming, PendingEvent, ServerReply};
+use std::fmt;
 
 pub(crate) struct SegmentWriter {
     /// unique id for each EventSegmentWriter
@@ -94,6 +95,7 @@ impl SegmentWriter {
         &mut self,
         factory: &ClientFactoryInternal,
     ) -> Result<(), SegmentWriterError> {
+        info!("setting up connection for segment writer {:?}", self.id);
         let uri = match factory
             .get_controller_client()
             .get_endpoint_for_segment(&self.segment) // retries are internal to the controller client.
@@ -138,6 +140,12 @@ impl SegmentWriter {
                     );
                     self.ack(cmd.last_event_number);
                     connection
+                }
+                Replies::WrongHost(cmd) => {
+                    warn!("wrong host when setting up append: {:?}", cmd);
+                    return Err(SegmentWriterError::WrongHost {
+                        error_msg: format!("{:?}", cmd),
+                    });
                 }
                 _ => {
                     warn!(
@@ -184,6 +192,7 @@ impl SegmentWriter {
                 }
             }
         });
+        info!("finished setting up connection");
         Ok(())
     }
 
@@ -327,6 +336,32 @@ impl SegmentWriter {
 
             return;
         }
+    }
+}
+
+impl fmt::Debug for SegmentWriter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SegmentWriter")
+            .field("segment writer id", &self.id)
+            .field("segment", &self.segment)
+            .field("endpoint", &self.endpoint)
+            .field(
+                "writer",
+                &match &self.writer {
+                    Some(w) => format!("WritingClientConnection id is {}", w.get_id()),
+                    None => "doesn't have writer".to_owned(),
+                },
+            )
+            .field(
+                "inflight",
+                &format!("number of inflight events is {}", &self.inflight.len()),
+            )
+            .field(
+                "pending",
+                &format!("number of pending events is {}", &self.pending.len()),
+            )
+            .field("current event_number", &self.event_num)
+            .finish()
     }
 }
 

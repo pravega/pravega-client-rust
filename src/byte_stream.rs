@@ -71,10 +71,10 @@ impl Write for ByteStreamWriter {
         }
         let oneshot_receiver = self.oneshot_receiver.take().expect("get oneshot receiver");
 
-        let result = match self.runtime_handle.block_on(oneshot_receiver) {
-            Err(e) => Err(Error::new(ErrorKind::Other, format!("oneshot error {:?}", e))),
-            Ok(res) => Ok(res),
-        }?;
+        let result = self
+            .runtime_handle
+            .block_on(oneshot_receiver)
+            .map_err(|e| Error::new(ErrorKind::Other, format!("oneshot error {:?}", e)))?;
 
         if let Err(e) = result {
             Err(Error::new(ErrorKind::Other, format!("{:?}", e)))
