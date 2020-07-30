@@ -21,6 +21,8 @@ use pravega_wire_protocol::client_config::ClientConfig;
 use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
 use crate::reactor::event::{Incoming, PendingEvent};
+use tracing::info_span;
+use tracing_futures::Instrument;
 
 /// EventStreamWriter contains a writer id and a mpsc sender which is used to send Event
 /// to the StreamWriter
@@ -39,19 +41,14 @@ impl EventStreamWriter {
     ) -> Self {
         let (tx, rx) = channel(EventStreamWriter::CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
-
+        let writer_id = Uuid::new_v4();
+        let span = info_span!("stream reactor", event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
         handle.enter(|| {
-            tokio::spawn(StreamReactor::run(
-                stream,
-                tx.clone(),
-                rx,
-                factory.clone(),
-                config,
-            ))
+            tokio::spawn(StreamReactor::run(stream, tx.clone(), rx, factory.clone(), config).instrument(span))
         });
         EventStreamWriter {
-            writer_id: Uuid::new_v4(),
+            writer_id,
             sender: tx,
         }
     }

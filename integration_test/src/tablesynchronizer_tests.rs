@@ -1,9 +1,19 @@
-use log::info;
+//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::table_synchronizer::{deserialize_from, Key, TableSynchronizer};
 use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_wire_protocol::commands::TableKey;
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 pub fn test_tablesynchronizer() {
     let config = ClientConfigBuilder::default()

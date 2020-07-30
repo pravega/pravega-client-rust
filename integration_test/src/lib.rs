@@ -25,6 +25,7 @@ mod wirecommand_tests;
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
 use std::process::Command;
 use std::{thread, time};
+use tracing::{debug, error, info, span, warn, Level};
 
 fn wait_for_standalone_with_timeout(expected_status: bool, timeout_second: i32) {
     for _i in 0..timeout_second {
@@ -52,10 +53,14 @@ fn check_standalone_status() -> bool {
 #[cfg(test)]
 mod test {
     use super::*;
+    use pravega_client_rust::trace;
     use wirecommand_tests::*;
 
     #[test]
     fn integration_test() {
+        trace::init();
+        let span = span!(Level::INFO, "integration test");
+        let _enter = span.enter();
         let mut pravega = PravegaStandaloneService::start(false);
         wait_for_standalone_with_timeout(true, 30);
 

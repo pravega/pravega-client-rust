@@ -21,6 +21,8 @@ use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
+use tracing::info_span;
+use tracing_futures::Instrument;
 use uuid::Uuid;
 
 const BUFFER_SIZE: usize = 4096;
@@ -75,18 +77,17 @@ impl ByteStreamWriter {
     ) -> Self {
         let (sender, receiver) = channel(CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
+        let writer_id = Uuid::new_v4();
+        let span = info_span!("stream reactor", event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
         handle.enter(|| {
-            tokio::spawn(SegmentReactor::run(
-                segment,
-                sender.clone(),
-                receiver,
-                factory.clone(),
-                config,
-            ))
+            tokio::spawn(
+                SegmentReactor::run(segment, sender.clone(), receiver, factory.clone(), config)
+                    .instrument(span),
+            )
         });
         ByteStreamWriter {
-            writer_id: Uuid::new_v4(),
+            writer_id,
             sender,
             runtime_handle: handle,
         }

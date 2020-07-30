@@ -42,6 +42,7 @@ pub mod segment_reader;
 mod stream;
 pub mod table_synchronizer;
 pub mod tablemap;
+pub mod trace;
 pub mod transaction;
 
 thread_local! {
@@ -69,23 +70,3 @@ pub(crate) fn get_random_f64() -> f64 {
 
 #[macro_use]
 extern crate derive_new;
-
-/// There is a known issue that rust doesn't print log from thread even when nocapture is not set.
-/// This will setup logger globally so logs can be printed to the same place.
-pub(crate) fn setup_logger() -> Result<(), fern::InitError> {
-    fern::Dispatch::new()
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "{}[{}][{}] {}",
-                chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
-                record.target(),
-                record.level(),
-                message
-            ))
-        })
-        .level(log::LevelFilter::Info)
-        .chain(std::io::stdout())
-        .chain(fern::log_file("./output.log")?)
-        .apply()?;
-    Ok(())
-}

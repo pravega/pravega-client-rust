@@ -14,7 +14,7 @@ use std::net::SocketAddr;
 use crate::get_request_id;
 use snafu::ResultExt;
 use tokio::sync::mpsc::Sender;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, event, info, span, warn, Level};
 use uuid::Uuid;
 
 use pravega_rust_client_retry::retry_async::retry_async;
@@ -91,11 +91,11 @@ impl SegmentWriter {
         self.segment.to_string()
     }
 
-    #[tracing::instrument]
     pub(crate) async fn setup_connection(
         &mut self,
         factory: &ClientFactoryInternal,
     ) -> Result<(), SegmentWriterError> {
+        info!("setting up connection for segment writer {:?}", self.id);
         let uri = match factory
             .get_controller_client()
             .get_endpoint_for_segment(&self.segment) // retries are internal to the controller client.
@@ -186,6 +186,7 @@ impl SegmentWriter {
                 }
             }
         });
+        info!("finished setting up connection");
         Ok(())
     }
 
