@@ -21,7 +21,6 @@ use crate::byte_stream::{ByteStreamReader, ByteStreamWriter};
 use crate::event_stream_writer::EventStreamWriter;
 use crate::raw_client::RawClientImpl;
 use crate::segment_reader::AsyncSegmentReaderImpl;
-use crate::setup_logger;
 use crate::table_synchronizer::TableSynchronizer;
 use crate::tablemap::TableMap;
 use crate::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;

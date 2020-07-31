@@ -8,14 +8,20 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use tracing::{dispatcher, Dispatch, Level};
-use tracing_subscriber::fmt::format::{FmtSpan, Full};
+use tracing::{dispatcher, Dispatch, Level, span};
 use tracing_subscriber::FmtSubscriber;
 
 pub fn init() {
-    let subscriber = FmtSubscriber::builder().with_ansi(true).finish();
+    let subscriber = FmtSubscriber::builder()
+        .with_ansi(true)
+        .with_max_level(Level::INFO)
+        .finish();
 
     let my_dispatch = Dispatch::new(subscriber);
     // this function can only be called once.
     dispatcher::set_global_default(my_dispatch).expect("set global dispatch");
+}
+
+pub fn current_span() -> span::Span {
+    span::Span::current()
 }

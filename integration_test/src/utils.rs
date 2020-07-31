@@ -23,7 +23,6 @@ use pravega_wire_protocol::commands::{
 };
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
-use tracing::info;
 
 /// helper function
 pub(crate) async fn create_scope_stream(
@@ -36,7 +35,6 @@ pub(crate) async fn create_scope_stream(
         .create_scope(scope_name)
         .await
         .expect("create scope");
-    info!("Scope created");
     let request = StreamConfiguration {
         scoped_stream: ScopedStream {
             scope: scope_name.clone(),
@@ -57,5 +55,4 @@ pub(crate) async fn create_scope_stream(
         .create_stream(&request)
         .await
         .expect("create stream");
-    info!("Stream created");
 }

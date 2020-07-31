@@ -12,9 +12,10 @@ use std::collections::VecDeque;
 use std::net::SocketAddr;
 
 use crate::get_request_id;
+use crate::trace;
 use snafu::ResultExt;
 use tokio::sync::mpsc::Sender;
-use tracing::{debug, error, event, info, span, warn, Level};
+use tracing::{debug, error, field, info, info_span, warn};
 use uuid::Uuid;
 
 use pravega_rust_client_retry::retry_async::retry_async;
@@ -30,6 +31,7 @@ use crate::error::*;
 use crate::raw_client::RawClient;
 use crate::reactor::event::{Incoming, PendingEvent, ServerReply};
 use std::fmt;
+use tracing_futures::Instrument;
 
 pub(crate) struct SegmentWriter {
     /// unique id for each EventSegmentWriter
@@ -42,7 +44,7 @@ pub(crate) struct SegmentWriter {
     endpoint: SocketAddr,
 
     /// client connection that writes to the segmentstore
-    writer: Option<WritingClientConnection>,
+    connection: Option<WritingClientConnection>,
 
     /// events that are sent but yet acknowledged
     inflight: VecDeque<Append>,
@@ -73,7 +75,7 @@ impl SegmentWriter {
         SegmentWriter {
             endpoint: "127.0.0.1:0".parse::<SocketAddr>().expect("get socketaddr"), //Dummy address
             id: Uuid::new_v4(),
-            writer: None,
+            connection: None,
             segment,
             inflight: VecDeque::new(),
             pending: VecDeque::new(),
@@ -95,99 +97,102 @@ impl SegmentWriter {
         &mut self,
         factory: &ClientFactoryInternal,
     ) -> Result<(), SegmentWriterError> {
-        info!("setting up connection for segment writer {:?}", self.id);
-        let uri = match factory
-            .get_controller_client()
-            .get_endpoint_for_segment(&self.segment) // retries are internal to the controller client.
-            .await
-        {
-            Ok(uri) => uri,
-            Err(e) => return Err(SegmentWriterError::RetryControllerWriting { err: e }),
-        };
+        let span = info_span!("setup connection", segment_writer= %self.id, segment= %self.segment, host = field::Empty);
+        // span.enter doesn't work for async code https://docs.rs/tracing/0.1.17/tracing/span/struct.Span.html#in-asynchronous-code
+        async {
+            info!("setting up connection for segment writer");
+            let uri = match factory
+                .get_controller_client()
+                .get_endpoint_for_segment(&self.segment) // retries are internal to the controller client.
+                .await
+            {
+                Ok(uri) => uri,
+                Err(e) => return Err(SegmentWriterError::RetryControllerWriting { err: e }),
+            };
+            trace::current_span().record("host", &field::debug(&uri));
 
-        self.endpoint = uri.0.parse::<SocketAddr>().expect("should parse to socketaddr");
+            self.endpoint = uri.0.parse::<SocketAddr>().expect("should convert to socketaddr");
 
-        let request = Requests::SetupAppend(SetupAppendCommand {
-            request_id: get_request_id(),
-            writer_id: self.id.as_u128(),
-            segment: self.segment.to_string(),
-            delegation_token: "".to_string(),
-        });
+            let request = Requests::SetupAppend(SetupAppendCommand {
+                request_id: get_request_id(),
+                writer_id: self.id.as_u128(),
+                segment: self.segment.to_string(),
+                delegation_token: "".to_string(),
+            });
 
-        let raw_client = factory.create_raw_client(self.endpoint);
-        let result = retry_async(self.retry_policy, || async {
-            debug!(
-                "setting up append for writer:{:?}/segment:{}",
-                self.id,
-                self.segment.to_string()
-            );
-            match raw_client.send_setup_request(&request).await {
-                Ok((reply, connection)) => RetryResult::Success((reply, connection)),
-                Err(e) => {
-                    warn!("failed to setup append using rawclient due to {:?}", e);
-                    RetryResult::Retry(e)
-                }
-            }
-        })
-        .await;
-
-        let mut connection = match result {
-            Ok((reply, connection)) => match reply {
-                Replies::AppendSetup(cmd) => {
-                    debug!(
-                        "append setup completed for writer:{:?}/segment:{:?}",
-                        cmd.writer_id, cmd.segment
-                    );
-                    self.ack(cmd.last_event_number);
-                    connection
-                }
-                _ => {
-                    warn!(
-                        "append setup failed for writer:{:?}/segment:{:?} due to {:?}",
-                        self.id, self.segment, reply
-                    );
-                    return Err(SegmentWriterError::WrongReply {
-                        expected: String::from("AppendSetup"),
-                        actual: reply,
-                    });
-                }
-            },
-            Err(e) => return Err(SegmentWriterError::RetryRawClient { err: e }),
-        };
-
-        let (mut r, w) = connection.split();
-        self.writer = Some(w);
-
-        let segment = self.segment.clone();
-        let mut sender = self.sender.clone();
-
-        // spin up connection listener that keeps listening on the connection
-        tokio::spawn(async move {
-            loop {
-                // listen to the receiver channel
-                let reply = match r.read().await {
-                    Ok(reply) => reply,
+            let raw_client = factory.create_raw_client(self.endpoint);
+            let result = retry_async(self.retry_policy, || async {
+                debug!(
+                    "setting up append for writer:{:?}/segment:{:?}",
+                    self.id, self.segment
+                );
+                match raw_client.send_setup_request(&request).await {
+                    Ok((reply, connection)) => RetryResult::Success((reply, connection)),
                     Err(e) => {
-                        warn!("connection {:?} failed to read data back from segmentstore due to {:?}, closing the listener task", r.get_id(), e);
+                        warn!("failed to setup append using rawclient due to {:?}", e);
+                        RetryResult::Retry(e)
+                    }
+                }
+            })
+                .await;
+
+            let mut connection = match result {
+                Ok((reply, connection)) => match reply {
+                    Replies::AppendSetup(cmd) => {
+                        debug!(
+                            "append setup completed for writer:{:?}/segment:{:?}",
+                            self.id, self.segment
+                        );
+                        self.ack(cmd.last_event_number);
+                        connection
+                    }
+                    _ => {
+                        warn!("append setup failed due to {:?}", reply);
+                        return Err(SegmentWriterError::WrongReply {
+                            expected: String::from("AppendSetup"),
+                            actual: reply,
+                        });
+                    }
+                },
+                Err(e) => return Err(SegmentWriterError::RetryRawClient { err: e }),
+            };
+
+            let (mut r, w) = connection.split();
+            let connection_id = w.get_id();
+            self.connection = Some(w);
+
+            let segment = self.segment.clone();
+            let mut sender = self.sender.clone();
+
+            // spins up a connection listener that keeps listening on the connection
+            let listener_span = info_span!("connection listener", connection = %connection_id);
+            tokio::spawn(async move {
+                loop {
+                    // listen to the receiver channel
+                    let reply = match r.read().await {
+                        Ok(reply) => reply,
+                        Err(e) => {
+                            warn!("connection failed to read data back from segmentstore due to {:?}, closing the listener task", e);
+                            return;
+                        }
+                    };
+
+                    let result = sender
+                        .send(Incoming::ServerReply(ServerReply {
+                            segment: segment.clone(),
+                            reply,
+                        }))
+                        .await;
+
+                    if let Err(e) = result {
+                        error!("connection read data from segmentstore but failed to send reply back to processor due to {:?}",e);
                         return;
                     }
-                };
-
-                let result = sender
-                    .send(Incoming::ServerReply(ServerReply {
-                        segment: segment.clone(),
-                        reply,
-                    }))
-                    .await;
-
-                if let Err(e) = result {
-                    error!("connection {:?} read data from segmentstore but failed to send reply back to processor due to {:?}", r.get_id() ,e);
-                    return;
                 }
-            }
-        });
-        info!("finished setting up connection");
-        Ok(())
+            }.instrument(listener_span));
+            info!("finished setting up connection");
+            Ok(())
+        }.instrument(span).await
     }
 
     /// first add the event to the pending list
@@ -243,7 +248,7 @@ impl SegmentWriter {
             to_send.len(),
             self.segment.to_string(),
             self.id,
-            self.writer.as_ref().expect("must have writer").get_id(),
+            self.connection.as_ref().expect("must have writer").get_id(),
 
         );
 
@@ -256,7 +261,7 @@ impl SegmentWriter {
             request_id: get_request_id(),
         });
 
-        let writer = self.writer.as_mut().expect("must have writer");
+        let writer = self.connection.as_mut().expect("must have writer");
         writer.write(&request).await.context(SegmentWriting {})
     }
 
@@ -341,7 +346,7 @@ impl fmt::Debug for SegmentWriter {
             .field("endpoint", &self.endpoint)
             .field(
                 "writer",
-                &match &self.writer {
+                &match &self.connection {
                     Some(w) => format!("WritingClientConnection id is {}", w.get_id()),
                     None => "doesn't have writer".to_owned(),
                 },
