@@ -15,7 +15,7 @@ use snafu::Snafu;
 
 use async_trait::async_trait;
 use pravega_rust_client_shared::ScopedSegment;
-use pravega_wire_protocol::commands::{Command, EventCommand, ReadSegmentCommand, SegmentReadCommand};
+use pravega_wire_protocol::commands::{ReadSegmentCommand, SegmentReadCommand};
 
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
@@ -109,8 +109,6 @@ impl AsyncSegmentReader for AsyncSegmentReaderImpl<'_> {
                         cmd.offset, offset,
                         "Offset of SegmentRead response different from the request"
                     );
-                    let er = EventCommand::read_from(cmd.data.as_slice()).expect("Invalid msg");
-                    println!("Event Command {:?}", er);
                     Ok(cmd)
                 }
                 Replies::NoSuchSegment(_cmd) => Err(ReaderError::SegmentTruncated {
@@ -154,11 +152,10 @@ mod tests {
     use mockall::*;
     use tokio::time::delay_for;
 
-    use pravega_rust_client_shared::Segment;
     use pravega_rust_client_shared::*;
     use pravega_wire_protocol::client_connection::ClientConnection;
     use pravega_wire_protocol::commands::{
-        NoSuchSegmentCommand, SegmentSealedCommand, SegmentTruncatedCommand,
+        Command, EventCommand, NoSuchSegmentCommand, SegmentSealedCommand, SegmentTruncatedCommand,
     };
 
     use super::*;

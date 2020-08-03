@@ -52,7 +52,9 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
 
     let rr: Result<Option<(String, Version)>, TableError> = map.get(&k).await;
     assert!(rr.is_ok() && rr.unwrap().is_none());
-    let r = map.insert_conditionally(&k, &v, TableKey::NOT_EXISTS, -1).await;
+    let r = map
+        .insert_conditionally(&k, &v, TableKey::KEY_NOT_EXISTS, -1)
+        .await;
     assert!(r.is_ok());
     let version = r.unwrap();
     let rr: Result<Option<(String, Version)>, TableError> = map.get(&k).await;
@@ -62,7 +64,9 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     assert_eq!(temp.unwrap().0, v);
 
     // second update with not exists
-    let r = map.insert_conditionally(&k, &v_1, TableKey::NOT_EXISTS, -1).await;
+    let r = map
+        .insert_conditionally(&k, &v_1, TableKey::KEY_NOT_EXISTS, -1)
+        .await;
     assert!(r.is_err());
     match r {
         Ok(_v) => panic!("Bad version error expected"),
@@ -155,7 +159,7 @@ async fn test_multiple_key_operations(client_factory: &ClientFactory) {
     let v1 = "v1".to_string();
     let data = vec![
         (&k1, &v1, versions.unwrap()[1]), // incorrect version
-        (&k3, &v1, TableKey::NOT_EXISTS),
+        (&k3, &v1, TableKey::KEY_NOT_EXISTS),
     ];
     let versions = map.insert_conditionally_all(data, -1).await;
     info!("==> Insert_all {:?}", versions);
@@ -221,7 +225,7 @@ async fn test_multiple_key_remove_operations(client_factory: &ClientFactory) {
 
     // test remove conditional failure
     let r = map
-        .remove_conditionally_all(vec![(&k3, insert[3]), (&k4, TableKey::NOT_EXISTS)], -1)
+        .remove_conditionally_all(vec![(&k3, insert[3]), (&k4, TableKey::KEY_NOT_EXISTS)], -1)
         .await;
     assert!(r.is_err());
     match r {

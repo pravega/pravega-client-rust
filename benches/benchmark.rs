@@ -13,7 +13,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use byteorder::BigEndian;
 use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
-use pravega_client_rust::error::EventStreamWriterError;
+use pravega_client_rust::error::SegmentWriterError;
 use pravega_client_rust::event_stream_writer::EventStreamWriter;
 use pravega_controller_client::ControllerClient;
 use pravega_rust_client_shared::*;
@@ -250,7 +250,7 @@ async fn run(writer: &mut EventStreamWriter) {
     assert_eq!(receivers.len(), EVENT_NUM);
 
     for rx in receivers {
-        let reply: Result<(), EventStreamWriterError> = rx.await.expect("wait for result from oneshot");
+        let reply: Result<(), SegmentWriterError> = rx.await.expect("wait for result from oneshot");
         assert_eq!(reply.is_ok(), true);
     }
 }

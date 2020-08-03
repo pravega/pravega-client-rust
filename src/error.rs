@@ -39,12 +39,12 @@ pub enum RawClientError {
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
-pub enum EventStreamWriterError {
+pub enum SegmentWriterError {
     #[snafu(display("Failed to send request to the processor"))]
     SendToProcessor {},
 
     #[snafu(display("The size limit is {} while actual size is {}", limit, size))]
-    EventSizeTooLarge { limit: i32, size: i32 },
+    EventSizeTooLarge { limit: usize, size: usize },
 
     #[snafu(display("Failed to parse to an Event Command: {}", source))]
     ParseToEventCommand { source: CommandError },
@@ -63,6 +63,12 @@ pub enum EventStreamWriterError {
 
     #[snafu(display("Wrong reply, expected {:?} but get {:?}", expected, actual))]
     WrongReply { expected: String, actual: Replies },
+
+    #[snafu(display("Wrong host: {:?}", error_msg))]
+    WrongHost { error_msg: String },
+
+    #[snafu(display("Reactor is closed due to: {:?}", msg))]
+    ReactorClosed { msg: String },
 }
 
 #[derive(Debug, Snafu)]
@@ -88,7 +94,7 @@ pub enum TransactionalEventSegmentWriterError {
     OneshotError { source: oneshot::error::TryRecvError },
 
     #[snafu(display("EventSegmentWriter failed due to {:?}", source))]
-    WriterError { source: EventStreamWriterError },
+    WriterError { source: SegmentWriterError },
 
     #[snafu(display("Unexpected reply from segmentstore {:?}", error))]
     UnexpectedReply { error: Replies },

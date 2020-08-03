@@ -789,7 +789,7 @@ fn test_read_table_entries_delta() {
             request_id: 0,
             segment: segment_name,
             delegation_token: token,
-            from_version: 0,
+            from_position: 0,
             suggested_entry_count: 3,
         }));
     test_command(read_table_entries_delta);
@@ -809,7 +809,7 @@ fn test_table_entries_delta_read() {
             entries: table_entries,
             should_clear: false,
             reached_end: false,
-            last_version: 0,
+            last_position: 0,
         }));
     test_command(table_entries_delta_read);
 }

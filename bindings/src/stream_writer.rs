@@ -10,7 +10,7 @@
 
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
-        use pravega_client_rust::error::EventStreamWriterError;
+        use pravega_client_rust::error::SegmentWriterError;
         use pravega_client_rust::event_stream_writer::EventStreamWriter;
         use pravega_rust_client_shared::ScopedStream;
         use pyo3::exceptions;
@@ -76,7 +76,7 @@ impl StreamWriter {
     ///
     /// Write a byte array into the Pravega Stream. This is similar to `write_event(...)` api except
     /// that the the event to be written is a byte array. The user can optionally specify the
-    //  routing key.
+    ///  routing key.
     ///
     /// ```
     /// import pravega_client;
@@ -97,23 +97,22 @@ impl StreamWriter {
     #[args(event, routing_key = "None", "*")]
     pub fn write_event_bytes(&mut self, event: &[u8], routing_key: Option<&str>) -> PyResult<()> {
         // to_vec creates an owned copy of the python byte array object.
-        let write_future: tokio::sync::oneshot::Receiver<Result<(), EventStreamWriterError>> =
-            match routing_key {
-                Option::None => {
-                    trace!("Writing a single event with no routing key");
-                    self.handle.block_on(self.writer.write_event(event.to_vec()))
-                }
-                Option::Some(key) => {
-                    trace!("Writing a single event for a given routing key {:?}", key);
-                    self.handle
-                        .block_on(self.writer.write_event_by_routing_key(key.into(), event.to_vec()))
-                }
-            };
+        let write_future: tokio::sync::oneshot::Receiver<Result<(), SegmentWriterError>> = match routing_key {
+            Option::None => {
+                trace!("Writing a single event with no routing key");
+                self.handle.block_on(self.writer.write_event(event.to_vec()))
+            }
+            Option::Some(key) => {
+                trace!("Writing a single event for a given routing key {:?}", key);
+                self.handle
+                    .block_on(self.writer.write_event_by_routing_key(key.into(), event.to_vec()))
+            }
+        };
 
         let timeout_fut = self
             .handle
             .enter(|| timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), write_future));
-        let result: Result<Result<Result<(), EventStreamWriterError>, RecvError>, _> =
+        let result: Result<Result<Result<(), SegmentWriterError>, RecvError>, _> =
             self.handle.block_on(timeout_fut);
         match result {
             Ok(t) => match t {
