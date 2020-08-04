@@ -17,8 +17,9 @@ use futures::stream::Stream;
 use pravega_rust_client_shared::Stream as PravegaStream;
 use pravega_rust_client_shared::{Scope, ScopedSegment, Segment};
 use pravega_wire_protocol::commands::{
-    CreateTableSegmentCommand, ReadTableCommand, ReadTableEntriesCommand, ReadTableKeysCommand,
-    RemoveTableKeysCommand, TableEntries, TableKey, TableValue, UpdateTableEntriesCommand,
+    CreateTableSegmentCommand, ReadTableCommand, ReadTableEntriesCommand, ReadTableEntriesDeltaCommand,
+    ReadTableKeysCommand, RemoveTableKeysCommand, TableEntries, TableKey, TableValue,
+    UpdateTableEntriesCommand,
 };
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use serde::{Deserialize, Serialize};
@@ -374,6 +375,37 @@ impl<'a> TableMap<'a> {
     }
 
     ///
+    /// Read entries as an Async Stream from a given position. This method deserialized the Key and Value based on the
+    /// inferred type.
+    ///
+    pub fn read_entries_stream_from_position<'stream, 'map: 'stream, K: 'map, V: 'map>(
+        &'map self,
+        max_entries_at_once: i32,
+        mut from_position: i64,
+    ) -> impl Stream<Item = Result<(K, V, Version, i64), TableError>> + Captures<'a> + 'stream
+    where
+        K: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
+        V: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
+    {
+        try_stream! {
+            loop {
+                let res: (Vec<(Vec<u8>, Vec<u8>,Version)>, i64)  = self.read_entries_raw_delta(max_entries_at_once, from_position).await?;
+                let (entries, last_position) = res;
+                if entries.is_empty() {
+                    break;
+                } else {
+                    for (key_raw, value_raw, version) in entries {
+                        let key: K = from_slice(key_raw.as_slice()).expect("error during deserialization");
+                        let value: V = from_slice(value_raw.as_slice()).expect("error during deserialization");
+                        yield (key, value, version, last_position)
+                    }
+                    from_position = last_position;
+                }
+            }
+        }
+    }
+
+    ///
     /// Get a list of keys in the table map for a given continuation token.
     /// It returns a Vector of Key with its version and a continuation token that can be used to
     /// fetch the next set of keys.An empty Vector as the continuation token will result in the keys
@@ -403,7 +435,7 @@ impl<'a> TableMap<'a> {
     ///
     /// Get a list of entries in the table map for a given continuation token.
     /// It returns a Vector of Key with its version and a continuation token that can be used to
-    /// fetch the next set of entries.An empty Vector as the continuation token will result in the keys
+    /// fetch the next set of entries. An empty Vector as the continuation token will result in the keys
     /// being fetched from the beginning.
     ///
     async fn get_entries<K, V>(
@@ -416,6 +448,34 @@ impl<'a> TableMap<'a> {
         V: Serialize + serde::de::DeserializeOwned,
     {
         let res = self.read_entries_raw(max_entries_at_once, token).await;
+        res.map(|(entries, token)| {
+            let entries_de: Vec<(K, V, Version)> = entries
+                .iter()
+                .map(|(k, v, version)| {
+                    let key: K = from_slice(k.as_slice()).expect("error during deserialization");
+                    let value: V = from_slice(v.as_slice()).expect("error during deserialization");
+                    (key, value, *version)
+                })
+                .collect();
+            (entries_de, token)
+        })
+    }
+
+    ///
+    /// Get a list of entries in the table map from a given position.
+    ///
+    async fn get_entries_delta<K, V>(
+        &self,
+        max_entries_at_once: i32,
+        from_position: i64,
+    ) -> Result<(Vec<(K, V, Version)>, i64), TableError>
+    where
+        K: Serialize + serde::de::DeserializeOwned,
+        V: Serialize + serde::de::DeserializeOwned,
+    {
+        let res = self
+            .read_entries_raw_delta(max_entries_at_once, from_position)
+            .await;
         res.map(|(entries, token)| {
             let entries_de: Vec<(K, V, Version)> = entries
                 .iter()
@@ -456,8 +516,9 @@ impl<'a> TableMap<'a> {
             table_entries: te,
             table_segment_offset: offset,
         });
+        info!("Requests for UpdateTableEntries request {:?}", req);
         let re = self.raw_client.as_ref().send_request(&req).await;
-        debug!("Reply for UpdateTableEntries request {:?}", re);
+        info!("Reply for UpdateTableEntries request {:?}", re);
         re.map_err(|e| TableError::ConnectionError {
             can_retry: true,
             operation: op.into(),
@@ -649,5 +710,50 @@ impl<'a> TableMap<'a> {
                 }
             })
         }
+    }
+
+    ///
+    /// Read the raw entries from the table map from a given position.
+    /// It returns a list of key-values and its versions with a latest position.
+    ///
+    async fn read_entries_raw_delta(
+        &self,
+        max_entries_at_once: i32,
+        from_position: i64,
+    ) -> Result<(Vec<(Vec<u8>, Vec<u8>, Version)>, i64), TableError> {
+        let op = "Read entries delta";
+        let req = Requests::ReadTableEntriesDelta(ReadTableEntriesDeltaCommand {
+            request_id: get_request_id(),
+            segment: self.name.clone(),
+            delegation_token: "".to_string(),
+            from_position,
+            suggested_entry_count: max_entries_at_once,
+        });
+        let re = self.raw_client.as_ref().send_request(&req).await;
+        debug!("Reply for read tableEntriesDelta request {:?}", re);
+        re.map_err(|e| TableError::ConnectionError {
+            can_retry: true,
+            operation: op.into(),
+            source: e,
+        })
+        .and_then(|r| {
+            match r {
+                Replies::TableEntriesDeltaRead(c) => {
+                    let entries: Vec<(Vec<u8>, Vec<u8>, Version)> = c
+                        .entries
+                        .entries
+                        .iter()
+                        .map(|(k, v)| (k.data.clone(), v.data.clone(), k.key_version))
+                        .collect();
+
+                    Ok((entries, c.last_position))
+                }
+                // unexpected response from Segment store causes a panic.
+                _ => Err(TableError::OperationError {
+                    operation: op.into(),
+                    error_msg: r.to_string(),
+                }),
+            }
+        })
     }
 }

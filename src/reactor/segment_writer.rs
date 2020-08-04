@@ -249,7 +249,6 @@ impl SegmentWriter {
             self.segment.to_string(),
             self.id,
             self.connection.as_ref().expect("must have writer").get_id(),
-
         );
 
         let request = Requests::AppendBlockEnd(AppendBlockEndCommand {

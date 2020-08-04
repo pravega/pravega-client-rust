@@ -64,6 +64,9 @@ pub enum SegmentWriterError {
     #[snafu(display("Wrong reply, expected {:?} but get {:?}", expected, actual))]
     WrongReply { expected: String, actual: Replies },
 
+    #[snafu(display("Wrong host: {:?}", error_msg))]
+    WrongHost { error_msg: String },
+
     #[snafu(display("Reactor is closed due to: {:?}", msg))]
     ReactorClosed { msg: String },
 }

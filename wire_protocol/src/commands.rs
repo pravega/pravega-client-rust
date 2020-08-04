@@ -2162,7 +2162,7 @@ pub struct TableKey {
 
 impl TableKey {
     pub const KEY_NO_VERSION: i64 = i64::min_value();
-    pub const NOT_EXISTS: i64 = -1i64;
+    pub const KEY_NOT_EXISTS: i64 = -1i64;
     const HEADER_BYTES: i32 = 2 * 4;
     pub fn new(data: Vec<u8>, key_version: i64) -> TableKey {
         let payload = (4 + data.len() + 8) as i32;
@@ -2219,12 +2219,12 @@ pub struct ReadTableEntriesDeltaCommand {
     pub request_id: i64,
     pub segment: String,
     pub delegation_token: String,
-    pub from_version: i64,
+    pub from_position: i64,
     pub suggested_entry_count: i32,
 }
 
 impl Command for ReadTableEntriesDeltaCommand {
-    const TYPE_CODE: i32 = 87;
+    const TYPE_CODE: i32 = 88;
 
     fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
         let encoded = CONFIG.serialize(&self).context(InvalidData {
@@ -2257,11 +2257,11 @@ pub struct TableEntriesDeltaReadCommand {
     pub entries: TableEntries,
     pub should_clear: bool,
     pub reached_end: bool,
-    pub last_version: i64,
+    pub last_position: i64,
 }
 
 impl Command for TableEntriesDeltaReadCommand {
-    const TYPE_CODE: i32 = 88;
+    const TYPE_CODE: i32 = 87;
 
     fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
         let encoded = CONFIG.serialize(&self).context(InvalidData {

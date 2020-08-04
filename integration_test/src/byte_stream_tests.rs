@@ -72,6 +72,7 @@ fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamRea
 
     let size2 = writer.write(&payload2).expect("write payload2 to byte stream");
     assert_eq!(size2, 4);
+    writer.flush().expect("flush byte stream writer");
 
     let mut buf: Vec<u8> = vec![0; 8];
     let bytes = reader.read(&mut buf).expect("read from byte stream");
