@@ -21,9 +21,9 @@ use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
+use tokio::sync::oneshot::error::TryRecvError;
 use tracing::info_span;
 use tracing_futures::Instrument;
-use tokio::sync::oneshot::error::TryRecvError;
 use uuid::Uuid;
 
 const BUFFER_SIZE: usize = 4096;

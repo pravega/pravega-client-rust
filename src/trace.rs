@@ -8,7 +8,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use tracing::{dispatcher, Dispatch, Level, span};
+use tracing::{dispatcher, span, Dispatch, Level};
 use tracing_subscriber::FmtSubscriber;
 
 pub fn init() {
