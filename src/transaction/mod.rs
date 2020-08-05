@@ -22,10 +22,11 @@ use pravega_rust_client_shared::{
 use snafu::ResultExt;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::debug;
+use tracing::{debug, info_span};
+use tracing_futures::Instrument;
 use transactional_event_segment_writer::TransactionalEventSegmentWriter;
 
-// contains metadata of a Transaction
+// contains the metadata of Transaction
 #[derive(new)]
 struct TransactionInfo {
     txn_id: TxId,
@@ -35,7 +36,7 @@ struct TransactionInfo {
 }
 
 /// Transaction is an abstract of the Pravega Transaction. It can be used to write, commit and abort
-/// a Pravega Transaction
+/// a Pravega Transaction.
 pub struct Transaction {
     info: TransactionInfo,
     inner: HashMap<ScopedSegment, TransactionalEventSegmentWriter>,
@@ -93,8 +94,10 @@ impl Transaction {
             .inner
             .get_mut(&segment)
             .expect("must get segment from transaction");
+        let span = info_span!("Transaction", transactionId = %self.info.txn_id);
         transaction
             .write_event(event, &self.factory)
+            .instrument(span)
             .await
             .context(TxnSegmentWriterError {})?;
         Ok(())

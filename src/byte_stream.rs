@@ -10,10 +10,11 @@
 
 use crate::client_factory::{ClientFactory, ClientFactoryInternal};
 use crate::error::*;
+use crate::get_random_u64;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::reactors::SegmentReactor;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
-use pravega_rust_client_shared::ScopedSegment;
+use pravega_rust_client_shared::{ScopedSegment, WriterId};
 use pravega_wire_protocol::client_config::ClientConfig;
 use std::io::Error;
 use std::io::{ErrorKind, Read, Write};
@@ -30,7 +31,7 @@ const BUFFER_SIZE: usize = 4096;
 const CHANNEL_CAPACITY: usize = 100;
 
 pub struct ByteStreamWriter {
-    writer_id: Uuid,
+    writer_id: WriterId,
     sender: Sender<Incoming>,
     runtime_handle: Handle,
     oneshot_receiver: Option<oneshot::Receiver<Result<(), SegmentWriterError>>>,
@@ -94,8 +95,8 @@ impl ByteStreamWriter {
     ) -> Self {
         let (sender, receiver) = channel(CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
-        let writer_id = Uuid::new_v4();
-        let span = info_span!("stream reactor", event_stream_writer = %writer_id);
+        let writer_id = WriterId::from(get_random_u64());
+        let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
         handle.enter(|| {
             tokio::spawn(

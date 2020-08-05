@@ -11,12 +11,11 @@
 use std::collections::VecDeque;
 use std::net::SocketAddr;
 
-use crate::get_request_id;
 use crate::trace;
+use crate::{get_random_u64, get_request_id};
 use snafu::ResultExt;
 use tokio::sync::mpsc::Sender;
 use tracing::{debug, error, field, info, info_span, warn};
-use uuid::Uuid;
 
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
@@ -35,7 +34,7 @@ use tracing_futures::Instrument;
 
 pub(crate) struct SegmentWriter {
     /// unique id for each EventSegmentWriter
-    pub(crate) id: Uuid,
+    pub(crate) id: WriterId,
 
     /// the segment that this writer is writing to, it does not change for a EventSegmentWriter instance
     pub(crate) segment: ScopedSegment,
@@ -74,7 +73,7 @@ impl SegmentWriter {
     ) -> Self {
         SegmentWriter {
             endpoint: "127.0.0.1:0".parse::<SocketAddr>().expect("get socketaddr"), //Dummy address
-            id: Uuid::new_v4(),
+            id: WriterId::from(get_random_u64()),
             connection: None,
             segment,
             inflight: VecDeque::new(),
@@ -85,7 +84,7 @@ impl SegmentWriter {
         }
     }
 
-    pub(crate) fn get_uuid(&self) -> Uuid {
+    pub(crate) fn get_id(&self) -> WriterId {
         self.id
     }
 
@@ -115,7 +114,7 @@ impl SegmentWriter {
 
             let request = Requests::SetupAppend(SetupAppendCommand {
                 request_id: get_request_id(),
-                writer_id: self.id.as_u128(),
+                writer_id: self.id.0 as u128,
                 segment: self.segment.to_string(),
                 delegation_token: "".to_string(),
             });
@@ -252,7 +251,7 @@ impl SegmentWriter {
         );
 
         let request = Requests::AppendBlockEnd(AppendBlockEndCommand {
-            writer_id: self.id.as_u128(),
+            writer_id: self.id.0 as u128,
             size_of_whole_events: total_size as i32,
             data: to_send,
             num_event: self.inflight.len() as i32,

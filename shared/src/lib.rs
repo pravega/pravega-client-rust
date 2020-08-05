@@ -174,9 +174,6 @@ impl TxId {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub struct WriterId(pub u64);
-
 impl Display for TxId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str(Uuid::from_u128(self.0).to_hyphenated().to_string().as_str())?;
@@ -209,6 +206,15 @@ impl Display for ScopedSegment {
             self.segment.tx_id,
         ))?;
         Ok(())
+    }
+}
+
+#[derive(From, Debug, Shrinkwrap, Copy, Clone, Hash, PartialEq, Eq)]
+pub struct WriterId(pub u64);
+
+impl Display for WriterId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
