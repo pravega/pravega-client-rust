@@ -7,7 +7,7 @@
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
-use metrics::{register_gauge};
+use metrics::register_gauge;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use std::net::SocketAddr;
 
