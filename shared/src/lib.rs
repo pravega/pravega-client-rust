@@ -210,11 +210,11 @@ impl Display for ScopedSegment {
 }
 
 #[derive(From, Debug, Shrinkwrap, Copy, Clone, Hash, PartialEq, Eq)]
-pub struct WriterId(pub u64);
+pub struct WriterId(pub u128);
 
 impl Display for WriterId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{:x}", self.0)
     }
 }
 

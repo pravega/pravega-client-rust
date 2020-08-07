@@ -225,7 +225,7 @@ impl StreamManager {
         &self,
         scope_name: &str,
         stream_name: &str,
-        writer_id: u64,
+        writer_id: u128,
     ) -> PyResult<StreamTxnWriter> {
         let scoped_stream = ScopedStream {
             scope: Scope::from(scope_name.to_owned()),

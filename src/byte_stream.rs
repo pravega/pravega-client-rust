@@ -10,7 +10,7 @@
 
 use crate::client_factory::{ClientFactory, ClientFactoryInternal};
 use crate::error::*;
-use crate::get_random_u64;
+use crate::get_random_u128;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::reactors::SegmentReactor;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
@@ -95,7 +95,7 @@ impl ByteStreamWriter {
     ) -> Self {
         let (sender, receiver) = channel(CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
-        let writer_id = WriterId::from(get_random_u64());
+        let writer_id = WriterId::from(get_random_u128());
         let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
         handle.enter(|| {

@@ -63,6 +63,11 @@ pub(crate) fn get_random_u64() -> u64 {
     RNG.with(|rng| rng.borrow_mut().gen())
 }
 
+/// Function used to generate random u128.
+pub(crate) fn get_random_u128() -> u128 {
+    RNG.with(|rng| rng.borrow_mut().gen())
+}
+
 /// Function used to generate random i64.
 pub(crate) fn get_random_f64() -> f64 {
     RNG.with(|rng| rng.borrow_mut().gen())

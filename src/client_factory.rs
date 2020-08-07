@@ -39,7 +39,6 @@ pub struct ClientFactoryInternal {
 
 impl ClientFactory {
     pub fn new(config: ClientConfig) -> ClientFactory {
-        //        setup_logger(); //Ignore failure
         let rt = tokio::runtime::Runtime::new().expect("create runtime");
         let cf = ConnectionFactory::create(config.connection_type);
         let pool = ConnectionPool::new(SegmentConnectionManager::new(cf, config.max_connections_in_pool));

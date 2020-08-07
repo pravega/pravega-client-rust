@@ -12,7 +12,7 @@ use std::collections::VecDeque;
 use std::net::SocketAddr;
 
 use crate::trace;
-use crate::{get_random_u64, get_request_id};
+use crate::{get_random_u128, get_request_id};
 use snafu::ResultExt;
 use tokio::sync::mpsc::Sender;
 use tracing::{debug, error, field, info, info_span, warn};
@@ -73,7 +73,7 @@ impl SegmentWriter {
     ) -> Self {
         SegmentWriter {
             endpoint: "127.0.0.1:0".parse::<SocketAddr>().expect("get socketaddr"), //Dummy address
-            id: WriterId::from(get_random_u64()),
+            id: WriterId::from(get_random_u128()),
             connection: None,
             segment,
             inflight: VecDeque::new(),
@@ -114,7 +114,7 @@ impl SegmentWriter {
 
             let request = Requests::SetupAppend(SetupAppendCommand {
                 request_id: get_request_id(),
-                writer_id: self.id.0 as u128,
+                writer_id: self.id.0,
                 segment: self.segment.to_string(),
                 delegation_token: "".to_string(),
             });
@@ -251,7 +251,7 @@ impl SegmentWriter {
         );
 
         let request = Requests::AppendBlockEnd(AppendBlockEndCommand {
-            writer_id: self.id.0 as u128,
+            writer_id: self.id.0,
             size_of_whole_events: total_size as i32,
             data: to_send,
             num_event: self.inflight.len() as i32,
