@@ -11,11 +11,10 @@
 use std::collections::VecDeque;
 use std::net::SocketAddr;
 
-use crate::get_request_id;
+use crate::{get_random_u64, get_request_id};
 use snafu::ResultExt;
 use tokio::sync::mpsc::Sender;
 use tracing::{debug, error, info, warn};
-use uuid::Uuid;
 
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
@@ -27,13 +26,14 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
 use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
+use crate::metric::ClientMetrics;
 use crate::raw_client::RawClient;
 use crate::reactor::event::{Incoming, PendingEvent, ServerReply};
 use std::fmt;
 
 pub(crate) struct SegmentWriter {
     /// unique id for each EventSegmentWriter
-    pub(crate) id: Uuid,
+    pub(crate) id: WriterId,
 
     /// the segment that this writer is writing to, it does not change for a EventSegmentWriter instance
     pub(crate) segment: ScopedSegment,
@@ -72,7 +72,7 @@ impl SegmentWriter {
     ) -> Self {
         SegmentWriter {
             endpoint: "127.0.0.1:0".parse::<SocketAddr>().expect("get socketaddr"), //Dummy address
-            id: Uuid::new_v4(),
+            id: WriterId::from(get_random_u64()),
             writer: None,
             segment,
             inflight: VecDeque::new(),
@@ -83,7 +83,7 @@ impl SegmentWriter {
         }
     }
 
-    pub(crate) fn get_uuid(&self) -> Uuid {
+    pub(crate) fn get_uuid(&self) -> WriterId {
         self.id
     }
 
@@ -109,7 +109,7 @@ impl SegmentWriter {
 
         let request = Requests::SetupAppend(SetupAppendCommand {
             request_id: get_request_id(),
-            writer_id: self.id.as_u128(),
+            writer_id: self.id.0 as u128,
             segment: self.segment.to_string(),
             delegation_token: "".to_string(),
         });
@@ -254,7 +254,7 @@ impl SegmentWriter {
         );
 
         let request = Requests::AppendBlockEnd(AppendBlockEndCommand {
-            writer_id: self.id.as_u128(),
+            writer_id: self.id.0 as u128,
             size_of_whole_events: total_size as i32,
             data: to_send,
             num_event: self.inflight.len() as i32,
@@ -263,7 +263,15 @@ impl SegmentWriter {
         });
 
         let writer = self.writer.as_mut().expect("must have writer");
-        writer.write(&request).await.context(SegmentWriting {})
+        writer.write(&request).await.context(SegmentWriting {})?;
+
+        update!(ClientMetrics::ClientAppendBlockSize, total_size as u64, "Segment Writer Id" => self.id.to_string());
+        update!(
+            ClientMetrics::ClientOutstandingAppendCount,
+            self.pending.len() as u64,
+            "Segment Writer Id" => self.id.to_string()
+        );
+        Ok(())
     }
 
     /// ack inflight events. It will send the reply from server back to the caller using oneshot.

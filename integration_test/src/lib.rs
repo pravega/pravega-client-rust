@@ -24,8 +24,11 @@ mod utils;
 mod wirecommand_tests;
 
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
+use pravega_client_rust::metric;
 use std::process::Command;
 use std::{thread, time};
+
+const PROMETHEUS_SCRAPE_PORT: &str = "127.0.0.1:8081";
 
 fn wait_for_standalone_with_timeout(expected_status: bool, timeout_second: i32) {
     for _i in 0..timeout_second {
@@ -53,11 +56,15 @@ fn check_standalone_status() -> bool {
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::net::SocketAddr;
     use wirecommand_tests::*;
 
     #[test]
     fn integration_test() {
         let mut pravega = PravegaStandaloneService::start(false);
+
+        metric::metric_init(PROMETHEUS_SCRAPE_PORT.parse::<SocketAddr>().unwrap());
+
         wait_for_standalone_with_timeout(true, 30);
 
         controller_tests::test_controller_apis();
