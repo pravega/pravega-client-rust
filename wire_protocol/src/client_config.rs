@@ -45,6 +45,18 @@ pub struct ClientConfig {
 
     #[builder(default = "false")]
     pub mock: bool,
+
+    #[builder(default = "self.default_truststore()")]
+    pub truststore: String,
+
+    #[builder(default = "false")]
+    pub is_tls_enabled: bool,
+}
+
+impl ClientConfigBuilder {
+    fn default_truststore(&self) -> String {
+        "../../ca-cert.crt".to_owned()
+    }
 }
 
 #[cfg(test)]

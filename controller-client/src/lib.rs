@@ -56,7 +56,7 @@ use std::str::FromStr;
 use std::sync::RwLock;
 use tokio::runtime::Handle;
 use tonic::codegen::http::uri::InvalidUri;
-use tonic::transport::Uri;
+use tonic::transport::{Certificate, ClientTlsConfig, Uri};
 
 #[allow(non_camel_case_types)]
 pub mod controller {
@@ -280,10 +280,18 @@ async fn get_channel(config: &ClientConfig) -> Channel {
         })
         .unwrap();
 
-    let iterable_endpoints =
-        (0..config.max_controller_connections).map(|_a| Channel::builder(uri_result.clone()));
-
-    async { Channel::balance_list(iterable_endpoints) }.await
+    if config.is_tls_enabled {
+        let pem = std::fs::read(&config.truststore).expect("read truststore");
+        let ca = Certificate::from_pem(pem);
+        let tls = ClientTlsConfig::new().ca_certificate(ca);
+        let iterable_endpoints = (0..config.max_controller_connections)
+            .map(|_a| Channel::builder(uri_result.clone()).tls_config(tls.clone()));
+        async { Channel::balance_list(iterable_endpoints) }.await
+    } else {
+        let iterable_endpoints =
+            (0..config.max_controller_connections).map(|_a| Channel::builder(uri_result.clone()));
+        async { Channel::balance_list(iterable_endpoints) }.await
+    }
 }
 
 #[allow(unused_variables)]
