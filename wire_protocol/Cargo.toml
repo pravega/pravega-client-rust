@@ -31,4 +31,6 @@ tokio = { version = "0.2.20", features = ["full"] }
 futures = "0.3.5"
 dashmap = "3.4.4"
 log = "0.4.8"
+base64 = "0.12.3"
+derive-new = "0.5"
 
