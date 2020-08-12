@@ -28,7 +28,7 @@ use crate::transaction::transactional_event_stream_writer::TransactionalEventStr
 use std::sync::Arc;
 use tokio::runtime::{Handle, Runtime};
 
-pub struct ClientFactory(Arc<ClientFactoryInternal>);
+pub struct ClientFactory(pub(crate) Arc<ClientFactoryInternal>);
 
 pub struct ClientFactoryInternal {
     connection_pool: ConnectionPool<SegmentConnectionManager>,
