@@ -9,33 +9,134 @@
 //
 
 use crate::client_factory::ClientFactoryInternal;
+use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use pravega_controller_client::ControllerClient;
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream};
+use std::sync::Arc;
 use tokio::sync::mpsc;
+use tokio::sync::mpsc::{Receiver, Sender};
 use tracing::{debug, error, info, warn};
 
 #[derive(new)]
 struct EventReader<'a> {
     stream: ScopedStream,
-    controller_client: &'a dyn ControllerClient,
-    //config: ClientConfig,
+    factory: &'a ClientFactoryInternal, //config: ClientConfig,
 
-    // ... nothing pub
+                                        // ... nothing pub
 }
 
 struct Event {
     offset_in_segment: u64,
     value: Vec<u8>,
 }
+struct SegmentSliceItr {}
 
+impl SegmentSliceItr {}
 struct SegmentSlice {
     // ... nothing pub
     start_offset: i64,
     segment: ScopedSegment,
     read_offset: i64,
+    end_offset: i64,
+    //segment_reader: AsyncSegmentReaderImpl<'a>,
+    slice_rx: Receiver<BytesMut>,
 }
 
 impl SegmentSlice {
+    pub(crate) fn new(
+        segment: ScopedSegment,
+        start_offset: i64,
+        factory: Arc<ClientFactoryInternal>,
+    ) -> Self {
+        let (mut tx, mut rx) = mpsc::channel(1);
+        let (mut slice_tx, mut slice_rx) = mpsc::channel(10);
+        let handle = factory.get_runtime_handle();
+        handle.enter(|| tokio::spawn(SegmentSlice::run(segment.clone(), tx, factory.clone())));
+        handle.enter(|| tokio::spawn(read_segment_events(rx, slice_tx)));
+        SegmentSlice {
+            start_offset,
+            segment: segment.clone(),
+            read_offset: 0,
+            end_offset: i64::MAX,
+            slice_rx,
+        }
+    }
+
+    async fn run(segment: ScopedSegment, mut tx: Sender<BytesMut>, factory: Arc<ClientFactoryInternal>) {
+        let offset: i64 = 0;
+        let buf_size: i32 = 100;
+        let segment_reader = AsyncSegmentReaderImpl::init(segment, &factory).await;
+        loop {
+            let read = segment_reader.read(offset, 100).await;
+            match read {
+                Ok(r) => {
+                    let segment_data = bytes::BytesMut::from(r.data.as_slice());
+                    tx.send(segment_data).await;
+                }
+                Err(e) => {
+                    info!("Error while reading from segment {:?}", e);
+                    break;
+                }
+            }
+        }
+    }
+
+    // async fn new1(
+    //     segment: ScopedSegment,
+    //     start_offset: i64,
+    //     factory: &ClientFactoryInternal,
+    //     //segment_reader: AsyncSegmentReaderImpl<'a>,
+    // ) -> SegmentSlice {
+    //     let (mut tx, mut rx) = mpsc::channel(1);
+    //     let (mut slice_tx, mut slice_rx) = mpsc::channel(10);
+    //
+    //     // handle.enter(|| {
+    //     //     tokio::spawn(SegmentReactor::run(
+    //     //         segment,
+    //     //         sender.clone(),
+    //     //         receiver,
+    //     //         factory.clone(),
+    //     //         config,
+    //     //     ))
+    //     // });
+    //     //
+    //     let handle = factory.get_runtime_handle();
+    //     handle.enter(|| {
+    //         tokio::spawn(SegmentSlice::read_segment(
+    //             AsyncSegmentReaderImpl::init(segment, factory),
+    //             tx,
+    //         ))
+    //     });
+    //
+    //     // let t2 = tokio::spawn(read_segment_events(rx, slice_tx));
+    //     SegmentSlice {
+    //         start_offset,
+    //         segment: segment.clone(),
+    //         read_offset: 0,
+    //         end_offset: i64::MAX,
+    //         slice_rx,
+    //     }
+    // }
+
+    // async fn read_segment(factory: ClientFactoryInternal, segment: ScopedSegment, mut tx: Sender<BytesMut>) {
+    //     let offset: i64 = 0;
+    //     let buf_size: i32 = 100;
+    //     loop {
+    //         let read = segment_reader.read(offset, 100).await;
+    //         match read {
+    //             Ok(r) => {
+    //                 let segment_data = bytes::BytesMut::from(r.data.as_slice());
+    //                 tx.send(segment_data).await;
+    //             }
+    //             Err(e) => {
+    //                 info!("Error while reading from segment {:?}", e);
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
+
     fn get_starting_offset(&self) -> i64 {
         self.start_offset
     }
@@ -50,38 +151,104 @@ impl SegmentSlice {
         self.read_offset
     }
 }
+async fn read_segment_events(mut rx: Receiver<BytesMut>, mut slice_tx: Sender<BytesMut>) {
+    let mut partial_event = BytesMut::with_capacity(0);
+    loop {
+        let segment_data = rx.recv().await.expect("Nothing to received");
+        partial_event = extract_event_send(segment_data, partial_event, slice_tx.clone()).await;
+    }
+}
+
+async fn extract_event_send(
+    mut segment_data: BytesMut,
+    mut partial_event: BytesMut,
+    mut tx: Sender<BytesMut>,
+) -> BytesMut {
+    if partial_event.capacity() != 0 {
+        let bytes_to_read = partial_event.capacity() - partial_event.len();
+        if segment_data.remaining() >= bytes_to_read {
+            let t = segment_data.split_to(bytes_to_read);
+            partial_event.put(t);
+            tx.send(partial_event).await;
+        } else {
+            println!("Partial event being returned since there is more to fill");
+            partial_event.put(segment_data.split());
+            return partial_event; // return the partial event.
+        }
+    }
+
+    while segment_data.has_remaining() {
+        let mut event_data = read_header(&mut segment_data);
+        let bytes_to_read = event_data.capacity();
+        if bytes_to_read == 0 {
+            continue;
+        }
+        if segment_data.remaining() >= bytes_to_read {
+            let t = segment_data.split_to(bytes_to_read);
+            event_data.put(t);
+            println!("Event data is {:?} with length {}", event_data, event_data.len());
+            tx.send(event_data).await;
+        } else {
+            let t = segment_data.split();
+            event_data.put(t);
+            println!(
+                "Partial Event read: Current data read {:?} data_read {} to_read {}",
+                event_data,
+                event_data.len(),
+                event_data.capacity()
+            );
+            return event_data;
+        }
+    }
+
+    let partial_event = BytesMut::with_capacity(0);
+    return partial_event;
+}
+
+///
+/// This method reads the header and returns a BytesMut whose size is as big as the event.
+///
+fn read_header(mut data: &mut BytesMut) -> BytesMut {
+    if (data.remaining() >= 4) {
+        let len = data.get_i32();
+        println!("Header length read is {}", len);
+        BytesMut::with_capacity(len as usize)
+    } else {
+        BytesMut::with_capacity(0)
+    }
+}
+
+// impl Iterator for SegmentSlice {
+//     type Item = Event;
+//
+//     fn next(&mut self) -> Option<Self::Item> {}
+// }
 
 impl<'a> EventReader<'a> {
     pub fn init(stream: ScopedStream, factory: &'a ClientFactoryInternal) -> EventReader<'a> {
         // create a reader object.
         //
-        EventReader {
-            stream,
-            controller_client: factory.get_controller_client(),
-        }
+        EventReader { stream, factory }
     }
 
     fn release_segment_at(&mut self, _slice: SegmentSlice, _offset_in_segment: u64) {
         //The above two call this with different offsets.
     }
 
-    async fn acquire_segment(&mut self) -> SegmentSlice {
-        //Returns a segment which is now owned by this process.
-        //Because it returns a reference the slice cannot outlive the reader.
-        let (segment, read_offset) = self.get_next_segment().await;
-        info!("Acquire segment {} with read offset {}", segment, read_offset);
-        SegmentSlice {
-            segment,
-            read_offset,
-            start_offset: read_offset,
-        }
-    }
+    // async fn acquire_segment<'a>(&mut self) -> SegmentSlice<'a> {
+    //     //Returns a segment which is now owned by this process.
+    //     //Because it returns a reference the slice cannot outlive the reader.
+    //     let (segment, read_offset) = self.get_next_segment().await;
+    //     info!("Acquire segment {} with read offset {}", segment, read_offset);
+    //     SegmentSlice::new(segment, read_offset, self.factory).await
+    // }
 
     async fn get_next_segment(&mut self) -> (ScopedSegment, i64) {
         // Mock method: Always returns first segment.
         // TODO: This method should check from the ReaderGroupState and return a segment and the corresponding read offset.
         let segments = self
-            .controller_client
+            .factory
+            .get_controller_client()
             .get_current_segments(&self.stream)
             .await
             .expect("Failed to talk to controller");
@@ -128,7 +295,7 @@ mod tests {
     ) -> BytesMut {
         if partial_event.capacity() != 0 {
             let bytes_to_read = partial_event.capacity() - partial_event.len();
-            if (segment_data.remaining() >= bytes_to_read) {
+            if segment_data.remaining() >= bytes_to_read {
                 let t = segment_data.split_to(bytes_to_read);
                 partial_event.put(t);
                 tx.send(partial_event).await;
@@ -157,7 +324,7 @@ mod tests {
                     "Partial Event read: Current data read {:?} data_read {} to_read {}",
                     event_data,
                     event_data.len(),
-                    event_data.remaining_mut()
+                    event_data.capacity()
                 );
                 return event_data;
             }
@@ -167,6 +334,9 @@ mod tests {
         return partial_event;
     }
 
+    ///
+    /// This method reads the header and returns a BytesMut whose size is as big as the event.
+    ///
     fn read_header(mut data: &mut BytesMut) -> BytesMut {
         if (data.remaining() >= 4) {
             let len = data.get_i32();
@@ -176,20 +346,15 @@ mod tests {
             BytesMut::with_capacity(0)
         }
     }
+
     #[tokio::test]
     async fn learn_channel() {
-        let (mut tx, mut rx) = mpsc::channel(10);
+        let (mut tx, mut rx) = mpsc::channel(1);
         let (mut slice_tx, mut slice_rx) = mpsc::channel(10);
         //tokio::spawn(async move { generate_single_event(tx).await });
-        tokio::spawn(async move { generate_multiple_constant_size_events(tx).await });
+        tokio::spawn(generate_multiple_constant_size_events(tx));
 
-        tokio::spawn(async move {
-            let mut partial_event = BytesMut::with_capacity(0);
-            loop {
-                let segment_data = rx.recv().await.expect("Nothing to received");
-                partial_event = extract_event_send(segment_data, partial_event, slice_tx.clone()).await;
-            }
-        });
+        tokio::spawn(read_segment_events(rx, slice_tx));
 
         // tokio::spawn(async move {
         //     while let Some(mut segment_data) = rx.recv().await {
@@ -232,6 +397,14 @@ mod tests {
             println!("====> Event read = {:?}", slice_data);
             assert!(event_size + 1 == slice_data.len(), "we missed an event ");
             event_size = event_size + 1;
+        }
+    }
+
+    async fn read_segment_events(mut rx: Receiver<BytesMut>, mut slice_tx: Sender<BytesMut>) {
+        let mut partial_event = BytesMut::with_capacity(0);
+        loop {
+            let segment_data = rx.recv().await.expect("Nothing to received");
+            partial_event = extract_event_send(segment_data, partial_event, slice_tx.clone()).await;
         }
     }
 
