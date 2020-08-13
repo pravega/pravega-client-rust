@@ -39,10 +39,10 @@ use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
     delete_scope_status, delete_stream_status, ping_txn_status, scale_request, scale_response,
     scale_status_response, txn_state, txn_status, update_stream_status, CreateScopeStatus,
-    CreateStreamStatus, CreateTxnRequest, CreateTxnResponse, DeleteScopeStatus, DeleteStreamStatus,
-    GetEpochSegmentsRequest, NodeUri, PingTxnRequest, PingTxnStatus, ScaleRequest, ScaleResponse,
-    ScaleStatusRequest, ScaleStatusResponse, ScopeInfo, SegmentId, SegmentRanges, StreamConfig, StreamInfo,
-    SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
+    CreateStreamStatus, CreateTxnRequest, CreateTxnResponse, DelegationToken, DeleteScopeStatus,
+    DeleteStreamStatus, GetEpochSegmentsRequest, NodeUri, PingTxnRequest, PingTxnStatus, ScaleRequest,
+    ScaleResponse, ScaleStatusRequest, ScaleStatusResponse, ScopeInfo, SegmentId, SegmentRanges,
+    StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
 };
 use log::debug;
 use pravega_rust_client_retry::retry_async::retry_async;
@@ -236,8 +236,7 @@ pub trait ControllerClient: Send + Sync {
      * @param streamName    Name of the stream.
      * @return              The delegation token for the given stream.
      */
-    async fn get_or_refresh_delegation_token_for(&self, stream: ScopedStream)
-        -> ResultRetry<DelegationToken>;
+    async fn get_or_refresh_delegation_token_for(&self, stream: ScopedStream) -> ResultRetry<String>;
 
     ///
     /// Fetch the successors for a given Segment.
@@ -421,11 +420,11 @@ impl ControllerClient for ControllerClientImpl {
         )
     }
 
-    async fn get_or_refresh_delegation_token_for(
-        &self,
-        stream: ScopedStream,
-    ) -> ResultRetry<DelegationToken> {
-        unimplemented!()
+    async fn get_or_refresh_delegation_token_for(&self, stream: ScopedStream) -> ResultRetry<String> {
+        wrap_with_async_retry!(
+            self.config.retry_policy.max_tries(MAX_RETRIES),
+            self.call_get_delegation_token(&stream)
+        )
     }
 
     async fn get_successors(&self, segment: &ScopedSegment) -> ResultRetry<StreamSegmentsWithPredecessors> {
@@ -1080,6 +1079,18 @@ impl ControllerClientImpl {
                     error_msg: "Operation failed".into(),
                 }),
             },
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
+        }
+    }
+
+    async fn call_get_delegation_token(&self, stream: &ScopedStream) -> Result<String> {
+        let op_status: StdResult<tonic::Response<DelegationToken>, tonic::Status> = self
+            .get_controller_client()
+            .get_delegation_token(tonic::Request::new(StreamInfo::from(stream)))
+            .await;
+        let operation_name = "get_delegation_token";
+        match op_status {
+            Ok(response) => Ok(response.into_inner().delegation_token),
             Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }

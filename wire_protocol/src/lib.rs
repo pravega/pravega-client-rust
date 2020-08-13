@@ -24,12 +24,12 @@
     clippy::similar_names
 )]
 #![allow(clippy::multiple_crate_versions)]
-pub mod auth;
 pub mod client_config;
 pub mod client_connection;
 pub mod commands;
 pub mod connection;
 pub mod connection_factory;
+pub mod credentials;
 pub mod error;
 pub mod mock_connection;
 #[cfg(test)]

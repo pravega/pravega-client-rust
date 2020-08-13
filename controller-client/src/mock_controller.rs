@@ -340,8 +340,8 @@ impl ControllerClient for MockController {
     async fn get_or_refresh_delegation_token_for(
         &self,
         _stream: ScopedStream,
-    ) -> Result<DelegationToken, RetryError<ControllerError>> {
-        Ok(DelegationToken(String::from("")))
+    ) -> Result<String, RetryError<ControllerError>> {
+        Ok(String::from(""))
     }
 
     async fn get_successors(

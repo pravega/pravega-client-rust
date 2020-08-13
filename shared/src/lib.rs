@@ -52,8 +52,21 @@ extern crate derive_new;
 #[derive(From, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct PravegaNodeUri(pub String);
 
-#[derive(From, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
-pub struct DelegationToken(pub String);
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
+pub struct DelegationToken {
+    value: String,
+    expiry_time: Option<u64>,
+}
+
+impl DelegationToken {
+    pub fn get_value(&self) -> String {
+        self.value.clone()
+    }
+
+    pub fn get_expiry_time(&self) -> Option<u64> {
+        self.expiry_time.clone()
+    }
+}
 
 #[derive(From, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Timestamp(pub u64);
@@ -73,7 +86,7 @@ pub struct Reader {
     pub name: String,
 }
 
-#[derive(From, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Segment {
     pub number: i64,
     pub tx_id: Option<TxId>,

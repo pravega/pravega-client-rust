@@ -8,8 +8,8 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::auth::Credentials;
 use crate::connection_factory::ConnectionType;
+use crate::credentials::Credentials;
 use derive_builder::*;
 use getset::CopyGetters;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
