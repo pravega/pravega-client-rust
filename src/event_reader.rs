@@ -11,7 +11,6 @@
 use crate::client_factory::ClientFactoryInternal;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 use bytes::{Buf, BufMut, BytesMut};
-use pravega_controller_client::ControllerClient;
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream};
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -42,7 +41,7 @@ struct SegmentSlice {
 ///
 /// Amount of Bytes Read ahead.
 ///
-const READ_BUFFER_SIZE: i32 = 100;
+const READ_BUFFER_SIZE: i32 = 22;
 
 impl SegmentSlice {
     pub(crate) fn new(
@@ -50,7 +49,7 @@ impl SegmentSlice {
         start_offset: i64,
         factory: Arc<ClientFactoryInternal>,
     ) -> Self {
-        let (mut tx, mut rx) = mpsc::channel(1);
+        let (mut tx, mut rx) = mpsc::channel(2);
         let (mut slice_tx, mut slice_rx) = mpsc::channel(10);
         let handle = factory.get_runtime_handle();
         handle.enter(|| {
@@ -71,23 +70,41 @@ impl SegmentSlice {
         }
     }
 
+    ///
+    /// Method to fetch segment data in a loop
+    ///
     async fn get_segment_data(
         segment: ScopedSegment,
         start_offset: i64,
         mut tx: Sender<BytesMut>,
         factory: Arc<ClientFactoryInternal>,
     ) {
-        let offset: i64 = start_offset;
+        let mut offset: i64 = start_offset;
         let segment_reader = AsyncSegmentReaderImpl::init(segment, &factory).await;
         loop {
+            debug!(
+                "Send read request to Segment store at offset {:?} with length {:?}",
+                offset, READ_BUFFER_SIZE
+            );
             let read = segment_reader.read(offset, READ_BUFFER_SIZE).await;
             match read {
-                Ok(r) => {
-                    let segment_data = bytes::BytesMut::from(r.data.as_slice());
-                    tx.send(segment_data).await;
+                Ok(reply) => {
+                    debug!("Read Response from Segment store {:?}", reply);
+                    let len = reply.data.len();
+                    if len == 0 || reply.end_of_segment {
+                        break;
+                    } else {
+                        let segment_data = bytes::BytesMut::from(reply.data.as_slice());
+                        // send data: this waits until there is capacity in the channel.
+                        if let Err(e) = tx.send(segment_data).await {
+                            info!("Error while sending segment data to event parser {:?} ", e);
+                            break;
+                        }
+                        offset = offset + len as i64;
+                    }
                 }
                 Err(e) => {
-                    info!("Error while reading from segment {:?}", e);
+                    warn!("Error while reading from segment {:?}", e);
                     break;
                 }
             }
@@ -102,22 +119,22 @@ impl SegmentSlice {
         self.segment.to_string()
     }
 
-    /// this is the current read offset.
-    fn get_offset(&self) -> i64 {
-        //Returns the offset up through which all data has been read
-        self.read_offset
-    }
-
     async fn read_events(
         mut rx: Receiver<BytesMut>,
         mut slice_tx: Sender<BytesMut>,
-        y: fn(&mut BytesMut) -> BytesMut,
+        header_parser: fn(&mut BytesMut) -> BytesMut,
     ) {
         let mut partial_event = BytesMut::with_capacity(0);
         loop {
-            let segment_data = rx.recv().await.expect("Nothing to received");
-            partial_event =
-                SegmentSlice::extract_event_send(segment_data, partial_event, slice_tx.clone(), y).await;
+            let segment_data = rx.recv().await;
+            if let Some(data) = segment_data {
+                partial_event =
+                    SegmentSlice::extract_event_send(data, partial_event, slice_tx.clone(), header_parser)
+                        .await;
+            } else {
+                info!("No more data to read from the Segment store");
+                break;
+            }
         }
     }
 
@@ -132,7 +149,10 @@ impl SegmentSlice {
             if segment_data.remaining() >= bytes_to_read {
                 let t = segment_data.split_to(bytes_to_read);
                 partial_event.put(t);
-                tx.send(partial_event).await;
+                match tx.send(partial_event).await {
+                    Ok(()) => println!("Send of event successeful"),
+                    Err(e) => println!("Failed to to send parsed event {:?}", e),
+                };
             } else {
                 println!("Partial event being returned since there is more to fill");
                 partial_event.put(segment_data.split());
@@ -151,7 +171,10 @@ impl SegmentSlice {
                 let t = segment_data.split_to(bytes_to_read);
                 event_data.put(t);
                 println!("Event data is {:?} with length {}", event_data, event_data.len());
-                tx.send(event_data).await;
+                match tx.send(event_data).await {
+                    Ok(()) => println!("Send of event successeful"),
+                    Err(e) => println!("Failed to to send parsed event {:?}", e),
+                };
             } else {
                 let t = segment_data.split();
                 event_data.put(t);
@@ -173,7 +196,7 @@ impl SegmentSlice {
     /// This method reads the header and returns a BytesMut whose size is as big as the event.
     ///
     fn read_header(mut data: &mut BytesMut) -> BytesMut {
-        if (data.remaining() >= 4) {
+        if data.remaining() >= 4 {
             let len = data.get_i32();
             println!("Header length read is {}", len);
             BytesMut::with_capacity(len as usize)
@@ -244,6 +267,7 @@ mod tests {
     use crate::client_factory::ClientFactory;
     use crate::segment_reader::AsyncSegmentReader;
     use bytes::{Buf, BufMut, Bytes, BytesMut};
+    use pravega_controller_client::ControllerClient;
     use pravega_rust_client_shared::{
         Retention, RetentionType, ScaleType, Scaling, Scope, Segment, Stream, StreamConfiguration,
     };
@@ -252,27 +276,25 @@ mod tests {
     use tokio::sync::mpsc;
     use tokio::sync::mpsc::{Receiver, Sender};
 
-    // ///
-    // /// This method reads the header and returns a BytesMut whose size is as big as the event.
-    // ///
-    // fn read_header(mut data: &mut BytesMut) -> BytesMut {
-    //     if (data.remaining() >= 4) {
-    //         let len = data.get_i32();
-    //         println!("Header length read is {}", len);
-    //         BytesMut::with_capacity(len as usize)
-    //     } else {
-    //         BytesMut::with_capacity(0)
-    //     }
-    // }
+    ///
+    /// This method reads the header and returns a BytesMut whose size is as big as the event.
+    ///
+    fn read_header(mut data: &mut BytesMut) -> BytesMut {
+        if (data.remaining() >= 4) {
+            let len = data.get_i32();
+            println!("Header length read is {}", len);
+            BytesMut::with_capacity(len as usize)
+        } else {
+            BytesMut::with_capacity(0)
+        }
+    }
 
     #[tokio::test]
     async fn test_read_partial_events() {
         let (mut tx, mut rx) = mpsc::channel(1);
         let (mut slice_tx, mut slice_rx) = mpsc::channel(10);
-        //tokio::spawn(async move { generate_single_event(tx).await });
         tokio::spawn(generate_multiple_constant_size_events(tx));
-
-        tokio::spawn(SegmentSlice::read_events(rx, slice_tx, SegmentSlice::read_header));
+        tokio::spawn(SegmentSlice::read_events(rx, slice_tx, read_header));
 
         // receive events as bytes...
         let mut event_size: usize = 0;
@@ -289,7 +311,7 @@ mod tests {
         let (mut slice_tx, mut slice_rx) = mpsc::channel(10);
         tokio::spawn(async move { generate_single_event(tx).await });
 
-        tokio::spawn(SegmentSlice::read_events(rx, slice_tx, SegmentSlice::read_header));
+        tokio::spawn(SegmentSlice::read_events(rx, slice_tx, read_header));
 
         // receive events as bytes...
         let mut event_size: usize = 0;
@@ -299,6 +321,7 @@ mod tests {
             event_size = event_size + 1;
         }
     }
+
     async fn generate_multiple_constant_size_events(mut tx: Sender<BytesMut>) {
         let max_events = 10;
         let mut buf = BytesMut::with_capacity(10);
@@ -344,32 +367,6 @@ mod tests {
         buf = BytesMut::with_capacity(10);
         buf.put(&b"aaa"[..]);
         tx.send(buf).await;
-
-        // while event_count < max_events {
-        //     if write_header {
-        //         if buf.remaining_mut() >= 4 {
-        //             //write Header
-        //             buf.put_i32(event_count);
-        //             data_count = event_count;
-        //             event_count = event_count + 1;
-        //             write_header = false;
-        //         } else {
-        //             break;
-        //         }
-        //     } else {
-        //         while (data_count > 0) {
-        //             if (buf.has_remaining_mut()) {
-        //                 buf.put_u8(b'a');
-        //                 data_count = data_count - 1;
-        //             } else {
-        //                 break;
-        //             }
-        //         }
-        //         if data_count == 0 {
-        //             write_header = true;
-        //         }
-        //     }
-        // }
     }
 
     ///
@@ -393,47 +390,6 @@ mod tests {
         }
     }
 
-    // fn read_event_data(mut read_header: bool, mut len: i32, mut i: &mut BytesMut, mut msg: &mut BytesMut) {
-    //     let to_read = len - msg.len() as i32;
-    //     if i.remaining() >= to_read as usize {
-    //         // data received is greater than event size
-    //         let t = i.split_to(to_read as usize);
-    //         println!("=====>>>>  Read message 1 {:?} len {}", t, t.len());
-    //         msg.put(t);
-    //         println!("=====>>>>  Read message {:?} len {}", msg, msg.len());
-    //         read_header = true;
-    //     } else {
-    //         // data is less than event size.
-    //         len = len - i.remaining() as i32;
-    //         msg.put(i.split());
-    //         if (len == 0) {
-    //             println!("=====>>>>  Read message {:?}", msg);
-    //             read_header = true;
-    //         }
-    //     }
-    // }
-    //
-    // fn read_header_data(mut read_header: bool, mut i: &mut BytesMut) -> BytesMut {
-    //     println!(
-    //         "=> Amount of data in buffer before reading header  {:?} capacity {:?}",
-    //         i.len(),
-    //         i.capacity()
-    //     );
-    //     let len = i.get_i32();
-    //     println!(
-    //         "=> Amount of data in buffer after reading header {:?} capacity {:?}",
-    //         i.len(),
-    //         i.capacity()
-    //     );
-    //     println!("=> Header length {:?}", len);
-    //     if len == 0 {
-    //         read_header = true;
-    //     } else {
-    //         read_header = false;
-    //     }
-    //     BytesMut::with_capacity(len as usize)
-    // }
-
     #[test]
     fn test_api() {
         let scope_name = Scope::from("testScopeWriter".to_owned());
@@ -445,6 +401,13 @@ mod tests {
         let client_factory = ClientFactory::new(config);
 
         write_event(scope_name.clone(), stream_name.clone(), &client_factory);
+        let str = ScopedStream {
+            scope: scope_name.clone(),
+            stream: stream_name.clone(),
+        };
+        client_factory
+            .get_runtime_handle()
+            .block_on(client_factory.get_controller_client().seal_stream(&str));
         let scoped_segment = ScopedSegment {
             scope: scope_name,
             stream: stream_name,
@@ -454,6 +417,18 @@ mod tests {
             },
         };
         let mut slice = SegmentSlice::new(scoped_segment, 0, client_factory.0.clone());
+        client_factory
+            .get_runtime_handle()
+            .block_on(slice.slice_rx.recv());
+
+        client_factory
+            .get_runtime_handle()
+            .block_on(slice.slice_rx.recv());
+
+        client_factory
+            .get_runtime_handle()
+            .block_on(slice.slice_rx.recv());
+
         client_factory
             .get_runtime_handle()
             .block_on(slice.slice_rx.recv());

@@ -40,6 +40,7 @@ pub mod raw_client;
 mod reactor;
 pub mod reader_group;
 pub mod segment_reader;
+pub mod segment_slice;
 mod stream;
 pub mod table_synchronizer;
 pub mod tablemap;
@@ -84,7 +85,7 @@ pub(crate) fn setup_logger() -> Result<(), fern::InitError> {
                 message
             ))
         })
-        .level(log::LevelFilter::Info)
+        .level(log::LevelFilter::Debug)
         .chain(std::io::stdout())
         .chain(fern::log_file("./output.log")?)
         .apply()?;
