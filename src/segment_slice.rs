@@ -37,7 +37,7 @@ pub struct SegmentSlice {
 ///
 /// Amount of Bytes Read ahead.
 ///
-const READ_BUFFER_SIZE: i32 = 22;
+const READ_BUFFER_SIZE: i32 = 2048;
 
 // Structure to track the offset and byte array.
 #[derive(Debug)]
