@@ -89,7 +89,7 @@ impl SegmentSlice {
         start_offset: i64,
         factory: Arc<ClientFactoryInternal>,
     ) -> Self {
-        let (mut tx, mut rx) = mpsc::channel(2);
+        let (mut tx, mut rx) = mpsc::channel(1);
         let (mut slice_tx, mut slice_rx) = mpsc::channel(10);
         let handle = factory.get_runtime_handle();
         handle.enter(|| {
