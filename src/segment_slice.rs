@@ -12,7 +12,9 @@ use crate::client_factory::ClientFactoryInternal;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 use bytes::{Buf, BufMut, BytesMut};
 use pravega_rust_client_shared::ScopedSegment;
+use pravega_wire_protocol::commands::{Command, EventCommand};
 use std::sync::Arc;
+use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -30,6 +32,7 @@ pub struct SegmentSlice {
     read_offset: i64,
     end_offset: i64,
     slice_rx: Receiver<BytesMut>,
+    handle: Handle,
 }
 
 ///
@@ -61,6 +64,7 @@ impl SegmentSlice {
             read_offset: 0,
             end_offset: i64::MAX,
             slice_rx,
+            handle,
         }
     }
 
@@ -195,13 +199,11 @@ impl SegmentSlice {
     /// This method reads the header and returns a BytesMut whose size is as big as the event.
     ///
     fn read_header(mut data: &mut BytesMut) -> BytesMut {
-        if data.remaining() >= 4 {
-            let len = data.get_i32();
-            println!("Header length read is {}", len);
-            BytesMut::with_capacity(len as usize)
-        } else {
-            BytesMut::with_capacity(0)
-        }
+        let type_code = data.get_i32();
+        assert_eq!(type_code, EventCommand::TYPE_CODE);
+        let len = data.get_i32();
+        debug!("Event size is {}", len);
+        BytesMut::with_capacity(len as usize)
     }
 }
 
@@ -212,17 +214,27 @@ impl Iterator for SegmentSlice {
     type Item = Event;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let r = self.slice_rx.try_recv();
+        // let r = self.slice_rx.try_recv();
+        // match r {
+        //     Ok(t) => Some(Event {
+        //         offset_in_segment: 0,
+        //         value: t.to_vec(),
+        //     }),
+        //
+        //     Err(TryRecvError::Empty) => Some(Event {
+        //         offset_in_segment: 0,
+        //         value: vec![],
+        //     }),
+        //     Err(TryRecvError::Closed) => None,
+        // }
+
+        let r = self.handle.block_on(self.slice_rx.recv());
         match r {
-            Ok(t) => Some(Event {
+            Some(t) => Some(Event {
                 offset_in_segment: 0,
                 value: t.to_vec(),
             }),
-            Err(TryRecvError::Empty) => Some(Event {
-                offset_in_segment: 0,
-                value: vec![],
-            }),
-            Err(TryRecvError::Closed) => None,
+            None => None,
         }
     }
 }
@@ -385,11 +397,14 @@ mod tests {
             },
         };
         let mut slice = SegmentSlice::new(scoped_segment, 0, client_factory.0.clone());
+        while let Some(d) = slice.next() {
+            println!("{:?}", d);
+        }
         client_factory
             .get_runtime_handle()
             .block_on(slice.slice_rx.recv());
 
-        client_factory
+        let s = client_factory
             .get_runtime_handle()
             .block_on(slice.slice_rx.recv());
 
