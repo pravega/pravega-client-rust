@@ -58,6 +58,10 @@ pub enum ConnectionPoolError {
 ///         unimplemented!()
 ///     }
 ///
+///
+/// fn name(&self) -> String {
+///         unimplemented!()
+///     }
 /// }
 ///
 /// let mut rt = Runtime::new().unwrap();
@@ -80,6 +84,8 @@ pub trait Manager {
 
     /// Get the maximum connections in the pool
     fn get_max_connections(&self) -> u32;
+
+    fn name(&self) -> String;
 }
 
 /// ConnectionPool creates a pool of connections for reuse.
@@ -155,6 +161,15 @@ where
     }
 }
 
+impl<M: Manager> fmt::Debug for ConnectionPool<M> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ConnectionPool")
+            .field("managed pool name", &self.manager.name())
+            .field("managed pool", &self.managed_pool)
+            .finish()
+    }
+}
+
 // ManagedPool maintains a map that maps endpoint to InternalPool.
 // The map is a concurrent map named Dashmap, which supports multi-threading with high performance.
 struct ManagedPool<T: Sized + Send> {
@@ -193,6 +208,15 @@ impl<T: Sized + Send> ManagedPool<T> {
     }
 }
 
+impl<T: Sized + Send> fmt::Debug for ManagedPool<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ManagedPool")
+            .field("internal map", &self.map)
+            .field("max connection", &self.max_connections)
+            .finish()
+    }
+}
+
 // An internal connection struct that stores the uuid of the connection
 struct InternalConn<T> {
     uuid: Uuid,
@@ -207,6 +231,14 @@ struct InternalPool<T> {
 impl<T: Send + Sized> InternalPool<T> {
     fn new() -> Self {
         InternalPool { conns: vec![] }
+    }
+}
+
+impl<T> fmt::Debug for InternalPool<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("InternalPool")
+            .field("pool size", &self.conns.len())
+            .finish()
     }
 }
 

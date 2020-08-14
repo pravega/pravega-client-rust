@@ -13,13 +13,14 @@ use crate::error::*;
 use crate::transaction::pinger::{Pinger, PingerHandle};
 use crate::transaction::transactional_event_segment_writer::TransactionalEventSegmentWriter;
 use crate::transaction::{Transaction, TransactionInfo};
-use log::info;
 use pravega_rust_client_shared::{ScopedStream, StreamSegments, TransactionStatus, TxId, WriterId};
 use pravega_wire_protocol::client_config::ClientConfig;
 use snafu::ResultExt;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use std::time::Duration;
+use tracing::{info, info_span};
+use tracing_futures::Instrument;
 
 /// A writer that writes Events to an Event stream transactionally. Events that are written to the
 /// transaction can be committed atomically, which means that reader cannot see any writes prior to committing.
@@ -78,15 +79,17 @@ impl TransactionalEventStreamWriter {
         factory: Arc<ClientFactoryInternal>,
         config: ClientConfig,
     ) -> Self {
-        let (mut pinger, handle) =
+        let (mut pinger, pinger_handle) =
             Pinger::new(stream.clone(), config.transaction_timeout_time, factory.clone());
-        tokio::spawn(async move { pinger.start_ping().await });
+        let runtime_handle = factory.get_runtime_handle();
+        let span = info_span!("Pinger", transactional_event_stream_writer = %writer_id);
+        runtime_handle.enter(|| tokio::spawn(async move { pinger.start_ping().instrument(span).await }));
         TransactionalEventStreamWriter {
             stream,
             writer_id,
             factory,
             config,
-            pinger_handle: handle,
+            pinger_handle,
         }
     }
 
