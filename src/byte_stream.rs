@@ -18,7 +18,7 @@ use pravega_rust_client_shared::{ScopedSegment, WriterId};
 use pravega_wire_protocol::client_config::ClientConfig;
 use std::cmp;
 use std::io::Error;
-use std::io::{ErrorKind, Read, Write};
+use std::io::{ErrorKind, Read, Write, Seek, SeekFrom};
 use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Sender};
@@ -157,6 +157,24 @@ impl Read for ByteStreamReader<'_> {
                 }
             }
             Err(e) => Err(Error::new(ErrorKind::Other, format!("Error: {:?}", e))),
+        }
+    }
+}
+
+impl Seek for ByteStreamReader<'_> {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        match pos {
+            SeekFrom::Start(offset) => {
+                self.offset = offset as i64;
+                Ok(self.offset as u64)
+            },
+            SeekFrom::Current(offset) => {
+                self.offset += offset;
+                Ok(self.offset as u64)
+            },
+            SeekFrom::End(offset) => {
+                Err(Error::new(ErrorKind::Other, format!("Unsupported")))
+            },
         }
     }
 }
