@@ -10,6 +10,7 @@
 
 use crate::client_factory::ClientFactoryInternal;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
+use async_recursion::async_recursion;
 use bytes::{Buf, BufMut, BytesMut};
 use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::commands::{Command, EventCommand};
@@ -31,8 +32,14 @@ pub struct SegmentSlice {
     read_offset: i64,
     end_offset: i64,
     event_rx: Receiver<BytePlaceholder>,
+    segment_data: BytePlaceholder,
     handle: Handle,
     partial_event: BytePlaceholder,
+}
+
+enum ReadType {
+    Event(Event),
+    PartialEvent(),
 }
 
 ///
@@ -108,6 +115,7 @@ impl SegmentSlice {
             read_offset: 0,
             end_offset: i64::MAX,
             event_rx: rx,
+            segment_data: BytePlaceholder::empty(),
             handle,
             partial_event: BytePlaceholder::empty(),
         }
@@ -188,35 +196,35 @@ impl SegmentSlice {
     //     }
     // }
 
-    fn extract_event(
-        &mut self,
-        mut segment_data: BytePlaceholder,
-        parse_header: fn(&mut BytePlaceholder) -> BytePlaceholder,
-    ) -> Option<Event> {
+    ///
+    /// Extract event from the data received from the Segment store. Return None in case of a Partial event.
+    ///
+    fn extract_event(&mut self, parse_header: fn(&mut BytePlaceholder) -> BytePlaceholder) -> Option<Event> {
         if self.partial_event.value.capacity() != 0 {
             let bytes_to_read = self.partial_event.value.capacity() - self.partial_event.value.len();
-            if segment_data.value.remaining() >= bytes_to_read {
-                let t = segment_data.split_to(bytes_to_read);
+            if self.segment_data.value.remaining() >= bytes_to_read {
+                let t = self.segment_data.split_to(bytes_to_read);
                 self.partial_event.value.put(t.value);
-                // Convert it to Event and send it.
-                return Some(Event {
+                let event = Event {
                     offset_in_segment: self.partial_event.offset_in_segment,
                     value: self.partial_event.value.to_vec(),
-                });
+                };
+                self.partial_event = BytePlaceholder::empty();
+                return Some(event);
             } else {
                 debug!("Partial event being returned since there is more to fill");
-                self.partial_event.value.put(segment_data.value.split());
+                self.partial_event.value.put(self.segment_data.value.split());
                 return None;
             }
         } else {
-            let mut event_data = parse_header(&mut segment_data);
+            let mut event_data = parse_header(&mut self.segment_data);
             let bytes_to_read = event_data.value.capacity();
             if bytes_to_read == 0 {
                 warn!("Found a header with len as zero");
                 return None;
             }
-            if segment_data.value.remaining() >= bytes_to_read {
-                let t = segment_data.split_to(bytes_to_read);
+            if self.segment_data.value.remaining() >= bytes_to_read {
+                let t = self.segment_data.split_to(bytes_to_read);
                 event_data.value.put(t.value);
                 info!(
                     "Event data is {:?} with length {}",
@@ -230,7 +238,7 @@ impl SegmentSlice {
                 };
                 return Some(event);
             } else {
-                let t = segment_data.split();
+                let t = self.segment_data.split();
                 event_data.value.put(t.value);
                 debug!(
                     "Partial Event read: Current data read {:?} data_read {} to_read {}",
@@ -328,6 +336,44 @@ impl SegmentSlice {
             value: BytesMut::with_capacity(len as usize),
         }
     }
+
+    async fn read_next_event(
+        &mut self,
+        parse_header: fn(&mut BytePlaceholder) -> BytePlaceholder,
+    ) -> Option<Event> {
+        if self.segment_data.value.is_empty() {
+            if let Some(response) = self.event_rx.recv().await {
+                self.segment_data = response;
+                self.extract_event(parse_header)
+            } else {
+                return None;
+            }
+        } else {
+            self.extract_event(parse_header)
+        }
+    }
+
+    #[async_recursion]
+    async fn fetch_next_event(
+        &mut self,
+        parse_header: fn(&mut BytePlaceholder) -> BytePlaceholder,
+    ) -> Option<Event> {
+        if self.segment_data.value.is_empty() {
+            if let Some(response) = self.event_rx.recv().await {
+                self.segment_data = response;
+            } else {
+                return None;
+            }
+        }
+        let res = self.extract_event(parse_header);
+        match res {
+            Some(d) => Some(d),
+            None => {
+                println!("Invoking fetch_next");
+                self.fetch_next_event(parse_header).await
+            }
+        }
+    }
 }
 
 ///
@@ -337,24 +383,17 @@ impl Iterator for SegmentSlice {
     type Item = Event;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // let r = self.slice_rx.try_recv();
-        // match r {
-        //     Ok(t) => Some(Event {
-        //         offset_in_segment: 0,
-        //         value: t.to_vec(),
-        //     }),
-        //
-        //     Err(TryRecvError::Empty) => Some(Event {
-        //         offset_in_segment: 0,
-        //         value: vec![],
-        //     }),
-        //     Err(TryRecvError::Closed) => None,
-        // }
-
-        let response = self.handle.block_on(self.event_rx.recv());
-        match response {
-            Some(data) => self.extract_event(data, SegmentSlice::read_header),
-            None => None,
+        // Wait for a response from the segment store only if we do not have pre-fetched data.
+        // In case he segment store responds with none / empty the channel will be closed.
+        if self.segment_data.value.is_empty() {
+            if let Some(response) = self.handle.block_on(self.event_rx.recv()) {
+                self.segment_data = response;
+                return self.extract_event(SegmentSlice::read_header);
+            } else {
+                return None;
+            }
+        } else {
+            return self.extract_event(SegmentSlice::read_header);
         }
     }
 }
@@ -373,6 +412,9 @@ mod tests {
     };
     use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
     use pravega_wire_protocol::commands::{Command, EventCommand, SegmentReadCommand};
+    use std::thread;
+    use tokio::runtime;
+    use tokio::runtime::Runtime;
     use tokio::sync::mpsc;
     use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -395,43 +437,91 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_void() {
-        println!("Hello");
+    #[tokio::test]
+    async fn test_read_partial_events() {
+        let (mut tx, mut rx) = mpsc::channel(1);
+        tokio::spawn(generate_multiple_constant_size_events(tx));
+        let handle = Handle::current();
+
+        let mut segment_slice = SegmentSlice {
+            start_offset: 0,
+            segment: ScopedSegment {
+                scope: Scope { name: "scope".into() },
+                stream: Stream {
+                    name: "stream".into(),
+                },
+                segment: Segment {
+                    number: 0,
+                    tx_id: None,
+                },
+            },
+            read_offset: 0,
+            end_offset: i64::MAX,
+            event_rx: rx,
+            segment_data: BytePlaceholder::empty(),
+            handle: handle,
+            partial_event: BytePlaceholder::empty(),
+        };
+        let mut event_size = 0;
+        while let Some(event) = segment_slice.fetch_next_event(custom_read_header).await {
+            println!("====> Event read = {:?}", event);
+            assert!(is_all_same12(event.value.as_slice()));
+            assert_eq!(event_size + 1, event.value.len(), "Event was missed out");
+            event_size = event_size + 1;
+        }
     }
 
-    // #[tokio::test]
-    // async fn test_read_partial_events() {
-    //     let (mut tx, mut rx) = mpsc::channel(1);
-    //     let (mut slice_tx, mut slice_rx) = mpsc::channel(10);
-    //     tokio::spawn(generate_multiple_constant_size_events(tx));
-    //     //tokio::spawn(SegmentSlice::read_events(rx, slice_tx, custom_read_header));
-    //
-    //     // receive events as bytes...
-    //     let mut event_size: usize = 0;
-    //     while let Some(slice_data) = slice_rx.recv().await {
-    //         println!("====> Event read = {:?}", slice_data);
-    //         assert!(event_size + 1 == slice_data.value.len(), "we missed an event ");
-    //         event_size = event_size + 1;
-    //     }
-    // }
+    fn is_all_same12<T: Eq>(slice: &[T]) -> bool {
+        slice
+            .get(0)
+            .map(|first| slice.iter().all(|x| x == first))
+            .unwrap_or(true)
+    }
 
-    // #[tokio::test]
-    // async fn test_read_events() {
-    //     let (mut tx, mut rx) = mpsc::channel(2);
-    //     let (mut slice_tx, mut slice_rx) = mpsc::channel(10);
-    //     tokio::spawn(async move { generate_single_event(tx).await });
-    //
-    //     tokio::spawn(SegmentSlice::read_events(rx, slice_tx, custom_read_header));
-    //
-    //     // receive events as bytes...
-    //     let mut event_size: usize = 0;
-    //     while let Some(slice_data) = slice_rx.recv().await {
-    //         println!("====> Event read = {:?}", slice_data);
-    //         assert!(event_size + 1 == slice_data.value.len(), "we missed an event ");
-    //         event_size = event_size + 1;
-    //     }
-    // }
+    #[test]
+    fn test_read_events() {
+        let (mut tx, mut rx) = mpsc::channel(2);
+        let rt = tokio::runtime::Builder::new()
+            .basic_scheduler()
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.spawn(generate_multiple_variable_sized_events(tx));
+
+        let handle = rt.handle().clone();
+        let r = handle.block_on(rx.recv());
+        let mut segment_slice = SegmentSlice {
+            start_offset: 0,
+            segment: ScopedSegment {
+                scope: Scope { name: "scope".into() },
+                stream: Stream {
+                    name: "stream".into(),
+                },
+                segment: Segment {
+                    number: 0,
+                    tx_id: None,
+                },
+            },
+            read_offset: 0,
+            end_offset: i64::MAX,
+            event_rx: rx,
+            segment_data: BytePlaceholder::empty(),
+            handle: handle,
+            partial_event: BytePlaceholder::empty(),
+        };
+
+        // // receive events as bytes...
+        // let mut event_size: usize = 0;
+        // while let Some(t) = segment_slice.next() {
+        //     info!("Event read {:?}", t);
+        //     assert_eq!(event_size + 1, t.value.len());
+        // }
+        // while let Some(slice_data) = slice_rx.recv().await {
+        //     println!("====> Event read = {:?}", slice_data);
+        //     assert!(event_size + 1 == slice_data.value.len(), "we missed an event ");
+        //     event_size = event_size + 1;
+        // }
+    }
 
     async fn generate_multiple_constant_size_events(mut tx: Sender<BytePlaceholder>) {
         let max_events = 10;
@@ -515,16 +605,12 @@ mod tests {
     ///
     /// This is a test function to generate single events of varying sizes
     ///
-    async fn generate_single_event(mut tx: Sender<BytePlaceholder>) {
+    async fn generate_multiple_variable_sized_events(mut tx: Sender<BytePlaceholder>) {
         for i in 0..10 {
-            println!("==> Send Async request {}", i);
-            println!("==> Data from SSS is sent on the channel {}", i);
             let mut buf = BytesMut::with_capacity(32);
-            buf.put_i32(i);
-            println!("==>Header {} written", i);
+            buf.put_i32(i); // length.
             for _ in 0..i {
                 buf.put(&b"a"[..]);
-                println!("===> Data written {:?}", buf);
             }
             if let Err(_) = tx
                 .send(BytePlaceholder {
