@@ -34,7 +34,6 @@ use std::sync::atomic::{AtomicI64, Ordering};
 pub mod byte_stream;
 pub mod client_factory;
 pub mod error;
-pub mod event_reader;
 pub mod event_stream_writer;
 pub mod raw_client;
 mod reactor;
@@ -44,6 +43,7 @@ pub mod segment_slice;
 mod stream;
 pub mod table_synchronizer;
 pub mod tablemap;
+pub mod trace;
 pub mod transaction;
 
 thread_local! {
@@ -64,6 +64,11 @@ pub(crate) fn get_random_u64() -> u64 {
     RNG.with(|rng| rng.borrow_mut().gen())
 }
 
+/// Function used to generate random u128.
+pub(crate) fn get_random_u128() -> u128 {
+    RNG.with(|rng| rng.borrow_mut().gen())
+}
+
 /// Function used to generate random i64.
 pub(crate) fn get_random_f64() -> f64 {
     RNG.with(|rng| rng.borrow_mut().gen())
@@ -71,23 +76,3 @@ pub(crate) fn get_random_f64() -> f64 {
 
 #[macro_use]
 extern crate derive_new;
-
-/// There is a known issue that rust doesn't print log from thread even when nocapture is not set.
-/// This will setup logger globally so logs can be printed to the same place.
-pub(crate) fn setup_logger() -> Result<(), fern::InitError> {
-    fern::Dispatch::new()
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "{}[{}][{}] {}",
-                chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
-                record.target(),
-                record.level(),
-                message
-            ))
-        })
-        .level(log::LevelFilter::Debug)
-        .chain(std::io::stdout())
-        .chain(fern::log_file("./output.log")?)
-        .apply()?;
-    Ok(())
-}

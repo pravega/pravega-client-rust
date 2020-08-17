@@ -12,13 +12,13 @@ use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::reader_group::reader_group_config::ReaderGroupConfigVersioned;
 use crate::table_synchronizer::{deserialize_from, Table, TableSynchronizer, Value};
-use log::warn;
 use pravega_rust_client_shared::{Reader, ScopedSegment, ScopedStream, Segment, SegmentWithRange};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use snafu::{ensure, Snafu};
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
+use tracing::warn;
 
 const ASSUMED_LAG_MILLIS: u64 = 30000;
 const DEFAULT_INNER_KEY: &str = "default";

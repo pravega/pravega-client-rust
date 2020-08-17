@@ -182,6 +182,18 @@ impl Manager for SegmentConnectionManager {
     fn get_max_connections(&self) -> u32 {
         self.max_connections_in_pool
     }
+
+    fn name(&self) -> String {
+        "SegmentConnectionManager".to_owned()
+    }
+}
+
+impl fmt::Debug for SegmentConnectionManager {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SegmentConnectionManager")
+            .field("max connections in pool", &self.max_connections_in_pool)
+            .finish()
+    }
 }
 
 #[cfg(test)]

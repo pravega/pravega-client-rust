@@ -9,7 +9,6 @@
 //
 
 use crate::utils;
-use log::info;
 use pravega_client_rust::byte_stream::{ByteStreamReader, ByteStreamWriter};
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::error::SegmentWriterError;
@@ -30,6 +29,7 @@ use pravega_wire_protocol::connection_factory::{
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::io::{Read, Write};
 use std::net::SocketAddr;
+use tracing::info;
 
 pub fn test_byte_stream() {
     // spin up Pravega standalone
