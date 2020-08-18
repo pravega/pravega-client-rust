@@ -381,14 +381,8 @@ impl Iterator for SegmentSlice {
 mod tests {
 
     use super::*;
-    use crate::client_factory::ClientFactory;
     use bytes::{Buf, BufMut, BytesMut};
-    use pravega_controller_client::ControllerClient;
-    use pravega_rust_client_shared::{
-        Retention, RetentionType, ScaleType, Scaling, Scope, ScopedStream, Segment, Stream,
-        StreamConfiguration,
-    };
-    use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
+    use pravega_rust_client_shared::{Scope, Segment, Stream};
     use std::iter;
     use tokio::sync::mpsc;
     use tokio::sync::mpsc::{Receiver, Sender};
