@@ -21,7 +21,8 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tracing::{debug, error, info, warn};
 
 ///
-///
+/// This represents an event that was read from a Pravega Segment and the offset at which the event
+/// was read from.
 ///
 #[derive(Debug)]
 pub struct Event {
@@ -29,6 +30,10 @@ pub struct Event {
     value: Vec<u8>,
 }
 
+///
+/// This represents a Segment slice which can be used to read events from a Pravega segment as an
+/// iterator.
+///
 pub struct SegmentSlice {
     start_offset: i64,
     segment: ScopedSegment,
