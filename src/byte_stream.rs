@@ -149,7 +149,7 @@ impl Read for ByteStreamReader<'_> {
                     Err(Error::new(ErrorKind::Other, "segment is sealed"))
                 } else {
                     self.offset += cmd.data.len() as i64;
-                    buf.copy_from_slice(&cmd.data);
+                    buf[..cmd.data.len()].copy_from_slice(&cmd.data);
                     Ok(cmd.data.len())
                 }
             }
