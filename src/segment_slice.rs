@@ -399,7 +399,6 @@ mod tests {
     fn custom_read_header(data: &mut BytePlaceholder) -> Option<BytePlaceholder> {
         if data.value.remaining() >= 4 {
             let len = data.get_i32();
-            println!("Header length read is {}", len);
             Some(BytePlaceholder {
                 offset_in_segment: 0,
                 value: BytesMut::with_capacity(len as usize),
