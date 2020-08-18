@@ -161,6 +161,10 @@ impl Read for ByteStreamReader<'_> {
     }
 }
 
+/// The Seek implementation for ByteStreamReader allows seeking to a byte offset from the beginning
+/// of the stream or a byte offset relative to the current position in the stream.
+/// If the stream has been truncated, the byte offset will be relative to the original beginning of the stream.
+/// Seek from the end of the stream not not implemented.
 impl Seek for ByteStreamReader<'_> {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         match pos {
@@ -172,8 +176,8 @@ impl Seek for ByteStreamReader<'_> {
                 self.offset += offset;
                 Ok(self.offset as u64)
             },
-            SeekFrom::End(offset) => {
-                Err(Error::new(ErrorKind::Other, format!("Unsupported")))
+            SeekFrom::End(_offset) => {
+                unimplemented!("Seek from the end is not implemented")
             },
         }
     }
