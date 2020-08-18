@@ -16,8 +16,9 @@ use async_stream::try_stream;
 use futures::stream::Stream;
 use log::debug;
 use log::info;
+use pravega_rust_client_auth::DelegationTokenProvider;
 use pravega_rust_client_shared::Stream as PravegaStream;
-use pravega_rust_client_shared::{Scope, ScopedSegment, Segment};
+use pravega_rust_client_shared::{Scope, ScopedSegment, ScopedStream, Segment};
 use pravega_wire_protocol::commands::{
     CreateTableSegmentCommand, ReadTableCommand, ReadTableEntriesCommand, ReadTableEntriesDeltaCommand,
     ReadTableKeysCommand, RemoveTableKeysCommand, TableEntries, TableKey, TableValue,
@@ -36,6 +37,7 @@ pub struct TableMap<'a> {
     /// name of the map
     name: String,
     raw_client: Box<dyn RawClient<'a> + 'a>,
+    delegation_token_provider: Box<dyn DelegationTokenProvider>,
 }
 
 // Workaround for issue https://github.com/rust-lang/rust/issues/63066 as specified in
@@ -84,11 +86,12 @@ impl<'a> TableMap<'a> {
         let table_map = TableMap {
             name: segment.to_string(),
             raw_client: Box::new(factory.create_raw_client(endpoint)),
+            delegation_token_provider: factory.create_delegation_token_provider(ScopedStream::from(&segment)),
         };
         let req = Requests::CreateTableSegment(CreateTableSegmentCommand {
             request_id: get_request_id(),
             segment: table_map.name.clone(),
-            delegation_token: String::from(""),
+            delegation_token: table_map.delegation_token_provider.retrieve_token().await,
         });
 
         let op = "Create table segment";
@@ -513,7 +516,7 @@ impl<'a> TableMap<'a> {
         let req = Requests::UpdateTableEntries(UpdateTableEntriesCommand {
             request_id: get_request_id(),
             segment: self.name.clone(),
-            delegation_token: "".to_string(),
+            delegation_token: self.delegation_token_provider.retrieve_token().await,
             table_entries: te,
             table_segment_offset: offset,
         });
@@ -556,7 +559,7 @@ impl<'a> TableMap<'a> {
         let req = Requests::ReadTable(ReadTableCommand {
             request_id: get_request_id(),
             segment: self.name.clone(),
-            delegation_token: "".to_string(),
+            delegation_token: self.delegation_token_provider.retrieve_token().await,
             keys: table_keys,
         });
         let re = self.raw_client.as_ref().send_request(&req).await;
@@ -600,7 +603,7 @@ impl<'a> TableMap<'a> {
         let req = Requests::RemoveTableKeys(RemoveTableKeysCommand {
             request_id: get_request_id(),
             segment: self.name.clone(),
-            delegation_token: "".to_string(),
+            delegation_token: self.delegation_token_provider.retrieve_token().await,
             keys: tks,
             table_segment_offset: offset,
         });
@@ -641,7 +644,7 @@ impl<'a> TableMap<'a> {
             let req = Requests::ReadTableKeys(ReadTableKeysCommand {
                 request_id: get_request_id(),
                 segment: self.name.clone(),
-                delegation_token: "".to_string(),
+                delegation_token: self.delegation_token_provider.retrieve_token().await,
                 suggested_key_count: max_keys_at_once,
                 continuation_token: token.to_vec(),
             });
@@ -680,7 +683,7 @@ impl<'a> TableMap<'a> {
             let req = Requests::ReadTableEntries(ReadTableEntriesCommand {
                 request_id: get_request_id(),
                 segment: self.name.clone(),
-                delegation_token: "".to_string(),
+                delegation_token: self.delegation_token_provider.retrieve_token().await,
                 suggested_entry_count: max_entries_at_once,
                 continuation_token: token.to_vec(),
             });
@@ -726,7 +729,7 @@ impl<'a> TableMap<'a> {
         let req = Requests::ReadTableEntriesDelta(ReadTableEntriesDeltaCommand {
             request_id: get_request_id(),
             segment: self.name.clone(),
-            delegation_token: "".to_string(),
+            delegation_token: self.delegation_token_provider.retrieve_token().await,
             from_position,
             suggested_entry_count: max_entries_at_once,
         });

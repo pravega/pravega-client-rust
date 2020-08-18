@@ -12,8 +12,8 @@ use std::sync::Arc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tracing::{debug, error, warn};
 
+use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::ClientConfig;
 use pravega_wire_protocol::wire_commands::Replies;
 
 use crate::client_factory::ClientFactoryInternal;
@@ -33,7 +33,14 @@ impl StreamReactor {
         factory: Arc<ClientFactoryInternal>,
         config: ClientConfig,
     ) {
-        let mut selector = SegmentSelector::new(stream, sender, config, factory.clone());
+        let delegation_token_provider = factory.create_delegation_token_provider(stream.clone());
+        let mut selector = SegmentSelector::new(
+            stream,
+            sender,
+            config,
+            factory.clone(),
+            Arc::new(delegation_token_provider),
+        );
         // get the current segments and create corresponding event segment writers
         selector.initialize().await;
 
@@ -142,7 +149,14 @@ impl SegmentReactor {
         factory: Arc<ClientFactoryInternal>,
         config: ClientConfig,
     ) {
-        let mut writer = SegmentWriter::new(segment.clone(), sender.clone(), config.retry_policy);
+        let delegation_token_provider =
+            factory.create_delegation_token_provider(ScopedStream::from(&segment));
+        let mut writer = SegmentWriter::new(
+            segment.clone(),
+            sender.clone(),
+            config.retry_policy,
+            Arc::new(delegation_token_provider),
+        );
         if let Err(_e) = writer.setup_connection(&factory).await {
             writer.reconnect(&factory).await;
         }

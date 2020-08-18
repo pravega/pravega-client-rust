@@ -13,6 +13,7 @@ use pravega_client_rust::client_factory::ClientFactory;
 use pravega_controller_client::ControllerClient;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
+use std::sync::Arc;
 
 pub fn test_controller_apis() {
     let config = ClientConfigBuilder::default()
@@ -52,7 +53,7 @@ pub fn test_controller_apis() {
     handle.block_on(test_scale_stream(controller));
 }
 
-pub async fn test_scale_stream(controller: &dyn ControllerClient) {
+pub async fn test_scale_stream(controller: Arc<Box<dyn ControllerClient>>) {
     let scoped_stream = ScopedStream::new(
         Scope::from("testScope123".to_owned()),
         Stream::from("testStream".to_owned()),

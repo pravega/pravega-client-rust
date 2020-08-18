@@ -15,7 +15,6 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 
 [dependencies]
 async-trait = "0.1.36"
-parking_lot = "0.10.0"
 uuid = {version = "0.8", features = ["v4"]}
 snafu = "0.6.2"
 tokio = { version = "0.2.16", features = ["full"] }

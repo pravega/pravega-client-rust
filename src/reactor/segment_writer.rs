@@ -29,7 +29,9 @@ use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
 use crate::raw_client::RawClient;
 use crate::reactor::event::{Incoming, PendingEvent, ServerReply};
+use pravega_rust_client_auth::DelegationTokenProvider;
 use std::fmt;
+use std::sync::Arc;
 
 pub(crate) struct SegmentWriter {
     /// unique id for each EventSegmentWriter
@@ -58,6 +60,9 @@ pub(crate) struct SegmentWriter {
 
     /// The client retry policy
     retry_policy: RetryWithBackoff,
+
+    /// delegation token provider used to authenticate client when communicating with segmentstore
+    delegation_token_provider: Arc<Box<dyn DelegationTokenProvider>>,
 }
 
 impl SegmentWriter {
@@ -69,6 +74,7 @@ impl SegmentWriter {
         segment: ScopedSegment,
         sender: Sender<Incoming>,
         retry_policy: RetryWithBackoff,
+        delegation_token_provider: Arc<Box<dyn DelegationTokenProvider>>,
     ) -> Self {
         SegmentWriter {
             endpoint: "127.0.0.1:0".parse::<SocketAddr>().expect("get socketaddr"), //Dummy address
@@ -80,6 +86,7 @@ impl SegmentWriter {
             event_num: 0,
             sender,
             retry_policy,
+            delegation_token_provider,
         }
     }
 
@@ -111,7 +118,7 @@ impl SegmentWriter {
             request_id: get_request_id(),
             writer_id: self.id.as_u128(),
             segment: self.segment.to_string(),
-            delegation_token: "".to_string(),
+            delegation_token: self.delegation_token_provider.retrieve_token().await,
         });
 
         let raw_client = factory.create_raw_client(self.endpoint);

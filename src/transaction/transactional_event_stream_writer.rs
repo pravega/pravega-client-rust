@@ -14,8 +14,9 @@ use crate::transaction::pinger::{Pinger, PingerHandle};
 use crate::transaction::transactional_event_segment_writer::TransactionalEventSegmentWriter;
 use crate::transaction::{Transaction, TransactionInfo};
 use log::info;
+use pravega_rust_client_auth::DelegationTokenProvider;
+use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::{ScopedStream, StreamSegments, TransactionStatus, TxId, WriterId};
-use pravega_wire_protocol::client_config::ClientConfig;
 use snafu::ResultExt;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
@@ -67,6 +68,7 @@ pub struct TransactionalEventStreamWriter {
     factory: Arc<ClientFactoryInternal>,
     config: ClientConfig,
     pinger_handle: PingerHandle,
+    delegation_token_provider: Arc<Box<dyn DelegationTokenProvider>>,
 }
 
 impl TransactionalEventStreamWriter {
@@ -80,6 +82,7 @@ impl TransactionalEventStreamWriter {
     ) -> Self {
         let (mut pinger, handle) =
             Pinger::new(stream.clone(), config.transaction_timeout_time, factory.clone());
+        let delegation_token_provider = Arc::new(factory.create_delegation_token_provider(stream.clone()));
         tokio::spawn(async move { pinger.start_ping().await });
         TransactionalEventStreamWriter {
             stream,
@@ -87,6 +90,7 @@ impl TransactionalEventStreamWriter {
             factory,
             config,
             pinger_handle: handle,
+            delegation_token_provider,
         }
     }
 
@@ -108,7 +112,11 @@ impl TransactionalEventStreamWriter {
         for s in txn_segments.stream_segments.get_segments() {
             let mut txn_segment = s.clone();
             txn_segment.segment.tx_id = Some(txn_id);
-            let mut writer = TransactionalEventSegmentWriter::new(txn_segment, self.config.retry_policy);
+            let mut writer = TransactionalEventSegmentWriter::new(
+                txn_segment,
+                self.config.retry_policy,
+                self.delegation_token_provider.clone(),
+            );
             writer.initialize(&self.factory).await;
             transactions.insert(s, writer);
         }
@@ -152,7 +160,11 @@ impl TransactionalEventStreamWriter {
             .map_err(|e| e.error)
             .context(TxnStreamControllerError {})?;
         for s in segments.get_segments() {
-            let writer = TransactionalEventSegmentWriter::new(s.clone(), self.config.retry_policy);
+            let writer = TransactionalEventSegmentWriter::new(
+                s.clone(),
+                self.config.retry_policy,
+                self.delegation_token_provider.clone(),
+            );
             transactions.insert(s, writer);
         }
         Ok(Transaction::new(

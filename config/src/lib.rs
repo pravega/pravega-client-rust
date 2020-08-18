@@ -7,12 +7,29 @@
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
+#![deny(
+    clippy::all,
+    clippy::cargo,
+    clippy::else_if_without_else,
+    clippy::empty_line_after_outer_attr,
+    clippy::multiple_inherent_impl,
+    clippy::mut_mut,
+    clippy::path_buf_push_overwrite
+)]
+#![warn(
+    clippy::cargo_common_metadata,
+    clippy::mutex_integer,
+    clippy::needless_borrow,
+    clippy::similar_names
+)]
+#![allow(clippy::multiple_crate_versions)]
+pub mod credentials;
 
-use crate::connection_factory::ConnectionType;
 use crate::credentials::Credentials;
 use derive_builder::*;
 use getset::CopyGetters;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
+use pravega_wire_protocol::connection_factory::ConnectionType;
 use std::collections::HashMap;
 use std::env;
 use std::net::{Ipv4Addr, SocketAddr};
@@ -96,6 +113,7 @@ impl ClientConfigBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
     use std::net::Ipv4Addr;
 
     #[test]
@@ -130,5 +148,24 @@ mod tests {
         assert_eq!(config.max_controller_connections(), 3u32);
         assert_eq!(config.connection_type(), ConnectionType::Tokio);
         assert_eq!(config.retry_policy(), RetryWithBackoff::default());
+    }
+
+    #[test]
+    fn test_extract_credentials() {
+        // retrieve from env
+        env::set_var("pravega_client_auth_method", "Basic");
+        env::set_var("pravega_client_auth_token", "123456");
+
+        let config = ClientConfigBuilder::default()
+            .controller_uri(
+                "127.0.0.2:9091"
+                    .parse::<SocketAddr>()
+                    .expect("parse to socketaddr"),
+            )
+            .build()
+            .unwrap();
+
+        assert_eq!(config.credentials.get_authentication_type(), "Basic".to_owned());
+        assert_eq!(config.credentials.get_authentication_token(), "123456".to_owned());
     }
 }

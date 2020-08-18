@@ -64,7 +64,7 @@ impl DelegationToken {
     }
 
     pub fn get_expiry_time(&self) -> Option<u64> {
-        self.expiry_time.clone()
+        self.expiry_time
     }
 }
 
@@ -124,6 +124,15 @@ pub struct ScopedStream {
     pub stream: Stream,
 }
 
+impl From<&ScopedSegment> for ScopedStream {
+    fn from(scoped_segment: &ScopedSegment) -> Self {
+        ScopedStream {
+            scope: scoped_segment.scope.clone(),
+            stream: scoped_segment.stream.clone(),
+        }
+    }
+}
+
 #[derive(new, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScopedSegment {
     pub scope: Scope,
@@ -136,7 +145,6 @@ impl ScopedSegment {
         ScopedStream::new(self.scope.clone(), self.stream.clone())
     }
 }
-
 impl From<&str> for ScopedSegment {
     fn from(qualified_name: &str) -> Self {
         if NameUtils::is_transaction_segment(qualified_name) {

@@ -371,7 +371,7 @@ async fn main() {
                 segment,
                 target_rate,
                 scale_type,
-                delegation_token,
+                clie,
             });
             let reply = raw_client
                 .send_request(&request)

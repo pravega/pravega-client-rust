@@ -38,10 +38,9 @@ pub fn test_event_stream_writer() {
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
-    let controller_client = client_factory.get_controller_client();
     let handle = client_factory.get_runtime_handle();
     handle.block_on(utils::create_scope_stream(
-        controller_client,
+        &**client_factory.get_controller_client(),
         &scope_name,
         &stream_name,
         1,
@@ -62,7 +61,7 @@ pub fn test_event_stream_writer() {
     let scope_name = Scope::from("testScopeWriter2".to_owned());
     let stream_name = Stream::from("testStreamWriter2".to_owned());
     handle.block_on(utils::create_scope_stream(
-        controller_client,
+        &**client_factory.get_controller_client(),
         &scope_name,
         &stream_name,
         1,
@@ -79,7 +78,7 @@ pub fn test_event_stream_writer() {
     let scope_name = Scope::from("testScopeWriter3".to_owned());
     let stream_name = Stream::from("testStreamWriter3".to_owned());
     handle.block_on(utils::create_scope_stream(
-        controller_client,
+        &**client_factory.get_controller_client(),
         &scope_name,
         &stream_name,
         2,

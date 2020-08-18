@@ -11,6 +11,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
+mod authentication_test;
 mod byte_stream_tests;
 mod controller_tests;
 #[cfg(test)]
@@ -73,6 +74,8 @@ mod test {
         transactional_event_stream_writer_tests::test_transactional_event_stream_writer();
 
         byte_stream_tests::test_byte_stream();
+
+        authentication_test::test_authentication();
 
         // Shut down Pravega standalone
         pravega.stop().unwrap();

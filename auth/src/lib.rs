@@ -7,16 +7,33 @@
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
+#![deny(
+    clippy::all,
+    clippy::cargo,
+    clippy::else_if_without_else,
+    clippy::empty_line_after_outer_attr,
+    clippy::multiple_inherent_impl,
+    clippy::mut_mut,
+    clippy::path_buf_push_overwrite
+)]
+#![warn(
+    clippy::cargo_common_metadata,
+    clippy::mutex_integer,
+    clippy::needless_borrow,
+    clippy::similar_names
+)]
+#![allow(clippy::multiple_crate_versions)]
 
-use crate::client_factory::ClientFactoryInternal;
 use async_trait::async_trait;
 use base64::decode;
 use lazy_static::*;
+use pravega_controller_client::ControllerClient;
 use pravega_rust_client_shared::{DelegationToken, ScopedStream};
 use regex::Regex;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::SystemTime;
+use tokio::sync::Mutex;
 
 /// A client-side proxy for obtaining a delegation token from the server.
 ///
@@ -24,20 +41,20 @@ use std::time::SystemTime;
 /// client's behest.
 ///
 #[async_trait]
-trait DelegationTokenProvider {
+pub trait DelegationTokenProvider: Send + Sync {
     /// Retrieve delegation token.
-    async fn retrieve_token(&mut self) -> String;
+    async fn retrieve_token(&self) -> String;
 
     ///Populates the object with the specified delegation token.
     fn populate_token(&self, token: String) -> bool;
 }
 
 /// Provides empty delegation tokens. This provider is useful when auth is disabled.
-struct EmptyTokenProviderImpl {}
+pub struct EmptyTokenProviderImpl {}
 
 #[async_trait]
 impl DelegationTokenProvider for EmptyTokenProviderImpl {
-    async fn retrieve_token(&mut self) -> String {
+    async fn retrieve_token(&self) -> String {
         "".to_owned()
     }
 
@@ -46,10 +63,10 @@ impl DelegationTokenProvider for EmptyTokenProviderImpl {
     }
 }
 
-struct JwtTokenProviderImpl {
+pub struct JwtTokenProviderImpl {
     stream: ScopedStream,
-    factory: Arc<ClientFactoryInternal>,
-    token: Option<DelegationToken>,
+    controller: Arc<Box<dyn ControllerClient>>,
+    token: Mutex<Option<DelegationToken>>,
 }
 
 const DEFAULT_REFRESH_THRESHOLD_SECONDS: u64 = 5;
@@ -58,8 +75,9 @@ const DEFAULT_REFRESH_THRESHOLD_SECONDS: u64 = 5;
 impl DelegationTokenProvider for JwtTokenProviderImpl {
     /// Returns the delegation token. It returns existing delegation token if it is not close to expiry.
     /// If the token is close to expiry, it obtains a new delegation token and returns that one instead.
-    async fn retrieve_token(&mut self) -> String {
-        if let Some(ref token) = self.token {
+    async fn retrieve_token(&self) -> String {
+        let guard = self.token.lock().await;
+        if let Some(ref token) = *guard {
             if JwtTokenProviderImpl::is_token_valid(token.get_expiry_time()) {
                 return token.get_value();
             }
@@ -73,17 +91,17 @@ impl DelegationTokenProvider for JwtTokenProviderImpl {
 }
 
 impl JwtTokenProviderImpl {
-    fn new(stream: ScopedStream, factory: Arc<ClientFactoryInternal>) -> Self {
+    pub fn new(stream: ScopedStream, controller: Arc<Box<dyn ControllerClient>>) -> Self {
         JwtTokenProviderImpl {
             stream,
-            factory,
-            token: None,
+            controller,
+            token: Mutex::new(None),
         }
     }
 
     async fn refresh_token(&self) -> DelegationToken {
-        let controller = self.factory.get_controller_client();
-        let token = controller
+        let token = self
+            .controller
             .get_or_refresh_delegation_token_for(self.stream.clone())
             .await
             .expect("controller error when refreshing token");
@@ -121,7 +139,7 @@ fn extract_expiration_time(json_web_token: String) -> Option<u64> {
 }
 
 lazy_static! {
-    static ref RE: Regex = Regex::new(r"exp:\s?(?P<body>\d+)").unwrap();
+    static ref RE: Regex = Regex::new(r#""exp":\s?(?P<body>\d+)"#).unwrap();
 }
 
 /// The regex pattern for extracting "exp" field from the JWT.
@@ -130,13 +148,33 @@ lazy_static! {
 ///     Input:- {"sub": "subject","aud": "segmentstore","iat": 1569837384,"exp": 1569837434}, output:- "exp": 1569837434
 fn parse_expiration_time(jwt_body: String) -> u64 {
     let cap = RE.captures(&jwt_body).expect("regex matching jwt body");
-    let matched_value = cap.name("body").map(|body| body.as_str()).unwrap();
-    u64::from_str(&matched_value).expect("convert to u64")
+    let matched_value = cap
+        .name("body")
+        .map(|body| body.as_str())
+        .expect("get expiry time");
+    u64::from_str(matched_value).expect("convert to u64")
 }
 
 #[cfg(test)]
 mod test {
+    use super::*;
 
     #[test]
-    fn test_parse_expiration_time() {}
+    fn test_extract_expiration_time() {
+        let encoded_jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzdWJqZWN0IiwiYXVkIjoic2VnbWVudHN0b3JlIiwiaWF0IjoxNTY5ODM3Mzg0LCJleHAiOjE1Njk4Mzc0MzR9.wYSsKf8BirFoT2KY4dhzSFiWaUc9b4xe_jECKJWnR-k";
+        let time = extract_expiration_time(encoded_jwt.to_owned());
+
+        assert!(time.is_some());
+        let time = time.expect("extract expiry time");
+        assert_eq!(1569837434 as u64, time);
+    }
+
+    #[test]
+    fn test_parse_expiration_time() {
+        let input1 = r#"{"sub":"subject","aud":"segmentstore","iat":1569837384,"exp":1569837434}, output:- "exp":1569837434"#;
+        let input2 = r#"{"sub": "subject","aud": "segmentstore","iat": 1569837384,"exp": 1569837434}, output:- "exp": 1569837434"#;
+
+        assert_eq!(1569837434 as u64, parse_expiration_time(input1.to_owned()));
+        assert_eq!(1569837434 as u64, parse_expiration_time(input2.to_owned()));
+    }
 }

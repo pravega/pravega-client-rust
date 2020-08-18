@@ -15,8 +15,8 @@ use tokio::sync::oneshot;
 use uuid::Uuid;
 
 use crate::reactor::reactors::StreamReactor;
+use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::ClientConfig;
 
 use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
@@ -30,7 +30,7 @@ pub struct EventStreamWriter {
 }
 
 impl EventStreamWriter {
-    const CHANNEL_CAPACITY: usize = 100;
+    const CHANNEL_CAPACITY: usize = 1024;
 
     pub(crate) fn new(
         stream: ScopedStream,

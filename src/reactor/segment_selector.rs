@@ -15,12 +15,13 @@ use crate::get_random_f64;
 use tokio::sync::mpsc::Sender;
 use tracing::{debug, warn};
 
+use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::ClientConfig;
 
 use crate::client_factory::ClientFactoryInternal;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::segment_writer::SegmentWriter;
+use pravega_rust_client_auth::DelegationTokenProvider;
 
 pub(crate) struct SegmentSelector {
     /// Stream that this SegmentSelector is on
@@ -40,6 +41,8 @@ pub(crate) struct SegmentSelector {
 
     /// Used to gain access to the controller and connection pool
     pub(crate) factory: Arc<ClientFactoryInternal>,
+
+    pub(crate) delegation_token_provider: Arc<Box<dyn DelegationTokenProvider>>,
 }
 
 impl SegmentSelector {
@@ -48,6 +51,7 @@ impl SegmentSelector {
         sender: Sender<Incoming>,
         config: ClientConfig,
         factory: Arc<ClientFactoryInternal>,
+        delegation_token_provider: Arc<Box<dyn DelegationTokenProvider>>,
     ) -> Self {
         SegmentSelector {
             stream,
@@ -56,6 +60,7 @@ impl SegmentSelector {
             sender,
             config,
             factory,
+            delegation_token_provider,
         }
     }
 
@@ -127,6 +132,7 @@ impl SegmentSelector {
                     scoped_segment.clone(),
                     self.sender.clone(),
                     self.config.retry_policy,
+                    self.delegation_token_provider.clone(),
                 );
 
                 debug!(

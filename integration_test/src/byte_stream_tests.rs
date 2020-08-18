@@ -40,10 +40,9 @@ pub fn test_byte_stream() {
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
-    let controller_client = client_factory.get_controller_client();
     let handle = client_factory.get_runtime_handle();
     handle.block_on(utils::create_scope_stream(
-        controller_client,
+        &**client_factory.get_controller_client(),
         &scope_name,
         &stream_name,
         1,

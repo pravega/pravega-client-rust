@@ -13,8 +13,8 @@ use std::net::SocketAddr;
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::mock_controller::MockController;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
+use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream, WriterId};
-use pravega_wire_protocol::client_config::ClientConfig;
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 
 use crate::byte_stream::{ByteStreamReader, ByteStreamWriter};
@@ -25,6 +25,7 @@ use crate::setup_logger;
 use crate::table_synchronizer::TableSynchronizer;
 use crate::tablemap::TableMap;
 use crate::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
+use pravega_rust_client_auth::{DelegationTokenProvider, EmptyTokenProviderImpl, JwtTokenProviderImpl};
 use std::sync::Arc;
 use tokio::runtime::{Handle, Runtime};
 
@@ -32,7 +33,7 @@ pub struct ClientFactory(Arc<ClientFactoryInternal>);
 
 pub struct ClientFactoryInternal {
     connection_pool: ConnectionPool<SegmentConnectionManager>,
-    controller_client: Box<dyn ControllerClient>,
+    controller_client: Arc<Box<dyn ControllerClient>>,
     config: ClientConfig,
     runtime: Runtime,
 }
@@ -44,10 +45,12 @@ impl ClientFactory {
         let cf = ConnectionFactory::create(config.connection_type);
         let pool = ConnectionPool::new(SegmentConnectionManager::new(cf, config.max_connections_in_pool));
         let controller = if config.mock {
-            Box::new(MockController::new(config.controller_uri)) as Box<dyn ControllerClient>
+            Arc::new(Box::new(MockController::new(config.controller_uri)) as Box<dyn ControllerClient>)
         } else {
-            Box::new(ControllerClientImpl::new(config.clone(), rt.handle().clone()))
-                as Box<dyn ControllerClient>
+            Arc::new(
+                Box::new(ControllerClientImpl::new(config.clone(), rt.handle().clone()))
+                    as Box<dyn ControllerClient>,
+            )
         };
         ClientFactory(Arc::new(ClientFactoryInternal {
             connection_pool: pool,
@@ -69,7 +72,13 @@ impl ClientFactory {
         &'a self,
         segment: ScopedSegment,
     ) -> AsyncSegmentReaderImpl<'a> {
-        AsyncSegmentReaderImpl::init(segment, &self.0).await
+        AsyncSegmentReaderImpl::init(
+            segment.clone(),
+            &self.0,
+            self.0
+                .create_delegation_token_provider(ScopedStream::from(&segment)),
+        )
+        .await
     }
 
     #[allow(clippy::needless_lifetimes)] //Normally the compiler could infer lifetimes but async is throwing it for a loop.
@@ -115,8 +124,8 @@ impl ClientFactory {
         ByteStreamReader::new(segment, self)
     }
 
-    pub fn get_controller_client(&self) -> &dyn ControllerClient {
-        &*self.0.controller_client
+    pub fn get_controller_client(&self) -> Arc<Box<dyn ControllerClient>> {
+        self.0.controller_client.clone()
     }
 }
 
@@ -125,12 +134,25 @@ impl ClientFactoryInternal {
         RawClientImpl::new(&self.connection_pool, endpoint)
     }
 
+    pub(crate) fn create_delegation_token_provider(
+        &self,
+        stream: ScopedStream,
+    ) -> Box<dyn DelegationTokenProvider> {
+        if self.config.is_auth_enabled {
+            let token_provider = JwtTokenProviderImpl::new(stream, self.controller_client.clone());
+            Box::new(token_provider) as Box<dyn DelegationTokenProvider>
+        } else {
+            let token_provider = EmptyTokenProviderImpl {};
+            Box::new(token_provider) as Box<dyn DelegationTokenProvider>
+        }
+    }
+
     pub(crate) fn get_connection_pool(&self) -> &ConnectionPool<SegmentConnectionManager> {
         &self.connection_pool
     }
 
-    pub(crate) fn get_controller_client(&self) -> &dyn ControllerClient {
-        &*self.controller_client
+    pub(crate) fn get_controller_client(&self) -> Arc<Box<dyn ControllerClient>> {
+        self.controller_client.clone()
     }
 
     ///

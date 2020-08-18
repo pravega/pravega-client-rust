@@ -14,9 +14,9 @@ use std::result::Result as StdResult;
 use snafu::Snafu;
 
 use async_trait::async_trait;
+use pravega_rust_client_auth::DelegationTokenProvider;
 use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::commands::{ReadSegmentCommand, SegmentReadCommand};
-
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
 use crate::client_factory::ClientFactoryInternal;
@@ -67,12 +67,14 @@ pub trait AsyncSegmentReader {
 pub struct AsyncSegmentReaderImpl<'a> {
     segment: ScopedSegment,
     raw_client: Box<dyn RawClient<'a> + 'a>,
+    delegation_token_provider: Box<dyn DelegationTokenProvider>,
 }
 
 impl<'a> AsyncSegmentReaderImpl<'a> {
     pub async fn init(
         segment: ScopedSegment,
         factory: &'a ClientFactoryInternal,
+        delegation_token_provider: Box<dyn DelegationTokenProvider>,
     ) -> AsyncSegmentReaderImpl<'a> {
         let endpoint = factory
             .get_controller_client()
@@ -85,6 +87,7 @@ impl<'a> AsyncSegmentReaderImpl<'a> {
         AsyncSegmentReaderImpl {
             segment,
             raw_client: Box::new(factory.create_raw_client(endpoint)),
+            delegation_token_provider,
         }
     }
 }
@@ -97,7 +100,7 @@ impl AsyncSegmentReader for AsyncSegmentReaderImpl<'_> {
             segment: self.segment.to_string(),
             offset,
             suggested_length: length,
-            delegation_token: String::from(""),
+            delegation_token: self.delegation_token_provider.retrieve_token().await,
             request_id: get_request_id(),
         });
 

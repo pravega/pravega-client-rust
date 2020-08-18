@@ -28,6 +28,7 @@ use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectio
 use pravega_wire_protocol::commands::{
     Command, EventCommand, GetStreamSegmentInfoCommand, StreamSegmentInfoCommand,
 };
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Handle;
 use tokio::time::delay_for;
@@ -50,7 +51,7 @@ pub fn test_transactional_event_stream_writer() {
     handle.block_on(setup_test(
         &scope_name,
         &stream_name,
-        client_factory.get_controller_client(),
+        &**client_factory.get_controller_client(),
     ));
 
     let mut writer =

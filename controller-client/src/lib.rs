@@ -45,12 +45,12 @@ use controller::{
     StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
 };
 use log::debug;
+use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_retry::retry_result::{RetryError, RetryResult, Retryable};
 use pravega_rust_client_retry::wrap_with_async_retry;
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::ClientConfig;
 use std::convert::{From, Into};
 use std::str::FromStr;
 use std::sync::RwLock;

@@ -13,11 +13,13 @@ use crate::error::*;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::segment_writer::SegmentWriter;
 use log::{debug, error, warn};
+use pravega_rust_client_auth::DelegationTokenProvider;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::commands::DataAppendedCommand;
 use pravega_wire_protocol::wire_commands::Replies;
 use snafu::ResultExt;
+use std::sync::Arc;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{channel, Receiver};
 use tokio::sync::oneshot;
@@ -28,16 +30,21 @@ pub(super) struct TransactionalEventSegmentWriter {
     segment: ScopedSegment,
     event_segment_writer: SegmentWriter,
     recevier: Receiver<Incoming>,
-    // Only need to hold onto the lastest event since if any previous events failed, the last one will also fail
+    // Only need to hold onto the latest event since if any previous events failed, the last one will also fail
     outstanding: Option<oneshot::Receiver<Result<(), SegmentWriterError>>>,
 }
 
 impl TransactionalEventSegmentWriter {
     const CHANNEL_CAPACITY: usize = 100;
 
-    pub(super) fn new(segment: ScopedSegment, retry_policy: RetryWithBackoff) -> Self {
+    pub(super) fn new(
+        segment: ScopedSegment,
+        retry_policy: RetryWithBackoff,
+        delegation_token_provider: Arc<Box<dyn DelegationTokenProvider>>,
+    ) -> Self {
         let (tx, rx) = channel(TransactionalEventSegmentWriter::CHANNEL_CAPACITY);
-        let event_segment_writer = SegmentWriter::new(segment.clone(), tx, retry_policy);
+        let event_segment_writer =
+            SegmentWriter::new(segment.clone(), tx, retry_policy, delegation_token_provider);
         TransactionalEventSegmentWriter {
             segment,
             event_segment_writer,

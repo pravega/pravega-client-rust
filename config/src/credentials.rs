@@ -13,19 +13,22 @@ use base64::encode;
 const BASIC: &str = "Basic";
 
 /// HTTP "Bearer" authentication scheme.
-
 const BEARER: &str = "Bearer";
 
 /// HTTP "Authorization" header.
 const AUTHORIZATION: &str = "Authorization";
 
-#[derive(new, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Credentials {
     method: String,
     token: String,
 }
 
 impl Credentials {
+    pub fn new(method: String, token: String) -> Self {
+        Credentials { method, token }
+    }
+
     pub fn default(user_name: String, password: String) -> Self {
         let decoded = format!("{}:{}", user_name, password);
         let token = encode(decoded);

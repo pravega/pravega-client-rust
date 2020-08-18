@@ -31,7 +31,6 @@ use rand::{Rng, SeedableRng};
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicI64, Ordering};
 
-mod auth;
 pub mod byte_stream;
 pub mod client_factory;
 pub mod error;
