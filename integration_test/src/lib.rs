@@ -11,7 +11,6 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-mod authentication_test;
 mod byte_stream_tests;
 mod controller_tests;
 #[cfg(test)]
@@ -25,6 +24,7 @@ mod utils;
 mod wirecommand_tests;
 
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
+use lazy_static::*;
 use std::process::Command;
 use std::{thread, time};
 
@@ -54,28 +54,48 @@ fn check_standalone_status() -> bool {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::pravega_service::PravegaStandaloneServiceConfig;
     use wirecommand_tests::*;
 
     #[test]
     fn integration_test() {
-        let mut pravega = PravegaStandaloneService::start(false);
+        let config = PravegaStandaloneServiceConfig::new();
+        let mut pravega = PravegaStandaloneService::start(config.clone());
         wait_for_standalone_with_timeout(true, 30);
 
-        controller_tests::test_controller_apis();
+        controller_tests::test_controller_apis(config.clone());
 
         wirecommand_tests::wirecommand_test_wrapper();
 
-        tablemap_tests::test_tablemap();
+        tablemap_tests::test_tablemap(config.clone());
 
-        event_stream_writer_tests::test_event_stream_writer();
+        event_stream_writer_tests::test_event_stream_writer(config.clone());
 
-        tablesynchronizer_tests::test_tablesynchronizer();
+        tablesynchronizer_tests::test_tablesynchronizer(config.clone());
 
-        transactional_event_stream_writer_tests::test_transactional_event_stream_writer();
+        transactional_event_stream_writer_tests::test_transactional_event_stream_writer(config.clone());
 
-        byte_stream_tests::test_byte_stream();
+        byte_stream_tests::test_byte_stream(config.clone());
 
-        authentication_test::test_authentication();
+        // Shut down Pravega standalone
+        pravega.stop().unwrap();
+        wait_for_standalone_with_timeout(false, 30);
+
+        // test again with auth enabled
+        let config = PravegaStandaloneServiceConfig::new().set_auth();
+        let mut pravega = PravegaStandaloneService::start(config.clone());
+        wait_for_standalone_with_timeout(true, 30);
+        controller_tests::test_controller_apis(config.clone());
+
+        tablemap_tests::test_tablemap(config.clone());
+
+        event_stream_writer_tests::test_event_stream_writer(config.clone());
+
+        tablesynchronizer_tests::test_tablesynchronizer(config.clone());
+
+        transactional_event_stream_writer_tests::test_transactional_event_stream_writer(config.clone());
+
+        byte_stream_tests::test_byte_stream(config.clone());
 
         // Shut down Pravega standalone
         pravega.stop().unwrap();

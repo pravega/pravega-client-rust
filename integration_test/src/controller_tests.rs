@@ -8,16 +8,19 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::pravega_service::PravegaStandaloneServiceConfig;
 use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_controller_client::ControllerClient;
+use pravega_rust_client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
 use std::sync::Arc;
 
-pub fn test_controller_apis() {
+pub fn test_controller_apis(config: PravegaStandaloneServiceConfig) {
     let config = ClientConfigBuilder::default()
         .controller_uri(TEST_CONTROLLER_URI)
+        .is_auth_enabled(config.auth())
+        .is_tls_enabled(config.tls())
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);

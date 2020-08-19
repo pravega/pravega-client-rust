@@ -162,6 +162,7 @@ mod tests {
     };
 
     use super::*;
+    use pravega_rust_client_auth::EmptyTokenProviderImpl;
 
     // Setup mock.
     mock! {
@@ -242,7 +243,8 @@ mod tests {
                 })),
             }
         });
-        let async_segment_reader = AsyncSegmentReaderImpl::new(segment_name, Box::new(raw_client));
+        let delegation_token_provider = EmptyTokenProviderImpl{};
+        let async_segment_reader = AsyncSegmentReaderImpl::new(segment_name, Box::new(raw_client), Box::new(delegation_token_provider) as Box<dyn DelegationTokenProvider>);
         let data = async_segment_reader.read(0, 11).await;
         let segment_read_result: SegmentReadCommand = data.unwrap();
         assert_eq!(

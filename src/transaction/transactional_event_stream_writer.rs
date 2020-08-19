@@ -31,7 +31,7 @@ use std::time::Duration;
 /// use tokio;
 /// use pravega_rust_client_shared::{Timestamp, ScopedStream, Scope, Stream, WriterId};
 /// use pravega_client_rust::client_factory::ClientFactory;
-/// use pravega_wire_protocol::client_config::ClientConfigBuilder;
+/// use pravega_rust_client_config::ClientConfigBuilder;
 ///
 /// #[tokio::main]
 /// async fn main() {

@@ -1,13 +1,26 @@
+//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+
+use crate::pravega_service::PravegaStandaloneServiceConfig;
 use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::table_synchronizer::{deserialize_from, Key, TableSynchronizer};
-use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
+use pravega_rust_client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_wire_protocol::commands::TableKey;
 use serde::{Deserialize, Serialize};
 
-pub fn test_tablesynchronizer() {
+pub fn test_tablesynchronizer(config: PravegaStandaloneServiceConfig) {
     let config = ClientConfigBuilder::default()
         .controller_uri(TEST_CONTROLLER_URI)
+        .is_auth_enabled(config.auth())
+        .is_tls_enabled(config.tls())
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);

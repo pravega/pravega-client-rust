@@ -9,17 +9,17 @@
 //
 use super::check_standalone_status;
 use super::wait_for_standalone_with_timeout;
-use crate::pravega_service::{PravegaService, PravegaStandaloneService};
+use crate::pravega_service::{PravegaService, PravegaStandaloneService, PravegaStandaloneServiceConfig};
 use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::raw_client::{RawClient, RawClientImpl};
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl, ControllerError};
+use pravega_rust_client_config::ClientConfigBuilder;
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_retry::retry_result::RetryResult;
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::ClientConfigBuilder;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{HelloCommand, SealSegmentCommand};
 use pravega_wire_protocol::connection_factory::{
@@ -39,7 +39,8 @@ pub fn disconnection_test_wrapper() {
     rt.block_on(test_retry_with_no_connection());
     rt.shutdown_timeout(Duration::from_millis(100));
 
-    let mut pravega = PravegaStandaloneService::start(false);
+    let config = PravegaStandaloneServiceConfig::new();
+    let mut pravega = PravegaStandaloneService::start(config);
     test_retry_while_start_pravega();
     assert_eq!(check_standalone_status(), true);
     test_retry_with_unexpected_reply();
@@ -94,7 +95,7 @@ fn test_retry_while_start_pravega() {
     let controller_client = cf.get_controller_client();
 
     cf.get_runtime_handle()
-        .block_on(create_scope_stream(controller_client));
+        .block_on(create_scope_stream(&**controller_client));
 }
 
 async fn create_scope_stream(controller_client: &dyn ControllerClient) {

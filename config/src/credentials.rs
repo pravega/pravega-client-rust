@@ -10,14 +10,13 @@
 use base64::encode;
 
 /// HTTP "Basic" authentication scheme.
-const BASIC: &str = "Basic";
-
-/// HTTP "Bearer" authentication scheme.
-const BEARER: &str = "Bearer";
+pub const BASIC: &str = "Basic";
 
 /// HTTP "Authorization" header.
-const AUTHORIZATION: &str = "Authorization";
+pub const AUTHORIZATION: &str = "authorization";
 
+/// Credentials could use Basic method, which is user_name and password combination, and Bearer method,
+/// which is token based. The default method is Basic type.
 #[derive(Debug, Clone)]
 pub struct Credentials {
     method: String,
@@ -44,5 +43,20 @@ impl Credentials {
 
     pub fn get_authentication_token(&self) -> String {
         self.token.clone()
+    }
+
+    pub fn get_request_metadata(&self) -> String {
+        format!("{} {}", self.method, self.token)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_base64_compat_with_java() {
+        let cred = Credentials::default("admin".to_owned(), "1111_aaaa".to_owned());
+        assert_eq!(cred.token, "YWRtaW46MTExMV9hYWFh");
     }
 }

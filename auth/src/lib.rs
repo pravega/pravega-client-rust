@@ -44,9 +44,6 @@ use tokio::sync::Mutex;
 pub trait DelegationTokenProvider: Send + Sync {
     /// Retrieve delegation token.
     async fn retrieve_token(&self) -> String;
-
-    ///Populates the object with the specified delegation token.
-    fn populate_token(&self, token: String) -> bool;
 }
 
 /// Provides empty delegation tokens. This provider is useful when auth is disabled.
@@ -56,10 +53,6 @@ pub struct EmptyTokenProviderImpl {}
 impl DelegationTokenProvider for EmptyTokenProviderImpl {
     async fn retrieve_token(&self) -> String {
         "".to_owned()
-    }
-
-    fn populate_token(&self, token: String) -> bool {
-        false
     }
 }
 
@@ -73,7 +66,7 @@ const DEFAULT_REFRESH_THRESHOLD_SECONDS: u64 = 5;
 
 #[async_trait]
 impl DelegationTokenProvider for JwtTokenProviderImpl {
-    /// Returns the delegation token. It returns existing delegation token if it is not close to expiry.
+    /// Returns the delegation token. It returns an existing delegation token if it is not close to expiry.
     /// If the token is close to expiry, it obtains a new delegation token and returns that one instead.
     async fn retrieve_token(&self) -> String {
         let guard = self.token.lock().await;
@@ -83,10 +76,6 @@ impl DelegationTokenProvider for JwtTokenProviderImpl {
             }
         }
         self.refresh_token().await.get_value()
-    }
-
-    fn populate_token(&self, token: String) -> bool {
-        unimplemented!()
     }
 }
 

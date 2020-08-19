@@ -9,7 +9,7 @@
  */
 use pravega_client_rust::raw_client::*;
 use pravega_connection_pool::connection_pool::ConnectionPool;
-use pravega_wire_protocol::client_config::ClientConfigBuilder;
+use pravega_rust_client_config::ClientConfigBuilder;
 use pravega_wire_protocol::commands::*;
 use pravega_wire_protocol::connection_factory::{
     ConnectionFactory, ConnectionType, SegmentConnectionManager,
@@ -371,7 +371,7 @@ async fn main() {
                 segment,
                 target_rate,
                 scale_type,
-                clie,
+                delegation_token,
             });
             let reply = raw_client
                 .send_request(&request)

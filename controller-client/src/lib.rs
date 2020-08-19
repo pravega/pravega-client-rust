@@ -32,7 +32,7 @@ use std::time::{Duration, Instant};
 
 use snafu::Snafu;
 use tonic::transport::channel::Channel;
-use tonic::{Code, Status};
+use tonic::{metadata::MetadataValue, Code, Request, Status};
 
 use async_trait::async_trait;
 use controller::{
@@ -45,6 +45,7 @@ use controller::{
     StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
 };
 use log::debug;
+use pravega_rust_client_config::credentials::AUTHORIZATION;
 use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
@@ -56,7 +57,7 @@ use std::str::FromStr;
 use std::sync::RwLock;
 use tokio::runtime::Handle;
 use tonic::codegen::http::uri::InvalidUri;
-use tonic::transport::{Certificate, ClientTlsConfig, Uri};
+use tonic::transport::{Certificate, ClientTlsConfig, Endpoint, Uri};
 
 #[allow(non_camel_case_types)]
 pub mod controller {
@@ -279,18 +280,20 @@ async fn get_channel(config: &ClientConfig) -> Channel {
         })
         .unwrap();
 
-    if config.is_tls_enabled {
+    let endpoints = if config.is_tls_enabled {
         let pem = std::fs::read(&config.truststore).expect("read truststore");
         let ca = Certificate::from_pem(pem);
         let tls = ClientTlsConfig::new().ca_certificate(ca);
-        let iterable_endpoints = (0..config.max_controller_connections)
-            .map(|_a| Channel::builder(uri_result.clone()).tls_config(tls.clone()));
-        async { Channel::balance_list(iterable_endpoints) }.await
+        (0..config.max_controller_connections)
+            .map(|_a| Channel::builder(uri_result.clone()).tls_config(tls.clone()))
+            .collect::<Vec<Endpoint>>()
     } else {
-        let iterable_endpoints =
-            (0..config.max_controller_connections).map(|_a| Channel::builder(uri_result.clone()));
-        async { Channel::balance_list(iterable_endpoints) }.await
-    }
+        (0..config.max_controller_connections)
+            .map(|_a| Channel::builder(uri_result.clone()))
+            .collect::<Vec<Endpoint>>()
+    };
+
+    async { Channel::balance_list(endpoints.into_iter()) }.await
 }
 
 #[allow(unused_variables)]
@@ -463,9 +466,20 @@ impl ControllerClientImpl {
     pub fn new(config: ClientConfig, h: Handle) -> Self {
         // actual connection is established lazily.
         let ch = h.block_on(get_channel(&config));
+        let client = if config.is_auth_enabled {
+            let token = config.credentials.get_request_metadata();
+            let token = MetadataValue::from_str(&token).expect("convert to metadata value");
+            ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
+                req.metadata_mut().insert(AUTHORIZATION, token.clone());
+                Ok(req)
+            })
+        } else {
+            ControllerServiceClient::new(ch)
+        };
+
         ControllerClientImpl {
             config,
-            channel: RwLock::new(ControllerServiceClient::new(ch)),
+            channel: RwLock::new(client),
         }
     }
 

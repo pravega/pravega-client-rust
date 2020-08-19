@@ -8,7 +8,8 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::utils;
+use crate::pravega_service::PravegaStandaloneServiceConfig;
+use crate::{utils};
 use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::error::SegmentWriterError;
@@ -17,8 +18,8 @@ use pravega_client_rust::raw_client::RawClient;
 use pravega_client_rust::segment_reader::AsyncSegmentReader;
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
+use pravega_rust_client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{
     Command, EventCommand, GetStreamSegmentInfoCommand, SealSegmentCommand,
@@ -29,12 +30,14 @@ use pravega_wire_protocol::connection_factory::{
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
 
-pub fn test_event_stream_writer() {
+pub fn test_event_stream_writer(config: PravegaStandaloneServiceConfig) {
     // spin up Pravega standalone
     let scope_name = Scope::from("testScopeWriter".to_owned());
     let stream_name = Stream::from("testStreamWriter".to_owned());
     let config = ClientConfigBuilder::default()
         .controller_uri(TEST_CONTROLLER_URI)
+        .is_auth_enabled(config.auth())
+        .is_tls_enabled(config.tls())
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
