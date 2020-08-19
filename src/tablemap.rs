@@ -519,9 +519,7 @@ impl<'a> TableMap<'a> {
             table_entries: te,
             table_segment_offset: offset,
         });
-        info!("Requests for UpdateTableEntries request {:?}", req);
         let re = self.raw_client.as_ref().send_request(&req).await;
-        info!("Reply for UpdateTableEntries request {:?}", re);
         re.map_err(|e| TableError::ConnectionError {
             can_retry: true,
             operation: op.into(),

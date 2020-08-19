@@ -123,6 +123,10 @@ impl ClientFactory {
         ByteStreamReader::new(segment, self)
     }
 
+    pub fn create_delegation_token_provider(&self, stream: ScopedStream) -> Box<dyn DelegationTokenProvider> {
+        self.0.create_delegation_token_provider(stream)
+    }
+
     pub fn get_controller_client(&self) -> Arc<Box<dyn ControllerClient>> {
         self.0.controller_client.clone()
     }

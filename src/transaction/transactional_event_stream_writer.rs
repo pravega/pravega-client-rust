@@ -92,7 +92,7 @@ impl TransactionalEventStreamWriter {
             writer_id,
             factory,
             config,
-            pinger_handle: handle,
+            pinger_handle,
             delegation_token_provider,
         }
     }

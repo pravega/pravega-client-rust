@@ -13,7 +13,6 @@ use std::sync::Arc;
 use crate::reactor::reactors::StreamReactor;
 use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::ClientConfig;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
 

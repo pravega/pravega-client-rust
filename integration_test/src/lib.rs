@@ -65,29 +65,17 @@ mod test {
         let span = span!(Level::INFO, "integration test");
         let _enter = span.enter();
         let config = PravegaStandaloneServiceConfig::new();
-        let mut pravega = PravegaStandaloneService::start(config.clone());
-        wait_for_standalone_with_timeout(true, 30);
-
-        controller_tests::test_controller_apis(config.clone());
-
-        wirecommand_tests::wirecommand_test_wrapper();
-
-        tablemap_tests::test_tablemap(config.clone());
-
-        event_stream_writer_tests::test_event_stream_writer(config.clone());
-
-        tablesynchronizer_tests::test_tablesynchronizer(config.clone());
-
-        transactional_event_stream_writer_tests::test_transactional_event_stream_writer(config.clone());
-
-        byte_stream_tests::test_byte_stream(config.clone());
-
-        // Shut down Pravega standalone
-        pravega.stop().unwrap();
-        wait_for_standalone_with_timeout(false, 30);
+        start_tests(config);
 
         // test again with auth enabled
         let config = PravegaStandaloneServiceConfig::new().set_auth();
+        start_tests(config);
+
+        // disconnection test will start its own Pravega Standalone.
+        disconnection_tests::disconnection_test_wrapper();
+    }
+
+    fn start_tests(config: PravegaStandaloneServiceConfig) {
         let mut pravega = PravegaStandaloneService::start(config.clone());
         wait_for_standalone_with_timeout(true, 30);
         controller_tests::test_controller_apis(config.clone());
@@ -105,8 +93,5 @@ mod test {
         // Shut down Pravega standalone
         pravega.stop().unwrap();
         wait_for_standalone_with_timeout(false, 30);
-
-        // disconnection test will start its own Pravega Standalone.
-        disconnection_tests::disconnection_test_wrapper();
     }
 }

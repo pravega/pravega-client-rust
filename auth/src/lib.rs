@@ -34,6 +34,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
+use tracing::info;
 
 /// A client-side proxy for obtaining a delegation token from the server.
 ///
@@ -69,13 +70,19 @@ impl DelegationTokenProvider for JwtTokenProviderImpl {
     /// Returns the delegation token. It returns an existing delegation token if it is not close to expiry.
     /// If the token is close to expiry, it obtains a new delegation token and returns that one instead.
     async fn retrieve_token(&self) -> String {
-        let guard = self.token.lock().await;
+        let mut guard = self.token.lock().await;
         if let Some(ref token) = *guard {
+            info!("some token exists");
             if JwtTokenProviderImpl::is_token_valid(token.get_expiry_time()) {
+                info!("token is still valid");
                 return token.get_value();
             }
         }
-        self.refresh_token().await.get_value()
+        info!("no token exists, refresh to get a new one");
+        let token = self.refresh_token().await;
+        let value = token.get_value();
+        *guard = Some(token);
+        value
     }
 }
 
@@ -89,12 +96,12 @@ impl JwtTokenProviderImpl {
     }
 
     async fn refresh_token(&self) -> DelegationToken {
-        let token = self
+        let jwt_token = self
             .controller
             .get_or_refresh_delegation_token_for(self.stream.clone())
             .await
             .expect("controller error when refreshing token");
-        DelegationToken::new(token.clone(), extract_expiration_time(token))
+        DelegationToken::new(jwt_token.clone(), extract_expiration_time(jwt_token))
     }
 
     fn is_token_valid(time: Option<u64>) -> bool {
@@ -103,6 +110,11 @@ impl JwtTokenProviderImpl {
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .expect("get unix time");
             if now.as_secs() + DEFAULT_REFRESH_THRESHOLD_SECONDS >= t {
+                info!(
+                    "current time {} expired,  expiry time {}",
+                    now.as_secs() + DEFAULT_REFRESH_THRESHOLD_SECONDS,
+                    t
+                );
                 return false;
             }
         }
@@ -147,11 +159,17 @@ fn parse_expiration_time(jwt_body: String) -> u64 {
 #[cfg(test)]
 mod test {
     use super::*;
+    use pravega_controller_client::mock_controller::MockController;
+    use pravega_rust_client_shared::{Scope, Stream};
+    use std::net::SocketAddr;
+    use std::{thread, time};
+    use tokio::runtime::Runtime;
+
+    const JWT_TOKEN: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzdWJqZWN0IiwiYXVkIjoic2VnbWVudHN0b3JlIiwiaWF0IjoxNTY5ODM3Mzg0LCJleHAiOjE1Njk4Mzc0MzR9.wYSsKf8BirFoT2KY4dhzSFiWaUc9b4xe_jECKJWnR-k";
 
     #[test]
     fn test_extract_expiration_time() {
-        let encoded_jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzdWJqZWN0IiwiYXVkIjoic2VnbWVudHN0b3JlIiwiaWF0IjoxNTY5ODM3Mzg0LCJleHAiOjE1Njk4Mzc0MzR9.wYSsKf8BirFoT2KY4dhzSFiWaUc9b4xe_jECKJWnR-k";
-        let time = extract_expiration_time(encoded_jwt.to_owned());
+        let time = extract_expiration_time(JWT_TOKEN.to_owned());
 
         assert!(time.is_some());
         let time = time.expect("extract expiry time");
@@ -165,5 +183,38 @@ mod test {
 
         assert_eq!(1569837434 as u64, parse_expiration_time(input1.to_owned()));
         assert_eq!(1569837434 as u64, parse_expiration_time(input2.to_owned()));
+    }
+
+    #[test]
+    fn test_retrieve_token() {
+        let mut rt = Runtime::new().unwrap();
+        let mock_controller = MockController::new("127.0.0.1:9090".parse::<SocketAddr>().unwrap());
+        let stream = ScopedStream {
+            scope: Scope {
+                name: "scope".to_string(),
+            },
+            stream: Stream {
+                name: "stream".to_string(),
+            },
+        };
+        let token_provider = JwtTokenProviderImpl::new(
+            stream,
+            Arc::new(Box::new(mock_controller) as Box<dyn ControllerClient>),
+        );
+        let token1 = rt.block_on(token_provider.retrieve_token());
+
+        let guard = rt.block_on(token_provider.token.lock());
+        if let Some(ref cache) = guard.as_ref() {
+            let token2 = cache.get_value();
+            assert_eq!(token1, token2);
+        } else {
+            panic!("token not exists");
+        }
+
+        // time expired
+        let sleep_time = time::Duration::from_secs(DEFAULT_REFRESH_THRESHOLD_SECONDS + 1);
+        thread::sleep(sleep_time);
+        let token3 = rt.block_on(token_provider.retrieve_token());
+        assert_ne!(token1, token3);
     }
 }

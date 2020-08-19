@@ -44,7 +44,6 @@ use controller::{
     ScaleResponse, ScaleStatusRequest, ScaleStatusResponse, ScopeInfo, SegmentId, SegmentRanges,
     StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
 };
-use log::debug;
 use pravega_rust_client_config::credentials::AUTHORIZATION;
 use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_retry::retry_async::retry_async;
@@ -58,6 +57,7 @@ use std::sync::RwLock;
 use tokio::runtime::Handle;
 use tonic::codegen::http::uri::InvalidUri;
 use tonic::transport::{Certificate, ClientTlsConfig, Endpoint, Uri};
+use tracing::debug;
 
 #[allow(non_camel_case_types)]
 pub mod controller {

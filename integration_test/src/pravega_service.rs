@@ -238,9 +238,15 @@ impl PravegaStandaloneServiceConfig {
         self
     }
 
-    pub fn debug(&self) -> bool {self.debug}
+    pub fn debug(&self) -> bool {
+        self.debug
+    }
 
-    pub fn auth(&self) -> bool {self.auth}
+    pub fn auth(&self) -> bool {
+        self.auth
+    }
 
-    pub fn tls(&self) -> bool {self.tls}
+    pub fn tls(&self) -> bool {
+        self.tls
+    }
 }

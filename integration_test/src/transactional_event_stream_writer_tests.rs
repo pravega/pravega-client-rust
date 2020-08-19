@@ -210,10 +210,11 @@ async fn setup_test(scope_name: &Scope, stream_name: &Stream, controller_client:
 }
 
 async fn get_segment_info(segment: &ScopedSegment, factory: &ClientFactory) -> StreamSegmentInfoCommand {
+    let delegation_toke_provider = factory.create_delegation_token_provider(ScopedStream::from(segment));
     let cmd = GetStreamSegmentInfoCommand {
         request_id: 0,
         segment_name: segment.to_string(),
-        delegation_token: "".to_string(),
+        delegation_token: delegation_toke_provider.retrieve_token().await,
     };
     let request = Requests::GetStreamSegmentInfo(cmd);
     let rawclient = factory.create_raw_client(segment).await;
