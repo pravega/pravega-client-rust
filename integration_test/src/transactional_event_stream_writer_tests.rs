@@ -17,12 +17,12 @@ use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnec
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
 
-use log::{error, info};
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::raw_client::RawClient;
 use pravega_client_rust::segment_reader::AsyncSegmentReader;
 use pravega_client_rust::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
 use pravega_client_rust::transaction::Transaction;
+use tracing::{error, info};
 
 use crate::pravega_service::PravegaStandaloneServiceConfig;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};

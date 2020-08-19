@@ -10,7 +10,6 @@
 use super::check_standalone_status;
 use super::wait_for_standalone_with_timeout;
 use crate::pravega_service::{PravegaService, PravegaStandaloneService, PravegaStandaloneServiceConfig};
-use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::raw_client::{RawClient, RawClientImpl};
 use pravega_connection_pool::connection_pool::ConnectionPool;
@@ -33,6 +32,7 @@ use std::process::Command;
 use std::time::Duration;
 use std::{thread, time};
 use tokio::runtime::Runtime;
+use tracing::info;
 
 pub fn disconnection_test_wrapper() {
     let mut rt = tokio::runtime::Runtime::new().expect("create runtime");

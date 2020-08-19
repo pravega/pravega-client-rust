@@ -11,13 +11,13 @@
 use futures::pin_mut;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
-use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::tablemap::{TableError, TableMap, Version};
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_rust_client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
+use tracing::info;
 
 use crate::pravega_service::PravegaStandaloneServiceConfig;
 use pravega_wire_protocol::commands::TableKey;

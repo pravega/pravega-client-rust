@@ -9,8 +9,7 @@
 //
 
 use crate::pravega_service::PravegaStandaloneServiceConfig;
-use crate::{utils};
-use log::info;
+use crate::utils;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::error::SegmentWriterError;
 use pravega_client_rust::event_stream_writer::EventStreamWriter;
@@ -29,6 +28,7 @@ use pravega_wire_protocol::connection_factory::{
 };
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
+use tracing::info;
 
 pub fn test_event_stream_writer(config: PravegaStandaloneServiceConfig) {
     // spin up Pravega standalone

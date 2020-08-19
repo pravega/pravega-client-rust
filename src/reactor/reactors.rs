@@ -10,7 +10,7 @@
 
 use std::sync::Arc;
 use tokio::sync::mpsc::{Receiver, Sender};
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 
 use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::*;
@@ -43,7 +43,7 @@ impl StreamReactor {
         );
         // get the current segments and create corresponding event segment writers
         selector.initialize().await;
-
+        info!("starting stream reactor");
         loop {
             let event = receiver.recv().await.expect("sender closed, processor exit");
             match event {

@@ -12,7 +12,7 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
            "Sandeep Shridhar <sandeep.shridhar@dell.com>", "Wenxiao Zhang <wenxiao.zhang@dell.com>"]
 
 [dependencies]
-log = "0.4"
+tracing = "0.1.17"
 pravega-client-rust = { path = "../" }
 pravega-wire-protocol = { path = "../wire_protocol"}
 pravega-controller-client = { path = "../controller-client"}
@@ -27,7 +27,7 @@ futures = "0.3.5"
 serde = { version = "1.0", features = ["derive"] }
 
 [build-dependencies]
-log = "0.4"
+tracing = "0.1.17"
 flate2 = "1.0.12"
 tar = "0.4.26"
 pkg-config = "0.3.16"

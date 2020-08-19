@@ -8,14 +8,14 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use log::info;
-use std::fs::File;
+use std::fs::{create_dir, File};
 use std::io::{Read, Write};
 use std::net::IpAddr;
 use std::net::Ipv4Addr;
 use std::net::SocketAddr;
 use std::path::Path;
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
+use tracing::info;
 
 const PATH: &str = "./pravega/bin/pravega-standalone";
 const LOG: &str = "./pravega/conf/logback.xml";
@@ -86,8 +86,11 @@ impl PravegaService for PravegaStandaloneService {
         PravegaStandaloneService::enable_debug_log(config.debug);
         PravegaStandaloneService::enable_auth(config.auth);
         PravegaStandaloneService::enable_tls(config.tls);
+        let _ = create_dir("./log");
+        let output = File::create("./log/output.log").expect("creating file for standalone log");
         info!("start running pravega under path {}", PATH);
         let pravega = Command::new(PATH)
+            .stdout(Stdio::from(output))
             .spawn()
             .expect("failed to start pravega standalone");
         info!("child pid: {}", pravega.id());

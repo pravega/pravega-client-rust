@@ -12,7 +12,6 @@ use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::segment_writer::SegmentWriter;
-use log::{debug, error, warn};
 use pravega_rust_client_auth::DelegationTokenProvider;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_shared::ScopedSegment;
@@ -23,6 +22,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{channel, Receiver};
 use tokio::sync::oneshot;
+use tracing::{debug, error, warn};
 
 /// TransactionalEventSegmentWriter contains a EventSegmentWriter that writes to a specific
 /// transaction segment.
@@ -149,7 +149,7 @@ impl TransactionalEventSegmentWriter {
     async fn process_data_appended(&mut self, factory: &ClientFactoryInternal, cmd: DataAppendedCommand) {
         debug!(
             "data appended for writer {:?}, latest event id is: {:?}",
-            self.event_segment_writer.get_uuid(),
+            self.event_segment_writer.get_id(),
             cmd.event_number
         );
 
@@ -157,7 +157,7 @@ impl TransactionalEventSegmentWriter {
         if let Err(e) = self.event_segment_writer.write_pending_events().await {
             warn!(
                 "writer {:?} failed to flush data to segment {:?} due to {:?}, reconnecting",
-                self.event_segment_writer.get_uuid(),
+                self.event_segment_writer.get_id(),
                 self.event_segment_writer.get_segment_name(),
                 e
             );

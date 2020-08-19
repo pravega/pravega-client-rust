@@ -9,12 +9,12 @@
 //
 
 use crate::pravega_service::PravegaStandaloneServiceConfig;
-use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::table_synchronizer::{deserialize_from, Key, TableSynchronizer};
 use pravega_rust_client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_wire_protocol::commands::TableKey;
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 pub fn test_tablesynchronizer(config: PravegaStandaloneServiceConfig) {
     let config = ClientConfigBuilder::default()

@@ -10,7 +10,6 @@
 
 use crate::client_factory::ClientFactoryInternal;
 use crate::error::*;
-use log::{debug, error, info};
 use pravega_rust_client_shared::{PingStatus, ScopedStream, TxId};
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -18,6 +17,7 @@ use std::time::Duration;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::time::delay_for;
+use tracing::{debug, error, info};
 
 #[derive(Debug)]
 enum PingerEvent {
@@ -124,12 +124,11 @@ impl Pinger {
                 }
             }
 
-            info!("start sending transaction pings.");
-
             // remove completed transactions from the ping list
             txn_list.retain(|i| !completed_txns.contains(i));
             completed_txns.clear();
 
+            info!("start sending pings to {} transactions.", txn_list.len());
             // for each transaction in the ping list, send ping to the server
             for txn_id in txn_list.iter() {
                 debug!(
@@ -154,7 +153,7 @@ impl Pinger {
                     completed_txns.insert(txn_id.to_owned());
                 }
             }
-            info!("completed sending transaction pings.");
+            info!("sending transaction pings complete.");
 
             // delay for transaction lease milliseconds.
             delay_for(Duration::from_millis(self.txn_lease_millis)).await;

@@ -9,12 +9,12 @@
 //
 
 use crate::pravega_service::PravegaStandaloneServiceConfig;
-use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_controller_client::ControllerClient;
 use pravega_rust_client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_rust_client_shared::*;
 use std::sync::Arc;
+use tracing::info;
 
 pub fn test_controller_apis(config: PravegaStandaloneServiceConfig) {
     let config = ClientConfigBuilder::default()
