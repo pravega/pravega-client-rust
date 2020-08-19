@@ -124,7 +124,7 @@ impl PravegaService for PravegaStandaloneService {
     fn enable_debug_log(enable: bool) {
         let file_path = Path::new(&LOG);
         // Open and read the file entirely
-        let mut src = File::open(&file_path).expect("open log config file");
+        let mut src = File::open(&file_path).expect("open logback.xml file");
         let mut data = String::new();
         src.read_to_string(&mut data).expect("read data");
         drop(src); // Close the file early
@@ -158,7 +158,7 @@ impl PravegaService for PravegaStandaloneService {
                 "singlenode.security.auth.enable=true",
             );
             new_data = new_data.replace(
-                "#singlenode.security.auth.pwdAuthHandler.accountsDb.location=../conf/passwd",
+                "#singlenode.security.auth.pwdAuthHandler.accountsDb.location=../config/passwd",
                 "singlenode.security.auth.pwdAuthHandler.accountsDb.location=./pravega/conf/passwd",
             )
         } else {
