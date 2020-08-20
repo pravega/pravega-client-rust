@@ -18,6 +18,7 @@ use pravega_wire_protocol::client_config::ClientConfig;
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 
 use crate::byte_stream::{ByteStreamReader, ByteStreamWriter};
+use crate::event_reader::EventReader;
 use crate::event_stream_writer::EventStreamWriter;
 use crate::raw_client::RawClientImpl;
 use crate::segment_reader::AsyncSegmentReaderImpl;
@@ -28,7 +29,7 @@ use std::fmt;
 use std::sync::Arc;
 use tokio::runtime::{Handle, Runtime};
 
-pub struct ClientFactory(Arc<ClientFactoryInternal>);
+pub struct ClientFactory(pub(crate) Arc<ClientFactoryInternal>);
 
 pub struct ClientFactoryInternal {
     connection_pool: ConnectionPool<SegmentConnectionManager>,
@@ -96,6 +97,10 @@ impl ClientFactory {
 
     pub fn create_event_stream_writer(&self, stream: ScopedStream) -> EventStreamWriter {
         EventStreamWriter::new(stream, self.0.config.clone(), self.0.clone())
+    }
+
+    pub fn create_event_stream_reader(&self, stream: ScopedStream) -> EventReader {
+        EventReader::init(stream, self.0.clone())
     }
 
     pub async fn create_transactional_event_stream_writer(
