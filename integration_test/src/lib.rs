@@ -15,6 +15,7 @@ mod byte_stream_tests;
 mod controller_tests;
 #[cfg(test)]
 mod disconnection_tests;
+mod event_stream_reader_tests;
 mod event_stream_writer_tests;
 mod pravega_service;
 mod tablemap_tests;
@@ -62,28 +63,29 @@ mod test {
         trace::init();
         let span = span!(Level::INFO, "integration test");
         let _enter = span.enter();
-        let mut pravega = PravegaStandaloneService::start(false);
-        wait_for_standalone_with_timeout(true, 30);
+        // let mut pravega = PravegaStandaloneService::start(false);
+        // wait_for_standalone_with_timeout(true, 30);
 
-        controller_tests::test_controller_apis();
+        // controller_tests::test_controller_apis();
+        //
+        // wirecommand_tests::wirecommand_test_wrapper();
+        //
+        // tablemap_tests::test_tablemap();
+        //
+        // event_stream_writer_tests::test_event_stream_writer();
+        event_stream_reader_tests::test_event_stream_reader();
 
-        wirecommand_tests::wirecommand_test_wrapper();
-
-        tablemap_tests::test_tablemap();
-
-        event_stream_writer_tests::test_event_stream_writer();
-
-        tablesynchronizer_tests::test_tablesynchronizer();
-
-        transactional_event_stream_writer_tests::test_transactional_event_stream_writer();
-
-        byte_stream_tests::test_byte_stream();
-
-        // Shut down Pravega standalone
-        pravega.stop().unwrap();
-        wait_for_standalone_with_timeout(false, 30);
-
-        // disconnection test will start its own Pravega Standalone.
-        disconnection_tests::disconnection_test_wrapper();
+        // tablesynchronizer_tests::test_tablesynchronizer();
+        //
+        // transactional_event_stream_writer_tests::test_transactional_event_stream_writer();
+        //
+        // byte_stream_tests::test_byte_stream();
+        //
+        // // Shut down Pravega standalone
+        // pravega.stop().unwrap();
+        // wait_for_standalone_with_timeout(false, 30);
+        //
+        // // disconnection test will start its own Pravega Standalone.
+        // disconnection_tests::disconnection_test_wrapper();
     }
 }

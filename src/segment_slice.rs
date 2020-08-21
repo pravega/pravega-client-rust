@@ -11,10 +11,10 @@
 use crate::client_factory::ClientFactoryInternal;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 use bytes::{Buf, BufMut, BytesMut};
-use chashmap::CHashMap;
 use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::commands::{Command, EventCommand, TYPE_PLUS_LENGTH_SIZE};
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::Sender;
 use tokio::time::{delay_for, Duration};
@@ -26,8 +26,8 @@ use tracing::{debug, error, info, warn};
 ///
 #[derive(Debug)]
 pub struct Event {
-    offset_in_segment: i64,
-    value: Vec<u8>,
+    pub offset_in_segment: i64,
+    pub value: Vec<u8>,
 }
 
 ///
@@ -35,7 +35,7 @@ pub struct Event {
 /// iterator.
 ///
 ///
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SegmentSlice {
     pub(crate) start_offset: i64,
     pub(crate) segment: ScopedSegment,
@@ -43,9 +43,10 @@ pub struct SegmentSlice {
     pub(crate) end_offset: i64,
     pub(crate) segment_data: BytePlaceholder,
     pub(crate) handle: Handle,
+    pub(crate) partial_event_length: usize,
     pub(crate) partial_event: BytePlaceholder,
     pub(crate) partial_header: BytePlaceholder,
-    pub(crate) reader_meta: Arc<CHashMap<ScopedSegment, SegmentSlice>>,
+    pub(crate) reader_meta: Arc<RwLock<HashMap<ScopedSegment, SegmentSlice>>>,
 }
 
 ///
@@ -143,7 +144,7 @@ impl SegmentSlice {
         start_offset: i64,
         tx: Sender<BytePlaceholder>,
         factory: Arc<ClientFactoryInternal>,
-        reader_meta: Arc<CHashMap<ScopedSegment, SegmentSlice>>,
+        reader_meta: Arc<RwLock<HashMap<ScopedSegment, SegmentSlice>>>,
     ) -> Self {
         let handle = factory.get_runtime_handle();
         handle.enter(|| {
@@ -162,6 +163,7 @@ impl SegmentSlice {
             end_offset: i64::MAX,
             segment_data: BytePlaceholder::empty(segment.clone()),
             handle,
+            partial_event_length: 0,
             partial_event: BytePlaceholder::empty(segment.clone()),
             partial_header: BytePlaceholder::empty(segment),
             reader_meta,
@@ -244,6 +246,7 @@ impl SegmentSlice {
             let t = self.segment_data.split_to(bytes_to_read);
             self.partial_header.value.put(t.value);
             if let Some(temp_event) = parse_header(&mut self.partial_header) {
+                self.partial_event_length = temp_event.value.capacity();
                 self.partial_event = temp_event;
                 self.partial_header = BytePlaceholder::empty(self.segment.clone());
             } else {
@@ -252,8 +255,8 @@ impl SegmentSlice {
             }
         }
         // check if a partial event was read the last time.
-        if self.partial_event.value.capacity() != 0 {
-            let bytes_to_read = self.partial_event.value.capacity() - self.partial_event.value.len();
+        if self.partial_event_length > 0 {
+            let bytes_to_read = self.partial_event_length - self.partial_event.value.len();
             if self.segment_data.value.remaining() >= bytes_to_read {
                 let t = self.segment_data.split_to(bytes_to_read);
                 self.partial_event.value.put(t.value);
@@ -262,6 +265,7 @@ impl SegmentSlice {
                     value: self.partial_event.value.to_vec(),
                 };
                 self.partial_event = BytePlaceholder::empty(self.segment.clone());
+                self.partial_event_length = 0;
                 Some(event)
             } else {
                 debug!("Partial event being returned since there is more to fill");
@@ -299,6 +303,7 @@ impl SegmentSlice {
                     event_data.value.len(),
                     event_data.value.capacity()
                 );
+                self.partial_event_length = event_data.value.capacity();
                 self.partial_event = event_data;
                 None
             }
@@ -358,7 +363,8 @@ impl Iterator for SegmentSlice {
             }
             None => {
                 info!("Partial event read by the extract_event method, invoke read again to fetch the complete event.");
-                self.reader_meta.insert(self.segment.clone(), self.clone());
+                let mut map = self.reader_meta.write().expect("RWLock Poisoned");
+                map.insert(self.segment.clone(), self.clone()); // Discuss: is there a better way.
                 None
             }
         }
@@ -504,9 +510,10 @@ mod tests {
             end_offset: i64::MAX,
             segment_data: BytePlaceholder::empty(segment.clone()),
             handle: Handle::current(),
+            partial_event_length: 0,
             partial_event: BytePlaceholder::empty(segment.clone()),
             partial_header: BytePlaceholder::empty(segment.clone()),
-            reader_meta: Arc::new(CHashMap::new()),
+            reader_meta: Arc::new(RwLock::new(HashMap::new())),
         };
         segment_slice
     }

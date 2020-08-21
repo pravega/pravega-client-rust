@@ -29,9 +29,10 @@ async-trait = "0.1.36"
 futures = "0.3.5"
 snafu = "0.6.2"
 tokio = { version = "0.2.16", features = ["full"] }
-tracing = "0.1.17"
+tracing = { version ="0.1.17", features = ["log-always"]}
 tracing-futures = "0.2.4"
 tracing-subscriber = "0.2.2"
+#tracing-log = "0.1.1"
 rand = "0.7.3"
 uuid = {version = "0.8", features = ["v4"]}
 serde = { version = "1.0", features = ["derive"] }
@@ -45,7 +46,6 @@ serde_cbor = "0.11.1"
 pcg_rand = "0.11.1"
 bytes = "0.5"
 tokio-util = "0.3.1"
-chashmap = "2.2.2"
 
 [dev-dependencies]
 pravega-rust-client-integration-test = { path = "./integration_test"}

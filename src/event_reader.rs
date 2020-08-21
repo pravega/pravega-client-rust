@@ -11,20 +11,19 @@
 use crate::client_factory::ClientFactoryInternal;
 use crate::segment_slice::{BytePlaceholder, SegmentSlice};
 use bytes::BufMut;
-use chashmap::CHashMap;
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream};
-use std::sync::Arc;
-use std::time::Duration;
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::time::delay_for;
-use tracing::info;
+use tokio::time::{delay_for, Duration};
+use tracing::{debug, info};
 
 #[derive(new)]
 pub struct EventReader {
     stream: ScopedStream,
     factory: Arc<ClientFactoryInternal>,
-    slices: Arc<CHashMap<ScopedSegment, SegmentSlice>>,
+    slices: Arc<RwLock<HashMap<ScopedSegment, SegmentSlice>>>,
     rx: Receiver<BytePlaceholder>,
     tx: Sender<BytePlaceholder>,
 }
@@ -38,7 +37,7 @@ impl EventReader {
         EventReader {
             stream,
             factory,
-            slices: Arc::new(CHashMap::new()),
+            slices: Arc::new(RwLock::new(HashMap::new())),
             rx,
             tx,
         }
@@ -52,7 +51,7 @@ impl EventReader {
         factory: Arc<ClientFactoryInternal>,
         tx: Sender<BytePlaceholder>,
         rx: Receiver<BytePlaceholder>,
-        segment_slice_map: Arc<CHashMap<ScopedSegment, SegmentSlice>>,
+        segment_slice_map: Arc<RwLock<HashMap<ScopedSegment, SegmentSlice>>>,
     ) -> Self {
         EventReader {
             stream,
@@ -68,31 +67,50 @@ impl EventReader {
     }
 
     async fn wait_for_slice_return(&self, segment: &ScopedSegment) {
-        while !self.slices.contains_key(segment) {
+        // TODO: use one shot...
+        while !self.slices.read().expect("RwLock poisoned").contains_key(segment) {
             delay_for(Duration::from_millis(1000)).await;
         }
     }
 
     ///
     /// This function tries to acquire data for the next read.
+    /// Discuss: with team.
     ///
     pub async fn acquire_segment(&mut self) -> Option<SegmentSlice> {
         if let Some(data) = self.rx.recv().await {
-            if let Some(mut slice) = self.slices.remove(&data.segment) {
+            assert_eq!(
+                self.stream,
+                data.segment.get_scoped_stream(),
+                "Received data from a different segment"
+            );
+
+            if let Some(mut slice) = self
+                .slices
+                .write()
+                .expect("RWLock Poisoned")
+                .remove(&data.segment)
+            {
                 // SegmentSlice has not been dished out for consumption.
                 EventReader::add_data_to_segment_slice(data, &mut slice);
                 Some(slice)
             } else {
                 // SegmentSlice has already been dished out for consumption.
-                // Should this be allowed. Discuss it...
-                println!("Data received for segment {:?}", &data.segment);
-                self.wait_for_slice_return(&data.segment).await;
-                let mut slice = self.slices.remove(&data.segment).expect("segment slice missing");
+                // Should this be allowed? Discuss: it...
+                debug!("Data received for segment {:?}", &data.segment);
+                //TODO: use one should to improve this
+                self.wait_for_slice_return(&data.segment).await; //
+                let mut slice = self
+                    .slices
+                    .write()
+                    .expect("RwLock Poisoned")
+                    .remove(&data.segment)
+                    .expect("segment slice missing");
                 EventReader::add_data_to_segment_slice(data, &mut slice);
                 Some(slice)
             }
         } else {
-            info!("All Segment slices have completed reading from the stream, fetch it from the state syncrhonizer.");
+            info!("All Segment slices have completed reading from the stream, fetch it from the state synchronizer.");
             None
         }
     }
@@ -124,57 +142,58 @@ mod tests {
     use crate::event_reader::EventReader;
     use crate::segment_slice::{BytePlaceholder, SegmentSlice};
     use bytes::{BufMut, BytesMut};
-    use chashmap::CHashMap;
     use pravega_rust_client_shared::{Scope, ScopedSegment, ScopedStream, Stream};
     use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
     use pravega_wire_protocol::commands::{Command, EventCommand};
+    use std::collections::HashMap;
     use std::iter;
-    use std::sync::Arc;
+    use std::sync::{Arc, RwLock};
     use tokio::runtime::Handle;
     use tokio::sync::mpsc;
     use tokio::sync::mpsc::Sender;
+    use tracing::Level;
 
     #[test]
-    fn test_read_events() {
+    fn test_read_events_single_segment() {
+        const NUM_EVENTS: usize = 100;
         let (tx, rx) = mpsc::channel(1);
-
+        tracing_subscriber::fmt().with_max_level(Level::TRACE).finish();
         let cf = ClientFactory::new(
             ClientConfigBuilder::default()
                 .controller_uri(TEST_CONTROLLER_URI)
                 .build()
                 .unwrap(),
         );
-        let stream: ScopedStream = ScopedStream {
-            scope: Scope {
-                name: "scope".to_string(),
-            },
-            stream: Stream {
-                name: "str".to_string(),
-            },
-        };
+        let stream = get_scoped_stream("scope", "test");
+
         // simulate data being received from Segment store.
         cf.get_runtime_handle().enter(|| {
-            tokio::spawn(generate_variable_size_events(tx.clone(), 10, 3, 0));
+            tokio::spawn(generate_variable_size_events(tx.clone(), 10, NUM_EVENTS, 0));
         });
 
         // simulate initialization of a Reader
-        let map = Arc::new(CHashMap::new());
+        let map = Arc::new(RwLock::new(HashMap::new()));
         let init_segments = vec![
             create_segment_slice(0, cf.get_runtime_handle(), map.clone()),
             create_segment_slice(1, cf.get_runtime_handle(), map.clone()),
         ];
-        for s in init_segments {
-            map.insert(s.segment.clone(), s);
-        }
+        update_segment_slices(&map, init_segments);
 
-        // create a new Event Reader.
+        // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(stream, cf.0.clone(), tx.clone(), rx, map);
+
+        let mut event_count = 0;
+        let mut event_size = 0;
 
         // Attempt to acquire a segment.
         while let Some(mut slice) = cf.get_runtime_handle().block_on(reader.acquire_segment()) {
             loop {
                 if let Some(event) = slice.next() {
                     println!("Read event {:?}", event);
+                    assert_eq!(event.value.len(), event_size + 1, "Event has been missed");
+                    assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
+                    event_size += 1;
+                    event_count += 1;
                 } else {
                     println!(
                         "Finished reading from segment {:?}, segment is auto released",
@@ -183,7 +202,35 @@ mod tests {
                     break; // try to acquire the next segment.
                 }
             }
+            if event_count == NUM_EVENTS {
+                // all events have been read. Exit test.
+                break;
+            }
         }
+    }
+
+    // Helper method to update slice meta
+    fn update_segment_slices(
+        map: &Arc<RwLock<HashMap<ScopedSegment, SegmentSlice>>>,
+        init_segments: Vec<SegmentSlice>,
+    ) {
+        let mut slice_map = map.write().expect("RwLock Poisoned");
+        for s in init_segments {
+            slice_map.insert(s.segment.clone(), s);
+        }
+        drop(slice_map); // release write lock.
+    }
+
+    fn get_scoped_stream(scope: &str, stream: &str) -> ScopedStream {
+        let stream: ScopedStream = ScopedStream {
+            scope: Scope {
+                name: scope.to_string(),
+            },
+            stream: Stream {
+                name: stream.to_string(),
+            },
+        };
+        stream
     }
 
     // Generate events to simulate Pravega SegmentReadCommand.
@@ -193,11 +240,11 @@ mod tests {
         num_events: usize,
         segment_id: usize,
     ) {
-        let mut segment_name = "test/".to_owned();
+        let mut segment_name = "scope/test/".to_owned();
         segment_name.push_str(segment_id.to_string().as_ref());
         let mut buf = BytesMut::with_capacity(buf_size);
         let mut offset: i64 = 0;
-        for i in 1..num_events {
+        for i in 1..num_events + 1 {
             let mut data = event_data(i);
             if data.len() < buf.capacity() - buf.len() {
                 buf.put(data);
@@ -244,13 +291,13 @@ mod tests {
         buf
     }
 
-    // create a segment slice object without spawining a background task.
+    // create a segment slice object without spawning a background task.
     fn create_segment_slice(
         segment_id: i64,
         handle: Handle,
-        reader_meta: Arc<CHashMap<ScopedSegment, SegmentSlice>>,
+        reader_meta: Arc<RwLock<HashMap<ScopedSegment, SegmentSlice>>>,
     ) -> SegmentSlice {
-        let mut segment_name = "test/".to_owned();
+        let mut segment_name = "scope/test/".to_owned();
         segment_name.push_str(segment_id.to_string().as_ref());
         let segment = ScopedSegment::from(segment_name.as_str());
         let segment_slice = SegmentSlice {
@@ -260,10 +307,19 @@ mod tests {
             end_offset: i64::MAX,
             segment_data: BytePlaceholder::empty(segment.clone()),
             handle,
+            partial_event_length: 0,
             partial_event: BytePlaceholder::empty(segment.clone()),
             partial_header: BytePlaceholder::empty(segment.clone()),
             reader_meta,
         };
         segment_slice
+    }
+
+    // Helper method to verify all events read by Segment slice.
+    fn is_all_same<T: Eq>(slice: &[T]) -> bool {
+        slice
+            .get(0)
+            .map(|first| slice.iter().all(|x| x == first))
+            .unwrap_or(true)
     }
 }
