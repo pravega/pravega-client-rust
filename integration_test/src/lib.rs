@@ -57,8 +57,8 @@ fn check_standalone_status() -> bool {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::net::SocketAddr;
     use pravega_client_rust::trace;
+    use std::net::SocketAddr;
     use wirecommand_tests::*;
 
     #[test]

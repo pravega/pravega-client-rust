@@ -248,7 +248,7 @@ impl SegmentWriter {
             to_send.len(),
             self.segment.to_string(),
             self.id,
-            self.connection.as_ref().expect("must have writer").get_id(),
+            self.connection.as_ref().expect("must have connection").get_id(),
         );
 
         let request = Requests::AppendBlockEnd(AppendBlockEndCommand {
@@ -260,7 +260,7 @@ impl SegmentWriter {
             request_id: get_request_id(),
         });
 
-        let writer = self.writer.as_mut().expect("must have writer");
+        let writer = self.connection.as_mut().expect("must have connection");
         writer.write(&request).await.context(SegmentWriting {})?;
 
         update!(ClientMetrics::ClientAppendBlockSize, total_size as u64, "Segment Writer Id" => self.id.to_string());
