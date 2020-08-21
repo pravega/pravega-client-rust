@@ -7,14 +7,43 @@
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
+use enum_iterator::IntoEnumIterator;
 use metrics::register_gauge;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use std::net::SocketAddr;
 
+struct Metric(ClientMetrics, String, String);
+
+#[derive(Clone, IntoEnumIterator, PartialEq)]
 pub enum ClientMetrics {
     ClientAppendLatency,
     ClientAppendBlockSize,
     ClientOutstandingAppendCount,
+}
+
+impl ClientMetrics {
+    fn register(&self) {
+        match self {
+            ClientMetrics::ClientAppendLatency => {
+                register_gauge!(
+                    "pravega.client.segment.append_latency_ms",
+                    "The latency for a single append."
+                );
+            }
+            ClientMetrics::ClientAppendBlockSize => {
+                register_gauge!(
+                    "pravega.client.segment.append_block_size",
+                    "The block size for a single append wirecommand."
+                );
+            }
+            ClientMetrics::ClientOutstandingAppendCount => {
+                register_gauge!(
+                    "pravega.client.segment.outstanding_append_count",
+                    "The current outstanding appends from caller."
+                );
+            }
+        }
+    }
 }
 
 pub fn metric_init(scrape_port: SocketAddr) {
@@ -22,20 +51,13 @@ pub fn metric_init(scrape_port: SocketAddr) {
         .listen_address(scrape_port)
         .install()
         .expect("install scraper");
-    register_gauge!(
-        "pravega.client.segment.append_latency_ms",
-        "The latency for a single append."
-    );
-    register_gauge!(
-        "pravega.client.segment.append_block_size",
-        "The block size for a single append wirecommand."
-    );
-    register_gauge!(
-        "pravega.client.segment.outstanding_append_count",
-        "The current outstanding appends from caller."
-    );
+
+    for metric in ClientMetrics::into_enum_iter() {
+        metric.register();
+    }
 }
 
+#[macro_export]
 macro_rules! update {
     ($metric:expr, $value:expr, $($tags:tt)*) => {
         match $metric {
