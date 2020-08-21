@@ -8,11 +8,11 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_controller_client::ControllerClient;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
+use tracing::info;
 
 pub fn test_controller_apis() {
     let config = ClientConfigBuilder::default()

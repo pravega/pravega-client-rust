@@ -10,10 +10,11 @@
 
 use crate::client_factory::{ClientFactory, ClientFactoryInternal};
 use crate::error::*;
+use crate::get_random_u128;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::reactors::SegmentReactor;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
-use pravega_rust_client_shared::ScopedSegment;
+use pravega_rust_client_shared::{ScopedSegment, WriterId};
 use pravega_wire_protocol::client_config::ClientConfig;
 use std::io::Error;
 use std::io::{ErrorKind, Read, Write};
@@ -22,13 +23,15 @@ use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;
+use tracing::info_span;
+use tracing_futures::Instrument;
 use uuid::Uuid;
 
 const BUFFER_SIZE: usize = 4096;
 const CHANNEL_CAPACITY: usize = 100;
 
 pub struct ByteStreamWriter {
-    writer_id: Uuid,
+    writer_id: WriterId,
     sender: Sender<Incoming>,
     runtime_handle: Handle,
     oneshot_receiver: Option<oneshot::Receiver<Result<(), SegmentWriterError>>>,
@@ -92,18 +95,17 @@ impl ByteStreamWriter {
     ) -> Self {
         let (sender, receiver) = channel(CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
+        let writer_id = WriterId::from(get_random_u128());
+        let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
         handle.enter(|| {
-            tokio::spawn(SegmentReactor::run(
-                segment,
-                sender.clone(),
-                receiver,
-                factory.clone(),
-                config,
-            ))
+            tokio::spawn(
+                SegmentReactor::run(segment, sender.clone(), receiver, factory.clone(), config)
+                    .instrument(span),
+            )
         });
         ByteStreamWriter {
-            writer_id: Uuid::new_v4(),
+            writer_id,
             sender,
             runtime_handle: handle,
             oneshot_receiver: None,
@@ -147,7 +149,7 @@ impl Read for ByteStreamReader<'_> {
                     Err(Error::new(ErrorKind::Other, "segment is sealed"))
                 } else {
                     self.offset += cmd.data.len() as i64;
-                    buf.copy_from_slice(&cmd.data);
+                    buf[..cmd.data.len()].copy_from_slice(&cmd.data);
                     Ok(cmd.data.len())
                 }
             }

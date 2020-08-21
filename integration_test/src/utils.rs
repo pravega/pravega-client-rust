@@ -8,7 +8,6 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_rust_client_shared::*;
@@ -25,7 +24,6 @@ pub(crate) async fn create_scope_stream(
         .create_scope(scope_name)
         .await
         .expect("create scope");
-    info!("Scope {:?} created", scope_name);
     let request = StreamConfiguration {
         scoped_stream: ScopedStream {
             scope: scope_name.clone(),
@@ -46,5 +44,4 @@ pub(crate) async fn create_scope_stream(
         .create_stream(&request)
         .await
         .expect("create stream");
-    info!("Stream {:?} created", stream_name);
 }

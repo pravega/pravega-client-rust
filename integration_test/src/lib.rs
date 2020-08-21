@@ -27,6 +27,7 @@ use crate::pravega_service::{PravegaService, PravegaStandaloneService};
 use pravega_client_rust::metric;
 use std::process::Command;
 use std::{thread, time};
+use tracing::{debug, error, info, span, warn, Level};
 
 const PROMETHEUS_SCRAPE_PORT: &str = "127.0.0.1:8081";
 
@@ -57,10 +58,14 @@ fn check_standalone_status() -> bool {
 mod test {
     use super::*;
     use std::net::SocketAddr;
+    use pravega_client_rust::trace;
     use wirecommand_tests::*;
 
     #[test]
     fn integration_test() {
+        trace::init();
+        let span = span!(Level::INFO, "integration test");
+        let _enter = span.enter();
         let mut pravega = PravegaStandaloneService::start(false);
 
         metric::metric_init(PROMETHEUS_SCRAPE_PORT.parse::<SocketAddr>().unwrap());
