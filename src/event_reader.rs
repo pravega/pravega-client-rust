@@ -23,7 +23,7 @@ use tracing::{debug, info};
 pub struct EventReader {
     stream: ScopedStream,
     factory: Arc<ClientFactoryInternal>,
-    slices: Arc<RwLock<HashMap<ScopedSegment, SegmentSlice>>>,
+    slices: Arc<RwLock<HashMap<String, SegmentSlice>>>,
     rx: Receiver<BytePlaceholder>,
     tx: Sender<BytePlaceholder>,
 }
@@ -51,7 +51,7 @@ impl EventReader {
         factory: Arc<ClientFactoryInternal>,
         tx: Sender<BytePlaceholder>,
         rx: Receiver<BytePlaceholder>,
-        segment_slice_map: Arc<RwLock<HashMap<ScopedSegment, SegmentSlice>>>,
+        segment_slice_map: Arc<RwLock<HashMap<String, SegmentSlice>>>,
     ) -> Self {
         EventReader {
             stream,
@@ -66,7 +66,7 @@ impl EventReader {
         //The above two call this with different offsets.
     }
 
-    async fn wait_for_slice_return(&self, segment: &ScopedSegment) {
+    async fn wait_for_slice_return(&self, segment: &String) {
         // TODO: use one shot...
         while !self.slices.read().expect("RwLock poisoned").contains_key(segment) {
             delay_for(Duration::from_millis(1000)).await;
@@ -81,7 +81,7 @@ impl EventReader {
         if let Some(data) = self.rx.recv().await {
             assert_eq!(
                 self.stream,
-                data.segment.get_scoped_stream(),
+                ScopedSegment::from(data.segment.as_str()).get_scoped_stream(),
                 "Received data from a different segment"
             );
 
@@ -98,7 +98,7 @@ impl EventReader {
                 // SegmentSlice has already been dished out for consumption.
                 // Should this be allowed? Discuss: it...
                 debug!("Data received for segment {:?}", &data.segment);
-                //TODO: use one should to improve this
+                //TODO: use oneshot to improve this
                 self.wait_for_slice_return(&data.segment).await; //
                 let mut slice = self
                     .slices
@@ -174,8 +174,8 @@ mod tests {
         // simulate initialization of a Reader
         let map = Arc::new(RwLock::new(HashMap::new()));
         let init_segments = vec![
-            create_segment_slice(0, cf.get_runtime_handle(), map.clone()),
-            create_segment_slice(1, cf.get_runtime_handle(), map.clone()),
+            create_segment_slice(0, map.clone()),
+            create_segment_slice(1, map.clone()),
         ];
         update_segment_slices(&map, init_segments);
 
@@ -197,7 +197,7 @@ mod tests {
                 } else {
                     println!(
                         "Finished reading from segment {:?}, segment is auto released",
-                        slice.segment
+                        slice.scoped_segment
                     );
                     break; // try to acquire the next segment.
                 }
@@ -211,12 +211,12 @@ mod tests {
 
     // Helper method to update slice meta
     fn update_segment_slices(
-        map: &Arc<RwLock<HashMap<ScopedSegment, SegmentSlice>>>,
+        map: &Arc<RwLock<HashMap<String, SegmentSlice>>>,
         init_segments: Vec<SegmentSlice>,
     ) {
         let mut slice_map = map.write().expect("RwLock Poisoned");
         for s in init_segments {
-            slice_map.insert(s.segment.clone(), s);
+            slice_map.insert(s.scoped_segment.clone(), s);
         }
         drop(slice_map); // release write lock.
     }
@@ -253,7 +253,7 @@ mod tests {
                     let free_space = buf.capacity() - buf.len();
                     if free_space == 0 {
                         tx.send(BytePlaceholder {
-                            segment: ScopedSegment::from(segment_name.as_str()),
+                            segment: ScopedSegment::from(segment_name.as_str()).to_string(),
                             offset_in_segment: offset,
                             value: buf,
                         })
@@ -271,7 +271,7 @@ mod tests {
         }
         // send the last event.
         tx.send(BytePlaceholder {
-            segment: ScopedSegment::from(segment_name.as_str()),
+            segment: ScopedSegment::from(segment_name.as_str()).to_string(),
             offset_in_segment: offset,
             value: buf,
         })
@@ -279,7 +279,7 @@ mod tests {
         .unwrap();
     }
 
-    // Generate event data given the lenth of the event. The data is 'a' replicated len times.
+    // Generate event data given the length of the event. The data is 'a' replicated `len` times.
     fn event_data(len: usize) -> BytesMut {
         let mut buf = BytesMut::with_capacity(len + 8);
         buf.put_i32(EventCommand::TYPE_CODE);
@@ -294,28 +294,26 @@ mod tests {
     // create a segment slice object without spawning a background task.
     fn create_segment_slice(
         segment_id: i64,
-        handle: Handle,
-        reader_meta: Arc<RwLock<HashMap<ScopedSegment, SegmentSlice>>>,
+        reader_meta: Arc<RwLock<HashMap<String, SegmentSlice>>>,
     ) -> SegmentSlice {
         let mut segment_name = "scope/test/".to_owned();
         segment_name.push_str(segment_id.to_string().as_ref());
         let segment = ScopedSegment::from(segment_name.as_str());
         let segment_slice = SegmentSlice {
             start_offset: 0,
-            segment: segment.clone(),
+            scoped_segment: segment.to_string(),
             read_offset: 0,
             end_offset: i64::MAX,
-            segment_data: BytePlaceholder::empty(segment.clone()),
-            handle,
+            segment_data: BytePlaceholder::empty(),
             partial_event_length: 0,
-            partial_event: BytePlaceholder::empty(segment.clone()),
-            partial_header: BytePlaceholder::empty(segment.clone()),
+            partial_event: BytePlaceholder::empty(),
+            partial_header: BytePlaceholder::empty(),
             reader_meta,
         };
         segment_slice
     }
 
-    // Helper method to verify all events read by Segment slice.
+    // Helper method to verify if the bytes read by Segment slice are the same.
     fn is_all_same<T: Eq>(slice: &[T]) -> bool {
         slice
             .get(0)

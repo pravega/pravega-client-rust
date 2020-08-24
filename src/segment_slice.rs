@@ -17,6 +17,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::Sender;
+use tokio::sync::oneshot;
 use tokio::time::{delay_for, Duration};
 use tracing::{debug, error, info, warn};
 
@@ -38,15 +39,15 @@ pub struct Event {
 #[derive(Clone)]
 pub struct SegmentSlice {
     pub(crate) start_offset: i64,
-    pub(crate) segment: ScopedSegment,
+    pub(crate) scoped_segment: String,
     pub(crate) read_offset: i64,
     pub(crate) end_offset: i64,
     pub(crate) segment_data: BytePlaceholder,
-    pub(crate) handle: Handle,
     pub(crate) partial_event_length: usize,
     pub(crate) partial_event: BytePlaceholder,
     pub(crate) partial_header: BytePlaceholder,
-    pub(crate) reader_meta: Arc<RwLock<HashMap<ScopedSegment, SegmentSlice>>>,
+    pub(crate) reader_meta: Arc<RwLock<HashMap<String, SegmentSlice>>>,
+    //pub(crate) slice_return_tx: oneshot::Sender<bool>,
 }
 
 ///
@@ -59,7 +60,7 @@ const READ_BUFFER_SIZE: i32 = 2048; // TODO: 128K
 ///
 #[derive(Debug, Clone)]
 pub struct BytePlaceholder {
-    pub(crate) segment: ScopedSegment,
+    pub(crate) segment: String,
     pub(crate) offset_in_segment: i64,
     pub(crate) value: BytesMut,
 }
@@ -124,11 +125,27 @@ impl BytePlaceholder {
     ///
     /// Returns an empty BytePlaceholder. The offset is set as 0.
     ///
-    pub fn empty(segment: ScopedSegment) -> BytePlaceholder {
+    pub fn empty() -> BytePlaceholder {
         BytePlaceholder {
-            segment,
+            segment: Default::default(),
             offset_in_segment: 0,
             value: BytesMut::with_capacity(0),
+        }
+    }
+}
+
+impl Default for SegmentSlice {
+    fn default() -> SegmentSlice {
+        SegmentSlice {
+            start_offset: Default::default(),
+            scoped_segment: Default::default(),
+            read_offset: Default::default(),
+            end_offset: i64::MAX,
+            segment_data: BytePlaceholder::empty(),
+            partial_event_length: Default::default(),
+            partial_event: BytePlaceholder::empty(),
+            partial_header: BytePlaceholder::empty(),
+            reader_meta: Arc::new(Default::default()),
         }
     }
 }
@@ -144,7 +161,7 @@ impl SegmentSlice {
         start_offset: i64,
         tx: Sender<BytePlaceholder>,
         factory: Arc<ClientFactoryInternal>,
-        reader_meta: Arc<RwLock<HashMap<ScopedSegment, SegmentSlice>>>,
+        reader_meta: Arc<RwLock<HashMap<String, SegmentSlice>>>,
     ) -> Self {
         let handle = factory.get_runtime_handle();
         handle.enter(|| {
@@ -158,14 +175,13 @@ impl SegmentSlice {
 
         SegmentSlice {
             start_offset,
-            segment: segment.clone(),
+            scoped_segment: segment.to_string(),
             read_offset: 0,
             end_offset: i64::MAX,
-            segment_data: BytePlaceholder::empty(segment.clone()),
-            handle,
+            segment_data: BytePlaceholder::empty(),
             partial_event_length: 0,
-            partial_event: BytePlaceholder::empty(segment.clone()),
-            partial_header: BytePlaceholder::empty(segment),
+            partial_event: BytePlaceholder::empty(),
+            partial_header: BytePlaceholder::empty(),
             reader_meta,
         }
     }
@@ -197,7 +213,7 @@ impl SegmentSlice {
                     } else {
                         let segment_data = bytes::BytesMut::from(reply.data.as_slice());
                         let data = BytePlaceholder {
-                            segment: segment.clone(),
+                            segment: segment.to_string(),
                             offset_in_segment: offset,
                             value: segment_data,
                         };
@@ -229,7 +245,7 @@ impl SegmentSlice {
     ///
     fn get_segment(&self) -> String {
         //Returns the name of the segment
-        self.segment.to_string()
+        self.scoped_segment.clone()
     }
 
     ///
@@ -248,7 +264,7 @@ impl SegmentSlice {
             if let Some(temp_event) = parse_header(&mut self.partial_header) {
                 self.partial_event_length = temp_event.value.capacity();
                 self.partial_event = temp_event;
-                self.partial_header = BytePlaceholder::empty(self.segment.clone());
+                self.partial_header = BytePlaceholder::empty();
             } else {
                 error!("Invalid Header length observed");
                 panic!("Invalid Header length");
@@ -264,7 +280,7 @@ impl SegmentSlice {
                     offset_in_segment: self.partial_event.offset_in_segment,
                     value: self.partial_event.value.to_vec(),
                 };
-                self.partial_event = BytePlaceholder::empty(self.segment.clone());
+                self.partial_event = BytePlaceholder::empty();
                 self.partial_event_length = 0;
                 Some(event)
             } else {
@@ -364,7 +380,7 @@ impl Iterator for SegmentSlice {
             None => {
                 info!("Partial event read by the extract_event method, invoke read again to fetch the complete event.");
                 let mut map = self.reader_meta.write().expect("RWLock Poisoned");
-                map.insert(self.segment.clone(), self.clone()); // Discuss: is there a better way.
+                map.insert(self.scoped_segment.clone(), self.clone()); // Discuss: is there a better way.
                 None
             }
         }
@@ -377,8 +393,8 @@ mod tests {
     use super::*;
     use bytes::{Buf, BufMut, BytesMut};
     use std::iter;
-    use tokio::sync::mpsc;
     use tokio::sync::mpsc::Sender;
+    use tokio::sync::{mpsc, oneshot};
 
     ///
     /// This method reads the header and returns a BytesMut whose size is as big as the event.
@@ -396,6 +412,20 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn test_one_shot() {
+        let (tx, rx) = oneshot::channel();
+        tokio::spawn(async move {
+            if let Err(_) = tx.send(3) {
+                println!("the receiver dropped");
+            }
+        });
+
+        match rx.await {
+            Ok(v) => println!("got = {:?}", v),
+            Err(_) => println!("the sender dropped"),
+        }
+    }
     #[tokio::test]
     async fn test_read_events() {
         let (tx, mut rx) = mpsc::channel(1);
@@ -505,14 +535,13 @@ mod tests {
         let segment = ScopedSegment::from("test/test/123");
         let segment_slice = SegmentSlice {
             start_offset: 0,
-            segment: segment.clone(),
+            scoped_segment: segment.to_string(),
             read_offset: 0,
             end_offset: i64::MAX,
-            segment_data: BytePlaceholder::empty(segment.clone()),
-            handle: Handle::current(),
+            segment_data: BytePlaceholder::empty(),
             partial_event_length: 0,
-            partial_event: BytePlaceholder::empty(segment.clone()),
-            partial_header: BytePlaceholder::empty(segment.clone()),
+            partial_event: BytePlaceholder::empty(),
+            partial_header: BytePlaceholder::empty(),
             reader_meta: Arc::new(RwLock::new(HashMap::new())),
         };
         segment_slice
@@ -535,7 +564,7 @@ mod tests {
         num_events: usize,
     ) {
         let mut buf = BytesMut::with_capacity(buf_size);
-        let segment = ScopedSegment::from("test/test/123");
+        let segment = ScopedSegment::from("test/test/123").to_string();
         let mut offset: i64 = 0;
         for i in 1..num_events {
             let mut data = event_data(i);
@@ -572,7 +601,7 @@ mod tests {
         .unwrap();
     }
 
-    // Generate event data given the lenth of the event.
+    // Generate event data given the length of the event.
     // The data is 'a'
     fn event_data(len: usize) -> BytesMut {
         let mut buf = BytesMut::with_capacity(len + 8);
@@ -588,7 +617,7 @@ mod tests {
     // Custom multiple size events.
     async fn generate_multiple_constant_size_events(mut tx: Sender<BytePlaceholder>) {
         let mut buf = BytesMut::with_capacity(10);
-        let segment = ScopedSegment::from("test/test/123");
+        let segment = ScopedSegment::from("test/test/123").to_string();
 
         buf.put_i32(1);
         buf.put_u8(b'a');
@@ -692,7 +721,7 @@ mod tests {
             }
             if let Err(_) = tx
                 .send(BytePlaceholder {
-                    segment: ScopedSegment::from("test/test/123"),
+                    segment: ScopedSegment::from("test/test/123").to_string(),
                     offset_in_segment: 0,
                     value: buf,
                 })

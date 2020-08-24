@@ -569,4 +569,45 @@ mod test {
 
         assert_eq!(segment_from_string, segment);
     }
+
+    #[test]
+    fn test_scoped_segment() {
+        let seg1 = ScopedSegment::from("test/123.#epoch.0");
+        assert_eq!(
+            seg1.stream,
+            Stream {
+                name: "test".to_string()
+            }
+        );
+        assert_eq!(
+            seg1.segment,
+            Segment {
+                number: 123,
+                tx_id: None
+            }
+        );
+        assert_eq!(seg1.to_string(), "/test/123.#epoch.0");
+
+        let seg2 = ScopedSegment::from("scope/test/123");
+        assert_eq!(
+            seg2.scope,
+            Scope {
+                name: "scope".to_string()
+            }
+        );
+        assert_eq!(
+            seg1.stream,
+            Stream {
+                name: "test".to_string()
+            }
+        );
+        assert_eq!(
+            seg1.segment,
+            Segment {
+                number: 123,
+                tx_id: None
+            }
+        );
+        assert_eq!(seg2.to_string(), "scope/test/123.#epoch.0");
+    }
 }
