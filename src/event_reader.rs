@@ -66,7 +66,7 @@ impl EventReader {
         //The above two call this with different offsets.
     }
 
-    async fn wait_for_slice_return(&self, segment: &String) {
+    async fn wait_for_slice_return(&self, segment: &str) {
         // TODO: use one shot...
         while !self.slices.read().expect("RwLock poisoned").contains_key(segment) {
             delay_for(Duration::from_millis(1000)).await;
