@@ -15,7 +15,6 @@ use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::commands::{Command, EventCommand, TYPE_PLUS_LENGTH_SIZE};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use tokio::runtime::Handle;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
 use tokio::time::{delay_for, Duration};
@@ -36,8 +35,14 @@ pub struct Event {
 /// iterator.
 ///
 ///
-#[derive(Clone)]
 pub struct SegmentSlice {
+    pub(crate) meta: SliceMetadata,
+    pub(crate) reader_meta: Arc<RwLock<HashMap<String, SliceMetadata>>>,
+    pub(crate) slice_return_tx: Option<oneshot::Sender<bool>>,
+}
+
+#[derive(Clone)]
+pub struct SliceMetadata {
     pub(crate) start_offset: i64,
     pub(crate) scoped_segment: String,
     pub(crate) read_offset: i64,
@@ -46,8 +51,6 @@ pub struct SegmentSlice {
     pub(crate) partial_event_length: usize,
     pub(crate) partial_event: BytePlaceholder,
     pub(crate) partial_header: BytePlaceholder,
-    pub(crate) reader_meta: Arc<RwLock<HashMap<String, SegmentSlice>>>,
-    //pub(crate) slice_return_tx: oneshot::Sender<bool>,
 }
 
 ///
@@ -134,9 +137,9 @@ impl BytePlaceholder {
     }
 }
 
-impl Default for SegmentSlice {
-    fn default() -> SegmentSlice {
-        SegmentSlice {
+impl Default for SliceMetadata {
+    fn default() -> Self {
+        SliceMetadata {
             start_offset: Default::default(),
             scoped_segment: Default::default(),
             read_offset: Default::default(),
@@ -145,7 +148,6 @@ impl Default for SegmentSlice {
             partial_event_length: Default::default(),
             partial_event: BytePlaceholder::empty(),
             partial_header: BytePlaceholder::empty(),
-            reader_meta: Arc::new(Default::default()),
         }
     }
 }
@@ -161,7 +163,8 @@ impl SegmentSlice {
         start_offset: i64,
         tx: Sender<BytePlaceholder>,
         factory: Arc<ClientFactoryInternal>,
-        reader_meta: Arc<RwLock<HashMap<String, SegmentSlice>>>,
+        reader_meta: Arc<RwLock<HashMap<String, SliceMetadata>>>,
+        slice_return_tx: oneshot::Sender<bool>,
     ) -> Self {
         let handle = factory.get_runtime_handle();
         handle.enter(|| {
@@ -174,15 +177,18 @@ impl SegmentSlice {
         });
 
         SegmentSlice {
-            start_offset,
-            scoped_segment: segment.to_string(),
-            read_offset: 0,
-            end_offset: i64::MAX,
-            segment_data: BytePlaceholder::empty(),
-            partial_event_length: 0,
-            partial_event: BytePlaceholder::empty(),
-            partial_header: BytePlaceholder::empty(),
+            meta: SliceMetadata {
+                start_offset,
+                scoped_segment: segment.to_string(),
+                read_offset: 0,
+                end_offset: i64::MAX,
+                segment_data: BytePlaceholder::empty(),
+                partial_event_length: 0,
+                partial_event: BytePlaceholder::empty(),
+                partial_header: BytePlaceholder::empty(),
+            },
             reader_meta,
+            slice_return_tx: Some(slice_return_tx),
         }
     }
 
@@ -237,7 +243,7 @@ impl SegmentSlice {
     /// Return the starting offset of the SegmentSlice.
     ///
     fn get_starting_offset(&self) -> i64 {
-        self.start_offset
+        self.meta.start_offset
     }
 
     ///
@@ -245,8 +251,14 @@ impl SegmentSlice {
     ///
     fn get_segment(&self) -> String {
         //Returns the name of the segment
-        self.scoped_segment.clone()
+        self.meta.scoped_segment.clone()
     }
+
+    ///
+    ///
+    ///
+    // fn get_slice_return_tx(&mut self) {
+    // }
 
     ///
     /// Extract the next event from the data received from the Segment store.
@@ -257,46 +269,49 @@ impl SegmentSlice {
         parse_header: fn(&mut BytePlaceholder) -> Option<BytePlaceholder>,
     ) -> Option<Event> {
         // check if a partial header was read last.
-        if self.partial_header.value.capacity() != 0 {
-            let bytes_to_read = TYPE_PLUS_LENGTH_SIZE as usize - self.partial_header.value.capacity();
-            let t = self.segment_data.split_to(bytes_to_read);
-            self.partial_header.value.put(t.value);
-            if let Some(temp_event) = parse_header(&mut self.partial_header) {
-                self.partial_event_length = temp_event.value.capacity();
-                self.partial_event = temp_event;
-                self.partial_header = BytePlaceholder::empty();
+        if self.meta.partial_header.value.capacity() != 0 {
+            let bytes_to_read = TYPE_PLUS_LENGTH_SIZE as usize - self.meta.partial_header.value.capacity();
+            let t = self.meta.segment_data.split_to(bytes_to_read);
+            self.meta.partial_header.value.put(t.value);
+            if let Some(temp_event) = parse_header(&mut self.meta.partial_header) {
+                self.meta.partial_event_length = temp_event.value.capacity();
+                self.meta.partial_event = temp_event;
+                self.meta.partial_header = BytePlaceholder::empty();
             } else {
                 error!("Invalid Header length observed");
                 panic!("Invalid Header length");
             }
         }
         // check if a partial event was read the last time.
-        if self.partial_event_length > 0 {
-            let bytes_to_read = self.partial_event_length - self.partial_event.value.len();
-            if self.segment_data.value.remaining() >= bytes_to_read {
-                let t = self.segment_data.split_to(bytes_to_read);
-                self.partial_event.value.put(t.value);
+        if self.meta.partial_event_length > 0 {
+            let bytes_to_read = self.meta.partial_event_length - self.meta.partial_event.value.len();
+            if self.meta.segment_data.value.remaining() >= bytes_to_read {
+                let t = self.meta.segment_data.split_to(bytes_to_read);
+                self.meta.partial_event.value.put(t.value);
                 let event = Event {
-                    offset_in_segment: self.partial_event.offset_in_segment,
-                    value: self.partial_event.value.to_vec(),
+                    offset_in_segment: self.meta.partial_event.offset_in_segment,
+                    value: self.meta.partial_event.value.to_vec(),
                 };
-                self.partial_event = BytePlaceholder::empty();
-                self.partial_event_length = 0;
+                self.meta.partial_event = BytePlaceholder::empty();
+                self.meta.partial_event_length = 0;
                 Some(event)
             } else {
                 debug!("Partial event being returned since there is more to fill");
-                self.partial_event.value.put(self.segment_data.value.split());
+                self.meta
+                    .partial_event
+                    .value
+                    .put(self.meta.segment_data.value.split());
                 None
             }
-        } else if let Some(mut event_data) = parse_header(&mut self.segment_data) {
+        } else if let Some(mut event_data) = parse_header(&mut self.meta.segment_data) {
             let bytes_to_read = event_data.value.capacity();
             if bytes_to_read == 0 {
                 warn!("Found a header with length as zero");
                 return None;
             }
-            if self.segment_data.value.remaining() >= bytes_to_read {
+            if self.meta.segment_data.value.remaining() >= bytes_to_read {
                 // all the data of the event is already present.
-                let t = self.segment_data.split_to(bytes_to_read);
+                let t = self.meta.segment_data.split_to(bytes_to_read);
                 event_data.value.put(t.value);
                 info!(
                     "Event data is {:?} with length {}",
@@ -311,7 +326,7 @@ impl SegmentSlice {
                 Some(event)
             } else {
                 // complete data for a given event is not present in the buffer.
-                let t = self.segment_data.split();
+                let t = self.meta.segment_data.split();
                 event_data.value.put(t.value);
                 debug!(
                     "Partial Event read: Current data read {:?} data_read {} to_read {}",
@@ -319,13 +334,13 @@ impl SegmentSlice {
                     event_data.value.len(),
                     event_data.value.capacity()
                 );
-                self.partial_event_length = event_data.value.capacity();
-                self.partial_event = event_data;
+                self.meta.partial_event_length = event_data.value.capacity();
+                self.meta.partial_event = event_data;
                 None
             }
         } else {
             // partial header was read
-            self.partial_header = self.segment_data.split();
+            self.meta.partial_header = self.meta.segment_data.split();
             None
         }
     }
@@ -352,13 +367,13 @@ impl SegmentSlice {
     }
 
     async fn wait_until_empty(&self) {
-        while !self.segment_data.value.is_empty() {
+        while !self.meta.segment_data.value.is_empty() {
             delay_for(Duration::from_millis(100)).await;
         }
     }
 
     fn is_empty(&self) -> bool {
-        self.segment_data.value.is_empty()
+        self.meta.segment_data.value.is_empty()
     }
 }
 
@@ -374,13 +389,17 @@ impl Iterator for SegmentSlice {
 
         match res {
             Some(event) => {
-                self.read_offset = event.offset_in_segment;
+                self.meta.read_offset = event.offset_in_segment;
                 Some(event)
             }
             None => {
                 info!("Partial event read by the extract_event method, invoke read again to fetch the complete event.");
                 let mut map = self.reader_meta.write().expect("RWLock Poisoned");
-                map.insert(self.scoped_segment.clone(), self.clone()); // Discuss: is there a better way.
+                map.insert(self.meta.scoped_segment.clone(), self.meta.clone()); // Discuss: is there a better way.
+                drop(map); // relinquish write lock.
+                if let Some(sender) = self.slice_return_tx.take() {
+                    let _ = sender.send(true);
+                }
                 None
             }
         }
@@ -435,7 +454,7 @@ mod tests {
         loop {
             if segment_slice.is_empty() {
                 if let Some(response) = rx.recv().await {
-                    segment_slice.segment_data = response;
+                    segment_slice.meta.segment_data = response;
                 } else {
                     break; // All events are sent.
                 }
@@ -461,7 +480,7 @@ mod tests {
         loop {
             if segment_slice.is_empty() {
                 if let Some(response) = rx.recv().await {
-                    segment_slice.segment_data = response;
+                    segment_slice.meta.segment_data = response;
                 } else {
                     break; // All events are sent.
                 }
@@ -486,7 +505,7 @@ mod tests {
         loop {
             if segment_slice.is_empty() {
                 if let Some(response) = rx.recv().await {
-                    segment_slice.segment_data = response;
+                    segment_slice.meta.segment_data = response;
                 } else {
                     break; // All events are sent.
                 }
@@ -514,7 +533,7 @@ mod tests {
         loop {
             if segment_slice.is_empty() {
                 if let Some(response) = rx.recv().await {
-                    segment_slice.segment_data = response;
+                    segment_slice.meta.segment_data = response;
                 } else {
                     break; // All events are sent.
                 }
@@ -534,15 +553,18 @@ mod tests {
     fn create_segment_slice() -> SegmentSlice {
         let segment = ScopedSegment::from("test/test/123");
         let segment_slice = SegmentSlice {
-            start_offset: 0,
-            scoped_segment: segment.to_string(),
-            read_offset: 0,
-            end_offset: i64::MAX,
-            segment_data: BytePlaceholder::empty(),
-            partial_event_length: 0,
-            partial_event: BytePlaceholder::empty(),
-            partial_header: BytePlaceholder::empty(),
+            meta: SliceMetadata {
+                start_offset: 0,
+                scoped_segment: segment.to_string(),
+                read_offset: 0,
+                end_offset: i64::MAX,
+                segment_data: BytePlaceholder::empty(),
+                partial_event_length: 0,
+                partial_event: BytePlaceholder::empty(),
+                partial_header: BytePlaceholder::empty(),
+            },
             reader_meta: Arc::new(RwLock::new(HashMap::new())),
+            slice_return_tx: None,
         };
         segment_slice
     }

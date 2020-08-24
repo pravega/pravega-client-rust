@@ -9,21 +9,22 @@
 //
 
 use crate::client_factory::ClientFactoryInternal;
-use crate::segment_slice::{BytePlaceholder, SegmentSlice};
+use crate::segment_slice::{BytePlaceholder, SegmentSlice, SliceMetadata};
 use bytes::BufMut;
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::time::{delay_for, Duration};
+use tokio::sync::oneshot;
 use tracing::{debug, info};
 
 #[derive(new)]
 pub struct EventReader {
     stream: ScopedStream,
     factory: Arc<ClientFactoryInternal>,
-    slices: Arc<RwLock<HashMap<String, SegmentSlice>>>,
+    slices: Arc<RwLock<HashMap<String, SliceMetadata>>>,
+    slice_release_receiver: RwLock<HashMap<String, oneshot::Receiver<bool>>>,
     rx: Receiver<BytePlaceholder>,
     tx: Sender<BytePlaceholder>,
 }
@@ -38,6 +39,7 @@ impl EventReader {
             stream,
             factory,
             slices: Arc::new(RwLock::new(HashMap::new())),
+            slice_release_receiver: RwLock::new(HashMap::new()),
             rx,
             tx,
         }
@@ -51,12 +53,13 @@ impl EventReader {
         factory: Arc<ClientFactoryInternal>,
         tx: Sender<BytePlaceholder>,
         rx: Receiver<BytePlaceholder>,
-        segment_slice_map: Arc<RwLock<HashMap<String, SegmentSlice>>>,
+        segment_slice_map: Arc<RwLock<HashMap<String, SliceMetadata>>>,
     ) -> Self {
         EventReader {
             stream,
             factory,
             slices: segment_slice_map,
+            slice_release_receiver: RwLock::new(HashMap::new()),
             rx,
             tx,
         }
@@ -66,16 +69,8 @@ impl EventReader {
         //The above two call this with different offsets.
     }
 
-    async fn wait_for_slice_return(&self, segment: &str) {
-        // TODO: use one shot...
-        while !self.slices.read().expect("RwLock poisoned").contains_key(segment) {
-            delay_for(Duration::from_millis(1000)).await;
-        }
-    }
-
     ///
     /// This function tries to acquire data for the next read.
-    /// Discuss: with team.
     ///
     pub async fn acquire_segment(&mut self) -> Option<SegmentSlice> {
         if let Some(data) = self.rx.recv().await {
@@ -85,29 +80,51 @@ impl EventReader {
                 "Received data from a different segment"
             );
 
-            if let Some(mut slice) = self
+            if let Some(mut slice_meta) = self
                 .slices
                 .write()
                 .expect("RWLock Poisoned")
                 .remove(&data.segment)
             {
-                // SegmentSlice has not been dished out for consumption.
-                EventReader::add_data_to_segment_slice(data, &mut slice);
-                Some(slice)
+                // SegmentSlice has not been dished out for consumption, append received data and send it for consumption.
+                EventReader::add_data_to_segment_slice(data, &mut slice_meta);
+                let (slice_return_tx, slice_return_rx) = oneshot::channel();
+                {
+                    let mut map = self.slice_release_receiver.write().expect("RWLock Poisoned");
+                    map.insert(slice_meta.scoped_segment.clone(), slice_return_rx);
+                }
+
+                Some(SegmentSlice {
+                    meta: slice_meta,
+                    reader_meta: self.slices.clone(),
+                    slice_return_tx: Some(slice_return_tx),
+                })
             } else {
                 // SegmentSlice has already been dished out for consumption.
-                // Should this be allowed? Discuss: it...
                 debug!("Data received for segment {:?}", &data.segment);
-                //TODO: use oneshot to improve this
-                self.wait_for_slice_return(&data.segment).await; //
-                let mut slice = self
+                {
+                    let mut map = self.slice_release_receiver.write().expect("RWLock Poisoned");
+                    if let Some(receiver) = map.remove(&data.segment) {
+                        let _ = receiver.await;
+                    }
+                }
+                let (slice_return_tx, slice_return_rx) = oneshot::channel();
+                {
+                    let mut map = self.slice_release_receiver.write().expect("RWLock Poisoned");
+                    map.insert(data.segment.clone(), slice_return_rx);
+                }
+                let mut slice_meta = self
                     .slices
                     .write()
                     .expect("RwLock Poisoned")
                     .remove(&data.segment)
                     .expect("segment slice missing");
-                EventReader::add_data_to_segment_slice(data, &mut slice);
-                Some(slice)
+                EventReader::add_data_to_segment_slice(data, &mut slice_meta);
+                Some(SegmentSlice {
+                    meta: slice_meta,
+                    reader_meta: self.slices.clone(),
+                    slice_return_tx: Some(slice_return_tx),
+                })
             }
         } else {
             info!("All Segment slices have completed reading from the stream, fetch it from the state synchronizer.");
@@ -115,7 +132,7 @@ impl EventReader {
         }
     }
 
-    fn add_data_to_segment_slice(data: BytePlaceholder, slice: &mut SegmentSlice) {
+    fn add_data_to_segment_slice(data: BytePlaceholder, slice: &mut SliceMetadata) {
         if slice.segment_data.value.is_empty() {
             slice.segment_data = data;
         } else {
@@ -140,7 +157,7 @@ impl EventReader {
 mod tests {
     use crate::client_factory::ClientFactory;
     use crate::event_reader::EventReader;
-    use crate::segment_slice::{BytePlaceholder, SegmentSlice};
+    use crate::segment_slice::{BytePlaceholder, SegmentSlice, SliceMetadata};
     use bytes::{BufMut, BytesMut};
     use pravega_rust_client_shared::{Scope, ScopedSegment, ScopedStream, Stream};
     use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
@@ -148,7 +165,6 @@ mod tests {
     use std::collections::HashMap;
     use std::iter;
     use std::sync::{Arc, RwLock};
-    use tokio::runtime::Handle;
     use tokio::sync::mpsc;
     use tokio::sync::mpsc::Sender;
     use tracing::Level;
@@ -197,7 +213,7 @@ mod tests {
                 } else {
                     println!(
                         "Finished reading from segment {:?}, segment is auto released",
-                        slice.scoped_segment
+                        slice.meta.scoped_segment
                     );
                     break; // try to acquire the next segment.
                 }
@@ -211,12 +227,12 @@ mod tests {
 
     // Helper method to update slice meta
     fn update_segment_slices(
-        map: &Arc<RwLock<HashMap<String, SegmentSlice>>>,
+        map: &Arc<RwLock<HashMap<String, SliceMetadata>>>,
         init_segments: Vec<SegmentSlice>,
     ) {
         let mut slice_map = map.write().expect("RwLock Poisoned");
         for s in init_segments {
-            slice_map.insert(s.scoped_segment.clone(), s);
+            slice_map.insert(s.meta.scoped_segment.clone(), s.meta);
         }
         drop(slice_map); // release write lock.
     }
@@ -294,21 +310,24 @@ mod tests {
     // create a segment slice object without spawning a background task.
     fn create_segment_slice(
         segment_id: i64,
-        reader_meta: Arc<RwLock<HashMap<String, SegmentSlice>>>,
+        reader_meta: Arc<RwLock<HashMap<String, SliceMetadata>>>,
     ) -> SegmentSlice {
         let mut segment_name = "scope/test/".to_owned();
         segment_name.push_str(segment_id.to_string().as_ref());
         let segment = ScopedSegment::from(segment_name.as_str());
         let segment_slice = SegmentSlice {
-            start_offset: 0,
-            scoped_segment: segment.to_string(),
-            read_offset: 0,
-            end_offset: i64::MAX,
-            segment_data: BytePlaceholder::empty(),
-            partial_event_length: 0,
-            partial_event: BytePlaceholder::empty(),
-            partial_header: BytePlaceholder::empty(),
+            meta: SliceMetadata {
+                start_offset: 0,
+                scoped_segment: segment.to_string(),
+                read_offset: 0,
+                end_offset: i64::MAX,
+                segment_data: BytePlaceholder::empty(),
+                partial_event_length: 0,
+                partial_event: BytePlaceholder::empty(),
+                partial_header: BytePlaceholder::empty(),
+            },
             reader_meta,
+            slice_return_tx: None,
         };
         segment_slice
     }
