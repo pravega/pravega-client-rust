@@ -70,7 +70,13 @@ impl EventReader {
     }
 
     ///
-    /// This function tries to acquire data for the next read.
+    /// This function returns a SegmentSlice from the data received from the SegmentStore(s).
+    /// Individual events can be read from the data received using `SegmentSlice.next()`.
+    ///
+    /// Invoking this function multiple times ensure multiple SegmentSlices corresponding
+    /// to different Segments of the stream are received. In-case we receive data for an already
+    /// acquired SegmentSlice this method waits until SegmentSlice is completely consumed before
+    /// returning the data.
     ///
     pub async fn acquire_segment(&mut self) -> Option<SegmentSlice> {
         if let Some(data) = self.rx.recv().await {
@@ -167,8 +173,12 @@ mod tests {
     use std::sync::{Arc, RwLock};
     use tokio::sync::mpsc;
     use tokio::sync::mpsc::Sender;
+    use tokio::time::{delay_for, Duration};
     use tracing::Level;
 
+    /*
+     This test verifies EventReader reads from a stream where only one segment has data while the other segment is empty.
+    */
     #[test]
     fn test_read_events_single_segment() {
         const NUM_EVENTS: usize = 100;
@@ -184,7 +194,13 @@ mod tests {
 
         // simulate data being received from Segment store.
         cf.get_runtime_handle().enter(|| {
-            tokio::spawn(generate_variable_size_events(tx.clone(), 10, NUM_EVENTS, 0));
+            tokio::spawn(generate_variable_size_events(
+                tx.clone(),
+                10,
+                NUM_EVENTS,
+                0,
+                false,
+            ));
         });
 
         // simulate initialization of a Reader
@@ -225,6 +241,86 @@ mod tests {
         }
     }
 
+    /*
+      This test verifies an EventReader reading from a stream where both the segments are sending data.
+    */
+    #[test]
+    fn test_read_events_multiple_segments() {
+        const NUM_EVENTS: usize = 100;
+        let (tx, rx) = mpsc::channel(1);
+        tracing_subscriber::fmt().with_max_level(Level::TRACE).finish();
+        let cf = ClientFactory::new(
+            ClientConfigBuilder::default()
+                .controller_uri(TEST_CONTROLLER_URI)
+                .build()
+                .unwrap(),
+        );
+        let stream = get_scoped_stream("scope", "test");
+
+        // simulate data being received from Segment store. 2 async tasks pumping in data.
+        cf.get_runtime_handle().enter(|| {
+            tokio::spawn(generate_variable_size_events(
+                tx.clone(),
+                100,
+                NUM_EVENTS,
+                0,
+                false,
+            ));
+        });
+        cf.get_runtime_handle().enter(|| {
+            //simulate a delay with data received by this segment.
+            tokio::spawn(generate_variable_size_events(
+                tx.clone(),
+                100,
+                NUM_EVENTS,
+                1,
+                true,
+            ));
+        });
+
+        // simulate initialization of a Reader
+        let map = Arc::new(RwLock::new(HashMap::new()));
+        let init_segments = vec![
+            create_segment_slice(0, map.clone()),
+            create_segment_slice(1, map.clone()),
+        ];
+        update_segment_slices(&map, init_segments);
+
+        // create a new Event Reader with the segment slice data.
+        let mut reader = EventReader::init_event_reader(stream, cf.0.clone(), tx.clone(), rx, map);
+
+        let mut event_count_per_segment: HashMap<String, usize> = HashMap::new();
+
+        let mut total_events_read = 0;
+        // Attempt to acquire a segment.
+        while let Some(mut slice) = cf.get_runtime_handle().block_on(reader.acquire_segment()) {
+            let segment = slice.meta.scoped_segment.clone();
+            println!("Received Segment Slice {:?}", segment);
+            let mut event_count = 0;
+            loop {
+                if let Some(event) = slice.next() {
+                    println!("Read event {:?}", event);
+                    assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
+                    event_count += 1;
+                } else {
+                    println!(
+                        "Finished reading from segment {:?}, segment is auto released",
+                        slice.meta.scoped_segment
+                    );
+                    break; // try to acquire the next segment.
+                }
+            }
+            total_events_read += event_count;
+            *event_count_per_segment
+                .entry(segment.clone())
+                .or_insert(event_count) += event_count;
+            if total_events_read == NUM_EVENTS * 2 {
+                // all events have been read. Exit test.
+                break;
+            }
+        }
+    }
+
     // Helper method to update slice meta
     fn update_segment_slices(
         map: &Arc<RwLock<HashMap<String, SliceMetadata>>>,
@@ -255,6 +351,7 @@ mod tests {
         buf_size: usize,
         num_events: usize,
         segment_id: usize,
+        should_delay: bool,
     ) {
         let mut segment_name = "scope/test/".to_owned();
         segment_name.push_str(segment_id.to_string().as_ref());
@@ -268,6 +365,9 @@ mod tests {
                 while data.len() > 0 {
                     let free_space = buf.capacity() - buf.len();
                     if free_space == 0 {
+                        if should_delay {
+                            delay_for(Duration::from_millis(100)).await;
+                        }
                         tx.send(BytePlaceholder {
                             segment: ScopedSegment::from(segment_name.as_str()).to_string(),
                             offset_in_segment: offset,
@@ -295,7 +395,7 @@ mod tests {
         .unwrap();
     }
 
-    // Generate event data given the length of the event. The data is 'a' replicated `len` times.
+    //Generate event data given the length of the event. The data is 'a' replicated `len` times.
     fn event_data(len: usize) -> BytesMut {
         let mut buf = BytesMut::with_capacity(len + 8);
         buf.put_i32(EventCommand::TYPE_CODE);
