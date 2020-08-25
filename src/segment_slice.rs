@@ -14,6 +14,7 @@ use bytes::{Buf, BufMut, BytesMut};
 use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::commands::{Command, EventCommand, TYPE_PLUS_LENGTH_SIZE};
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::sync::{Arc, RwLock};
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
@@ -35,20 +36,21 @@ pub struct Event {
 /// iterator.
 ///
 ///
-pub struct SegmentSlice {
-    pub(crate) meta: SliceMetadata,
+pub struct SegmentSlice<'a> {
+    pub meta: SliceMetadata,
     pub(crate) reader_meta: Arc<RwLock<HashMap<String, SliceMetadata>>>,
     pub(crate) slice_return_tx: Option<oneshot::Sender<bool>>,
+    pub(crate) phantom: PhantomData<&'a ()>,
 }
 
 #[derive(Clone)]
 pub struct SliceMetadata {
-    pub(crate) start_offset: i64,
-    pub(crate) scoped_segment: String,
-    pub(crate) read_offset: i64,
-    pub(crate) end_offset: i64,
+    pub start_offset: i64,
+    pub scoped_segment: String,
+    pub read_offset: i64,
+    pub end_offset: i64,
     pub(crate) segment_data: BytePlaceholder,
-    pub(crate) partial_event_length: usize,
+    pub partial_event_length: usize,
     pub(crate) partial_event: BytePlaceholder,
     pub(crate) partial_header: BytePlaceholder,
 }
@@ -152,7 +154,7 @@ impl Default for SliceMetadata {
     }
 }
 
-impl SegmentSlice {
+impl SegmentSlice<'_> {
     ///
     /// Create a new SegmentSlice for a given start_offset, segment.
     /// This spawns an asynchronous task to fetch data from the segment with length of  `READ_BUFFER_SIZE`.
@@ -189,13 +191,14 @@ impl SegmentSlice {
             },
             reader_meta,
             slice_return_tx: Some(slice_return_tx),
+            phantom: PhantomData,
         }
     }
 
     ///
     /// Method to fetch data from the Segment store from a given start offset.
     ///
-    async fn get_segment_data(
+    pub(crate) async fn get_segment_data(
         segment: ScopedSegment,
         start_offset: i64,
         mut tx: Sender<BytePlaceholder>,
@@ -380,7 +383,7 @@ impl SegmentSlice {
 ///
 /// Iterator implementation of SegmentSlice.
 ///
-impl Iterator for SegmentSlice {
+impl Iterator for SegmentSlice<'_> {
     type Item = Event;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -550,7 +553,8 @@ mod tests {
         assert_eq!(200, expected_event_len);
     }
 
-    fn create_segment_slice() -> SegmentSlice {
+    // create a segment slice for testing.
+    fn create_segment_slice() -> SegmentSlice<'static> {
         let segment = ScopedSegment::from("test/test/123");
         let segment_slice = SegmentSlice {
             meta: SliceMetadata {
@@ -565,6 +569,7 @@ mod tests {
             },
             reader_meta: Arc::new(RwLock::new(HashMap::new())),
             slice_return_tx: None,
+            phantom: PhantomData,
         };
         segment_slice
     }

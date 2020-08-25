@@ -99,8 +99,8 @@ impl ClientFactory {
         EventStreamWriter::new(stream, self.0.config.clone(), self.0.clone())
     }
 
-    pub fn create_event_stream_reader(&self, stream: ScopedStream) -> EventReader {
-        EventReader::init(stream, self.0.clone())
+    pub async fn create_event_stream_reader(&self, stream: ScopedStream) -> EventReader {
+        EventReader::init(stream, self.0.clone()).await
     }
 
     pub async fn create_transactional_event_stream_writer(

@@ -13,6 +13,7 @@ use crate::segment_slice::{BytePlaceholder, SegmentSlice, SliceMetadata};
 use bytes::BufMut;
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream};
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::sync::{Arc, RwLock};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -30,19 +31,48 @@ pub struct EventReader {
 }
 
 impl EventReader {
-    pub fn init(stream: ScopedStream, factory: Arc<ClientFactoryInternal>) -> Self {
+    pub async fn init(stream: ScopedStream, factory: Arc<ClientFactoryInternal>) -> Self {
         let (tx, rx) = mpsc::channel(1);
-        // create a reader object.
-        // 1. Update the TableSynchronizer indicating a new reader has been added.
-        // 2. Fetch the segments assigned for this reader.
-        EventReader {
-            stream,
-            factory,
-            slices: Arc::new(RwLock::new(HashMap::new())),
-            slice_release_receiver: RwLock::new(HashMap::new()),
-            rx,
-            tx,
-        }
+        let slice_meta_map = EventReader::get_slice_meta(&stream, &factory).await;
+
+        // spawn background fetch tasks.
+        slice_meta_map.iter().for_each(|(segment, meta)| {
+            tokio::spawn(SegmentSlice::get_segment_data(
+                ScopedSegment::from(segment.as_str()),
+                meta.start_offset,
+                tx.clone(),
+                factory.clone(),
+            ));
+        });
+        // initialize the event reader.
+        EventReader::init_event_reader(stream, factory, tx, rx, Arc::new(RwLock::new(slice_meta_map)))
+    }
+
+    ///
+    /// Fetch slice meta for this Event Reader.
+    /// At present this data is fetched from the controller. In future this can be read from the Reader group state.
+    ///
+    async fn get_slice_meta(
+        stream: &ScopedStream,
+        factory: &Arc<ClientFactoryInternal>,
+    ) -> HashMap<String, SliceMetadata> {
+        let segments = factory
+            .get_controller_client()
+            .get_current_segments(&stream)
+            .await
+            .expect("Error while fetching  current segments to read from ");
+        // slice meta
+        let mut slice_meta_map: HashMap<String, SliceMetadata> = HashMap::new();
+        slice_meta_map.extend(segments.key_segment_map.iter().map(|(_, r)| {
+            (
+                r.scoped_segment.to_string(),
+                SliceMetadata {
+                    scoped_segment: r.scoped_segment.to_string(),
+                    ..Default::default()
+                },
+            )
+        }));
+        slice_meta_map
     }
 
     ///
@@ -78,7 +108,7 @@ impl EventReader {
     /// acquired SegmentSlice this method waits until SegmentSlice is completely consumed before
     /// returning the data.
     ///
-    pub async fn acquire_segment(&mut self) -> Option<SegmentSlice> {
+    pub async fn acquire_segment(&mut self) -> Option<SegmentSlice<'_>> {
         if let Some(data) = self.rx.recv().await {
             assert_eq!(
                 self.stream,
@@ -104,6 +134,7 @@ impl EventReader {
                     meta: slice_meta,
                     reader_meta: self.slices.clone(),
                     slice_return_tx: Some(slice_return_tx),
+                    phantom: PhantomData,
                 })
             } else {
                 // SegmentSlice has already been dished out for consumption.
@@ -130,6 +161,7 @@ impl EventReader {
                     meta: slice_meta,
                     reader_meta: self.slices.clone(),
                     slice_return_tx: Some(slice_return_tx),
+                    phantom: PhantomData,
                 })
             }
         } else {
@@ -170,6 +202,7 @@ mod tests {
     use pravega_wire_protocol::commands::{Command, EventCommand};
     use std::collections::HashMap;
     use std::iter;
+    use std::marker::PhantomData;
     use std::sync::{Arc, RwLock};
     use tokio::sync::mpsc;
     use tokio::sync::mpsc::Sender;
@@ -407,11 +440,11 @@ mod tests {
         buf
     }
 
-    // create a segment slice object without spawning a background task.
+    // create a segment slice object without spawning a background task for testing
     fn create_segment_slice(
         segment_id: i64,
         reader_meta: Arc<RwLock<HashMap<String, SliceMetadata>>>,
-    ) -> SegmentSlice {
+    ) -> SegmentSlice<'static> {
         let mut segment_name = "scope/test/".to_owned();
         segment_name.push_str(segment_id.to_string().as_ref());
         let segment = ScopedSegment::from(segment_name.as_str());
@@ -428,6 +461,7 @@ mod tests {
             },
             reader_meta,
             slice_return_tx: None,
+            phantom: PhantomData,
         };
         segment_slice
     }
