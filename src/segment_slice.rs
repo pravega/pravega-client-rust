@@ -35,14 +35,16 @@ pub struct Event {
 /// This represents a Segment slice which can be used to read events from a Pravega segment as an
 /// iterator.
 ///
-///
-pub struct SegmentSlice<'a> {
+pub struct SegmentSlice<'reader> {
     pub meta: SliceMetadata,
     pub(crate) reader_meta: Arc<RwLock<HashMap<String, SliceMetadata>>>,
     pub(crate) slice_return_tx: Option<oneshot::Sender<bool>>,
-    pub(crate) phantom: PhantomData<&'a ()>,
+    pub(crate) phantom: PhantomData<&'reader ()>,
 }
 
+///
+/// This is a placeholder for SegmentSlice metadata. This meta is persisted by the EventReader.
+///
 #[derive(Clone)]
 pub struct SliceMetadata {
     pub start_offset: i64,
@@ -58,7 +60,7 @@ pub struct SliceMetadata {
 ///
 /// Read Buffer size
 ///
-const READ_BUFFER_SIZE: i32 = 2048; // TODO: 128K
+const READ_BUFFER_SIZE: i32 = 131072; // 128K bytes
 
 ///
 /// Structure to track the offset and byte array.
@@ -163,21 +165,9 @@ impl SegmentSlice<'_> {
     pub(crate) fn new(
         segment: ScopedSegment,
         start_offset: i64,
-        tx: Sender<BytePlaceholder>,
-        factory: Arc<ClientFactoryInternal>,
         reader_meta: Arc<RwLock<HashMap<String, SliceMetadata>>>,
         slice_return_tx: oneshot::Sender<bool>,
     ) -> Self {
-        let handle = factory.get_runtime_handle();
-        handle.enter(|| {
-            tokio::spawn(SegmentSlice::get_segment_data(
-                segment.clone(),
-                start_offset,
-                tx,
-                factory.clone(),
-            ))
-        });
-
         SegmentSlice {
             meta: SliceMetadata {
                 start_offset,
@@ -256,12 +246,6 @@ impl SegmentSlice<'_> {
         //Returns the name of the segment
         self.meta.scoped_segment.clone()
     }
-
-    ///
-    ///
-    ///
-    // fn get_slice_return_tx(&mut self) {
-    // }
 
     ///
     /// Extract the next event from the data received from the Segment store.
@@ -398,7 +382,7 @@ impl Iterator for SegmentSlice<'_> {
             None => {
                 info!("Partial event read by the extract_event method, invoke read again to fetch the complete event.");
                 let mut map = self.reader_meta.write().expect("RWLock Poisoned");
-                map.insert(self.meta.scoped_segment.clone(), self.meta.clone()); // Discuss: is there a better way.
+                map.insert(self.meta.scoped_segment.clone(), self.meta.clone());
                 drop(map); // relinquish write lock.
                 if let Some(sender) = self.slice_return_tx.take() {
                     let _ = sender.send(true);
@@ -574,9 +558,7 @@ mod tests {
         segment_slice
     }
 
-    ///
-    /// Helper method to verify all events read by Segment slice.
-    ///
+    // Helper method to verify all events read by Segment slice.
     fn is_all_same<T: Eq>(slice: &[T]) -> bool {
         slice
             .get(0)

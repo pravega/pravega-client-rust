@@ -36,13 +36,16 @@ impl EventReader {
         let slice_meta_map = EventReader::get_slice_meta(&stream, &factory).await;
 
         // spawn background fetch tasks.
+        // TODO: add ability to stop this async task, this will be useful in a reader group.
         slice_meta_map.iter().for_each(|(segment, meta)| {
-            tokio::spawn(SegmentSlice::get_segment_data(
-                ScopedSegment::from(segment.as_str()),
-                meta.start_offset,
-                tx.clone(),
-                factory.clone(),
-            ));
+            factory.get_runtime_handle().enter(|| {
+                tokio::spawn(SegmentSlice::get_segment_data(
+                    ScopedSegment::from(segment.as_str()),
+                    meta.start_offset,
+                    tx.clone(),
+                    factory.clone(),
+                ))
+            });
         });
         // initialize the event reader.
         EventReader::init_event_reader(stream, factory, tx, rx, Arc::new(RwLock::new(slice_meta_map)))
@@ -75,9 +78,7 @@ impl EventReader {
         slice_meta_map
     }
 
-    ///
-    /// This method is to simplify testing.
-    ///
+    /// This method's visiblity is set to public to simplify testing.
     pub fn init_event_reader(
         stream: ScopedStream,
         factory: Arc<ClientFactoryInternal>,
@@ -96,7 +97,7 @@ impl EventReader {
     }
 
     fn release_segment_at(&mut self, _slice: SegmentSlice, _offset_in_segment: u64) {
-        //The above two call this with different offsets.
+        //TODO: this will be enabled with ReaderGroup.
     }
 
     ///
