@@ -58,7 +58,7 @@ impl EventReader {
     ) -> HashMap<String, SliceMetadata> {
         let segments = factory
             .get_controller_client()
-            .get_current_segments(&stream)
+            .get_current_segments(stream)
             .await
             .expect("Error while fetching  current segments to read from ");
         // slice meta
