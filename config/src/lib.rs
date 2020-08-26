@@ -23,24 +23,25 @@
     clippy::similar_names
 )]
 #![allow(clippy::multiple_crate_versions)]
+pub mod connection_type;
 pub mod credentials;
 
+use crate::connection_type::ConnectionType;
 use crate::credentials::Credentials;
 use derive_builder::*;
-use getset::CopyGetters;
+use getset::{CopyGetters, Getters};
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
-use pravega_wire_protocol::connection_factory::ConnectionType;
+use pravega_rust_client_shared::PravegaNodeUri;
 use std::collections::HashMap;
 use std::env;
-use std::net::{Ipv4Addr, SocketAddr};
 
-pub const TEST_CONTROLLER_URI: (Ipv4Addr, u16) = (Ipv4Addr::new(127, 0, 0, 1), 9090);
+pub const TEST_CONTROLLER_URI: (&str, u16) = ("localhost", 9090);
 const AUTH_PROPS_PREFIX: &str = "pravega.client.auth.";
 const AUTH_METHOD: &str = "method";
 const AUTH_TOKEN: &str = "token";
 const AUTH_PROPS_PREFIX_ENV: &str = "pravega_client_auth_";
 
-#[derive(Builder, Debug, CopyGetters, Clone)]
+#[derive(Builder, Debug, Getters, CopyGetters, Clone)]
 #[builder(setter(into))]
 pub struct ClientConfig {
     #[get_copy = "pub"]
@@ -59,9 +60,9 @@ pub struct ClientConfig {
     #[builder(default = "RetryWithBackoff::default()")]
     pub retry_policy: RetryWithBackoff,
 
-    #[get_copy = "pub"]
+    #[get]
     #[builder(setter(into))]
-    pub controller_uri: SocketAddr,
+    pub controller_uri: PravegaNodeUri,
 
     #[get_copy = "pub"]
     #[builder(default = "90 * 1000")]
@@ -71,8 +72,8 @@ pub struct ClientConfig {
     #[builder(default = "false")]
     pub mock: bool,
 
-    #[builder(default = "self.default_truststore()")]
-    pub truststore: String,
+    #[builder(default = "self.default_trustcert()")]
+    pub trustcert: String,
 
     #[get_copy = "pub"]
     #[builder(default = "false")]
@@ -87,8 +88,8 @@ pub struct ClientConfig {
 }
 
 impl ClientConfigBuilder {
-    fn default_truststore(&self) -> String {
-        "../../ca-cert.crt".to_owned()
+    fn default_trustcert(&self) -> String {
+        "./ca-cert.crt".to_owned()
     }
 
     fn extract_credentials(&self) -> Credentials {
@@ -122,19 +123,15 @@ mod tests {
             .max_connections_in_pool(15 as u32)
             .connection_type(ConnectionType::Tokio)
             .retry_policy(RetryWithBackoff::from_millis(1000))
-            .controller_uri(
-                "127.0.0.2:9091"
-                    .parse::<SocketAddr>()
-                    .expect("parse to socketaddr"),
-            )
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
             .build()
             .unwrap();
 
         assert_eq!(config.max_connections_in_pool(), 15 as u32);
         assert_eq!(config.connection_type(), ConnectionType::Tokio);
         assert_eq!(config.retry_policy(), RetryWithBackoff::from_millis(1000));
-        assert_eq!(config.controller_uri().ip(), Ipv4Addr::new(127, 0, 0, 2));
-        assert_eq!(config.controller_uri().port(), 9091);
+        assert_eq!(config.controller_uri().top().ip(), Ipv4Addr::new(127, 0, 0, 2));
+        assert_eq!(config.controller_uri().top().port(), 9091);
     }
 
     #[test]
@@ -157,11 +154,7 @@ mod tests {
         env::set_var("pravega_client_auth_token", "123456");
 
         let config = ClientConfigBuilder::default()
-            .controller_uri(
-                "127.0.0.2:9091"
-                    .parse::<SocketAddr>()
-                    .expect("parse to socketaddr"),
-            )
+            .controller_uri("127.0.0.2:9091".to_string())
             .build()
             .unwrap();
 

@@ -62,20 +62,20 @@ mod test {
     #[test]
     fn integration_test() {
         trace::init();
-        let span = span!(Level::INFO, "integration test");
+        let span = span!(Level::DEBUG, "integration test");
         let _enter = span.enter();
         let config = PravegaStandaloneServiceConfig::new();
-        start_tests(config);
+        run_tests(config);
 
         // test again with auth enabled
-        let config = PravegaStandaloneServiceConfig::new().set_auth();
-        start_tests(config);
+        let config = PravegaStandaloneServiceConfig::new().set_tls().set_auth();
+        run_tests(config);
 
         // disconnection test will start its own Pravega Standalone.
         disconnection_tests::disconnection_test_wrapper();
     }
 
-    fn start_tests(config: PravegaStandaloneServiceConfig) {
+    fn run_tests(config: PravegaStandaloneServiceConfig) {
         let mut pravega = PravegaStandaloneService::start(config.clone());
         wait_for_standalone_with_timeout(true, 30);
         controller_tests::test_controller_apis(config.clone());

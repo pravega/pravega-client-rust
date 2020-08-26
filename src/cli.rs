@@ -9,13 +9,11 @@
  */
 use pravega_client_rust::raw_client::*;
 use pravega_connection_pool::connection_pool::ConnectionPool;
-use pravega_rust_client_config::ClientConfigBuilder;
+use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfigBuilder};
+use pravega_rust_client_shared::PravegaNodeUri;
 use pravega_wire_protocol::commands::*;
-use pravega_wire_protocol::connection_factory::{
-    ConnectionFactory, ConnectionType, SegmentConnectionManager,
-};
+use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::Requests;
-use std::net::SocketAddr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use structopt::StructOpt;
 
@@ -335,18 +333,15 @@ struct Opt {
 #[tokio::main]
 async fn main() {
     let opt = Opt::from_args();
-    let cf = ConnectionFactory::create(ConnectionType::Tokio);
     let config = ClientConfigBuilder::default()
+        .connection_type(ConnectionType::Tokio)
         .build()
         .expect("build client config");
+    let cf = ConnectionFactory::create(config.clone());
     let manager = SegmentConnectionManager::new(cf, config.max_connections_in_pool);
     let pool = ConnectionPool::new(manager);
-    let endpoint = opt
-        .server_uri
-        .clone()
-        .parse::<SocketAddr>()
-        .expect("convert to socketaddr");
-    let raw_client = RawClientImpl::new(&pool, endpoint);
+    let endpoint = opt.server_uri;
+    let raw_client = RawClientImpl::new(&pool, PravegaNodeUri::from(endpoint));
     match opt.cmd {
         Command::Hello {
             high_version,

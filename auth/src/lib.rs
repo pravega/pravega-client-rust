@@ -34,7 +34,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
-use tracing::info;
+use tracing::{debug, info};
 
 /// A client-side proxy for obtaining a delegation token from the server.
 ///
@@ -72,13 +72,11 @@ impl DelegationTokenProvider for JwtTokenProviderImpl {
     async fn retrieve_token(&self) -> String {
         let mut guard = self.token.lock().await;
         if let Some(ref token) = *guard {
-            info!("some token exists");
             if JwtTokenProviderImpl::is_token_valid(token.get_expiry_time()) {
-                info!("token is still valid");
                 return token.get_value();
             }
         }
-        info!("no token exists, refresh to get a new one");
+        debug!("no token exists, refresh to get a new one");
         let token = self.refresh_token().await;
         let value = token.get_value();
         *guard = Some(token);

@@ -57,7 +57,7 @@ use std::sync::RwLock;
 use tokio::runtime::Handle;
 use tonic::codegen::http::uri::InvalidUri;
 use tonic::transport::{Certificate, ClientTlsConfig, Endpoint, Uri};
-use tracing::debug;
+use tracing::{debug, info};
 
 #[allow(non_camel_case_types)]
 pub mod controller {
@@ -270,9 +270,14 @@ pub struct ControllerClientImpl {
 
 async fn get_channel(config: &ClientConfig) -> Channel {
     const HTTP_PREFIX: &str = "http://";
+    const HTTPS_PREFIX: &str = "https://";
 
     // Placeholder to add authentication headers.
-    let s = format!("{}{}", HTTP_PREFIX, &config.controller_uri.to_string());
+    let s = if config.is_tls_enabled {
+        format!("{}{}", HTTPS_PREFIX, &config.controller_uri.to_string())
+    } else {
+        format!("{}{}", HTTP_PREFIX, &config.controller_uri.to_string())
+    };
     let uri_result = Uri::from_str(s.as_str())
         .map_err(|e1: InvalidUri| ControllerError::InvalidConfiguration {
             can_retry: false,
@@ -281,11 +286,19 @@ async fn get_channel(config: &ClientConfig) -> Channel {
         .unwrap();
 
     let endpoints = if config.is_tls_enabled {
-        let pem = std::fs::read(&config.truststore).expect("read truststore");
+        info!(
+            "getting channel for uri {:?} with controller TLS enabled",
+            uri_result
+        );
+        let pem = std::fs::read(&config.trustcert).expect("read truststore");
         let ca = Certificate::from_pem(pem);
         let tls = ClientTlsConfig::new().ca_certificate(ca);
         (0..config.max_controller_connections)
-            .map(|_a| Channel::builder(uri_result.clone()).tls_config(tls.clone()))
+            .map(|_a| {
+                Channel::builder(uri_result.clone())
+                    .tls_config(tls.clone())
+                    .expect("build tls for channel")
+            })
             .collect::<Vec<Endpoint>>()
     } else {
         (0..config.max_controller_connections)

@@ -8,16 +8,13 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use std::net::SocketAddr;
-use std::result::Result as StdResult;
-
-use snafu::Snafu;
-
 use async_trait::async_trait;
 use pravega_rust_client_auth::DelegationTokenProvider;
 use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::commands::{ReadSegmentCommand, SegmentReadCommand};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
+use snafu::Snafu;
+use std::result::Result as StdResult;
 
 use crate::client_factory::ClientFactoryInternal;
 use crate::error::RawClientError;
@@ -80,9 +77,7 @@ impl<'a> AsyncSegmentReaderImpl<'a> {
             .get_controller_client()
             .get_endpoint_for_segment(&segment)
             .await
-            .expect("get endpoint for segment")
-            .parse::<SocketAddr>()
-            .expect("Invalid end point returned");
+            .expect("get endpoint for segment");
 
         AsyncSegmentReaderImpl {
             segment,

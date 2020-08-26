@@ -149,21 +149,26 @@ pub async fn write_wirecommand(
 mod tests {
     use super::*;
     use crate::commands::HelloCommand;
-    use crate::connection_factory::{ConnectionFactory, ConnectionType, SegmentConnectionManager};
+    use crate::connection_factory::{ConnectionFactory, SegmentConnectionManager};
     use crate::wire_commands::Replies;
     use pravega_connection_pool::connection_pool::ConnectionPool;
-    use std::net::SocketAddr;
+    use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfigBuilder};
+    use pravega_rust_client_shared::PravegaNodeUri;
     use tokio::runtime::Runtime;
 
     #[test]
     fn client_connection_write_and_read() {
         let mut rt = Runtime::new().expect("create tokio Runtime");
-
-        let connection_factory = ConnectionFactory::create(ConnectionType::Mock);
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock)
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
+            .build()
+            .expect("build client config");
+        let connection_factory = ConnectionFactory::create(config);
         let manager = SegmentConnectionManager::new(connection_factory, 1);
         let pool = ConnectionPool::new(manager);
         let connection = rt
-            .block_on(pool.get_connection("127.0.0.1:9090".parse::<SocketAddr>().unwrap()))
+            .block_on(pool.get_connection(PravegaNodeUri::from("127.0.0.1:9090".to_string())))
             .expect("get connection from pool");
 
         let mut client_connection = ClientConnectionImpl::new(connection);

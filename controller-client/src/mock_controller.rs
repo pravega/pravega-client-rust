@@ -14,19 +14,18 @@ use async_trait::async_trait;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use ordered_float::OrderedFloat;
 use pravega_connection_pool::connection_pool::ConnectionPool;
+use pravega_rust_client_config::connection_type::ConnectionType;
+use pravega_rust_client_config::ClientConfigBuilder;
 use pravega_rust_client_retry::retry_result::RetryError;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{CreateSegmentCommand, DeleteSegmentCommand, MergeSegmentsCommand};
-use pravega_wire_protocol::connection_factory::{
-    ConnectionFactory, ConnectionType, SegmentConnectionManager,
-};
+use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 use pravega_wire_protocol::error::ClientConnectionError;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::collections::{BTreeMap, HashMap};
-use std::net::SocketAddr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use std::time::SystemTime;
@@ -36,15 +35,20 @@ use uuid::Uuid;
 static ID_GENERATOR: AtomicUsize = AtomicUsize::new(0);
 
 pub struct MockController {
-    endpoint: SocketAddr,
+    endpoint: PravegaNodeUri,
     pool: ConnectionPool<SegmentConnectionManager>,
     created_scopes: RwLock<HashMap<String, HashSet<ScopedStream>>>,
     created_streams: RwLock<HashMap<ScopedStream, StreamConfiguration>>,
 }
 
 impl MockController {
-    pub fn new(endpoint: SocketAddr) -> Self {
-        let cf = ConnectionFactory::create(ConnectionType::Mock) as Box<dyn ConnectionFactory>;
+    pub fn new(endpoint: PravegaNodeUri) -> Self {
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock)
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
+            .build()
+            .expect("build client config");
+        let cf = ConnectionFactory::create(config) as Box<dyn ConnectionFactory>;
         let manager = SegmentConnectionManager::new(cf, 10);
         let pool = ConnectionPool::new(manager);
         MockController {
@@ -337,7 +341,7 @@ impl ControllerClient for MockController {
         &self,
         _segment: &ScopedSegment,
     ) -> Result<PravegaNodeUri, RetryError<ControllerError>> {
-        Ok(PravegaNodeUri(self.endpoint.to_string()))
+        Ok(self.endpoint.clone())
     }
 
     async fn get_or_refresh_delegation_token_for(
@@ -732,7 +736,7 @@ async fn send_request_over_connection(
 ) -> Result<Replies, ClientConnectionError> {
     let pooled_connection = controller
         .pool
-        .get_connection(controller.endpoint)
+        .get_connection(controller.endpoint.clone())
         .await
         .expect("get connection from pool");
     let mut connection = ClientConnectionImpl {

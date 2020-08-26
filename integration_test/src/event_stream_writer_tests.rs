@@ -17,15 +17,13 @@ use pravega_client_rust::raw_client::RawClient;
 use pravega_client_rust::segment_reader::AsyncSegmentReader;
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
-use pravega_rust_client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
+use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{
     Command, EventCommand, GetStreamSegmentInfoCommand, SealSegmentCommand,
 };
-use pravega_wire_protocol::connection_factory::{
-    ConnectionFactory, ConnectionType, SegmentConnectionManager,
-};
+use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
 use tracing::info;

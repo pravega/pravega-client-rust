@@ -88,7 +88,10 @@ impl PravegaService for PravegaStandaloneService {
         PravegaStandaloneService::enable_tls(config.tls);
         let _ = create_dir("./log");
         let output = File::create("./log/output.log").expect("creating file for standalone log");
-        info!("start running pravega under path {}", PATH);
+        info!(
+            "start running pravega under path {} with config {:?}",
+            PATH, config
+        );
         let pravega = Command::new(PATH)
             .stdout(Stdio::from(output))
             .spawn()
@@ -182,12 +185,32 @@ impl PravegaService for PravegaStandaloneService {
         drop(src); // Close the file early
 
         // Run the replace operation in memory
-        let new_data: String;
+        let mut new_data: String;
         if enable {
             new_data = data.replace(
                 "#singlenode.security.tls.enable=false",
                 "singlenode.security.tls.enable=true",
-            )
+            );
+            new_data = new_data.replace(
+                "#singlenode.security.tls.privateKey.location=../config/server-key.key",
+                "singlenode.security.tls.privateKey.location=./pravega/conf/server-key.key",
+            );
+            new_data = new_data.replace(
+                "#singlenode.security.tls.certificate.location=../config/server-cert.crt",
+                "singlenode.security.tls.certificate.location=./pravega/conf/server-cert.crt",
+            );
+            new_data = new_data.replace(
+                "#singlenode.security.tls.keyStore.location=../config/server.keystore.jks",
+                "singlenode.security.tls.keyStore.location=./pravega/conf/server.keystore.jks",
+            );
+            new_data = new_data.replace(
+                "#singlenode.security.tls.keyStore.pwd.location=../config/server.keystore.jks.passwd",
+                "singlenode.security.tls.keyStore.pwd.location=./pravega/conf/server.keystore.jks.passwd",
+            );
+            new_data = new_data.replace(
+                "#singlenode.security.tls.trustStore.location=../config/client.truststore.jks",
+                "singlenode.security.tls.trustStore.location=./pravega/conf/client.truststore.jks",
+            );
         } else {
             new_data = data.replace(
                 "singlenode.security.tls.enable=true",

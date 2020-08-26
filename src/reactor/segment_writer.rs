@@ -8,12 +8,10 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use std::collections::VecDeque;
-use std::net::SocketAddr;
-
 use crate::trace;
 use crate::{get_random_u128, get_request_id};
 use snafu::ResultExt;
+use std::collections::VecDeque;
 use tokio::sync::mpsc::Sender;
 use tracing::{debug, error, field, info, info_span, warn};
 
@@ -42,7 +40,7 @@ pub(crate) struct SegmentWriter {
     pub(crate) segment: ScopedSegment,
 
     /// the endpoint for segment, it might change if the segment is moved to another host
-    endpoint: SocketAddr,
+    endpoint: PravegaNodeUri,
 
     /// client connection that writes to the segmentstore
     connection: Option<WritingClientConnection>,
@@ -78,7 +76,7 @@ impl SegmentWriter {
         delegation_token_provider: Arc<Box<dyn DelegationTokenProvider>>,
     ) -> Self {
         SegmentWriter {
-            endpoint: "127.0.0.1:0".parse::<SocketAddr>().expect("get socketaddr"), //Dummy address
+            endpoint: PravegaNodeUri::from("127.0.0.1:0".to_string()), //Dummy address
             id: WriterId::from(get_random_u128()),
             connection: None,
             segment,
@@ -117,8 +115,6 @@ impl SegmentWriter {
             };
             trace::current_span().record("host", &field::debug(&uri));
 
-            self.endpoint = uri.0.parse::<SocketAddr>().expect("should convert to socketaddr");
-
             let request = Requests::SetupAppend(SetupAppendCommand {
                 request_id: get_request_id(),
                 writer_id: self.id.0,
@@ -126,7 +122,7 @@ impl SegmentWriter {
                 delegation_token: self.delegation_token_provider.retrieve_token().await,
             });
 
-            let raw_client = factory.create_raw_client(self.endpoint);
+            let raw_client = factory.create_raw_client(uri);
             let result = retry_async(self.retry_policy, || async {
                 debug!(
                     "setting up append for writer:{:?}/segment:{:?}",

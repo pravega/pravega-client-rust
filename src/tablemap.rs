@@ -27,7 +27,6 @@ use serde::{Deserialize, Serialize};
 use serde_cbor::from_slice;
 use serde_cbor::to_vec;
 use snafu::Snafu;
-use std::net::SocketAddr;
 use tracing::{debug, info};
 
 pub type Version = i64;
@@ -77,9 +76,7 @@ impl<'a> TableMap<'a> {
             .get_controller_client()
             .get_endpoint_for_segment(&segment)
             .await
-            .expect("get endpoint for segment")
-            .parse::<SocketAddr>()
-            .expect("Invalid end point returned");
+            .expect("get endpoint for segment");
         debug!("EndPoint is {}", endpoint.to_string());
 
         let table_map = TableMap {

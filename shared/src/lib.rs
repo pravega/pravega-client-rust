@@ -37,10 +37,12 @@ use serde::{Deserialize, Serialize};
 use std::cmp::{min, Reverse};
 use std::collections::{BTreeMap, HashMap};
 use std::convert::From;
-use std::fmt;
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
+use std::net::{SocketAddr, ToSocketAddrs};
 use std::ops::Index;
+use std::vec;
+use std::{fmt, io};
 use uuid::Uuid;
 
 #[macro_use]
@@ -51,6 +53,48 @@ extern crate derive_new;
 
 #[derive(From, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct PravegaNodeUri(pub String);
+
+impl From<&str> for PravegaNodeUri {
+    fn from(endpoint: &str) -> Self {
+        PravegaNodeUri(endpoint.to_owned())
+    }
+}
+
+impl From<(&str, u16)> for PravegaNodeUri {
+    fn from(tuple: (&str, u16)) -> Self {
+        let endpoint = format!("{}:{}", tuple.0, tuple.1);
+        PravegaNodeUri(endpoint)
+    }
+}
+
+impl From<SocketAddr> for PravegaNodeUri {
+    fn from(socket_addr: SocketAddr) -> Self {
+        PravegaNodeUri(socket_addr.to_string())
+    }
+}
+
+impl ToSocketAddrs for PravegaNodeUri {
+    type Iter = vec::IntoIter<SocketAddr>;
+
+    fn to_socket_addrs(&self) -> io::Result<vec::IntoIter<SocketAddr>> {
+        self.0.to_socket_addrs()
+    }
+}
+
+impl PravegaNodeUri {
+    pub fn top(&self) -> SocketAddr {
+        self.0
+            .to_socket_addrs()
+            .expect("get SocketAddrs")
+            .next()
+            .expect("get first SocketAddr")
+    }
+
+    pub fn domain(&self) -> String {
+        let parts: Vec<_> = self.0.split(':').collect();
+        parts[0].to_string()
+    }
+}
 
 #[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct DelegationToken {

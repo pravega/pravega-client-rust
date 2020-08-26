@@ -10,7 +10,6 @@
 use pravega_controller_client::*;
 use pravega_rust_client_config::ClientConfigBuilder;
 use pravega_rust_client_shared::*;
-use std::net::SocketAddr;
 use structopt::StructOpt;
 use tokio::runtime::Runtime;
 
@@ -69,12 +68,9 @@ struct Opt {
 fn main() {
     let opt = Opt::from_args();
     let mut rt = Runtime::new().unwrap();
-    let controller_addr = opt
-        .controller_uri
-        .parse::<SocketAddr>()
-        .expect("parse to socketaddr");
+    let controller_addr = opt.controller_uri;
     let config = ClientConfigBuilder::default()
-        .controller_uri(controller_addr)
+        .controller_uri(PravegaNodeUri::from(controller_addr))
         .build()
         .expect("creating config");
     // create a controller client.
