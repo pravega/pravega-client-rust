@@ -114,7 +114,7 @@ mod tests {
         fn new() -> Self {
             let rt = Runtime::new().expect("create tokio Runtime");
             let config = ClientConfigBuilder::default()
-                .connection_type(ConnectionType::Mock)
+                .connection_type(ConnectionType::Tokio)
                 .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
                 .build()
                 .expect("build client config");
@@ -178,7 +178,6 @@ mod tests {
         let h = thread::spawn(move || {
             server.send_hello();
         });
-
         let request = Requests::Hello(HelloCommand {
             low_version: 5,
             high_version: 9,

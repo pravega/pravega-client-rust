@@ -140,7 +140,7 @@ where
                         });
                     }
 
-                    //if it is not valid, will be delete automatically
+                    //if it is not valid, will be deleted automatically
                 }
                 Err(_e) => {
                     let conn = self.manager.establish_connection(endpoint.clone()).await?;
