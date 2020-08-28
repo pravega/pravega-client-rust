@@ -269,14 +269,13 @@ impl EventReader {
             if !self.future_segments.contains_key(&segment.scoped_segment) {
                 let required_to_complete = HashSet::from_iter(list.clone().into_iter());
                 // update future segments.
-                &self
-                    .future_segments
+                self.future_segments
                     .insert(segment.scoped_segment.to_owned(), required_to_complete);
             }
         }
         debug!("Future Segments after update {:?}", self.future_segments);
         // remove the completed segment from the dependency list
-        for (_segment, required_to_complete) in &mut self.future_segments {
+        for required_to_complete in self.future_segments.values_mut() {
             // the hash set needs update
             required_to_complete.remove(&ScopedSegment::from(completed_segment.as_str()).segment);
         }
@@ -286,13 +285,11 @@ impl EventReader {
         );
         // find successors that are ready to read. A successor is ready to read
         // once all its predecessors are completed.
-        let ready_to_read = self
-            .future_segments
+        self.future_segments
             .iter()
             .filter(|&(_segment, set)| set.is_empty())
             .map(|(segment, _set)| segment.to_owned())
-            .collect::<Vec<ScopedSegment>>();
-        ready_to_read
+            .collect::<Vec<ScopedSegment>>()
     }
 }
 
