@@ -25,7 +25,62 @@ pub fn test_event_stream_reader() {
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
     let handle = client_factory.get_runtime_handle();
-    handle.block_on(test_read_api(&client_factory))
+    handle.block_on(test_read_api(&client_factory));
+    handle.block_on(test_stream_scaling(&client_factory))
+}
+
+async fn test_stream_scaling(client_factory: &ClientFactory) {
+    let scope_name = Scope::from("testReaderScaling".to_owned());
+    let stream_name = Stream::from("testReaderStream".to_owned());
+
+    const NUM_EVENTS: usize = 10;
+    // write 100 events.
+
+    let new_stream = create_scope_stream(
+        client_factory.get_controller_client(),
+        &scope_name,
+        &stream_name,
+        1,
+    )
+    .await;
+    // write events only if the stream is created.
+    if new_stream {
+        write_events_before_and_after_scale(
+            scope_name.clone(),
+            stream_name.clone(),
+            &client_factory,
+            NUM_EVENTS,
+        )
+        .await;
+    }
+    let str = ScopedStream {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+    };
+
+    let mut reader = client_factory.create_event_stream_reader(str).await;
+    let mut event_count = 0;
+    loop {
+        if event_count == NUM_EVENTS + NUM_EVENTS {
+            // all events have been read. Exit test.
+            break;
+        }
+        if let Some(mut slice) = reader.acquire_segment().await {
+            loop {
+                if let Some(event) = slice.next() {
+                    assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+                    event_count += 1;
+                } else {
+                    info!(
+                        "Finished reading from segment {:?}, segment is auto released",
+                        slice.meta.scoped_segment
+                    );
+                    break; // try to acquire the next segment.
+                }
+            }
+        }
+    }
+    assert_eq!(event_count, NUM_EVENTS + NUM_EVENTS);
 }
 
 //Test reading out data from a stream.
@@ -33,15 +88,26 @@ async fn test_read_api(client_factory: &ClientFactory) {
     let scope_name = Scope::from("testReaderScope".to_owned());
     let stream_name = Stream::from("testReaderStream".to_owned());
 
-    const NUM_EVENTS: usize = 100;
-    // write 100 events.
-    write_event(
-        scope_name.clone(),
-        stream_name.clone(),
-        &client_factory,
-        NUM_EVENTS,
+    const NUM_EVENTS: usize = 10;
+
+    let new_stream = create_scope_stream(
+        client_factory.get_controller_client(),
+        &scope_name,
+        &stream_name,
+        4,
     )
     .await;
+    // write events only if the stream is not created.
+    if new_stream {
+        // write 100 events.
+        write_events(
+            scope_name.clone(),
+            stream_name.clone(),
+            &client_factory,
+            NUM_EVENTS,
+        )
+        .await;
+    }
     let str = ScopedStream {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
@@ -70,27 +136,53 @@ async fn test_read_api(client_factory: &ClientFactory) {
 }
 
 // helper method to write events to Pravega
-async fn write_event(
+async fn write_events(
     scope_name: Scope,
     stream_name: Stream,
     client_factory: &ClientFactory,
     num_events: usize,
 ) {
-    let controller_client = client_factory.get_controller_client();
-    let new_stream = create_scope_stream(controller_client, &scope_name, &stream_name, 4).await;
-    // write events only if this stream is not present.
-    if new_stream {
-        let scoped_stream = ScopedStream {
-            scope: scope_name,
-            stream: stream_name,
-        };
-        let mut writer = client_factory.create_event_stream_writer(scoped_stream);
+    let scoped_stream = ScopedStream {
+        scope: scope_name,
+        stream: stream_name,
+    };
+    let mut writer = client_factory.create_event_stream_writer(scoped_stream);
 
-        for _x in 0..num_events {
-            let rx = writer.write_event(String::from("aaa").into_bytes()).await;
-            rx.await.expect("Failed to write Event").unwrap();
-        }
+    for _x in 0..num_events {
+        let rx = writer.write_event(String::from("aaa").into_bytes()).await;
+        rx.await.expect("Failed to write Event").unwrap();
     }
+}
+
+// helper function to write events into a stream before and after a stream scale operation.
+async fn write_events_before_and_after_scale(
+    scope_name: Scope,
+    stream_name: Stream,
+    client_factory: &ClientFactory,
+    num_events: usize,
+) {
+    write_events(
+        scope_name.clone(),
+        stream_name.clone(),
+        client_factory,
+        num_events,
+    )
+    .await;
+    let scoped_stream = ScopedStream {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+    };
+    let new_range = [(0.0, 0.5), (0.5, 1.0)];
+    let to_seal_segments: Vec<Segment> = vec![Segment::from(0)];
+    let controller = client_factory.get_controller_client();
+    let scale_result = controller
+        .scale_stream(&scoped_stream, to_seal_segments.as_slice(), &new_range)
+        .await;
+    assert!(scale_result.is_ok(), "Stream scaling should complete");
+    let current_segments_result = controller.get_current_segments(&scoped_stream).await;
+    assert_eq!(2, current_segments_result.unwrap().key_segment_map.len());
+    // write events post stream scaling.
+    write_events(scope_name, stream_name, client_factory, num_events).await;
 }
 
 // helper method to create scope and stream.

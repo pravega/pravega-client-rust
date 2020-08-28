@@ -61,7 +61,7 @@ mod test {
     #[test]
     fn integration_test() {
         trace::init();
-        let span = span!(Level::INFO, "integration test");
+        let span = span!(Level::DEBUG, "integration test");
         let _enter = span.enter();
         let mut pravega = PravegaStandaloneService::start(false);
         wait_for_standalone_with_timeout(true, 30);

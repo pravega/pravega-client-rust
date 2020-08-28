@@ -9,8 +9,11 @@
 //
 
 use crate::client_factory::ClientFactoryInternal;
+use crate::event_reader::SegmentReadResult;
+use crate::segment_reader::ReaderError::SegmentSealed;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 use bytes::{Buf, BufMut, BytesMut};
+use pravega_rust_client_retry::retry_result::Retryable;
 use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::commands::{Command, EventCommand, TYPE_PLUS_LENGTH_SIZE};
 use std::collections::HashMap;
@@ -45,7 +48,7 @@ pub struct SegmentSlice<'reader> {
 ///
 /// This is a placeholder for SegmentSlice metadata. This meta is persisted by the EventReader.
 ///
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SliceMetadata {
     pub start_offset: i64,
     pub scoped_segment: String,
@@ -60,7 +63,7 @@ pub struct SliceMetadata {
 ///
 /// Read Buffer size
 ///
-const READ_BUFFER_SIZE: i32 = 131072; // 128K bytes
+const READ_BUFFER_SIZE: i32 = 2048; // 128K bytes
 
 ///
 /// Structure to track the offset and byte array.
@@ -141,6 +144,14 @@ impl BytePlaceholder {
     }
 }
 
+impl SliceMetadata {
+    fn is_empty(&self) -> bool {
+        self.segment_data.value.is_empty()
+            && self.partial_event.value.is_empty()
+            && self.partial_header.value.is_empty()
+    }
+}
+
 impl Default for SliceMetadata {
     fn default() -> Self {
         SliceMetadata {
@@ -191,7 +202,7 @@ impl SegmentSlice<'_> {
     pub(crate) async fn get_segment_data(
         segment: ScopedSegment,
         start_offset: i64,
-        mut tx: Sender<BytePlaceholder>,
+        mut tx: Sender<SegmentReadResult>,
         factory: Arc<ClientFactoryInternal>,
     ) {
         let mut offset: i64 = start_offset;
@@ -206,7 +217,19 @@ impl SegmentSlice<'_> {
                 Ok(reply) => {
                     debug!("Read Response from Segment store {:?}", reply);
                     let len = reply.data.len();
-                    if len == 0 || reply.end_of_segment {
+                    if len == 0 && reply.end_of_segment {
+                        info!("Reached end of segment {:?} during read ", segment.clone());
+                        let data = SegmentSealed {
+                            segment: segment.to_string(),
+                            can_retry: false,
+                            operation: "read segment".to_string(),
+                            error_msg: "reached the end of stream".to_string(),
+                        };
+                        // send data: this waits until there is capacity in the channel.
+                        if let Err(e) = tx.send(Err(data)).await {
+                            info!("Error while sending segment data to event parser {:?} ", e);
+                            break;
+                        }
                         drop(tx);
                         break;
                     } else {
@@ -217,7 +240,7 @@ impl SegmentSlice<'_> {
                             value: segment_data,
                         };
                         // send data: this waits until there is capacity in the channel.
-                        if let Err(e) = tx.send(data).await {
+                        if let Err(e) = tx.send(Ok(data)).await {
                             info!("Error while sending segment data to event parser {:?} ", e);
                             break;
                         }
@@ -226,7 +249,11 @@ impl SegmentSlice<'_> {
                 }
                 Err(e) => {
                     warn!("Error while reading from segment {:?}", e);
-                    break;
+                    if !e.can_retry() {
+                        let _s = tx.send(Err(e)).await;
+                        //TODO: should we drop it.
+                        break;
+                    }
                 }
             }
         }
@@ -380,7 +407,14 @@ impl Iterator for SegmentSlice<'_> {
                 Some(event)
             }
             None => {
-                info!("Partial event read by the extract_event method, invoke read again to fetch the complete event.");
+                if self.meta.is_empty() {
+                    info!(
+                        "Finished reading events from the segment slice of {:?}",
+                        self.meta.scoped_segment
+                    );
+                } else {
+                    info!("Partial event read present in the segment slice of {:?}, this will be returned post a new read request", self.meta.scoped_segment);
+                }
                 let mut map = self.reader_meta.write().expect("RWLock Poisoned");
                 map.insert(self.meta.scoped_segment.clone(), self.meta.clone());
                 drop(map); // relinquish write lock.
