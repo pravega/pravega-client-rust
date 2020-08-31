@@ -96,9 +96,9 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfigBuilder};
+    use pravega_rust_client_config::connection_type::ConnectionType;
     use pravega_wire_protocol::commands::HelloCommand;
-    use pravega_wire_protocol::connection_factory::ConnectionFactory;
+    use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryConfig};
     use pravega_wire_protocol::wire_commands::Encode;
     use std::io::Write;
     use std::net::{SocketAddr, TcpListener};
@@ -113,11 +113,7 @@ mod tests {
     impl Common {
         fn new() -> Self {
             let rt = Runtime::new().expect("create tokio Runtime");
-            let config = ClientConfigBuilder::default()
-                .connection_type(ConnectionType::Tokio)
-                .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
-                .build()
-                .expect("build client config");
+            let config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
             let connection_factory = ConnectionFactory::create(config);
             let manager = SegmentConnectionManager::new(connection_factory, 2);
             let pool = ConnectionPool::new(manager);
