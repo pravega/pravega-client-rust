@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactoryInternal;
+use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::transaction::pinger::{Pinger, PingerHandle};
 use crate::transaction::transactional_event_segment_writer::TransactionalEventSegmentWriter;
@@ -66,10 +66,10 @@ use tracing_futures::Instrument;
 pub struct TransactionalEventStreamWriter {
     stream: ScopedStream,
     writer_id: WriterId,
-    factory: Arc<ClientFactoryInternal>,
+    factory: ClientFactory,
     config: ClientConfig,
     pinger_handle: PingerHandle,
-    delegation_token_provider: Arc<Box<dyn DelegationTokenProvider>>,
+    delegation_token_provider: Arc<DelegationTokenProvider>,
 }
 
 impl TransactionalEventStreamWriter {
@@ -78,12 +78,13 @@ impl TransactionalEventStreamWriter {
     pub(crate) async fn new(
         stream: ScopedStream,
         writer_id: WriterId,
-        factory: Arc<ClientFactoryInternal>,
+        factory: ClientFactory,
         config: ClientConfig,
     ) -> Self {
         let (mut pinger, pinger_handle) =
             Pinger::new(stream.clone(), config.transaction_timeout_time, factory.clone());
-        let delegation_token_provider = Arc::new(factory.create_delegation_token_provider(stream.clone()));
+        let delegation_token_provider =
+            Arc::new(factory.create_delegation_token_provider(stream.clone()).await);
         let runtime_handle = factory.get_runtime_handle();
         let span = info_span!("Pinger", transactional_event_stream_writer = %writer_id);
         runtime_handle.enter(|| tokio::spawn(async move { pinger.start_ping().instrument(span).await }));

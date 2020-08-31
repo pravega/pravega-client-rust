@@ -14,7 +14,7 @@ use pravega_client_rust::raw_client::RawClient;
 use pravega_client_rust::raw_client::RawClientImpl;
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
-use pravega_rust_client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
+use pravega_rust_client_config::{ClientConfig, ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::Command as WireCommand;
@@ -32,7 +32,7 @@ use uuid::Uuid;
 lazy_static! {
     static ref CONNECTION_POOL: ConnectionPool<SegmentConnectionManager> = {
         let config = ClientConfigBuilder::default()
-            .controller_uri(TEST_CONTROLLER_URI)
+            .controller_uri(MOCK_CONTROLLER_URI)
             .build()
             .expect("build client config");
         let cf = ConnectionFactory::create(config.clone());
@@ -43,7 +43,7 @@ lazy_static! {
 
 pub fn wirecommand_test_wrapper() {
     let config = ClientConfigBuilder::default()
-        .controller_uri(TEST_CONTROLLER_URI)
+        .controller_uri(MOCK_CONTROLLER_URI)
         .build()
         .expect("build client config");
     let cf = ClientFactory::new(config);
@@ -51,81 +51,76 @@ pub fn wirecommand_test_wrapper() {
     h.block_on(wirecommand_tests(cf.get_controller_client()));
 }
 
-pub async fn wirecommand_tests(controller: Arc<Box<dyn ControllerClient>>) {
+pub async fn wirecommand_tests(controller: &dyn ControllerClient) {
     let timeout_second = time::Duration::from_secs(30);
 
-    timeout(timeout_second, test_hello(controller.clone()))
+    timeout(timeout_second, test_hello(controller)).await.unwrap();
+
+    timeout(timeout_second, test_keep_alive(controller))
         .await
         .unwrap();
 
-    timeout(timeout_second, test_keep_alive(controller.clone()))
+    timeout(timeout_second, test_setup_append(controller))
         .await
         .unwrap();
 
-    timeout(timeout_second, test_setup_append(controller.clone()))
+    timeout(timeout_second, test_create_segment(controller))
         .await
         .unwrap();
 
-    timeout(timeout_second, test_create_segment(controller.clone()))
+    timeout(timeout_second, test_update_and_get_segment_attribute(controller))
         .await
         .unwrap();
 
-    timeout(
-        timeout_second,
-        test_update_and_get_segment_attribute(controller.clone()),
-    )
-    .await
-    .unwrap();
-
-    timeout(timeout_second, test_get_stream_segment_info(controller.clone()))
+    timeout(timeout_second, test_get_stream_segment_info(controller))
         .await
         .unwrap();
 
-    timeout(timeout_second, test_seal_segment(controller.clone()))
+    timeout(timeout_second, test_seal_segment(controller))
         .await
         .unwrap();
 
-    timeout(timeout_second, test_delete_segment(controller.clone()))
+    timeout(timeout_second, test_delete_segment(controller))
         .await
         .unwrap();
 
     timeout(
         timeout_second,
-        test_conditional_append_and_read_segment(controller.clone()),
+        test_conditional_append_and_read_segment(controller),
     )
     .await
     .unwrap();
 
-    timeout(timeout_second, test_update_segment_policy(controller.clone()))
+    timeout(timeout_second, test_update_segment_policy(controller))
         .await
         .unwrap();
 
-    timeout(timeout_second, test_merge_segment(controller.clone()))
+    timeout(timeout_second, test_merge_segment(controller))
         .await
         .unwrap();
 
-    timeout(timeout_second, test_truncate_segment(controller.clone()))
+    timeout(timeout_second, test_truncate_segment(controller))
         .await
         .unwrap();
 
-    timeout(timeout_second, test_update_table_entries(controller.clone()))
+    timeout(timeout_second, test_update_table_entries(controller))
         .await
         .unwrap();
 
-    timeout(timeout_second, test_read_table_key(controller.clone()))
+    timeout(timeout_second, test_read_table_key(controller))
         .await
         .unwrap();
 
-    timeout(timeout_second, test_read_table(controller.clone()))
+    timeout(timeout_second, test_read_table(controller))
         .await
         .unwrap();
 
-    timeout(timeout_second, test_read_table_entries(controller.clone()))
+    timeout(timeout_second, test_read_table_entries(controller))
         .await
         .unwrap();
 }
 
-async fn test_hello(controller_client: Arc<Box<dyn ControllerClient>>) {
+async fn test_hello(controller_client: &dyn ControllerClient) {
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testStream".to_owned());
     // Create scope and stream
@@ -185,7 +180,7 @@ async fn test_hello(controller_client: Arc<Box<dyn ControllerClient>>) {
 }
 
 // KeepAlive would not send back reply.
-async fn test_keep_alive(controller_client: Arc<Box<dyn ControllerClient>>) {
+async fn test_keep_alive(controller_client: &dyn ControllerClient) {
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testStream".to_owned());
     let segment_name = ScopedSegment {
@@ -208,7 +203,7 @@ async fn test_keep_alive(controller_client: Arc<Box<dyn ControllerClient>>) {
     client_connection.write(&request).await.expect("send request");
 }
 
-async fn test_setup_append(controller_client: Arc<Box<dyn ControllerClient>>) {
+async fn test_setup_append(controller_client: &dyn ControllerClient) {
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testStream".to_owned());
     let segment_name = ScopedSegment {
@@ -269,7 +264,7 @@ async fn test_setup_append(controller_client: Arc<Box<dyn ControllerClient>>) {
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_create_segment(controller_client: Arc<Box<dyn ControllerClient>>) {
+async fn test_create_segment(controller_client: &dyn ControllerClient) {
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testStream".to_owned());
     let segment_name = ScopedSegment {
@@ -319,7 +314,7 @@ async fn test_create_segment(controller_client: Arc<Box<dyn ControllerClient>>) 
     );
 }
 
-async fn test_seal_segment(controller_client: Arc<Box<dyn ControllerClient>>) {
+async fn test_seal_segment(controller_client: &dyn ControllerClient) {
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testStream".to_owned());
     let segment_name = ScopedSegment {
@@ -352,7 +347,7 @@ async fn test_seal_segment(controller_client: Arc<Box<dyn ControllerClient>>) {
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_update_and_get_segment_attribute(controller_client: Arc<Box<dyn ControllerClient>>) {
+async fn test_update_and_get_segment_attribute(controller_client: &dyn ControllerClient) {
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testStream".to_owned());
     let segment_name = ScopedSegment {
@@ -404,7 +399,7 @@ async fn test_update_and_get_segment_attribute(controller_client: Arc<Box<dyn Co
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_get_stream_segment_info(controller_client: Arc<Box<dyn ControllerClient>>) {
+async fn test_get_stream_segment_info(controller_client: &dyn ControllerClient) {
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testStream".to_owned());
     let stream = ScopedStream {
@@ -445,7 +440,7 @@ async fn test_get_stream_segment_info(controller_client: Arc<Box<dyn ControllerC
     }
 }
 
-async fn test_delete_segment(controller_client: Arc<Box<dyn ControllerClient>>) {
+async fn test_delete_segment(controller_client: &dyn ControllerClient) {
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testStream".to_owned());
     let segment_name = ScopedSegment {
@@ -476,7 +471,7 @@ async fn test_delete_segment(controller_client: Arc<Box<dyn ControllerClient>>) 
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_conditional_append_and_read_segment(controller_client: Arc<Box<dyn ControllerClient>>) {
+async fn test_conditional_append_and_read_segment(controller_client: &dyn ControllerClient) {
     let scope_name = Scope::from("scope".to_owned());
     let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
@@ -558,7 +553,7 @@ async fn test_conditional_append_and_read_segment(controller_client: Arc<Box<dyn
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_update_segment_policy(controller_client: Arc<Box<dyn ControllerClient>>) {
+async fn test_update_segment_policy(controller_client: &dyn ControllerClient) {
     let scope_name = Scope::from("scope".to_owned());
     let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
@@ -592,7 +587,7 @@ async fn test_update_segment_policy(controller_client: Arc<Box<dyn ControllerCli
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_merge_segment(controller_client: Arc<Box<dyn ControllerClient>>) {
+async fn test_merge_segment(controller_client: &dyn ControllerClient) {
     let scope_name = Scope::from("scope".to_owned());
     let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
@@ -679,7 +674,7 @@ async fn test_merge_segment(controller_client: Arc<Box<dyn ControllerClient>>) {
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_truncate_segment(controller_client: Arc<Box<dyn ControllerClient>>) {
+async fn test_truncate_segment(controller_client: &dyn ControllerClient) {
     let scope_name = Scope::from("scope".to_owned());
     let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
@@ -713,7 +708,7 @@ async fn test_truncate_segment(controller_client: Arc<Box<dyn ControllerClient>>
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_update_table_entries(controller_client: Arc<Box<dyn ControllerClient>>) {
+async fn test_update_table_entries(controller_client: &dyn ControllerClient) {
     let scope_name = Scope::from("scope".to_owned());
     let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
@@ -819,7 +814,7 @@ async fn test_update_table_entries(controller_client: Arc<Box<dyn ControllerClie
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_read_table_key(controller_client: Arc<Box<dyn ControllerClient>>) {
+async fn test_read_table_key(controller_client: &dyn ControllerClient) {
     let scope_name = Scope::from("scope".to_owned());
     let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
@@ -857,7 +852,7 @@ async fn test_read_table_key(controller_client: Arc<Box<dyn ControllerClient>>) 
     }
 }
 
-async fn test_read_table(controller_client: Arc<Box<dyn ControllerClient>>) {
+async fn test_read_table(controller_client: &dyn ControllerClient) {
     let scope_name = Scope::from("scope".to_owned());
     let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
@@ -907,7 +902,7 @@ async fn test_read_table(controller_client: Arc<Box<dyn ControllerClient>>) {
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 }
 
-async fn test_read_table_entries(controller_client: Arc<Box<dyn ControllerClient>>) {
+async fn test_read_table_entries(controller_client: &dyn ControllerClient) {
     let scope_name = Scope::from("scope".to_owned());
     let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {

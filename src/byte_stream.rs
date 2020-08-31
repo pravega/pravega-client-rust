@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::{ClientFactory, ClientFactoryInternal};
+use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::get_random_u128;
 use crate::reactor::event::{Incoming, PendingEvent};
@@ -18,7 +18,6 @@ use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::{ScopedSegment, WriterId};
 use std::io::Error;
 use std::io::{ErrorKind, Read, Write};
-use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
@@ -88,11 +87,7 @@ impl Write for ByteStreamWriter {
 }
 
 impl ByteStreamWriter {
-    pub(crate) fn new(
-        segment: ScopedSegment,
-        config: ClientConfig,
-        factory: Arc<ClientFactoryInternal>,
-    ) -> Self {
+    pub(crate) fn new(segment: ScopedSegment, config: ClientConfig, factory: ClientFactory) -> Self {
         let (sender, receiver) = channel(CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
         let writer_id = WriterId::from(get_random_u128());
@@ -131,14 +126,14 @@ impl ByteStreamWriter {
     }
 }
 
-pub struct ByteStreamReader<'a> {
+pub struct ByteStreamReader {
     reader_id: Uuid,
-    reader: AsyncSegmentReaderImpl<'a>,
+    reader: AsyncSegmentReaderImpl,
     offset: i64,
     runtime_handle: Handle,
 }
 
-impl Read for ByteStreamReader<'_> {
+impl Read for ByteStreamReader {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
         let result = self
             .runtime_handle
@@ -158,8 +153,8 @@ impl Read for ByteStreamReader<'_> {
     }
 }
 
-impl<'a> ByteStreamReader<'a> {
-    pub(crate) fn new(segment: ScopedSegment, factory: &'a ClientFactory) -> Self {
+impl ByteStreamReader {
+    pub(crate) fn new(segment: ScopedSegment, factory: &ClientFactory) -> Self {
         let handle = factory.get_runtime_handle();
         let async_reader = handle.block_on(factory.create_async_event_reader(segment));
         ByteStreamReader {

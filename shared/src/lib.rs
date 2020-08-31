@@ -37,12 +37,12 @@ use serde::{Deserialize, Serialize};
 use std::cmp::{min, Reverse};
 use std::collections::{BTreeMap, HashMap};
 use std::convert::From;
+use std::fmt;
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
-use std::net::{SocketAddr, ToSocketAddrs};
+use std::net::SocketAddr;
 use std::ops::Index;
 use std::vec;
-use std::{fmt, io};
 use uuid::Uuid;
 
 #[macro_use]
@@ -73,24 +73,12 @@ impl From<SocketAddr> for PravegaNodeUri {
     }
 }
 
-impl ToSocketAddrs for PravegaNodeUri {
-    type Iter = vec::IntoIter<SocketAddr>;
-
-    fn to_socket_addrs(&self) -> io::Result<vec::IntoIter<SocketAddr>> {
-        self.0.to_socket_addrs()
-    }
-}
-
 impl PravegaNodeUri {
-    pub fn top(&self) -> SocketAddr {
-        self.0
-            .to_socket_addrs()
-            .expect("get SocketAddrs")
-            .next()
-            .expect("get first SocketAddr")
+    pub fn to_socket_addr(&self) -> SocketAddr {
+        self.0.parse::<SocketAddr>().expect("get SocketAddrs")
     }
 
-    pub fn domain(&self) -> String {
+    pub fn domain_name(&self) -> String {
         let parts: Vec<_> = self.0.split(':').collect();
         parts[0].to_string()
     }

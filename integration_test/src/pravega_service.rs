@@ -8,8 +8,12 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use java_properties::read;
+use java_properties::write;
+use java_properties::PropertiesIter;
+use java_properties::PropertiesWriter;
 use std::fs::{create_dir, File};
-use std::io::{Read, Write};
+use std::io::{BufReader, BufWriter, Read, Write};
 use std::net::IpAddr;
 use std::net::Ipv4Addr;
 use std::net::SocketAddr;
@@ -147,80 +151,59 @@ impl PravegaService for PravegaStandaloneService {
 
     fn enable_auth(enable: bool) {
         let file_path = Path::new(&PROPERTY);
-        // Open and read the file entirely
-        let mut src = File::open(&file_path).expect("open standalone property file");
-        let mut data = String::new();
-        src.read_to_string(&mut data).expect("read data");
-        drop(src); // Close the file early
+        let file = File::open(&file_path).expect("open standalone property file");
+        let mut map = read(BufReader::new(file)).expect("read property file");
 
-        // Run the replace operation in memory
-        let mut new_data: String;
         if enable {
-            new_data = data.replace(
-                "#singlenode.security.auth.enable=false",
-                "singlenode.security.auth.enable=true",
+            map.insert("singlenode.security.auth.enable".to_string(), "true".to_string());
+            map.insert(
+                "singlenode.security.auth.pwdAuthHandler.accountsDb.location".to_string(),
+                "./pravega/conf/passwd".to_string(),
             );
-            new_data = new_data.replace(
-                "#singlenode.security.auth.pwdAuthHandler.accountsDb.location=../config/passwd",
-                "singlenode.security.auth.pwdAuthHandler.accountsDb.location=./pravega/conf/passwd",
-            )
         } else {
-            new_data = data.replace(
-                "singlenode.security.auth.enable=true",
-                "#singlenode.security.auth.enable=false",
-            )
+            map.insert("singlenode.security.auth.enable".to_string(), "false".to_string());
         };
 
         // Recreate the file and dump the processed contents to it
-        let mut dst = File::create(&file_path).expect("create file");
-        dst.write_all(new_data.as_bytes()).expect("write file");
+        let f = File::create(&file_path).expect("create file");
+        write(BufWriter::new(f), &map).expect("write file");
     }
 
     fn enable_tls(enable: bool) {
         let file_path = Path::new(&PROPERTY);
-        // Open and read the file entirely
-        let mut src = File::open(&file_path).expect("open standalone property file");
-        let mut data = String::new();
-        src.read_to_string(&mut data).expect("read data");
-        drop(src); // Close the file early
+        let file = File::open(&file_path).expect("open standalone property file");
+        let mut map = read(BufReader::new(file)).expect("read property file");
+        // drop(src); // Close the file early
 
-        // Run the replace operation in memory
-        let mut new_data: String;
         if enable {
-            new_data = data.replace(
-                "#singlenode.security.tls.enable=false",
-                "singlenode.security.tls.enable=true",
+            map.insert("singlenode.security.tls.enable".to_string(), "true".to_string());
+            map.insert(
+                "singlenode.security.tls.privateKey.location".to_string(),
+                "./pravega/conf/server-key.key".to_string(),
             );
-            new_data = new_data.replace(
-                "#singlenode.security.tls.privateKey.location=../config/server-key.key",
-                "singlenode.security.tls.privateKey.location=./pravega/conf/server-key.key",
+            map.insert(
+                "singlenode.security.tls.certificate.location".to_string(),
+                "./pravega/conf/server-cert.crt".to_string(),
             );
-            new_data = new_data.replace(
-                "#singlenode.security.tls.certificate.location=../config/server-cert.crt",
-                "singlenode.security.tls.certificate.location=./pravega/conf/server-cert.crt",
+            map.insert(
+                "singlenode.security.tls.keyStore.location".to_string(),
+                "./pravega/conf/server.keystore.jks".to_string(),
             );
-            new_data = new_data.replace(
-                "#singlenode.security.tls.keyStore.location=../config/server.keystore.jks",
-                "singlenode.security.tls.keyStore.location=./pravega/conf/server.keystore.jks",
+            map.insert(
+                "singlenode.security.tls.keyStore.pwd.location".to_string(),
+                "./pravega/conf/server.keystore.jks.passwd".to_string(),
             );
-            new_data = new_data.replace(
-                "#singlenode.security.tls.keyStore.pwd.location=../config/server.keystore.jks.passwd",
-                "singlenode.security.tls.keyStore.pwd.location=./pravega/conf/server.keystore.jks.passwd",
-            );
-            new_data = new_data.replace(
-                "#singlenode.security.tls.trustStore.location=../config/client.truststore.jks",
-                "singlenode.security.tls.trustStore.location=./pravega/conf/client.truststore.jks",
+            map.insert(
+                "singlenode.security.tls.trustStore.location".to_string(),
+                "./pravega/conf/client.truststore.jks".to_string(),
             );
         } else {
-            new_data = data.replace(
-                "singlenode.security.tls.enable=true",
-                "#singlenode.security.tls.enable=false",
-            )
+            map.insert("singlenode.security.tls.enable".to_string(), "false".to_string());
         };
 
         // Recreate the file and dump the processed contents to it
-        let mut dst = File::create(&file_path).expect("create file");
-        dst.write_all(new_data.as_bytes()).expect("write file");
+        let f = File::create(&file_path).expect("create file");
+        write(BufWriter::new(f), &map).expect("write file");
     }
 }
 

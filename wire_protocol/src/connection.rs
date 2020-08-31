@@ -208,8 +208,9 @@ impl Validate for TcpStream {
     }
 }
 
-impl<Stream> Validate for TlsStream<Stream> {
+impl Validate for TlsStream<TcpStream> {
     fn is_valid(&self) -> bool {
-        false
+        let (io, _session) = self.get_ref();
+        io.peer_addr().map_or_else(|_e| false, |_addr| true)
     }
 }

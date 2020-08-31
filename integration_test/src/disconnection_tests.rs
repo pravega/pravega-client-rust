@@ -14,7 +14,7 @@ use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::raw_client::{RawClient, RawClientImpl};
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl, ControllerError};
-use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfigBuilder, TEST_CONTROLLER_URI};
+use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_retry::retry_result::RetryResult;
@@ -54,7 +54,7 @@ async fn test_retry_with_no_connection() {
     // give a wrong endpoint
     let endpoint = PravegaNodeUri::from("127.0.0.1:0");
     let config = ClientConfigBuilder::default()
-        .controller_uri(TEST_CONTROLLER_URI)
+        .controller_uri(MOCK_CONTROLLER_URI)
         .connection_type(ConnectionType::Tokio)
         .build()
         .expect("creating config");
@@ -92,7 +92,7 @@ fn test_retry_while_start_pravega() {
     let controller_client = cf.get_controller_client();
 
     cf.get_runtime_handle()
-        .block_on(create_scope_stream(&**controller_client));
+        .block_on(create_scope_stream(controller_client));
 }
 
 async fn create_scope_stream(controller_client: &dyn ControllerClient) {
@@ -212,7 +212,7 @@ async fn test_with_mock_server() {
     let server = Server::new();
     let endpoint = PravegaNodeUri::from(format!("{}:{}", server.address.ip(), server.address.port()));
     let config = ClientConfigBuilder::default()
-        .controller_uri(TEST_CONTROLLER_URI)
+        .controller_uri(MOCK_CONTROLLER_URI)
         .connection_type(ConnectionType::Mock)
         .build()
         .expect("creating config");

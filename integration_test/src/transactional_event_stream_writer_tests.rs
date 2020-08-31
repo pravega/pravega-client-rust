@@ -11,7 +11,7 @@
 use pravega_client_rust::event_stream_writer::EventStreamWriter;
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
-use pravega_rust_client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
+use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
@@ -44,7 +44,7 @@ pub fn test_transactional_event_stream_writer(config: PravegaStandaloneServiceCo
         stream: stream_name.clone(),
     };
     let config = ClientConfigBuilder::default()
-        .controller_uri(TEST_CONTROLLER_URI)
+        .controller_uri(MOCK_CONTROLLER_URI)
         .is_auth_enabled(config.auth())
         .is_tls_enabled(config.tls())
         .build()
@@ -54,7 +54,7 @@ pub fn test_transactional_event_stream_writer(config: PravegaStandaloneServiceCo
     handle.block_on(setup_test(
         &scope_name,
         &stream_name,
-        &**client_factory.get_controller_client(),
+        client_factory.get_controller_client(),
     ));
 
     let mut writer =
@@ -210,11 +210,15 @@ async fn setup_test(scope_name: &Scope, stream_name: &Stream, controller_client:
 }
 
 async fn get_segment_info(segment: &ScopedSegment, factory: &ClientFactory) -> StreamSegmentInfoCommand {
-    let delegation_toke_provider = factory.create_delegation_token_provider(ScopedStream::from(segment));
+    let delegation_toke_provider = factory
+        .create_delegation_token_provider(ScopedStream::from(segment))
+        .await;
     let cmd = GetStreamSegmentInfoCommand {
         request_id: 0,
         segment_name: segment.to_string(),
-        delegation_token: delegation_toke_provider.retrieve_token().await,
+        delegation_token: delegation_toke_provider
+            .retrieve_token(factory.get_controller_client())
+            .await,
     };
     let request = Requests::GetStreamSegmentInfo(cmd);
     let rawclient = factory.create_raw_client(segment).await;

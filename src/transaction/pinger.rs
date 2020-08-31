@@ -8,11 +8,10 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactoryInternal;
+use crate::client_factory::ClientFactory;
 use crate::error::*;
 use pravega_rust_client_shared::{PingStatus, ScopedStream, TxId};
 use std::collections::HashSet;
-use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
@@ -33,7 +32,7 @@ pub(crate) struct Pinger {
     stream: ScopedStream,
     txn_lease_millis: u64,
     ping_interval_millis: u64,
-    factory: Arc<ClientFactoryInternal>,
+    factory: ClientFactory,
     receiver: Receiver<PingerEvent>,
 }
 
@@ -81,7 +80,7 @@ impl Pinger {
     pub(crate) fn new(
         stream: ScopedStream,
         txn_lease_millis: u64,
-        factory: Arc<ClientFactoryInternal>,
+        factory: ClientFactory,
     ) -> (Self, PingerHandle) {
         let (tx, rx) = channel(100);
         let pinger = Pinger {

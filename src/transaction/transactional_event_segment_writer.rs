@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactoryInternal;
+use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::segment_writer::SegmentWriter;
@@ -40,7 +40,7 @@ impl TransactionalEventSegmentWriter {
     pub(super) fn new(
         segment: ScopedSegment,
         retry_policy: RetryWithBackoff,
-        delegation_token_provider: Arc<Box<dyn DelegationTokenProvider>>,
+        delegation_token_provider: Arc<DelegationTokenProvider>,
     ) -> Self {
         let (tx, rx) = channel(TransactionalEventSegmentWriter::CHANNEL_CAPACITY);
         let event_segment_writer =
@@ -55,7 +55,7 @@ impl TransactionalEventSegmentWriter {
 
     /// sets up connection for this transaction segment by sending wirecommand SetupAppend.
     /// If an error happened, try to reconnect to the server.
-    pub(super) async fn initialize(&mut self, factory: &ClientFactoryInternal) {
+    pub(super) async fn initialize(&mut self, factory: &ClientFactory) {
         if let Err(_e) = self.event_segment_writer.setup_connection(factory).await {
             self.event_segment_writer.reconnect(factory).await;
         }
@@ -65,7 +65,7 @@ impl TransactionalEventSegmentWriter {
     pub(super) async fn write_event(
         &mut self,
         event: Vec<u8>,
-        factory: &ClientFactoryInternal,
+        factory: &ClientFactory,
     ) -> Result<(), TransactionalEventSegmentWriterError> {
         self.try_process_unacked_events(factory).await?;
         let (oneshot_tx, oneshot_rx) = oneshot::channel();
@@ -83,7 +83,7 @@ impl TransactionalEventSegmentWriter {
     /// wait until all the outstanding events has been acked.
     pub(super) async fn flush(
         &mut self,
-        factory: &ClientFactoryInternal,
+        factory: &ClientFactory,
     ) -> Result<(), TransactionalEventSegmentWriterError> {
         if self.outstanding.is_some() {
             self.process_unacked_events(factory).await?;
@@ -95,7 +95,7 @@ impl TransactionalEventSegmentWriter {
     /// process any events that are waiting for server acks. It will wait until responses arrive.
     async fn process_unacked_events(
         &mut self,
-        factory: &ClientFactoryInternal,
+        factory: &ClientFactory,
     ) -> Result<(), TransactionalEventSegmentWriterError> {
         if let Some(event) = self.recevier.recv().await {
             self.process_server_reply(event, factory).await?;
@@ -109,7 +109,7 @@ impl TransactionalEventSegmentWriter {
     /// then return immediately.
     async fn try_process_unacked_events(
         &mut self,
-        factory: &ClientFactoryInternal,
+        factory: &ClientFactory,
     ) -> Result<(), TransactionalEventSegmentWriterError> {
         loop {
             match self.recevier.try_recv() {
@@ -125,7 +125,7 @@ impl TransactionalEventSegmentWriter {
     async fn process_server_reply(
         &mut self,
         income: Incoming,
-        factory: &ClientFactoryInternal,
+        factory: &ClientFactory,
     ) -> Result<(), TransactionalEventSegmentWriterError> {
         if let Incoming::ServerReply(server_reply) = income {
             if let Replies::DataAppended(cmd) = server_reply.reply {
@@ -146,7 +146,7 @@ impl TransactionalEventSegmentWriter {
     }
 
     /// processes the data appended wirecommand.
-    async fn process_data_appended(&mut self, factory: &ClientFactoryInternal, cmd: DataAppendedCommand) {
+    async fn process_data_appended(&mut self, factory: &ClientFactory, cmd: DataAppendedCommand) {
         debug!(
             "data appended for writer {:?}, latest event id is: {:?}",
             self.event_segment_writer.get_id(),

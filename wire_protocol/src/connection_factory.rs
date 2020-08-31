@@ -25,7 +25,7 @@ use std::io::BufReader;
 use std::sync::Arc;
 use tokio::net::TcpStream;
 use tokio_rustls::{rustls, webpki::DNSNameRef, TlsConnector};
-use tracing::debug;
+use tracing::info;
 use uuid::Uuid;
 
 /// ConnectionFactory trait is the factory used to establish the TCP connection with remote servers.
@@ -92,15 +92,17 @@ impl ConnectionFactory for TokioConnectionFactory {
         let connection_type = ConnectionType::Tokio;
         let uuid = Uuid::new_v4();
         let mut tokio_connection = if self.tls_enabled {
-            debug!("establish connection to segmentstore using TLS channel");
+            info!("establish connection to segmentstore using TLS channel");
             let mut config = rustls::ClientConfig::new();
             let mut pem = BufReader::new(File::open(&self.path).expect("open pem file"));
             config.root_store.add_pem_file(&mut pem).expect("add pem file");
             let connector = TlsConnector::from(Arc::new(config));
-            let stream = TcpStream::connect(endpoint.top()).await.context(Connect {
-                connection_type,
-                endpoint: endpoint.clone(),
-            })?;
+            let stream = TcpStream::connect(endpoint.to_socket_addr())
+                .await
+                .context(Connect {
+                    connection_type,
+                    endpoint: endpoint.clone(),
+                })?;
             let domain = DNSNameRef::try_from_ascii_str("server.pravegastack.io").expect("get domain name");
             let stream = connector
                 .connect(domain, stream)
@@ -112,10 +114,12 @@ impl ConnectionFactory for TokioConnectionFactory {
                 stream: Some(stream),
             }) as Box<dyn Connection>
         } else {
-            let stream = TcpStream::connect(endpoint.top()).await.context(Connect {
-                connection_type,
-                endpoint: endpoint.clone(),
-            })?;
+            let stream = TcpStream::connect(endpoint.to_socket_addr())
+                .await
+                .context(Connect {
+                    connection_type,
+                    endpoint: endpoint.clone(),
+                })?;
             Box::new(TokioConnection {
                 uuid,
                 endpoint: endpoint.clone(),
@@ -242,6 +246,7 @@ mod tests {
         let mut rt = Runtime::new().unwrap();
         let config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock)
+            .controller_uri(pravega_rust_client_config::MOCK_CONTROLLER_URI)
             .build()
             .expect("build client config");
         let connection_factory = ConnectionFactory::create(config);
@@ -276,7 +281,8 @@ mod tests {
         info!("test tokio connection factory");
         let mut rt = Runtime::new().unwrap();
         let config = ClientConfigBuilder::default()
-            .connection_type(ConnectionType::Mock)
+            .connection_type(ConnectionType::Tokio)
+            .controller_uri(pravega_rust_client_config::MOCK_CONTROLLER_URI)
             .build()
             .expect("build client config");
         let connection_factory = ConnectionFactory::create(config);

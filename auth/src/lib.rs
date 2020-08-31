@@ -24,14 +24,12 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
-use async_trait::async_trait;
 use base64::decode;
 use lazy_static::*;
 use pravega_controller_client::ControllerClient;
 use pravega_rust_client_shared::{DelegationToken, ScopedStream};
 use regex::Regex;
 use std::str::FromStr;
-use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
 use tracing::{debug, info};
@@ -41,61 +39,47 @@ use tracing::{debug, info};
 /// Note: Delegation tokens are used by Segment Store services to authorize requests. They are created by Controller at
 /// client's behest.
 ///
-#[async_trait]
-pub trait DelegationTokenProvider: Send + Sync {
-    /// Retrieve delegation token.
-    async fn retrieve_token(&self) -> String;
-}
-
-/// Provides empty delegation tokens. This provider is useful when auth is disabled.
-pub struct EmptyTokenProviderImpl {}
-
-#[async_trait]
-impl DelegationTokenProvider for EmptyTokenProviderImpl {
-    async fn retrieve_token(&self) -> String {
-        "".to_owned()
-    }
-}
-
-pub struct JwtTokenProviderImpl {
+/// The implementation is JWT based.
+pub struct DelegationTokenProvider {
     stream: ScopedStream,
-    controller: Arc<Box<dyn ControllerClient>>,
     token: Mutex<Option<DelegationToken>>,
 }
 
 const DEFAULT_REFRESH_THRESHOLD_SECONDS: u64 = 5;
 
-#[async_trait]
-impl DelegationTokenProvider for JwtTokenProviderImpl {
-    /// Returns the delegation token. It returns an existing delegation token if it is not close to expiry.
-    /// If the token is close to expiry, it obtains a new delegation token and returns that one instead.
-    async fn retrieve_token(&self) -> String {
-        let mut guard = self.token.lock().await;
-        if let Some(ref token) = *guard {
-            if JwtTokenProviderImpl::is_token_valid(token.get_expiry_time()) {
-                return token.get_value();
-            }
-        }
-        debug!("no token exists, refresh to get a new one");
-        let token = self.refresh_token().await;
-        let value = token.get_value();
-        *guard = Some(token);
-        value
-    }
-}
-
-impl JwtTokenProviderImpl {
-    pub fn new(stream: ScopedStream, controller: Arc<Box<dyn ControllerClient>>) -> Self {
-        JwtTokenProviderImpl {
+impl DelegationTokenProvider {
+    pub fn new(stream: ScopedStream) -> Self {
+        DelegationTokenProvider {
             stream,
-            controller,
             token: Mutex::new(None),
         }
     }
 
-    async fn refresh_token(&self) -> DelegationToken {
-        let jwt_token = self
-            .controller
+    /// Returns the delegation token. It returns an existing delegation token if it is not close to expiry.
+    /// If the token is close to expiry, it obtains a new delegation token and returns that one instead.
+    pub async fn retrieve_token(&self, controller: &dyn ControllerClient) -> String {
+        let mut guard = self.token.lock().await;
+        if let Some(ref token) = *guard {
+            if DelegationTokenProvider::is_token_valid(token.get_expiry_time()) {
+                return token.get_value();
+            }
+        }
+        debug!("no token exists, refresh to get a new one");
+        let token = self.refresh_token(controller).await;
+        let value = token.get_value();
+        *guard = Some(token);
+        value
+    }
+
+    /// Populate the cached token.
+    /// An empty token can be used when auth is disabled.
+    pub async fn populate(&self, delegation_token: DelegationToken) {
+        let mut guard = self.token.lock().await;
+        *guard = Some(delegation_token)
+    }
+
+    async fn refresh_token(&self, controller: &dyn ControllerClient) -> DelegationToken {
+        let jwt_token = controller
             .get_or_refresh_delegation_token_for(self.stream.clone())
             .await
             .expect("controller error when refreshing token");
@@ -158,9 +142,7 @@ fn parse_expiration_time(jwt_body: String) -> u64 {
 mod test {
     use super::*;
     use pravega_controller_client::mock_controller::MockController;
-    use pravega_rust_client_shared::{Scope, Stream};
-    use std::net::SocketAddr;
-    use std::{thread, time};
+    use pravega_rust_client_shared::{PravegaNodeUri, Scope, Stream};
     use tokio::runtime::Runtime;
 
     const JWT_TOKEN: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzdWJqZWN0IiwiYXVkIjoic2VnbWVudHN0b3JlIiwiaWF0IjoxNTY5ODM3Mzg0LCJleHAiOjE1Njk4Mzc0MzR9.wYSsKf8BirFoT2KY4dhzSFiWaUc9b4xe_jECKJWnR-k";
@@ -186,7 +168,7 @@ mod test {
     #[test]
     fn test_retrieve_token() {
         let mut rt = Runtime::new().unwrap();
-        let mock_controller = MockController::new("127.0.0.1:9090".parse::<SocketAddr>().unwrap());
+        let mock_controller = MockController::new(PravegaNodeUri::from("127.0.0.1:9090"));
         let stream = ScopedStream {
             scope: Scope {
                 name: "scope".to_string(),
@@ -195,24 +177,20 @@ mod test {
                 name: "stream".to_string(),
             },
         };
-        let token_provider = JwtTokenProviderImpl::new(
-            stream,
-            Arc::new(Box::new(mock_controller) as Box<dyn ControllerClient>),
-        );
-        let token1 = rt.block_on(token_provider.retrieve_token());
+        let token_provider = DelegationTokenProvider::new(stream);
+        let token1 = rt.block_on(token_provider.retrieve_token(&mock_controller));
 
         let guard = rt.block_on(token_provider.token.lock());
-        if let Some(ref cache) = guard.as_ref() {
+        if let Some(cache) = guard.as_ref() {
             let token2 = cache.get_value();
             assert_eq!(token1, token2);
+
+            // time expired
+            assert!(!DelegationTokenProvider::is_token_valid(Some(
+                cache.get_expiry_time().unwrap() - DEFAULT_REFRESH_THRESHOLD_SECONDS
+            )))
         } else {
             panic!("token not exists");
         }
-
-        // time expired
-        let sleep_time = time::Duration::from_secs(DEFAULT_REFRESH_THRESHOLD_SECONDS + 1);
-        thread::sleep(sleep_time);
-        let token3 = rt.block_on(token_provider.retrieve_token());
-        assert_ne!(token1, token3);
     }
 }

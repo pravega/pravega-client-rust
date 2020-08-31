@@ -35,7 +35,7 @@ use pravega_rust_client_shared::PravegaNodeUri;
 use std::collections::HashMap;
 use std::env;
 
-pub const TEST_CONTROLLER_URI: (&str, u16) = ("localhost", 9090);
+pub const MOCK_CONTROLLER_URI: (&str, u16) = ("localhost", 9090);
 const AUTH_PROPS_PREFIX: &str = "pravega.client.auth.";
 const AUTH_METHOD: &str = "method";
 const AUTH_TOKEN: &str = "token";
@@ -137,7 +137,7 @@ mod tests {
     #[test]
     fn test_get_default() {
         let config = ClientConfigBuilder::default()
-            .controller_uri(TEST_CONTROLLER_URI)
+            .controller_uri(MOCK_CONTROLLER_URI)
             .build()
             .unwrap();
 

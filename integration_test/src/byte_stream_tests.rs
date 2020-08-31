@@ -18,7 +18,7 @@ use pravega_client_rust::raw_client::RawClient;
 use pravega_client_rust::segment_reader::AsyncSegmentReader;
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
-use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfigBuilder, TEST_CONTROLLER_URI};
+use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{
@@ -35,7 +35,7 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     let scope_name = Scope::from("testScopeByteStream".to_owned());
     let stream_name = Stream::from("testStreamByteStream".to_owned());
     let config = ClientConfigBuilder::default()
-        .controller_uri(TEST_CONTROLLER_URI)
+        .controller_uri(MOCK_CONTROLLER_URI)
         .is_auth_enabled(config.auth())
         .is_tls_enabled(config.tls())
         .build()
@@ -43,7 +43,7 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     let client_factory = ClientFactory::new(config);
     let handle = client_factory.get_runtime_handle();
     handle.block_on(utils::create_scope_stream(
-        &**client_factory.get_controller_client(),
+        client_factory.get_controller_client(),
         &scope_name,
         &stream_name,
         1,

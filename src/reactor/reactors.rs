@@ -16,7 +16,7 @@ use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::wire_commands::Replies;
 
-use crate::client_factory::ClientFactoryInternal;
+use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::reactor::event::{Incoming, ServerReply};
 use crate::reactor::segment_selector::SegmentSelector;
@@ -30,10 +30,10 @@ impl StreamReactor {
         stream: ScopedStream,
         sender: Sender<Incoming>,
         mut receiver: Receiver<Incoming>,
-        factory: Arc<ClientFactoryInternal>,
+        factory: ClientFactory,
         config: ClientConfig,
     ) {
-        let delegation_token_provider = factory.create_delegation_token_provider(stream.clone());
+        let delegation_token_provider = factory.create_delegation_token_provider(stream.clone()).await;
         let mut selector = SegmentSelector::new(
             stream,
             sender,
@@ -72,7 +72,7 @@ impl StreamReactor {
     async fn process_server_reply(
         server_reply: ServerReply,
         selector: &mut SegmentSelector,
-        factory: &Arc<ClientFactoryInternal>,
+        factory: &ClientFactory,
     ) -> Result<(), &'static str> {
         // it should always have writer because writer will
         // not be removed until it receives SegmentSealed reply
@@ -146,11 +146,12 @@ impl SegmentReactor {
         segment: ScopedSegment,
         sender: Sender<Incoming>,
         mut receiver: Receiver<Incoming>,
-        factory: Arc<ClientFactoryInternal>,
+        factory: ClientFactory,
         config: ClientConfig,
     ) {
-        let delegation_token_provider =
-            factory.create_delegation_token_provider(ScopedStream::from(&segment));
+        let delegation_token_provider = factory
+            .create_delegation_token_provider(ScopedStream::from(&segment))
+            .await;
         let mut writer = SegmentWriter::new(
             segment.clone(),
             sender.clone(),
@@ -185,7 +186,7 @@ impl SegmentReactor {
     async fn process_server_reply(
         server_reply: ServerReply,
         writer: &mut SegmentWriter,
-        factory: &Arc<ClientFactoryInternal>,
+        factory: &ClientFactory,
     ) -> Result<(), &'static str> {
         match server_reply.reply {
             Replies::DataAppended(cmd) => {

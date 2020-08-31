@@ -11,14 +11,14 @@
 use crate::pravega_service::PravegaStandaloneServiceConfig;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_controller_client::ControllerClient;
-use pravega_rust_client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
+use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_rust_client_shared::*;
 use std::sync::Arc;
 use tracing::info;
 
 pub fn test_controller_apis(config: PravegaStandaloneServiceConfig) {
     let config = ClientConfigBuilder::default()
-        .controller_uri(TEST_CONTROLLER_URI)
+        .controller_uri(MOCK_CONTROLLER_URI)
         .is_auth_enabled(config.auth())
         .is_tls_enabled(config.tls())
         .build()
@@ -56,7 +56,7 @@ pub fn test_controller_apis(config: PravegaStandaloneServiceConfig) {
     handle.block_on(test_scale_stream(controller));
 }
 
-pub async fn test_scale_stream(controller: Arc<Box<dyn ControllerClient>>) {
+pub async fn test_scale_stream(controller: &dyn ControllerClient) {
     let scoped_stream = ScopedStream::new(
         Scope::from("testScope123".to_owned()),
         Stream::from("testStream".to_owned()),

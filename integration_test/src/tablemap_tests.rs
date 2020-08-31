@@ -15,7 +15,7 @@ use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::tablemap::{TableError, TableMap, Version};
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
-use pravega_rust_client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
+use pravega_rust_client_config::{ClientConfig, ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 use tracing::info;
 
@@ -24,7 +24,7 @@ use pravega_wire_protocol::commands::TableKey;
 
 pub fn test_tablemap(config: PravegaStandaloneServiceConfig) {
     let config = ClientConfigBuilder::default()
-        .controller_uri(TEST_CONTROLLER_URI)
+        .controller_uri(MOCK_CONTROLLER_URI)
         .is_auth_enabled(config.auth())
         .is_tls_enabled(config.tls())
         .build()

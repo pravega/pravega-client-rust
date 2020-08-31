@@ -292,7 +292,9 @@ async fn get_channel(config: &ClientConfig) -> Channel {
         );
         let pem = std::fs::read(&config.trustcert).expect("read truststore");
         let ca = Certificate::from_pem(pem);
-        let tls = ClientTlsConfig::new().ca_certificate(ca);
+        let tls = ClientTlsConfig::new()
+            .ca_certificate(ca)
+            .domain_name(config.controller_uri.domain_name());
         (0..config.max_controller_connections)
             .map(|_a| {
                 Channel::builder(uri_result.clone())
