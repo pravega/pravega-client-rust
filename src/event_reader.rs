@@ -12,7 +12,8 @@ use crate::client_factory::ClientFactoryInternal;
 use crate::segment_reader::ReaderError;
 use crate::segment_slice::{BytePlaceholder, SegmentSlice, SliceMetadata};
 use bytes::BufMut;
-use pravega_rust_client_shared::{ScopedSegment, ScopedStream, Segment};
+use im::HashMap as ImHashMap;
+use pravega_rust_client_shared::{ScopedSegment, ScopedStream, Segment, SegmentWithRange};
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 use std::marker::PhantomData;
@@ -37,6 +38,7 @@ pub struct ReaderMeta {
     future_segments: HashMap<ScopedSegment, HashSet<Segment>>,
     slice_release_receiver: HashMap<String, oneshot::Receiver<SliceMetadata>>,
 }
+
 impl ReaderMeta {
     fn add_slice_release_receiver(
         &mut self,
@@ -73,6 +75,44 @@ impl ReaderMeta {
         if self.slices.insert(segment, meta).is_some() {
             panic!("Pre-condition check failure. Segment slice already present");
         }
+    }
+
+    async fn next_segments_to_read(
+        &mut self,
+        completed_segment: String,
+        successors_mapped_to_their_predecessors: ImHashMap<SegmentWithRange, Vec<Segment>>,
+    ) -> Vec<ScopedSegment> {
+        info!(
+            "Completed segments {:?}, successor_to_predecessor: {:?} ",
+            completed_segment, successors_mapped_to_their_predecessors
+        );
+        info!("FutureSegments {:?}", self.future_segments);
+        // add missing successors to future_segments
+        for (segment, list) in successors_mapped_to_their_predecessors {
+            if !self.future_segments.contains_key(&segment.scoped_segment) {
+                let required_to_complete = HashSet::from_iter(list.clone().into_iter());
+                // update future segments.
+                self.future_segments
+                    .insert(segment.scoped_segment.to_owned(), required_to_complete);
+            }
+        }
+        debug!("Future Segments after update {:?}", self.future_segments);
+        // remove the completed segment from the dependency list
+        for required_to_complete in self.future_segments.values_mut() {
+            // the hash set needs update
+            required_to_complete.remove(&ScopedSegment::from(completed_segment.as_str()).segment);
+        }
+        debug!(
+            "Future Segments after removing the segment which completed. {:?}",
+            self.future_segments
+        );
+        // find successors that are ready to read. A successor is ready to read
+        // once all its predecessors are completed.
+        self.future_segments
+            .iter()
+            .filter(|&(_segment, set)| set.is_empty())
+            .map(|(segment, _set)| segment.to_owned())
+            .collect::<Vec<ScopedSegment>>()
     }
 }
 
@@ -238,7 +278,8 @@ impl EventReader {
                             error_msg: _,
                         } => {
                             // Fetch next segments that can be read from.
-                            let s = self.next_segments_to_read(segment).await;
+                            let successors = self.get_successors(&segment).await;
+                            let s = self.meta.next_segments_to_read(segment, successors).await;
                             debug!("Segments which can be read next are {:?}", s);
                             {
                                 for seg in s {
@@ -270,6 +311,7 @@ impl EventReader {
         }
     }
 
+    // Helper method to append data to SliceMetadata.
     fn add_data_to_segment_slice(data: BytePlaceholder, slice: &mut SliceMetadata) {
         if slice.segment_data.value.is_empty() {
             slice.segment_data = data;
@@ -278,61 +320,18 @@ impl EventReader {
         }
     }
 
-    async fn get_next_segment(&mut self) -> (ScopedSegment, i64) {
-        // Mock method: Always returns first segment.
-        // TODO: This method should check from the ReaderGroupState and return a segment and the corresponding read offset.
-        let segments = self
-            .factory
-            .get_controller_client()
-            .get_current_segments(&self.stream)
-            .await
-            .expect("Failed to talk to controller");
-        (segments.get_segment(0.0), 0)
-    }
-
-    async fn next_segments_to_read(&mut self, completed_segment: String) -> Vec<ScopedSegment> {
-        let completed_scoped_segment = ScopedSegment::from(completed_segment.as_str());
-        let successors_mapped_to_their_predecessors = self
-            .factory
+    // Fetch the successors for a given segment from the controller.
+    async fn get_successors(
+        &mut self,
+        completed_scoped_segment: &str,
+    ) -> ImHashMap<SegmentWithRange, Vec<Segment>> {
+        let completed_scoped_segment = ScopedSegment::from(completed_scoped_segment);
+        self.factory
             .get_controller_client()
             .get_successors(&completed_scoped_segment)
             .await
             .expect("Failed to fetch successors of the segment")
-            .segment_with_predecessors;
-
-        info!(
-            "Completed segments {:?}, successor_to_predecessor: {:?} ",
-            completed_segment, successors_mapped_to_their_predecessors
-        );
-        info!("FutureSegments {:?}", self.meta.future_segments);
-        // add missing successors to future_segments
-        for (segment, list) in successors_mapped_to_their_predecessors {
-            if !self.meta.future_segments.contains_key(&segment.scoped_segment) {
-                let required_to_complete = HashSet::from_iter(list.clone().into_iter());
-                // update future segments.
-                self.meta
-                    .future_segments
-                    .insert(segment.scoped_segment.to_owned(), required_to_complete);
-            }
-        }
-        debug!("Future Segments after update {:?}", self.meta.future_segments);
-        // remove the completed segment from the dependency list
-        for required_to_complete in self.meta.future_segments.values_mut() {
-            // the hash set needs update
-            required_to_complete.remove(&ScopedSegment::from(completed_segment.as_str()).segment);
-        }
-        debug!(
-            "Future Segments after removing the segment which completed. {:?}",
-            self.meta.future_segments
-        );
-        // find successors that are ready to read. A successor is ready to read
-        // once all its predecessors are completed.
-        self.meta
-            .future_segments
-            .iter()
-            .filter(|&(_segment, set)| set.is_empty())
-            .map(|(segment, _set)| segment.to_owned())
-            .collect::<Vec<ScopedSegment>>()
+            .segment_with_predecessors
     }
 }
 
