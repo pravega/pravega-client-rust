@@ -16,9 +16,8 @@ use bytes::{Buf, BufMut, BytesMut};
 use pravega_rust_client_retry::retry_result::Retryable;
 use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::commands::{Command, EventCommand, TYPE_PLUS_LENGTH_SIZE};
-use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
 use tokio::time::{delay_for, Duration};
@@ -40,8 +39,7 @@ pub struct Event {
 ///
 pub struct SegmentSlice<'reader> {
     pub meta: SliceMetadata,
-    pub(crate) reader_meta: Arc<RwLock<HashMap<String, SliceMetadata>>>,
-    pub(crate) slice_return_tx: Option<oneshot::Sender<bool>>,
+    pub(crate) slice_return_tx: Option<oneshot::Sender<SliceMetadata>>,
     pub(crate) phantom: PhantomData<&'reader ()>,
 }
 
@@ -176,8 +174,7 @@ impl SegmentSlice<'_> {
     pub(crate) fn new(
         segment: ScopedSegment,
         start_offset: i64,
-        reader_meta: Arc<RwLock<HashMap<String, SliceMetadata>>>,
-        slice_return_tx: oneshot::Sender<bool>,
+        slice_return_tx: oneshot::Sender<SliceMetadata>,
     ) -> Self {
         SegmentSlice {
             meta: SliceMetadata {
@@ -190,7 +187,6 @@ impl SegmentSlice<'_> {
                 partial_event: BytePlaceholder::empty(),
                 partial_header: BytePlaceholder::empty(),
             },
-            reader_meta,
             slice_return_tx: Some(slice_return_tx),
             phantom: PhantomData,
         }
@@ -415,11 +411,8 @@ impl Iterator for SegmentSlice<'_> {
                 } else {
                     info!("Partial event read present in the segment slice of {:?}, this will be returned post a new read request", self.meta.scoped_segment);
                 }
-                let mut map = self.reader_meta.write().expect("RWLock Poisoned");
-                map.insert(self.meta.scoped_segment.clone(), self.meta.clone());
-                drop(map); // relinquish write lock.
                 if let Some(sender) = self.slice_return_tx.take() {
-                    let _ = sender.send(true);
+                    let _ = sender.send(self.meta.clone());
                 }
                 None
             }
@@ -585,7 +578,6 @@ mod tests {
                 partial_event: BytePlaceholder::empty(),
                 partial_header: BytePlaceholder::empty(),
             },
-            reader_meta: Arc::new(RwLock::new(HashMap::new())),
             slice_return_tx: None,
             phantom: PhantomData,
         };
