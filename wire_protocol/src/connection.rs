@@ -35,7 +35,7 @@ pub trait Connection: Send + Sync {
     ///   let mut rt = Runtime::new().unwrap();
     ///   let endpoint = PravegaNodeUri::from("localhost:8080".to_string());
     ///   let config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
-    ///   let cf = connection_factory::ConnectionFactory::create(config);
+    ///   let cf = ConnectionFactory::create(config);
     ///   let connection_future = cf.establish_connection(endpoint);
     ///   let mut connection = rt.block_on(connection_future).unwrap();
     ///   let mut payload: Vec<u8> = Vec::new();
@@ -58,7 +58,7 @@ pub trait Connection: Send + Sync {
     ///   let mut rt = Runtime::new().unwrap();
     ///   let endpoint = PravegaNodeUri::from("localhost:8080".to_string());
     ///   let config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
-    ///   let cf = connection_factory::ConnectionFactory::create(config);
+    ///   let cf = ConnectionFactory::create(config);
     ///   let connection_future = cf.establish_connection(endpoint);
     ///   let mut connection = rt.block_on(connection_future).unwrap();
     ///   let mut buf = [0; 10];
