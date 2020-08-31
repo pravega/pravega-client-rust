@@ -13,7 +13,9 @@ use pravega_controller_client::mock_controller::MockController;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::{DelegationToken, PravegaNodeUri, ScopedSegment, ScopedStream, WriterId};
-use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
+use pravega_wire_protocol::connection_factory::{
+    ConnectionFactory, ConnectionFactoryConfig, SegmentConnectionManager,
+};
 
 use crate::byte_stream::{ByteStreamReader, ByteStreamWriter};
 use crate::event_stream_writer::EventStreamWriter;
@@ -40,7 +42,7 @@ struct ClientFactoryInternal {
 impl ClientFactory {
     pub fn new(config: ClientConfig) -> ClientFactory {
         let rt = tokio::runtime::Runtime::new().expect("create runtime");
-        let cf = ConnectionFactory::create(config.clone());
+        let cf = ConnectionFactory::create(ConnectionFactoryConfig::from(&config));
         let pool = ConnectionPool::new(SegmentConnectionManager::new(cf, config.max_connections_in_pool));
         let controller = if config.mock {
             Box::new(MockController::new(config.controller_uri.clone())) as Box<dyn ControllerClient>

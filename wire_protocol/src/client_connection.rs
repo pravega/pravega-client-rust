@@ -149,21 +149,17 @@ pub async fn write_wirecommand(
 mod tests {
     use super::*;
     use crate::commands::HelloCommand;
-    use crate::connection_factory::{ConnectionFactory, SegmentConnectionManager};
+    use crate::connection_factory::{ConnectionFactory, ConnectionFactoryConfig, SegmentConnectionManager};
     use crate::wire_commands::Replies;
     use pravega_connection_pool::connection_pool::ConnectionPool;
-    use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfigBuilder};
+    use pravega_rust_client_config::connection_type::ConnectionType;
     use pravega_rust_client_shared::PravegaNodeUri;
     use tokio::runtime::Runtime;
 
     #[test]
     fn client_connection_write_and_read() {
         let mut rt = Runtime::new().expect("create tokio Runtime");
-        let config = ClientConfigBuilder::default()
-            .connection_type(ConnectionType::Mock)
-            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
-            .build()
-            .expect("build client config");
+        let config = ConnectionFactoryConfig::new(ConnectionType::Mock);
         let connection_factory = ConnectionFactory::create(config);
         let manager = SegmentConnectionManager::new(connection_factory, 1);
         let pool = ConnectionPool::new(manager);

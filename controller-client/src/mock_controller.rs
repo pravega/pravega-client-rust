@@ -15,12 +15,13 @@ use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use ordered_float::OrderedFloat;
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_rust_client_config::connection_type::ConnectionType;
-use pravega_rust_client_config::ClientConfigBuilder;
 use pravega_rust_client_retry::retry_result::RetryError;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{CreateSegmentCommand, DeleteSegmentCommand, MergeSegmentsCommand};
-use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
+use pravega_wire_protocol::connection_factory::{
+    ConnectionFactory, ConnectionFactoryConfig, SegmentConnectionManager,
+};
 use pravega_wire_protocol::error::ClientConnectionError;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use serde::{Deserialize, Serialize};
@@ -43,11 +44,7 @@ pub struct MockController {
 
 impl MockController {
     pub fn new(endpoint: PravegaNodeUri) -> Self {
-        let config = ClientConfigBuilder::default()
-            .connection_type(ConnectionType::Mock)
-            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
-            .build()
-            .expect("build client config");
+        let config = ConnectionFactoryConfig::new(ConnectionType::Mock);
         let cf = ConnectionFactory::create(config) as Box<dyn ConnectionFactory>;
         let manager = SegmentConnectionManager::new(cf, 10);
         let pool = ConnectionPool::new(manager);

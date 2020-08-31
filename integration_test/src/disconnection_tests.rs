@@ -21,7 +21,9 @@ use pravega_rust_client_retry::retry_result::RetryResult;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{HelloCommand, SealSegmentCommand};
-use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
+use pravega_wire_protocol::connection_factory::{
+    ConnectionFactory, ConnectionFactoryConfig, SegmentConnectionManager,
+};
 use pravega_wire_protocol::wire_commands::Requests;
 use pravega_wire_protocol::wire_commands::{Encode, Replies};
 use std::io::{Read, Write};
@@ -53,11 +55,7 @@ async fn test_retry_with_no_connection() {
     let retry_policy = RetryWithBackoff::default().max_tries(4);
     // give a wrong endpoint
     let endpoint = PravegaNodeUri::from("127.0.0.1:0");
-    let config = ClientConfigBuilder::default()
-        .controller_uri(MOCK_CONTROLLER_URI)
-        .connection_type(ConnectionType::Tokio)
-        .build()
-        .expect("creating config");
+    let config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
     let cf = ConnectionFactory::create(config);
     let manager = SegmentConnectionManager::new(cf, 1);
     let pool = ConnectionPool::new(manager);
@@ -166,7 +164,7 @@ fn test_retry_with_unexpected_reply() {
         .block_on(controller_client.get_endpoint_for_segment(&segment_name))
         .expect("get endpoint for segment");
 
-    let connection_factory = ConnectionFactory::create(config);
+    let connection_factory = ConnectionFactory::create(ConnectionFactoryConfig::from(&config));
     let manager = SegmentConnectionManager::new(connection_factory, 1);
     let pool = ConnectionPool::new(manager);
     let raw_client = RawClientImpl::new(&pool, endpoint);
@@ -211,11 +209,7 @@ impl Server {
 async fn test_with_mock_server() {
     let server = Server::new();
     let endpoint = PravegaNodeUri::from(format!("{}:{}", server.address.ip(), server.address.port()));
-    let config = ClientConfigBuilder::default()
-        .controller_uri(MOCK_CONTROLLER_URI)
-        .connection_type(ConnectionType::Mock)
-        .build()
-        .expect("creating config");
+    let config = ConnectionFactoryConfig::new(ConnectionType::Mock);
     thread::spawn(move || {
         for stream in server.listener.incoming() {
             let mut client = stream.expect("get a new client connection");

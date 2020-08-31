@@ -130,8 +130,11 @@ mod tests {
         assert_eq!(config.max_connections_in_pool(), 15 as u32);
         assert_eq!(config.connection_type(), ConnectionType::Tokio);
         assert_eq!(config.retry_policy(), RetryWithBackoff::from_millis(1000));
-        assert_eq!(config.controller_uri().top().ip(), Ipv4Addr::new(127, 0, 0, 2));
-        assert_eq!(config.controller_uri().top().port(), 9091);
+        assert_eq!(
+            config.controller_uri().to_socket_addr().ip(),
+            Ipv4Addr::new(127, 0, 0, 2)
+        );
+        assert_eq!(config.controller_uri().to_socket_addr().port(), 9091);
     }
 
     #[test]

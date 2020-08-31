@@ -33,3 +33,6 @@ pub mod mock_connection;
 #[cfg(test)]
 mod tests;
 pub mod wire_commands;
+
+#[macro_use]
+extern crate derive_new;

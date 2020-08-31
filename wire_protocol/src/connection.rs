@@ -26,16 +26,16 @@ pub trait Connection: Send + Sync {
     /// # Example
     ///
     /// ```no_run
-    /// use pravega_wire_protocol::connection_factory;
-    /// use pravega_wire_protocol::connection_factory::ConnectionFactory;
+    /// use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryConfig};
     /// use pravega_rust_client_shared::PravegaNodeUri;
-    /// use pravega_rust_client_config::ConnectionType;
+    /// use pravega_rust_client_config::connection_type::ConnectionType;
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
     ///   let mut rt = Runtime::new().unwrap();
     ///   let endpoint = PravegaNodeUri::from("localhost:8080".to_string());
-    ///   let cf = connection_factory::ConnectionFactory::create(connection_factory::ConnectionType::Tokio);
+    ///   let config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
+    ///   let cf = connection_factory::ConnectionFactory::create(config);
     ///   let connection_future = cf.establish_connection(endpoint);
     ///   let mut connection = rt.block_on(connection_future).unwrap();
     ///   let mut payload: Vec<u8> = Vec::new();
@@ -49,16 +49,16 @@ pub trait Connection: Send + Sync {
     /// # Example
     ///
     /// ```no_run
-    /// use pravega_wire_protocol::connection_factory;
-    /// use pravega_wire_protocol::connection_factory::ConnectionFactory;
+    /// use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryConfig};
     /// use pravega_rust_client_shared::PravegaNodeUri;
-    /// use pravega_rust_client_config::ConnectionType;
+    /// use pravega_rust_client_config::connection_type::ConnectionType;
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
     ///   let mut rt = Runtime::new().unwrap();
     ///   let endpoint = PravegaNodeUri::from("localhost:8080".to_string());
-    ///   let cf = connection_factory::ConnectionFactory::create(connection_factory::ConnectionType::Tokio);
+    ///   let config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
+    ///   let cf = connection_factory::ConnectionFactory::create(config);
     ///   let connection_future = cf.establish_connection(endpoint);
     ///   let mut connection = rt.block_on(connection_future).unwrap();
     ///   let mut buf = [0; 10];

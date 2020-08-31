@@ -19,7 +19,9 @@ use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::Command as WireCommand;
 use pravega_wire_protocol::commands::*;
-use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
+use pravega_wire_protocol::connection_factory::{
+    ConnectionFactory, ConnectionFactoryConfig, SegmentConnectionManager,
+};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -35,7 +37,7 @@ lazy_static! {
             .controller_uri(MOCK_CONTROLLER_URI)
             .build()
             .expect("build client config");
-        let cf = ConnectionFactory::create(config.clone());
+        let cf = ConnectionFactory::create(ConnectionFactoryConfig::from(&config));
         let manager = SegmentConnectionManager::new(cf, config.max_connections_in_pool);
         ConnectionPool::new(manager)
     };

@@ -36,8 +36,7 @@ pub trait ConnectionFactory: Send + Sync {
     /// # Example
     ///
     /// ```no_run
-    /// use pravega_wire_protocol::connection_factory;
-    /// use pravega_wire_protocol::connection_factory::ConnectionFactory;
+    /// use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryConfig};
     /// use pravega_rust_client_shared::PravegaNodeUri;
     /// use pravega_rust_client_config::connection_type::ConnectionType;
     /// use tokio::runtime::Runtime;
@@ -45,7 +44,8 @@ pub trait ConnectionFactory: Send + Sync {
     /// fn main() {
     ///   let mut rt = Runtime::new().unwrap();
     ///   let endpoint = PravegaNodeUri::from("localhost:9090".to_string());
-    ///   let cf = connection_factory::ConnectionFactory::create(ConnectionType::Tokio);
+    ///   let config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
+    ///   let cf = ConnectionFactory::create(config);
     ///   let connection_future = cf.establish_connection(endpoint);
     ///   let mut connection = rt.block_on(connection_future).unwrap();
     /// }
@@ -57,11 +57,11 @@ pub trait ConnectionFactory: Send + Sync {
 }
 
 impl dyn ConnectionFactory {
-    pub fn create(config: ClientConfig) -> Box<dyn ConnectionFactory> {
+    pub fn create(config: ConnectionFactoryConfig) -> Box<dyn ConnectionFactory> {
         match config.connection_type {
             ConnectionType::Tokio => Box::new(TokioConnectionFactory::new(
                 config.is_tls_enabled,
-                &config.trustcert,
+                &config.cert_path,
             )),
             ConnectionType::Mock => Box::new(MockConnectionFactory {}),
         }
@@ -232,23 +232,40 @@ impl fmt::Debug for SegmentConnectionManager {
     }
 }
 
+/// The configuration for ConnectionFactory.
+#[derive(new)]
+pub struct ConnectionFactoryConfig {
+    connection_type: ConnectionType,
+    #[new(value = "false")]
+    is_tls_enabled: bool,
+    #[new(default)]
+    cert_path: String,
+}
+
+/// ConnectionFactoryConfig can be built from ClientConfig.
+impl From<&ClientConfig> for ConnectionFactoryConfig {
+    fn from(client_config: &ClientConfig) -> Self {
+        ConnectionFactoryConfig {
+            connection_type: client_config.connection_type,
+            is_tls_enabled: client_config.is_tls_enabled,
+            cert_path: client_config.trustcert.clone(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::wire_commands::{Decode, Encode};
     use log::info;
-    use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfigBuilder};
+    use pravega_rust_client_config::connection_type::ConnectionType;
     use tokio::runtime::Runtime;
 
     #[test]
     fn test_mock_connection() {
         info!("test mock connection factory");
         let mut rt = Runtime::new().unwrap();
-        let config = ClientConfigBuilder::default()
-            .connection_type(ConnectionType::Mock)
-            .controller_uri(pravega_rust_client_config::MOCK_CONTROLLER_URI)
-            .build()
-            .expect("build client config");
+        let config = ConnectionFactoryConfig::new(ConnectionType::Mock);
         let connection_factory = ConnectionFactory::create(config);
         let connection_future =
             connection_factory.establish_connection(PravegaNodeUri::from("127.1.1.1:9090".to_string()));
@@ -280,11 +297,7 @@ mod tests {
     fn test_tokio_connection() {
         info!("test tokio connection factory");
         let mut rt = Runtime::new().unwrap();
-        let config = ClientConfigBuilder::default()
-            .connection_type(ConnectionType::Tokio)
-            .controller_uri(pravega_rust_client_config::MOCK_CONTROLLER_URI)
-            .build()
-            .expect("build client config");
+        let config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
         let connection_factory = ConnectionFactory::create(config);
         let connection_future =
             connection_factory.establish_connection(PravegaNodeUri::from("127.1.1.1:9090".to_string()));
