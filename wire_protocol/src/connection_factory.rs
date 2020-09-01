@@ -92,7 +92,10 @@ impl ConnectionFactory for TokioConnectionFactory {
         let connection_type = ConnectionType::Tokio;
         let uuid = Uuid::new_v4();
         let mut tokio_connection = if self.tls_enabled {
-            info!("establish connection to segmentstore using TLS channel");
+            info!(
+                "establish connection to segmentstore {:?} using TLS channel",
+                endpoint
+            );
             let mut config = rustls::ClientConfig::new();
             let mut pem = BufReader::new(File::open(&self.path).expect("open pem file"));
             config.root_store.add_pem_file(&mut pem).expect("add pem file");

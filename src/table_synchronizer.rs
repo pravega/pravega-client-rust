@@ -26,7 +26,7 @@ use std::hash::{Hash, Hasher};
 use std::slice::Iter;
 use std::time::Duration;
 use tokio::time::delay_for;
-use tracing::{debug, info};
+use tracing::debug;
 
 /// Provides a map that is synchronized across different processes.
 /// The pattern is to have a map that can be updated by using Insert or Remove.
@@ -672,7 +672,7 @@ async fn conditionally_write(
         };
 
         update_result = updates_generator(&mut to_update)?;
-        info!("number of insert is {}", to_update.insert.len());
+        debug!("number of insert is {}", to_update.insert.len());
         if to_update.insert_is_empty() {
             debug!(
                 "Conditionally Write to {} completed, as there is nothing to update for map",

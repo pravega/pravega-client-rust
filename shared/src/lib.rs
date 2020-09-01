@@ -75,6 +75,7 @@ impl From<SocketAddr> for PravegaNodeUri {
 
 impl PravegaNodeUri {
     pub fn to_socket_addr(&self) -> SocketAddr {
+        // to_socket_addrs will resolve hostname to ip address
         let mut addrs_vec: Vec<_> = self
             .0
             .to_socket_addrs()
@@ -87,6 +88,11 @@ impl PravegaNodeUri {
     pub fn domain_name(&self) -> String {
         let parts: Vec<_> = self.0.split(':').collect();
         parts[0].to_string()
+    }
+
+    pub fn port(&self) -> u16 {
+        let parts: Vec<_> = self.0.split(':').collect();
+        parts[1].parse::<u16>().expect("parse port to u16")
     }
 }
 
@@ -594,6 +600,7 @@ pub struct EventRead {
 mod test {
     use super::*;
     use std::convert::From;
+    use std::net::{IpAddr, Ipv4Addr};
 
     #[test]
     fn test_hash() {
@@ -627,5 +634,24 @@ mod test {
         let segment_from_string: SegmentWithRange = segment_string.into();
 
         assert_eq!(segment_from_string, segment);
+    }
+
+    #[test]
+    fn test_pravega_node_uri() {
+        let uri = PravegaNodeUri("127.0.0.1:9090".to_string());
+        assert_eq!(PravegaNodeUri::from("127.0.0.1:9090"), uri);
+        assert_eq!(PravegaNodeUri::from(("127.0.0.1", 9090)), uri);
+        let socket_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 9090);
+        assert_eq!(PravegaNodeUri::from(socket_addr), uri);
+        assert_eq!(uri.domain_name(), "127.0.0.1".to_string());
+        assert_eq!(uri.port(), 9090);
+        assert_eq!(uri.to_socket_addr(), socket_addr);
+
+        let uri = PravegaNodeUri("localhost:9090".to_string());
+        assert_eq!(PravegaNodeUri::from("localhost:9090"), uri);
+        assert_eq!(PravegaNodeUri::from(("localhost", 9090)), uri);
+        assert_eq!(uri.domain_name(), "localhost".to_string());
+        assert_eq!(uri.port(), 9090);
+        assert_eq!(uri.to_socket_addr(), socket_addr);
     }
 }

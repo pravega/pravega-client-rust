@@ -27,7 +27,7 @@ use crate::pravega_service::{PravegaService, PravegaStandaloneService};
 use lazy_static::*;
 use std::process::Command;
 use std::{thread, time};
-use tracing::{debug, error, info, span, warn, Level};
+use tracing::{debug, error, info, info_span, warn};
 
 #[macro_use]
 extern crate derive_new;
@@ -65,14 +65,19 @@ mod test {
     #[test]
     fn integration_test() {
         trace::init();
-        let span = span!(Level::DEBUG, "integration test");
-        let _enter = span.enter();
-        let config = PravegaStandaloneServiceConfig::new(false, false, false);
-        run_tests(config);
+        let span = info_span!("integration test", auth = false, tls = false);
+        span.in_scope(|| {
+            info!("Running integration test");
+            let config = PravegaStandaloneServiceConfig::new(false, false, false);
+            run_tests(config);
+        });
 
-        // test again with auth enabled
-        let config = PravegaStandaloneServiceConfig::new(false, true, true);
-        run_tests(config);
+        let span = info_span!("integration test", auth = true, tls = true);
+        span.in_scope(|| {
+            info!("Running integration test");
+            let config = PravegaStandaloneServiceConfig::new(false, true, true);
+            run_tests(config);
+        });
 
         // disconnection test will start its own Pravega Standalone.
         disconnection_tests::disconnection_test_wrapper();
