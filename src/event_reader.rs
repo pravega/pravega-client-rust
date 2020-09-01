@@ -37,6 +37,7 @@ pub struct ReaderMeta {
     slices: HashMap<String, SliceMetadata>,
     future_segments: HashMap<ScopedSegment, HashSet<Segment>>,
     slice_release_receiver: HashMap<String, oneshot::Receiver<SliceMetadata>>,
+    slice_stop_reading: HashMap<String, oneshot::Sender<()>>,
 }
 
 impl ReaderMeta {
@@ -74,6 +75,20 @@ impl ReaderMeta {
     fn add_slices(&mut self, segment: String, meta: SliceMetadata) {
         if self.slices.insert(segment, meta).is_some() {
             panic!("Pre-condition check failure. Segment slice already present");
+        }
+    }
+
+    fn add_stop_reading_tx(&mut self, segment: String, tx: oneshot::Sender<()>) {
+        if self.slice_stop_reading.insert(segment, tx).is_some() {
+            panic!("Pre-condition check failure. Sender used to stop fetching data is already present");
+        }
+    }
+
+    fn stop_reading(&mut self, segment: &str) {
+        if let Some(tx) = self.slice_stop_reading.remove(segment) {
+            if tx.send(()).is_err() {
+                debug!("Channel already closed, ignoring the error");
+            }
         }
     }
 
@@ -120,21 +135,25 @@ impl EventReader {
     pub async fn init(stream: ScopedStream, factory: Arc<ClientFactoryInternal>) -> Self {
         let (tx, rx) = mpsc::channel(1);
         let slice_meta_map = EventReader::get_slice_meta(&stream, &factory).await;
-
+        let mut stop_reading_map: HashMap<String, oneshot::Sender<()>> = HashMap::new();
         // spawn background fetch tasks.
         // TODO: add ability to stop this async task, this will be useful in a reader group.
         slice_meta_map.iter().for_each(|(segment, meta)| {
+            let (tx_stop, rx_stop) = oneshot::channel();
+            stop_reading_map.insert(segment.clone(), tx_stop);
             factory.get_runtime_handle().enter(|| {
                 tokio::spawn(SegmentSlice::get_segment_data(
                     ScopedSegment::from(segment.as_str()),
                     meta.start_offset,
                     tx.clone(),
+                    rx_stop,
                     factory.clone(),
                 ))
             });
         });
+
         // initialize the event reader.
-        EventReader::init_event_reader(stream, factory, tx, rx, slice_meta_map)
+        EventReader::init_event_reader(stream, factory, tx, rx, slice_meta_map, stop_reading_map)
     }
 
     ///
@@ -177,6 +196,7 @@ impl EventReader {
         tx: Sender<SegmentReadResult>,
         rx: Receiver<SegmentReadResult>,
         segment_slice_map: HashMap<String, SliceMetadata>,
+        slice_stop_reading: HashMap<String, oneshot::Sender<()>>,
     ) -> Self {
         EventReader {
             stream,
@@ -187,6 +207,7 @@ impl EventReader {
                 slices: segment_slice_map,
                 future_segments: HashMap::new(),
                 slice_release_receiver: HashMap::new(),
+                slice_stop_reading,
             },
         }
     }
@@ -277,7 +298,8 @@ impl EventReader {
                             operation: _,
                             error_msg: _,
                         } => {
-                            // Fetch next segments that can be read from.
+                            self.meta.stop_reading(&segment); // stop reading segment.
+                                                              // Fetch next segments that can be read from.
                             let successors = self.get_successors(&segment).await;
                             let s = self.meta.next_segments_to_read(segment, successors).await;
                             debug!("Segments which can be read next are {:?}", s);
@@ -287,12 +309,15 @@ impl EventReader {
                                         scoped_segment: seg.to_string(),
                                         ..Default::default()
                                     };
+                                    let (tx_drop_fetch, rx_drop_fetch) = oneshot::channel();
                                     tokio::spawn(SegmentSlice::get_segment_data(
                                         seg.clone(),
                                         meta.start_offset,
                                         self.tx.clone(),
+                                        rx_drop_fetch,
                                         self.factory.clone(),
                                     ));
+                                    self.meta.add_stop_reading_tx(seg.to_string(), tx_drop_fetch);
                                     // update map with newer segments.
                                     self.meta.add_slices(seg.to_string(), meta);
                                 }
@@ -389,6 +414,7 @@ mod tests {
             tx.clone(),
             rx,
             create_slice_map(init_segments),
+            HashMap::new(),
         );
 
         let mut event_count = 0;
@@ -465,6 +491,7 @@ mod tests {
             tx.clone(),
             rx,
             create_slice_map(init_segments),
+            HashMap::new(),
         );
 
         let mut event_count_per_segment: HashMap<String, usize> = HashMap::new();

@@ -20,6 +20,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
+use tokio::sync::oneshot::error::TryRecvError;
 use tokio::time::{delay_for, Duration};
 use tracing::{debug, error, info, warn};
 
@@ -199,11 +200,16 @@ impl SegmentSlice<'_> {
         segment: ScopedSegment,
         start_offset: i64,
         mut tx: Sender<SegmentReadResult>,
+        mut drop_fetch: oneshot::Receiver<()>,
         factory: Arc<ClientFactoryInternal>,
     ) {
         let mut offset: i64 = start_offset;
         let segment_reader = AsyncSegmentReaderImpl::init(segment.clone(), &factory).await;
         loop {
+            if let Ok(_) | Err(TryRecvError::Closed) = drop_fetch.try_recv() {
+                info!("Stop reading from the segment");
+                break;
+            }
             debug!(
                 "Send read request to Segment store at offset {:?} with length {:?}",
                 offset, READ_BUFFER_SIZE
