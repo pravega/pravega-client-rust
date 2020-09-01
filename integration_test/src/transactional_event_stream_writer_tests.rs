@@ -45,8 +45,8 @@ pub fn test_transactional_event_stream_writer(config: PravegaStandaloneServiceCo
     };
     let config = ClientConfigBuilder::default()
         .controller_uri(MOCK_CONTROLLER_URI)
-        .is_auth_enabled(config.auth())
-        .is_tls_enabled(config.tls())
+        .is_auth_enabled(config.auth)
+        .is_tls_enabled(config.tls)
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);

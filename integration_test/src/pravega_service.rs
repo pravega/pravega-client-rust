@@ -213,46 +213,9 @@ impl Drop for PravegaStandaloneService {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(new, Clone, Debug)]
 pub struct PravegaStandaloneServiceConfig {
-    debug: bool,
-    auth: bool,
-    tls: bool,
-}
-
-impl PravegaStandaloneServiceConfig {
-    pub fn new() -> Self {
-        PravegaStandaloneServiceConfig {
-            debug: false,
-            auth: false,
-            tls: false,
-        }
-    }
-
-    pub fn set_debug(mut self) -> Self {
-        self.debug = true;
-        self
-    }
-
-    pub fn set_auth(mut self) -> Self {
-        self.auth = true;
-        self
-    }
-
-    pub fn set_tls(mut self) -> Self {
-        self.tls = true;
-        self
-    }
-
-    pub fn debug(&self) -> bool {
-        self.debug
-    }
-
-    pub fn auth(&self) -> bool {
-        self.auth
-    }
-
-    pub fn tls(&self) -> bool {
-        self.tls
-    }
+    pub debug: bool,
+    pub auth: bool,
+    pub tls: bool,
 }

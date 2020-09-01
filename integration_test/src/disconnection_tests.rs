@@ -39,7 +39,7 @@ pub fn disconnection_test_wrapper() {
     rt.block_on(test_retry_with_no_connection());
     rt.shutdown_timeout(Duration::from_millis(100));
 
-    let config = PravegaStandaloneServiceConfig::new();
+    let config = PravegaStandaloneServiceConfig::new(false, false, false);
     let mut pravega = PravegaStandaloneService::start(config);
     test_retry_while_start_pravega();
     assert_eq!(check_standalone_status(), true);

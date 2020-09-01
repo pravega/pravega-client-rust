@@ -26,6 +26,7 @@ uuid = {version = "0.8", features = ["v4"]}
 futures = "0.3.5"
 serde = { version = "1.0", features = ["derive"] }
 java-properties = "1.2.0"
+derive-new = "0.5"
 
 [build-dependencies]
 tracing = "0.1.17"

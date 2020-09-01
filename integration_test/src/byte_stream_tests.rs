@@ -36,8 +36,8 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     let stream_name = Stream::from("testStreamByteStream".to_owned());
     let config = ClientConfigBuilder::default()
         .controller_uri(MOCK_CONTROLLER_URI)
-        .is_auth_enabled(config.auth())
-        .is_tls_enabled(config.tls())
+        .is_auth_enabled(config.auth)
+        .is_tls_enabled(config.tls)
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);

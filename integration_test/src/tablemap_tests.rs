@@ -25,8 +25,8 @@ use pravega_wire_protocol::commands::TableKey;
 pub fn test_tablemap(config: PravegaStandaloneServiceConfig) {
     let config = ClientConfigBuilder::default()
         .controller_uri(MOCK_CONTROLLER_URI)
-        .is_auth_enabled(config.auth())
-        .is_tls_enabled(config.tls())
+        .is_auth_enabled(config.auth)
+        .is_tls_enabled(config.tls)
         .build()
         .expect("creating config");
 

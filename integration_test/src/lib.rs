@@ -29,6 +29,9 @@ use std::process::Command;
 use std::{thread, time};
 use tracing::{debug, error, info, span, warn, Level};
 
+#[macro_use]
+extern crate derive_new;
+
 fn wait_for_standalone_with_timeout(expected_status: bool, timeout_second: i32) {
     for _i in 0..timeout_second {
         if expected_status == check_standalone_status() {
@@ -64,11 +67,11 @@ mod test {
         trace::init();
         let span = span!(Level::DEBUG, "integration test");
         let _enter = span.enter();
-        let config = PravegaStandaloneServiceConfig::new();
+        let config = PravegaStandaloneServiceConfig::new(false, false, false);
         run_tests(config);
 
         // test again with auth enabled
-        let config = PravegaStandaloneServiceConfig::new().set_tls().set_auth();
+        let config = PravegaStandaloneServiceConfig::new(false, true, true);
         run_tests(config);
 
         // disconnection test will start its own Pravega Standalone.
