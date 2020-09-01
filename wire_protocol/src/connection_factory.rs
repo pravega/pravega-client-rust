@@ -103,7 +103,10 @@ impl ConnectionFactory for TokioConnectionFactory {
                     connection_type,
                     endpoint: endpoint.clone(),
                 })?;
-            let domain = DNSNameRef::try_from_ascii_str("server.pravegastack.io").expect("get domain name");
+            // Endpoint returned by controller by default is an IP address, it is necessary to configure
+            // Pravega to return a hostname. Check pravegaservice.service.published.host.nameOrIp property.
+            let domain_name = endpoint.domain_name();
+            let domain = DNSNameRef::try_from_ascii_str(&domain_name).expect("get domain name");
             let stream = connector
                 .connect(domain, stream)
                 .await

@@ -40,7 +40,7 @@ use std::convert::From;
 use std::fmt;
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
-use std::net::SocketAddr;
+use std::net::{SocketAddr, ToSocketAddrs};
 use std::ops::Index;
 use std::vec;
 use uuid::Uuid;
@@ -75,7 +75,13 @@ impl From<SocketAddr> for PravegaNodeUri {
 
 impl PravegaNodeUri {
     pub fn to_socket_addr(&self) -> SocketAddr {
-        self.0.parse::<SocketAddr>().expect("get SocketAddrs")
+        let mut addrs_vec: Vec<_> = self
+            .0
+            .to_socket_addrs()
+            .expect("Unable to resolve domain")
+            .collect();
+        assert_eq!(addrs_vec.len(), 1);
+        addrs_vec.pop().expect("get the first SocketAddr")
     }
 
     pub fn domain_name(&self) -> String {

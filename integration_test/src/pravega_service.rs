@@ -197,6 +197,10 @@ impl PravegaService for PravegaStandaloneService {
                 "singlenode.security.tls.trustStore.location".to_string(),
                 "./pravega/conf/client.truststore.jks".to_string(),
             );
+            map.insert(
+                "pravegaservice.service.published.host.nameOrIp".to_string(),
+                "localhost".to_string(),
+            );
         } else {
             map.insert("singlenode.security.tls.enable".to_string(), "false".to_string());
         };
