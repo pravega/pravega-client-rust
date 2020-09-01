@@ -21,9 +21,32 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::oneshot;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 pub type SegmentReadResult = Result<BytePlaceholder, ReaderError>;
+
+///
+/// This represents an event reader. An event readers fetches its assigned segments and provides the
+/// following APIs.
+///
+///
+/// //This is used to initialize the Event reader.
+/// use pravega_rust_client_shared::ScopedStream;
+/// use std::sync::Arc;
+/// use pravega_client_rust::segment_slice::SegmentSlice;
+/// use pravega_client_rust::client_factory::ClientFactoryInternal;
+/// use pravega_client_rust::event_reader::EventReader;
+/// pub async fn init(stream: ScopedStream, factory: Arc<ClientFactoryInternal>) -> EventReader {}
+///
+/// // This attempts fetch a SegmentSlice which has data for a given segment. The SegmentSlice's iterator APIs
+/// // can be used to fetch individual events from a given SegmentSlice.
+/// pub async fn acquire_segment<'reader>() -> Option<SegmentSlice<'reader>>
+///
+/// // This provides an API to release a segment back at given offset.
+/// pub fn release_segment_at(slice: SegmentSlice, offset_in_segment: u64) {
+/// }
+///
+///
 #[derive(new)]
 pub struct EventReader {
     stream: ScopedStream,
@@ -33,6 +56,7 @@ pub struct EventReader {
     meta: ReaderMeta,
 }
 
+/// Reader meta data.
 pub struct ReaderMeta {
     slices: HashMap<String, SliceMetadata>,
     future_segments: HashMap<ScopedSegment, HashSet<Segment>>,
@@ -41,6 +65,9 @@ pub struct ReaderMeta {
 }
 
 impl ReaderMeta {
+    ///
+    /// Add a release receiver which is used to inform a EventReader when the Segment slice is returned.
+    ///
     fn add_slice_release_receiver(
         &mut self,
         scoped_segment: String,
@@ -55,6 +82,10 @@ impl ReaderMeta {
         }
     }
 
+    ///
+    /// Wait until the user application returns the Segment Slice.
+    /// Note: SegmentSlices automatically returns a slice when the user has read all Events present on the
+    /// SegmentSlice.
     async fn wait_for_segment_slice_return(&mut self, segment: &str) -> SliceMetadata {
         if let Some(receiver) = self.slice_release_receiver.remove(segment) {
             match receiver.await {
@@ -72,18 +103,27 @@ impl ReaderMeta {
         }
     }
 
-    fn add_slices(&mut self, segment: String, meta: SliceMetadata) {
-        if self.slices.insert(segment, meta).is_some() {
+    ///
+    /// Add Segment Slices to Reader meta data.
+    ///
+    fn add_slices(&mut self, meta: SliceMetadata) {
+        if self.slices.insert(meta.scoped_segment.clone(), meta).is_some() {
             panic!("Pre-condition check failure. Segment slice already present");
         }
     }
 
+    ///
+    /// Store a Sender which is used to stop the read task for a given Segment.
+    ///
     fn add_stop_reading_tx(&mut self, segment: String, tx: oneshot::Sender<()>) {
         if self.slice_stop_reading.insert(segment, tx).is_some() {
             panic!("Pre-condition check failure. Sender used to stop fetching data is already present");
         }
     }
 
+    ///
+    /// Use the stored oneshot::Sender to stop segment reading background task.
+    ///
     fn stop_reading(&mut self, segment: &str) {
         if let Some(tx) = self.slice_stop_reading.remove(segment) {
             if tx.send(()).is_err() {
@@ -92,6 +132,9 @@ impl ReaderMeta {
         }
     }
 
+    ///
+    /// Fetch the next segments that can be read by the Event Reader.
+    ///
     async fn next_segments_to_read(
         &mut self,
         completed_segment: String,
@@ -132,12 +175,16 @@ impl ReaderMeta {
 }
 
 impl EventReader {
+    ///
+    /// Initialize the reader. This fetches the initial segments of the stream and spawns background
+    /// tasks to start reads from those Segments.
+    /// Note: In future the TableSyncrhonizer can be used to fetch the segments assigned to this EventReader.
+    ///
     pub async fn init(stream: ScopedStream, factory: Arc<ClientFactoryInternal>) -> Self {
         let (tx, rx) = mpsc::channel(1);
         let slice_meta_map = EventReader::get_slice_meta(&stream, &factory).await;
         let mut stop_reading_map: HashMap<String, oneshot::Sender<()>> = HashMap::new();
         // spawn background fetch tasks.
-        // TODO: add ability to stop this async task, this will be useful in a reader group.
         slice_meta_map.iter().for_each(|(segment, meta)| {
             let (tx_stop, rx_stop) = oneshot::channel();
             stop_reading_map.insert(segment.clone(), tx_stop);
@@ -212,8 +259,18 @@ impl EventReader {
         }
     }
 
-    fn release_segment_at(&mut self, _slice: SegmentSlice, _offset_in_segment: u64) {
-        //TODO: this will be enabled with ReaderGroup.
+    fn release_segment_at(&mut self, slice: SegmentSlice, _offset_in_segment: u64) {
+        //stop reading data
+        if let Some(tx) = slice.slice_return_tx {
+            if let Err(_e) = tx.send(slice.meta.clone()) {
+                warn!(
+                    "Failed to send segment slice release data for slice {:?}",
+                    slice.meta
+                );
+            }
+        }
+        //update meta data.
+        self.meta.add_slices(slice.meta);
     }
 
     ///
@@ -319,7 +376,7 @@ impl EventReader {
                                     ));
                                     self.meta.add_stop_reading_tx(seg.to_string(), tx_drop_fetch);
                                     // update map with newer segments.
-                                    self.meta.add_slices(seg.to_string(), meta);
+                                    self.meta.add_slices(meta);
                                 }
                             }
                         }
@@ -375,7 +432,7 @@ mod tests {
     use tokio::sync::mpsc;
     use tokio::sync::mpsc::Sender;
     use tokio::time::{delay_for, Duration};
-    use tracing::Level;
+    use tracing::{span, Level};
 
     /*
      This test verifies EventReader reads from a stream where only one segment has data while the other segment is empty.
