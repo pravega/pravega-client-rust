@@ -43,7 +43,6 @@ use std::fmt::{Display, Formatter};
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::ops::Index;
 use std::vec;
-use tracing::info;
 use uuid::Uuid;
 #[macro_use]
 extern crate shrinkwraprs;
@@ -76,16 +75,11 @@ impl From<SocketAddr> for PravegaNodeUri {
 impl PravegaNodeUri {
     pub fn to_socket_addr(&self) -> SocketAddr {
         // to_socket_addrs will resolve hostname to ip address
-        info!("self uri is {:?}", self.0);
         let mut addrs_vec: Vec<_> = self
             .0
             .to_socket_addrs()
             .expect("Unable to resolve domain")
             .collect();
-        for i in &addrs_vec {
-            info!("addr is {:?}", i);
-        }
-        assert_eq!(addrs_vec.len(), 1);
         addrs_vec.pop().expect("get the first SocketAddr")
     }
 
