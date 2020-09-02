@@ -16,6 +16,7 @@ use crate::reactor::reactors::SegmentReactor;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 use pravega_rust_client_shared::{ScopedSegment, WriterId};
 use pravega_wire_protocol::client_config::ClientConfig;
+use std::cmp;
 use std::io::Error;
 use std::io::{ErrorKind, Read, Write};
 use std::sync::Arc;
@@ -148,9 +149,11 @@ impl Read for ByteStreamReader<'_> {
                 if cmd.end_of_segment {
                     Err(Error::new(ErrorKind::Other, "segment is sealed"))
                 } else {
-                    self.offset += cmd.data.len() as i64;
-                    buf[..cmd.data.len()].copy_from_slice(&cmd.data);
-                    Ok(cmd.data.len())
+                    // Read may have returned more or less than the requested number of bytes.
+                    let size_to_return = cmp::min(buf.len(), cmd.data.len());
+                    self.offset += size_to_return as i64;
+                    buf[..size_to_return].copy_from_slice(&cmd.data[..size_to_return]);
+                    Ok(size_to_return)
                 }
             }
             Err(e) => Err(Error::new(ErrorKind::Other, format!("Error: {:?}", e))),
