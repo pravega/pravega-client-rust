@@ -643,8 +643,6 @@ mod tests {
             HashMap::new(),
         );
 
-        let mut event_count = 0;
-
         // acquire a segment
         let mut slice = cf
             .get_runtime_handle()
