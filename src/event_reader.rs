@@ -16,7 +16,6 @@ use im::HashMap as ImHashMap;
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream, Segment, SegmentWithRange};
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
-use std::marker::PhantomData;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -73,13 +72,8 @@ impl ReaderMeta {
         scoped_segment: String,
         slice_return_rx: oneshot::Receiver<SliceMetadata>,
     ) {
-        if self
-            .slice_release_receiver
-            .insert(scoped_segment, slice_return_rx)
-            .is_some()
-        {
-            panic!("Incorrect usage of API!. Release receiver already present for ");
-        }
+        self.slice_release_receiver
+            .insert(scoped_segment, slice_return_rx);
     }
 
     ///
@@ -172,6 +166,12 @@ impl ReaderMeta {
             .map(|(segment, _set)| segment.to_owned())
             .collect::<Vec<ScopedSegment>>()
     }
+
+    fn get_segment_id_with_data(&self) -> Option<String> {
+        self.slices
+            .iter()
+            .find_map(|(k, v)| if v.has_events() { Some(k.clone()) } else { None })
+    }
 }
 
 impl EventReader {
@@ -259,7 +259,10 @@ impl EventReader {
         }
     }
 
-    fn release_segment_at(&mut self, slice: SegmentSlice, _offset_in_segment: u64) {
+    ///
+    /// Release a partially read segment slice back to event reader.
+    ///
+    pub fn release_segment_at(&mut self, slice: SegmentSlice) {
         //stop reading data
         if let Some(tx) = slice.slice_return_tx {
             if let Err(_e) = tx.send(slice.meta.clone()) {
@@ -282,8 +285,30 @@ impl EventReader {
     /// acquired SegmentSlice this method waits until SegmentSlice is completely consumed before
     /// returning the data.
     ///
-    pub async fn acquire_segment(&mut self) -> Option<SegmentSlice<'_>> {
-        if let Some(read_result) = self.rx.recv().await {
+    pub async fn acquire_segment(&mut self) -> Option<SegmentSlice> {
+        // 1.Check if any of the segments have event data
+        let segment_with_data = self.meta.get_segment_id_with_data();
+
+        if segment_with_data.is_some() {
+            let slice_meta = self
+                .meta
+                .slices
+                .remove(segment_with_data.unwrap().as_str())
+                .unwrap();
+            // Create an one-shot channel to receive SegmentSlice return.
+            let (slice_return_tx, slice_return_rx) = oneshot::channel();
+            self.meta
+                .add_slice_release_receiver(slice_meta.scoped_segment.clone(), slice_return_rx);
+
+            info!(
+                "Segment Slice for {:?} is returned for consumption",
+                slice_meta.scoped_segment
+            );
+            Some(SegmentSlice {
+                meta: slice_meta,
+                slice_return_tx: Some(slice_return_tx),
+            })
+        } else if let Some(read_result) = self.rx.recv().await {
             match read_result {
                 Ok(data) => {
                     assert_eq!(
@@ -322,7 +347,6 @@ impl EventReader {
                     Some(SegmentSlice {
                         meta: slice_meta,
                         slice_return_tx: Some(slice_return_tx),
-                        phantom: PhantomData,
                     })
                 }
                 Err(e) => {
@@ -428,11 +452,10 @@ mod tests {
     use pravega_wire_protocol::commands::{Command, EventCommand};
     use std::collections::HashMap;
     use std::iter;
-    use std::marker::PhantomData;
     use tokio::sync::mpsc;
     use tokio::sync::mpsc::Sender;
     use tokio::time::{delay_for, Duration};
-    use tracing::{span, Level};
+    use tracing::Level;
 
     /*
      This test verifies EventReader reads from a stream where only one segment has data while the other segment is empty.
@@ -583,6 +606,100 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_return_slice() {
+        const NUM_EVENTS: usize = 2;
+        let (tx, rx) = mpsc::channel(1);
+        tracing_subscriber::fmt().with_max_level(Level::TRACE).finish();
+        let cf = ClientFactory::new(
+            ClientConfigBuilder::default()
+                .controller_uri(TEST_CONTROLLER_URI)
+                .build()
+                .unwrap(),
+        );
+        let stream = get_scoped_stream("scope", "test");
+
+        // simulate data being received from Segment store.
+        cf.get_runtime_handle().enter(|| {
+            tokio::spawn(generate_variable_size_events(
+                tx.clone(),
+                10,
+                NUM_EVENTS,
+                0,
+                false,
+            ));
+        });
+
+        // simulate initialization of a Reader
+        let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
+
+        // create a new Event Reader with the segment slice data.
+        let mut reader = EventReader::init_event_reader(
+            stream,
+            cf.0.clone(),
+            tx.clone(),
+            rx,
+            create_slice_map(init_segments),
+            HashMap::new(),
+        );
+
+        let mut event_count = 0;
+
+        // acquire a segment
+        let mut slice = cf
+            .get_runtime_handle()
+            .block_on(reader.acquire_segment())
+            .unwrap();
+
+        // read an event.
+        let event = slice.next().unwrap();
+        assert_eq!(event.value.len(), 1);
+        assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
+        assert_eq!(event.offset_in_segment, 0); // first event.
+
+        // release the segment slice.
+        reader.release_segment_at(slice);
+
+        // acquire the next segment
+        let slice = cf
+            .get_runtime_handle()
+            .block_on(reader.acquire_segment())
+            .unwrap();
+        //Do not read, simply return it back.
+        reader.release_segment_at(slice);
+
+        // Try acquiring the segment again.
+        let mut slice = cf
+            .get_runtime_handle()
+            .block_on(reader.acquire_segment())
+            .unwrap();
+        // Verify a partial event being present. This implies
+        let event = slice.next().unwrap();
+        assert_eq!(event.value.len(), 2);
+        assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
+        assert_eq!(event.offset_in_segment, 8 + 1); // first event.
+    }
+
+    fn read_n_events(slice: &mut SegmentSlice, events_to_read: usize) {
+        let mut event_count = 0;
+        loop {
+            if event_count == events_to_read {
+                break;
+            }
+            if let Some(event) = slice.next() {
+                println!("Read event {:?}", event);
+                assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
+                event_count += 1;
+            } else {
+                println!(
+                    "Finished reading from segment {:?}, segment is auto released",
+                    slice.meta.scoped_segment
+                );
+                break;
+            }
+        }
+    }
+
     // Helper method to update slice meta
     fn create_slice_map(init_segments: Vec<SegmentSlice>) -> HashMap<String, SliceMetadata> {
         let mut map = HashMap::with_capacity(init_segments.len());
@@ -667,7 +784,7 @@ mod tests {
     }
 
     // create a segment slice object without spawning a background task for testing
-    fn create_segment_slice(segment_id: i64) -> SegmentSlice<'static> {
+    fn create_segment_slice(segment_id: i64) -> SegmentSlice {
         let mut segment_name = "scope/test/".to_owned();
         segment_name.push_str(segment_id.to_string().as_ref());
         let segment = ScopedSegment::from(segment_name.as_str());
@@ -683,7 +800,6 @@ mod tests {
                 partial_header: BytePlaceholder::empty(),
             },
             slice_return_tx: None,
-            phantom: PhantomData,
         };
         segment_slice
     }

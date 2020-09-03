@@ -16,12 +16,10 @@ use bytes::{Buf, BufMut, BytesMut};
 use pravega_rust_client_retry::retry_result::Retryable;
 use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::commands::{Command, EventCommand, TYPE_PLUS_LENGTH_SIZE};
-use std::marker::PhantomData;
 use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;
-use tokio::time::{delay_for, Duration};
 use tracing::{debug, error, info, warn};
 
 ///
@@ -38,10 +36,9 @@ pub struct Event {
 /// This represents a Segment slice which can be used to read events from a Pravega segment as an
 /// iterator.
 ///
-pub struct SegmentSlice<'reader> {
+pub struct SegmentSlice {
     pub meta: SliceMetadata,
     pub(crate) slice_return_tx: Option<oneshot::Sender<SliceMetadata>>,
-    pub(crate) phantom: PhantomData<&'reader ()>,
 }
 
 ///
@@ -149,6 +146,13 @@ impl SliceMetadata {
             && self.partial_event.value.is_empty()
             && self.partial_header.value.is_empty()
     }
+
+    ///
+    /// Method to verify if the Segment has pending events that can be read.
+    ///
+    pub fn has_events(&self) -> bool {
+        self.segment_data.value.len() > TYPE_PLUS_LENGTH_SIZE as usize
+    }
 }
 
 impl Default for SliceMetadata {
@@ -166,7 +170,7 @@ impl Default for SliceMetadata {
     }
 }
 
-impl SegmentSlice<'_> {
+impl SegmentSlice {
     ///
     /// Create a new SegmentSlice for a given start_offset, segment.
     /// This spawns an asynchronous task to fetch data from the segment with length of  `READ_BUFFER_SIZE`.
@@ -189,7 +193,6 @@ impl SegmentSlice<'_> {
                 partial_header: BytePlaceholder::empty(),
             },
             slice_return_tx: Some(slice_return_tx),
-            phantom: PhantomData,
         }
     }
 
@@ -382,13 +385,7 @@ impl SegmentSlice<'_> {
         }
     }
 
-    async fn wait_until_empty(&self) {
-        while !self.meta.segment_data.value.is_empty() {
-            delay_for(Duration::from_millis(100)).await;
-        }
-    }
-
-    fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.meta.segment_data.value.is_empty()
     }
 }
@@ -396,7 +393,7 @@ impl SegmentSlice<'_> {
 ///
 /// Iterator implementation of SegmentSlice.
 ///
-impl Iterator for SegmentSlice<'_> {
+impl Iterator for SegmentSlice {
     type Item = Event;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -571,7 +568,7 @@ mod tests {
     }
 
     // create a segment slice for testing.
-    fn create_segment_slice() -> SegmentSlice<'static> {
+    fn create_segment_slice() -> SegmentSlice {
         let segment = ScopedSegment::from("test/test/123");
         let segment_slice = SegmentSlice {
             meta: SliceMetadata {
@@ -585,7 +582,6 @@ mod tests {
                 partial_header: BytePlaceholder::empty(),
             },
             slice_return_tx: None,
-            phantom: PhantomData,
         };
         segment_slice
     }
