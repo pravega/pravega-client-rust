@@ -50,7 +50,7 @@ pub struct SliceMetadata {
     pub scoped_segment: String,
     pub read_offset: i64,
     pub end_offset: i64,
-    pub(crate) segment_data: BytePlaceholder,
+    pub(crate) segment_data: SegmentDataBuffer,
     pub partial_data_present: bool,
 }
 
@@ -63,24 +63,24 @@ const READ_BUFFER_SIZE: i32 = 2048; // 128K bytes
 /// Structure to track the offset and byte array.
 ///
 #[derive(Debug, Clone)]
-pub struct BytePlaceholder {
+pub struct SegmentDataBuffer {
     pub(crate) segment: String,
     pub(crate) offset_in_segment: i64,
     pub(crate) value: BytesMut,
 }
 
-impl BytePlaceholder {
+impl SegmentDataBuffer {
     ///
-    /// Removes the bytes from the current view, returning them in a new `BytePlaceholder` handle.
+    /// Removes the bytes from the current view, returning them in a new `SegmentDataBuffer` handle.
     /// Afterwards, `self` will be empty.
     /// This is identical to `self.split_to(length)`.
     ///
-    pub fn split(&mut self) -> BytePlaceholder {
+    pub fn split(&mut self) -> SegmentDataBuffer {
         let res = self.value.split();
         let old_offset = self.offset_in_segment;
         let new_offset = old_offset + res.len() as i64;
         self.offset_in_segment = new_offset;
-        BytePlaceholder {
+        SegmentDataBuffer {
             segment: self.segment.clone(),
             offset_in_segment: old_offset,
             value: res,
@@ -90,7 +90,7 @@ impl BytePlaceholder {
     ///
     /// Splits the buffer into two at the given index.
     ///
-    /// Afterwards `self` contains elements `[at, len)`, and the returned `BytePlaceholder`
+    /// Afterwards `self` contains elements `[at, len)`, and the returned `SegmentDataBuffer`
     /// contains elements `[0, at)`.
     ///
     /// `self.offset_in_segment` is updated accordingly.
@@ -99,12 +99,12 @@ impl BytePlaceholder {
     ///
     /// Panics if `at > len`.
     ///
-    pub fn split_to(&mut self, at: usize) -> BytePlaceholder {
+    pub fn split_to(&mut self, at: usize) -> SegmentDataBuffer {
         let old_offset = self.offset_in_segment;
         let res = self.value.split_to(at);
         self.offset_in_segment = old_offset + at as i64;
 
-        BytePlaceholder {
+        SegmentDataBuffer {
             segment: self.segment.clone(),
             offset_in_segment: old_offset,
             value: res,
@@ -133,10 +133,10 @@ impl BytePlaceholder {
     }
 
     ///
-    /// Returns an empty BytePlaceholder. The offset is set as 0.
+    /// Returns an empty SegmentDataBuffer. The offset is set as 0.
     ///
-    pub fn empty() -> BytePlaceholder {
-        BytePlaceholder {
+    pub fn empty() -> SegmentDataBuffer {
+        SegmentDataBuffer {
             segment: Default::default(),
             offset_in_segment: 0,
             value: BytesMut::with_capacity(0),
@@ -167,7 +167,7 @@ impl Default for SliceMetadata {
             scoped_segment: Default::default(),
             read_offset: Default::default(),
             end_offset: i64::MAX,
-            segment_data: BytePlaceholder::empty(),
+            segment_data: SegmentDataBuffer::empty(),
             partial_data_present: false,
         }
     }
@@ -190,7 +190,7 @@ impl SegmentSlice {
                 scoped_segment: segment.to_string(),
                 read_offset: 0,
                 end_offset: i64::MAX,
-                segment_data: BytePlaceholder::empty(),
+                segment_data: SegmentDataBuffer::empty(),
                 partial_data_present: false,
             },
             slice_return_tx: Some(slice_return_tx),
@@ -240,7 +240,7 @@ impl SegmentSlice {
                         break;
                     } else {
                         let segment_data = bytes::BytesMut::from(reply.data.as_slice());
-                        let data = BytePlaceholder {
+                        let data = SegmentDataBuffer {
                             segment: segment.to_string(),
                             offset_in_segment: offset,
                             value: segment_data,
@@ -286,7 +286,7 @@ impl SegmentSlice {
     ///
     fn extract_event(
         &mut self,
-        parse_header: fn(&mut BytePlaceholder) -> Option<BytePlaceholder>,
+        parse_header: fn(&mut SegmentDataBuffer) -> Option<SegmentDataBuffer>,
     ) -> Option<Event> {
         if let Some(mut event_data) = parse_header(&mut self.meta.segment_data) {
             let bytes_to_read = event_data.value.capacity();
@@ -331,7 +331,7 @@ impl SegmentSlice {
     /// This method reads the header and returns a BytesMut whose size is as big as the event.
     /// If complete header is not present return None.
     ///
-    fn read_header(data: &mut BytePlaceholder) -> Option<BytePlaceholder> {
+    fn read_header(data: &mut SegmentDataBuffer) -> Option<SegmentDataBuffer> {
         if data.value.len() >= TYPE_PLUS_LENGTH_SIZE as usize {
             let event_offset = data.offset_in_segment;
             //workaround since we cannot go back in the position using BytesMut
@@ -340,7 +340,7 @@ impl SegmentSlice {
             let len = bytes_temp.get_i32();
             assert_eq!(type_code, EventCommand::TYPE_CODE, "Expected EventCommand here.");
             debug!("Event size is {}", len);
-            Some(BytePlaceholder {
+            Some(SegmentDataBuffer {
                 segment: data.segment.clone(),
                 offset_in_segment: event_offset,
                 value: BytesMut::with_capacity(len as usize),
@@ -400,11 +400,11 @@ mod tests {
     ///
     /// This method reads the header and returns a BytesMut whose size is as big as the event.
     ///
-    fn custom_read_header(data: &mut BytePlaceholder) -> Option<BytePlaceholder> {
+    fn custom_read_header(data: &mut SegmentDataBuffer) -> Option<SegmentDataBuffer> {
         if data.value.remaining() >= 4 {
             let mut temp = data.value.bytes();
             let len = temp.get_i32();
-            Some(BytePlaceholder {
+            Some(SegmentDataBuffer {
                 segment: data.segment.clone(),
                 offset_in_segment: 0,
                 value: BytesMut::with_capacity(len as usize),
@@ -479,7 +479,7 @@ mod tests {
                 scoped_segment: segment.to_string(),
                 read_offset: 0,
                 end_offset: i64::MAX,
-                segment_data: BytePlaceholder::empty(),
+                segment_data: SegmentDataBuffer::empty(),
                 partial_data_present: false,
             },
             slice_return_tx: None,
@@ -497,7 +497,7 @@ mod tests {
 
     // Generate events to simulate Pravega SegmentReadCommand.
     async fn generate_variable_size_events(
-        mut tx: Sender<BytePlaceholder>,
+        mut tx: Sender<SegmentDataBuffer>,
         buf_size: usize,
         num_events: usize,
     ) {
@@ -512,7 +512,7 @@ mod tests {
                 while data.len() > 0 {
                     let free_space = buf.capacity() - buf.len();
                     if free_space == 0 {
-                        tx.send(BytePlaceholder {
+                        tx.send(SegmentDataBuffer {
                             segment: segment.clone(),
                             offset_in_segment: offset,
                             value: buf,
@@ -530,7 +530,7 @@ mod tests {
             }
         }
         // send the last event.
-        tx.send(BytePlaceholder {
+        tx.send(SegmentDataBuffer {
             segment,
             offset_in_segment: offset,
             value: buf,
@@ -553,7 +553,7 @@ mod tests {
     }
 
     // Custom multiple size events.
-    async fn generate_multiple_constant_size_events(mut tx: Sender<BytePlaceholder>) {
+    async fn generate_multiple_constant_size_events(mut tx: Sender<SegmentDataBuffer>) {
         let mut buf = BytesMut::with_capacity(10);
         let segment = ScopedSegment::from("test/test/123").to_string();
 
@@ -561,7 +561,7 @@ mod tests {
         buf.put_u8(b'a');
         buf.put_i32(2);
         buf.put(&b"aa"[..]);
-        tx.send(BytePlaceholder {
+        tx.send(SegmentDataBuffer {
             segment: segment.clone(),
             offset_in_segment: 0,
             value: buf,
@@ -572,7 +572,7 @@ mod tests {
         buf = BytesMut::with_capacity(10);
         buf.put_i32(3);
         buf.put(&b"aaa"[..]);
-        tx.send(BytePlaceholder {
+        tx.send(SegmentDataBuffer {
             segment: segment.clone(),
             offset_in_segment: 0,
             value: buf,
@@ -583,7 +583,7 @@ mod tests {
         buf = BytesMut::with_capacity(10);
         buf.put_i32(4);
         buf.put(&b"aaaa"[..]);
-        tx.send(BytePlaceholder {
+        tx.send(SegmentDataBuffer {
             segment: segment.clone(),
             offset_in_segment: 0,
             value: buf,
@@ -594,7 +594,7 @@ mod tests {
         buf = BytesMut::with_capacity(10);
         buf.put_i32(5);
         buf.put(&b"aaaaa"[..]);
-        tx.send(BytePlaceholder {
+        tx.send(SegmentDataBuffer {
             segment: segment.clone(),
             offset_in_segment: 0,
             value: buf,
@@ -605,7 +605,7 @@ mod tests {
         buf = BytesMut::with_capacity(10);
         buf.put_i32(6);
         buf.put(&b"aaaaaa"[..]);
-        tx.send(BytePlaceholder {
+        tx.send(SegmentDataBuffer {
             segment: segment.clone(),
             offset_in_segment: 0,
             value: buf,
@@ -616,7 +616,7 @@ mod tests {
         buf = BytesMut::with_capacity(10);
         buf.put_i32(7);
         buf.put(&b"aaaaaa"[..]);
-        tx.send(BytePlaceholder {
+        tx.send(SegmentDataBuffer {
             segment: segment.clone(),
             offset_in_segment: 0,
             value: buf,
@@ -628,7 +628,7 @@ mod tests {
         buf.put_u8(b'a');
         buf.put_i32(8);
         buf.put(&b"aaaaa"[..]);
-        tx.send(BytePlaceholder {
+        tx.send(SegmentDataBuffer {
             segment: segment.clone(),
             offset_in_segment: 0,
             value: buf,
@@ -638,7 +638,7 @@ mod tests {
 
         buf = BytesMut::with_capacity(10);
         buf.put(&b"aaa"[..]);
-        tx.send(BytePlaceholder {
+        tx.send(SegmentDataBuffer {
             segment: segment.clone(),
             offset_in_segment: 0,
             value: buf,
@@ -650,7 +650,7 @@ mod tests {
     ///
     /// This is a test function to generate single events of varying sizes
     ///
-    async fn generate_multiple_variable_sized_events(mut tx: Sender<BytePlaceholder>) {
+    async fn generate_multiple_variable_sized_events(mut tx: Sender<SegmentDataBuffer>) {
         for i in 1..11 {
             let mut buf = BytesMut::with_capacity(32);
             buf.put_i32(i); // length.
@@ -658,7 +658,7 @@ mod tests {
                 buf.put(&b"a"[..]);
             }
             if let Err(_) = tx
-                .send(BytePlaceholder {
+                .send(SegmentDataBuffer {
                     segment: ScopedSegment::from("test/test/123").to_string(),
                     offset_in_segment: 0,
                     value: buf,

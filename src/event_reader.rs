@@ -10,7 +10,7 @@
 
 use crate::client_factory::ClientFactoryInternal;
 use crate::segment_reader::ReaderError;
-use crate::segment_slice::{BytePlaceholder, SegmentSlice, SliceMetadata};
+use crate::segment_slice::{SegmentDataBuffer, SegmentSlice, SliceMetadata};
 use bytes::BufMut;
 use im::HashMap as ImHashMap;
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream, Segment, SegmentWithRange};
@@ -22,7 +22,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::oneshot;
 use tracing::{debug, error, info, warn};
 
-pub type SegmentReadResult = Result<BytePlaceholder, ReaderError>;
+pub type SegmentReadResult = Result<SegmentDataBuffer, ReaderError>;
 
 ///
 /// This represents an event reader. An event readers fetches its assigned segments and provides the
@@ -418,7 +418,7 @@ impl EventReader {
     }
 
     // Helper method to append data to SliceMetadata.
-    fn add_data_to_segment_slice(data: BytePlaceholder, slice: &mut SliceMetadata) {
+    fn add_data_to_segment_slice(data: SegmentDataBuffer, slice: &mut SliceMetadata) {
         if slice.segment_data.value.is_empty() {
             slice.segment_data = data;
         } else {
@@ -445,7 +445,7 @@ impl EventReader {
 mod tests {
     use crate::client_factory::ClientFactory;
     use crate::event_reader::{EventReader, SegmentReadResult};
-    use crate::segment_slice::{BytePlaceholder, SegmentSlice, SliceMetadata};
+    use crate::segment_slice::{SegmentDataBuffer, SegmentSlice, SliceMetadata};
     use bytes::{BufMut, BytesMut};
     use pravega_rust_client_shared::{Scope, ScopedSegment, ScopedStream, Stream};
     use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
@@ -742,7 +742,7 @@ mod tests {
                         if should_delay {
                             delay_for(Duration::from_millis(100)).await;
                         }
-                        tx.send(Ok(BytePlaceholder {
+                        tx.send(Ok(SegmentDataBuffer {
                             segment: ScopedSegment::from(segment_name.as_str()).to_string(),
                             offset_in_segment: offset,
                             value: buf,
@@ -760,7 +760,7 @@ mod tests {
             }
         }
         // send the last event.
-        tx.send(Ok(BytePlaceholder {
+        tx.send(Ok(SegmentDataBuffer {
             segment: ScopedSegment::from(segment_name.as_str()).to_string(),
             offset_in_segment: offset,
             value: buf,
@@ -792,7 +792,7 @@ mod tests {
                 scoped_segment: segment.to_string(),
                 read_offset: 0,
                 end_offset: i64::MAX,
-                segment_data: BytePlaceholder::empty(),
+                segment_data: SegmentDataBuffer::empty(),
                 partial_data_present: false,
             },
             slice_return_tx: None,
