@@ -793,9 +793,7 @@ mod tests {
                 read_offset: 0,
                 end_offset: i64::MAX,
                 segment_data: BytePlaceholder::empty(),
-                partial_event_length: 0,
-                partial_event: BytePlaceholder::empty(),
-                partial_header: BytePlaceholder::empty(),
+                partial_data_present: false,
             },
             slice_return_tx: None,
         };
