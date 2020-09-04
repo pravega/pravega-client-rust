@@ -43,6 +43,8 @@ futures-intrusive = "0.3.0"
 async-stream = "0.2.1"
 serde_cbor = "0.11.1"
 pcg_rand = "0.11.1"
+mockall = "0.7.1"
+cfg-if = "0.1"
 
 [dev-dependencies]
 pravega-rust-client-integration-test = { path = "./integration_test"}
