@@ -173,8 +173,13 @@ impl Seek for ByteStreamReader<'_> {
                 Ok(self.offset as u64)
             },
             SeekFrom::Current(offset) => {
-                self.offset += offset;
-                Ok(self.offset as u64)
+                let new_offset = self.offset + offset;
+                if new_offset < 0 {
+                    Err(Error::new(ErrorKind::InvalidInput, "Cannot seek to a negative offset"))
+                } else {
+                    self.offset = new_offset;
+                    Ok(self.offset as u64)
+                }
             },
             SeekFrom::End(_offset) => {
                 unimplemented!("Seek from the end is not implemented")
