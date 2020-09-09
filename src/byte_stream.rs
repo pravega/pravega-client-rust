@@ -199,7 +199,11 @@ impl ByteStreamReader {
                 if cmd.end_of_segment {
                     Err(Error::new(ErrorKind::Other, "segment is sealed"))
                 } else {
-                    Ok(cmd)
+                    // Read may have returned more or less than the requested number of bytes.
+                    let size_to_return = cmp::min(buf.len(), cmd.data.len());
+                    self.offset += size_to_return as i64;
+                    buf[..size_to_return].copy_from_slice(&cmd.data[..size_to_return]);
+                    Ok(size_to_return)
                 }
             }
             Err(e) => Err(Error::new(ErrorKind::Other, format!("Error: {:?}", e))),
