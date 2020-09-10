@@ -8,19 +8,18 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::{ClientFactory, ClientFactoryInternal};
+use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::get_random_u128;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::reactors::SegmentReactor;
 use crate::segment_reader::AsyncSegmentReader;
+use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::{ScopedSegment, WriterId};
-use pravega_wire_protocol::client_config::ClientConfig;
 use pravega_wire_protocol::commands::SegmentReadCommand;
 use std::cmp;
 use std::io::Error;
 use std::io::{ErrorKind, Read, Write};
-use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
@@ -28,14 +27,6 @@ use tokio::sync::oneshot::error::TryRecvError;
 use tracing::info_span;
 use tracing_futures::Instrument;
 use uuid::Uuid;
-
-cfg_if::cfg_if! {
-    if #[cfg(test)] {
-        use crate::segment_reader::MockAsyncSegmentReaderImpl as AsyncSegmentReaderImpl;
-    } else {
-        use crate::segment_reader::AsyncSegmentReaderImpl;
-    }
-}
 
 const BUFFER_SIZE: usize = 4096;
 const CHANNEL_CAPACITY: usize = 100;
@@ -98,11 +89,7 @@ impl Write for ByteStreamWriter {
 }
 
 impl ByteStreamWriter {
-    pub(crate) fn new(
-        segment: ScopedSegment,
-        config: ClientConfig,
-        factory: Arc<ClientFactoryInternal>,
-    ) -> Self {
+    pub(crate) fn new(segment: ScopedSegment, config: ClientConfig, factory: ClientFactory) -> Self {
         let (sender, receiver) = channel(CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
         let writer_id = WriterId::from(get_random_u128());
@@ -155,6 +142,7 @@ impl Read for ByteStreamReader {
         let buffer_read = self.buffer.read(buf.len());
         let buffer_read_length = buffer_read.len();
         buf[..buffer_read_length].copy_from_slice(buffer_read);
+
         if buf.len() == buffer_read_length {
             return Ok(buffer_read_length);
         }
@@ -163,13 +151,13 @@ impl Read for ByteStreamReader {
         self.buffer.clear();
         let server_read_length = buf.len() - buffer_read_length;
         let cmd = self.read_internal(server_read_length)?;
-        if cmd.data.len() == server_read_length {
-            buf[buffer_read_length..].copy_from_slice(&cmd.data);
-            Ok(buf.len())
-        } else if cmd.data.len() > server_read_length {
-            buf[buffer_read_length..buffer_read_length + server_read_length].copy_from_slice(&cmd.data);
+        // if returned data size is smaller that asked, return it all to caller.
+        if cmd.data.len() < server_read_length {
+            buf[buffer_read_length..buffer_read_length + cmd.data.len()].copy_from_slice(&cmd.data);
             Ok(buffer_read_length + server_read_length)
         } else {
+            // if returned data size is larger than asked, put the rest into buffer and return
+            // the size that caller wants.
             buf[buffer_read_length..].copy_from_slice(&cmd.data[..server_read_length]);
             self.buffer.fill(&cmd.data[server_read_length..]);
             Ok(buf.len())
@@ -181,9 +169,13 @@ impl ByteStreamReader {
     pub(crate) fn new(segment: ScopedSegment, factory: &ClientFactory) -> Self {
         let handle = factory.get_runtime_handle();
         let async_reader = handle.block_on(factory.create_async_event_reader(segment));
+        ByteStreamReader::new_internal(handle, Box::new(async_reader))
+    }
+
+    fn new_internal(handle: Handle, async_reader: Box<dyn AsyncSegmentReader>) -> Self {
         ByteStreamReader {
             reader_id: Uuid::new_v4(),
-            reader: Box::new(async_reader),
+            reader: async_reader,
             offset: 0,
             runtime_handle: handle,
             buffer: ReaderBuffer::new(),
@@ -199,11 +191,7 @@ impl ByteStreamReader {
                 if cmd.end_of_segment {
                     Err(Error::new(ErrorKind::Other, "segment is sealed"))
                 } else {
-                    // Read may have returned more or less than the requested number of bytes.
-                    let size_to_return = cmp::min(buf.len(), cmd.data.len());
-                    self.offset += size_to_return as i64;
-                    buf[..size_to_return].copy_from_slice(&cmd.data[..size_to_return]);
-                    Ok(size_to_return)
+                    Ok(cmd)
                 }
             }
             Err(e) => Err(Error::new(ErrorKind::Other, format!("Error: {:?}", e))),
@@ -211,14 +199,13 @@ impl ByteStreamReader {
     }
 }
 
-// This is the TYPE_PLUS_LENGTH_SIZE on segmentstore side, which is the minimal length that
-// segmentstore will try to read, but not necessarily the minimal length that returns to client.
+// This is the TYPE_PLUS_LENGTH_SIZE in segmentstore, which is the minimal length that
+// segmentstore will try to read, but not necessarily the minimal length that returns to the client.
 const READER_BUFFER_SIZE: usize = 8192;
 
+#[derive(Debug)]
 struct ReaderBuffer {
     buf: Vec<u8>,
-    // the length of the actual data in the buffer
-    length: usize,
     // start to read from offset
     offset: usize,
 }
@@ -228,11 +215,7 @@ impl ReaderBuffer {
         // since we know the exact buffer size, initializing Vec with capacity can prevent
         // reallocating memory as Vec size grows.
         let buf = Vec::with_capacity(READER_BUFFER_SIZE);
-        ReaderBuffer {
-            buf,
-            length: 0,
-            offset: 0,
-        }
+        ReaderBuffer { buf, offset: 0 }
     }
 
     fn read(&mut self, read: usize) -> &[u8] {
@@ -248,12 +231,11 @@ impl ReaderBuffer {
         // data should not be larger than the buffer capacity.
         assert!(data.len() <= READER_BUFFER_SIZE);
 
-        self.offset = 0;
         self.buf.extend_from_slice(data);
     }
 
-    fn to_read(&self) -> usize {
-        self.length - self.offset
+    fn len(&self) -> usize {
+        self.buf.len() - self.offset
     }
 
     fn is_empty(&self) -> bool {
@@ -272,6 +254,9 @@ impl ReaderBuffer {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::segment_reader::ReaderError;
+    use async_trait::async_trait;
+    use tokio::sync::Mutex;
 
     #[test]
     fn test_reader_buffer_happy_read() {
@@ -306,6 +291,105 @@ mod test {
         assert!(buffer.is_full());
     }
 
+    struct MockAsyncSegmentReaderImpl {
+        size: Mutex<i32>,
+    }
+
+    impl MockAsyncSegmentReaderImpl {
+        fn new(size: i32) -> Self {
+            MockAsyncSegmentReaderImpl {
+                size: Mutex::new(size),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl AsyncSegmentReader for MockAsyncSegmentReaderImpl {
+        async fn read(&self, offset: i64, length: i32) -> Result<SegmentReadCommand, ReaderError> {
+            let mut guard = self.size.lock().await;
+            let ask = cmp::max(length, READER_BUFFER_SIZE as i32);
+            let return_size = if ask > *guard {
+                let size = *guard;
+                *guard = 0;
+                size
+            } else {
+                *guard -= ask;
+                ask
+            };
+
+            Ok(SegmentReadCommand {
+                segment: "".to_string(),
+                offset: offset + return_size as i64,
+                at_tail: false,
+                end_of_segment: false,
+                data: vec![1; return_size as usize],
+                request_id: 0,
+            })
+        }
+    }
+
     #[test]
-    fn test_byte_stream_reader_normal_size_read() {}
+    fn test_byte_stream_reader_normal_size_read() {
+        let mock = MockAsyncSegmentReaderImpl::new(1024 * 100);
+
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let handle = runtime.handle().clone();
+        let mut byte_stream_reader = ByteStreamReader::new_internal(handle, Box::new(mock));
+
+        let mut buf = vec![0; 1024];
+        byte_stream_reader.read(&mut buf).unwrap();
+        assert_eq!(byte_stream_reader.buffer.len(), READER_BUFFER_SIZE - 1024);
+        assert_eq!(buf, vec![1; 1024]);
+    }
+
+    #[test]
+    fn test_byte_stream_reader_large_size_read() {
+        let mock = MockAsyncSegmentReaderImpl::new(1024 * 100);
+
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let handle = runtime.handle().clone();
+        let mut byte_stream_reader = ByteStreamReader::new_internal(handle, Box::new(mock));
+
+        let mut buf = vec![0; 8192];
+        byte_stream_reader.read(&mut buf).unwrap();
+        assert!(byte_stream_reader.buffer.is_empty());
+        assert_eq!(buf, vec![1; 8192]);
+    }
+
+    #[test]
+    fn test_byte_stream_reader_continuous_small_size_read() {
+        let mock = MockAsyncSegmentReaderImpl::new(1024 * 100);
+
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let handle = runtime.handle().clone();
+        let mut byte_stream_reader = ByteStreamReader::new_internal(handle, Box::new(mock));
+
+        let mut to_read = 8192;
+        for _i in 0..10 {
+            let mut buf = vec![0; 512];
+            byte_stream_reader.read(&mut buf).unwrap();
+            to_read -= 512;
+            assert_eq!(byte_stream_reader.buffer.len(), to_read);
+            assert_eq!(buf, vec![1; 512]);
+        }
+    }
+
+    #[test]
+    fn test_byte_stream_reader_mixed_size_read() {
+        let mock = MockAsyncSegmentReaderImpl::new(1024 * 100);
+
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let handle = runtime.handle().clone();
+        let mut byte_stream_reader = ByteStreamReader::new_internal(handle, Box::new(mock));
+
+        let mut buf = vec![0; 2048];
+        byte_stream_reader.read(&mut buf).unwrap();
+        assert_eq!(byte_stream_reader.buffer.len(), 8192 - 2048);
+        assert_eq!(buf, vec![1; 2048]);
+
+        let mut buf = vec![0; 8192];
+        byte_stream_reader.read(&mut buf).unwrap();
+        assert_eq!(byte_stream_reader.buffer.len(), 8192 - 2048);
+        assert_eq!(buf, vec![1; 8192]);
+    }
 }

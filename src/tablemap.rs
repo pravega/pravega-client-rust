@@ -8,41 +8,36 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactoryInternal;
+use crate::client_factory::ClientFactory;
 use crate::error::RawClientError;
 use crate::get_request_id;
 use crate::raw_client::RawClient;
 use async_stream::try_stream;
 use futures::stream::Stream;
-use pravega_rust_client_shared::Stream as PravegaStream;
-use pravega_rust_client_shared::{Scope, ScopedSegment, Segment};
+use pravega_rust_client_auth::DelegationTokenProvider;
+use pravega_rust_client_shared::{PravegaNodeUri, Stream as PravegaStream};
+use pravega_rust_client_shared::{Scope, ScopedSegment, ScopedStream, Segment};
 use pravega_wire_protocol::commands::{
     CreateTableSegmentCommand, ReadTableCommand, ReadTableEntriesCommand, ReadTableEntriesDeltaCommand,
     ReadTableKeysCommand, RemoveTableKeysCommand, TableEntries, TableKey, TableValue,
     UpdateTableEntriesCommand,
 };
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_cbor::from_slice;
 use serde_cbor::to_vec;
 use snafu::Snafu;
-use std::net::SocketAddr;
 use tracing::{debug, info};
 
 pub type Version = i64;
 
-pub struct TableMap<'a> {
+pub struct TableMap {
     /// name of the map
     name: String,
-    raw_client: Box<dyn RawClient<'a> + 'a>,
+    endpoint: PravegaNodeUri,
+    factory: ClientFactory,
+    delegation_token_provider: DelegationTokenProvider,
 }
-
-// Workaround for issue https://github.com/rust-lang/rust/issues/63066 as specified in
-//https://github.com/rust-lang/rust/issues/34511#issuecomment-373423999
-// Without the workaround we get the following error
-// error[E0700]: hidden type for `impl Trait` captures lifetime that does not appear in bounds
-pub trait Captures<'a> {}
-impl<'a, T: ?Sized> Captures<'a> for T {}
 
 #[derive(Debug, Snafu)]
 pub enum TableError {
@@ -63,9 +58,9 @@ pub enum TableError {
     #[snafu(display("Error observed while performing {} due to {}", operation, error_msg,))]
     OperationError { operation: String, error_msg: String },
 }
-impl<'a> TableMap<'a> {
+impl TableMap {
     /// create a table map
-    pub async fn new(name: String, factory: &'a ClientFactoryInternal) -> Result<TableMap<'a>, TableError> {
+    pub async fn new(name: String, factory: ClientFactory) -> Result<TableMap, TableError> {
         let segment = ScopedSegment {
             scope: Scope::from("_tables".to_owned()),
             stream: PravegaStream::from(name),
@@ -75,25 +70,30 @@ impl<'a> TableMap<'a> {
             .get_controller_client()
             .get_endpoint_for_segment(&segment)
             .await
-            .expect("get endpoint for segment")
-            .parse::<SocketAddr>()
-            .expect("Invalid end point returned");
+            .expect("get endpoint for segment");
         debug!("EndPoint is {}", endpoint.to_string());
 
         let table_map = TableMap {
             name: segment.to_string(),
-            raw_client: Box::new(factory.create_raw_client(endpoint)),
+            endpoint: endpoint.clone(),
+            factory: factory.clone(),
+            delegation_token_provider: factory
+                .create_delegation_token_provider(ScopedStream::from(&segment))
+                .await,
         };
         let req = Requests::CreateTableSegment(CreateTableSegmentCommand {
             request_id: get_request_id(),
             segment: table_map.name.clone(),
-            delegation_token: String::from(""),
+            delegation_token: table_map
+                .delegation_token_provider
+                .retrieve_token(factory.get_controller_client())
+                .await,
         });
 
         let op = "Create table segment";
         table_map
-            .raw_client
-            .as_ref()
+            .factory
+            .create_raw_client_for_endpoint(endpoint.clone())
             .send_request(&req)
             .await
             .map_err(|e| TableError::ConnectionError {
@@ -143,8 +143,8 @@ impl<'a> TableMap<'a> {
     ///
     pub async fn insert<K, V>(&self, k: &K, v: &V, offset: i64) -> Result<Version, TableError>
     where
-        K: Serialize + Deserialize<'a>,
-        V: Serialize + Deserialize<'a>,
+        K: Serialize + serde::de::DeserializeOwned,
+        V: Serialize + serde::de::DeserializeOwned,
     {
         // use KEY_NO_VERSION to ensure unconditional update.
         self.insert_conditionally(k, v, TableKey::KEY_NO_VERSION, offset)
@@ -167,8 +167,8 @@ impl<'a> TableMap<'a> {
         offset: i64,
     ) -> Result<Version, TableError>
     where
-        K: Serialize + Deserialize<'a>,
-        V: Serialize + Deserialize<'a>,
+        K: Serialize + serde::de::DeserializeOwned,
+        V: Serialize + serde::de::DeserializeOwned,
     {
         let key = to_vec(k).expect("error during serialization.");
         let val = to_vec(v).expect("error during serialization.");
@@ -178,9 +178,13 @@ impl<'a> TableMap<'a> {
     }
 
     ///
-    ///Unconditionally remove a key from the Tablemap. If the key does not exist an Ok(()) is returned.
+    /// Unconditionally remove a key from the Tablemap. If the key does not exist an Ok(()) is returned.
     ///
-    pub async fn remove<K: Serialize + Deserialize<'a>>(&self, k: &K, offset: i64) -> Result<(), TableError> {
+    pub async fn remove<K: Serialize + serde::de::DeserializeOwned>(
+        &self,
+        k: &K,
+        offset: i64,
+    ) -> Result<(), TableError> {
         self.remove_conditionally(k, TableKey::KEY_NO_VERSION, offset)
             .await
     }
@@ -196,7 +200,7 @@ impl<'a> TableMap<'a> {
         offset: i64,
     ) -> Result<(), TableError>
     where
-        K: Serialize + Deserialize<'a>,
+        K: Serialize + serde::de::DeserializeOwned,
     {
         let key = to_vec(k).expect("error during serialization.");
         self.remove_raw_values(vec![(key, key_version)], offset).await
@@ -204,8 +208,8 @@ impl<'a> TableMap<'a> {
 
     ///
     /// Returns the latest values for a given list of keys. If the tablemap does not have a
-    ///key a `None` is returned for the corresponding key. The version number of the Value is also
-    ///returned by the API
+    /// key a `None` is returned for the corresponding key. The version number of the Value is also
+    /// returned by the API
     ///
     pub async fn get_all<K, V>(&self, keys: Vec<&K>) -> Result<Vec<Option<(V, Version)>>, TableError>
     where
@@ -238,8 +242,8 @@ impl<'a> TableMap<'a> {
     ///
     pub async fn insert_all<K, V>(&self, kvps: Vec<(&K, &V)>, offset: i64) -> Result<Vec<Version>, TableError>
     where
-        K: Serialize + Deserialize<'a>,
-        V: Serialize + Deserialize<'a>,
+        K: Serialize + serde::de::DeserializeOwned,
+        V: Serialize + serde::de::DeserializeOwned,
     {
         let r: Vec<(Vec<u8>, Vec<u8>, Version)> = kvps
             .iter()
@@ -269,8 +273,8 @@ impl<'a> TableMap<'a> {
         offset: i64,
     ) -> Result<Vec<Version>, TableError>
     where
-        K: Serialize + Deserialize<'a>,
-        V: Serialize + Deserialize<'a>,
+        K: Serialize + serde::de::DeserializeOwned,
+        V: Serialize + serde::de::DeserializeOwned,
     {
         let r: Vec<(Vec<u8>, Vec<u8>, Version)> = kvps
             .iter()
@@ -290,7 +294,7 @@ impl<'a> TableMap<'a> {
     ///
     pub async fn remove_all<K>(&self, keys: Vec<&K>, offset: i64) -> Result<(), TableError>
     where
-        K: Serialize + Deserialize<'a>,
+        K: Serialize + serde::de::DeserializeOwned,
     {
         let r: Vec<(&K, Version)> = keys.iter().map(|k| (*k, TableKey::KEY_NO_VERSION)).collect();
         self.remove_conditionally_all(r, offset).await
@@ -306,7 +310,7 @@ impl<'a> TableMap<'a> {
         offset: i64,
     ) -> Result<(), TableError>
     where
-        K: Serialize + Deserialize<'a>,
+        K: Serialize + serde::de::DeserializeOwned,
     {
         let r: Vec<(Vec<u8>, Version)> = keys
             .iter()
@@ -321,7 +325,7 @@ impl<'a> TableMap<'a> {
     pub fn read_keys_stream<'stream, 'map: 'stream, K: 'stream>(
         &'map self,
         max_keys_at_once: i32,
-    ) -> impl Stream<Item = Result<(K, Version), TableError>> + Captures<'a> + 'stream
+    ) -> impl Stream<Item = Result<(K, Version), TableError>> + 'stream
     where
         K: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
     {
@@ -350,7 +354,7 @@ impl<'a> TableMap<'a> {
     pub fn read_entries_stream<'stream, 'map: 'stream, K: 'map, V: 'map>(
         &'map self,
         max_entries_at_once: i32,
-    ) -> impl Stream<Item = Result<(K, V, Version), TableError>> + Captures<'a> + 'stream
+    ) -> impl Stream<Item = Result<(K, V, Version), TableError>> + 'stream
     where
         K: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
         V: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
@@ -382,7 +386,7 @@ impl<'a> TableMap<'a> {
         &'map self,
         max_entries_at_once: i32,
         mut from_position: i64,
-    ) -> impl Stream<Item = Result<(K, V, Version, i64), TableError>> + Captures<'a> + 'stream
+    ) -> impl Stream<Item = Result<(K, V, Version, i64), TableError>> + 'stream
     where
         K: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
         V: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
@@ -512,13 +516,18 @@ impl<'a> TableMap<'a> {
         let req = Requests::UpdateTableEntries(UpdateTableEntriesCommand {
             request_id: get_request_id(),
             segment: self.name.clone(),
-            delegation_token: "".to_string(),
+            delegation_token: self
+                .delegation_token_provider
+                .retrieve_token(self.factory.get_controller_client())
+                .await,
             table_entries: te,
             table_segment_offset: offset,
         });
-        info!("Requests for UpdateTableEntries request {:?}", req);
-        let re = self.raw_client.as_ref().send_request(&req).await;
-        info!("Reply for UpdateTableEntries request {:?}", re);
+        let re = self
+            .factory
+            .create_raw_client_for_endpoint(self.endpoint.clone())
+            .send_request(&req)
+            .await;
         re.map_err(|e| TableError::ConnectionError {
             can_retry: true,
             operation: op.into(),
@@ -555,10 +564,17 @@ impl<'a> TableMap<'a> {
         let req = Requests::ReadTable(ReadTableCommand {
             request_id: get_request_id(),
             segment: self.name.clone(),
-            delegation_token: "".to_string(),
+            delegation_token: self
+                .delegation_token_provider
+                .retrieve_token(self.factory.get_controller_client())
+                .await,
             keys: table_keys,
         });
-        let re = self.raw_client.as_ref().send_request(&req).await;
+        let re = self
+            .factory
+            .create_raw_client_for_endpoint(self.endpoint.clone())
+            .send_request(&req)
+            .await;
         debug!("Read Response {:?}", re);
         let op = "Read from tablemap";
         re.map_err(|e| TableError::ConnectionError {
@@ -599,11 +615,18 @@ impl<'a> TableMap<'a> {
         let req = Requests::RemoveTableKeys(RemoveTableKeysCommand {
             request_id: get_request_id(),
             segment: self.name.clone(),
-            delegation_token: "".to_string(),
+            delegation_token: self
+                .delegation_token_provider
+                .retrieve_token(self.factory.get_controller_client())
+                .await,
             keys: tks,
             table_segment_offset: offset,
         });
-        let re = self.raw_client.as_ref().send_request(&req).await;
+        let re = self
+            .factory
+            .create_raw_client_for_endpoint(self.endpoint.clone())
+            .send_request(&req)
+            .await;
         debug!("Reply for RemoveTableKeys request {:?}", re);
         re.map_err(|e| TableError::ConnectionError {
             can_retry: true,
@@ -640,11 +663,18 @@ impl<'a> TableMap<'a> {
             let req = Requests::ReadTableKeys(ReadTableKeysCommand {
                 request_id: get_request_id(),
                 segment: self.name.clone(),
-                delegation_token: "".to_string(),
+                delegation_token: self
+                    .delegation_token_provider
+                    .retrieve_token(self.factory.get_controller_client())
+                    .await,
                 suggested_key_count: max_keys_at_once,
                 continuation_token: token.to_vec(),
             });
-            let re = self.raw_client.as_ref().send_request(&req).await;
+            let re = self
+                .factory
+                .create_raw_client_for_endpoint(self.endpoint.clone())
+                .send_request(&req)
+                .await;
             debug!("Reply for read tableKeys request {:?}", re);
             re.map_err(|e| TableError::ConnectionError {
                 can_retry: true,
@@ -679,11 +709,18 @@ impl<'a> TableMap<'a> {
             let req = Requests::ReadTableEntries(ReadTableEntriesCommand {
                 request_id: get_request_id(),
                 segment: self.name.clone(),
-                delegation_token: "".to_string(),
+                delegation_token: self
+                    .delegation_token_provider
+                    .retrieve_token(self.factory.get_controller_client())
+                    .await,
                 suggested_entry_count: max_entries_at_once,
                 continuation_token: token.to_vec(),
             });
-            let re = self.raw_client.as_ref().send_request(&req).await;
+            let re = self
+                .factory
+                .create_raw_client_for_endpoint(self.endpoint.clone())
+                .send_request(&req)
+                .await;
             debug!("Reply for read tableEntries request {:?}", re);
             re.map_err(|e| TableError::ConnectionError {
                 can_retry: true,
@@ -725,11 +762,18 @@ impl<'a> TableMap<'a> {
         let req = Requests::ReadTableEntriesDelta(ReadTableEntriesDeltaCommand {
             request_id: get_request_id(),
             segment: self.name.clone(),
-            delegation_token: "".to_string(),
+            delegation_token: self
+                .delegation_token_provider
+                .retrieve_token(self.factory.get_controller_client())
+                .await,
             from_position,
             suggested_entry_count: max_entries_at_once,
         });
-        let re = self.raw_client.as_ref().send_request(&req).await;
+        let re = self
+            .factory
+            .create_raw_client_for_endpoint(self.endpoint.clone())
+            .send_request(&req)
+            .await;
         debug!("Reply for read tableEntriesDelta request {:?}", re);
         re.map_err(|e| TableError::ConnectionError {
             can_retry: true,

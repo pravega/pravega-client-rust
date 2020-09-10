@@ -8,26 +8,26 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use super::connection_factory::ConnectionType;
 use crate::wire_commands::Replies;
 use bincode2::Error as BincodeError;
+use pravega_rust_client_config::connection_type::ConnectionType;
+use pravega_rust_client_shared::PravegaNodeUri;
 use snafu::{Backtrace, Snafu};
 use std::io::Error as IoError;
-use std::net::SocketAddr;
 
 /// This kind of error that can be produced during Pravega client connecting to server.
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]
 pub enum ConnectionError {
-    #[snafu(display("Could not send data to {} asynchronously: {}", endpoint, source))]
+    #[snafu(display("Could not send data to {:?} asynchronously: {}", endpoint, source))]
     SendData {
-        endpoint: SocketAddr,
+        endpoint: PravegaNodeUri,
         source: std::io::Error,
         backtrace: Backtrace,
     },
-    #[snafu(display("Could not read data from {} asynchronously: {}", endpoint, source))]
+    #[snafu(display("Could not read data from {:?} asynchronously: {}", endpoint, source))]
     ReadData {
-        endpoint: SocketAddr,
+        endpoint: PravegaNodeUri,
         source: std::io::Error,
         backtrace: Backtrace,
     },
@@ -37,14 +37,14 @@ pub enum ConnectionError {
 #[snafu(visibility = "pub(crate)")]
 pub enum ConnectionFactoryError {
     #[snafu(display(
-        "Could not connect to endpoint {} using connection type {}: {}",
+        "Could not connect to endpoint {:?} using connection type {}: {}",
         endpoint,
         connection_type,
         source
     ))]
     Connect {
         connection_type: ConnectionType,
-        endpoint: SocketAddr,
+        endpoint: PravegaNodeUri,
         source: std::io::Error,
         backtrace: Backtrace,
     },

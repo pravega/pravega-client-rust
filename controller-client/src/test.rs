@@ -7,7 +7,7 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-use pravega_wire_protocol::client_config::ClientConfigBuilder;
+use pravega_rust_client_config::ClientConfigBuilder;
 
 use super::*;
 use std::net::SocketAddr;

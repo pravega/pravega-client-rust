@@ -24,9 +24,13 @@ mod utils;
 mod wirecommand_tests;
 
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
+use lazy_static::*;
 use std::process::Command;
 use std::{thread, time};
-use tracing::{debug, error, info, span, warn, Level};
+use tracing::{debug, error, info, info_span, warn};
+
+#[macro_use]
+extern crate derive_new;
 
 fn wait_for_standalone_with_timeout(expected_status: bool, timeout_second: i32) {
     for _i in 0..timeout_second {
@@ -54,36 +58,48 @@ fn check_standalone_status() -> bool {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::pravega_service::PravegaStandaloneServiceConfig;
     use pravega_client_rust::trace;
     use wirecommand_tests::*;
 
     #[test]
     fn integration_test() {
         trace::init();
-        let span = span!(Level::INFO, "integration test");
-        let _enter = span.enter();
-        let mut pravega = PravegaStandaloneService::start(false);
+        let span = info_span!("integration test", auth = false, tls = false);
+        span.in_scope(|| {
+            info!("Running integration test");
+            let config = PravegaStandaloneServiceConfig::new(false, false, false);
+            run_tests(config);
+        });
+
+        let span = info_span!("integration test", auth = true, tls = true);
+        span.in_scope(|| {
+            info!("Running integration test");
+            let config = PravegaStandaloneServiceConfig::new(false, true, true);
+            run_tests(config);
+        });
+
+        // disconnection test will start its own Pravega Standalone.
+        disconnection_tests::disconnection_test_wrapper();
+    }
+
+    fn run_tests(config: PravegaStandaloneServiceConfig) {
+        let mut pravega = PravegaStandaloneService::start(config.clone());
         wait_for_standalone_with_timeout(true, 30);
+        controller_tests::test_controller_apis(config.clone());
 
-        controller_tests::test_controller_apis();
+        tablemap_tests::test_tablemap(config.clone());
 
-        wirecommand_tests::wirecommand_test_wrapper();
+        event_stream_writer_tests::test_event_stream_writer(config.clone());
 
-        tablemap_tests::test_tablemap();
+        tablesynchronizer_tests::test_tablesynchronizer(config.clone());
 
-        event_stream_writer_tests::test_event_stream_writer();
+        transactional_event_stream_writer_tests::test_transactional_event_stream_writer(config.clone());
 
-        tablesynchronizer_tests::test_tablesynchronizer();
-
-        transactional_event_stream_writer_tests::test_transactional_event_stream_writer();
-
-        byte_stream_tests::test_byte_stream();
+        byte_stream_tests::test_byte_stream(config.clone());
 
         // Shut down Pravega standalone
         pravega.stop().unwrap();
         wait_for_standalone_with_timeout(false, 30);
-
-        // disconnection test will start its own Pravega Standalone.
-        disconnection_tests::disconnection_test_wrapper();
     }
 }

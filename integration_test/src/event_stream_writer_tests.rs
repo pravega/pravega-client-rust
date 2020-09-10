@@ -8,6 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::pravega_service::PravegaStandaloneServiceConfig;
 use crate::utils;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::error::SegmentWriterError;
@@ -16,32 +17,31 @@ use pravega_client_rust::raw_client::RawClient;
 use pravega_client_rust::segment_reader::AsyncSegmentReader;
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
+use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{
     Command, EventCommand, GetStreamSegmentInfoCommand, SealSegmentCommand,
 };
-use pravega_wire_protocol::connection_factory::{
-    ConnectionFactory, ConnectionType, SegmentConnectionManager,
-};
+use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
 use tracing::info;
 
-pub fn test_event_stream_writer() {
+pub fn test_event_stream_writer(config: PravegaStandaloneServiceConfig) {
     // spin up Pravega standalone
     let scope_name = Scope::from("testScopeWriter".to_owned());
     let stream_name = Stream::from("testStreamWriter".to_owned());
     let config = ClientConfigBuilder::default()
-        .controller_uri(TEST_CONTROLLER_URI)
+        .controller_uri(MOCK_CONTROLLER_URI)
+        .is_auth_enabled(config.auth)
+        .is_tls_enabled(config.tls)
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
-    let controller_client = client_factory.get_controller_client();
     let handle = client_factory.get_runtime_handle();
     handle.block_on(utils::create_scope_stream(
-        controller_client,
+        client_factory.get_controller_client(),
         &scope_name,
         &stream_name,
         1,
@@ -62,7 +62,7 @@ pub fn test_event_stream_writer() {
     let scope_name = Scope::from("testScopeWriter2".to_owned());
     let stream_name = Stream::from("testStreamWriter2".to_owned());
     handle.block_on(utils::create_scope_stream(
-        controller_client,
+        client_factory.get_controller_client(),
         &scope_name,
         &stream_name,
         1,
@@ -79,7 +79,7 @@ pub fn test_event_stream_writer() {
     let scope_name = Scope::from("testScopeWriter3".to_owned());
     let stream_name = Stream::from("testStreamWriter3".to_owned());
     handle.block_on(utils::create_scope_stream(
-        controller_client,
+        client_factory.get_controller_client(),
         &scope_name,
         &stream_name,
         2,
@@ -228,8 +228,9 @@ async fn test_write_correctness_while_scaling(writer: &mut EventStreamWriter, fa
     let stream_name = Stream::from("testStreamWriter2".to_owned());
 
     let mut receivers = vec![];
+    info!("writing to two segments");
     while i < count {
-        if i == 500 {
+        if i == count / 2 {
             // scaling up the segment number
             let scoped_stream = ScopedStream {
                 scope: scope_name.clone(),
@@ -284,8 +285,9 @@ async fn test_write_correctness_while_scaling(writer: &mut EventStreamWriter, fa
     let async_segment_reader = factory.create_async_event_reader(segment_name.clone()).await;
     let mut i: i32 = 0;
     let mut offset = 0;
-    // the first 500 go to the first segment.
-    while i < 500 {
+    info!("reading from first segment");
+    // the first half go to the first segment.
+    while i < count / 2 {
         let expect_string = format!("event{}", i);
         let length = (expect_string.len() + 8) as i32;
         let reply = async_segment_reader
@@ -313,6 +315,7 @@ async fn test_write_correctness_while_scaling(writer: &mut EventStreamWriter, fa
 
     let mut offset1 = 0;
     let mut offset2 = 0;
+    info!("reading from scaled segments");
     while i < count {
         let expect_string = format!("event{}", i);
         let length = (expect_string.len() + 8) as i32;

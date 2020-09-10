@@ -40,9 +40,10 @@ use std::convert::From;
 use std::fmt;
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
+use std::net::{SocketAddr, ToSocketAddrs};
 use std::ops::Index;
+use std::vec;
 use uuid::Uuid;
-
 #[macro_use]
 extern crate shrinkwraprs;
 
@@ -52,8 +53,62 @@ extern crate derive_new;
 #[derive(From, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct PravegaNodeUri(pub String);
 
-#[derive(From, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
-pub struct DelegationToken(pub String);
+impl From<&str> for PravegaNodeUri {
+    fn from(endpoint: &str) -> Self {
+        PravegaNodeUri(endpoint.to_owned())
+    }
+}
+
+impl From<(&str, u16)> for PravegaNodeUri {
+    fn from(tuple: (&str, u16)) -> Self {
+        let endpoint = format!("{}:{}", tuple.0, tuple.1);
+        PravegaNodeUri(endpoint)
+    }
+}
+
+impl From<SocketAddr> for PravegaNodeUri {
+    fn from(socket_addr: SocketAddr) -> Self {
+        PravegaNodeUri(socket_addr.to_string())
+    }
+}
+
+impl PravegaNodeUri {
+    pub fn to_socket_addr(&self) -> SocketAddr {
+        // to_socket_addrs will resolve hostname to ip address
+        let mut addrs_vec: Vec<_> = self
+            .0
+            .to_socket_addrs()
+            .expect("Unable to resolve domain")
+            .collect();
+        addrs_vec.pop().expect("get the first SocketAddr")
+    }
+
+    pub fn domain_name(&self) -> String {
+        let parts: Vec<_> = self.0.split(':').collect();
+        parts[0].to_string()
+    }
+
+    pub fn port(&self) -> u16 {
+        let parts: Vec<_> = self.0.split(':').collect();
+        parts[1].parse::<u16>().expect("parse port to u16")
+    }
+}
+
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
+pub struct DelegationToken {
+    value: String,
+    expiry_time: Option<u64>,
+}
+
+impl DelegationToken {
+    pub fn get_value(&self) -> String {
+        self.value.clone()
+    }
+
+    pub fn get_expiry_time(&self) -> Option<u64> {
+        self.expiry_time
+    }
+}
 
 #[derive(From, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Timestamp(pub u64);
@@ -73,7 +128,7 @@ pub struct Reader {
     pub name: String,
 }
 
-#[derive(From, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Segment {
     pub number: i64,
     pub tx_id: Option<TxId>,
@@ -111,6 +166,15 @@ pub struct ScopedStream {
     pub stream: Stream,
 }
 
+impl From<&ScopedSegment> for ScopedStream {
+    fn from(scoped_segment: &ScopedSegment) -> Self {
+        ScopedStream {
+            scope: scoped_segment.scope.clone(),
+            stream: scoped_segment.stream.clone(),
+        }
+    }
+}
+
 #[derive(new, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScopedSegment {
     pub scope: Scope,
@@ -123,7 +187,6 @@ impl ScopedSegment {
         ScopedStream::new(self.scope.clone(), self.stream.clone())
     }
 }
-
 impl From<&str> for ScopedSegment {
     fn from(qualified_name: &str) -> Self {
         if NameUtils::is_transaction_segment(qualified_name) {
@@ -535,6 +598,7 @@ pub struct EventRead {
 mod test {
     use super::*;
     use std::convert::From;
+    use std::net::{IpAddr, Ipv4Addr};
 
     #[test]
     fn test_hash() {
@@ -568,5 +632,24 @@ mod test {
         let segment_from_string: SegmentWithRange = segment_string.into();
 
         assert_eq!(segment_from_string, segment);
+    }
+
+    #[test]
+    fn test_pravega_node_uri() {
+        let uri = PravegaNodeUri("127.0.0.1:9090".to_string());
+        assert_eq!(PravegaNodeUri::from("127.0.0.1:9090"), uri);
+        assert_eq!(PravegaNodeUri::from(("127.0.0.1", 9090)), uri);
+        let socket_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 9090);
+        assert_eq!(PravegaNodeUri::from(socket_addr), uri);
+        assert_eq!(uri.domain_name(), "127.0.0.1".to_string());
+        assert_eq!(uri.port(), 9090);
+        assert_eq!(uri.to_socket_addr(), socket_addr);
+
+        let uri = PravegaNodeUri("localhost:9090".to_string());
+        assert_eq!(PravegaNodeUri::from("localhost:9090"), uri);
+        assert_eq!(PravegaNodeUri::from(("localhost", 9090)), uri);
+        assert_eq!(uri.domain_name(), "localhost".to_string());
+        assert_eq!(uri.port(), 9090);
+        assert_eq!(uri.to_socket_addr(), socket_addr);
     }
 }

@@ -8,18 +8,15 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use std::net::SocketAddr;
+use async_trait::async_trait;
+use pravega_rust_client_auth::DelegationTokenProvider;
+use pravega_rust_client_shared::{PravegaNodeUri, ScopedSegment};
+use pravega_wire_protocol::commands::{ReadSegmentCommand, SegmentReadCommand};
+use pravega_wire_protocol::wire_commands::{Replies, Requests};
+use snafu::Snafu;
 use std::result::Result as StdResult;
 
-use snafu::Snafu;
-
-use async_trait::async_trait;
-use pravega_rust_client_shared::ScopedSegment;
-use pravega_wire_protocol::commands::{ReadSegmentCommand, SegmentReadCommand};
-
-use pravega_wire_protocol::wire_commands::{Replies, Requests};
-
-use crate::client_factory::ClientFactoryInternal;
+use crate::client_factory::ClientFactory;
 use crate::error::RawClientError;
 use crate::get_request_id;
 use crate::raw_client::RawClient;
@@ -64,44 +61,59 @@ pub trait AsyncSegmentReader {
 }
 
 #[derive(new)]
-pub struct AsyncSegmentReaderImpl<'a> {
+pub struct AsyncSegmentReaderImpl {
     segment: ScopedSegment,
-    raw_client: Box<dyn RawClient<'a> + 'a>,
+    endpoint: PravegaNodeUri,
+    factory: ClientFactory,
+    delegation_token_provider: DelegationTokenProvider,
 }
 
-impl<'a> AsyncSegmentReaderImpl<'a> {
+#[async_trait]
+impl AsyncSegmentReader for AsyncSegmentReaderImpl {
+    async fn read(&self, offset: i64, length: i32) -> StdResult<SegmentReadCommand, ReaderError> {
+        let raw_client = self.factory.create_raw_client_for_endpoint(self.endpoint.clone());
+        self.read_inner(offset, length, &raw_client).await
+    }
+}
+
+impl AsyncSegmentReaderImpl {
     pub async fn init(
         segment: ScopedSegment,
-        factory: &'a ClientFactoryInternal,
-    ) -> AsyncSegmentReaderImpl<'a> {
+        factory: ClientFactory,
+        delegation_token_provider: DelegationTokenProvider,
+    ) -> AsyncSegmentReaderImpl {
         let endpoint = factory
             .get_controller_client()
             .get_endpoint_for_segment(&segment)
             .await
-            .expect("get endpoint for segment")
-            .parse::<SocketAddr>()
-            .expect("Invalid end point returned");
+            .expect("get endpoint for segment");
 
         AsyncSegmentReaderImpl {
             segment,
-            raw_client: Box::new(factory.create_raw_client(endpoint)),
+            endpoint,
+            factory: factory.clone(),
+            delegation_token_provider,
         }
     }
-}
 
-#[async_trait]
-#[allow(clippy::needless_lifetimes)] //Normally the compiler could infer lifetimes but async is throwing it for a loop.
-impl AsyncSegmentReader for AsyncSegmentReaderImpl<'_> {
-    async fn read(&self, offset: i64, length: i32) -> StdResult<SegmentReadCommand, ReaderError> {
+    async fn read_inner(
+        &self,
+        offset: i64,
+        length: i32,
+        raw_client: &dyn RawClient<'_>,
+    ) -> StdResult<SegmentReadCommand, ReaderError> {
         let request = Requests::ReadSegment(ReadSegmentCommand {
             segment: self.segment.to_string(),
             offset,
             suggested_length: length,
-            delegation_token: String::from(""),
+            delegation_token: self
+                .delegation_token_provider
+                .retrieve_token(self.factory.get_controller_client())
+                .await,
             request_id: get_request_id(),
         });
 
-        let reply = self.raw_client.as_ref().send_request(&request).await;
+        let reply = raw_client.send_request(&request).await;
         match reply {
             Ok(reply) => match reply {
                 Replies::SegmentRead(cmd) => {
@@ -159,6 +171,8 @@ mod tests {
     };
 
     use super::*;
+    use crate::client_factory::ClientFactory;
+    use pravega_rust_client_config::ClientConfigBuilder;
 
     // Setup mock.
     mock! {
@@ -183,8 +197,17 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_read_happy_path() {
+    #[test]
+    fn test_read_happy_path() {
+        let config = ClientConfigBuilder::default()
+            .controller_uri(pravega_rust_client_config::MOCK_CONTROLLER_URI)
+            .is_auth_enabled(false)
+            .mock(true)
+            .build()
+            .expect("creating config");
+        let factory = ClientFactory::new(config);
+        let runtime = factory.get_runtime_handle();
+
         let scope_name = Scope::from("examples".to_owned());
         let stream_name = Stream::from("someStream".to_owned());
 
@@ -239,8 +262,8 @@ mod tests {
                 })),
             }
         });
-        let async_segment_reader = AsyncSegmentReaderImpl::new(segment_name, Box::new(raw_client));
-        let data = async_segment_reader.read(0, 11).await;
+        let async_segment_reader = runtime.block_on(factory.create_async_event_reader(segment_name));
+        let data = runtime.block_on(async_segment_reader.read_inner(0, 11, &raw_client));
         let segment_read_result: SegmentReadCommand = data.unwrap();
         assert_eq!(
             segment_read_result.segment,
@@ -254,7 +277,7 @@ mod tests {
         assert_eq!("abc", data);
 
         // simulate NoSuchSegment
-        let data = async_segment_reader.read(11, 1024).await;
+        let data = runtime.block_on(async_segment_reader.read_inner(11, 1024, &raw_client));
         let segment_read_result: ReaderError = data.err().unwrap();
         match segment_read_result {
             ReaderError::SegmentTruncated {
@@ -266,7 +289,7 @@ mod tests {
         }
 
         // simulate SegmentTruncated
-        let data = async_segment_reader.read(12, 1024).await;
+        let data = runtime.block_on(async_segment_reader.read_inner(12, 1024, &raw_client));
         let segment_read_result: ReaderError = data.err().unwrap();
         match segment_read_result {
             ReaderError::SegmentTruncated {
@@ -278,7 +301,7 @@ mod tests {
         }
 
         // simulate SealedSegment
-        let data = async_segment_reader.read(13, 1024).await;
+        let data = runtime.block_on(async_segment_reader.read_inner(13, 1024, &raw_client));
         let segment_read_result: SegmentReadCommand = data.unwrap();
         assert_eq!(
             segment_read_result.segment,

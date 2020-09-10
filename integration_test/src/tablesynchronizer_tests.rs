@@ -8,16 +8,19 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::pravega_service::PravegaStandaloneServiceConfig;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::table_synchronizer::{deserialize_from, Key, TableSynchronizer};
-use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
+use pravega_rust_client_config::{ClientConfig, ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_wire_protocol::commands::TableKey;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-pub fn test_tablesynchronizer() {
+pub fn test_tablesynchronizer(config: PravegaStandaloneServiceConfig) {
     let config = ClientConfigBuilder::default()
-        .controller_uri(TEST_CONTROLLER_URI)
+        .controller_uri(MOCK_CONTROLLER_URI)
+        .is_auth_enabled(config.auth)
+        .is_tls_enabled(config.tls)
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);

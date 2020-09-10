@@ -12,11 +12,11 @@ use std::sync::Arc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tracing::{debug, error, info, warn};
 
+use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::ClientConfig;
 use pravega_wire_protocol::wire_commands::Replies;
 
-use crate::client_factory::ClientFactoryInternal;
+use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::reactor::event::{Incoming, ServerReply};
 use crate::reactor::segment_selector::SegmentSelector;
@@ -30,10 +30,17 @@ impl StreamReactor {
         stream: ScopedStream,
         sender: Sender<Incoming>,
         mut receiver: Receiver<Incoming>,
-        factory: Arc<ClientFactoryInternal>,
+        factory: ClientFactory,
         config: ClientConfig,
     ) {
-        let mut selector = SegmentSelector::new(stream, sender, config, factory.clone());
+        let delegation_token_provider = factory.create_delegation_token_provider(stream.clone()).await;
+        let mut selector = SegmentSelector::new(
+            stream,
+            sender,
+            config,
+            factory.clone(),
+            Arc::new(delegation_token_provider),
+        );
         // get the current segments and create corresponding event segment writers
         selector.initialize().await;
         info!("starting stream reactor");
@@ -65,7 +72,7 @@ impl StreamReactor {
     async fn process_server_reply(
         server_reply: ServerReply,
         selector: &mut SegmentSelector,
-        factory: &Arc<ClientFactoryInternal>,
+        factory: &ClientFactory,
     ) -> Result<(), &'static str> {
         // it should always have writer because writer will
         // not be removed until it receives SegmentSealed reply
@@ -139,10 +146,18 @@ impl SegmentReactor {
         segment: ScopedSegment,
         sender: Sender<Incoming>,
         mut receiver: Receiver<Incoming>,
-        factory: Arc<ClientFactoryInternal>,
+        factory: ClientFactory,
         config: ClientConfig,
     ) {
-        let mut writer = SegmentWriter::new(segment.clone(), sender.clone(), config.retry_policy);
+        let delegation_token_provider = factory
+            .create_delegation_token_provider(ScopedStream::from(&segment))
+            .await;
+        let mut writer = SegmentWriter::new(
+            segment.clone(),
+            sender.clone(),
+            config.retry_policy,
+            Arc::new(delegation_token_provider),
+        );
         if let Err(_e) = writer.setup_connection(&factory).await {
             writer.reconnect(&factory).await;
         }
@@ -171,7 +186,7 @@ impl SegmentReactor {
     async fn process_server_reply(
         server_reply: ServerReply,
         writer: &mut SegmentWriter,
-        factory: &Arc<ClientFactoryInternal>,
+        factory: &ClientFactory,
     ) -> Result<(), &'static str> {
         match server_reply.reply {
             Replies::DataAppended(cmd) => {

@@ -14,14 +14,17 @@ use pravega_client_rust::raw_client::RawClient;
 use pravega_client_rust::raw_client::RawClientImpl;
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
+use pravega_rust_client_config::{ClientConfig, ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::Command as WireCommand;
 use pravega_wire_protocol::commands::*;
-use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
+use pravega_wire_protocol::connection_factory::{
+    ConnectionFactory, ConnectionFactoryConfig, SegmentConnectionManager,
+};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time;
 use tokio::runtime::{Handle, Runtime};
 use tokio::time::timeout;
@@ -29,21 +32,23 @@ use uuid::Uuid;
 
 // create a static connection pool for using through tests.
 lazy_static! {
-    static ref CONFIG: ClientConfig = {
-        ClientConfigBuilder::default()
-            .controller_uri(TEST_CONTROLLER_URI)
-            .build()
-            .expect("build client config")
-    };
     static ref CONNECTION_POOL: ConnectionPool<SegmentConnectionManager> = {
-        let cf = ConnectionFactory::create(CONFIG.connection_type);
-        let manager = SegmentConnectionManager::new(cf, CONFIG.max_connections_in_pool);
+        let config = ClientConfigBuilder::default()
+            .controller_uri(MOCK_CONTROLLER_URI)
+            .build()
+            .expect("build client config");
+        let cf = ConnectionFactory::create(ConnectionFactoryConfig::from(&config));
+        let manager = SegmentConnectionManager::new(cf, config.max_connections_in_pool);
         ConnectionPool::new(manager)
     };
 }
 
 pub fn wirecommand_test_wrapper() {
-    let cf = ClientFactory::new(CONFIG.clone());
+    let config = ClientConfigBuilder::default()
+        .controller_uri(MOCK_CONTROLLER_URI)
+        .build()
+        .expect("build client config");
+    let cf = ClientFactory::new(config);
     let h = cf.get_runtime_handle();
     h.block_on(wirecommand_tests(cf.get_controller_client()));
 }
@@ -156,9 +161,7 @@ async fn test_hello(controller_client: &dyn ControllerClient) {
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
-        .expect("get endpoint for segment")
-        .parse::<SocketAddr>()
-        .expect("convert to socketaddr");
+        .expect("get endpoint for segment");
 
     // send hello to Pravega standalone
     let request = Requests::Hello(HelloCommand {
@@ -191,9 +194,7 @@ async fn test_keep_alive(controller_client: &dyn ControllerClient) {
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
-        .expect("get endpoint for segment")
-        .parse::<SocketAddr>()
-        .expect("convert to socketaddr");
+        .expect("get endpoint for segment");
 
     let request = Requests::KeepAlive(KeepAliveCommand {});
     let connection = (&*CONNECTION_POOL)
@@ -216,9 +217,7 @@ async fn test_setup_append(controller_client: &dyn ControllerClient) {
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
-        .expect("get endpoint for segment")
-        .parse::<SocketAddr>()
-        .expect("convert to socketaddr");
+        .expect("get endpoint for segment");
 
     // send setup_append to standalone SegmentStore
     let sname = segment_name.to_string();
@@ -279,9 +278,7 @@ async fn test_create_segment(controller_client: &dyn ControllerClient) {
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
-        .expect("get endpoint for segment")
-        .parse::<SocketAddr>()
-        .expect("convert to socketaddr");
+        .expect("get endpoint for segment");
 
     let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
@@ -331,9 +328,7 @@ async fn test_seal_segment(controller_client: &dyn ControllerClient) {
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
-        .expect("get endpoint for segment")
-        .parse::<SocketAddr>()
-        .expect("convert to socketaddr");
+        .expect("get endpoint for segment");
 
     let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
@@ -366,9 +361,7 @@ async fn test_update_and_get_segment_attribute(controller_client: &dyn Controlle
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
-        .expect("get endpoint for segment")
-        .parse::<SocketAddr>()
-        .expect("convert to socketaddr");
+        .expect("get endpoint for segment");
 
     let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
@@ -428,9 +421,7 @@ async fn test_get_stream_segment_info(controller_client: &dyn ControllerClient) 
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
-        .expect("get endpoint for segment")
-        .parse::<SocketAddr>()
-        .expect("convert to socketaddr");
+        .expect("get endpoint for segment");
 
     let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
@@ -463,9 +454,7 @@ async fn test_delete_segment(controller_client: &dyn ControllerClient) {
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
-        .expect("get endpoint for segment")
-        .parse::<SocketAddr>()
-        .expect("convert to socketaddr");
+        .expect("get endpoint for segment");
 
     let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
@@ -496,9 +485,7 @@ async fn test_conditional_append_and_read_segment(controller_client: &dyn Contro
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
-        .expect("get endpoint for segment")
-        .parse::<SocketAddr>()
-        .expect("convert to socketaddr");
+        .expect("get endpoint for segment");
 
     let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
@@ -580,9 +567,7 @@ async fn test_update_segment_policy(controller_client: &dyn ControllerClient) {
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
-        .expect("get endpoint for segment")
-        .parse::<SocketAddr>()
-        .expect("convert to socketaddr");
+        .expect("get endpoint for segment");
 
     let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
@@ -616,9 +601,7 @@ async fn test_merge_segment(controller_client: &dyn ControllerClient) {
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
-        .expect("get endpoint for segment")
-        .parse::<SocketAddr>()
-        .expect("convert to socketaddr");
+        .expect("get endpoint for segment");
 
     let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
@@ -705,9 +688,7 @@ async fn test_truncate_segment(controller_client: &dyn ControllerClient) {
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
-        .expect("get endpoint for segment")
-        .parse::<SocketAddr>()
-        .expect("convert to socketaddr");
+        .expect("get endpoint for segment");
 
     let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
@@ -741,9 +722,7 @@ async fn test_update_table_entries(controller_client: &dyn ControllerClient) {
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
-        .expect("get endpoint for segment")
-        .parse::<SocketAddr>()
-        .expect("convert to socketaddr");
+        .expect("get endpoint for segment");
 
     let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
@@ -849,9 +828,7 @@ async fn test_read_table_key(controller_client: &dyn ControllerClient) {
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
-        .expect("get endpoint for segment")
-        .parse::<SocketAddr>()
-        .expect("convert to socketaddr");
+        .expect("get endpoint for segment");
 
     let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
@@ -889,9 +866,7 @@ async fn test_read_table(controller_client: &dyn ControllerClient) {
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
-        .expect("get endpoint for segment")
-        .parse::<SocketAddr>()
-        .expect("convert to socketaddr");
+        .expect("get endpoint for segment");
 
     let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 
@@ -941,9 +916,7 @@ async fn test_read_table_entries(controller_client: &dyn ControllerClient) {
     let endpoint = controller_client
         .get_endpoint_for_segment(&segment_name)
         .await
-        .expect("get endpoint for segment")
-        .parse::<SocketAddr>()
-        .expect("convert to socketaddr");
+        .expect("get endpoint for segment");
 
     let raw_client = RawClientImpl::new(&*CONNECTION_POOL, endpoint);
 

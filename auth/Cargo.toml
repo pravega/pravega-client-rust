@@ -1,5 +1,5 @@
 [package]
-name = "pravega-rust-client-shared"
+name = "pravega-rust-client-auth"
 version = "0.1.0"
 edition = "2018"
 categories = ["Network programming"]
@@ -7,21 +7,18 @@ keywords = ["streaming", "client", "pravega"]
 readme = "Readme.md"
 repository = "https://github.com/pravega/pravega-client-rust"
 license = "Apache-2.0"
-description = "An internal library used by the Rust client."
+description = "An internal library used by the Rust client for Pravega."
 authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.com>",
            "Sandeep Shridhar <sandeep.shridhar@dell.com>", "Wenxiao Zhang <wenxiao.zhang@dell.com>"]
 
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [dependencies]
-bytes = "0.4"
-snafu = "0.5.0"
+pravega-rust-client-shared = { path = "../shared"}
+pravega-controller-client = { path = "../controller-client"}
 async-trait = "0.1.36"
-shrinkwraprs = "0.3.0"
-derive-new = "0.5"
-ordered-float = { version= "1.0.2", features = ["serde"]}
-uuid = "0.8"
-im = "14.3.0"
-serde = { version = "1.0", features = ["derive"] }
-murmurhash3 = "0.0.5"
-encoding_rs = "0.8.23"
-derive_more = "0.99.9"
-tokio = { version = "0.2.20", features = ["full"] }
+tokio = { version = "0.2.16", features = ["full"] }
+base64 = "0.12.3"
+regex = "1.3.9"
+lazy_static = "1.4.0"
+tracing = "0.1.17"

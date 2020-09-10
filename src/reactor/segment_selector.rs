@@ -9,18 +9,19 @@
 //
 
 use std::collections::{BTreeMap, HashMap};
-use std::sync::Arc;
 
 use crate::get_random_f64;
 use tokio::sync::mpsc::Sender;
 use tracing::{debug, warn};
 
+use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::ClientConfig;
 
-use crate::client_factory::ClientFactoryInternal;
+use crate::client_factory::ClientFactory;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::segment_writer::SegmentWriter;
+use pravega_rust_client_auth::DelegationTokenProvider;
+use std::sync::Arc;
 
 pub(crate) struct SegmentSelector {
     /// Stream that this SegmentSelector is on
@@ -39,7 +40,9 @@ pub(crate) struct SegmentSelector {
     pub(crate) config: ClientConfig,
 
     /// Used to gain access to the controller and connection pool
-    pub(crate) factory: Arc<ClientFactoryInternal>,
+    pub(crate) factory: ClientFactory,
+
+    pub(crate) delegation_token_provider: Arc<DelegationTokenProvider>,
 }
 
 impl SegmentSelector {
@@ -47,7 +50,8 @@ impl SegmentSelector {
         stream: ScopedStream,
         sender: Sender<Incoming>,
         config: ClientConfig,
-        factory: Arc<ClientFactoryInternal>,
+        factory: ClientFactory,
+        delegation_token_provider: Arc<DelegationTokenProvider>,
     ) -> Self {
         SegmentSelector {
             stream,
@@ -56,6 +60,7 @@ impl SegmentSelector {
             sender,
             config,
             factory,
+            delegation_token_provider,
         }
     }
 
@@ -127,6 +132,7 @@ impl SegmentSelector {
                     scoped_segment.clone(),
                     self.sender.clone(),
                     self.config.retry_policy,
+                    self.delegation_token_provider.clone(),
                 );
 
                 debug!(

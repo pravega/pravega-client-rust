@@ -8,15 +8,13 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use std::sync::Arc;
-
 use crate::reactor::reactors::StreamReactor;
+use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::ClientConfig;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
 
-use crate::client_factory::ClientFactoryInternal;
+use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::get_random_u128;
 use crate::reactor::event::{Incoming, PendingEvent};
@@ -31,13 +29,9 @@ pub struct EventStreamWriter {
 }
 
 impl EventStreamWriter {
-    const CHANNEL_CAPACITY: usize = 100;
+    const CHANNEL_CAPACITY: usize = 1024;
 
-    pub(crate) fn new(
-        stream: ScopedStream,
-        config: ClientConfig,
-        factory: Arc<ClientFactoryInternal>,
-    ) -> Self {
+    pub(crate) fn new(stream: ScopedStream, config: ClientConfig, factory: ClientFactory) -> Self {
         let (tx, rx) = channel(EventStreamWriter::CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
         let writer_id = WriterId::from(get_random_u128());
