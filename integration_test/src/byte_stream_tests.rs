@@ -60,7 +60,8 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     let mut reader = client_factory.create_byte_stream_reader(scoped_segment);
 
     test_write_and_read(&mut writer, &mut reader);
-    test_seal_segment(&mut writer, handle);
+    test_truncate_segment(&mut writer, &mut reader, &handle);
+    test_seal_segment(&mut writer, &handle);
 }
 
 fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader) {
@@ -84,7 +85,23 @@ fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamRea
     info!("test byte stream write and read passed");
 }
 
-fn test_seal_segment(writer: &mut ByteStreamWriter, handle: Handle) {
+fn test_truncate_segment(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, handle: &Handle) {
+    info!("test truncate byte stream");
+    let payload1 = vec![1, 1, 1, 1];
+    let size1 = writer.write(&payload1).expect("write payload1 to byte stream");
+    assert_eq!(size1, 4);
+
+    let result = handle.block_on(writer.truncate_data_before(4));
+    assert!(result.is_ok());
+
+    let mut buf: Vec<u8> = vec![0; 8];
+    let result = reader.read(&mut buf);
+
+    assert!(result.is_err());
+    info!("test truncate byte stream passed");
+}
+
+fn test_seal_segment(writer: &mut ByteStreamWriter, handle: &Handle) {
     info!("test seal byte stream");
     let payload1 = vec![1, 1, 1, 1];
     let size1 = writer.write(&payload1).expect("write payload1 to byte stream");

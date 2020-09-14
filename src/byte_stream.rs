@@ -16,7 +16,7 @@ use crate::reactor::reactors::SegmentReactor;
 use crate::segment_reader::AsyncSegmentReader;
 use crate::{get_random_u128, get_request_id};
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream, WriterId};
-use pravega_wire_protocol::commands::{SealSegmentCommand, SegmentReadCommand};
+use pravega_wire_protocol::commands::{SealSegmentCommand, SegmentReadCommand, TruncateSegmentCommand};
 use pravega_wire_protocol::wire_commands::Replies;
 use pravega_wire_protocol::wire_commands::Requests;
 use std::cmp;
@@ -155,6 +155,52 @@ impl ByteStreamWriter {
             _ => Err(Error::new(
                 ErrorKind::Other,
                 format!("reply is not SegmentSealed {:?}", reply),
+            )),
+        }
+    }
+
+    /// Truncate data before a given offset for the segment. No reads are allowed before
+    /// truncation point after calling this method.
+    pub async fn truncate_data_before(&self, offset: i64) -> Result<(), Error> {
+        let controller = self.client_factory.get_controller_client();
+        let endpoint = controller
+            .get_endpoint_for_segment(&self.segment)
+            .await
+            .map_err(|e| {
+                Error::new(
+                    ErrorKind::Other,
+                    format!("fetch endpoint for segment error: {:?}", e),
+                )
+            })?;
+        let raw_client = self.client_factory.get_raw_client(endpoint);
+        let delegation_token_provider = self
+            .client_factory
+            .create_delegation_token_provider(ScopedStream::from(&self.segment))
+            .await;
+        let reply = raw_client
+            .send_request(&Requests::TruncateSegment(TruncateSegmentCommand {
+                request_id: get_request_id(),
+                segment: self.segment.to_string(),
+                truncation_offset: offset,
+                delegation_token: delegation_token_provider
+                    .retrieve_token(self.client_factory.get_controller_client())
+                    .await,
+            }))
+            .await
+            .map_err(|e| {
+                Error::new(
+                    ErrorKind::Other,
+                    format!(
+                        "send TruncateSegmentCommand to segment {:?} error: {:?}",
+                        self.segment, e
+                    ),
+                )
+            })?;
+        match reply {
+            Replies::SegmentTruncated(_) => Ok(()),
+            _ => Err(Error::new(
+                ErrorKind::Other,
+                format!("reply is not SegmentTruncated {:?}", reply),
             )),
         }
     }
