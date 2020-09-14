@@ -10,13 +10,15 @@
 
 use crate::client_factory::ClientFactory;
 use crate::error::*;
-use crate::get_random_u128;
+use crate::raw_client::RawClient;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::reactors::SegmentReactor;
 use crate::segment_reader::AsyncSegmentReader;
-use pravega_rust_client_config::ClientConfig;
-use pravega_rust_client_shared::{ScopedSegment, WriterId};
-use pravega_wire_protocol::commands::SegmentReadCommand;
+use crate::{get_random_u128, get_request_id};
+use pravega_rust_client_shared::{ScopedSegment, ScopedStream, WriterId};
+use pravega_wire_protocol::commands::{SealSegmentCommand, SegmentReadCommand};
+use pravega_wire_protocol::wire_commands::Replies;
+use pravega_wire_protocol::wire_commands::Requests;
 use std::cmp;
 use std::io::Error;
 use std::io::{ErrorKind, Read, Write};
@@ -32,10 +34,12 @@ const BUFFER_SIZE: usize = 4096;
 const CHANNEL_CAPACITY: usize = 100;
 
 pub struct ByteStreamWriter {
+    segment: ScopedSegment,
     writer_id: WriterId,
     sender: Sender<Incoming>,
-    runtime_handle: Handle,
     oneshot_receiver: Option<oneshot::Receiver<Result<(), SegmentWriterError>>>,
+    client_factory: ClientFactory,
+    runtime_handle: Handle,
 }
 
 impl Write for ByteStreamWriter {
@@ -54,7 +58,7 @@ impl Write for ByteStreamWriter {
             match oneshot_receiver.try_recv() {
                 // The channel is currently empty
                 Err(TryRecvError::Empty) => Ok(Some(oneshot_receiver)),
-                Err(e) => Err(Error::new(ErrorKind::Other, format!("oneshot error {:?}", e))),
+                Err(e) => Err(Error::new(ErrorKind::Other, format!("oneshot error: {:?}", e))),
                 Ok(res) => {
                     if let Err(e) = res {
                         Err(Error::new(ErrorKind::Other, format!("{:?}", e)))
@@ -78,7 +82,7 @@ impl Write for ByteStreamWriter {
         let result = self
             .runtime_handle
             .block_on(oneshot_receiver)
-            .map_err(|e| Error::new(ErrorKind::Other, format!("oneshot error {:?}", e)))?;
+            .map_err(|e| Error::new(ErrorKind::Other, format!("oneshot error: {:?}", e)))?;
 
         if let Err(e) = result {
             Err(Error::new(ErrorKind::Other, format!("{:?}", e)))
@@ -89,7 +93,7 @@ impl Write for ByteStreamWriter {
 }
 
 impl ByteStreamWriter {
-    pub(crate) fn new(segment: ScopedSegment, config: ClientConfig, factory: ClientFactory) -> Self {
+    pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
         let (sender, receiver) = channel(CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
         let writer_id = WriterId::from(get_random_u128());
@@ -97,15 +101,61 @@ impl ByteStreamWriter {
         // tokio::spawn is tied to the factory runtime.
         handle.enter(|| {
             tokio::spawn(
-                SegmentReactor::run(segment, sender.clone(), receiver, factory.clone(), config)
+                SegmentReactor::run(segment.clone(), sender.clone(), receiver, factory.clone())
                     .instrument(span),
             )
         });
         ByteStreamWriter {
+            segment,
             writer_id,
             sender,
             runtime_handle: handle,
             oneshot_receiver: None,
+            client_factory: factory,
+        }
+    }
+
+    /// Seal will seal the segment and no further writes are allowed.
+    pub async fn seal(&self) -> Result<(), Error> {
+        let controller = self.client_factory.get_controller_client();
+        let endpoint = controller
+            .get_endpoint_for_segment(&self.segment)
+            .await
+            .map_err(|e| {
+                Error::new(
+                    ErrorKind::Other,
+                    format!("fetch endpoint for segment error: {:?}", e),
+                )
+            })?;
+        let raw_client = self.client_factory.get_raw_client(endpoint);
+        let delegation_token_provider = self
+            .client_factory
+            .create_delegation_token_provider(ScopedStream::from(&self.segment))
+            .await;
+        let reply = raw_client
+            .send_request(&Requests::SealSegment(SealSegmentCommand {
+                request_id: get_request_id(),
+                segment: self.segment.to_string(),
+                delegation_token: delegation_token_provider
+                    .retrieve_token(self.client_factory.get_controller_client())
+                    .await,
+            }))
+            .await
+            .map_err(|e| {
+                Error::new(
+                    ErrorKind::Other,
+                    format!(
+                        "send SealSegmentCommand to segment {:?} error: {:?}",
+                        self.segment, e
+                    ),
+                )
+            })?;
+        match reply {
+            Replies::SegmentSealed(_) => Ok(()),
+            _ => Err(Error::new(
+                ErrorKind::Other,
+                format!("reply is not SegmentSealed {:?}", reply),
+            )),
         }
     }
 

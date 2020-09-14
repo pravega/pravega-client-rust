@@ -182,11 +182,6 @@ pub struct ScopedSegment {
     pub segment: Segment,
 }
 
-impl ScopedSegment {
-    pub fn get_scoped_stream(&self) -> ScopedStream {
-        ScopedStream::new(self.scope.clone(), self.stream.clone())
-    }
-}
 impl From<&str> for ScopedSegment {
     fn from(qualified_name: &str) -> Self {
         if NameUtils::is_transaction_segment(qualified_name) {

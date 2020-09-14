@@ -103,7 +103,7 @@ impl ClientFactory {
     }
 
     pub fn create_event_stream_writer(&self, stream: ScopedStream) -> EventStreamWriter {
-        EventStreamWriter::new(stream, self.0.config.clone(), self.clone())
+        EventStreamWriter::new(stream, self.clone())
     }
 
     pub async fn create_transactional_event_stream_writer(
@@ -115,7 +115,7 @@ impl ClientFactory {
     }
 
     pub fn create_byte_stream_writer(&self, segment: ScopedSegment) -> ByteStreamWriter {
-        ByteStreamWriter::new(segment, self.0.config.clone(), self.clone())
+        ByteStreamWriter::new(segment, self.clone())
     }
 
     pub fn create_byte_stream_reader(&self, segment: ScopedSegment) -> ByteStreamReader {
@@ -128,6 +128,14 @@ impl ClientFactory {
 
     pub fn get_controller_client(&self) -> &dyn ControllerClient {
         self.0.get_controller_client()
+    }
+
+    pub fn get_raw_client(&self, endpoint: PravegaNodeUri) -> RawClientImpl {
+        self.0.create_raw_client(endpoint)
+    }
+
+    pub fn get_config(&self) -> &ClientConfig {
+        &self.0.config
     }
 }
 

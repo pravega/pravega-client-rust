@@ -28,6 +28,7 @@ use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnec
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::io::{Read, Write};
 use std::net::SocketAddr;
+use tokio::runtime::Handle;
 use tracing::info;
 
 pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
@@ -59,6 +60,7 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     let mut reader = client_factory.create_byte_stream_reader(scoped_segment);
 
     test_write_and_read(&mut writer, &mut reader);
+    test_seal_segment(&mut writer, handle);
 }
 
 fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader) {
@@ -80,4 +82,21 @@ fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamRea
     assert_eq!(buf, expected);
 
     info!("test byte stream write and read passed");
+}
+
+fn test_seal_segment(writer: &mut ByteStreamWriter, handle: Handle) {
+    info!("test seal byte stream");
+    let payload1 = vec![1, 1, 1, 1];
+    let size1 = writer.write(&payload1).expect("write payload1 to byte stream");
+    assert_eq!(size1, 4);
+
+    let result = handle.block_on(writer.seal());
+    assert!(result.is_ok());
+
+    let payload2 = vec![2, 2, 2, 2];
+    let size2 = writer.write(&payload2).expect("write payload2 to byte stream");
+    assert_eq!(size2, 4);
+
+    assert!(writer.flush().is_err());
+    info!("test seal byte stream passed");
 }
