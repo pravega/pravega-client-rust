@@ -12,7 +12,7 @@ use crate::connection_factory::ConnectionType;
 use derive_builder::*;
 use getset::CopyGetters;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
-use std::net::{Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 pub const TEST_CONTROLLER_URI: (Ipv4Addr, u16) = (Ipv4Addr::new(127, 0, 0, 1), 9090);
 
@@ -45,6 +45,10 @@ pub struct ClientConfig {
 
     #[builder(default = "false")]
     pub mock: bool,
+
+    #[get_copy = "pub"]
+    #[builder(default = "SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8081)")]
+    pub prometheus_scrape_port: SocketAddr,
 }
 
 #[cfg(test)]

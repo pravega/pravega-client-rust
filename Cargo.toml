@@ -46,6 +46,9 @@ pcg_rand = "0.11.1"
 bytes = "0.5"
 im = "14.3.0"
 tokio-util = "0.3.1"
+metrics = "0.13.0-alpha.3"
+metrics-exporter-prometheus = "0.1.0-alpha.3"
+enum-iterator = "0.6.0"
 
 [dev-dependencies]
 pravega-rust-client-integration-test = { path = "./integration_test"}
