@@ -25,6 +25,7 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
 use crate::client_factory::ClientFactory;
 use crate::error::*;
+use crate::metric::ClientMetrics;
 use crate::raw_client::RawClient;
 use crate::reactor::event::{Incoming, PendingEvent, ServerReply};
 use pravega_rust_client_auth::DelegationTokenProvider;
@@ -250,7 +251,7 @@ impl SegmentWriter {
             to_send.len(),
             self.segment.to_string(),
             self.id,
-            self.connection.as_ref().expect("must have writer").get_id(),
+            self.connection.as_ref().expect("must have connection").get_id(),
         );
 
         let request = Requests::AppendBlockEnd(AppendBlockEndCommand {
@@ -262,8 +263,16 @@ impl SegmentWriter {
             request_id: get_request_id(),
         });
 
-        let writer = self.connection.as_mut().expect("must have writer");
-        writer.write(&request).await.context(SegmentWriting {})
+        let writer = self.connection.as_mut().expect("must have connection");
+        writer.write(&request).await.context(SegmentWriting {})?;
+
+        update!(ClientMetrics::ClientAppendBlockSize, total_size as u64, "Segment Writer Id" => self.id.to_string());
+        update!(
+            ClientMetrics::ClientOutstandingAppendCount,
+            self.pending.len() as u64,
+            "Segment Writer Id" => self.id.to_string()
+        );
+        Ok(())
     }
 
     /// ack inflight events. It will send the reply from server back to the caller using oneshot.

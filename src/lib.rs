@@ -35,6 +35,8 @@ pub mod byte_stream;
 pub mod client_factory;
 pub mod error;
 pub mod event_stream_writer;
+#[macro_use]
+pub mod metric;
 pub mod raw_client;
 mod reactor;
 pub mod reader_group;
