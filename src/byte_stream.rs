@@ -18,7 +18,7 @@ use pravega_rust_client_shared::{ScopedSegment, WriterId};
 use pravega_wire_protocol::client_config::ClientConfig;
 use std::cmp;
 use std::io::Error;
-use std::io::{ErrorKind, Read, Write};
+use std::io::{ErrorKind, Read, Write, Seek, SeekFrom};
 use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Sender};
@@ -157,6 +157,33 @@ impl Read for ByteStreamReader<'_> {
                 }
             }
             Err(e) => Err(Error::new(ErrorKind::Other, format!("Error: {:?}", e))),
+        }
+    }
+}
+
+/// The Seek implementation for ByteStreamReader allows seeking to a byte offset from the beginning
+/// of the stream or a byte offset relative to the current position in the stream.
+/// If the stream has been truncated, the byte offset will be relative to the original beginning of the stream.
+/// Seek from the end of the stream is not implemented.
+impl Seek for ByteStreamReader<'_> {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        match pos {
+            SeekFrom::Start(offset) => {
+                self.offset = offset as i64;
+                Ok(self.offset as u64)
+            },
+            SeekFrom::Current(offset) => {
+                let new_offset = self.offset + offset;
+                if new_offset < 0 {
+                    Err(Error::new(ErrorKind::InvalidInput, "Cannot seek to a negative offset"))
+                } else {
+                    self.offset = new_offset;
+                    Ok(self.offset as u64)
+                }
+            },
+            SeekFrom::End(_offset) => {
+                unimplemented!("Seek from the end is not implemented")
+            },
         }
     }
 }
