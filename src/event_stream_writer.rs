@@ -29,7 +29,7 @@ pub struct EventStreamWriter {
 }
 
 impl EventStreamWriter {
-    const CHANNEL_CAPACITY: usize = 1024;
+    const CHANNEL_CAPACITY: usize = 100;
 
     pub(crate) fn new(stream: ScopedStream, config: ClientConfig, factory: ClientFactory) -> Self {
         let (tx, rx) = channel(EventStreamWriter::CHANNEL_CAPACITY);
