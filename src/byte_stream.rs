@@ -238,7 +238,7 @@ impl Read for ByteStreamReader {
         let buffer_read = self.buffer.read(buf.len());
         let buffer_read_length = buffer_read.len();
         buf[..buffer_read_length].copy_from_slice(buffer_read);
-
+        self.offset += buffer_read_length as i64;
         if buf.len() == buffer_read_length {
             return Ok(buffer_read_length);
         }
@@ -250,13 +250,46 @@ impl Read for ByteStreamReader {
         // if returned data size is smaller that asked, return it all to caller.
         if cmd.data.len() < server_read_length {
             buf[buffer_read_length..buffer_read_length + cmd.data.len()].copy_from_slice(&cmd.data);
+            self.offset += cmd.data.len() as i64;
             Ok(buffer_read_length + server_read_length)
         } else {
             // if returned data size is larger than asked, put the rest into buffer and return
             // the size that caller wants.
             buf[buffer_read_length..].copy_from_slice(&cmd.data[..server_read_length]);
+            self.offset += server_read_length as i64;
             self.buffer.fill(&cmd.data[server_read_length..]);
             Ok(buf.len())
+        }
+    }
+}
+
+/// The Seek implementation for ByteStreamReader allows seeking to a byte offset from the beginning
+/// of the stream or a byte offset relative to the current position in the stream.
+/// If the stream has been truncated, the byte offset will be relative to the original beginning of the stream.
+/// Seek from the end of the stream is not implemented.
+impl Seek for ByteStreamReader {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        // clear the buffer since seek will start from a different offset.
+        self.buffer.clear();
+
+        match pos {
+            SeekFrom::Start(offset) => {
+                self.offset = offset as i64;
+                Ok(self.offset as u64)
+            }
+            SeekFrom::Current(offset) => {
+                let new_offset = self.offset + offset;
+                if new_offset < 0 {
+                    Err(Error::new(
+                        ErrorKind::InvalidInput,
+                        "Cannot seek to a negative offset",
+                    ))
+                } else {
+                    self.offset = new_offset;
+                    Ok(self.offset as u64)
+                }
+            }
+            SeekFrom::End(_offset) => unimplemented!("Seek from the end is not implemented"),
         }
     }
 }
@@ -304,33 +337,6 @@ struct ReaderBuffer {
     buf: Vec<u8>,
     // start to read from offset
     offset: usize,
-}
-/// The Seek implementation for ByteStreamReader allows seeking to a byte offset from the beginning
-/// of the stream or a byte offset relative to the current position in the stream.
-/// If the stream has been truncated, the byte offset will be relative to the original beginning of the stream.
-/// Seek from the end of the stream is not implemented.
-impl Seek for ByteStreamReader {
-    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
-        match pos {
-            SeekFrom::Start(offset) => {
-                self.offset = offset as i64;
-                Ok(self.offset as u64)
-            }
-            SeekFrom::Current(offset) => {
-                let new_offset = self.offset + offset;
-                if new_offset < 0 {
-                    Err(Error::new(
-                        ErrorKind::InvalidInput,
-                        "Cannot seek to a negative offset",
-                    ))
-                } else {
-                    self.offset = new_offset;
-                    Ok(self.offset as u64)
-                }
-            }
-            SeekFrom::End(_offset) => unimplemented!("Seek from the end is not implemented"),
-        }
-    }
 }
 
 impl ReaderBuffer {
@@ -462,6 +468,7 @@ mod test {
         let mut buf = vec![0; 1024];
         byte_stream_reader.read(&mut buf).unwrap();
         assert_eq!(byte_stream_reader.buffer.len(), READER_BUFFER_SIZE - 1024);
+        assert_eq!(byte_stream_reader.offset, 1024);
         assert_eq!(buf, vec![1; 1024]);
     }
 
@@ -476,6 +483,7 @@ mod test {
         let mut buf = vec![0; 8192];
         byte_stream_reader.read(&mut buf).unwrap();
         assert!(byte_stream_reader.buffer.is_empty());
+        assert_eq!(byte_stream_reader.offset, 8192);
         assert_eq!(buf, vec![1; 8192]);
     }
 
@@ -488,11 +496,12 @@ mod test {
         let mut byte_stream_reader = ByteStreamReader::new_internal(handle, Box::new(mock));
 
         let mut to_read = 8192;
-        for _i in 0..10 {
+        for i in 0..10 {
             let mut buf = vec![0; 512];
             byte_stream_reader.read(&mut buf).unwrap();
             to_read -= 512;
             assert_eq!(byte_stream_reader.buffer.len(), to_read);
+            assert_eq!(byte_stream_reader.offset, 512 * (i + 1));
             assert_eq!(buf, vec![1; 512]);
         }
     }
@@ -508,11 +517,38 @@ mod test {
         let mut buf = vec![0; 2048];
         byte_stream_reader.read(&mut buf).unwrap();
         assert_eq!(byte_stream_reader.buffer.len(), 8192 - 2048);
+        assert_eq!(byte_stream_reader.offset, 2048);
         assert_eq!(buf, vec![1; 2048]);
 
         let mut buf = vec![0; 8192];
         byte_stream_reader.read(&mut buf).unwrap();
         assert_eq!(byte_stream_reader.buffer.len(), 8192 - 2048);
+        assert_eq!(byte_stream_reader.offset, 2048 + 8192);
         assert_eq!(buf, vec![1; 8192]);
+    }
+
+    #[test]
+    fn test_byte_stream_reader_seek_read() {
+        let mock = MockAsyncSegmentReaderImpl::new(1024 * 100);
+
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let handle = runtime.handle().clone();
+        let mut byte_stream_reader = ByteStreamReader::new_internal(handle, Box::new(mock));
+
+        byte_stream_reader.seek(SeekFrom::Start(0)).unwrap();
+        let mut buf = vec![0; 2048];
+        byte_stream_reader.read(&mut buf).unwrap();
+        assert_eq!(byte_stream_reader.buffer.len(), 8192 - 2048);
+        assert_eq!(byte_stream_reader.offset, 2048);
+        assert_eq!(buf, vec![1; 2048]);
+
+        byte_stream_reader.seek(SeekFrom::Current(1024)).unwrap();
+        assert_eq!(byte_stream_reader.offset, 2048 + 1024);
+        assert_eq!(byte_stream_reader.buffer.len(), 0);
+        let mut buf = vec![0; 2048];
+        byte_stream_reader.read(&mut buf).unwrap();
+        assert_eq!(byte_stream_reader.buffer.len(), 8192 - 2048);
+        assert_eq!(byte_stream_reader.offset, 2048 + 1024 + 2048);
+        assert_eq!(buf, vec![1; 2048]);
     }
 }
