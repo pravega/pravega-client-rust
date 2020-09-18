@@ -27,7 +27,7 @@ pub(crate) struct SegmentSelector {
     /// Stream that this SegmentSelector is on
     pub(crate) stream: ScopedStream,
 
-    /// mapping each segment in this stream to it's EventSegmentWriter
+    /// mapping each segment in this stream to it's SegmentWriter
     pub(crate) writers: HashMap<ScopedSegment, SegmentWriter>,
 
     /// the current segments in this stream
@@ -163,7 +163,7 @@ impl SegmentSelector {
         }
     }
 
-    pub(crate) fn remove_segment_event_writer(&mut self, segment: &ScopedSegment) {
-        self.writers.remove(segment);
+    pub(crate) fn remove_segment_event_writer(&mut self, segment: &ScopedSegment) -> Option<SegmentWriter> {
+        self.writers.remove(segment)
     }
 }

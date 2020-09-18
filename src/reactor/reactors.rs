@@ -63,6 +63,12 @@ impl StreamReactor {
                         break;
                     }
                 }
+                Incoming::CloseSegmentWriter(connection) => {
+                    let endpoint = connection.get_endpoint();
+                    let pool = factory.get_connection_pool();
+                    pool.add_connection(endpoint, connection);
+                    info!("segment writer is closed, put connection back to pool");
+                }
             }
         }
     }
@@ -103,7 +109,9 @@ impl StreamReactor {
                 let segment = ScopedSegment::from(&*cmd.segment);
                 if let Some(inflight) = selector.refresh_segment_event_writers_upon_sealed(&segment).await {
                     selector.resend(inflight).await;
-                    selector.remove_segment_event_writer(&segment);
+                    if let Some(writer) = selector.remove_segment_event_writer(&segment) {
+                        writer.close();
+                    }
                     Ok(())
                 } else {
                     Err("Stream is sealed")
@@ -118,7 +126,9 @@ impl StreamReactor {
                 let segment = ScopedSegment::from(&*cmd.segment);
                 if let Some(inflight) = selector.refresh_segment_event_writers_upon_sealed(&segment).await {
                     selector.resend(inflight).await;
-                    selector.remove_segment_event_writer(&segment);
+                    if let Some(writer) = selector.remove_segment_event_writer(&segment) {
+                        writer.close();
+                    }
                     Ok(())
                 } else {
                     Err("Stream is sealed")
@@ -176,6 +186,15 @@ impl SegmentReactor {
                         drain_recevier(receiver, e.to_owned()).await;
                         break;
                     }
+                }
+                Incoming::CloseSegmentWriter(connection) => {
+                    let endpoint = connection.get_endpoint();
+                    let pool = factory.get_connection_pool();
+                    pool.add_connection(endpoint, connection);
+                    info!(
+                        "segment writer {:?} is closed, put connection back to pool",
+                        writer.get_id()
+                    );
                 }
             }
         }
@@ -237,4 +256,10 @@ async fn drain_recevier(mut receiver: Receiver<Incoming>, msg: String) {
             event.oneshot_sender.send(err).expect("send error");
         }
     }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test() {}
 }

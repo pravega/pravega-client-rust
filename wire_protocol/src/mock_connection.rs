@@ -10,11 +10,14 @@
 
 extern crate byteorder;
 use crate::commands::{AppendSetupCommand, DataAppendedCommand};
-use crate::connection::{Connection, ReadingConnection, WritingConnection};
+use crate::connection::{Connection, ConnectionReadHalf, ConnectionWriteHalf};
 use crate::error::*;
 use crate::wire_commands::{Decode, Encode, Replies, Requests};
 use async_trait::async_trait;
+use downcast_rs::__std::fmt::Formatter;
 use pravega_rust_client_shared::PravegaNodeUri;
+use std::fmt;
+use std::fmt::Debug;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use uuid::Uuid;
 
@@ -65,7 +68,7 @@ impl Connection for MockConnection {
         Ok(())
     }
 
-    fn split(&mut self) -> (Box<dyn ReadingConnection>, Box<dyn WritingConnection>) {
+    fn split(&mut self) -> (Box<dyn ConnectionReadHalf>, Box<dyn ConnectionWriteHalf>) {
         let reader = Box::new(MockReadingConnection {
             id: self.id,
             receiver: self
@@ -74,11 +77,11 @@ impl Connection for MockConnection {
                 .expect("split mock connection and get receiver"),
             buffer: vec![],
             index: 0,
-        }) as Box<dyn ReadingConnection>;
+        }) as Box<dyn ConnectionReadHalf>;
         let writer = Box::new(MockWritingConnection {
             id: self.id,
             sender: self.sender.take().expect("split mock connection and get sender"),
-        }) as Box<dyn WritingConnection>;
+        }) as Box<dyn ConnectionWriteHalf>;
         (reader, writer)
     }
 
@@ -95,6 +98,12 @@ impl Connection for MockConnection {
     }
 }
 
+impl Debug for MockConnection {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        unimplemented!()
+    }
+}
+
 pub struct MockReadingConnection {
     id: Uuid,
     receiver: UnboundedReceiver<Replies>,
@@ -102,13 +111,14 @@ pub struct MockReadingConnection {
     index: usize,
 }
 
+#[derive(Debug)]
 pub struct MockWritingConnection {
     id: Uuid,
     sender: UnboundedSender<Replies>,
 }
 
 #[async_trait]
-impl ReadingConnection for MockReadingConnection {
+impl ConnectionReadHalf for MockReadingConnection {
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError> {
         if self.index == self.buffer.len() {
             let reply: Replies = self.receiver.recv().await.expect("read");
@@ -124,10 +134,14 @@ impl ReadingConnection for MockReadingConnection {
     fn get_id(&self) -> Uuid {
         self.id
     }
+
+    fn unsplit(&mut self, _write_half: Box<dyn ConnectionWriteHalf>) -> Box<dyn Connection> {
+        unimplemented!()
+    }
 }
 
 #[async_trait]
-impl WritingConnection for MockWritingConnection {
+impl ConnectionWriteHalf for MockWritingConnection {
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
         send(&mut self.sender, payload).await
     }

@@ -15,11 +15,13 @@ use pravega_wire_protocol::commands::{Command, EventCommand};
 use pravega_wire_protocol::wire_commands::Replies;
 
 use crate::error::*;
+use pravega_wire_protocol::connection::Connection;
 
 #[derive(Debug)]
 pub(crate) enum Incoming {
     AppendEvent(PendingEvent),
     ServerReply(ServerReply),
+    CloseSegmentWriter(Box<dyn Connection>),
 }
 
 #[derive(new, Debug)]

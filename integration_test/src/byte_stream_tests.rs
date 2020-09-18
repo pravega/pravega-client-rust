@@ -68,7 +68,6 @@ fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamRea
     info!("test byte stream write and read");
     let payload1 = vec![1, 1, 1, 1];
     let payload2 = vec![2, 2, 2, 2];
-    let expected = [&payload1[..], &payload2[..]].concat();
 
     let size1 = writer.write(&payload1).expect("write payload1 to byte stream");
     assert_eq!(size1, 4);

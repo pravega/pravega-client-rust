@@ -137,6 +137,10 @@ impl ClientFactory {
     pub fn get_config(&self) -> &ClientConfig {
         &self.0.config
     }
+
+    pub(crate) fn get_connection_pool(&self) -> &ConnectionPool<SegmentConnectionManager> {
+        &self.0.get_connection_pool()
+    }
 }
 
 impl ClientFactoryInternal {

@@ -10,7 +10,7 @@
 
 use crate::client_connection::{read_wirecommand, write_wirecommand};
 use crate::commands::{HelloCommand, OLDEST_COMPATIBLE_VERSION, WIRE_VERSION};
-use crate::connection::{Connection, TokioConnection};
+use crate::connection::{Connection, TlsConnection, TokioConnection};
 use crate::error::*;
 use crate::mock_connection::MockConnection;
 use crate::wire_commands::{Replies, Requests};
@@ -114,7 +114,7 @@ impl ConnectionFactory for TokioConnectionFactory {
                 .connect(domain, stream)
                 .await
                 .expect("connect to tls stream");
-            Box::new(TokioConnection {
+            Box::new(TlsConnection {
                 uuid,
                 endpoint: endpoint.clone(),
                 stream: Some(stream),

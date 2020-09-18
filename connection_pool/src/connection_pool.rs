@@ -160,6 +160,14 @@ where
     pub fn pool_len(&self, endpoint: &PravegaNodeUri) -> usize {
         self.managed_pool.pool_len(endpoint)
     }
+
+    pub fn add_connection(&self, endpoint: PravegaNodeUri, connection: M::Conn) {
+        let internal_conn = InternalConn {
+            uuid: Uuid::new_v4(),
+            conn: connection,
+        };
+        self.managed_pool.add_connection(endpoint, internal_conn);
+    }
 }
 
 impl<M: Manager> fmt::Debug for ConnectionPool<M> {
