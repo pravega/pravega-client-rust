@@ -140,7 +140,7 @@ impl AsyncSegmentReaderImpl {
                     error_msg: "Segment truncated".into(),
                 }),
                 Replies::WrongHost(_cmd) => Err(ReaderError::WrongHost {
-                    can_retry: false,
+                    can_retry: true,
                     operation: "Read segment".to_string(),
                     error_msg: "Wrong host".to_string(),
                 }),
