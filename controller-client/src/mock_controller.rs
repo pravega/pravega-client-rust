@@ -14,7 +14,7 @@ use async_trait::async_trait;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use ordered_float::OrderedFloat;
 use pravega_connection_pool::connection_pool::ConnectionPool;
-use pravega_rust_client_config::connection_type::ConnectionType;
+use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
 use pravega_rust_client_retry::retry_result::RetryError;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
@@ -44,7 +44,7 @@ pub struct MockController {
 
 impl MockController {
     pub fn new(endpoint: PravegaNodeUri) -> Self {
-        let config = ConnectionFactoryConfig::new(ConnectionType::Mock);
+        let config = ConnectionFactoryConfig::new(ConnectionType::Mock(MockType::Happy));
         let cf = ConnectionFactory::create(config) as Box<dyn ConnectionFactory>;
         let manager = SegmentConnectionManager::new(cf, 10);
         let pool = ConnectionPool::new(manager);

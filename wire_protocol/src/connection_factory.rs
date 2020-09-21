@@ -16,6 +16,7 @@ use crate::mock_connection::MockConnection;
 use crate::wire_commands::{Replies, Requests};
 use async_trait::async_trait;
 use pravega_connection_pool::connection_pool::{ConnectionPoolError, Manager};
+use pravega_rust_client_config::connection_type::MockType;
 use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfig};
 use pravega_rust_client_shared::PravegaNodeUri;
 use snafu::ResultExt;
@@ -63,7 +64,7 @@ impl dyn ConnectionFactory {
                 config.is_tls_enabled,
                 &config.cert_path,
             )),
-            ConnectionType::Mock => Box::new(MockConnectionFactory {}),
+            ConnectionType::Mock(mock_type) => Box::new(MockConnectionFactory { mock_type }),
         }
     }
 }
@@ -81,7 +82,9 @@ impl TokioConnectionFactory {
         }
     }
 }
-struct MockConnectionFactory {}
+struct MockConnectionFactory {
+    mock_type: MockType,
+}
 
 #[async_trait]
 impl ConnectionFactory for TokioConnectionFactory {
@@ -145,7 +148,7 @@ impl ConnectionFactory for MockConnectionFactory {
         &self,
         endpoint: PravegaNodeUri,
     ) -> Result<Box<dyn Connection>, ConnectionFactoryError> {
-        let mock = MockConnection::new(endpoint);
+        let mock = MockConnection::new(endpoint, self.mock_type);
         Ok(Box::new(mock) as Box<dyn Connection>)
     }
 }
@@ -264,14 +267,14 @@ mod tests {
     use super::*;
     use crate::wire_commands::{Decode, Encode};
     use log::info;
-    use pravega_rust_client_config::connection_type::ConnectionType;
+    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
     use tokio::runtime::Runtime;
 
     #[test]
     fn test_mock_connection() {
         info!("test mock connection factory");
         let mut rt = Runtime::new().unwrap();
-        let config = ConnectionFactoryConfig::new(ConnectionType::Mock);
+        let config = ConnectionFactoryConfig::new(ConnectionType::Mock(MockType::Happy));
         let connection_factory = ConnectionFactory::create(config);
         let connection_future =
             connection_factory.establish_connection(PravegaNodeUri::from("127.1.1.1:9090".to_string()));

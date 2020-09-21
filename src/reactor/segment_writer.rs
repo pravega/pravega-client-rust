@@ -422,6 +422,138 @@ struct Append {
 
 #[cfg(test)]
 mod test {
+    use super::*;
+    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_rust_client_config::ClientConfigBuilder;
+    use tokio::sync::mpsc;
+
     #[test]
-    fn test() {}
+    fn test_segment_writer_happy_write() {
+        // set up segment writer
+        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let segment = ScopedSegment::from("testScope/testStream/0");
+        let (sender, mut receiver) = mpsc::channel(10);
+        let policy = RetryWithBackoff::default();
+        let delegation_token_provider = DelegationTokenProvider::new(ScopedStream::from(&segment));
+        let mut segment_writer =
+            SegmentWriter::new(segment, sender, policy, Arc::new(delegation_token_provider));
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(MockType::Happy))
+            .controller_uri(PravegaNodeUri::from("127.0.0.1:9091".to_string()))
+            .mock(true)
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+
+        // test set up connection
+        let result = rt.block_on(segment_writer.setup_connection(&factory));
+        assert!(result.is_ok());
+
+        let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
+        let event = PendingEvent::new(Some("routing_key".into()), vec![1; 512], oneshot_sender)
+            .expect("create pending event");
+
+        // write data using mock connection
+        let reply = rt
+            .block_on(async {
+                segment_writer.write(event).await.expect("write data");
+                receiver.recv().await
+            })
+            .expect("receive DataAppend from segment writer");
+
+        let result = if let Incoming::ServerReply(server) = reply {
+            if let Replies::DataAppended(cmd) = server.reply {
+                segment_writer.ack(cmd.event_number);
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+        assert!(result);
+        let caller_reply = rt.block_on(oneshot_receiver).expect("caller receive reply");
+        assert!(caller_reply.is_ok());
+
+        // retrieve connection after segment writer is closed
+        assert!(segment_writer.connection.is_some());
+        let id = segment_writer.connection.as_ref().unwrap().get_id();
+        assert!(segment_writer.connection_listener_handle.is_some());
+        segment_writer.close();
+        let reply = rt
+            .block_on(receiver.recv())
+            .expect("receive unsplit connection from segment writer");
+        let result = if let Incoming::CloseSegmentWriter(conn) = reply {
+            assert_eq!(conn.get_uuid(), id);
+            true
+        } else {
+            false
+        };
+        assert!(result);
+    }
+
+    #[test]
+    fn test_segment_writer_segment_sealed() {
+        // set up segment writer
+        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let segment = ScopedSegment::from("testScope/testStream/0");
+        let (sender, mut receiver) = mpsc::channel(10);
+        let policy = RetryWithBackoff::default();
+        let delegation_token_provider = DelegationTokenProvider::new(ScopedStream::from(&segment));
+        let mut segment_writer =
+            SegmentWriter::new(segment, sender, policy, Arc::new(delegation_token_provider));
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(MockType::SegmentSealed))
+            .controller_uri(PravegaNodeUri::from("127.0.0.1:9091".to_string()))
+            .mock(true)
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+
+        // test set up connection
+        let result = rt.block_on(segment_writer.setup_connection(&factory));
+        assert!(result.is_ok());
+
+        let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
+        let event = PendingEvent::new(Some("routing_key".into()), vec![1; 512], oneshot_sender)
+            .expect("create pending event");
+
+        // write data using mock connection
+        let reply = rt
+            .block_on(async {
+                segment_writer.write(event).await.expect("write data");
+                receiver.recv().await
+            })
+            .expect("receive DataAppend from segment writer");
+
+        let result = if let Incoming::ServerReply(server) = reply {
+            if let Replies::DataAppended(cmd) = server.reply {
+                segment_writer.ack(cmd.event_number);
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+        assert!(result);
+        let caller_reply = rt.block_on(oneshot_receiver).expect("caller receive reply");
+        assert!(caller_reply.is_ok());
+
+        // retrieve connection after segment writer is closed
+        assert!(segment_writer.connection.is_some());
+        let id = segment_writer.connection.as_ref().unwrap().get_id();
+        assert!(segment_writer.connection_listener_handle.is_some());
+        segment_writer.close();
+        let reply = rt
+            .block_on(receiver.recv())
+            .expect("receive unsplit connection from segment writer");
+        let result = if let Incoming::CloseSegmentWriter(conn) = reply {
+            assert_eq!(conn.get_uuid(), id);
+            true
+        } else {
+            false
+        };
+        assert!(result);
+    }
 }

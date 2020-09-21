@@ -9,12 +9,15 @@
 //
 
 extern crate byteorder;
-use crate::commands::{AppendSetupCommand, DataAppendedCommand};
+use crate::commands::{
+    AppendSetupCommand, DataAppendedCommand, SegmentSealedCommand, SegmentTruncatedCommand, WrongHostCommand,
+};
 use crate::connection::{Connection, ConnectionReadHalf, ConnectionWriteHalf};
 use crate::error::*;
 use crate::wire_commands::{Decode, Encode, Replies, Requests};
 use async_trait::async_trait;
 use downcast_rs::__std::fmt::Formatter;
+use pravega_rust_client_config::connection_type::MockType;
 use pravega_rust_client_shared::PravegaNodeUri;
 use std::fmt;
 use std::fmt::Debug;
@@ -23,6 +26,7 @@ use uuid::Uuid;
 
 pub struct MockConnection {
     id: Uuid,
+    mock_type: MockType,
     endpoint: PravegaNodeUri,
     sender: Option<UnboundedSender<Replies>>,
     receiver: Option<UnboundedReceiver<Replies>>,
@@ -31,10 +35,11 @@ pub struct MockConnection {
 }
 
 impl MockConnection {
-    pub fn new(endpoint: PravegaNodeUri) -> Self {
+    pub fn new(endpoint: PravegaNodeUri, mock_type: MockType) -> Self {
         let (tx, rx) = unbounded_channel();
         MockConnection {
             id: Uuid::new_v4(),
+            mock_type,
             endpoint,
             sender: Some(tx),
             receiver: Some(rx),
@@ -47,7 +52,16 @@ impl MockConnection {
 #[async_trait]
 impl Connection for MockConnection {
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
-        send(self.sender.as_mut().expect("get sender"), payload).await
+        match self.mock_type {
+            MockType::Happy => send_happy(self.sender.as_mut().expect("get sender"), payload).await,
+            MockType::SegmentIsSealed => {
+                send_sealed(self.sender.as_mut().expect("get sender"), payload).await
+            }
+            MockType::SegmentIsTruncated => {
+                send_truncated(self.sender.as_mut().expect("get sender"), payload).await
+            }
+            MockType::WrongHost => send_wrong_host(self.sender.as_mut().expect("get sender"), payload).await,
+        }
     }
 
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError> {
@@ -71,6 +85,8 @@ impl Connection for MockConnection {
     fn split(&mut self) -> (Box<dyn ConnectionReadHalf>, Box<dyn ConnectionWriteHalf>) {
         let reader = Box::new(MockReadingConnection {
             id: self.id,
+            endpoint: self.endpoint.clone(),
+            mock_type: self.mock_type,
             receiver: self
                 .receiver
                 .take()
@@ -80,6 +96,7 @@ impl Connection for MockConnection {
         }) as Box<dyn ConnectionReadHalf>;
         let writer = Box::new(MockWritingConnection {
             id: self.id,
+            mock_type: self.mock_type,
             sender: self.sender.take().expect("split mock connection and get sender"),
         }) as Box<dyn ConnectionWriteHalf>;
         (reader, writer)
@@ -109,6 +126,8 @@ impl Debug for MockConnection {
 
 pub struct MockReadingConnection {
     id: Uuid,
+    endpoint: PravegaNodeUri,
+    mock_type: MockType,
     receiver: UnboundedReceiver<Replies>,
     buffer: Vec<u8>,
     index: usize,
@@ -117,6 +136,7 @@ pub struct MockReadingConnection {
 #[derive(Debug)]
 pub struct MockWritingConnection {
     id: Uuid,
+    mock_type: MockType,
     sender: UnboundedSender<Replies>,
 }
 
@@ -139,14 +159,28 @@ impl ConnectionReadHalf for MockReadingConnection {
     }
 
     fn unsplit(&mut self, _write_half: Box<dyn ConnectionWriteHalf>) -> Box<dyn Connection> {
-        unimplemented!()
+        let (tx, rx) = unbounded_channel();
+        Box::new(MockConnection {
+            id: self.id,
+            endpoint: self.endpoint.clone(),
+            mock_type: self.mock_type,
+            sender: Some(tx),
+            receiver: Some(rx),
+            buffer: self.buffer.clone(),
+            index: self.index,
+        }) as Box<dyn Connection>
     }
 }
 
 #[async_trait]
 impl ConnectionWriteHalf for MockWritingConnection {
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
-        send(&mut self.sender, payload).await
+        match self.mock_type {
+            MockType::Happy => send_happy(&mut self.sender, payload).await,
+            MockType::SegmentIsSealed => send_sealed(&mut self.sender, payload).await,
+            MockType::SegmentIsTruncated => send_truncated(&mut self.sender, payload).await,
+            MockType::WrongHost => send_wrong_host(&mut self.sender, payload).await,
+        }
     }
 
     fn get_id(&self) -> Uuid {
@@ -154,7 +188,7 @@ impl ConnectionWriteHalf for MockWritingConnection {
     }
 }
 
-async fn send(sender: &mut UnboundedSender<Replies>, payload: &[u8]) -> Result<(), ConnectionError> {
+async fn send_happy(sender: &mut UnboundedSender<Replies>, payload: &[u8]) -> Result<(), ConnectionError> {
     let request: Requests = Requests::read_from(payload).expect("mock connection decode request");
     match request {
         Requests::Hello(cmd) => {
@@ -177,6 +211,77 @@ async fn send(sender: &mut UnboundedSender<Replies>, payload: &[u8]) -> Result<(
                 previous_event_number: 0, //not used in event stream writer
                 request_id: cmd.request_id,
                 current_segment_write_offset: 0, //not used in event stream writer
+            });
+            sender.send(reply).expect("send reply");
+        }
+        _ => {
+            panic!("unsupported request {:?}", request);
+        }
+    }
+    Ok(())
+}
+
+async fn send_sealed(sender: &mut UnboundedSender<Replies>, payload: &[u8]) -> Result<(), ConnectionError> {
+    let request: Requests = Requests::read_from(payload).expect("mock connection decode request");
+    match request {
+        Requests::Hello(cmd) => {
+            let reply = Replies::Hello(cmd);
+            sender.send(reply).expect("send reply");
+        }
+        Requests::SetupAppend(cmd) => {
+            let reply = Replies::SegmentSealed(SegmentSealedCommand {
+                request_id: cmd.request_id,
+                segment: cmd.segment,
+            });
+            sender.send(reply).expect("send reply");
+        }
+        _ => {
+            panic!("unsupported request {:?}", request);
+        }
+    }
+    Ok(())
+}
+
+async fn send_truncated(
+    sender: &mut UnboundedSender<Replies>,
+    payload: &[u8],
+) -> Result<(), ConnectionError> {
+    let request: Requests = Requests::read_from(payload).expect("mock connection decode request");
+    match request {
+        Requests::Hello(cmd) => {
+            let reply = Replies::Hello(cmd);
+            sender.send(reply).expect("send reply");
+        }
+        Requests::SetupAppend(cmd) => {
+            let reply = Replies::SegmentTruncated(SegmentTruncatedCommand {
+                request_id: cmd.request_id,
+                segment: cmd.segment,
+            });
+            sender.send(reply).expect("send reply");
+        }
+        _ => {
+            panic!("unsupported request {:?}", request);
+        }
+    }
+    Ok(())
+}
+
+async fn send_wrong_host(
+    sender: &mut UnboundedSender<Replies>,
+    payload: &[u8],
+) -> Result<(), ConnectionError> {
+    let request: Requests = Requests::read_from(payload).expect("mock connection decode request");
+    match request {
+        Requests::Hello(cmd) => {
+            let reply = Replies::Hello(cmd);
+            sender.send(reply).expect("send reply");
+        }
+        Requests::SetupAppend(cmd) => {
+            let reply = Replies::WrongHost(WrongHostCommand {
+                request_id: cmd.request_id,
+                segment: cmd.segment,
+                correct_host: "".to_string(),
+                server_stack_trace: "".to_string(),
             });
             sender.send(reply).expect("send reply");
         }
