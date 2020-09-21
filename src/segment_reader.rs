@@ -20,6 +20,13 @@ use crate::client_factory::ClientFactory;
 use crate::error::RawClientError;
 use crate::get_request_id;
 use crate::raw_client::RawClient;
+use pravega_rust_client_retry::retry_async::retry_async;
+use pravega_rust_client_retry::retry_result::RetryResult;
+use tokio::sync::Mutex;
+
+trait CanRetry {
+    fn can_retry(&self) -> bool;
+}
 
 #[derive(Debug, Snafu)]
 pub enum ReaderError {
@@ -55,6 +62,18 @@ pub enum ReaderError {
     },
 }
 
+impl CanRetry for ReaderError {
+    fn can_retry(&self) -> bool {
+        match self {
+            ReaderError::SegmentTruncated { .. } => false,
+            ReaderError::SegmentSealed { .. } => false,
+            ReaderError::WrongHost { .. } => true,
+            ReaderError::OperationError { .. } => false,
+            ReaderError::ConnectionError { .. } => true,
+        }
+    }
+}
+
 ///
 /// AsyncSegmentReader is used to read from a given segment given the connection pool and the Controller URI
 /// The reads given the offset and the length are processed asynchronously.
@@ -69,7 +88,7 @@ pub trait AsyncSegmentReader {
 #[derive(new)]
 pub struct AsyncSegmentReaderImpl {
     segment: ScopedSegment,
-    endpoint: PravegaNodeUri,
+    endpoint: Mutex<PravegaNodeUri>,
     factory: ClientFactory,
     delegation_token_provider: DelegationTokenProvider,
 }
@@ -77,8 +96,30 @@ pub struct AsyncSegmentReaderImpl {
 #[async_trait]
 impl AsyncSegmentReader for AsyncSegmentReaderImpl {
     async fn read(&self, offset: i64, length: i32) -> StdResult<SegmentReadCommand, ReaderError> {
-        let raw_client = self.factory.create_raw_client_for_endpoint(self.endpoint.clone());
-        self.read_inner(offset, length, &raw_client).await
+        retry_async(self.factory.get_config().retry_policy, || async {
+            let raw_client = self
+                .factory
+                .create_raw_client_for_endpoint(self.endpoint.lock().await.clone());
+            match self.read_inner(offset, length, &raw_client).await {
+                Ok(cmd) => RetryResult::Success(cmd),
+                Err(e) => {
+                    if e.can_retry() {
+                        let controller = self.factory.get_controller_client();
+                        let endpoint = controller
+                            .get_endpoint_for_segment(&self.segment)
+                            .await
+                            .expect("get endpoint for async semgnet reader");
+                        let mut guard = self.endpoint.lock().await;
+                        *guard = endpoint;
+                        RetryResult::Retry(e)
+                    } else {
+                        RetryResult::Fail(e)
+                    }
+                }
+            }
+        })
+        .await
+        .map_err(|e| e.error)
     }
 }
 
@@ -96,7 +137,7 @@ impl AsyncSegmentReaderImpl {
 
         AsyncSegmentReaderImpl {
             segment,
-            endpoint,
+            endpoint: Mutex::new(endpoint),
             factory: factory.clone(),
             delegation_token_provider,
         }

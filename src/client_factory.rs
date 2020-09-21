@@ -129,6 +129,10 @@ impl ClientFactory {
     pub fn get_controller_client(&self) -> &dyn ControllerClient {
         self.0.get_controller_client()
     }
+
+    pub fn get_config(&self) -> &ClientConfig {
+        &self.0.config
+    }
 }
 
 impl ClientFactoryInternal {
