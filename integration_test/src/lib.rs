@@ -79,7 +79,7 @@ mod test {
 
         let span = info_span!("integration test", auth = true, tls = true);
         span.in_scope(|| {
-            info!("Running integration test");
+            info!("Running integration test with tls and auth");
             let config = PravegaStandaloneServiceConfig::new(false, true, true);
             run_tests(config);
         });

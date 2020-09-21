@@ -116,7 +116,9 @@ impl ByteStreamWriter {
     }
 
     /// Seal will seal the segment and no further writes are allowed.
-    pub async fn seal(&self) -> Result<(), Error> {
+    pub async fn seal(&mut self) -> Result<(), Error> {
+        self.flush()
+            .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))?;
         let controller = self.client_factory.get_controller_client();
         let endpoint = controller
             .get_endpoint_for_segment(&self.segment)

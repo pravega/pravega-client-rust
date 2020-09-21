@@ -139,7 +139,7 @@ impl ClientFactory {
     }
 
     pub(crate) fn get_connection_pool(&self) -> &ConnectionPool<SegmentConnectionManager> {
-        &self.0.get_connection_pool()
+        self.0.get_connection_pool()
     }
 }
 

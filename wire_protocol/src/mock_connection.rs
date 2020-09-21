@@ -100,7 +100,10 @@ impl Connection for MockConnection {
 
 impl Debug for MockConnection {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        unimplemented!()
+        f.debug_struct("TlsConnection")
+            .field("connection id", &self.id)
+            .field("pravega endpoint", &self.endpoint)
+            .finish()
     }
 }
 

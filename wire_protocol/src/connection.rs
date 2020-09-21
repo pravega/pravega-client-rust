@@ -146,7 +146,10 @@ impl Connection for TokioConnection {
 
 impl Debug for TokioConnection {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        unimplemented!()
+        f.debug_struct("TlsConnection")
+            .field("connection id", &self.uuid)
+            .field("pravega endpoint", &self.endpoint)
+            .finish()
     }
 }
 
@@ -216,7 +219,10 @@ impl Connection for TlsConnection {
 
 impl Debug for TlsConnection {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        unimplemented!()
+        f.debug_struct("TlsConnection")
+            .field("connection id", &self.uuid)
+            .field("pravega endpoint", &self.endpoint)
+            .finish()
     }
 }
 
