@@ -36,6 +36,12 @@ pub enum ReaderError {
         error_msg: String,
     },
     #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
+    WrongHost {
+        can_retry: bool,
+        operation: String,
+        error_msg: String,
+    },
+    #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
     OperationError {
         can_retry: bool,
         operation: String,
@@ -132,6 +138,11 @@ impl AsyncSegmentReaderImpl {
                     can_retry: false,
                     operation: "Read segment".to_string(),
                     error_msg: "Segment truncated".into(),
+                }),
+                Replies::WrongHost(_cmd) => Err(ReaderError::WrongHost {
+                    can_retry: false,
+                    operation: "Read segment".to_string(),
+                    error_msg: "Wrong host".to_string(),
                 }),
                 Replies::SegmentSealed(cmd) => Ok(SegmentReadCommand {
                     segment: self.segment.to_string(),

@@ -77,7 +77,7 @@ impl SegmentWriter {
         delegation_token_provider: Arc<DelegationTokenProvider>,
     ) -> Self {
         SegmentWriter {
-            endpoint: PravegaNodeUri::from("127.0.0.1:0".to_string()), //Dummy address
+            endpoint: PravegaNodeUri::from("127.0.0.1:0"), //Dummy address
             id: WriterId::from(get_random_u128()),
             connection: None,
             segment,
