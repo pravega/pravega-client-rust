@@ -31,32 +31,15 @@ trait CanRetry {
 #[derive(Debug, Snafu)]
 pub enum ReaderError {
     #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
-    SegmentTruncated {
-        can_retry: bool,
-        operation: String,
-        error_msg: String,
-    },
+    SegmentTruncated { operation: String, error_msg: String },
     #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
-    SegmentSealed {
-        can_retry: bool,
-        operation: String,
-        error_msg: String,
-    },
+    SegmentSealed { operation: String, error_msg: String },
     #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
-    WrongHost {
-        can_retry: bool,
-        operation: String,
-        error_msg: String,
-    },
+    WrongHost { operation: String, error_msg: String },
     #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
-    OperationError {
-        can_retry: bool,
-        operation: String,
-        error_msg: String,
-    },
+    OperationError { operation: String, error_msg: String },
     #[snafu(display("Could not connect due to {}", error_msg))]
     ConnectionError {
-        can_retry: bool,
         source: RawClientError,
         error_msg: String,
     },
@@ -171,17 +154,14 @@ impl AsyncSegmentReaderImpl {
                     Ok(cmd)
                 }
                 Replies::NoSuchSegment(_cmd) => Err(ReaderError::SegmentTruncated {
-                    can_retry: false,
                     operation: "Read segment".to_string(),
                     error_msg: "No Such Segment".to_string(),
                 }),
                 Replies::SegmentTruncated(_cmd) => Err(ReaderError::SegmentTruncated {
-                    can_retry: false,
                     operation: "Read segment".to_string(),
                     error_msg: "Segment truncated".into(),
                 }),
                 Replies::WrongHost(_cmd) => Err(ReaderError::WrongHost {
-                    can_retry: true,
                     operation: "Read segment".to_string(),
                     error_msg: "Wrong host".to_string(),
                 }),
@@ -194,13 +174,11 @@ impl AsyncSegmentReaderImpl {
                     request_id: cmd.request_id,
                 }),
                 _ => Err(ReaderError::OperationError {
-                    can_retry: false,
                     operation: "Read segment".to_string(),
                     error_msg: "".to_string(),
                 }),
             },
             Err(error) => Err(ReaderError::ConnectionError {
-                can_retry: true,
                 source: error,
                 error_msg: "RawClient error".to_string(),
             }),
@@ -333,10 +311,9 @@ mod tests {
         let segment_read_result: ReaderError = data.err().unwrap();
         match segment_read_result {
             ReaderError::SegmentTruncated {
-                can_retry,
                 operation: _,
                 error_msg: _,
-            } => assert_eq!(can_retry, false),
+            } => assert_eq!(segment_read_result.can_retry(), false),
             _ => assert!(false, "Segment truncated excepted"),
         }
 
@@ -345,10 +322,9 @@ mod tests {
         let segment_read_result: ReaderError = data.err().unwrap();
         match segment_read_result {
             ReaderError::SegmentTruncated {
-                can_retry,
                 operation: _,
                 error_msg: _,
-            } => assert_eq!(can_retry, false),
+            } => assert_eq!(segment_read_result.can_retry(), false),
             _ => assert!(false, "Segment truncated excepted"),
         }
 
