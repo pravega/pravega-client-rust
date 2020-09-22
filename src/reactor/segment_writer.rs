@@ -346,6 +346,10 @@ impl SegmentWriter {
             return;
         }
     }
+
+    pub(crate) fn signal_delegation_token_expiry(&self) {
+        self.delegation_token_provider.signal_token_expiry()
+    }
 }
 
 impl fmt::Debug for SegmentWriter {

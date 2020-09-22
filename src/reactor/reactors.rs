@@ -60,6 +60,7 @@ impl StreamReactor {
                     if let Err(e) =
                         StreamReactor::process_server_reply(server_reply, &mut selector, &factory).await
                     {
+                        error!("error occurs when processing server reply: {}", e);
                         receiver.close();
                         drain_recevier(receiver, e.to_owned()).await;
                         break;
@@ -95,6 +96,24 @@ impl StreamReactor {
                     writer.reconnect(factory).await;
                 }
                 Ok(())
+            }
+
+            Replies::AuthTokenCheckFailed(cmd) => {
+                if cmd.is_token_expired() {
+                    debug!(
+                        "delegation token check failed due to token expired, refresh token and try again: stack trace {}, error code {}",
+                        cmd.server_stack_trace, cmd.error_code
+                    );
+                    writer.signal_delegation_token_expiry();
+                    writer.reconnect(factory).await;
+                    Ok(())
+                } else {
+                    error!(
+                        "delegation token check failed: stack trace {}, error code {}",
+                        cmd.server_stack_trace, cmd.error_code
+                    );
+                    Err("Authentication failed")
+                }
             }
 
             Replies::SegmentIsSealed(cmd) => {
@@ -203,6 +222,24 @@ impl SegmentReactor {
                     writer.reconnect(factory).await;
                 }
                 Ok(())
+            }
+
+            Replies::AuthTokenCheckFailed(cmd) => {
+                if cmd.is_token_expired() {
+                    debug!(
+                        "delegation token check failed due to token expired, refresh token and try again: stack trace {}, error code {}",
+                        cmd.server_stack_trace, cmd.error_code
+                    );
+                    writer.signal_delegation_token_expiry();
+                    writer.reconnect(factory).await;
+                    Ok(())
+                } else {
+                    error!(
+                        "delegation token check failed: stack trace {}, error code {}",
+                        cmd.server_stack_trace, cmd.error_code
+                    );
+                    Err("Authentication failed")
+                }
             }
 
             Replies::SegmentIsSealed(cmd) => {
