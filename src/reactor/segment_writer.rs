@@ -514,46 +514,5 @@ mod test {
         let result = rt.block_on(segment_writer.setup_connection(&factory));
         assert!(result.is_ok());
 
-        let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
-        let event = PendingEvent::new(Some("routing_key".into()), vec![1; 512], oneshot_sender)
-            .expect("create pending event");
-
-        // write data using mock connection
-        let reply = rt
-            .block_on(async {
-                segment_writer.write(event).await.expect("write data");
-                receiver.recv().await
-            })
-            .expect("receive DataAppend from segment writer");
-
-        let result = if let Incoming::ServerReply(server) = reply {
-            if let Replies::DataAppended(cmd) = server.reply {
-                segment_writer.ack(cmd.event_number);
-                true
-            } else {
-                false
-            }
-        } else {
-            false
-        };
-        assert!(result);
-        let caller_reply = rt.block_on(oneshot_receiver).expect("caller receive reply");
-        assert!(caller_reply.is_ok());
-
-        // retrieve connection after segment writer is closed
-        assert!(segment_writer.connection.is_some());
-        let id = segment_writer.connection.as_ref().unwrap().get_id();
-        assert!(segment_writer.connection_listener_handle.is_some());
-        segment_writer.close();
-        let reply = rt
-            .block_on(receiver.recv())
-            .expect("receive unsplit connection from segment writer");
-        let result = if let Incoming::CloseSegmentWriter(conn) = reply {
-            assert_eq!(conn.get_uuid(), id);
-            true
-        } else {
-            false
-        };
-        assert!(result);
     }
 }
