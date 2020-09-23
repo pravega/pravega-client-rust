@@ -142,7 +142,7 @@ impl StreamReactor {
                     selector.remove_segment_event_writer(&segment);
                     Ok(())
                 } else {
-                    Err("Stream is sealed")
+                    Err("No such segment")
                 }
             }
 

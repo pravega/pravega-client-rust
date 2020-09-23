@@ -131,6 +131,20 @@ impl TransactionalEventSegmentWriter {
             if let Replies::DataAppended(cmd) = server_reply.reply {
                 self.process_data_appended(factory, cmd).await;
                 Ok(())
+            } else if let Replies::AuthTokenCheckFailed(ref cmd) = server_reply.reply {
+                if cmd.is_token_expired() {
+                    self.event_segment_writer.signal_delegation_token_expiry();
+                    self.event_segment_writer.reconnect(factory).await;
+                    Ok(())
+                } else {
+                    error!(
+                        "authentication failed, transaction failed due to {:?}",
+                        server_reply
+                    );
+                    Err(TransactionalEventSegmentWriterError::UnexpectedReply {
+                        error: server_reply.reply,
+                    })
+                }
             } else {
                 error!(
                     "unexpected reply from server, transaction failed due to {:?}",

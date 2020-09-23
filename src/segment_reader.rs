@@ -24,12 +24,10 @@ use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_result::RetryResult;
 use tokio::sync::Mutex;
 
-trait CanRetry {
-    fn can_retry(&self) -> bool;
-}
-
 #[derive(Debug, Snafu)]
 pub enum ReaderError {
+    #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
+    AuthTokenCheckFailed { operation: String, error_msg: String },
     #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
     SegmentTruncated { operation: String, error_msg: String },
     #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
@@ -43,16 +41,30 @@ pub enum ReaderError {
         source: RawClientError,
         error_msg: String,
     },
+    #[snafu(display("Could not connect due to {}", error_msg))]
+    AuthTokenExpired {
+        source: RawClientError,
+        error_msg: String,
+    },
 }
 
-impl CanRetry for ReaderError {
+impl ReaderError {
     fn can_retry(&self) -> bool {
         match self {
+            ReaderError::AuthTokenExpired { .. } => true,
+            ReaderError::AuthTokenCheckFailed { .. } => false,
             ReaderError::SegmentTruncated { .. } => false,
             ReaderError::SegmentSealed { .. } => false,
             ReaderError::WrongHost { .. } => true,
             ReaderError::OperationError { .. } => false,
             ReaderError::ConnectionError { .. } => true,
+        }
+    }
+
+    fn refresh_token(&self) -> bool {
+        match self {
+            ReaderError::AuthTokenExpired { .. } => true,
+            _ => false,
         }
     }
 }
@@ -94,6 +106,9 @@ impl AsyncSegmentReader for AsyncSegmentReaderImpl {
                             .expect("get endpoint for async semgnet reader");
                         let mut guard = self.endpoint.lock().await;
                         *guard = endpoint;
+                        if e.refresh_token() {
+                            self.delegation_token_provider.signal_token_expiry();
+                        }
                         RetryResult::Retry(e)
                     } else {
                         RetryResult::Fail(e)
@@ -153,6 +168,10 @@ impl AsyncSegmentReaderImpl {
                     );
                     Ok(cmd)
                 }
+                Replies::AuthTokenCheckFailed(_cmd) => Err(ReaderError::AuthTokenCheckFailed {
+                    operation: "Read segment".to_string(),
+                    error_msg: "Auth token expired".to_string(),
+                }),
                 Replies::NoSuchSegment(_cmd) => Err(ReaderError::SegmentTruncated {
                     operation: "Read segment".to_string(),
                     error_msg: "No Such Segment".to_string(),
@@ -178,10 +197,16 @@ impl AsyncSegmentReaderImpl {
                     error_msg: "".to_string(),
                 }),
             },
-            Err(error) => Err(ReaderError::ConnectionError {
-                source: error,
-                error_msg: "RawClient error".to_string(),
-            }),
+            Err(error) => match error {
+                RawClientError::AuthTokenExpired { .. } => Err(ReaderError::AuthTokenExpired {
+                    source: error,
+                    error_msg: "Auth token expired".to_string(),
+                }),
+                _ => Err(ReaderError::ConnectionError {
+                    source: error,
+                    error_msg: "RawClient error".to_string(),
+                }),
+            },
         }
     }
 }
