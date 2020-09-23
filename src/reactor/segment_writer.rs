@@ -41,9 +41,6 @@ pub(crate) struct SegmentWriter {
     /// The segment that this writer is writing to, it does not change for a EventSegmentWriter instance
     pub(crate) segment: ScopedSegment,
 
-    /// The endpoint for segment, it might change if the segment is moved to another host
-    endpoint: PravegaNodeUri,
-
     /// Client connection that writes to the segmentstore
     connection: Option<ClientConnectionWriteHalf>,
 
@@ -83,7 +80,6 @@ impl SegmentWriter {
         delegation_token_provider: Arc<DelegationTokenProvider>,
     ) -> Self {
         SegmentWriter {
-            endpoint: PravegaNodeUri::from("127.0.0.1:0".to_string()), //Dummy address
             id: WriterId::from(get_random_u128()),
             connection: None,
             segment,
@@ -394,12 +390,11 @@ impl fmt::Debug for SegmentWriter {
         f.debug_struct("SegmentWriter")
             .field("segment writer id", &self.id)
             .field("segment", &self.segment)
-            .field("endpoint", &self.endpoint)
             .field(
-                "writer",
+                "connection",
                 &match &self.connection {
-                    Some(w) => format!("WritingClientConnection id is {}", w.get_id()),
-                    None => "doesn't have writer".to_owned(),
+                    Some(w) => format!("WritingClientConnection is {:?}", w),
+                    None => "doesn't have connection".to_owned(),
                 },
             )
             .field(
@@ -449,17 +444,20 @@ mod test {
         let result = rt.block_on(segment_writer.setup_connection(&factory));
         assert!(result.is_ok());
 
+        // write data using mock connection
         let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
         let event = PendingEvent::new(Some("routing_key".into()), vec![1; 512], oneshot_sender)
             .expect("create pending event");
-
-        // write data using mock connection
         let reply = rt
             .block_on(async {
                 segment_writer.write(event).await.expect("write data");
                 receiver.recv().await
             })
             .expect("receive DataAppend from segment writer");
+
+        assert_eq!(segment_writer.event_num, 1);
+        assert_eq!(segment_writer.inflight.len(), 1);
+        assert!(segment_writer.pending.is_empty());
 
         let result = if let Incoming::ServerReply(server) = reply {
             if let Replies::DataAppended(cmd) = server.reply {
@@ -471,7 +469,11 @@ mod test {
         } else {
             false
         };
+
         assert!(result);
+        assert!(segment_writer.inflight.is_empty());
+        assert!(segment_writer.pending.is_empty());
+
         let caller_reply = rt.block_on(oneshot_receiver).expect("caller receive reply");
         assert!(caller_reply.is_ok());
 
@@ -493,7 +495,7 @@ mod test {
     }
 
     #[test]
-    fn test_segment_writer_segment_sealed() {
+    fn test_segment_writer_reply_error() {
         // set up segment writer
         let mut rt = tokio::runtime::Runtime::new().unwrap();
         let segment = ScopedSegment::from("testScope/testStream/0");
@@ -514,5 +516,26 @@ mod test {
         let result = rt.block_on(segment_writer.setup_connection(&factory));
         assert!(result.is_ok());
 
+        // write data using mock connection to a sealed segment
+        let (oneshot_sender, _oneshot_receiver) = tokio::sync::oneshot::channel();
+        let event = PendingEvent::new(Some("routing_key".into()), vec![1; 512], oneshot_sender)
+            .expect("create pending event");
+        let reply = rt
+            .block_on(async {
+                segment_writer.write(event).await.expect("write data");
+                receiver.recv().await
+            })
+            .expect("receive DataAppend from segment writer");
+
+        let result = if let Incoming::ServerReply(server) = reply {
+            if let Replies::SegmentSealed(_cmd) = server.reply {
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+        assert!(result);
     }
 }

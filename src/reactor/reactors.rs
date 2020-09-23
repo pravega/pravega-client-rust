@@ -135,6 +135,16 @@ impl StreamReactor {
                 }
             }
 
+            Replies::WrongHost(cmd) => {
+                warn!(
+                    "wrong host {:?} : stack trace {}",
+                    cmd.segment, cmd.server_stack_trace
+                );
+                // reconnect will try to set up connection using updated endpoint
+                writer.reconnect(factory).await;
+                Ok(())
+            }
+
             _ => {
                 error!(
                     "receive unexpected reply {:?}, closing stream reactor",
@@ -236,6 +246,16 @@ impl SegmentReactor {
                     cmd.segment, cmd.server_stack_trace
                 );
                 Err("No such segment")
+            }
+
+            Replies::WrongHost(cmd) => {
+                warn!(
+                    "wrong host {:?} : stack trace {}",
+                    cmd.segment, cmd.server_stack_trace
+                );
+                // reconnect will try to set up connection using updated endpoint
+                writer.reconnect(factory).await;
+                Ok(())
             }
 
             _ => {

@@ -9,9 +9,7 @@
 //
 
 extern crate byteorder;
-use crate::commands::{
-    AppendSetupCommand, DataAppendedCommand, SegmentSealedCommand, SegmentTruncatedCommand, WrongHostCommand,
-};
+use crate::commands::{AppendSetupCommand, DataAppendedCommand, SegmentSealedCommand, WrongHostCommand};
 use crate::connection::{Connection, ConnectionReadHalf, ConnectionWriteHalf};
 use crate::error::*;
 use crate::wire_commands::{Decode, Encode, Replies, Requests};
@@ -54,10 +52,8 @@ impl Connection for MockConnection {
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
         match self.mock_type {
             MockType::Happy => send_happy(self.sender.as_mut().expect("get sender"), payload).await,
-            MockType::SegmentIsSealed => {
-                send_sealed(self.sender.as_mut().expect("get sender"), payload).await
-            }
-            MockType::SegmentIsTruncated => {
+            MockType::SegmentSealed => send_sealed(self.sender.as_mut().expect("get sender"), payload).await,
+            MockType::SegmentTruncated => {
                 send_truncated(self.sender.as_mut().expect("get sender"), payload).await
             }
             MockType::WrongHost => send_wrong_host(self.sender.as_mut().expect("get sender"), payload).await,
@@ -177,8 +173,8 @@ impl ConnectionWriteHalf for MockWritingConnection {
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
         match self.mock_type {
             MockType::Happy => send_happy(&mut self.sender, payload).await,
-            MockType::SegmentIsSealed => send_sealed(&mut self.sender, payload).await,
-            MockType::SegmentIsTruncated => send_truncated(&mut self.sender, payload).await,
+            MockType::SegmentSealed => send_sealed(&mut self.sender, payload).await,
+            MockType::SegmentTruncated => send_truncated(&mut self.sender, payload).await,
             MockType::WrongHost => send_wrong_host(&mut self.sender, payload).await,
         }
     }
@@ -229,9 +225,18 @@ async fn send_sealed(sender: &mut UnboundedSender<Replies>, payload: &[u8]) -> R
             sender.send(reply).expect("send reply");
         }
         Requests::SetupAppend(cmd) => {
-            let reply = Replies::SegmentSealed(SegmentSealedCommand {
+            let reply = Replies::AppendSetup(AppendSetupCommand {
                 request_id: cmd.request_id,
                 segment: cmd.segment,
+                writer_id: cmd.writer_id,
+                last_event_number: -9_223_372_036_854_775_808, // when there is no previous event in this segment
+            });
+            sender.send(reply).expect("send reply");
+        }
+        Requests::AppendBlockEnd(cmd) => {
+            let reply = Replies::SegmentSealed(SegmentSealedCommand {
+                request_id: cmd.request_id,
+                segment: "".to_string(),
             });
             sender.send(reply).expect("send reply");
         }
@@ -253,9 +258,18 @@ async fn send_truncated(
             sender.send(reply).expect("send reply");
         }
         Requests::SetupAppend(cmd) => {
-            let reply = Replies::SegmentTruncated(SegmentTruncatedCommand {
+            let reply = Replies::AppendSetup(AppendSetupCommand {
                 request_id: cmd.request_id,
                 segment: cmd.segment,
+                writer_id: cmd.writer_id,
+                last_event_number: -9_223_372_036_854_775_808, // when there is no previous event in this segment
+            });
+            sender.send(reply).expect("send reply");
+        }
+        Requests::AppendBlockEnd(cmd) => {
+            let reply = Replies::SegmentSealed(SegmentSealedCommand {
+                request_id: cmd.request_id,
+                segment: "".to_string(),
             });
             sender.send(reply).expect("send reply");
         }
@@ -277,9 +291,18 @@ async fn send_wrong_host(
             sender.send(reply).expect("send reply");
         }
         Requests::SetupAppend(cmd) => {
-            let reply = Replies::WrongHost(WrongHostCommand {
+            let reply = Replies::AppendSetup(AppendSetupCommand {
                 request_id: cmd.request_id,
                 segment: cmd.segment,
+                writer_id: cmd.writer_id,
+                last_event_number: -9_223_372_036_854_775_808, // when there is no previous event in this segment
+            });
+            sender.send(reply).expect("send reply");
+        }
+        Requests::AppendBlockEnd(cmd) => {
+            let reply = Replies::WrongHost(WrongHostCommand {
+                request_id: cmd.request_id,
+                segment: "".to_string(),
                 correct_host: "".to_string(),
                 server_stack_trace: "".to_string(),
             });
