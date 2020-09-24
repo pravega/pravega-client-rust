@@ -59,7 +59,7 @@ impl StreamReactor {
                         StreamReactor::process_server_reply(server_reply, &mut selector, &factory).await
                     {
                         receiver.close();
-                        drain_recevier(receiver, e.to_owned()).await;
+                        drain_recevier(&mut receiver, e.to_owned()).await;
                         break;
                     }
                 }
@@ -179,36 +179,49 @@ impl SegmentReactor {
             writer.reconnect(&factory).await;
         }
 
-        loop {
-            let event = receiver.recv().await.expect("sender closed, processor exit");
-            match event {
-                Incoming::AppendEvent(pending_event) => {
-                    if let Err(e) = writer.write(pending_event).await {
-                        warn!("failed to write append to segment due to {:?}, reconnecting", e);
-                        writer.reconnect(&factory).await;
-                    }
+        while SegmentReactor::run_once(&mut writer, &mut receiver, &factory)
+            .await
+            .is_ok()
+        {}
+    }
+
+    async fn run_once(
+        writer: &mut SegmentWriter,
+        receiver: &mut Receiver<Incoming>,
+        factory: &ClientFactory,
+    ) -> Result<(), &'static str> {
+        let event = receiver.recv().await.expect("sender closed, processor exit");
+        match event {
+            Incoming::AppendEvent(pending_event) => {
+                if let Err(e) = writer.write(pending_event).await {
+                    warn!("failed to write append to segment due to {:?}, reconnecting", e);
+                    writer.reconnect(factory).await;
                 }
-                Incoming::ServerReply(server_reply) => {
-                    if let Err(e) =
-                        SegmentReactor::process_server_reply(server_reply, &mut writer, &factory).await
-                    {
-                        receiver.close();
-                        drain_recevier(receiver, e.to_owned()).await;
-                        break;
-                    }
+                Ok(())
+            }
+            Incoming::ServerReply(server_reply) => {
+                if let Err(e) = SegmentReactor::process_server_reply(server_reply, writer, factory).await {
+                    receiver.close();
+                    // can't use map_err since async closure issue
+                    drain_recevier(receiver, e.to_owned()).await;
+                    Err(e)
+                } else {
+                    Ok(())
                 }
-                Incoming::CloseSegmentWriter(connection) => {
-                    let endpoint = connection.get_endpoint();
-                    let pool = factory.get_connection_pool();
-                    pool.add_connection(endpoint, connection);
-                    info!(
-                        "segment writer {:?} is closed, put connection back to pool",
-                        writer.get_id()
-                    );
-                }
+            }
+            Incoming::CloseSegmentWriter(connection) => {
+                let endpoint = connection.get_endpoint();
+                let pool = factory.get_connection_pool();
+                pool.add_connection(endpoint, connection);
+                info!(
+                    "segment writer {:?} is closed, put connection back to pool",
+                    writer.get_id()
+                );
+                Ok(())
             }
         }
     }
+
     async fn process_server_reply(
         server_reply: ServerReply,
         writer: &mut SegmentWriter,
@@ -269,7 +282,7 @@ impl SegmentReactor {
     }
 }
 
-async fn drain_recevier(mut receiver: Receiver<Incoming>, msg: String) {
+async fn drain_recevier(receiver: &mut Receiver<Incoming>, msg: String) {
     while let Some(remaining) = receiver.recv().await {
         if let Incoming::AppendEvent(event) = remaining {
             let err = Err(SegmentWriterError::ReactorClosed { msg: msg.clone() });
@@ -280,6 +293,55 @@ async fn drain_recevier(mut receiver: Receiver<Incoming>, msg: String) {
 
 #[cfg(test)]
 mod test {
+    use super::*;
+    use crate::reactor::event::PendingEvent;
+    use pravega_rust_client_auth::DelegationTokenProvider;
+    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_rust_client_config::ClientConfigBuilder;
+    use tokio::sync::mpsc;
+    use tokio::sync::oneshot;
+
     #[test]
-    fn test() {}
+    fn test_segment_reactor_happy_run() {
+        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let segment = ScopedSegment::from("testScope/testStream/0");
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(MockType::Happy))
+            .controller_uri(PravegaNodeUri::from("127.0.0.1:9091".to_string()))
+            .mock(true)
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        let (sender, mut receiver) = mpsc::channel(10);
+        let delegation_token_provider = DelegationTokenProvider::new(ScopedStream::from(&segment));
+        let mut segment_writer = SegmentWriter::new(
+            segment,
+            sender,
+            factory.get_config().retry_policy,
+            Arc::new(delegation_token_provider),
+        );
+        // set up connection
+        let result = rt.block_on(segment_writer.setup_connection(&factory));
+        assert!(result.is_ok());
+
+        // write data and check reactor response
+        rt.block_on(write_once(&mut segment_writer, 512));
+        let result = rt.block_on(SegmentReactor::run_once(
+            &mut segment_writer,
+            &mut receiver,
+            &factory,
+        ));
+        assert!(result.is_ok());
+    }
+
+    async fn write_once(
+        writer: &mut SegmentWriter,
+        size: usize,
+    ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
+        let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
+        let event = PendingEvent::new(Some("routing_key".into()), vec![1; size], oneshot_sender)
+            .expect("create pending event");
+        writer.write(event).await.expect("write data");
+        oneshot_receiver
+    }
 }
