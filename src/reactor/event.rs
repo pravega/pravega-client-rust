@@ -21,7 +21,15 @@ use pravega_wire_protocol::connection::Connection;
 pub(crate) enum Incoming {
     AppendEvent(PendingEvent),
     ServerReply(ServerReply),
-    CloseSegmentWriter(Box<dyn Connection>),
+    CloseReactor,
+    CloseSegmentWriter(SegmentWriterInfo),
+}
+
+#[derive(Debug)]
+pub(crate) struct SegmentWriterInfo {
+    pub(crate) id: WriterId,
+    pub(crate) segment: ScopedSegment,
+    pub(crate) conn: Box<dyn Connection>,
 }
 
 #[derive(new, Debug)]

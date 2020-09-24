@@ -226,6 +226,14 @@ impl ByteStreamWriter {
     }
 }
 
+impl Drop for ByteStreamWriter {
+    fn drop(&mut self) {
+        self.runtime_handle
+            .block_on(self.sender.send(Incoming::CloseReactor))
+            .expect("send close signal");
+    }
+}
+
 pub struct ByteStreamReader {
     reader_id: Uuid,
     reader: Box<dyn AsyncSegmentReader>,

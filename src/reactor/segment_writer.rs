@@ -28,7 +28,7 @@ use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::metric::ClientMetrics;
 use crate::raw_client::RawClient;
-use crate::reactor::event::{Incoming, PendingEvent, ServerReply};
+use crate::reactor::event::{Incoming, PendingEvent, SegmentWriterInfo, ServerReply};
 use pravega_rust_client_auth::DelegationTokenProvider;
 use std::fmt;
 use std::sync::Arc;
@@ -93,12 +93,12 @@ impl SegmentWriter {
         }
     }
 
-    pub(crate) fn get_id(&self) -> WriterId {
-        self.id
+    pub(crate) fn pending_append_num(&self) -> usize {
+        self.pending.len()
     }
 
-    pub(crate) fn get_segment_name(&self) -> String {
-        self.segment.to_string()
+    pub(crate) fn inflight_append_num(&self) -> usize {
+        self.inflight.len()
     }
 
     pub(crate) async fn setup_connection(
@@ -175,6 +175,7 @@ impl SegmentWriter {
 
             // spins up a connection listener that keeps listening on the connection
             let listener_span = info_span!("connection listener", connection = %connection_id);
+            let id = self.id;
             tokio::spawn(async move {
                 let mut oneshot = oneshot_receiver;
                 loop {
@@ -182,8 +183,13 @@ impl SegmentWriter {
                         option = &mut oneshot => {
                             if let Ok(writer) = option {
                                 let connection = r.unsplit(writer);
+                                let info = SegmentWriterInfo {
+                                    id,
+                                    segment: segment.clone(),
+                                    conn: connection
+                                };
                                 let result = sender
-                                    .send(Incoming::CloseSegmentWriter(connection))
+                                    .send(Incoming::CloseSegmentWriter(info))
                                     .await;
 
                                 if let Err(e) = result {
@@ -374,7 +380,7 @@ impl SegmentWriter {
         self.connection.take()
     }
 
-    pub(crate) fn close(mut self) {
+    pub(crate) fn send_write_half_to_merge(&mut self) {
         if let Some(handle) = self.connection_listener_handle.take() {
             if let Some(writer) = self.connection.take() {
                 handle
@@ -422,6 +428,8 @@ mod test {
     use pravega_rust_client_config::ClientConfigBuilder;
     use tokio::sync::mpsc;
 
+    type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
+
     #[test]
     fn test_segment_writer_happy_write() {
         // set up segment writer
@@ -445,9 +453,7 @@ mod test {
         assert!(result.is_ok());
 
         // write data using mock connection
-        let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
-        let event = PendingEvent::new(Some("routing_key".into()), vec![1; 512], oneshot_sender)
-            .expect("create pending event");
+        let (event, event_handle1) = create_event(512);
         let reply = rt
             .block_on(async {
                 segment_writer.write(event).await.expect("write data");
@@ -459,34 +465,38 @@ mod test {
         assert_eq!(segment_writer.inflight.len(), 1);
         assert!(segment_writer.pending.is_empty());
 
-        let result = if let Incoming::ServerReply(server) = reply {
-            if let Replies::DataAppended(cmd) = server.reply {
-                segment_writer.ack(cmd.event_number);
-                true
-            } else {
-                false
-            }
-        } else {
-            false
-        };
+        let (event, event_handle2) = create_event(512);
+        rt.block_on(segment_writer.write(event)).expect("write data");
 
-        assert!(result);
+        assert_eq!(segment_writer.event_num, 2);
+        assert_eq!(segment_writer.inflight.len(), 1);
+        assert_eq!(segment_writer.pending.len(), 1);
+        ack_server_reply(reply, &mut segment_writer);
+        rt.block_on(segment_writer.write_pending_events())
+            .expect("write data");
+        let reply = rt
+            .block_on(receiver.recv())
+            .expect("receive DataAppend from segment writer");
+        ack_server_reply(reply, &mut segment_writer);
+
         assert!(segment_writer.inflight.is_empty());
         assert!(segment_writer.pending.is_empty());
 
-        let caller_reply = rt.block_on(oneshot_receiver).expect("caller receive reply");
+        let caller_reply = rt.block_on(event_handle1).expect("caller receive reply");
+        assert!(caller_reply.is_ok());
+        let caller_reply = rt.block_on(event_handle2).expect("caller receive reply");
         assert!(caller_reply.is_ok());
 
         // retrieve connection after segment writer is closed
         assert!(segment_writer.connection.is_some());
         let id = segment_writer.connection.as_ref().unwrap().get_id();
         assert!(segment_writer.connection_listener_handle.is_some());
-        segment_writer.close();
+        segment_writer.send_write_half_to_merge();
         let reply = rt
             .block_on(receiver.recv())
             .expect("receive unsplit connection from segment writer");
-        let result = if let Incoming::CloseSegmentWriter(conn) = reply {
-            assert_eq!(conn.get_uuid(), id);
+        let result = if let Incoming::CloseSegmentWriter(info) = reply {
+            assert_eq!(info.conn.get_uuid(), id);
             true
         } else {
             false
@@ -517,9 +527,7 @@ mod test {
         assert!(result.is_ok());
 
         // write data using mock connection to a sealed segment
-        let (oneshot_sender, _oneshot_receiver) = tokio::sync::oneshot::channel();
-        let event = PendingEvent::new(Some("routing_key".into()), vec![1; 512], oneshot_sender)
-            .expect("create pending event");
+        let (event, _event_handle) = create_event(512);
         let reply = rt
             .block_on(async {
                 segment_writer.write(event).await.expect("write data");
@@ -529,6 +537,27 @@ mod test {
 
         let result = if let Incoming::ServerReply(server) = reply {
             if let Replies::SegmentSealed(_cmd) = server.reply {
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+        assert!(result);
+    }
+
+    fn create_event(size: usize) -> (PendingEvent, EventHandle) {
+        let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
+        let event = PendingEvent::new(Some("routing_key".into()), vec![1; size], oneshot_sender)
+            .expect("create pending event");
+        (event, oneshot_receiver)
+    }
+
+    fn ack_server_reply(reply: Incoming, writer: &mut SegmentWriter) {
+        let result = if let Incoming::ServerReply(server) = reply {
+            if let Replies::DataAppended(cmd) = server.reply {
+                writer.ack(cmd.event_number);
                 true
             } else {
                 false

@@ -149,16 +149,15 @@ impl TransactionalEventSegmentWriter {
     async fn process_data_appended(&mut self, factory: &ClientFactory, cmd: DataAppendedCommand) {
         debug!(
             "data appended for writer {:?}, latest event id is: {:?}",
-            self.event_segment_writer.get_id(),
-            cmd.event_number
+            self.event_segment_writer.id, cmd.event_number
         );
 
         self.event_segment_writer.ack(cmd.event_number);
         if let Err(e) = self.event_segment_writer.write_pending_events().await {
             warn!(
                 "writer {:?} failed to flush data to segment {:?} due to {:?}, reconnecting",
-                self.event_segment_writer.get_id(),
-                self.event_segment_writer.get_segment_name(),
+                self.event_segment_writer.id,
+                self.event_segment_writer.segment.to_string(),
                 e
             );
             self.event_segment_writer.reconnect(factory).await;

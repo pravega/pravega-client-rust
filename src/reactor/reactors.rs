@@ -42,33 +42,56 @@ impl StreamReactor {
         // get the current segments and create corresponding event segment writers
         selector.initialize().await;
         info!("starting stream reactor");
-        loop {
-            let event = receiver.recv().await.expect("sender closed, processor exit");
-            match event {
-                Incoming::AppendEvent(pending_event) => {
-                    let segment = selector.get_segment_for_event(&pending_event.routing_key);
-                    let event_segment_writer = selector.writers.get_mut(&segment).expect("must have writer");
+        while StreamReactor::run_once(&mut selector, &mut receiver, &factory)
+            .await
+            .is_ok()
+        {}
+        info!("stream reactor is closed");
+    }
 
-                    if let Err(e) = event_segment_writer.write(pending_event).await {
-                        warn!("failed to write append to segment due to {:?}, reconnecting", e);
-                        event_segment_writer.reconnect(&factory).await;
-                    }
+    async fn run_once(
+        selector: &mut SegmentSelector,
+        receiver: &mut Receiver<Incoming>,
+        factory: &ClientFactory,
+    ) -> Result<(), &'static str> {
+        let event = receiver.recv().await.expect("sender closed, processor exit");
+        match event {
+            Incoming::AppendEvent(pending_event) => {
+                let segment = selector.get_segment_for_event(&pending_event.routing_key);
+                let event_segment_writer = selector.writers.get_mut(&segment).expect("must have writer");
+
+                if let Err(e) = event_segment_writer.write(pending_event).await {
+                    warn!("failed to write append to segment due to {:?}, reconnecting", e);
+                    event_segment_writer.reconnect(factory).await;
                 }
-                Incoming::ServerReply(server_reply) => {
-                    if let Err(e) =
-                        StreamReactor::process_server_reply(server_reply, &mut selector, &factory).await
-                    {
-                        receiver.close();
-                        drain_recevier(&mut receiver, e.to_owned()).await;
-                        break;
-                    }
+                Ok(())
+            }
+            Incoming::ServerReply(server_reply) => {
+                if let Err(e) = StreamReactor::process_server_reply(server_reply, selector, factory).await {
+                    receiver.close();
+                    drain_recevier(receiver, e.to_owned()).await;
+                    Err(e)
+                } else {
+                    Ok(())
                 }
-                Incoming::CloseSegmentWriter(connection) => {
-                    let endpoint = connection.get_endpoint();
-                    let pool = factory.get_connection_pool();
-                    pool.add_connection(endpoint, connection);
-                    info!("segment writer is closed, put connection back to pool");
+            }
+            Incoming::CloseSegmentWriter(info) => {
+                let endpoint = info.conn.get_endpoint();
+                let pool = factory.get_connection_pool();
+                pool.add_connection(endpoint, info.conn);
+                info!("segment writer is closed, put connection back to pool");
+                selector.remove_segment_event_writer(&info.segment);
+                if selector.writers.is_empty() {
+                    Err("stream reactor is closed")
+                } else {
+                    Ok(())
                 }
+            }
+            Incoming::CloseReactor => {
+                for v in selector.writers.values_mut() {
+                    v.send_write_half_to_merge();
+                }
+                Ok(())
             }
         }
     }
@@ -109,8 +132,8 @@ impl StreamReactor {
                 let segment = ScopedSegment::from(&*cmd.segment);
                 if let Some(inflight) = selector.refresh_segment_event_writers_upon_sealed(&segment).await {
                     selector.resend(inflight).await;
-                    if let Some(writer) = selector.remove_segment_event_writer(&segment) {
-                        writer.close();
+                    if let Some(mut writer) = selector.remove_segment_event_writer(&segment) {
+                        writer.send_write_half_to_merge();
                     }
                     Ok(())
                 } else {
@@ -126,8 +149,8 @@ impl StreamReactor {
                 let segment = ScopedSegment::from(&*cmd.segment);
                 if let Some(inflight) = selector.refresh_segment_event_writers_upon_sealed(&segment).await {
                     selector.resend(inflight).await;
-                    if let Some(writer) = selector.remove_segment_event_writer(&segment) {
-                        writer.close();
+                    if let Some(mut writer) = selector.remove_segment_event_writer(&segment) {
+                        writer.send_write_half_to_merge();
                     }
                     Ok(())
                 } else {
@@ -183,6 +206,7 @@ impl SegmentReactor {
             .await
             .is_ok()
         {}
+        info!("Segment reactor is closed");
     }
 
     async fn run_once(
@@ -209,14 +233,20 @@ impl SegmentReactor {
                     Ok(())
                 }
             }
-            Incoming::CloseSegmentWriter(connection) => {
-                let endpoint = connection.get_endpoint();
+            Incoming::CloseSegmentWriter(info) => {
+                let endpoint = info.conn.get_endpoint();
                 let pool = factory.get_connection_pool();
-                pool.add_connection(endpoint, connection);
+                pool.add_connection(endpoint, info.conn);
                 info!(
                     "segment writer {:?} is closed, put connection back to pool",
-                    writer.get_id()
+                    info.id
                 );
+                // this Err return is to break the caller's event loop
+                Err("close segment reactor")
+            }
+
+            Incoming::CloseReactor => {
+                writer.send_write_half_to_merge();
                 Ok(())
             }
         }
@@ -301,6 +331,8 @@ mod test {
     use tokio::sync::mpsc;
     use tokio::sync::oneshot;
 
+    type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
+
     #[test]
     fn test_segment_reactor_happy_run() {
         let mut rt = tokio::runtime::Runtime::new().unwrap();
@@ -324,7 +356,7 @@ mod test {
         let result = rt.block_on(segment_writer.setup_connection(&factory));
         assert!(result.is_ok());
 
-        // write data and check reactor response
+        // write data once and check reactor's response
         rt.block_on(write_once(&mut segment_writer, 512));
         let result = rt.block_on(SegmentReactor::run_once(
             &mut segment_writer,
@@ -332,6 +364,17 @@ mod test {
             &factory,
         ));
         assert!(result.is_ok());
+        assert_eq!(segment_writer.pending_append_num(), 0);
+        assert_eq!(segment_writer.inflight_append_num(), 0);
+
+        // shut down reactor
+        segment_writer.send_write_half_to_merge();
+        let result = rt.block_on(SegmentReactor::run_once(
+            &mut segment_writer,
+            &mut receiver,
+            &factory,
+        ));
+        assert!(result.is_err());
     }
 
     async fn write_once(
@@ -343,5 +386,12 @@ mod test {
             .expect("create pending event");
         writer.write(event).await.expect("write data");
         oneshot_receiver
+    }
+
+    fn create_event(size: usize) -> (PendingEvent, EventHandle) {
+        let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
+        let event = PendingEvent::new(Some("routing_key".into()), vec![1; size], oneshot_sender)
+            .expect("create pending event");
+        (event, oneshot_receiver)
     }
 }

@@ -20,6 +20,8 @@ use crate::reactor::event::{Incoming, PendingEvent};
 use tracing::info_span;
 use tracing_futures::Instrument;
 
+type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
+
 /// EventStreamWriter contains a writer id and a mpsc sender which is used to send Event
 /// to the StreamWriter
 pub struct EventStreamWriter {
@@ -45,7 +47,7 @@ impl EventStreamWriter {
         }
     }
 
-    pub async fn write_event(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
+    pub async fn write_event(&mut self, event: Vec<u8>) -> EventHandle {
         let (tx, rx) = oneshot::channel();
         if let Some(pending_event) = PendingEvent::with_header(None, event, tx) {
             let append_event = Incoming::AppendEvent(pending_event);
@@ -55,11 +57,7 @@ impl EventStreamWriter {
         }
     }
 
-    pub async fn write_event_by_routing_key(
-        &mut self,
-        routing_key: String,
-        event: Vec<u8>,
-    ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
+    pub async fn write_event_by_routing_key(&mut self, routing_key: String, event: Vec<u8>) -> EventHandle {
         let (tx, rx) = oneshot::channel();
         if let Some(pending_event) = PendingEvent::with_header(Some(routing_key), event, tx) {
             let append_event = Incoming::AppendEvent(pending_event);
@@ -69,11 +67,7 @@ impl EventStreamWriter {
         }
     }
 
-    async fn writer_event_internal(
-        &mut self,
-        append_event: Incoming,
-        rx: oneshot::Receiver<Result<(), SegmentWriterError>>,
-    ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
+    async fn writer_event_internal(&mut self, append_event: Incoming, rx: EventHandle) -> EventHandle {
         if let Err(_e) = self.sender.send(append_event).await {
             let (tx_error, rx_error) = oneshot::channel();
             tx_error
