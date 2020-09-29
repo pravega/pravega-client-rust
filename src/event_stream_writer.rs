@@ -17,7 +17,8 @@ use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::get_random_u128;
 use crate::reactor::event::{Incoming, PendingEvent};
-use tracing::info_span;
+use tokio::runtime::Handle;
+use tracing::{info, info_span};
 use tracing_futures::Instrument;
 
 type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
@@ -27,6 +28,7 @@ type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 pub struct EventStreamWriter {
     writer_id: WriterId,
     sender: Sender<Incoming>,
+    runtime_handle: Handle,
 }
 
 impl EventStreamWriter {
@@ -44,6 +46,7 @@ impl EventStreamWriter {
         EventStreamWriter {
             writer_id,
             sender: tx,
+            runtime_handle: handle,
         }
     }
 
@@ -77,6 +80,14 @@ impl EventStreamWriter {
         } else {
             rx
         }
+    }
+}
+
+impl Drop for EventStreamWriter {
+    fn drop(&mut self) {
+        self.runtime_handle
+            .block_on(self.sender.send(Incoming::CloseReactor))
+            .unwrap_or_else(|e| info!("cannot send close signal to stream reactor due to: {:?}", e));
     }
 }
 

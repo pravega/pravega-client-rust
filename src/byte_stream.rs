@@ -26,7 +26,7 @@ use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;
-use tracing::info_span;
+use tracing::{info, info_span};
 use tracing_futures::Instrument;
 use uuid::Uuid;
 
@@ -230,7 +230,7 @@ impl Drop for ByteStreamWriter {
     fn drop(&mut self) {
         self.runtime_handle
             .block_on(self.sender.send(Incoming::CloseReactor))
-            .expect("send close signal");
+            .unwrap_or_else(|e| info!("cannot send close signal to segment reactor due to: {:?}", e));
     }
 }
 

@@ -22,14 +22,15 @@ pub(crate) enum Incoming {
     AppendEvent(PendingEvent),
     ServerReply(ServerReply),
     CloseReactor,
-    CloseSegmentWriter(SegmentWriterInfo),
+    CloseSegmentWriter(CloseSegmentWriterInfo),
 }
 
 #[derive(Debug)]
-pub(crate) struct SegmentWriterInfo {
+pub(crate) struct CloseSegmentWriterInfo {
     pub(crate) id: WriterId,
     pub(crate) segment: ScopedSegment,
     pub(crate) conn: Box<dyn Connection>,
+    pub(crate) close_reactor: bool,
 }
 
 #[derive(new, Debug)]

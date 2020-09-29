@@ -175,6 +175,25 @@ impl From<&ScopedSegment> for ScopedStream {
     }
 }
 
+impl From<&str> for ScopedStream {
+    fn from(string: &str) -> Self {
+        let mut buf = string.split('/').collect::<Vec<&str>>();
+        while buf.len() != 2 {
+            buf.pop().expect("get rid of extra encoded info");
+        }
+        let stream = buf.pop().expect("get scope from split string");
+        let scope = buf.pop().expect("get stream from split string");
+        ScopedStream {
+            scope: Scope {
+                name: scope.to_string(),
+            },
+            stream: Stream {
+                name: stream.to_string(),
+            },
+        }
+    }
+}
+
 #[derive(new, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScopedSegment {
     pub scope: Scope,
@@ -646,5 +665,26 @@ mod test {
         assert_eq!(uri.domain_name(), "localhost".to_string());
         assert_eq!(uri.port(), 9090);
         assert_eq!(uri.to_socket_addr(), socket_addr);
+    }
+
+    #[test]
+    fn test_scoped_stream() {
+        let expected = ScopedStream {
+            scope: Scope {
+                name: "scope".to_string(),
+            },
+            stream: Stream {
+                name: "stream".to_string(),
+            },
+        };
+
+        let derived = ScopedStream::from("scope/stream");
+        assert_eq!(expected, derived);
+
+        let derived = ScopedStream::from("scope/stream/");
+        assert_eq!(expected, derived);
+
+        let derived = ScopedStream::from("scope/stream/0");
+        assert_eq!(expected, derived);
     }
 }

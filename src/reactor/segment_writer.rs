@@ -28,49 +28,50 @@ use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::metric::ClientMetrics;
 use crate::raw_client::RawClient;
-use crate::reactor::event::{Incoming, PendingEvent, SegmentWriterInfo, ServerReply};
+use crate::reactor::event::{CloseSegmentWriterInfo, Incoming, PendingEvent, ServerReply};
 use pravega_rust_client_auth::DelegationTokenProvider;
 use std::fmt;
 use std::sync::Arc;
 use tracing_futures::Instrument;
 
 pub(crate) struct SegmentWriter {
-    /// Unique id for each EventSegmentWriter
+    /// Unique id for each EventSegmentWriter.
     pub(crate) id: WriterId,
 
-    /// The segment that this writer is writing to, it does not change for a EventSegmentWriter instance
+    /// The segment that this writer is writing to, it does not change for a EventSegmentWriter instance.
     pub(crate) segment: ScopedSegment,
 
-    /// Client connection that writes to the segmentstore
+    /// Client connection that writes to the segmentstore.
     connection: Option<ClientConnectionWriteHalf>,
 
-    /// Events that are sent but yet acknowledged
+    /// Events that are sent but unacknowledged.
     inflight: VecDeque<Append>,
 
-    /// Events that are waiting to be sent
+    /// Events that are waiting to be sent.
     pending: VecDeque<Append>,
 
-    /// Incremental event id
+    /// Incremental event id.
     event_num: i64,
 
-    /// The sender that sends back reply to processor
+    /// The sender that sends back reply to reactor for processing.
     sender: Sender<Incoming>,
 
-    /// The client retry policy
+    /// The client retry policy.
     retry_policy: RetryWithBackoff,
 
-    /// Delegation token provider used to authenticate client when communicating with segmentstore
+    /// Delegation token provider used to authenticate client when communicating with segmentstore.
     delegation_token_provider: Arc<DelegationTokenProvider>,
 
     /// Use this handle to close the connection listener when segment writer is dropped or closed.
     /// It can send a signal to the connection listener and let it send back the read half connection
     /// so that the connection can be added back to the connection pool.
-    connection_listener_handle: Option<oneshot::Sender<ClientConnectionWriteHalf>>,
+    connection_listener_handle: Option<oneshot::Sender<WriteHalfConnectionWrapper>>,
 }
 
 impl SegmentWriter {
-    /// maximum data size in one append block
+    /// Maximum data size in one append block.
     const MAX_WRITE_SIZE: i32 = 8 * 1024 * 1024 + 8;
+    /// Maximum event number in one append block.
     const MAX_EVENTS: i32 = 500;
 
     pub(crate) fn new(
@@ -101,11 +102,29 @@ impl SegmentWriter {
         self.inflight.len()
     }
 
+    /// Sends a SetupAppend wirecommand to segmentstore. Upon completing setup, it
+    /// spins up a listener task that listens to the reply from segmentstore and sends that reply
+    /// to the reactor for processing.
     pub(crate) async fn setup_connection(
         &mut self,
         factory: &ClientFactory,
     ) -> Result<(), SegmentWriterError> {
         let span = info_span!("setup connection", segment_writer= %self.id, segment= %self.segment, host = field::Empty);
+        if self.connection.is_some() {
+            // close the previous listener task
+            let write_half = self.connection.take().expect("get write half");
+            let handle = self
+                .connection_listener_handle
+                .take()
+                .expect("get listener handle");
+            handle
+                .send(WriteHalfConnectionWrapper {
+                    write_half,
+                    close_reactor: false,
+                })
+                .unwrap_or_else(|e| warn!("failed to clean up previous listener task due to {:?}", e));
+        }
+
         // span.enter doesn't work for async code https://docs.rs/tracing/0.1.17/tracing/span/struct.Span.html#in-asynchronous-code
         async {
             info!("setting up connection for segment writer");
@@ -180,26 +199,33 @@ impl SegmentWriter {
                 let mut oneshot = oneshot_receiver;
                 loop {
                     tokio::select! {
-                        option = &mut oneshot => {
-                            if let Ok(writer) = option {
-                                let connection = r.unsplit(writer);
-                                let info = SegmentWriterInfo {
-                                    id,
-                                    segment: segment.clone(),
-                                    conn: connection
-                                };
-                                let result = sender
-                                    .send(Incoming::CloseSegmentWriter(info))
-                                    .await;
+                         result = &mut oneshot => {
+                             match result {
+                                Ok(wrapper) => {
+                                    let close_reactor = wrapper.close_reactor;
+                                    let connection = r.unsplit(wrapper.write_half);
+                                    let info = CloseSegmentWriterInfo {
+                                        id,
+                                        segment: segment.clone(),
+                                        conn: connection,
+                                        close_reactor,
+                                    };
+                                    let result = sender
+                                        .send(Incoming::CloseSegmentWriter(info))
+                                        .await;
 
-                                if let Err(e) = result {
-                                    error!("failed to send read half back to processor due to {:?}",e);
+                                    if let Err(e) = result {
+                                        error!("failed to send read half back to processor due to {:?}",e);
+                                    }
                                 }
-                            }
-                            return;
-                        }
-                        option = r.read() => {
-                            let reply = match option {
+                                Err(e) => {
+                                    error!("handle has dropped {:?}, closing the listener task", e);
+                                }
+                             }
+                             return;
+                         }
+                        result = r.read() => {
+                            let reply = match result {
                                 Ok(reply) => reply,
                                 Err(e) => {
                                     warn!("connection failed to read data back from segmentstore due to {:?}, closing the listener task", e);
@@ -227,14 +253,14 @@ impl SegmentWriter {
         }.instrument(span).await
     }
 
-    /// first add the event to the pending list
-    /// then write the pending list if the inflight list is empty
+    /// Adds the event to the pending list
+    /// then writes the pending list if the inflight list is empty.
     pub(crate) async fn write(&mut self, event: PendingEvent) -> Result<(), SegmentWriterError> {
         self.add_pending(event);
         self.write_pending_events().await
     }
 
-    /// add the event to the pending list
+    /// Adds the event to the pending list
     pub(crate) fn add_pending(&mut self, event: PendingEvent) {
         self.event_num += 1;
         self.pending.push_back(Append {
@@ -243,7 +269,7 @@ impl SegmentWriter {
         });
     }
 
-    /// write the pending events to the server. It will grab at most MAX_WRITE_SIZE of data
+    /// Writes the pending events to the server. It will grab at most MAX_WRITE_SIZE of data
     /// from the pending list and send them to the server. Those events will be moved to inflight list waiting to be acked.
     pub(crate) async fn write_pending_events(&mut self) -> Result<(), SegmentWriterError> {
         if !self.inflight.is_empty() || self.pending.is_empty() {
@@ -304,7 +330,7 @@ impl SegmentWriter {
         Ok(())
     }
 
-    /// ack inflight events. It will send the reply from server back to the caller using oneshot.
+    /// Acks inflight events. It will send the reply from server back to the caller using oneshot.
     pub(crate) fn ack(&mut self, event_id: i64) {
         // no events need to ack
         if self.inflight.is_empty() {
@@ -339,7 +365,7 @@ impl SegmentWriter {
         }
     }
 
-    /// get the unacked events. Notice that it will pass the ownership
+    /// Gets the unacked events. Notice that it will pass the ownership
     /// of the unacked events to the caller, which means this method can only be called once.
     pub(crate) fn get_unacked_events(&mut self) -> Vec<PendingEvent> {
         let mut ret = vec![];
@@ -352,6 +378,14 @@ impl SegmentWriter {
         ret
     }
 
+    /// Reconnect will not exist until this writer has been successfully connected to the right host.
+    ///
+    /// It does the following steps:
+    /// 1. sets up a new connection
+    /// 2. puts inflight events back to the pending list
+    /// 3. writes pending data to the server
+    ///
+    /// If error occurs during any one of the steps above, redo the reconnect from step 1.
     pub(crate) async fn reconnect(&mut self, factory: &ClientFactory) {
         loop {
             debug!("Reconnecting event segment writer {:?}", self.id);
@@ -380,14 +414,21 @@ impl SegmentWriter {
         self.connection.take()
     }
 
-    pub(crate) fn send_write_half_to_merge(&mut self) {
+    /// Sends the write half to the listener to merge the read&write half.
+    /// If no write_half exists for this segment writer, then reactor can be closed instantly.
+    pub(crate) fn try_close(&mut self) -> bool {
         if let Some(handle) = self.connection_listener_handle.take() {
             if let Some(writer) = self.connection.take() {
                 handle
-                    .send(writer)
+                    .send(WriteHalfConnectionWrapper {
+                        write_half: writer,
+                        close_reactor: true,
+                    })
                     .expect("failed to retrieve connection in Segment Writer");
+                return false;
             }
         }
+        true
     }
 }
 
@@ -419,6 +460,13 @@ impl fmt::Debug for SegmentWriter {
 struct Append {
     event_id: i64,
     event: PendingEvent,
+}
+
+#[derive(Debug)]
+struct WriteHalfConnectionWrapper {
+    write_half: ClientConnectionWriteHalf,
+    // whether to close the reactor after merging the write half and read half
+    close_reactor: bool,
 }
 
 #[cfg(test)]
@@ -491,7 +539,7 @@ mod test {
         assert!(segment_writer.connection.is_some());
         let id = segment_writer.connection.as_ref().unwrap().get_id();
         assert!(segment_writer.connection_listener_handle.is_some());
-        segment_writer.send_write_half_to_merge();
+        segment_writer.try_close();
         let reply = rt
             .block_on(receiver.recv())
             .expect("receive unsplit connection from segment writer");

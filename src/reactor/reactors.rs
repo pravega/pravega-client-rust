@@ -57,8 +57,7 @@ impl StreamReactor {
         let event = receiver.recv().await.expect("sender closed, processor exit");
         match event {
             Incoming::AppendEvent(pending_event) => {
-                let segment = selector.get_segment_for_event(&pending_event.routing_key);
-                let event_segment_writer = selector.writers.get_mut(&segment).expect("must have writer");
+                let event_segment_writer = selector.get_segment_writer(&pending_event.routing_key);
 
                 if let Err(e) = event_segment_writer.write(pending_event).await {
                     warn!("failed to write append to segment due to {:?}, reconnecting", e);
@@ -81,17 +80,23 @@ impl StreamReactor {
                 pool.add_connection(endpoint, info.conn);
                 info!("segment writer is closed, put connection back to pool");
                 selector.remove_segment_event_writer(&info.segment);
-                if selector.writers.is_empty() {
+                if selector.writers.is_empty() && info.close_reactor {
                     Err("stream reactor is closed")
                 } else {
                     Ok(())
                 }
             }
             Incoming::CloseReactor => {
+                let mut close = true;
                 for v in selector.writers.values_mut() {
-                    v.send_write_half_to_merge();
+                    close &= v.try_close();
                 }
-                Ok(())
+
+                if close {
+                    Err("stream reactor is closed")
+                } else {
+                    Ok(())
+                }
             }
         }
     }
@@ -133,7 +138,7 @@ impl StreamReactor {
                 if let Some(inflight) = selector.refresh_segment_event_writers_upon_sealed(&segment).await {
                     selector.resend(inflight).await;
                     if let Some(mut writer) = selector.remove_segment_event_writer(&segment) {
-                        writer.send_write_half_to_merge();
+                        writer.try_close();
                     }
                     Ok(())
                 } else {
@@ -150,7 +155,7 @@ impl StreamReactor {
                 if let Some(inflight) = selector.refresh_segment_event_writers_upon_sealed(&segment).await {
                     selector.resend(inflight).await;
                     if let Some(mut writer) = selector.remove_segment_event_writer(&segment) {
-                        writer.send_write_half_to_merge();
+                        writer.try_close();
                     }
                     Ok(())
                 } else {
@@ -225,7 +230,6 @@ impl SegmentReactor {
             }
             Incoming::ServerReply(server_reply) => {
                 if let Err(e) = SegmentReactor::process_server_reply(server_reply, writer, factory).await {
-                    receiver.close();
                     // can't use map_err since async closure issue
                     drain_recevier(receiver, e.to_owned()).await;
                     Err(e)
@@ -241,13 +245,21 @@ impl SegmentReactor {
                     "segment writer {:?} is closed, put connection back to pool",
                     info.id
                 );
-                // this Err return is to break the caller's event loop
-                Err("close segment reactor")
+                if info.close_reactor {
+                    // this Err return is to break the caller's event loop
+                    Err("close segment reactor")
+                } else {
+                    Ok(())
+                }
             }
 
             Incoming::CloseReactor => {
-                writer.send_write_half_to_merge();
-                Ok(())
+                if writer.try_close() {
+                    // this Err return is to break the caller's event loop
+                    Err("close segment reactor")
+                } else {
+                    Ok(())
+                }
             }
         }
     }
@@ -275,7 +287,7 @@ impl SegmentReactor {
             }
 
             Replies::SegmentIsSealed(cmd) => {
-                warn!(
+                debug!(
                     "segment {:?} sealed: stack trace {}",
                     cmd.segment, cmd.server_stack_trace
                 );
@@ -284,7 +296,7 @@ impl SegmentReactor {
 
             // same handling logic as segment sealed reply
             Replies::NoSuchSegment(cmd) => {
-                warn!(
+                debug!(
                     "no such segment {:?} due to segment truncation: stack trace {}",
                     cmd.segment, cmd.server_stack_trace
                 );
@@ -292,7 +304,7 @@ impl SegmentReactor {
             }
 
             Replies::WrongHost(cmd) => {
-                warn!(
+                debug!(
                     "wrong host {:?} : stack trace {}",
                     cmd.segment, cmd.server_stack_trace
                 );
@@ -313,6 +325,7 @@ impl SegmentReactor {
 }
 
 async fn drain_recevier(receiver: &mut Receiver<Incoming>, msg: String) {
+    receiver.close();
     while let Some(remaining) = receiver.recv().await {
         if let Incoming::AppendEvent(event) = remaining {
             let err = Err(SegmentWriterError::ReactorClosed { msg: msg.clone() });
@@ -334,29 +347,66 @@ mod test {
     type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 
     #[test]
+    fn test_stream_reactor_happy_run() {
+        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let (mut selector, mut receiver, factory) = rt.block_on(create_segment_selector(MockType::Happy));
+
+        // initialize segment selector
+        rt.block_on(selector.initialize());
+        assert_eq!(selector.writers.len(), 1);
+
+        // write data once and reactor should ack
+        rt.block_on(write_once_for_selector(&mut selector, 512));
+        let result = rt.block_on(StreamReactor::run_once(&mut selector, &mut receiver, &factory));
+        assert!(result.is_ok());
+
+        let close = selector.try_close();
+        assert_eq!(close, false);
+        let result = rt.block_on(StreamReactor::run_once(&mut selector, &mut receiver, &factory));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_stream_reactor_wrong_host() {
+        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let (mut selector, mut receiver, factory) = rt.block_on(create_segment_selector(MockType::WrongHost));
+
+        // initialize segment selector
+        rt.block_on(selector.initialize());
+        assert_eq!(selector.writers.len(), 1);
+
+        // write data once, should get wrong host reply and writer should retry
+        rt.block_on(write_once_for_selector(&mut selector, 512));
+        let result = rt.block_on(StreamReactor::run_once(&mut selector, &mut receiver, &factory));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_stream_reactor_segment_is_sealed() {
+        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let (mut selector, mut receiver, factory) =
+            rt.block_on(create_segment_selector(MockType::SegmentSealed));
+
+        // initialize segment selector
+        rt.block_on(selector.initialize());
+        assert_eq!(selector.writers.len(), 1);
+
+        // write data once, should get segment sealed and reactor exists
+        rt.block_on(write_once_for_selector(&mut selector, 512));
+        let result = rt.block_on(StreamReactor::run_once(&mut selector, &mut receiver, &factory));
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn test_segment_reactor_happy_run() {
         let mut rt = tokio::runtime::Runtime::new().unwrap();
-        let segment = ScopedSegment::from("testScope/testStream/0");
-        let config = ClientConfigBuilder::default()
-            .connection_type(ConnectionType::Mock(MockType::Happy))
-            .controller_uri(PravegaNodeUri::from("127.0.0.1:9091".to_string()))
-            .mock(true)
-            .build()
-            .unwrap();
-        let factory = ClientFactory::new(config);
-        let (sender, mut receiver) = mpsc::channel(10);
-        let delegation_token_provider = DelegationTokenProvider::new(ScopedStream::from(&segment));
-        let mut segment_writer = SegmentWriter::new(
-            segment,
-            sender,
-            factory.get_config().retry_policy,
-            Arc::new(delegation_token_provider),
-        );
+        let (mut segment_writer, mut receiver, factory) = create_segment_writer(MockType::Happy);
+
         // set up connection
         let result = rt.block_on(segment_writer.setup_connection(&factory));
         assert!(result.is_ok());
 
-        // write data once and check reactor's response
+        // write data once and reactor should ack
         rt.block_on(write_once(&mut segment_writer, 512));
         let result = rt.block_on(SegmentReactor::run_once(
             &mut segment_writer,
@@ -368,13 +418,138 @@ mod test {
         assert_eq!(segment_writer.inflight_append_num(), 0);
 
         // shut down reactor
-        segment_writer.send_write_half_to_merge();
+        let close = segment_writer.try_close();
+        assert_eq!(close, false);
         let result = rt.block_on(SegmentReactor::run_once(
             &mut segment_writer,
             &mut receiver,
             &factory,
         ));
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_segment_reactor_wrong_host() {
+        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let (mut segment_writer, mut receiver, factory) = create_segment_writer(MockType::WrongHost);
+
+        // set up connection
+        let result = rt.block_on(segment_writer.setup_connection(&factory));
+        assert!(result.is_ok());
+
+        // write data once, should get wrong host reply and writer should retry
+        rt.block_on(write_once(&mut segment_writer, 512));
+        let result = rt.block_on(SegmentReactor::run_once(
+            &mut segment_writer,
+            &mut receiver,
+            &factory,
+        ));
+        assert!(result.is_ok());
+        assert_eq!(segment_writer.pending_append_num(), 0);
+        assert_eq!(segment_writer.inflight_append_num(), 1);
+    }
+
+    #[test]
+    fn test_segment_reactor_segment_is_sealed() {
+        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let (mut segment_writer, mut receiver, factory) = create_segment_writer(MockType::SegmentSealed);
+
+        // set up connection
+        let result = rt.block_on(segment_writer.setup_connection(&factory));
+        assert!(result.is_ok());
+
+        // write data once, should get segment sealed reply and returns error
+        rt.block_on(write_once(&mut segment_writer, 512));
+        let result = rt.block_on(SegmentReactor::run_once(
+            &mut segment_writer,
+            &mut receiver,
+            &factory,
+        ));
+        assert!(result.is_err());
+    }
+
+    // helper function section
+    async fn create_segment_selector(mock: MockType) -> (SegmentSelector, Receiver<Incoming>, ClientFactory) {
+        let stream = ScopedStream::from("testScope/testStream");
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(mock))
+            .controller_uri(PravegaNodeUri::from("127.0.0.1:9091".to_string()))
+            .mock(true)
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        factory
+            .get_controller_client()
+            .create_scope(&Scope {
+                name: "testScope".to_string(),
+            })
+            .await
+            .unwrap();
+        factory
+            .get_controller_client()
+            .create_stream(&StreamConfiguration {
+                scoped_stream: stream.clone(),
+                scaling: Scaling {
+                    scale_type: ScaleType::FixedNumSegments,
+                    target_rate: 1,
+                    scale_factor: 1,
+                    min_num_segments: 1,
+                },
+                retention: Retention {
+                    retention_type: RetentionType::None,
+                    retention_param: 0,
+                },
+            })
+            .await
+            .unwrap();
+        let (sender, receiver) = mpsc::channel(10);
+        let delegation_token_provider = DelegationTokenProvider::new(stream.clone());
+        (
+            SegmentSelector::new(
+                stream,
+                sender,
+                factory.get_config().to_owned(),
+                factory.clone(),
+                Arc::new(delegation_token_provider),
+            ),
+            receiver,
+            factory,
+        )
+    }
+
+    fn create_segment_writer(mock: MockType) -> (SegmentWriter, Receiver<Incoming>, ClientFactory) {
+        let segment = ScopedSegment::from("testScope/testStream/0");
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(mock))
+            .controller_uri(PravegaNodeUri::from("127.0.0.1:9091".to_string()))
+            .mock(true)
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        let (sender, receiver) = mpsc::channel(10);
+        let delegation_token_provider = DelegationTokenProvider::new(ScopedStream::from(&segment));
+        (
+            SegmentWriter::new(
+                segment,
+                sender,
+                factory.get_config().retry_policy,
+                Arc::new(delegation_token_provider),
+            ),
+            receiver,
+            factory,
+        )
+    }
+
+    async fn write_once_for_selector(
+        selector: &mut SegmentSelector,
+        size: usize,
+    ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
+        let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
+        let event = PendingEvent::new(Some("routing_key".into()), vec![1; size], oneshot_sender)
+            .expect("create pending event");
+        let writer = selector.get_segment_writer(&event.routing_key);
+        writer.write(event).await.expect("write data");
+        oneshot_receiver
     }
 
     async fn write_once(

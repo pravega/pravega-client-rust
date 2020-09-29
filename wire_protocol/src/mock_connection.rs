@@ -9,7 +9,10 @@
 //
 
 extern crate byteorder;
-use crate::commands::{AppendSetupCommand, DataAppendedCommand, SegmentSealedCommand, WrongHostCommand};
+use crate::commands::{
+    AppendSetupCommand, DataAppendedCommand, SegmentIsSealedCommand, SegmentIsTruncatedCommand,
+    WrongHostCommand,
+};
 use crate::connection::{Connection, ConnectionReadHalf, ConnectionWriteHalf};
 use crate::error::*;
 use crate::wire_commands::{Decode, Encode, Replies, Requests};
@@ -234,9 +237,11 @@ async fn send_sealed(sender: &mut UnboundedSender<Replies>, payload: &[u8]) -> R
             sender.send(reply).expect("send reply");
         }
         Requests::AppendBlockEnd(cmd) => {
-            let reply = Replies::SegmentSealed(SegmentSealedCommand {
+            let reply = Replies::SegmentIsSealed(SegmentIsSealedCommand {
                 request_id: cmd.request_id,
                 segment: "".to_string(),
+                server_stack_trace: "".to_string(),
+                offset: 0,
             });
             sender.send(reply).expect("send reply");
         }
@@ -267,9 +272,12 @@ async fn send_truncated(
             sender.send(reply).expect("send reply");
         }
         Requests::AppendBlockEnd(cmd) => {
-            let reply = Replies::SegmentSealed(SegmentSealedCommand {
+            let reply = Replies::SegmentIsTruncated(SegmentIsTruncatedCommand {
                 request_id: cmd.request_id,
                 segment: "".to_string(),
+                start_offset: 0,
+                server_stack_trace: "".to_string(),
+                offset: 0,
             });
             sender.send(reply).expect("send reply");
         }
