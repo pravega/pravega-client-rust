@@ -125,6 +125,30 @@ impl ReaderMeta {
     }
 
     //
+    // Remove segment slice from reader meta and return it.
+    // If the reader does not have the segment slice it waits for the segment slice which is out
+    // for consumption.
+    //
+    async fn remove_segment(&mut self, segment: String) -> SliceMetadata {
+        match self.slices.remove(&segment) {
+            Some(meta) => {
+                debug!(
+                    "Segment slice {:?} has not been dished out for consumption",
+                    &segment
+                );
+                meta
+            }
+            None => {
+                debug!(
+                    "Segment slice for {:?} has already been dished out for consumption",
+                    &segment
+                );
+                self.wait_for_segment_slice_return(&segment).await
+            }
+        }
+    }
+
+    //
     // Add Segment Slices to Reader meta data.
     //
     fn add_slices(&mut self, meta: SliceMetadata) {
@@ -340,22 +364,7 @@ impl EventReader {
                         ScopedSegment::from(data.segment.as_str()).get_scoped_stream(),
                         "Received data from a different segment"
                     );
-                    let mut slice_meta = match self.meta.slices.remove(&data.segment) {
-                        Some(meta) => {
-                            debug!(
-                                "Segment slice for {:?} has not been dished out for consumption",
-                                &data.segment
-                            );
-                            meta
-                        }
-                        None => {
-                            debug!(
-                                "Segment slice for {:?} has already been dished out for consumption",
-                                &data.segment
-                            );
-                            self.meta.wait_for_segment_slice_return(&data.segment).await
-                        }
-                    };
+                    let mut slice_meta = self.meta.remove_segment(data.segment.clone()).await;
                     // add received data to Segment slice.
                     EventReader::add_data_to_segment_slice(data, &mut slice_meta);
 
@@ -375,18 +384,9 @@ impl EventReader {
                 }
                 Err(e) => {
                     let segment = e.get_segment();
-
+                    debug!("Reader Error observed {:?} on segment {:?}", e, segment);
                     // Remove the slice from the reader meta and fetch successors.
-                    let slice_meta = match self.meta.slices.remove(&segment) {
-                        Some(meta) => {
-                            debug!("Segment slice {:?} has not been dished out for consumption and it observed {:?} ", meta, e);
-                            meta
-                        }
-                        None => {
-                            // Segment slice already dished out for consumption. Wait for return.
-                            self.meta.wait_for_segment_slice_return(&segment).await
-                        }
-                    };
+                    let slice_meta = self.meta.remove_segment(segment.clone()).await;
 
                     info!("Segment slice {:?} has received error {:?}", slice_meta, e);
                     self.fetch_successors(e).await;
