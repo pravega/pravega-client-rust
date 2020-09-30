@@ -103,8 +103,6 @@ impl ReaderMeta {
 
     //
     // Wait until the user application returns the Segment Slice.
-    // Note: SegmentSlices automatically returns a slice when the user
-    // has read all Events present on the SegmentSlice.
     //
     async fn wait_for_segment_slice_return(&mut self, segment: &str) -> SliceMetadata {
         if let Some(receiver) = self.slice_release_receiver.remove(segment) {
