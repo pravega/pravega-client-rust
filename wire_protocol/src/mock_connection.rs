@@ -55,8 +55,10 @@ impl Connection for MockConnection {
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
         match self.mock_type {
             MockType::Happy => send_happy(self.sender.as_mut().expect("get sender"), payload).await,
-            MockType::SegmentSealed => send_sealed(self.sender.as_mut().expect("get sender"), payload).await,
-            MockType::SegmentTruncated => {
+            MockType::SegmentIsSealed => {
+                send_sealed(self.sender.as_mut().expect("get sender"), payload).await
+            }
+            MockType::SegmentIsTruncated => {
                 send_truncated(self.sender.as_mut().expect("get sender"), payload).await
             }
             MockType::WrongHost => send_wrong_host(self.sender.as_mut().expect("get sender"), payload).await,
@@ -176,8 +178,8 @@ impl ConnectionWriteHalf for MockWritingConnection {
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
         match self.mock_type {
             MockType::Happy => send_happy(&mut self.sender, payload).await,
-            MockType::SegmentSealed => send_sealed(&mut self.sender, payload).await,
-            MockType::SegmentTruncated => send_truncated(&mut self.sender, payload).await,
+            MockType::SegmentIsSealed => send_sealed(&mut self.sender, payload).await,
+            MockType::SegmentIsTruncated => send_truncated(&mut self.sender, payload).await,
             MockType::WrongHost => send_wrong_host(&mut self.sender, payload).await,
         }
     }
@@ -239,7 +241,7 @@ async fn send_sealed(sender: &mut UnboundedSender<Replies>, payload: &[u8]) -> R
         Requests::AppendBlockEnd(cmd) => {
             let reply = Replies::SegmentIsSealed(SegmentIsSealedCommand {
                 request_id: cmd.request_id,
-                segment: "".to_string(),
+                segment: "scope/stream/0".to_string(),
                 server_stack_trace: "".to_string(),
                 offset: 0,
             });

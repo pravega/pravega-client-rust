@@ -335,13 +335,12 @@ async fn drain_recevier(receiver: &mut Receiver<Incoming>, msg: String) {
 }
 
 #[cfg(test)]
-mod test {
+pub(crate) mod test {
     use super::*;
     use crate::reactor::event::PendingEvent;
-    use pravega_rust_client_auth::DelegationTokenProvider;
-    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
-    use pravega_rust_client_config::ClientConfigBuilder;
-    use tokio::sync::mpsc;
+    use crate::reactor::segment_selector::test::create_segment_selector;
+    use crate::reactor::segment_writer::test::create_segment_writer;
+    use pravega_rust_client_config::connection_type::MockType;
     use tokio::sync::oneshot;
 
     type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
@@ -382,16 +381,16 @@ mod test {
     }
 
     #[test]
-    fn test_stream_reactor_segment_is_sealed() {
+    fn test_stream_reactor_stream_is_sealed() {
         let mut rt = tokio::runtime::Runtime::new().unwrap();
         let (mut selector, mut receiver, factory) =
-            rt.block_on(create_segment_selector(MockType::SegmentSealed));
+            rt.block_on(create_segment_selector(MockType::SegmentIsSealed));
 
         // initialize segment selector
         rt.block_on(selector.initialize());
         assert_eq!(selector.writers.len(), 1);
 
-        // write data once, should get segment sealed and reactor exists
+        // write data once, should get segment sealed and reactor will fetch successors to continue
         rt.block_on(write_once_for_selector(&mut selector, 512));
         let result = rt.block_on(StreamReactor::run_once(&mut selector, &mut receiver, &factory));
         assert!(result.is_err());
@@ -452,7 +451,7 @@ mod test {
     #[test]
     fn test_segment_reactor_segment_is_sealed() {
         let mut rt = tokio::runtime::Runtime::new().unwrap();
-        let (mut segment_writer, mut receiver, factory) = create_segment_writer(MockType::SegmentSealed);
+        let (mut segment_writer, mut receiver, factory) = create_segment_writer(MockType::SegmentIsSealed);
 
         // set up connection
         let result = rt.block_on(segment_writer.setup_connection(&factory));
@@ -469,77 +468,6 @@ mod test {
     }
 
     // helper function section
-    async fn create_segment_selector(mock: MockType) -> (SegmentSelector, Receiver<Incoming>, ClientFactory) {
-        let stream = ScopedStream::from("testScope/testStream");
-        let config = ClientConfigBuilder::default()
-            .connection_type(ConnectionType::Mock(mock))
-            .controller_uri(PravegaNodeUri::from("127.0.0.1:9091".to_string()))
-            .mock(true)
-            .build()
-            .unwrap();
-        let factory = ClientFactory::new(config);
-        factory
-            .get_controller_client()
-            .create_scope(&Scope {
-                name: "testScope".to_string(),
-            })
-            .await
-            .unwrap();
-        factory
-            .get_controller_client()
-            .create_stream(&StreamConfiguration {
-                scoped_stream: stream.clone(),
-                scaling: Scaling {
-                    scale_type: ScaleType::FixedNumSegments,
-                    target_rate: 1,
-                    scale_factor: 1,
-                    min_num_segments: 1,
-                },
-                retention: Retention {
-                    retention_type: RetentionType::None,
-                    retention_param: 0,
-                },
-            })
-            .await
-            .unwrap();
-        let (sender, receiver) = mpsc::channel(10);
-        let delegation_token_provider = DelegationTokenProvider::new(stream.clone());
-        (
-            SegmentSelector::new(
-                stream,
-                sender,
-                factory.get_config().to_owned(),
-                factory.clone(),
-                Arc::new(delegation_token_provider),
-            ),
-            receiver,
-            factory,
-        )
-    }
-
-    fn create_segment_writer(mock: MockType) -> (SegmentWriter, Receiver<Incoming>, ClientFactory) {
-        let segment = ScopedSegment::from("testScope/testStream/0");
-        let config = ClientConfigBuilder::default()
-            .connection_type(ConnectionType::Mock(mock))
-            .controller_uri(PravegaNodeUri::from("127.0.0.1:9091".to_string()))
-            .mock(true)
-            .build()
-            .unwrap();
-        let factory = ClientFactory::new(config);
-        let (sender, receiver) = mpsc::channel(10);
-        let delegation_token_provider = DelegationTokenProvider::new(ScopedStream::from(&segment));
-        (
-            SegmentWriter::new(
-                segment,
-                sender,
-                factory.get_config().retry_policy,
-                Arc::new(delegation_token_provider),
-            ),
-            receiver,
-            factory,
-        )
-    }
-
     async fn write_once_for_selector(
         selector: &mut SegmentSelector,
         size: usize,

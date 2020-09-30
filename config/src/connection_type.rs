@@ -19,8 +19,8 @@ pub enum ConnectionType {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum MockType {
     Happy,
-    SegmentSealed,
-    SegmentTruncated,
+    SegmentIsSealed,
+    SegmentIsTruncated,
     WrongHost,
 }
 

@@ -192,3 +192,104 @@ impl SegmentSelector {
         closed
     }
 }
+
+#[cfg(test)]
+pub(crate) mod test {
+    use super::*;
+    use im::HashMap as ImHashMap;
+    use ordered_float::OrderedFloat;
+    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_rust_client_config::ClientConfigBuilder;
+    use tokio::runtime::Runtime;
+    use tokio::sync::mpsc;
+    use tokio::sync::mpsc::Receiver;
+
+    #[test]
+    fn test_segment_selector() {
+        let mut rt = Runtime::new().unwrap();
+        let (mut selector, _receiver, _factory) = rt.block_on(create_segment_selector(MockType::Happy));
+        rt.block_on(selector.initialize());
+        assert_eq!(selector.writers.len(), 2);
+
+        // update successors for sealed segment
+        let mut sp = ImHashMap::new();
+        let successor1 = SegmentWithRange {
+            scoped_segment: ScopedSegment::from("testScope/testStream/2"),
+            min_key: OrderedFloat::from(0.0),
+            max_key: OrderedFloat::from(0.25),
+        };
+        let successor2 = SegmentWithRange {
+            scoped_segment: ScopedSegment::from("testScope/testStream/3"),
+            min_key: OrderedFloat::from(0.25),
+            max_key: OrderedFloat::from(0.5),
+        };
+        let pred = vec![Segment::from(0)];
+        sp.insert(successor1.clone(), pred.clone());
+        sp.insert(successor2.clone(), pred);
+
+        let replace = vec![successor1, successor2];
+        let mut rs = ImHashMap::new();
+        rs.insert(Segment::from(0), replace);
+        let ssp = StreamSegmentsWithPredecessors {
+            segment_with_predecessors: sp,
+            replacement_segments: rs,
+        };
+
+        let sealed_segment = ScopedSegment::from("testScope/testStream/0");
+
+        let events = rt.block_on(selector.update_segments_upon_sealed(ssp, &sealed_segment));
+        assert!(events.is_empty());
+        assert_eq!(selector.writers.len(), 4);
+    }
+
+    // helper function section
+    pub(crate) async fn create_segment_selector(
+        mock: MockType,
+    ) -> (SegmentSelector, Receiver<Incoming>, ClientFactory) {
+        let stream = ScopedStream::from("testScope/testStream");
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(mock))
+            .controller_uri(PravegaNodeUri::from("127.0.0.1:9091".to_string()))
+            .mock(true)
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        factory
+            .get_controller_client()
+            .create_scope(&Scope {
+                name: "testScope".to_string(),
+            })
+            .await
+            .unwrap();
+        factory
+            .get_controller_client()
+            .create_stream(&StreamConfiguration {
+                scoped_stream: stream.clone(),
+                scaling: Scaling {
+                    scale_type: ScaleType::FixedNumSegments,
+                    target_rate: 1,
+                    scale_factor: 1,
+                    min_num_segments: 2,
+                },
+                retention: Retention {
+                    retention_type: RetentionType::None,
+                    retention_param: 0,
+                },
+            })
+            .await
+            .unwrap();
+        let (sender, receiver) = mpsc::channel(10);
+        let delegation_token_provider = DelegationTokenProvider::new(stream.clone());
+        (
+            SegmentSelector::new(
+                stream,
+                sender,
+                factory.get_config().to_owned(),
+                factory.clone(),
+                Arc::new(delegation_token_provider),
+            ),
+            receiver,
+            factory,
+        )
+    }
+}

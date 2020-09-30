@@ -11,6 +11,7 @@
 use super::ControllerClient;
 use super::ControllerError;
 use async_trait::async_trait;
+use im::HashMap as ImHashMap;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use ordered_float::OrderedFloat;
 use pravega_connection_pool::connection_pool::ConnectionPool;
@@ -370,14 +371,10 @@ impl ControllerClient for MockController {
         &self,
         _segment: &ScopedSegment,
     ) -> Result<StreamSegmentsWithPredecessors, RetryError<ControllerError>> {
-        Err(RetryError {
-            error: ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: "get successors".into(),
-                error_msg: "unsupported operation.".into(),
-            },
-            total_delay: Duration::from_millis(1),
-            tries: 0,
+        // empty hash map means the stream is sealed
+        Ok(StreamSegmentsWithPredecessors {
+            segment_with_predecessors: ImHashMap::new(),
+            replacement_segments: ImHashMap::new(),
         })
     }
 

@@ -470,11 +470,12 @@ struct WriteHalfConnectionWrapper {
 }
 
 #[cfg(test)]
-mod test {
+pub(crate) mod test {
     use super::*;
     use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
     use pravega_rust_client_config::ClientConfigBuilder;
     use tokio::sync::mpsc;
+    use tokio::sync::mpsc::Receiver;
 
     type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 
@@ -482,19 +483,7 @@ mod test {
     fn test_segment_writer_happy_write() {
         // set up segment writer
         let mut rt = tokio::runtime::Runtime::new().unwrap();
-        let segment = ScopedSegment::from("testScope/testStream/0");
-        let (sender, mut receiver) = mpsc::channel(10);
-        let policy = RetryWithBackoff::default();
-        let delegation_token_provider = DelegationTokenProvider::new(ScopedStream::from(&segment));
-        let mut segment_writer =
-            SegmentWriter::new(segment, sender, policy, Arc::new(delegation_token_provider));
-        let config = ClientConfigBuilder::default()
-            .connection_type(ConnectionType::Mock(MockType::Happy))
-            .controller_uri(PravegaNodeUri::from("127.0.0.1:9091".to_string()))
-            .mock(true)
-            .build()
-            .unwrap();
-        let factory = ClientFactory::new(config);
+        let (mut segment_writer, mut receiver, factory) = create_segment_writer(MockType::Happy);
 
         // test set up connection
         let result = rt.block_on(segment_writer.setup_connection(&factory));
@@ -556,19 +545,7 @@ mod test {
     fn test_segment_writer_reply_error() {
         // set up segment writer
         let mut rt = tokio::runtime::Runtime::new().unwrap();
-        let segment = ScopedSegment::from("testScope/testStream/0");
-        let (sender, mut receiver) = mpsc::channel(10);
-        let policy = RetryWithBackoff::default();
-        let delegation_token_provider = DelegationTokenProvider::new(ScopedStream::from(&segment));
-        let mut segment_writer =
-            SegmentWriter::new(segment, sender, policy, Arc::new(delegation_token_provider));
-        let config = ClientConfigBuilder::default()
-            .connection_type(ConnectionType::Mock(MockType::SegmentSealed))
-            .controller_uri(PravegaNodeUri::from("127.0.0.1:9091".to_string()))
-            .mock(true)
-            .build()
-            .unwrap();
-        let factory = ClientFactory::new(config);
+        let (mut segment_writer, mut receiver, factory) = create_segment_writer(MockType::SegmentIsSealed);
 
         // test set up connection
         let result = rt.block_on(segment_writer.setup_connection(&factory));
@@ -584,7 +561,7 @@ mod test {
             .expect("receive DataAppend from segment writer");
 
         let result = if let Incoming::ServerReply(server) = reply {
-            if let Replies::SegmentSealed(_cmd) = server.reply {
+            if let Replies::SegmentIsSealed(_cmd) = server.reply {
                 true
             } else {
                 false
@@ -593,6 +570,32 @@ mod test {
             false
         };
         assert!(result);
+    }
+
+    // helper function section
+    pub(crate) fn create_segment_writer(
+        mock: MockType,
+    ) -> (SegmentWriter, Receiver<Incoming>, ClientFactory) {
+        let segment = ScopedSegment::from("testScope/testStream/0");
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(mock))
+            .controller_uri(PravegaNodeUri::from("127.0.0.1:9091".to_string()))
+            .mock(true)
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        let (sender, receiver) = mpsc::channel(10);
+        let delegation_token_provider = DelegationTokenProvider::new(ScopedStream::from(&segment));
+        (
+            SegmentWriter::new(
+                segment,
+                sender,
+                factory.get_config().retry_policy,
+                Arc::new(delegation_token_provider),
+            ),
+            receiver,
+            factory,
+        )
     }
 
     fn create_event(size: usize) -> (PendingEvent, EventHandle) {
