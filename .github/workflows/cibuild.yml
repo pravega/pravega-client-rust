@@ -97,10 +97,22 @@ jobs:
           command: test
           args: -p pravega-rust-client-channel -p pravega-controller-client -p pravega-rust-client-integration-test -p pravega-rust-client-retry -p pravega-rust-client-shared -p pravega-wire-protocol -p pravega-client-rust
 
-      - name: Run code cov
-        run: |
-          chmod +x ./.github/workflows/codecov/codecov.sh
-          ./.github/workflows/codecov/codecov.sh
+      - name: Run cargo-tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          version: '0.9.0'
+          args: '-- --test-threads 1'
+
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v1.0.2
+        with:
+          token: ${{secrets.CODECOV_TOKEN}}
+
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v1
+        with:
+          name: code-coverage-report
+          path: cobertura.xml
           
   fmt:
     name: Rustfmt
