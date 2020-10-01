@@ -11,8 +11,8 @@
 use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::raw_client::RawClient;
-use crate::reactor::event::{Incoming, PendingEvent};
-use crate::reactor::reactors::SegmentReactor;
+use crate::segment::event::{Incoming, PendingEvent};
+use crate::segment::reactor::Reactor;
 use crate::segment_reader::AsyncSegmentReader;
 use crate::{get_random_u128, get_request_id};
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream, WriterId};
@@ -33,11 +33,13 @@ use uuid::Uuid;
 const BUFFER_SIZE: usize = 4096;
 const CHANNEL_CAPACITY: usize = 100;
 
+type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
+
 pub struct ByteStreamWriter {
     segment: ScopedSegment,
     writer_id: WriterId,
     sender: Sender<Incoming>,
-    oneshot_receiver: Option<oneshot::Receiver<Result<(), SegmentWriterError>>>,
+    oneshot_receiver: Option<EventHandle>,
     client_factory: ClientFactory,
     runtime_handle: Handle,
 }
@@ -74,21 +76,9 @@ impl Write for ByteStreamWriter {
     }
 
     fn flush(&mut self) -> Result<(), Error> {
-        if self.oneshot_receiver.is_none() {
-            return Ok(());
-        }
-        let oneshot_receiver = self.oneshot_receiver.take().expect("get oneshot receiver");
-
-        let result = self
-            .runtime_handle
-            .block_on(oneshot_receiver)
-            .map_err(|e| Error::new(ErrorKind::Other, format!("oneshot error: {:?}", e)))?;
-
-        if let Err(e) = result {
-            Err(Error::new(ErrorKind::Other, format!("{:?}", e)))
-        } else {
-            Ok(())
-        }
+        let receiver = self.oneshot_receiver.take();
+        self.runtime_handle
+            .block_on(ByteStreamWriter::flush_internal(receiver))
     }
 }
 
@@ -97,12 +87,17 @@ impl ByteStreamWriter {
         let (sender, receiver) = channel(CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
         let writer_id = WriterId::from(get_random_u128());
-        let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
+        let span = info_span!("Reactor", event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
         handle.enter(|| {
             tokio::spawn(
-                SegmentReactor::run(segment.clone(), sender.clone(), receiver, factory.clone())
-                    .instrument(span),
+                Reactor::run(
+                    ScopedStream::from(&segment),
+                    sender.clone(),
+                    receiver,
+                    factory.clone(),
+                )
+                .instrument(span),
             )
         });
         ByteStreamWriter {
@@ -115,10 +110,15 @@ impl ByteStreamWriter {
         }
     }
 
-    /// Seal will seal the segment and no further writes are allowed.
+    /// Seal the segment and no further writes are allowed.
     pub async fn seal(&mut self) -> Result<(), Error> {
-        self.flush()
+        // flushes pending writes before sealing the segment
+        let receiver = self.oneshot_receiver.take();
+        ByteStreamWriter::flush_internal(receiver)
+            .await
             .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))?;
+
+        // seal the segment
         let controller = self.client_factory.get_controller_client();
         let endpoint = controller
             .get_endpoint_for_segment(&self.segment)
@@ -224,13 +224,32 @@ impl ByteStreamWriter {
         }
         rx
     }
+
+    async fn flush_internal(receiver: Option<EventHandle>) -> Result<(), Error> {
+        if receiver.is_none() {
+            return Ok(());
+        }
+        let result = receiver
+            .unwrap()
+            .await
+            .map_err(|e| Error::new(ErrorKind::Other, format!("oneshot error: {:?}", e)))?;
+
+        if let Err(e) = result {
+            Err(Error::new(
+                ErrorKind::Other,
+                format!("segment writer error: {:?}", e),
+            ))
+        } else {
+            Ok(())
+        }
+    }
 }
 
 impl Drop for ByteStreamWriter {
     fn drop(&mut self) {
         self.runtime_handle
             .block_on(self.sender.send(Incoming::CloseReactor))
-            .unwrap_or_else(|e| info!("cannot send close signal to segment reactor due to: {:?}", e));
+            .unwrap_or_else(|e| info!("cannot send close signal to reactor due to: {:?}", e));
     }
 }
 
@@ -261,7 +280,7 @@ impl Read for ByteStreamReader {
         if cmd.data.len() < server_read_length {
             buf[buffer_read_length..buffer_read_length + cmd.data.len()].copy_from_slice(&cmd.data);
             self.offset += cmd.data.len() as i64;
-            Ok(buffer_read_length + server_read_length)
+            Ok(buffer_read_length + cmd.data.len())
         } else {
             // if returned data size is larger than asked, put the rest into buffer and return
             // the size that caller wants.

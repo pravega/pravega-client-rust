@@ -26,9 +26,10 @@ use pravega_wire_protocol::commands::{
 };
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
-use std::io::{Read, Write};
+use std::io::SeekFrom;
+use std::io::{Read, Seek, Write};
 use std::net::SocketAddr;
-use tokio::runtime::Handle;
+use tokio::runtime::{Handle, Runtime};
 use tracing::info;
 
 pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
@@ -59,9 +60,10 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     let mut writer = client_factory.create_byte_stream_writer(scoped_segment.clone());
     let mut reader = client_factory.create_byte_stream_reader(scoped_segment);
 
+    let mut rt = Runtime::new().unwrap();
     test_write_and_read(&mut writer, &mut reader);
-    test_truncate_segment(&mut writer, &mut reader, &handle);
-    test_seal_segment(&mut writer, &handle);
+    test_truncate_segment(&mut writer, &mut reader, &mut rt);
+    test_seal_segment(&mut writer, &mut rt);
 }
 
 fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader) {
@@ -89,23 +91,26 @@ fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamRea
     info!("test byte stream write and read passed");
 }
 
-fn test_truncate_segment(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, handle: &Handle) {
+fn test_truncate_segment(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, handle: &mut Runtime) {
     info!("test truncate byte stream");
-    let payload1 = vec![1, 1, 1, 1];
-    let size1 = writer.write(&payload1).expect("write payload1 to byte stream");
-    assert_eq!(size1, 4);
+    reader.seek(SeekFrom::Start(0)).expect("from start");
 
     let result = handle.block_on(writer.truncate_data_before(4));
     assert!(result.is_ok());
 
     let mut buf: Vec<u8> = vec![0; 8];
     let result = reader.read(&mut buf);
-
     assert!(result.is_err());
+
+    reader.seek(SeekFrom::Start(4)).expect("from start");
+    let result = reader.read(&mut buf);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), 4);
+
     info!("test truncate byte stream passed");
 }
 
-fn test_seal_segment(writer: &mut ByteStreamWriter, handle: &Handle) {
+fn test_seal_segment(writer: &mut ByteStreamWriter, handle: &mut Runtime) {
     info!("test seal byte stream");
     let payload1 = vec![1, 1, 1, 1];
     let size1 = writer.write(&payload1).expect("write payload1 to byte stream");

@@ -26,9 +26,9 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
 use crate::client_factory::ClientFactory;
 use crate::error::*;
-use crate::metric::ClientMetrics;
+use crate::metrics::ClientMetrics;
 use crate::raw_client::RawClient;
-use crate::reactor::event::{CloseSegmentWriterInfo, Incoming, PendingEvent, ServerReply};
+use crate::segment::event::{CloseSegmentWriterInfo, Incoming, PendingEvent, ServerReply};
 use pravega_rust_client_auth::DelegationTokenProvider;
 use std::fmt;
 use std::sync::Arc;

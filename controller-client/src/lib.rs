@@ -556,7 +556,9 @@ impl ControllerClientImpl {
     ) -> Result<()> {
         let operation_name = "check_scale post scale_stream";
         retry_async(retry_policy, || async {
+            info!("before check scale");
             let r = self.check_scale(stream, epoch).await;
+            info!("check scale finish {:?}", r);
             match r {
                 Ok(status) => {
                     if status {
@@ -1053,7 +1055,6 @@ impl ControllerClientImpl {
             .scale(tonic::Request::new(scale_request))
             .await;
         let operation_name = "scale_stream";
-
         match op_status {
             Ok(response) => {
                 let scale_response = response.into_inner();

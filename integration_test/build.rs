@@ -16,8 +16,8 @@ use tar::Archive;
 use tracing::info;
 
 const LIBRARY: &str = "pravega";
-const VERSION: &str = "0.9.0-2727.caa1fed-SNAPSHOT";
-const TAG: &str = "hostname";
+const VERSION: &str = "0.9.0-2659.ce1a3ba-SNAPSHOT";
+const TAG: &str = "java11";
 const BASE: &str = "./";
 
 fn main() {

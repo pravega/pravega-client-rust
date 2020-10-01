@@ -14,6 +14,7 @@ use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::raw_client::{RawClient, RawClientImpl};
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl, ControllerError};
+use pravega_rust_client_config::connection_type::MockType;
 use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
@@ -209,7 +210,7 @@ impl Server {
 async fn test_with_mock_server() {
     let server = Server::new();
     let endpoint = PravegaNodeUri::from(format!("{}:{}", server.address.ip(), server.address.port()));
-    let config = ConnectionFactoryConfig::new(ConnectionType::Mock);
+    let config = ConnectionFactoryConfig::new(ConnectionType::Mock(MockType::Happy));
     thread::spawn(move || {
         for stream in server.listener.incoming() {
             let mut client = stream.expect("get a new client connection");
