@@ -42,7 +42,7 @@ pub struct SegmentSlice {
 }
 
 ///
-/// This is a placeholder for SegmentSlice metadata. This meta is persisted by the EventReader.
+/// This holds the SegmentSlice metadata. This meta is persisted by the EventReader.
 ///
 #[derive(Clone, Debug)]
 pub struct SliceMetadata {
