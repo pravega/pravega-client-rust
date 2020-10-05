@@ -104,7 +104,7 @@ mod test {
 
         byte_stream_tests::test_byte_stream(config.clone());
 
-        event_stream_reader_tests::test_event_stream_reader();
+        event_stream_reader_tests::test_event_stream_reader(config.clone());
 
         // Shut down Pravega standalone
         pravega.stop().unwrap();

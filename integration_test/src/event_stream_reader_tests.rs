@@ -17,9 +17,11 @@ use pravega_rust_client_shared::{
 };
 use tracing::{debug, error, info, warn};
 
-pub fn test_event_stream_reader() {
+pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
     let config = ClientConfigBuilder::default()
         .controller_uri(MOCK_CONTROLLER_URI)
+        .is_auth_enabled(config.auth)
+        .is_tls_enabled(config.tls)
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
