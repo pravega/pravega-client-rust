@@ -199,7 +199,7 @@ mod test {
             assert_eq!(token1, token2);
 
             // time expired
-            assert!(!DelegationTokenProvider::is_token_valid(Some(
+            assert!(!token_provider.is_token_valid(Some(
                 cache.get_expiry_time().unwrap() - DEFAULT_REFRESH_THRESHOLD_SECONDS
             )))
         } else {

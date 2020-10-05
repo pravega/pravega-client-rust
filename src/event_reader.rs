@@ -477,8 +477,8 @@ mod tests {
     use crate::event_reader::{EventReader, SegmentReadResult};
     use crate::segment_slice::{SegmentDataBuffer, SegmentSlice, SliceMetadata};
     use bytes::{BufMut, BytesMut};
-    use pravega_rust_client_shared::{Scope, ScopedSegment, ScopedStream, Stream};
     use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
+    use pravega_rust_client_shared::{Scope, ScopedSegment, ScopedStream, Stream};
     use pravega_wire_protocol::commands::{Command, EventCommand};
     use std::collections::HashMap;
     use std::iter;
