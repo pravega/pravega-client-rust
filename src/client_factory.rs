@@ -66,7 +66,6 @@ impl ClientFactory {
         self.0.get_runtime_handle()
     }
 
-    #[allow(clippy::needless_lifetimes)] //Normally the compiler could infer lifetimes but async is throwing it for a loop.
     pub async fn create_async_event_reader(&self, segment: ScopedSegment) -> AsyncSegmentReaderImpl {
         AsyncSegmentReaderImpl::init(
             segment.clone(),
@@ -78,13 +77,12 @@ impl ClientFactory {
         .await
     }
 
-    #[allow(clippy::needless_lifetimes)] //Normally the compiler could infer lifetimes but async is throwing it for a loop.
     pub async fn create_table_map(&self, name: String) -> TableMap {
         TableMap::new(name, self.clone())
             .await
             .expect("Failed to create Table map")
     }
-    #[allow(clippy::needless_lifetimes)]
+
     pub async fn create_table_synchronizer(&self, name: String) -> TableSynchronizer {
         TableSynchronizer::new(name, self.clone()).await
     }
