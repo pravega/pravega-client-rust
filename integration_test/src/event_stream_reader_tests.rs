@@ -9,18 +9,17 @@
 //
 
 use pravega_client_rust::client_factory::ClientFactory;
-use pravega_client_rust::client_factory::ClientFactoryInternal;
 use pravega_controller_client::ControllerClient;
+use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_rust_client_shared::{
     Retention, RetentionType, ScaleType, Scaling, Scope, ScopedSegment, ScopedStream, Segment, Stream,
     StreamConfiguration,
 };
-use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
 use tracing::{debug, error, info, warn};
 
 pub fn test_event_stream_reader() {
     let config = ClientConfigBuilder::default()
-        .controller_uri(TEST_CONTROLLER_URI)
+        .controller_uri(MOCK_CONTROLLER_URI)
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);

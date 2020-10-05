@@ -8,15 +8,14 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactoryInternal;
+use crate::client_factory::ClientFactory;
 use crate::event_reader::SegmentReadResult;
+use crate::segment_reader::AsyncSegmentReader;
 use crate::segment_reader::ReaderError::SegmentSealed;
-use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 use bytes::{Buf, BufMut, BytesMut};
 use pravega_rust_client_retry::retry_result::Retryable;
 use pravega_rust_client_shared::ScopedSegment;
 use pravega_wire_protocol::commands::{Command, EventCommand, TYPE_PLUS_LENGTH_SIZE};
-use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;
@@ -205,10 +204,10 @@ impl SegmentSlice {
         start_offset: i64,
         mut tx: Sender<SegmentReadResult>,
         mut drop_fetch: oneshot::Receiver<()>,
-        factory: Arc<ClientFactoryInternal>,
+        factory: ClientFactory,
     ) {
         let mut offset: i64 = start_offset;
-        let segment_reader = AsyncSegmentReaderImpl::init(segment.clone(), &factory).await;
+        let segment_reader = factory.create_async_event_reader(segment.clone()).await;
         loop {
             if let Ok(_) | Err(TryRecvError::Closed) = drop_fetch.try_recv() {
                 info!("Stop reading from the segment");

@@ -19,7 +19,6 @@ use pravega_rust_client_shared::{ScopedSegment, WriterId};
 use std::cmp;
 use std::io::Error;
 use std::io::{ErrorKind, Read, Seek, SeekFrom, Write};
-use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;

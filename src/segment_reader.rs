@@ -22,18 +22,11 @@ use crate::get_request_id;
 use crate::raw_client::RawClient;
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_result::RetryResult;
-use tokio::sync::Mutex;
 use pravega_rust_client_retry::retry_result::Retryable;
+use tokio::sync::Mutex;
 
 #[derive(Debug, Snafu)]
 pub enum ReaderError {
-    #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
-    AuthTokenCheckFailed {
-      segment: String, 
-      can_retry: bool, 
-      operation: String, 
-      error_msg: String 
-    },
     #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
     SegmentTruncated {
         segment: String,
@@ -62,13 +55,27 @@ pub enum ReaderError {
         source: RawClientError,
         error_msg: String,
     },
-    #[snafu(display("Could not connect due to {}", error_msg))]
-    AuthTokenExpired {
+    #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
+    AuthTokenCheckFailed {
         segment: String,
         can_retry: bool,
         operation: String,
         error_msg: String,
-    }
+    },
+    #[snafu(display("Could not connect due to {}", error_msg))]
+    AuthTokenExpired {
+        segment: String,
+        can_retry: bool,
+        source: RawClientError,
+        error_msg: String,
+    },
+    #[snafu(display("Could not connect due to {}", error_msg))]
+    WrongHost {
+        segment: String,
+        can_retry: bool,
+        operation: String,
+        error_msg: String,
+    },
 }
 
 ///
@@ -102,14 +109,32 @@ impl ReaderError {
                 source: _,
                 error_msg: _,
             } => segment.clone(),
+            AuthTokenCheckFailed {
+                segment,
+                can_retry: _,
+                operation: _,
+                error_msg: _,
+            } => segment.clone(),
+            AuthTokenExpired {
+                segment,
+                can_retry: _,
+                source: _,
+                error_msg: _,
+            } => segment.clone(),
+            WrongHost {
+                segment,
+                can_retry: _,
+                operation: _,
+                error_msg: _,
+            } => segment.clone(),
         }
     }
-  
+
     fn refresh_token(&self) -> bool {
-      match self {
-          ReaderError::AuthTokenExpired { .. } => true,
-          _ => false,
-      }
+        match self {
+            ReaderError::AuthTokenExpired { .. } => true,
+            _ => false,
+        }
     }
 }
 // Implementation of Retryable trait for the error thrown by the Controller.
@@ -140,6 +165,24 @@ impl Retryable for ReaderError {
                 segment: _,
                 can_retry,
                 source: _,
+                error_msg: _,
+            } => *can_retry,
+            AuthTokenCheckFailed {
+                segment: _,
+                can_retry,
+                operation: _,
+                error_msg: _,
+            } => *can_retry,
+            AuthTokenExpired {
+                segment: _,
+                can_retry,
+                source: _,
+                error_msg: _,
+            } => *can_retry,
+            WrongHost {
+                segment: _,
+                can_retry,
+                operation: _,
                 error_msg: _,
             } => *can_retry,
         }
@@ -246,6 +289,8 @@ impl AsyncSegmentReaderImpl {
                     Ok(cmd)
                 }
                 Replies::AuthTokenCheckFailed(_cmd) => Err(ReaderError::AuthTokenCheckFailed {
+                    segment: self.segment.to_string(),
+                    can_retry: false,
                     operation: "Read segment".to_string(),
                     error_msg: "Auth token expired".to_string(),
                 }),
@@ -262,6 +307,8 @@ impl AsyncSegmentReaderImpl {
                     error_msg: "Segment truncated".into(),
                 }),
                 Replies::WrongHost(_cmd) => Err(ReaderError::WrongHost {
+                    segment: self.segment.to_string(),
+                    can_retry: true,
                     operation: "Read segment".to_string(),
                     error_msg: "Wrong host".to_string(),
                 }),

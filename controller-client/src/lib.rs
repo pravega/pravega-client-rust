@@ -30,17 +30,18 @@
 use std::result::Result as StdResult;
 use std::time::{Duration, Instant};
 
-use snafu::Snafu;
 use async_trait::async_trait;
 use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
     delete_scope_status, delete_stream_status, ping_txn_status, scale_request, scale_response,
     scale_status_response, txn_state, txn_status, update_stream_status, CreateScopeStatus,
     CreateStreamStatus, CreateTxnRequest, CreateTxnResponse, DelegationToken, DeleteScopeStatus,
-    DeleteStreamStatus, GetEpochSegmentsRequest, GetSegmentsRequest, NodeUri, PingTxnRequest, PingTxnStatus, ScaleRequest,
-    ScaleResponse, ScaleStatusRequest, ScaleStatusResponse, ScopeInfo, SegmentId, SegmentRanges,
-    StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
+    DeleteStreamStatus, GetEpochSegmentsRequest, GetSegmentsRequest, NodeUri, PingTxnRequest, PingTxnStatus,
+    ScaleRequest, ScaleResponse, ScaleStatusRequest, ScaleStatusResponse, ScopeInfo, SegmentId,
+    SegmentRanges, SegmentsAtTime, StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState,
+    TxnStatus, UpdateStreamStatus,
 };
+use im::HashMap as ImHashMap;
 use pravega_rust_client_config::credentials::AUTHORIZATION;
 use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_retry::retry_async::retry_async;
@@ -48,14 +49,14 @@ use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_retry::retry_result::{RetryError, RetryResult, Retryable};
 use pravega_rust_client_retry::wrap_with_async_retry;
 use pravega_rust_client_shared::*;
-use im::HashMap as ImHashMap;
+use snafu::Snafu;
 use std::convert::{From, Into};
 use std::str::FromStr;
 use std::sync::RwLock;
 use tokio::runtime::Handle;
 use tonic::codegen::http::uri::InvalidUri;
+use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Uri};
 use tonic::{metadata::MetadataValue, Code, Request, Status};
-use tonic::transport::{Certificate, ClientTlsConfig, Endpoint, Uri, Channel};
 use tracing::{debug, info};
 
 #[allow(non_camel_case_types)]
