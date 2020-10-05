@@ -36,14 +36,14 @@ pub type SegmentReadResult = Result<SegmentDataBuffer, ReaderError>;
 /// An example usage pattern is as follows
 ///
 /// ```no_run
-/// use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
+/// use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
 /// use pravega_client_rust::client_factory::ClientFactory;
 /// use pravega_rust_client_shared::{ScopedStream, Scope, Stream};
 ///
 /// #[tokio::main]
 /// async fn main() {
 ///    let config = ClientConfigBuilder::default()
-///         .controller_uri(TEST_CONTROLLER_URI)
+///         .controller_uri(MOCK_CONTROLLER_URI)
 ///         .build()
 ///         .expect("creating config");
 ///     let client_factory = ClientFactory::new(config);
@@ -478,7 +478,7 @@ mod tests {
     use crate::segment_slice::{SegmentDataBuffer, SegmentSlice, SliceMetadata};
     use bytes::{BufMut, BytesMut};
     use pravega_rust_client_shared::{Scope, ScopedSegment, ScopedStream, Stream};
-    use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
+    use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
     use pravega_wire_protocol::commands::{Command, EventCommand};
     use std::collections::HashMap;
     use std::iter;
@@ -497,7 +497,7 @@ mod tests {
         tracing_subscriber::fmt().with_max_level(Level::TRACE).finish();
         let cf = ClientFactory::new(
             ClientConfigBuilder::default()
-                .controller_uri(TEST_CONTROLLER_URI)
+                .controller_uri(MOCK_CONTROLLER_URI)
                 .build()
                 .unwrap(),
         );
@@ -564,7 +564,7 @@ mod tests {
         tracing_subscriber::fmt().with_max_level(Level::TRACE).finish();
         let cf = ClientFactory::new(
             ClientConfigBuilder::default()
-                .controller_uri(TEST_CONTROLLER_URI)
+                .controller_uri(MOCK_CONTROLLER_URI)
                 .build()
                 .unwrap(),
         );
@@ -643,7 +643,7 @@ mod tests {
         tracing_subscriber::fmt().with_max_level(Level::TRACE).finish();
         let cf = ClientFactory::new(
             ClientConfigBuilder::default()
-                .controller_uri(TEST_CONTROLLER_URI)
+                .controller_uri(MOCK_CONTROLLER_URI)
                 .build()
                 .unwrap(),
         );

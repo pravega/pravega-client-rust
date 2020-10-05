@@ -471,7 +471,7 @@ mod tests {
         match segment_read_result {
             ReaderError::SegmentTruncated {
                 segment: _,
-                can_retry,
+                can_retry: _,
                 operation: _,
                 error_msg: _,
             } => assert_eq!(segment_read_result.can_retry(), false),
@@ -484,7 +484,7 @@ mod tests {
         match segment_read_result {
             ReaderError::SegmentTruncated {
                 segment: _,
-                can_retry,
+                can_retry: _,
                 operation: _,
                 error_msg: _,
             } => assert_eq!(segment_read_result.can_retry(), false),
