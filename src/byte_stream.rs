@@ -19,6 +19,7 @@ use pravega_rust_client_shared::{ScopedSegment, WriterId};
 use std::cmp;
 use std::io::Error;
 use std::io::{ErrorKind, Read, Seek, SeekFrom, Write};
+use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
@@ -91,7 +92,7 @@ impl ByteStreamWriter {
     pub(crate) fn new(segment: ScopedSegment, config: ClientConfig, factory: ClientFactory) -> Self {
         let (sender, receiver) = channel(CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
-        let writer_id = WriterId::from(get_random_u128());
+        let writer_id = WriterId(get_random_u128());
         let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
         handle.enter(|| {

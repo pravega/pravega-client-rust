@@ -23,48 +23,125 @@ use crate::raw_client::RawClient;
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_result::RetryResult;
 use tokio::sync::Mutex;
+use pravega_rust_client_retry::retry_result::Retryable;
 
 #[derive(Debug, Snafu)]
 pub enum ReaderError {
     #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
-    AuthTokenCheckFailed { operation: String, error_msg: String },
+    AuthTokenCheckFailed {
+      segment: String, 
+      can_retry: bool, 
+      operation: String, 
+      error_msg: String 
+    },
     #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
-    SegmentTruncated { operation: String, error_msg: String },
+    SegmentTruncated {
+        segment: String,
+        can_retry: bool,
+        operation: String,
+        error_msg: String,
+    },
     #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
-    SegmentSealed { operation: String, error_msg: String },
+    SegmentSealed {
+        segment: String,
+        can_retry: bool,
+        operation: String,
+        error_msg: String,
+    },
     #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
-    WrongHost { operation: String, error_msg: String },
-    #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
-    OperationError { operation: String, error_msg: String },
+    OperationError {
+        segment: String,
+        can_retry: bool,
+        operation: String,
+        error_msg: String,
+    },
     #[snafu(display("Could not connect due to {}", error_msg))]
     ConnectionError {
+        segment: String,
+        can_retry: bool,
         source: RawClientError,
         error_msg: String,
     },
     #[snafu(display("Could not connect due to {}", error_msg))]
     AuthTokenExpired {
-        source: RawClientError,
+        segment: String,
+        can_retry: bool,
+        operation: String,
         error_msg: String,
-    },
+    }
 }
 
+///
+/// Fetch the segment from a given ReaderError
+///
 impl ReaderError {
-    fn can_retry(&self) -> bool {
+    pub(crate) fn get_segment(&self) -> String {
+        use ReaderError::*;
         match self {
-            ReaderError::AuthTokenExpired { .. } => true,
-            ReaderError::AuthTokenCheckFailed { .. } => false,
-            ReaderError::SegmentTruncated { .. } => false,
-            ReaderError::SegmentSealed { .. } => false,
-            ReaderError::WrongHost { .. } => true,
-            ReaderError::OperationError { .. } => false,
-            ReaderError::ConnectionError { .. } => true,
+            SegmentTruncated {
+                segment,
+                can_retry: _,
+                operation: _,
+                error_msg: _,
+            } => segment.clone(),
+            SegmentSealed {
+                segment,
+                can_retry: _,
+                operation: _,
+                error_msg: _,
+            } => segment.clone(),
+            OperationError {
+                segment,
+                can_retry: _,
+                operation: _,
+                error_msg: _,
+            } => segment.clone(),
+            ConnectionError {
+                segment,
+                can_retry: _,
+                source: _,
+                error_msg: _,
+            } => segment.clone(),
         }
     }
-
+  
     fn refresh_token(&self) -> bool {
+      match self {
+          ReaderError::AuthTokenExpired { .. } => true,
+          _ => false,
+      }
+    }
+}
+// Implementation of Retryable trait for the error thrown by the Controller.
+// this ensures we can use the wrap_with_async_retry macros.
+impl Retryable for ReaderError {
+    fn can_retry(&self) -> bool {
+        use ReaderError::*;
         match self {
-            ReaderError::AuthTokenExpired { .. } => true,
-            _ => false,
+            SegmentTruncated {
+                segment: _,
+                can_retry,
+                operation: _,
+                error_msg: _,
+            } => *can_retry,
+            SegmentSealed {
+                segment: _,
+                can_retry,
+                operation: _,
+                error_msg: _,
+            } => *can_retry,
+            OperationError {
+                segment: _,
+                can_retry,
+                operation: _,
+                error_msg: _,
+            } => *can_retry,
+            ConnectionError {
+                segment: _,
+                can_retry,
+                source: _,
+                error_msg: _,
+            } => *can_retry,
         }
     }
 }
@@ -173,10 +250,14 @@ impl AsyncSegmentReaderImpl {
                     error_msg: "Auth token expired".to_string(),
                 }),
                 Replies::NoSuchSegment(_cmd) => Err(ReaderError::SegmentTruncated {
+                    segment: self.segment.to_string(),
+                    can_retry: false,
                     operation: "Read segment".to_string(),
                     error_msg: "No Such Segment".to_string(),
                 }),
                 Replies::SegmentTruncated(_cmd) => Err(ReaderError::SegmentTruncated {
+                    segment: self.segment.to_string(),
+                    can_retry: false,
                     operation: "Read segment".to_string(),
                     error_msg: "Segment truncated".into(),
                 }),
@@ -193,16 +274,22 @@ impl AsyncSegmentReaderImpl {
                     request_id: cmd.request_id,
                 }),
                 _ => Err(ReaderError::OperationError {
+                    segment: self.segment.to_string(),
+                    can_retry: false,
                     operation: "Read segment".to_string(),
                     error_msg: "".to_string(),
                 }),
             },
             Err(error) => match error {
                 RawClientError::AuthTokenExpired { .. } => Err(ReaderError::AuthTokenExpired {
+                    segment: self.segment.to_string(),
+                    can_retry: true,
                     source: error,
                     error_msg: "Auth token expired".to_string(),
                 }),
                 _ => Err(ReaderError::ConnectionError {
+                    segment: self.segment.to_string(),
+                    can_retry: true,
                     source: error,
                     error_msg: "RawClient error".to_string(),
                 }),
@@ -336,6 +423,8 @@ mod tests {
         let segment_read_result: ReaderError = data.err().unwrap();
         match segment_read_result {
             ReaderError::SegmentTruncated {
+                segment: _,
+                can_retry,
                 operation: _,
                 error_msg: _,
             } => assert_eq!(segment_read_result.can_retry(), false),
@@ -347,6 +436,8 @@ mod tests {
         let segment_read_result: ReaderError = data.err().unwrap();
         match segment_read_result {
             ReaderError::SegmentTruncated {
+                segment: _,
+                can_retry,
                 operation: _,
                 error_msg: _,
             } => assert_eq!(segment_read_result.can_retry(), false),

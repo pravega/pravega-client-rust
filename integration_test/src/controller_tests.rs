@@ -57,10 +57,10 @@ pub fn test_controller_apis(config: PravegaStandaloneServiceConfig) {
 }
 
 pub async fn test_scale_stream(controller: &dyn ControllerClient) {
-    let scoped_stream = ScopedStream::new(
-        Scope::from("testScope123".to_owned()),
-        Stream::from("testStream".to_owned()),
-    );
+    let scoped_stream = ScopedStream {
+        scope: Scope::from("testScope123".to_owned()),
+        stream: Stream::from("testStream".to_owned()),
+    };
 
     let current_segments_result = controller.get_current_segments(&scoped_stream).await;
     info!(
@@ -86,4 +86,8 @@ pub async fn test_scale_stream(controller: &dyn ControllerClient) {
         current_segments_result
     );
     assert_eq!(2, current_segments_result.unwrap().key_segment_map.len());
+
+    let head_segments_result = controller.get_head_segments(&scoped_stream).await;
+    info!("Response for get_head_segments is {:?}", head_segments_result);
+    assert_eq!(1, head_segments_result.unwrap().len());
 }

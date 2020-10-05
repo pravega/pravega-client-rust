@@ -18,6 +18,7 @@ use pravega_wire_protocol::connection_factory::{
 };
 
 use crate::byte_stream::{ByteStreamReader, ByteStreamWriter};
+use crate::event_reader::EventReader;
 use crate::event_stream_writer::EventStreamWriter;
 use crate::raw_client::RawClientImpl;
 use crate::segment_reader::AsyncSegmentReaderImpl;
@@ -104,6 +105,10 @@ impl ClientFactory {
 
     pub fn create_event_stream_writer(&self, stream: ScopedStream) -> EventStreamWriter {
         EventStreamWriter::new(stream, self.0.config.clone(), self.clone())
+    }
+
+    pub async fn create_event_stream_reader(&self, stream: ScopedStream) -> EventReader {
+        EventReader::init(stream, self.0.clone()).await
     }
 
     pub async fn create_transactional_event_stream_writer(
