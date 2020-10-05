@@ -594,6 +594,29 @@ pub struct EventRead {
     pub event: Vec<u8>,
 }
 
+/// A client for looking at and editing the metadata related to a specific segment.
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
+pub struct SegmentInfo {
+    /// Which segment these properties relate to.
+    pub segment: ScopedSegment,
+
+    /// The offset at which data is available. In the event the stream has never been truncated this
+    /// is 0. However, if all data below a certain offset has been truncated, that offset will be
+    /// provide here. (Offsets are left absolute even if data is truncated so that positions in the
+    /// segment can be referred to consistently)
+    pub starting_offset: i64,
+
+    /// The offset at which new data would be written if it were to be added. This is equal to the
+    /// total length of all data written to the segment.
+    pub write_offset: i64,
+
+    /// If the segment is sealed and can no longer be written to.
+    pub is_sealed: boolean,
+
+    /// The last time the segment was written to.
+    pub last_modified_time: i64,
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

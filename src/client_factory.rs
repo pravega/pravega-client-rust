@@ -21,6 +21,7 @@ use crate::byte_stream::{ByteStreamReader, ByteStreamWriter};
 use crate::event_reader::EventReader;
 use crate::event_stream_writer::EventStreamWriter;
 use crate::raw_client::RawClientImpl;
+use crate::segment_metadata::SegmentMetadataClient;
 use crate::segment_reader::AsyncSegmentReaderImpl;
 use crate::table_synchronizer::TableSynchronizer;
 use crate::tablemap::TableMap;
@@ -131,12 +132,26 @@ impl ClientFactory {
         self.0.create_delegation_token_provider(stream).await
     }
 
+    pub async fn create_segment_metadata_client(&self, segment: ScopedSegment) -> SegmentMetadataClient {
+        SegmentMetadataClient::new(
+            segment,
+            self.clone(),
+            self.0
+                .create_delegation_token_provider(ScopedStream::from(&segment))
+                .await,
+        )
+    }
+
     pub fn get_controller_client(&self) -> &dyn ControllerClient {
         self.0.get_controller_client()
     }
 
     pub fn get_config(&self) -> &ClientConfig {
         &self.0.config
+    }
+
+    pub(crate) fn get_connection_pool(&self) -> &ConnectionPool<SegmentConnectionManager> {
+        self.0.get_connection_pool()
     }
 }
 

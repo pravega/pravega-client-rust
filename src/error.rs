@@ -41,7 +41,7 @@ pub enum RawClientError {
 }
 
 impl RawClientError {
-    pub fn refresh_token(&self) -> bool {
+    pub fn is_token_expired(&self) -> bool {
         match self {
             RawClientError::AuthTokenExpired { .. } => true,
             _ => false,
