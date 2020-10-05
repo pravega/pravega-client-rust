@@ -15,6 +15,7 @@ mod byte_stream_tests;
 mod controller_tests;
 #[cfg(test)]
 mod disconnection_tests;
+mod event_stream_reader_tests;
 mod event_stream_writer_tests;
 mod pravega_service;
 mod tablemap_tests;
@@ -64,7 +65,7 @@ mod test {
     #[test]
     fn integration_test() {
         trace::init();
-        let span = span!(Level::INFO, "integration test");
+        let span = span!(Level::DEBUG, "integration test");
         let _enter = span.enter();
         let mut pravega = PravegaStandaloneService::start(false);
 
@@ -85,6 +86,8 @@ mod test {
         transactional_event_stream_writer_tests::test_transactional_event_stream_writer();
 
         byte_stream_tests::test_byte_stream();
+
+        event_stream_reader_tests::test_event_stream_reader();
 
         // Shut down Pravega standalone
         pravega.stop().unwrap();

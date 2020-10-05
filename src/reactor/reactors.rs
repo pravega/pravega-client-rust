@@ -54,7 +54,7 @@ impl StreamReactor {
                         StreamReactor::process_server_reply(server_reply, &mut selector, &factory).await
                     {
                         receiver.close();
-                        drain_recevier(receiver, e.to_owned()).await;
+                        drain_receiver(receiver, e.to_owned()).await;
                         break;
                     }
                 }
@@ -161,7 +161,7 @@ impl SegmentReactor {
                         SegmentReactor::process_server_reply(server_reply, &mut writer, &factory).await
                     {
                         receiver.close();
-                        drain_recevier(receiver, e.to_owned()).await;
+                        drain_receiver(receiver, e.to_owned()).await;
                         break;
                     }
                 }
@@ -218,7 +218,7 @@ impl SegmentReactor {
     }
 }
 
-async fn drain_recevier(mut receiver: Receiver<Incoming>, msg: String) {
+async fn drain_receiver(mut receiver: Receiver<Incoming>, msg: String) {
     while let Some(remaining) = receiver.recv().await {
         if let Incoming::AppendEvent(event) = remaining {
             let err = Err(SegmentWriterError::ReactorClosed { msg: msg.clone() });

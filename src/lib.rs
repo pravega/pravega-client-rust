@@ -34,6 +34,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 pub mod byte_stream;
 pub mod client_factory;
 pub mod error;
+pub mod event_reader;
 pub mod event_stream_writer;
 #[macro_use]
 pub mod metric;
@@ -41,6 +42,7 @@ pub mod raw_client;
 mod reactor;
 pub mod reader_group;
 pub mod segment_reader;
+pub mod segment_slice;
 mod stream;
 pub mod table_synchronizer;
 pub mod tablemap;
