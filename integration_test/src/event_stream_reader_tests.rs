@@ -8,6 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::pravega_service::PravegaStandaloneServiceConfig;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_controller_client::ControllerClient;
 use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
