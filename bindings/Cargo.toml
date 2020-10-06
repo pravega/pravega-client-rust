@@ -31,6 +31,7 @@ pravega-controller-client = { path = "../controller-client"}
 pravega-rust-client-shared = { path = "../shared"}
 pravega-rust-client-retry = {path = "../retry"}
 pravega-connection-pool = {path= "../connection_pool"}
+pravega-rust-client-config = {path = "../config"}
 tokio = { version = "0.2.13", features = ["full"] }
 lazy_static = "1.4.0"
 uuid = {version = "0.8", features = ["v4"]}

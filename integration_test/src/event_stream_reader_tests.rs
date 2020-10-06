@@ -8,19 +8,21 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::pravega_service::PravegaStandaloneServiceConfig;
 use pravega_client_rust::client_factory::ClientFactory;
-use pravega_client_rust::client_factory::ClientFactoryInternal;
 use pravega_controller_client::ControllerClient;
+use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_rust_client_shared::{
     Retention, RetentionType, ScaleType, Scaling, Scope, ScopedSegment, ScopedStream, Segment, Stream,
     StreamConfiguration,
 };
-use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
 use tracing::{debug, error, info, warn};
 
-pub fn test_event_stream_reader() {
+pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
     let config = ClientConfigBuilder::default()
-        .controller_uri(TEST_CONTROLLER_URI)
+        .controller_uri(MOCK_CONTROLLER_URI)
+        .is_auth_enabled(config.auth)
+        .is_tls_enabled(config.tls)
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);

@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactoryInternal;
+use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::tablemap::{TableError, TableMap, Version};
 use futures::pin_mut;
@@ -26,7 +26,7 @@ use std::hash::{Hash, Hasher};
 use std::slice::Iter;
 use std::time::Duration;
 use tokio::time::delay_for;
-use tracing::{debug, info};
+use tracing::debug;
 
 /// Provides a map that is synchronized across different processes.
 /// The pattern is to have a map that can be updated by using Insert or Remove.
@@ -36,12 +36,12 @@ use tracing::{debug, info};
 
 /// TableSynchronizer contains a name, a table_map that sends the map entries to server
 /// and an in memory map.
-pub struct TableSynchronizer<'a> {
+pub struct TableSynchronizer {
     /// The name of the TableSynchronizer.
     name: String,
 
     /// TableMap is used to talk to the server.
-    table_map: TableMap<'a>,
+    table_map: TableMap,
 
     /// in_memory_map is a two-level nested hash map that uses two keys to identify a value.
     /// The reason to make it a nested map is that the actual data structures shared across
@@ -68,8 +68,8 @@ const MAX_RETRIES: i32 = 10;
 // Wait until next attempt.
 const DELAY_MILLIS: u64 = 1000;
 
-impl<'a> TableSynchronizer<'a> {
-    pub async fn new(name: String, factory: &'a ClientFactoryInternal) -> TableSynchronizer<'a> {
+impl TableSynchronizer {
+    pub async fn new(name: String, factory: ClientFactory) -> TableSynchronizer {
         let table_map = TableMap::new(name.clone(), factory)
             .await
             .expect("create table map");
@@ -655,7 +655,7 @@ where
 
 async fn conditionally_write(
     mut updates_generator: impl FnMut(&mut Table) -> Result<Option<String>, SynchronizerError>,
-    table_synchronizer: &mut TableSynchronizer<'_>,
+    table_synchronizer: &mut TableSynchronizer,
     mut retry: i32,
 ) -> Result<Option<String>, SynchronizerError> {
     let mut update_result = None;
@@ -672,7 +672,7 @@ async fn conditionally_write(
         };
 
         update_result = updates_generator(&mut to_update)?;
-        info!("number of insert is {}", to_update.insert.len());
+        debug!("number of insert is {}", to_update.insert.len());
         if to_update.insert_is_empty() {
             debug!(
                 "Conditionally Write to {} completed, as there is nothing to update for map",
@@ -728,7 +728,7 @@ async fn conditionally_write(
 
 async fn conditionally_remove(
     mut delete_generator: impl FnMut(&mut Table) -> Result<Option<String>, SynchronizerError>,
-    table_synchronizer: &mut TableSynchronizer<'_>,
+    table_synchronizer: &mut TableSynchronizer,
     mut retry: i32,
 ) -> Result<Option<String>, SynchronizerError> {
     let mut delete_result = None;
@@ -797,7 +797,7 @@ async fn conditionally_remove(
 
 async fn clear_tombstone(
     to_remove: &mut Table,
-    table_synchronizer: &mut TableSynchronizer<'_>,
+    table_synchronizer: &mut TableSynchronizer,
 ) -> Result<Option<String>, SynchronizerError> {
     table_synchronizer
         .remove(|table| {
@@ -814,7 +814,7 @@ async fn clear_tombstone(
 fn apply_inserts_to_localmap(
     to_update: &mut Table,
     new_version: Vec<Version>,
-    table_synchronizer: &mut TableSynchronizer<'_>,
+    table_synchronizer: &mut TableSynchronizer,
 ) {
     let mut i = 0;
     for update in to_update.get_insert_iter() {

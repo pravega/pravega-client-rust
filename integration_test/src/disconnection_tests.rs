@@ -9,20 +9,20 @@
 //
 use super::check_standalone_status;
 use super::wait_for_standalone_with_timeout;
-use crate::pravega_service::{PravegaService, PravegaStandaloneService};
+use crate::pravega_service::{PravegaService, PravegaStandaloneService, PravegaStandaloneServiceConfig};
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::raw_client::{RawClient, RawClientImpl};
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl, ControllerError};
+use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_retry::retry_result::RetryResult;
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::ClientConfigBuilder;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{HelloCommand, SealSegmentCommand};
 use pravega_wire_protocol::connection_factory::{
-    ConnectionFactory, ConnectionType, SegmentConnectionManager,
+    ConnectionFactory, ConnectionFactoryConfig, SegmentConnectionManager,
 };
 use pravega_wire_protocol::wire_commands::Requests;
 use pravega_wire_protocol::wire_commands::{Encode, Replies};
@@ -39,7 +39,8 @@ pub fn disconnection_test_wrapper() {
     rt.block_on(test_retry_with_no_connection());
     rt.shutdown_timeout(Duration::from_millis(100));
 
-    let mut pravega = PravegaStandaloneService::start(false);
+    let config = PravegaStandaloneServiceConfig::new(false, false, false);
+    let mut pravega = PravegaStandaloneService::start(config);
     test_retry_while_start_pravega();
     assert_eq!(check_standalone_status(), true);
     test_retry_with_unexpected_reply();
@@ -53,11 +54,9 @@ pub fn disconnection_test_wrapper() {
 async fn test_retry_with_no_connection() {
     let retry_policy = RetryWithBackoff::default().max_tries(4);
     // give a wrong endpoint
-    let endpoint = "127.0.0.1:0"
-        .parse::<SocketAddr>()
-        .expect("Unable to parse socket address");
-
-    let cf = ConnectionFactory::create(ConnectionType::Tokio);
+    let endpoint = PravegaNodeUri::from("127.0.0.1:0");
+    let config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
+    let cf = ConnectionFactory::create(config);
     let manager = SegmentConnectionManager::new(cf, 1);
     let pool = ConnectionPool::new(manager);
 
@@ -83,11 +82,8 @@ async fn test_retry_with_no_connection() {
 }
 
 fn test_retry_while_start_pravega() {
-    let controller_uri = "127.0.0.1:9090"
-        .parse::<SocketAddr>()
-        .expect("parse to socketaddr");
     let config = ClientConfigBuilder::default()
-        .controller_uri(controller_uri)
+        .controller_uri(PravegaNodeUri::from("127.0.0.1:9090"))
         .build()
         .expect("build client config");
     let cf = ClientFactory::new(config);
@@ -146,14 +142,12 @@ fn test_retry_with_unexpected_reply() {
     let retry_policy = RetryWithBackoff::default().max_tries(4);
     let scope_name = Scope::from("retryScope".to_owned());
     let stream_name = Stream::from("retryStream".to_owned());
-    let controller_uri = "127.0.0.1:9090"
-        .parse::<SocketAddr>()
-        .expect("parse to socketaddr");
     let config = ClientConfigBuilder::default()
-        .controller_uri(controller_uri)
+        .controller_uri(PravegaNodeUri::from("127.0.0.1:9090"))
+        .connection_type(ConnectionType::Tokio)
         .build()
         .expect("build client config");
-    let cf = ClientFactory::new(config);
+    let cf = ClientFactory::new(config.clone());
     let controller_client = cf.get_controller_client();
 
     //Get the endpoint.
@@ -168,11 +162,9 @@ fn test_retry_with_unexpected_reply() {
     let endpoint = cf
         .get_runtime_handle()
         .block_on(controller_client.get_endpoint_for_segment(&segment_name))
-        .expect("get endpoint for segment")
-        .parse::<SocketAddr>()
-        .expect("convert to socketaddr");
+        .expect("get endpoint for segment");
 
-    let connection_factory = ConnectionFactory::create(ConnectionType::Tokio);
+    let connection_factory = ConnectionFactory::create(ConnectionFactoryConfig::from(&config));
     let manager = SegmentConnectionManager::new(connection_factory, 1);
     let pool = ConnectionPool::new(manager);
     let raw_client = RawClientImpl::new(&pool, endpoint);
@@ -216,8 +208,8 @@ impl Server {
 
 async fn test_with_mock_server() {
     let server = Server::new();
-    let endpoint = server.address;
-
+    let endpoint = PravegaNodeUri::from(format!("{}:{}", server.address.ip(), server.address.port()));
+    let config = ConnectionFactoryConfig::new(ConnectionType::Mock);
     thread::spawn(move || {
         for stream in server.listener.incoming() {
             let mut client = stream.expect("get a new client connection");
@@ -235,16 +227,16 @@ async fn test_with_mock_server() {
         drop(server);
     });
 
-    let cf = ConnectionFactory::create(ConnectionType::Mock);
+    let cf = ConnectionFactory::create(config);
     let manager = SegmentConnectionManager::new(cf, 3);
     let pool = ConnectionPool::new(manager);
 
     // test with 3 requests, they should be all succeed.
-    for _i in 0..3 {
+    for _i in 0i32..3 {
         let retry_policy = RetryWithBackoff::default().max_tries(5);
         let result = retry_async(retry_policy, || async {
             let connection = pool
-                .get_connection(endpoint)
+                .get_connection(endpoint.clone())
                 .await
                 .expect("get connection from pool");
             let mut client_connection = ClientConnectionImpl { connection };

@@ -16,8 +16,8 @@ use tar::Archive;
 use tracing::info;
 
 const LIBRARY: &str = "pravega";
-const VERSION: &str = "0.8.0-2593.6e882cf-SNAPSHOT";
-const TAG: &str = "delta";
+const VERSION: &str = "0.9.0-2727.caa1fed-SNAPSHOT";
+const TAG: &str = "hostname";
 const BASE: &str = "./";
 
 fn main() {

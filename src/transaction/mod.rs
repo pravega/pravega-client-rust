@@ -12,7 +12,7 @@ pub(crate) mod pinger;
 mod transactional_event_segment_writer;
 pub mod transactional_event_stream_writer;
 
-use crate::client_factory::ClientFactoryInternal;
+use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::get_random_f64;
 use crate::transaction::pinger::PingerHandle;
@@ -21,7 +21,6 @@ use pravega_rust_client_shared::{
 };
 use snafu::ResultExt;
 use std::collections::HashMap;
-use std::sync::Arc;
 use tracing::{debug, info_span};
 use tracing_futures::Instrument;
 use transactional_event_segment_writer::TransactionalEventSegmentWriter;
@@ -42,7 +41,7 @@ pub struct Transaction {
     inner: HashMap<ScopedSegment, TransactionalEventSegmentWriter>,
     segments: StreamSegments,
     handle: PingerHandle,
-    factory: Arc<ClientFactoryInternal>,
+    factory: ClientFactory,
 }
 
 impl Transaction {
@@ -53,7 +52,7 @@ impl Transaction {
         transactions: HashMap<ScopedSegment, TransactionalEventSegmentWriter>,
         segments: StreamSegments,
         handle: PingerHandle,
-        factory: Arc<ClientFactoryInternal>,
+        factory: ClientFactory,
     ) -> Self {
         Transaction {
             info,

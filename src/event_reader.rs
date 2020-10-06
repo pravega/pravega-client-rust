@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactoryInternal;
+use crate::client_factory::ClientFactory;
 use crate::segment_reader::ReaderError;
 use crate::segment_slice::{SegmentDataBuffer, SegmentSlice, SliceMetadata};
 use bytes::BufMut;
@@ -16,7 +16,6 @@ use im::HashMap as ImHashMap;
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream, Segment, SegmentWithRange};
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
-use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::oneshot;
@@ -37,14 +36,14 @@ pub type SegmentReadResult = Result<SegmentDataBuffer, ReaderError>;
 /// An example usage pattern is as follows
 ///
 /// ```no_run
-/// use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
+/// use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
 /// use pravega_client_rust::client_factory::ClientFactory;
 /// use pravega_rust_client_shared::{ScopedStream, Scope, Stream};
 ///
 /// #[tokio::main]
 /// async fn main() {
 ///    let config = ClientConfigBuilder::default()
-///         .controller_uri(TEST_CONTROLLER_URI)
+///         .controller_uri(MOCK_CONTROLLER_URI)
 ///         .build()
 ///         .expect("creating config");
 ///     let client_factory = ClientFactory::new(config);
@@ -74,7 +73,7 @@ pub type SegmentReadResult = Result<SegmentDataBuffer, ReaderError>;
 #[derive(new)]
 pub struct EventReader {
     stream: ScopedStream,
-    factory: Arc<ClientFactoryInternal>,
+    factory: ClientFactory,
     rx: Receiver<SegmentReadResult>,
     tx: Sender<SegmentReadResult>,
     meta: ReaderMeta,
@@ -231,7 +230,7 @@ impl EventReader {
     /// tasks to start reads from those Segments.
     /// Note: In future the TableSyncrhonizer can be used to fetch the segments assigned to this EventReader.
     ///
-    pub async fn init(stream: ScopedStream, factory: Arc<ClientFactoryInternal>) -> Self {
+    pub async fn init(stream: ScopedStream, factory: ClientFactory) -> Self {
         let (tx, rx) = mpsc::channel(1);
         let slice_meta_map = EventReader::get_slice_meta(&stream, &factory).await;
         let mut stop_reading_map: HashMap<String, oneshot::Sender<()>> = HashMap::new();
@@ -260,7 +259,7 @@ impl EventReader {
     //
     async fn get_slice_meta(
         stream: &ScopedStream,
-        factory: &Arc<ClientFactoryInternal>,
+        factory: &ClientFactory,
     ) -> HashMap<String, SliceMetadata> {
         let segments = factory
             .get_controller_client()
@@ -290,7 +289,7 @@ impl EventReader {
     #[doc(hidden)]
     pub fn init_event_reader(
         stream: ScopedStream,
-        factory: Arc<ClientFactoryInternal>,
+        factory: ClientFactory,
         tx: Sender<SegmentReadResult>,
         rx: Receiver<SegmentReadResult>,
         segment_slice_map: HashMap<String, SliceMetadata>,
@@ -478,8 +477,8 @@ mod tests {
     use crate::event_reader::{EventReader, SegmentReadResult};
     use crate::segment_slice::{SegmentDataBuffer, SegmentSlice, SliceMetadata};
     use bytes::{BufMut, BytesMut};
+    use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
     use pravega_rust_client_shared::{Scope, ScopedSegment, ScopedStream, Stream};
-    use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
     use pravega_wire_protocol::commands::{Command, EventCommand};
     use std::collections::HashMap;
     use std::iter;
@@ -498,7 +497,7 @@ mod tests {
         tracing_subscriber::fmt().with_max_level(Level::TRACE).finish();
         let cf = ClientFactory::new(
             ClientConfigBuilder::default()
-                .controller_uri(TEST_CONTROLLER_URI)
+                .controller_uri(MOCK_CONTROLLER_URI)
                 .build()
                 .unwrap(),
         );
@@ -521,7 +520,7 @@ mod tests {
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
             stream,
-            cf.0.clone(),
+            cf.clone(),
             tx.clone(),
             rx,
             create_slice_map(init_segments),
@@ -565,7 +564,7 @@ mod tests {
         tracing_subscriber::fmt().with_max_level(Level::TRACE).finish();
         let cf = ClientFactory::new(
             ClientConfigBuilder::default()
-                .controller_uri(TEST_CONTROLLER_URI)
+                .controller_uri(MOCK_CONTROLLER_URI)
                 .build()
                 .unwrap(),
         );
@@ -598,7 +597,7 @@ mod tests {
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
             stream,
-            cf.0.clone(),
+            cf.clone(),
             tx.clone(),
             rx,
             create_slice_map(init_segments),
@@ -644,7 +643,7 @@ mod tests {
         tracing_subscriber::fmt().with_max_level(Level::TRACE).finish();
         let cf = ClientFactory::new(
             ClientConfigBuilder::default()
-                .controller_uri(TEST_CONTROLLER_URI)
+                .controller_uri(MOCK_CONTROLLER_URI)
                 .build()
                 .unwrap(),
         );
@@ -667,7 +666,7 @@ mod tests {
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
             stream,
-            cf.0.clone(),
+            cf.clone(),
             tx.clone(),
             rx,
             create_slice_map(init_segments),

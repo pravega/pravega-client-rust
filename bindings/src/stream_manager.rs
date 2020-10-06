@@ -14,11 +14,10 @@ cfg_if! {
         use crate::stream_writer::StreamWriter;
         use pravega_client_rust::client_factory::ClientFactory;
         use pravega_rust_client_shared::*;
-        use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
+        use pravega_rust_client_config::{ClientConfig, ClientConfigBuilder};
         use pyo3::prelude::*;
         use pyo3::PyResult;
         use pyo3::{exceptions, PyObjectProtocol};
-        use std::net::SocketAddr;
         use log::info;
     }
 }
@@ -47,11 +46,7 @@ impl StreamManager {
     #[new]
     fn new(controller_uri: &str) -> Self {
         let config = ClientConfigBuilder::default()
-            .controller_uri(
-                controller_uri
-                    .parse::<SocketAddr>()
-                    .expect("Parsing controller ip"),
-            )
+            .controller_uri(controller_uri)
             .build()
             .expect("creating config");
         let client_factory = ClientFactory::new(config.clone());

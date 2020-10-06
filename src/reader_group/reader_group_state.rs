@@ -38,7 +38,7 @@ pub enum ReaderGroupStateError {
 }
 
 /// ReaderGroupState encapsulates all readers states.
-pub(crate) struct ReaderGroupState<'a> {
+pub(crate) struct ReaderGroupState {
     /// The sync is a TableSynchronizer that provides API to read or write the internal
     /// reader group state stored on the server side. The internal reader group state contains
     /// the following fields.
@@ -61,16 +61,16 @@ pub(crate) struct ReaderGroupState<'a> {
     ///
     /// Segments waiting to be assigned to readers.
     /// unassigned_segments: HashMap<SegmentWithRange, Offset>
-    sync: TableSynchronizer<'a>,
+    sync: TableSynchronizer,
 }
 
-impl ReaderGroupState<'_> {
+impl ReaderGroupState {
     pub(crate) async fn new(
         scoped_synchronizer_stream: ScopedStream,
         client_facotry: &ClientFactory,
         config: ReaderGroupConfigVersioned,
         segments_to_offsets: HashMap<SegmentWithRange, Offset>,
-    ) -> ReaderGroupState<'_> {
+    ) -> ReaderGroupState {
         let mut sync = client_facotry
             .create_table_synchronizer("ReaderGroupState".to_owned())
             .await;

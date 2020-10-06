@@ -35,29 +35,29 @@ use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
     delete_scope_status, delete_stream_status, ping_txn_status, scale_request, scale_response,
     scale_status_response, txn_state, txn_status, update_stream_status, CreateScopeStatus,
-    CreateStreamStatus, CreateTxnRequest, CreateTxnResponse, DeleteScopeStatus, DeleteStreamStatus,
-    GetEpochSegmentsRequest, GetSegmentsRequest, NodeUri, PingTxnRequest, PingTxnStatus, ScaleRequest,
-    ScaleResponse, ScaleStatusRequest, ScaleStatusResponse, ScopeInfo, SegmentId, SegmentRanges,
-    SegmentsAtTime, StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus,
-    UpdateStreamStatus,
+    CreateStreamStatus, CreateTxnRequest, CreateTxnResponse, DelegationToken, DeleteScopeStatus,
+    DeleteStreamStatus, GetEpochSegmentsRequest, GetSegmentsRequest, NodeUri, PingTxnRequest, PingTxnStatus,
+    ScaleRequest, ScaleResponse, ScaleStatusRequest, ScaleStatusResponse, ScopeInfo, SegmentId,
+    SegmentRanges, SegmentsAtTime, StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState,
+    TxnStatus, UpdateStreamStatus,
 };
 use im::HashMap as ImHashMap;
-use log::debug;
+use pravega_rust_client_config::credentials::AUTHORIZATION;
+use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_retry::retry_result::{RetryError, RetryResult, Retryable};
 use pravega_rust_client_retry::wrap_with_async_retry;
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::ClientConfig;
 use snafu::Snafu;
 use std::convert::{From, Into};
 use std::str::FromStr;
 use std::sync::RwLock;
 use tokio::runtime::Handle;
 use tonic::codegen::http::uri::InvalidUri;
-use tonic::transport::channel::Channel;
-use tonic::transport::Uri;
-use tonic::{Code, Status};
+use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Uri};
+use tonic::{metadata::MetadataValue, Code, Request, Status};
+use tracing::{debug, info};
 
 #[allow(non_camel_case_types)]
 pub mod controller {
@@ -242,8 +242,7 @@ pub trait ControllerClient: Send + Sync {
      * @param streamName    Name of the stream.
      * @return              The delegation token for the given stream.
      */
-    async fn get_or_refresh_delegation_token_for(&self, stream: ScopedStream)
-        -> ResultRetry<DelegationToken>;
+    async fn get_or_refresh_delegation_token_for(&self, stream: ScopedStream) -> ResultRetry<String>;
 
     ///
     /// Fetch the successors for a given Segment.
@@ -276,9 +275,14 @@ pub struct ControllerClientImpl {
 
 async fn get_channel(config: &ClientConfig) -> Channel {
     const HTTP_PREFIX: &str = "http://";
+    const HTTPS_PREFIX: &str = "https://";
 
     // Placeholder to add authentication headers.
-    let s = format!("{}{}", HTTP_PREFIX, &config.controller_uri.to_string());
+    let s = if config.is_tls_enabled {
+        format!("{}{}", HTTPS_PREFIX, &config.controller_uri.to_string())
+    } else {
+        format!("{}{}", HTTP_PREFIX, &config.controller_uri.to_string())
+    };
     let uri_result = Uri::from_str(s.as_str())
         .map_err(|e1: InvalidUri| ControllerError::InvalidConfiguration {
             can_retry: false,
@@ -286,10 +290,30 @@ async fn get_channel(config: &ClientConfig) -> Channel {
         })
         .unwrap();
 
-    let iterable_endpoints =
-        (0..config.max_controller_connections).map(|_a| Channel::builder(uri_result.clone()));
+    let endpoints = if config.is_tls_enabled {
+        info!(
+            "getting channel for uri {:?} with controller TLS enabled",
+            uri_result
+        );
+        let pem = std::fs::read(&config.trustcert).expect("read truststore");
+        let ca = Certificate::from_pem(pem);
+        let tls = ClientTlsConfig::new()
+            .ca_certificate(ca)
+            .domain_name(config.controller_uri.domain_name());
+        (0..config.max_controller_connections)
+            .map(|_a| {
+                Channel::builder(uri_result.clone())
+                    .tls_config(tls.clone())
+                    .expect("build tls for channel")
+            })
+            .collect::<Vec<Endpoint>>()
+    } else {
+        (0..config.max_controller_connections)
+            .map(|_a| Channel::builder(uri_result.clone()))
+            .collect::<Vec<Endpoint>>()
+    };
 
-    async { Channel::balance_list(iterable_endpoints) }.await
+    async { Channel::balance_list(endpoints.into_iter()) }.await
 }
 
 #[allow(unused_variables)]
@@ -425,11 +449,11 @@ impl ControllerClient for ControllerClientImpl {
         )
     }
 
-    async fn get_or_refresh_delegation_token_for(
-        &self,
-        stream: ScopedStream,
-    ) -> ResultRetry<DelegationToken> {
-        unimplemented!()
+    async fn get_or_refresh_delegation_token_for(&self, stream: ScopedStream) -> ResultRetry<String> {
+        wrap_with_async_retry!(
+            self.config.retry_policy.max_tries(MAX_RETRIES),
+            self.call_get_delegation_token(&stream)
+        )
     }
 
     async fn get_successors(&self, segment: &ScopedSegment) -> ResultRetry<StreamSegmentsWithPredecessors> {
@@ -468,9 +492,20 @@ impl ControllerClientImpl {
     pub fn new(config: ClientConfig, h: Handle) -> Self {
         // actual connection is established lazily.
         let ch = h.block_on(get_channel(&config));
+        let client = if config.is_auth_enabled {
+            let token = config.credentials.get_request_metadata();
+            let token = MetadataValue::from_str(&token).expect("convert to metadata value");
+            ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
+                req.metadata_mut().insert(AUTHORIZATION, token.clone());
+                Ok(req)
+            })
+        } else {
+            ControllerServiceClient::new(ch)
+        };
+
         ControllerClientImpl {
             config,
-            channel: RwLock::new(ControllerServiceClient::new(ch)),
+            channel: RwLock::new(client),
         }
     }
 
@@ -1113,6 +1148,18 @@ impl ControllerClientImpl {
                     error_msg: "Operation failed".into(),
                 }),
             },
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
+        }
+    }
+
+    async fn call_get_delegation_token(&self, stream: &ScopedStream) -> Result<String> {
+        let op_status: StdResult<tonic::Response<DelegationToken>, tonic::Status> = self
+            .get_controller_client()
+            .get_delegation_token(tonic::Request::new(StreamInfo::from(stream)))
+            .await;
+        let operation_name = "get_delegation_token";
+        match op_status {
+            Ok(response) => Ok(response.into_inner().delegation_token),
             Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }
