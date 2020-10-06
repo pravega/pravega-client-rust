@@ -13,6 +13,7 @@ use crate::error::*;
 use crate::get_random_u128;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::reactors::SegmentReactor;
+use crate::segment_metadata::SegmentMetadataClient;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::{ScopedSegment, WriterId};
@@ -30,11 +31,14 @@ use uuid::Uuid;
 const BUFFER_SIZE: usize = 4096;
 const CHANNEL_CAPACITY: usize = 100;
 
+type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
+
 pub struct ByteStreamWriter {
     writer_id: WriterId,
     sender: Sender<Incoming>,
+    metadata_client: SegmentMetadataClient,
     runtime_handle: Handle,
-    oneshot_receiver: Option<oneshot::Receiver<Result<(), SegmentWriterError>>>,
+    event_handle: Option<EventHandle>,
 }
 
 impl Write for ByteStreamWriter {
@@ -64,26 +68,13 @@ impl Write for ByteStreamWriter {
             }
         })?;
 
-        self.oneshot_receiver = oneshot_receiver;
+        self.event_handle = oneshot_receiver;
         Ok(buf.len())
     }
 
     fn flush(&mut self) -> Result<(), Error> {
-        if self.oneshot_receiver.is_none() {
-            return Ok(());
-        }
-        let oneshot_receiver = self.oneshot_receiver.take().expect("get oneshot receiver");
-
-        let result = self
-            .runtime_handle
-            .block_on(oneshot_receiver)
-            .map_err(|e| Error::new(ErrorKind::Other, format!("oneshot error {:?}", e)))?;
-
-        if let Err(e) = result {
-            Err(Error::new(ErrorKind::Other, format!("{:?}", e)))
-        } else {
-            Ok(())
-        }
+        let event_handle = self.event_handle.take();
+        self.runtime_handle.block_on(self.flush_internal(event_handle))
     }
 }
 
@@ -91,6 +82,7 @@ impl ByteStreamWriter {
     pub(crate) fn new(segment: ScopedSegment, config: ClientConfig, factory: ClientFactory) -> Self {
         let (sender, receiver) = channel(CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
+        let metadata_client = handle.block_on(factory.create_segment_metadata_client(segment.clone()));
         let writer_id = WriterId(get_random_u128());
         let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
@@ -103,9 +95,29 @@ impl ByteStreamWriter {
         ByteStreamWriter {
             writer_id,
             sender,
+            metadata_client,
             runtime_handle: handle,
-            oneshot_receiver: None,
+            event_handle: None,
         }
+    }
+
+    /// Seal will seal the segment and no further writes are allowed.
+    pub async fn seal(&mut self) -> Result<(), Error> {
+        let event_handle = self.event_handle.take();
+        self.flush_internal(event_handle).await?;
+        self.metadata_client
+            .seal_segment()
+            .await
+            .map_err(|e| Error::new(ErrorKind::Other, format!("segment seal error: {:?}", e)))
+    }
+
+    /// Truncate data before a given offset for the segment. No reads are allowed before
+    /// truncation point after calling this method.
+    pub async fn truncate_data_before(&self, offset: i64) -> Result<(), Error> {
+        self.metadata_client
+            .truncate_segment(offset)
+            .await
+            .map_err(|e| Error::new(ErrorKind::Other, format!("segment truncation error: {:?}", e)))
     }
 
     async fn write_internal(
@@ -125,11 +137,29 @@ impl ByteStreamWriter {
         }
         rx
     }
+
+    async fn flush_internal(&self, event_handle: Option<EventHandle>) -> Result<(), Error> {
+        if event_handle.is_none() {
+            return Ok(());
+        }
+
+        let result = event_handle
+            .unwrap()
+            .await
+            .map_err(|e| Error::new(ErrorKind::Other, format!("oneshot error {:?}", e)))?;
+
+        if let Err(e) = result {
+            Err(Error::new(ErrorKind::Other, format!("{:?}", e)))
+        } else {
+            Ok(())
+        }
+    }
 }
 
 pub struct ByteStreamReader {
     reader_id: Uuid,
     reader: AsyncSegmentReaderImpl,
+    metadata_client: SegmentMetadataClient,
     offset: i64,
     runtime_handle: Handle,
 }
@@ -159,15 +189,25 @@ impl Read for ByteStreamReader {
 impl ByteStreamReader {
     pub(crate) fn new(segment: ScopedSegment, factory: &ClientFactory) -> Self {
         let handle = factory.get_runtime_handle();
-        let async_reader = handle.block_on(factory.create_async_event_reader(segment));
+        let async_reader = handle.block_on(factory.create_async_event_reader(segment.clone()));
+        let metadata_client = handle.block_on(factory.create_segment_metadata_client(segment));
         ByteStreamReader {
             reader_id: Uuid::new_v4(),
             reader: async_reader,
+            metadata_client,
             offset: 0,
             runtime_handle: handle,
         }
     }
+
+    pub fn current_head(&self) -> std::io::Result<u64> {
+        self.runtime_handle
+            .block_on(self.metadata_client.fetch_current_starting_head())
+            .map(|i| i as u64)
+            .map_err(|e| Error::new(ErrorKind::Other, e.to_string()))
+    }
 }
+
 /// The Seek implementation for ByteStreamReader allows seeking to a byte offset from the beginning
 /// of the stream or a byte offset relative to the current position in the stream.
 /// If the stream has been truncated, the byte offset will be relative to the original beginning of the stream.
@@ -191,7 +231,20 @@ impl Seek for ByteStreamReader {
                     Ok(self.offset as u64)
                 }
             }
-            SeekFrom::End(_offset) => unimplemented!("Seek from the end is not implemented"),
+            SeekFrom::End(offset) => {
+                if offset > 0 {
+                    return Err(Error::new(
+                        ErrorKind::InvalidInput,
+                        "Offset exceeds segment length",
+                    ));
+                }
+                let tail = self
+                    .runtime_handle
+                    .block_on(self.metadata_client.fetch_current_segment_length())
+                    .map_err(|e| Error::new(ErrorKind::Other, e.to_string()))?;
+                self.offset = tail + offset;
+                Ok(self.offset as u64)
+            }
         }
     }
 }

@@ -611,7 +611,7 @@ pub struct SegmentInfo {
     pub write_offset: i64,
 
     /// If the segment is sealed and can no longer be written to.
-    pub is_sealed: boolean,
+    pub is_sealed: bool,
 
     /// The last time the segment was written to.
     pub last_modified_time: i64,
