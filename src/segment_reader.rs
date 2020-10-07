@@ -28,7 +28,7 @@ use tokio::sync::Mutex;
 #[derive(Debug, Snafu)]
 pub enum ReaderError {
     #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
-    SegmentTruncated {
+    SegmentIsTruncated {
         segment: String,
         can_retry: bool,
         operation: String,
@@ -85,7 +85,7 @@ impl ReaderError {
     pub(crate) fn get_segment(&self) -> String {
         use ReaderError::*;
         match self {
-            SegmentTruncated {
+            SegmentIsTruncated {
                 segment,
                 can_retry: _,
                 operation: _,
@@ -143,7 +143,7 @@ impl Retryable for ReaderError {
     fn can_retry(&self) -> bool {
         use ReaderError::*;
         match self {
-            SegmentTruncated {
+            SegmentIsTruncated {
                 segment: _,
                 can_retry,
                 operation: _,
@@ -294,13 +294,13 @@ impl AsyncSegmentReaderImpl {
                     operation: "Read segment".to_string(),
                     error_msg: "Auth token expired".to_string(),
                 }),
-                Replies::NoSuchSegment(_cmd) => Err(ReaderError::SegmentTruncated {
+                Replies::NoSuchSegment(_cmd) => Err(ReaderError::SegmentIsTruncated {
                     segment: self.segment.to_string(),
                     can_retry: false,
                     operation: "Read segment".to_string(),
                     error_msg: "No Such Segment".to_string(),
                 }),
-                Replies::SegmentTruncated(_cmd) => Err(ReaderError::SegmentTruncated {
+                Replies::SegmentIsTruncated(_cmd) => Err(ReaderError::SegmentIsTruncated {
                     segment: self.segment.to_string(),
                     can_retry: false,
                     operation: "Read segment".to_string(),
@@ -312,7 +312,7 @@ impl AsyncSegmentReaderImpl {
                     operation: "Read segment".to_string(),
                     error_msg: "Wrong host".to_string(),
                 }),
-                Replies::SegmentSealed(cmd) => Ok(SegmentReadCommand {
+                Replies::SegmentIsSealed(cmd) => Ok(SegmentReadCommand {
                     segment: self.segment.to_string(),
                     offset,
                     at_tail: true,
@@ -469,7 +469,7 @@ mod tests {
         let data = runtime.block_on(async_segment_reader.read_inner(11, 1024, &raw_client));
         let segment_read_result: ReaderError = data.err().unwrap();
         match segment_read_result {
-            ReaderError::SegmentTruncated {
+            ReaderError::SegmentIsTruncated {
                 segment: _,
                 can_retry: _,
                 operation: _,
@@ -482,7 +482,7 @@ mod tests {
         let data = runtime.block_on(async_segment_reader.read_inner(12, 1024, &raw_client));
         let segment_read_result: ReaderError = data.err().unwrap();
         match segment_read_result {
-            ReaderError::SegmentTruncated {
+            ReaderError::SegmentIsTruncated {
                 segment: _,
                 can_retry: _,
                 operation: _,

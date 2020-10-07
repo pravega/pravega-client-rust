@@ -206,6 +206,10 @@ impl ByteStreamReader {
             .map(|i| i as u64)
             .map_err(|e| Error::new(ErrorKind::Other, e.to_string()))
     }
+
+    pub fn current_offset(&self) -> i64 {
+        self.offset
+    }
 }
 
 /// The Seek implementation for ByteStreamReader allows seeking to a byte offset from the beginning
@@ -214,10 +218,21 @@ impl ByteStreamReader {
 /// Seek from the end of the stream is not implemented.
 impl Seek for ByteStreamReader {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        let tail = self
+            .runtime_handle
+            .block_on(self.metadata_client.fetch_current_segment_length())
+            .map_err(|e| Error::new(ErrorKind::Other, e.to_string()))?;
         match pos {
             SeekFrom::Start(offset) => {
-                self.offset = offset as i64;
-                Ok(self.offset as u64)
+                if offset as i64 > tail {
+                    Err(Error::new(
+                        ErrorKind::InvalidInput,
+                        "Seek offset that exceeds segment length",
+                    ))
+                } else {
+                    self.offset = offset as i64;
+                    Ok(self.offset as u64)
+                }
             }
             SeekFrom::Current(offset) => {
                 let new_offset = self.offset + offset;
@@ -226,6 +241,11 @@ impl Seek for ByteStreamReader {
                         ErrorKind::InvalidInput,
                         "Cannot seek to a negative offset",
                     ))
+                } else if new_offset > tail {
+                    Err(Error::new(
+                        ErrorKind::InvalidInput,
+                        "Seek offset that exceeds segment length",
+                    ))
                 } else {
                     self.offset = new_offset;
                     Ok(self.offset as u64)
@@ -233,17 +253,19 @@ impl Seek for ByteStreamReader {
             }
             SeekFrom::End(offset) => {
                 if offset > 0 {
-                    return Err(Error::new(
+                    Err(Error::new(
                         ErrorKind::InvalidInput,
-                        "Offset exceeds segment length",
-                    ));
+                        "Seek offset that exceeds segment length",
+                    ))
+                } else if tail + offset < 0 {
+                    Err(Error::new(
+                        ErrorKind::InvalidInput,
+                        "Cannot seek to a negative offset",
+                    ))
+                } else {
+                    self.offset = tail + offset;
+                    Ok(self.offset as u64)
                 }
-                let tail = self
-                    .runtime_handle
-                    .block_on(self.metadata_client.fetch_current_segment_length())
-                    .map_err(|e| Error::new(ErrorKind::Other, e.to_string()))?;
-                self.offset = tail + offset;
-                Ok(self.offset as u64)
             }
         }
     }
@@ -251,6 +273,112 @@ impl Seek for ByteStreamReader {
 
 #[cfg(test)]
 mod test {
+    use super::*;
+    use pravega_rust_client_config::connection_type::ConnectionType;
+    use pravega_rust_client_config::ClientConfigBuilder;
+    use pravega_rust_client_shared::PravegaNodeUri;
+    use tokio::runtime::Runtime;
+
     #[test]
-    fn test() {}
+    fn test_byte_stream_seek() {
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock)
+            .mock(true)
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        let segment = ScopedSegment::from("testScope/testStream/123.#epoch.0");
+        let mut writer = factory.create_byte_stream_writer(segment.clone());
+        let mut reader = factory.create_byte_stream_reader(segment);
+
+        // write 200 bytes
+        let payload = vec![1; 200];
+        writer.write(&payload).expect("write");
+        writer.flush().expect("flush");
+
+        // read 200 bytes from beginning
+        let mut buf = vec![0; 200];
+        reader.read(&mut buf).expect("read");
+        assert_eq!(buf, vec![1; 200]);
+
+        // seek to head
+        reader.seek(SeekFrom::Start(0)).expect("seek to head");
+        assert_eq!(reader.current_offset(), 0);
+
+        // seek to head with positive offset
+        reader.seek(SeekFrom::Start(100)).expect("seek to head");
+        assert_eq!(reader.current_offset(), 100);
+
+        // seek to current with invalid positive offset
+        assert!(reader.seek(SeekFrom::Start(300)).is_err());
+
+        // seek to current with positive offset
+        assert_eq!(reader.current_offset(), 100);
+        reader.seek(SeekFrom::Current(100)).expect("seek to current");
+        assert_eq!(reader.current_offset(), 200);
+
+        // seek to current with invalid positive offset
+        assert!(reader.seek(SeekFrom::Current(200)).is_err());
+
+        // seek to current with negative offset
+        reader.seek(SeekFrom::Current(-100)).expect("seek to current");
+        assert_eq!(reader.current_offset(), 100);
+
+        // seek to current invalid negative offset
+        assert!(reader.seek(SeekFrom::Current(-200)).is_err());
+
+        // seek to end
+        reader.seek(SeekFrom::End(0)).expect("seek to end");
+        assert_eq!(reader.current_offset(), 200);
+
+        // seek to end with positive offset
+        assert!(reader.seek(SeekFrom::End(1)).is_err());
+
+        // seek to end to negative offset
+        reader.seek(SeekFrom::End(-100)).expect("seek to end");
+        assert_eq!(reader.current_offset(), 100);
+
+        // seek to end with negative offset
+        reader.seek(SeekFrom::End(-100)).expect("seek to end");
+        assert_eq!(reader.current_offset(), 100);
+
+        // seek to end with invalid negative offset
+        assert!(reader.seek(SeekFrom::End(-300)).is_err());
+    }
+
+    #[test]
+    fn test_byte_stream_truncate() {
+        let mut rt = Runtime::new().unwrap();
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock)
+            .mock(true)
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        let segment = ScopedSegment::from("testScope/testStream/123.#epoch.0");
+        let mut writer = factory.create_byte_stream_writer(segment.clone());
+        let mut reader = factory.create_byte_stream_reader(segment);
+
+        // write 200 bytes
+        let payload = vec![1; 200];
+        writer.write(&payload).expect("write");
+        writer.flush().expect("flush");
+
+        // truncate to offset 100
+        rt.block_on(writer.truncate_data_before(100)).expect("truncate");
+
+        // read truncated offset
+        reader.seek(SeekFrom::Start(0)).expect("seek to head");
+        let mut buf = vec![0; 100];
+        assert!(reader.read(&mut buf).is_err());
+
+        // read from current head
+        let offset = reader.current_head().expect("get current head");
+        reader.seek(SeekFrom::Start(offset)).expect("seek to new head");
+        let mut buf = vec![0; 100];
+        assert!(reader.read(&mut buf).is_ok());
+        assert_eq!(buf, vec![1; 100]);
+    }
 }

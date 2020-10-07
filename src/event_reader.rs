@@ -412,7 +412,7 @@ impl EventReader {
                 operation: _,
                 error_msg: _,
             }
-            | ReaderError::SegmentTruncated {
+            | ReaderError::SegmentIsTruncated {
                 segment,
                 can_retry: _,
                 operation: _,

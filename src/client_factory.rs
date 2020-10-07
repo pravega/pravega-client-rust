@@ -83,7 +83,7 @@ impl ClientFactory {
             .await
             .expect("Failed to create Table map")
     }
-  
+
     pub async fn create_table_synchronizer(&self, name: String) -> TableSynchronizer {
         TableSynchronizer::new(name, self.clone()).await
     }
