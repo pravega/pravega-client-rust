@@ -411,11 +411,13 @@ mod tests {
 
         let segment_name_copy = segment_name.clone();
         let mut raw_client = MockRawClientImpl::new();
-        raw_client.expect_send_request().returning(move |req: &Requests| {
-            //let s: Result<Replies, RawClientError> =
-            match req {
-                Requests::ReadSegment(cmd) => {
-                    if cmd.request_id == 1 {
+        let mut request_cnt = 1;
+        raw_client
+            .expect_send_request()
+            .returning(move |req: &Requests| match req {
+                Requests::ReadSegment(_cmd) => {
+                    if request_cnt == 1 {
+                        request_cnt += 1;
                         Ok(Replies::SegmentRead(SegmentReadCommand {
                             segment: segment_name_copy.to_string(),
                             offset: 0,
@@ -424,14 +426,16 @@ mod tests {
                             data: vec![0, 0, 0, 0, 0, 0, 0, 3, 97, 98, 99],
                             request_id: 1,
                         }))
-                    } else if cmd.request_id == 2 {
+                    } else if request_cnt == 2 {
+                        request_cnt += 1;
                         Ok(Replies::NoSuchSegment(NoSuchSegmentCommand {
                             segment: segment_name_copy.to_string(),
                             server_stack_trace: "".to_string(),
                             offset: 0,
                             request_id: 2,
                         }))
-                    } else if cmd.request_id == 3 {
+                    } else if request_cnt == 3 {
+                        request_cnt += 1;
                         Ok(Replies::SegmentIsTruncated(SegmentIsTruncatedCommand {
                             request_id: 3,
                             segment: segment_name_copy.to_string(),
@@ -454,8 +458,7 @@ mod tests {
                     offset: 0,
                     request_id: 1,
                 })),
-            }
-        });
+            });
         let async_segment_reader = runtime.block_on(factory.create_async_event_reader(segment_name));
         let data = runtime.block_on(async_segment_reader.read_inner(0, 11, &raw_client));
         let segment_read_result: SegmentReadCommand = data.unwrap();
