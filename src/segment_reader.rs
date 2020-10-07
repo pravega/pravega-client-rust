@@ -356,7 +356,7 @@ mod tests {
     use pravega_rust_client_shared::*;
     use pravega_wire_protocol::client_connection::ClientConnection;
     use pravega_wire_protocol::commands::{
-        Command, EventCommand, NoSuchSegmentCommand, SegmentSealedCommand, SegmentTruncatedCommand,
+        Command, EventCommand, NoSuchSegmentCommand, SegmentIsSealedCommand, SegmentIsTruncatedCommand,
     };
 
     use super::*;
@@ -432,14 +432,19 @@ mod tests {
                             request_id: 2,
                         }))
                     } else if cmd.request_id == 3 {
-                        Ok(Replies::SegmentTruncated(SegmentTruncatedCommand {
+                        Ok(Replies::SegmentIsTruncated(SegmentIsTruncatedCommand {
                             request_id: 3,
                             segment: segment_name_copy.to_string(),
+                            start_offset: 0,
+                            server_stack_trace: "".to_string(),
+                            offset: 0,
                         }))
                     } else {
-                        Ok(Replies::SegmentSealed(SegmentSealedCommand {
+                        Ok(Replies::SegmentIsSealed(SegmentIsSealedCommand {
                             request_id: 4,
                             segment: segment_name_copy.to_string(),
+                            server_stack_trace: "".to_string(),
+                            offset: 0,
                         }))
                     }
                 }
@@ -475,7 +480,7 @@ mod tests {
                 operation: _,
                 error_msg: _,
             } => assert_eq!(segment_read_result.can_retry(), false),
-            _ => assert!(false, "Segment truncated excepted"),
+            _ => assert!(false, "Segment is truncated expected"),
         }
 
         // simulate SegmentTruncated
@@ -488,7 +493,7 @@ mod tests {
                 operation: _,
                 error_msg: _,
             } => assert_eq!(segment_read_result.can_retry(), false),
-            _ => assert!(false, "Segment truncated excepted"),
+            _ => assert!(false, "Segment is truncated expected"),
         }
 
         // simulate SealedSegment
