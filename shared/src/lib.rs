@@ -613,7 +613,7 @@ pub struct SegmentInfo {
     /// If the segment is sealed and can no longer be written to.
     pub is_sealed: bool,
 
-    /// The last time the segment was written to.
+    /// The last time the segment was written to in milliseconds.
     pub last_modified_time: i64,
 }
 

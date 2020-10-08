@@ -218,21 +218,10 @@ impl ByteStreamReader {
 /// Seek from the end of the stream is not implemented.
 impl Seek for ByteStreamReader {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
-        let tail = self
-            .runtime_handle
-            .block_on(self.metadata_client.fetch_current_segment_length())
-            .map_err(|e| Error::new(ErrorKind::Other, e.to_string()))?;
         match pos {
             SeekFrom::Start(offset) => {
-                if offset as i64 > tail {
-                    Err(Error::new(
-                        ErrorKind::InvalidInput,
-                        "Seek offset that exceeds segment length",
-                    ))
-                } else {
-                    self.offset = offset as i64;
-                    Ok(self.offset as u64)
-                }
+                self.offset = offset as i64;
+                Ok(self.offset as u64)
             }
             SeekFrom::Current(offset) => {
                 let new_offset = self.offset + offset;
@@ -241,23 +230,17 @@ impl Seek for ByteStreamReader {
                         ErrorKind::InvalidInput,
                         "Cannot seek to a negative offset",
                     ))
-                } else if new_offset > tail {
-                    Err(Error::new(
-                        ErrorKind::InvalidInput,
-                        "Seek offset that exceeds segment length",
-                    ))
                 } else {
                     self.offset = new_offset;
                     Ok(self.offset as u64)
                 }
             }
             SeekFrom::End(offset) => {
-                if offset > 0 {
-                    Err(Error::new(
-                        ErrorKind::InvalidInput,
-                        "Seek offset that exceeds segment length",
-                    ))
-                } else if tail + offset < 0 {
+                let tail = self
+                    .runtime_handle
+                    .block_on(self.metadata_client.fetch_current_segment_length())
+                    .map_err(|e| Error::new(ErrorKind::Other, e.to_string()))?;
+                if tail + offset < 0 {
                     Err(Error::new(
                         ErrorKind::InvalidInput,
                         "Cannot seek to a negative offset",
@@ -310,16 +293,10 @@ mod test {
         reader.seek(SeekFrom::Start(100)).expect("seek to head");
         assert_eq!(reader.current_offset(), 100);
 
-        // seek to current with invalid positive offset
-        assert!(reader.seek(SeekFrom::Start(300)).is_err());
-
         // seek to current with positive offset
         assert_eq!(reader.current_offset(), 100);
         reader.seek(SeekFrom::Current(100)).expect("seek to current");
         assert_eq!(reader.current_offset(), 200);
-
-        // seek to current with invalid positive offset
-        assert!(reader.seek(SeekFrom::Current(200)).is_err());
 
         // seek to current with negative offset
         reader.seek(SeekFrom::Current(-100)).expect("seek to current");
@@ -333,11 +310,7 @@ mod test {
         assert_eq!(reader.current_offset(), 200);
 
         // seek to end with positive offset
-        assert!(reader.seek(SeekFrom::End(1)).is_err());
-
-        // seek to end to negative offset
-        reader.seek(SeekFrom::End(-100)).expect("seek to end");
-        assert_eq!(reader.current_offset(), 100);
+        assert!(reader.seek(SeekFrom::End(1)).is_ok());
 
         // seek to end with negative offset
         reader.seek(SeekFrom::End(-100)).expect("seek to end");
