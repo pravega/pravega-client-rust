@@ -36,7 +36,7 @@ async def test_writeEventAndRead():
     # w1.write_event("test event2")
 
     r1 = stream_manager.create_reader(scope, "testStream")
-    r2 = await r1.get_segment_slice()
+    r2 = await r1.get_segment_slice_async()
     print("completed invoked")
     print(r2)
 
