@@ -18,6 +18,7 @@ use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::{ScopedSegment, WriterId};
 use std::cmp;
+use std::convert::TryInto;
 use std::io::Error;
 use std::io::{ErrorKind, Read, Seek, SeekFrom, Write};
 use tokio::runtime::Handle;
@@ -220,7 +221,12 @@ impl Seek for ByteStreamReader {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         match pos {
             SeekFrom::Start(offset) => {
-                self.offset = offset as i64;
+                self.offset = offset.try_into().map_err(|e| {
+                    Error::new(
+                        ErrorKind::InvalidInput,
+                        format!("Overflowed when converting offset to i64: {:?}", e),
+                    )
+                })?;
                 Ok(self.offset as u64)
             }
             SeekFrom::Current(offset) => {
