@@ -26,12 +26,14 @@ use pravega_wire_protocol::commands::{
 };
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
-use std::io::{Read, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::net::SocketAddr;
+use tokio::runtime::{Handle, Runtime};
 use tracing::info;
 
 pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     // spin up Pravega standalone
+    let mut rt = Runtime::new().unwrap();
     let scope_name = Scope::from("testScopeByteStream".to_owned());
     let stream_name = Stream::from("testStreamByteStream".to_owned());
     let config = ClientConfigBuilder::default()
@@ -59,6 +61,9 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     let mut reader = client_factory.create_byte_stream_reader(scoped_segment);
 
     test_write_and_read(&mut writer, &mut reader);
+    test_seek(&mut reader);
+    test_truncation(&mut writer, &mut reader, &mut rt);
+    test_seal(&mut writer, &mut reader, &mut rt);
 }
 
 fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader) {
@@ -80,4 +85,73 @@ fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamRea
     assert_eq!(buf, expected);
 
     info!("test byte stream write and read passed");
+}
+
+fn test_seek(reader: &mut ByteStreamReader) {
+    info!("test byte stream seek");
+    // seek to start
+    reader.seek(SeekFrom::Start(0)).expect("seek to start");
+    let mut buf: Vec<u8> = vec![0; 4];
+    let size = reader.read(&mut buf).expect("read from byte stream");
+    assert_eq!(size, 4);
+    assert_eq!(buf, vec![1; 4]);
+
+    // seek to current
+    reader.seek(SeekFrom::Current(-4)).expect("seek to current");
+    let mut buf: Vec<u8> = vec![0; 4];
+    let size = reader.read(&mut buf).expect("read from byte stream");
+    assert_eq!(size, 4);
+    assert_eq!(buf, vec![1; 4]);
+
+    // seek to end
+    reader.seek(SeekFrom::End(-4)).expect("seek to current");
+    let mut buf: Vec<u8> = vec![0; 4];
+    let size = reader.read(&mut buf).expect("read from byte stream");
+    assert_eq!(size, 4);
+    assert_eq!(buf, vec![2; 4]);
+    info!("test byte stream seek passed");
+}
+
+fn test_truncation(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, rt: &mut Runtime) {
+    // truncate
+    rt.block_on(writer.truncate_data_before(4)).expect("truncate");
+
+    // read before truncation point
+    reader.seek(SeekFrom::Start(0)).expect("seek to start");
+    let mut buf: Vec<u8> = vec![0; 4];
+    let result = reader.read(&mut buf);
+    assert!(result.is_err());
+
+    // get current head
+    let head = reader.current_head().expect("get current head");
+    assert_eq!(head, 4);
+
+    // read from current head
+    reader.seek(SeekFrom::Start(head)).expect("seek to start");
+    let mut buf: Vec<u8> = vec![0; 4];
+    let size = reader.read(&mut buf).expect("read from byte stream");
+    assert_eq!(size, 4);
+    assert_eq!(buf, vec![2; 4]);
+}
+
+fn test_seal(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, rt: &mut Runtime) {
+    // Bug: sealed segment cannot read starting offset within last 8 bytes
+    let payload = vec![3, 3, 3, 3];
+    let size = writer.write(&payload).expect("write payload1 to byte stream");
+    assert_eq!(size, 4);
+
+    // seal
+    rt.block_on(writer.seal()).expect("seal");
+
+    // read sealed segment
+    reader.seek(SeekFrom::Start(4)).expect("seek to start");
+    let mut buf: Vec<u8> = vec![0; 4];
+    let size = reader.read(&mut buf).expect("read from byte stream");
+    assert_eq!(size, 4);
+    assert_eq!(buf, vec![2; 4]);
+
+    // read beyond sealed segment
+    let mut buf: Vec<u8> = vec![0; 8];
+    let result = reader.read(&mut buf);
+    assert!(result.is_err())
 }
