@@ -64,7 +64,7 @@ pub type SegmentReadResult = Result<SegmentDataBuffer, ReaderError>;
 ///         if let Some(event) = segment_slice.next() {
 ///             println!("Event read is {:?}", event);
 ///             // release the segment slice back to the reader.
-///             reader.release_segment_at(segment_slice);
+///             reader.release_segment(segment_slice);
 ///         }
 ///     }
 /// }
@@ -312,7 +312,7 @@ impl EventReader {
     ///
     /// Release a partially read segment slice back to event reader.
     ///
-    pub fn release_segment_at(&mut self, slice: SegmentSlice) {
+    pub fn release_segment(&mut self, slice: SegmentSlice) {
         //stop reading data
         if let Some(tx) = slice.slice_return_tx {
             if let Err(_e) = tx.send(slice.meta.clone()) {
@@ -326,6 +326,61 @@ impl EventReader {
         }
         //update meta data.
         self.meta.add_slices(slice.meta);
+    }
+
+    ///
+    /// Release a segment back to the reader and also indicate the offset upto which the segment slice is consumed.
+    ///
+    pub fn release_segment_at(&mut self, slice: SegmentSlice, offset: i64) {
+        assert!(
+            offset >= 0,
+            "the offset where the segment slice is released should be a positive number"
+        );
+        assert!(
+            slice.meta.start_offset <= offset,
+            "The offset where the segment slice is released should be greater than the start offset"
+        );
+        assert!(
+            slice.meta.end_offset >= offset,
+            "The offset where the segment slice is released should be less than the end offset"
+        );
+
+        let segment = ScopedSegment::from(slice.meta.scoped_segment.clone().as_str());
+        if slice.meta.read_offset != offset {
+            self.meta.stop_reading(&slice.meta.scoped_segment);
+
+            let slice_meta = SliceMetadata {
+                start_offset: slice.meta.read_offset,
+                scoped_segment: slice.meta.scoped_segment,
+                last_event_offset: slice.meta.last_event_offset,
+                read_offset: offset,
+                end_offset: slice.meta.end_offset,
+                segment_data: SegmentDataBuffer::empty(),
+                partial_data_present: false,
+            };
+
+            // reinitialize the segment data reactor.
+            let (tx_drop_fetch, rx_drop_fetch) = oneshot::channel();
+            self.factory
+                .get_runtime_handle()
+                .spawn(SegmentSlice::get_segment_data(
+                    segment.clone(),
+                    slice_meta.read_offset, // start reading from the offset provided.
+                    self.tx.clone(),
+                    rx_drop_fetch,
+                    self.factory.clone(),
+                ));
+            self.meta.add_stop_reading_tx(segment.to_string(), tx_drop_fetch);
+            self.meta.add_slices(slice_meta);
+        } else {
+            self.release_segment(slice);
+        }
+    }
+
+    pub async fn acquire_segment_test(&self) -> Option<String> {
+        use std::time::Duration;
+        std::thread::sleep(Duration::from_secs(3));
+        Some(self.stream.to_string())
     }
 
     ///
@@ -484,6 +539,8 @@ mod tests {
     use std::iter;
     use tokio::sync::mpsc;
     use tokio::sync::mpsc::Sender;
+    use tokio::sync::oneshot;
+    use tokio::sync::oneshot::error::TryRecvError;
     use tokio::time::{delay_for, Duration};
     use tracing::Level;
 
@@ -686,7 +743,7 @@ mod tests {
         assert_eq!(event.offset_in_segment, 0); // first event.
 
         // release the segment slice.
-        reader.release_segment_at(slice);
+        reader.release_segment(slice);
 
         // acquire the next segment
         let slice = cf
@@ -694,7 +751,7 @@ mod tests {
             .block_on(reader.acquire_segment())
             .unwrap();
         //Do not read, simply return it back.
-        reader.release_segment_at(slice);
+        reader.release_segment(slice);
 
         // Try acquiring the segment again.
         let mut slice = cf
@@ -706,6 +763,94 @@ mod tests {
         assert_eq!(event.value.len(), 2);
         assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
         assert_eq!(event.offset_in_segment, 8 + 1); // first event.
+    }
+
+    #[test]
+    fn test_return_slice_at_offset() {
+        const NUM_EVENTS: usize = 2;
+        let (tx, rx) = mpsc::channel(1);
+        let (stop_tx, stop_rx) = oneshot::channel();
+        tracing_subscriber::fmt().with_max_level(Level::TRACE).finish();
+        let cf = ClientFactory::new(
+            ClientConfigBuilder::default()
+                .controller_uri(MOCK_CONTROLLER_URI)
+                .build()
+                .unwrap(),
+        );
+        let stream = get_scoped_stream("scope", "test");
+
+        // simulate data being received from Segment store.
+        cf.get_runtime_handle().enter(|| {
+            tokio::spawn(generate_constant_size_events(
+                tx.clone(),
+                20,
+                NUM_EVENTS,
+                0,
+                false,
+                stop_rx,
+            ));
+        });
+        let mut stop_reading_map: HashMap<String, oneshot::Sender<()>> = HashMap::new();
+        stop_reading_map.insert("scope/test/0.#epoch.0".to_string(), stop_tx);
+
+        // simulate initialization of a Reader
+        let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
+
+        // create a new Event Reader with the segment slice data.
+        let mut reader = EventReader::init_event_reader(
+            stream,
+            cf.clone(),
+            tx.clone(),
+            rx,
+            create_slice_map(init_segments),
+            stop_reading_map,
+        );
+
+        // acquire a segment
+        let mut slice = cf
+            .get_runtime_handle()
+            .block_on(reader.acquire_segment())
+            .unwrap();
+
+        // read an event.
+        let event = slice.next().unwrap();
+        assert_eq!(event.value.len(), 1);
+        assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
+        assert_eq!(event.offset_in_segment, 0); // first event.
+
+        let result = slice.next();
+        assert!(result.is_some());
+        let event = result.unwrap();
+        assert_eq!(event.value.len(), 1);
+        assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
+        assert_eq!(event.offset_in_segment, 9); // second event.
+
+        // release the segment slice.
+        reader.release_segment_at(slice, 0);
+
+        // simulate a segment read at offset 0.
+        let (_stop_tx, stop_rx) = oneshot::channel();
+        cf.get_runtime_handle().enter(|| {
+            tokio::spawn(generate_constant_size_events(
+                tx.clone(),
+                20,
+                NUM_EVENTS,
+                0,
+                false,
+                stop_rx,
+            ));
+        });
+
+        // acquire the next segment
+        let mut slice = cf
+            .get_runtime_handle()
+            .block_on(reader.acquire_segment())
+            .unwrap();
+        // Verify a partial event being present. This implies
+        let event = slice.next().unwrap();
+        assert_eq!(event.value.len(), 1);
+        assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
+        assert_eq!(event.offset_in_segment, 0); // first event.
     }
 
     fn read_n_events(slice: &mut SegmentSlice, events_to_read: usize) {
@@ -747,6 +892,60 @@ mod tests {
             },
         };
         stream
+    }
+
+    // Generate events to simulate Pravega SegmentReadCommand.
+    async fn generate_constant_size_events(
+        mut tx: Sender<SegmentReadResult>,
+        buf_size: usize,
+        num_events: usize,
+        segment_id: usize,
+        should_delay: bool,
+        mut stop_generation: oneshot::Receiver<()>,
+    ) {
+        let mut segment_name = "scope/test/".to_owned();
+        segment_name.push_str(segment_id.to_string().as_ref());
+        let mut buf = BytesMut::with_capacity(buf_size);
+        let mut offset: i64 = 0;
+        for _i in 1..num_events + 1 {
+            if let Ok(_) | Err(TryRecvError::Closed) = stop_generation.try_recv() {
+                break;
+            }
+            let mut data = event_data(1); // constant event data.
+            if data.len() < buf.capacity() - buf.len() {
+                buf.put(data);
+            } else {
+                while data.len() > 0 {
+                    let free_space = buf.capacity() - buf.len();
+                    if free_space == 0 {
+                        if should_delay {
+                            delay_for(Duration::from_millis(100)).await;
+                        }
+                        tx.send(Ok(SegmentDataBuffer {
+                            segment: ScopedSegment::from(segment_name.as_str()).to_string(),
+                            offset_in_segment: offset,
+                            value: buf,
+                        }))
+                        .await
+                        .unwrap();
+                        offset += buf_size as i64;
+                        buf = BytesMut::with_capacity(buf_size);
+                    } else if free_space >= data.len() {
+                        buf.put(data.split());
+                    } else {
+                        buf.put(data.split_to(free_space));
+                    }
+                }
+            }
+        }
+        // send the last event.
+        tx.send(Ok(SegmentDataBuffer {
+            segment: ScopedSegment::from(segment_name.as_str()).to_string(),
+            offset_in_segment: offset,
+            value: buf,
+        }))
+        .await
+        .unwrap();
     }
 
     // Generate events to simulate Pravega SegmentReadCommand.
@@ -820,6 +1019,7 @@ mod tests {
             meta: SliceMetadata {
                 start_offset: 0,
                 scoped_segment: segment.to_string(),
+                last_event_offset: 0,
                 read_offset: 0,
                 end_offset: i64::MAX,
                 segment_data: SegmentDataBuffer::empty(),
