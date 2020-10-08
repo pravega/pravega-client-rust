@@ -131,10 +131,7 @@ impl ReaderError {
     }
 
     fn refresh_token(&self) -> bool {
-        match self {
-            ReaderError::AuthTokenExpired { .. } => true,
-            _ => false,
-        }
+        matches!(self, ReaderError::AuthTokenExpired { .. })
     }
 }
 // Implementation of Retryable trait for the error thrown by the Controller.
