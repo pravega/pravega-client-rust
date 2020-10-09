@@ -47,7 +47,6 @@ pub struct SegmentSlice {
 pub struct SliceMetadata {
     pub start_offset: i64,
     pub scoped_segment: String,
-    pub last_event_offset: i64,
     pub read_offset: i64,
     pub end_offset: i64,
     pub(crate) segment_data: SegmentDataBuffer,
@@ -165,7 +164,6 @@ impl Default for SliceMetadata {
         SliceMetadata {
             start_offset: Default::default(),
             scoped_segment: Default::default(),
-            last_event_offset: Default::default(),
             read_offset: Default::default(),
             end_offset: i64::MAX,
             segment_data: SegmentDataBuffer::empty(),
@@ -189,8 +187,7 @@ impl SegmentSlice {
             meta: SliceMetadata {
                 start_offset,
                 scoped_segment: segment.to_string(),
-                last_event_offset: 0,
-                read_offset: start_offset,
+                read_offset: 0,
                 end_offset: i64::MAX,
                 segment_data: SegmentDataBuffer::empty(),
                 partial_data_present: false,

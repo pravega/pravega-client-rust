@@ -14,10 +14,9 @@ import string
 import pravega_client;
 import asyncio
 
-
+# Helper method to invoke an coroutine inside a test.
 def _run(coro):
     return asyncio.get_event_loop().run_until_complete(coro)
-
 
 class PravegaReaderTest(unittest.TestCase):
     def test_writeEventAndRead(self):
@@ -48,5 +47,7 @@ class PravegaReaderTest(unittest.TestCase):
             print(event.data())
             self.assertEqual(b'test event', event.data())
 
+    # wrapper function to ensure we pass a co-routine to run method, since we cannot directly invoke
+    # await reader.get_segment_slice_async() inside the test.
     async def get_segment_slice(self, reader):
         return await reader.get_segment_slice_async()
