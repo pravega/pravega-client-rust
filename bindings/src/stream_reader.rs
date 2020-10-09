@@ -64,8 +64,8 @@ impl StreamReader {
             let gil = Python::acquire_gil();
             let py = gil.python();
             let loop_ = StreamReader::get_loop(py)?;
-            let fut: PyObject = loop_.call_method0(py, "create_future")?.into();
-            (fut.clone_ref(py), fut, loop_.into())
+            let fut: PyObject = loop_.call_method0(py, "create_future")?;
+            (fut.clone_ref(py), fut, loop_)
         };
         let read = self.reader.clone();
         self.handle.spawn(async move {

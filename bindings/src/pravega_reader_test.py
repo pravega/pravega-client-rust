@@ -14,9 +14,11 @@ import string
 import pravega_client;
 import asyncio
 
+
 # Helper method to invoke an coroutine inside a test.
 def _run(coro):
     return asyncio.get_event_loop().run_until_complete(coro)
+
 
 class PravegaReaderTest(unittest.TestCase):
     def test_writeEventAndRead(self):
@@ -40,12 +42,15 @@ class PravegaReaderTest(unittest.TestCase):
         w1.write_event("test event")
 
         r1 = stream_manager.create_reader(scope, "testStream")
-        slice = _run( self.get_segment_slice(r1))
-        print("completed invoked")
-        print(slice)
-        for event in slice:
+        segment_slice = _run(self.get_segment_slice(r1))
+        print(segment_slice)
+        # consume the segment slice for events.
+        count=0
+        for event in segment_slice:
+            count+=1
             print(event.data())
-            self.assertEqual(b'test event', event.data())
+            self.assertEqual(b'test event', event.data(), "Invalid event data")
+        self.assertEqual(count, 2, "Two events is expected")
 
     # wrapper function to ensure we pass a co-routine to run method, since we cannot directly invoke
     # await reader.get_segment_slice_async() inside the test.
