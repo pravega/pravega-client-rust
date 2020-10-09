@@ -27,13 +27,13 @@ async def test_writeEventAndRead():
     print("Creating a stream")
     stream_result = stream_manager.create_stream(scope, "testStream", 1)
     print(stream_result)
-    #
-    # print("Creating a writer for Stream")
-    # w1 = stream_manager.create_writer(scope, "testStream")
-    #
-    # print("Write events")
-    # w1.write_event("test event1")
-    # w1.write_event("test event2")
+
+    print("Creating a writer for Stream")
+    w1 = stream_manager.create_writer(scope, "testStream")
+
+    print("Write events")
+    w1.write_event("test event1")
+    w1.write_event("test event2")
 
     r1 = stream_manager.create_reader(scope, "testStream")
     r2 = await r1.get_segment_slice_async()
