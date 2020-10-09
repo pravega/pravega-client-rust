@@ -366,8 +366,7 @@ impl Iterator for SegmentSlice {
 
         match res {
             Some(event) => {
-                self.meta.last_event_offset = event.offset_in_segment;
-                self.meta.read_offset = self.meta.segment_data.offset_in_segment;
+                self.meta.read_offset = event.offset_in_segment;
                 Some(event)
             }
             None => {
@@ -477,7 +476,6 @@ mod tests {
             meta: SliceMetadata {
                 start_offset: 0,
                 scoped_segment: segment.to_string(),
-                last_event_offset: 0,
                 read_offset: 0,
                 end_offset: i64::MAX,
                 segment_data: SegmentDataBuffer::empty(),
