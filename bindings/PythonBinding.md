@@ -3,7 +3,7 @@
 ## Steps to generate and publish Pravega Python bindings.
 
 *Pre-requisites*
-- Python 3.5 and up.
+- Python 3.7 and up.
 
 1. Ensure `cargo build` works fine.
 2. There are two ways of running generating bindings. This describes the steps where maturin is manually installed.

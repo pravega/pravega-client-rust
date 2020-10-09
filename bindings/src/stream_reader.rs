@@ -20,7 +20,6 @@ cfg_if! {
         use pyo3::PyObjectProtocol;
         use tokio::runtime::Handle;
         use log::info;
-        use pyo3::types::PyString;
         use std::sync::Arc;
     }
 }
@@ -42,7 +41,22 @@ pub(crate) struct StreamReader {
 #[pymethods]
 impl StreamReader {
     ///
-    /// Return a Python Future which completes when a segment slice is acquired.
+    /// Return a Python Future which completes when a segment slice is acquired for consumption.
+    /// A segment slice is data chunk received from a segment of a Pravega stream. It can contain one
+    /// or more events and the user can iterate over the segment slice to read the events.
+    /// If there are more than one segment in the stream then this API can return a segment slice of any
+    /// segments in the stream. The reader ensures that events returned by the stream are in order.
+    /// This method returns a Python Future object.
+    ///
+    /// ```
+    /// import pravega_client;
+    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
+    /// // lets assume the Pravega scope and stream are already created.
+    /// reader=manager.create_reader("scope", "stream");
+    /// slice=await reader.get_segment_slice_async()
+    /// for event in slice:
+    ///     print(event.data())
+    ///```
     ///
     pub fn get_segment_slice_async(&self) -> PyResult<PyObject> {
         // create a python future object.
@@ -53,7 +67,7 @@ impl StreamReader {
             let fut: PyObject = loop_.call_method0(py, "create_future")?.into();
             (fut.clone_ref(py), fut, loop_.into())
         };
-        let mut read = self.reader.clone();
+        let read = self.reader.clone();
         self.handle.spawn(async move {
             let slice_result = read.lock().await.acquire_segment().await;
             if let Some(slice) = slice_result {
