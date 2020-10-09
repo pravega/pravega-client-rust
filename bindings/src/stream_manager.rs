@@ -239,13 +239,13 @@ impl StreamManager {
     }
 
     ///
-    /// Create a Writer for a given Stream.
+    /// Create a Reader for a given Stream.
     ///
     /// ```
     /// import pravega_client;
     /// manager=pravega_client.StreamManager("127.0.0.1:9090")
-    /// // Create a writer against an already created Pravega scope and Stream.
-    /// writer=manager.create_writer("scope", "stream")
+    /// // Create a reader against an already created Pravega scope and Stream.
+    /// reader=manager.create_reader("scope", "stream")
     /// ```
     ///
     #[text_signature = "($self, scope_name, stream_name)"]

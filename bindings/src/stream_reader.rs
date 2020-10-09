@@ -8,9 +8,6 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use pravega_client_rust::segment_slice::{Event, SegmentSlice};
-use pyo3::PyIterProtocol;
-use tokio::sync::Mutex;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client_rust::event_reader::EventReader;
@@ -21,6 +18,9 @@ cfg_if! {
         use tokio::runtime::Handle;
         use log::info;
         use std::sync::Arc;
+        use pravega_client_rust::segment_slice::{Event, SegmentSlice};
+        use pyo3::PyIterProtocol;
+        use tokio::sync::Mutex;
     }
 }
 
@@ -41,12 +41,11 @@ pub(crate) struct StreamReader {
 #[pymethods]
 impl StreamReader {
     ///
-    /// Return a Python Future which completes when a segment slice is acquired for consumption.
+    /// This method returns a Python Future which completes when a segment slice is acquired for consumption.
     /// A segment slice is data chunk received from a segment of a Pravega stream. It can contain one
     /// or more events and the user can iterate over the segment slice to read the events.
-    /// If there are more than one segment in the stream then this API can return a segment slice of any
+    /// If there are multiple segments in the stream then this API can return a segment slice of any
     /// segments in the stream. The reader ensures that events returned by the stream are in order.
-    /// This method returns a Python Future object.
     ///
     /// ```
     /// import pravega_client;
@@ -70,20 +69,24 @@ impl StreamReader {
         let read = self.reader.clone();
         self.handle.spawn(async move {
             let slice_result = read.lock().await.acquire_segment().await;
-            if let Some(slice) = slice_result {
-                info!("Segment slice acquired ");
+            let slice_py: Slice = match slice_result {
+                Some(slice) => Slice {
+                    seg_slice: slice,
+                    is_empty: false,
+                },
+                None => Slice {
+                    seg_slice: SegmentSlice::default(),
+                    is_empty: true,
+                },
+            };
+            let gil = Python::acquire_gil();
+            let py = gil.python();
+            let py_container = PyCell::new(py, slice_py).unwrap();
+            if let Err(e) = StreamReader::set_fut_result(event_loop, py_future, PyObject::from(py_container))
+            {
                 let gil = Python::acquire_gil();
                 let py = gil.python();
-                // let r = Slice { seg_slice: slice };
-                let r1 = PyCell::new(py, Slice { seg_slice: slice }).unwrap();
-                // let r = PyString::new(py, slice.as_str());
-                if let Err(e) = StreamReader::set_fut_result(event_loop, py_future, PyObject::from(r1)) {
-                    let gil = Python::acquire_gil();
-                    let py = gil.python();
-                    e.print(py);
-                }
-            } else {
-                info!("No new slices to be acquired");
+                e.print(py);
             }
         });
 
@@ -160,6 +163,7 @@ impl EventData {
 ///
 pub(crate) struct Slice {
     seg_slice: SegmentSlice,
+    is_empty: bool,
 }
 
 #[pyproto]
@@ -169,11 +173,16 @@ impl PyIterProtocol for Slice {
     }
 
     fn __next__(mut slf: PyRefMut<Self>) -> Option<EventData> {
-        let next_event: Option<Event> = slf.seg_slice.next();
-        next_event.map(|e| EventData {
-            offset_in_segment: e.offset_in_segment,
-            value: e.value,
-        })
+        if slf.is_empty {
+            info!("Empty Slice while reading");
+            None
+        } else {
+            let next_event: Option<Event> = slf.seg_slice.next();
+            next_event.map(|e| EventData {
+                offset_in_segment: e.offset_in_segment,
+                value: e.value,
+            })
+        }
     }
 }
 

@@ -172,6 +172,15 @@ impl Default for SliceMetadata {
     }
 }
 
+impl Default for SegmentSlice {
+    fn default() -> Self {
+        SegmentSlice {
+            meta: Default::default(),
+            slice_return_tx: None,
+        }
+    }
+}
+
 impl SegmentSlice {
     ///
     /// Create a new SegmentSlice for a given start_offset, segment.
