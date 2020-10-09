@@ -9,6 +9,7 @@
 //
 
 use std::sync::Arc;
+use tokio::sync::Mutex;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use crate::stream_writer_transactional::StreamTxnWriter;
@@ -255,7 +256,11 @@ impl StreamManager {
         };
         let handle = self.cf.get_runtime_handle();
         let reader = handle.block_on(self.cf.create_event_stream_reader(scoped_stream.clone()));
-        let stream_reader = StreamReader::new(Arc::new(reader), self.cf.get_runtime_handle(), scoped_stream);
+        let stream_reader = StreamReader::new(
+            Arc::new(Mutex::new(reader)),
+            self.cf.get_runtime_handle(),
+            scoped_stream,
+        );
         Ok(stream_reader)
     }
 

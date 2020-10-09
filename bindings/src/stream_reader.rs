@@ -10,6 +10,7 @@
 
 use pravega_client_rust::segment_slice::{Event, SegmentSlice};
 use pyo3::PyIterProtocol;
+use tokio::sync::Mutex;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client_rust::event_reader::EventReader;
@@ -32,7 +33,7 @@ cfg_if! {
 /// Note: A python object of StreamReader cannot be created directly without using the StreamManager.
 ///
 pub(crate) struct StreamReader {
-    reader: Arc<EventReader>,
+    reader: Arc<Mutex<EventReader>>,
     handle: Handle,
     stream: ScopedStream,
 }
@@ -52,15 +53,17 @@ impl StreamReader {
             let fut: PyObject = loop_.call_method0(py, "create_future")?.into();
             (fut.clone_ref(py), fut, loop_.into())
         };
-        let read = self.reader.clone();
+        let mut read = self.reader.clone();
         self.handle.spawn(async move {
-            let slice = read.acquire_segment_test().await;
-            if let Some(slice) = slice {
-                info!("Segment slice acquired {:?}", slice);
+            let slice_result = read.lock().await.acquire_segment().await;
+            if let Some(slice) = slice_result {
+                info!("Segment slice acquired ");
                 let gil = Python::acquire_gil();
                 let py = gil.python();
-                let r = PyString::new(py, slice.as_str());
-                if let Err(e) = StreamReader::set_fut_result(event_loop, py_future, PyObject::from(r)) {
+                // let r = Slice { seg_slice: slice };
+                let r1 = PyCell::new(py, Slice { seg_slice: slice }).unwrap();
+                // let r = PyString::new(py, slice.as_str());
+                if let Err(e) = StreamReader::set_fut_result(event_loop, py_future, PyObject::from(r1)) {
                     let gil = Python::acquire_gil();
                     let py = gil.python();
                     e.print(py);
@@ -122,6 +125,19 @@ pub(crate) struct EventData {
 }
 
 #[cfg(feature = "python_binding")]
+#[pymethods]
+impl EventData {
+    ///Return the data
+    fn data(&self) -> &[u8] {
+        self.value.as_slice()
+    }
+    /// Returns the facet string representation.
+    fn to_str(&self) -> String {
+        format!("offset {:?} data :{:?}", self.offset_in_segment, self.value)
+    }
+}
+
+#[cfg(feature = "python_binding")]
 #[pyclass]
 #[derive(new)]
 ///
@@ -157,5 +173,18 @@ impl PyIterProtocol for Slice {
 impl PyObjectProtocol for StreamReader {
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!("StreamReader({})", self.to_str()))
+    }
+}
+
+///
+/// Refer https://docs.python.org/3/reference/datamodel.html#basic-customization
+/// This function will be called by the repr() built-in function to compute the “official” string
+/// representation of an Python object.
+///
+#[cfg(feature = "python_binding")]
+#[pyproto]
+impl PyObjectProtocol for EventData {
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("EventData({})", self.to_str()))
     }
 }
