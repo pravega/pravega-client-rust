@@ -50,7 +50,7 @@ class PravegaReaderTest(unittest.TestCase):
             count+=1
             print(event.data())
             self.assertEqual(b'test event', event.data(), "Invalid event data")
-        self.assertEqual(count, 2, "Two events is expected")
+        self.assertEqual(count, 2, "Two events are expected")
 
     # wrapper function to ensure we pass a co-routine to run method, since we cannot directly invoke
     # await reader.get_segment_slice_async() inside the test.
