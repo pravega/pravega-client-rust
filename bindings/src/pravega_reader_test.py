@@ -13,6 +13,7 @@ import secrets
 import string
 import pravega_client;
 import asyncio
+import random
 
 
 # Helper method to invoke an coroutine inside a test.
@@ -22,8 +23,7 @@ def _run(coro):
 
 class PravegaReaderTest(unittest.TestCase):
     def test_writeEventAndRead(self):
-        scope = ''.join(secrets.choice(string.ascii_lowercase + string.digits)
-                        for i in range(10))
+        scope = "testScope"+str(random.randint(0, 100))
         print("Creating a Stream Manager, ensure Pravega is running")
         stream_manager = pravega_client.StreamManager("127.0.0.1:9090")
 

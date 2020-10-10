@@ -24,13 +24,13 @@ cfg_if! {
     }
 }
 
-#[cfg(feature = "python_binding")]
-#[pyclass]
-#[derive(new)]
 ///
 /// This represents a Stream reader for a given Stream.
 /// Note: A python object of StreamReader cannot be created directly without using the StreamManager.
 ///
+#[cfg(feature = "python_binding")]
+#[pyclass]
+#[derive(new)]
 pub(crate) struct StreamReader {
     reader: Arc<Mutex<EventReader>>,
     handle: Handle,
@@ -62,9 +62,9 @@ impl StreamReader {
         let (py_future, py_future_clone, event_loop): (PyObject, PyObject, PyObject) = {
             let gil = Python::acquire_gil();
             let py = gil.python();
-            let loop_ = StreamReader::get_loop(py)?;
-            let fut: PyObject = loop_.call_method0(py, "create_future")?;
-            (fut.clone_ref(py), fut, loop_)
+            let loop_event = StreamReader::get_loop(py)?;
+            let fut: PyObject = loop_event.call_method0(py, "create_future")?;
+            (fut.clone_ref(py), fut, loop_event)
         };
         let read = self.reader.clone();
         self.handle.spawn(async move {
@@ -104,7 +104,7 @@ impl StreamReader {
     // This is used to set the mark the Python future as complete and set its result.
     // ref: https://docs.python.org/3/library/asyncio-future.html#asyncio.Future.set_result
     //
-    fn set_fut_result(loop_: PyObject, fut: PyObject, res: PyObject) -> PyResult<()> {
+    fn set_fut_result(event_loop: PyObject, fut: PyObject, res: PyObject) -> PyResult<()> {
         let gil = Python::acquire_gil();
         let py = gil.python();
         let sr = fut.getattr(py, "set_result")?;
@@ -112,7 +112,7 @@ impl StreamReader {
         // ref :https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.call_soon_threadsafe
         // call_soon_threadsafe schedules the callback (setting the future to complete) to be called
         // in the next iteration of the event loop.
-        loop_.call_method1(py, "call_soon_threadsafe", (sr, res))?;
+        event_loop.call_method1(py, "call_soon_threadsafe", (sr, res))?;
 
         Ok(())
     }
@@ -124,18 +124,18 @@ impl StreamReader {
     //
     fn get_loop(py: Python) -> PyResult<PyObject> {
         let asyncio = PyModule::import(py, "asyncio")?;
-        let loop_ = asyncio.call0("get_running_loop")?;
-        Ok(loop_.into())
+        let event_loop = asyncio.call0("get_running_loop")?;
+        Ok(event_loop.into())
     }
 }
 
-#[cfg(feature = "python_binding")]
-#[pyclass]
-#[derive(new)]
 ///
 /// This represents a Stream reader for a given Stream.
 /// Note: A python object of StreamReader cannot be created directly without using the StreamManager.
 ///
+#[cfg(feature = "python_binding")]
+#[pyclass]
+#[derive(new)]
 pub(crate) struct EventData {
     offset_in_segment: i64,
     value: Vec<u8>,
@@ -154,13 +154,13 @@ impl EventData {
     }
 }
 
-#[cfg(feature = "python_binding")]
-#[pyclass]
-#[derive(new)]
 ///
 /// This represents a Stream reader for a given Stream.
 /// Note: A python object of StreamReader cannot be created directly without using the StreamManager.
 ///
+#[cfg(feature = "python_binding")]
+#[pyclass]
+#[derive(new)]
 pub(crate) struct Slice {
     seg_slice: SegmentSlice,
     is_empty: bool,

@@ -25,9 +25,6 @@ cfg_if! {
     }
 }
 
-#[cfg(feature = "python_binding")]
-#[pyclass]
-#[text_signature = "(controller_uri)"]
 ///
 /// Create a StreamManager by providing a controller uri.
 /// ```
@@ -37,12 +34,24 @@ cfg_if! {
 /// manager.create_scope("scope")
 /// ```
 ///
+#[cfg(feature = "python_binding")]
+#[pyclass]
+#[text_signature = "(controller_uri)"]
 pub(crate) struct StreamManager {
     controller_ip: String,
     cf: ClientFactory,
     config: ClientConfig,
 }
 
+///
+/// Create a StreamManager by providing a controller uri.
+/// ```
+/// import pravega_client;
+/// manager=pravega_client.StreamManager("127.0.0.1:9090")
+/// // this manager can be used to create scopes, streams, writers and readers against Pravega.
+/// manager.create_scope("scope")
+/// ```
+///
 #[cfg(feature = "python_binding")]
 #[pymethods]
 impl StreamManager {
