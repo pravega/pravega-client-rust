@@ -28,13 +28,13 @@ cfg_if! {
 // The amount of time the python api will wait for the underlying write to be completed.
 const TIMEOUT_IN_SECONDS: u64 = 120;
 
-#[cfg(feature = "python_binding")]
-#[pyclass]
-#[derive(new)]
 ///
 /// This represents a transaction on a given Stream.
 /// Note: A python object of StreamTransaction cannot be created directly without using the StreamTxnWriter.
 ///
+#[cfg(feature = "python_binding")]
+#[pyclass]
+#[derive(new)]
 pub(crate) struct StreamTransaction {
     txn: Transaction,
     handle: Handle,

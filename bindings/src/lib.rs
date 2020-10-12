@@ -12,6 +12,7 @@
 extern crate cfg_if;
 
 mod stream_manager;
+mod stream_reader;
 mod stream_writer;
 mod stream_writer_transactional;
 mod transaction;
@@ -23,6 +24,7 @@ cfg_if! {
         #[macro_use]
         extern crate derive_new;
         use stream_writer::StreamWriter;
+        use stream_reader::StreamReader;
         use crate::stream_writer_transactional::StreamTxnWriter;
         use crate::transaction::StreamTransaction;
         use pyo3::create_exception;
@@ -44,6 +46,7 @@ fn pravega_client(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<StreamWriter>()?;
     m.add_class::<StreamTxnWriter>()?;
     m.add_class::<StreamTransaction>()?;
+    m.add_class::<StreamReader>()?;
     m.add("TxnFailedException", py.get_type::<TxnFailedException>())?;
     Ok(())
 }

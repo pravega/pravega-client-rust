@@ -25,13 +25,13 @@ cfg_if! {
     }
 }
 
-#[cfg(feature = "python_binding")]
-#[pyclass]
-#[derive(new)]
 ///
 /// This represents a Stream writer for a given Stream.
 /// Note: A python object of StreamWriter cannot be created directly without using the StreamManager.
 ///
+#[cfg(feature = "python_binding")]
+#[pyclass]
+#[derive(new)]
 pub(crate) struct StreamWriter {
     writer: EventStreamWriter,
     handle: Handle,
