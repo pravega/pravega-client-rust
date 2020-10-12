@@ -75,7 +75,11 @@ impl Write for ByteStreamWriter {
 
     fn flush(&mut self) -> Result<(), Error> {
         let event_handle = self.event_handle.take();
-        self.runtime_handle.block_on(self.flush_internal(event_handle))
+        if event_handle.is_none() {
+            Ok(())
+        } else {
+            self.runtime_handle.block_on(self.flush_internal(event_handle))
+        }
     }
 }
 
