@@ -8,24 +8,23 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use std::sync::Arc;
+use tokio::sync::Mutex;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use crate::stream_writer_transactional::StreamTxnWriter;
         use crate::stream_writer::StreamWriter;
+        use crate::stream_reader::StreamReader;
         use pravega_client_rust::client_factory::ClientFactory;
         use pravega_rust_client_shared::*;
-        use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
+        use pravega_rust_client_config::{ClientConfig, ClientConfigBuilder};
         use pyo3::prelude::*;
         use pyo3::PyResult;
         use pyo3::{exceptions, PyObjectProtocol};
-        use std::net::SocketAddr;
         use log::info;
     }
 }
 
-#[cfg(feature = "python_binding")]
-#[pyclass]
-#[text_signature = "(controller_uri)"]
 ///
 /// Create a StreamManager by providing a controller uri.
 /// ```
@@ -35,23 +34,31 @@ cfg_if! {
 /// manager.create_scope("scope")
 /// ```
 ///
+#[cfg(feature = "python_binding")]
+#[pyclass]
+#[text_signature = "(controller_uri)"]
 pub(crate) struct StreamManager {
     controller_ip: String,
     cf: ClientFactory,
     config: ClientConfig,
 }
 
+///
+/// Create a StreamManager by providing a controller uri.
+/// ```
+/// import pravega_client;
+/// manager=pravega_client.StreamManager("127.0.0.1:9090")
+/// // this manager can be used to create scopes, streams, writers and readers against Pravega.
+/// manager.create_scope("scope")
+/// ```
+///
 #[cfg(feature = "python_binding")]
 #[pymethods]
 impl StreamManager {
     #[new]
     fn new(controller_uri: &str) -> Self {
         let config = ClientConfigBuilder::default()
-            .controller_uri(
-                controller_uri
-                    .parse::<SocketAddr>()
-                    .expect("Parsing controller ip"),
-            )
+            .controller_uri(controller_uri)
             .build()
             .expect("creating config");
         let client_factory = ClientFactory::new(config.clone());
@@ -238,6 +245,32 @@ impl StreamManager {
         );
         let txn_stream_writer = StreamTxnWriter::new(txn_writer, self.cf.get_runtime_handle(), scoped_stream);
         Ok(txn_stream_writer)
+    }
+
+    ///
+    /// Create a Reader for a given Stream.
+    ///
+    /// ```
+    /// import pravega_client;
+    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
+    /// // Create a reader against an already created Pravega scope and Stream.
+    /// reader=manager.create_reader("scope", "stream")
+    /// ```
+    ///
+    #[text_signature = "($self, scope_name, stream_name)"]
+    pub fn create_reader(&self, scope_name: &str, stream_name: &str) -> PyResult<StreamReader> {
+        let scoped_stream = ScopedStream {
+            scope: Scope::from(scope_name.to_string()),
+            stream: Stream::from(stream_name.to_string()),
+        };
+        let handle = self.cf.get_runtime_handle();
+        let reader = handle.block_on(self.cf.create_event_stream_reader(scoped_stream.clone()));
+        let stream_reader = StreamReader::new(
+            Arc::new(Mutex::new(reader)),
+            self.cf.get_runtime_handle(),
+            scoped_stream,
+        );
+        Ok(stream_reader)
     }
 
     /// Returns the facet string representation.

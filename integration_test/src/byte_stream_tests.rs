@@ -8,6 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::pravega_service::PravegaStandaloneServiceConfig;
 use crate::utils;
 use pravega_client_rust::byte_stream::{ByteStreamReader, ByteStreamWriter};
 use pravega_client_rust::client_factory::ClientFactory;
@@ -17,33 +18,32 @@ use pravega_client_rust::raw_client::RawClient;
 use pravega_client_rust::segment_reader::AsyncSegmentReader;
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
+use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{
     Command, EventCommand, GetStreamSegmentInfoCommand, SealSegmentCommand,
 };
-use pravega_wire_protocol::connection_factory::{
-    ConnectionFactory, ConnectionType, SegmentConnectionManager,
-};
+use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::io::{Read, Write};
 use std::net::SocketAddr;
 use tracing::info;
 
-pub fn test_byte_stream() {
+pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     // spin up Pravega standalone
     let scope_name = Scope::from("testScopeByteStream".to_owned());
     let stream_name = Stream::from("testStreamByteStream".to_owned());
     let config = ClientConfigBuilder::default()
-        .controller_uri(TEST_CONTROLLER_URI)
+        .controller_uri(MOCK_CONTROLLER_URI)
+        .is_auth_enabled(config.auth)
+        .is_tls_enabled(config.tls)
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
-    let controller_client = client_factory.get_controller_client();
     let handle = client_factory.get_runtime_handle();
     handle.block_on(utils::create_scope_stream(
-        controller_client,
+        client_factory.get_controller_client(),
         &scope_name,
         &stream_name,
         1,

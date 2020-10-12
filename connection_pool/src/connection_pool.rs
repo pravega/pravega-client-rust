@@ -10,9 +10,9 @@
 
 use async_trait::async_trait;
 use dashmap::DashMap;
+use pravega_rust_client_shared::PravegaNodeUri;
 use snafu::Snafu;
 use std::fmt;
-use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
 use uuid::Uuid;
 
@@ -34,8 +34,8 @@ pub enum ConnectionPoolError {
 ///
 /// ```no_run
 /// use async_trait::async_trait;
-/// use std::net::SocketAddr;
 /// use pravega_connection_pool::connection_pool::{Manager, ConnectionPoolError, ConnectionPool};
+/// use pravega_shared::PravegNodeUri;
 /// use tokio::runtime::Runtime;
 ///
 /// struct FooConnection {}
@@ -46,7 +46,7 @@ pub enum ConnectionPoolError {
 /// impl Manager for FooManager {
 /// type Conn = FooConnection;
 ///
-/// async fn establish_connection(&self,endpoint: SocketAddr) -> Result<Self::Conn, ConnectionPoolError> {
+/// async fn establish_connection(&self,endpoint: Pravega) -> Result<Self::Conn, ConnectionPoolError> {
 ///         unimplemented!()
 ///     }
 ///
@@ -67,7 +67,7 @@ pub enum ConnectionPoolError {
 /// let mut rt = Runtime::new().unwrap();
 /// let manager = FooManager{};
 /// let pool = ConnectionPool::new(manager);
-/// let endpoint = "127.0.0.1:12345".parse::<SocketAddr>().unwrap();
+/// let endpoint = PravegaNodeUri::from("127.0.0.1:12345".to_string());
 /// let connection = rt.block_on(pool.get_connection(endpoint));
 /// ```
 #[async_trait]
@@ -76,7 +76,8 @@ pub trait Manager {
     type Conn: Send + Sized;
 
     /// Define how to establish the customized connection
-    async fn establish_connection(&self, endpoint: SocketAddr) -> Result<Self::Conn, ConnectionPoolError>;
+    async fn establish_connection(&self, endpoint: PravegaNodeUri)
+        -> Result<Self::Conn, ConnectionPoolError>;
 
     /// Check whether this connection is still valid. This method will be used to filter out
     /// invalid connections when putting connection back to the pool
@@ -122,11 +123,11 @@ where
     /// to establish connection to the remote server.
     pub async fn get_connection(
         &self,
-        endpoint: SocketAddr,
+        endpoint: PravegaNodeUri,
     ) -> Result<PooledConnection<'_, M::Conn>, ConnectionPoolError> {
         // use an infinite loop.
         loop {
-            match self.managed_pool.get_connection(endpoint) {
+            match self.managed_pool.get_connection(endpoint.clone()) {
                 Ok(internal_conn) => {
                     let conn = internal_conn.conn;
                     if self.manager.is_valid(&conn) {
@@ -139,10 +140,10 @@ where
                         });
                     }
 
-                    //if it is not valid, will be delete automatically
+                    //if it is not valid, will be deleted automatically
                 }
                 Err(_e) => {
-                    let conn = self.manager.establish_connection(endpoint).await?;
+                    let conn = self.manager.establish_connection(endpoint.clone()).await?;
                     return Ok(PooledConnection {
                         uuid: Uuid::new_v4(),
                         inner: Some(conn),
@@ -156,7 +157,7 @@ where
     }
 
     /// Returns the pool length of a specific internal pool
-    pub fn pool_len(&self, endpoint: &SocketAddr) -> usize {
+    pub fn pool_len(&self, endpoint: &PravegaNodeUri) -> usize {
         self.managed_pool.pool_len(endpoint)
     }
 }
@@ -173,7 +174,7 @@ impl<M: Manager> fmt::Debug for ConnectionPool<M> {
 // ManagedPool maintains a map that maps endpoint to InternalPool.
 // The map is a concurrent map named Dashmap, which supports multi-threading with high performance.
 struct ManagedPool<T: Sized + Send> {
-    map: DashMap<SocketAddr, InternalPool<T>>,
+    map: DashMap<PravegaNodeUri, InternalPool<T>>,
     max_connections: u32,
 }
 
@@ -184,7 +185,7 @@ impl<T: Sized + Send> ManagedPool<T> {
     }
 
     // add a connection to the internal pool
-    fn add_connection(&self, endpoint: SocketAddr, connection: InternalConn<T>) {
+    fn add_connection(&self, endpoint: PravegaNodeUri, connection: InternalConn<T>) {
         let mut internal = self.map.entry(endpoint).or_insert_with(InternalPool::new);
         if self.max_connections > internal.conns.len() as u32 {
             internal.conns.push(connection);
@@ -192,7 +193,7 @@ impl<T: Sized + Send> ManagedPool<T> {
     }
 
     // get a connection from the internal pool. If there is no available connections, returns an error
-    fn get_connection(&self, endpoint: SocketAddr) -> Result<InternalConn<T>, ConnectionPoolError> {
+    fn get_connection(&self, endpoint: PravegaNodeUri) -> Result<InternalConn<T>, ConnectionPoolError> {
         let mut internal = self.map.entry(endpoint).or_insert_with(InternalPool::new);
         if internal.conns.is_empty() {
             Err(ConnectionPoolError::NoAvailableConnection {})
@@ -203,7 +204,7 @@ impl<T: Sized + Send> ManagedPool<T> {
     }
 
     // return the pool length of the internal pool
-    fn pool_len(&self, endpoint: &SocketAddr) -> usize {
+    fn pool_len(&self, endpoint: &PravegaNodeUri) -> usize {
         self.map.get(endpoint).map_or(0, |pool| pool.conns.len())
     }
 }
@@ -246,7 +247,7 @@ impl<T> fmt::Debug for InternalPool<T> {
 /// this pointer is dropped.
 pub struct PooledConnection<'a, T: Send + Sized> {
     uuid: Uuid,
-    endpoint: SocketAddr,
+    endpoint: PravegaNodeUri,
     inner: Option<T>,
     pool: &'a ManagedPool<T>,
     valid: bool,
@@ -269,7 +270,7 @@ impl<T: Send + Sized> Drop for PooledConnection<'_, T> {
         let conn = self.inner.take().expect("get inner connection");
         if self.valid {
             self.pool.add_connection(
-                self.endpoint,
+                self.endpoint.clone(),
                 InternalConn {
                     uuid: self.uuid,
                     conn,
@@ -311,7 +312,7 @@ mod tests {
 
         async fn establish_connection(
             &self,
-            _endpoint: SocketAddr,
+            _endpoint: PravegaNodeUri,
         ) -> Result<Self::Conn, ConnectionPoolError> {
             Ok(FooConnection {})
         }
@@ -323,6 +324,10 @@ mod tests {
         fn get_max_connections(&self) -> u32 {
             self.max_connections_in_pool
         }
+
+        fn name(&self) -> String {
+            "foo".to_string()
+        }
     }
 
     #[tokio::test(core_threads = 4)]
@@ -331,12 +336,13 @@ mod tests {
             max_connections_in_pool: 2,
         };
         let pool = ConnectionPool::new(manager);
-        let endpoint = "127.0.0.1:1000"
-            .parse::<SocketAddr>()
-            .expect("parse to socketaddr");
+        let endpoint = PravegaNodeUri::from("127.0.0.1:1000".to_string());
 
         assert_eq!(pool.pool_len(&endpoint), 0);
-        let connection = pool.get_connection(endpoint).await.expect("get connection");
+        let connection = pool
+            .get_connection(endpoint.clone())
+            .await
+            .expect("get connection");
         assert_eq!(pool.pool_len(&endpoint), 0);
         drop(connection);
         assert_eq!(pool.pool_len(&endpoint), 1);
@@ -349,16 +355,15 @@ mod tests {
             max_connections_in_pool: MAX_CONNECTION,
         };
         let pool = Arc::new(ConnectionPool::new(manager));
-        let endpoint = "127.0.0.1:1234"
-            .parse::<SocketAddr>()
-            .expect("parse to socketaddr");
+        let endpoint = PravegaNodeUri::from("127.0.0.1:1234".to_string());
 
         let mut handles = vec![];
         for _ in 0..10 {
             let cloned_pool = pool.clone();
+            let endpoint_clone = endpoint.clone();
             let handle = tokio::spawn(async move {
                 let _connection = cloned_pool
-                    .get_connection(endpoint)
+                    .get_connection(endpoint_clone)
                     .await
                     .expect("get connection");
                 tokio::time::delay_for(Duration::from_millis(500)).await;

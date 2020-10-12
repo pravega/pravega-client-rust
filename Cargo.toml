@@ -15,7 +15,7 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 
 [workspace]
 members = [
-    "controller-client", "shared", "wire_protocol", "retry", "integration_test", "connection_pool", "channel", "bindings"
+    "controller-client", "shared", "wire_protocol", "retry", "integration_test", "connection_pool", "channel", "bindings", "auth", "config"
 ]
 
 [dependencies]
@@ -25,6 +25,8 @@ pravega-wire-protocol = { path = "./wire_protocol"}
 pravega-rust-client-retry = {path = "./retry"}
 pravega-connection-pool = {path = "./connection_pool"}
 pravega-rust-client-channel = {path = "./channel"}
+pravega-rust-client-auth = {path = "./auth"}
+pravega-rust-client-config = {path = "./config"}
 async-trait = "0.1.36"
 futures = "0.3.5"
 snafu = "0.6.2"
@@ -43,6 +45,9 @@ futures-intrusive = "0.3.0"
 async-stream = "0.2.1"
 serde_cbor = "0.11.1"
 pcg_rand = "0.11.1"
+bytes = "0.5"
+im = "14.3.0"
+tokio-util = "0.3.1"
 metrics = "0.13.0-alpha.3"
 metrics-exporter-prometheus = "0.1.0-alpha.3"
 enum-iterator = "0.6.0"

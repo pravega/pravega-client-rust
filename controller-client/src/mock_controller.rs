@@ -10,38 +10,44 @@
 #![allow(dead_code)]
 use super::ControllerClient;
 use super::ControllerError;
+use crate::ResultRetry;
 use async_trait::async_trait;
+use im::HashMap as ImHashMap;
+use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use ordered_float::OrderedFloat;
 use pravega_connection_pool::connection_pool::ConnectionPool;
+use pravega_rust_client_config::connection_type::ConnectionType;
 use pravega_rust_client_retry::retry_result::RetryError;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{CreateSegmentCommand, DeleteSegmentCommand, MergeSegmentsCommand};
 use pravega_wire_protocol::connection_factory::{
-    ConnectionFactory, ConnectionType, SegmentConnectionManager,
+    ConnectionFactory, ConnectionFactoryConfig, SegmentConnectionManager,
 };
 use pravega_wire_protocol::error::ClientConnectionError;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::collections::{BTreeMap, HashMap};
-use std::net::SocketAddr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
+use std::time::SystemTime;
 use tokio::sync::{RwLock, RwLockReadGuard};
 use uuid::Uuid;
 
 static ID_GENERATOR: AtomicUsize = AtomicUsize::new(0);
 
 pub struct MockController {
-    endpoint: SocketAddr,
+    endpoint: PravegaNodeUri,
     pool: ConnectionPool<SegmentConnectionManager>,
     created_scopes: RwLock<HashMap<String, HashSet<ScopedStream>>>,
     created_streams: RwLock<HashMap<ScopedStream, StreamConfiguration>>,
 }
 
 impl MockController {
-    pub fn new(endpoint: SocketAddr) -> Self {
-        let cf = ConnectionFactory::create(ConnectionType::Mock) as Box<dyn ConnectionFactory>;
+    pub fn new(endpoint: PravegaNodeUri) -> Self {
+        let config = ConnectionFactoryConfig::new(ConnectionType::Mock);
+        let cf = ConnectionFactory::create(config) as Box<dyn ConnectionFactory>;
         let manager = SegmentConnectionManager::new(cf, 10);
         let pool = ConnectionPool::new(manager);
         MockController {
@@ -254,6 +260,18 @@ impl ControllerClient for MockController {
         })
     }
 
+    async fn get_head_segments(&self, _stream: &ScopedStream) -> ResultRetry<ImHashMap<Segment, i64>> {
+        Err(RetryError {
+            error: ControllerError::OperationError {
+                can_retry: false, // do not retry.
+                operation: "get head segments".into(),
+                error_msg: "unsupported operation.".into(),
+            },
+            total_delay: Duration::from_millis(1),
+            tries: 0,
+        })
+    }
+
     async fn create_transaction(
         &self,
         stream: &ScopedStream,
@@ -334,14 +352,32 @@ impl ControllerClient for MockController {
         &self,
         _segment: &ScopedSegment,
     ) -> Result<PravegaNodeUri, RetryError<ControllerError>> {
-        Ok(PravegaNodeUri(self.endpoint.to_string()))
+        Ok(self.endpoint.clone())
     }
 
     async fn get_or_refresh_delegation_token_for(
         &self,
         _stream: ScopedStream,
-    ) -> Result<DelegationToken, RetryError<ControllerError>> {
-        Ok(DelegationToken(String::from("")))
+    ) -> Result<String, RetryError<ControllerError>> {
+        let now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("get unix time");
+        let timeout = Duration::from_secs(5);
+        let expiry_time = now.checked_add(timeout).expect("calculate expiry time");
+        let claims = Claims {
+            sub: "subject".to_string(),
+            aud: "segmentstore".to_string(),
+            iat: now.as_secs(),
+            exp: expiry_time.as_secs(),
+        };
+
+        let mut header = Header::default();
+        header.typ = Some("JWT".to_owned());
+        header.alg = Algorithm::HS256;
+
+        let key = b"secret";
+        let token = encode(&header, &claims, &EncodingKey::from_secret(key)).expect("encode to JWT token");
+        Ok(token)
     }
 
     async fn get_successors(
@@ -711,7 +747,7 @@ async fn send_request_over_connection(
 ) -> Result<Replies, ClientConnectionError> {
     let pooled_connection = controller
         .pool
-        .get_connection(controller.endpoint)
+        .get_connection(controller.endpoint.clone())
         .await
         .expect("get connection from pool");
     let mut connection = ClientConnectionImpl {
@@ -719,4 +755,12 @@ async fn send_request_over_connection(
     };
     connection.write(command).await?;
     connection.read().await
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Claims {
+    sub: String,
+    aud: String,
+    iat: u64,
+    exp: u64,
 }

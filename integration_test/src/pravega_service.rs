@@ -8,8 +8,12 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use java_properties::read;
+use java_properties::write;
+use java_properties::PropertiesIter;
+use java_properties::PropertiesWriter;
 use std::fs::{create_dir, File};
-use std::io::{Read, Write};
+use std::io::{BufReader, BufWriter, Read, Write};
 use std::net::IpAddr;
 use std::net::Ipv4Addr;
 use std::net::SocketAddr;
@@ -19,6 +23,7 @@ use tracing::info;
 
 const PATH: &str = "./pravega/bin/pravega-standalone";
 const LOG: &str = "./pravega/conf/logback.xml";
+const PROPERTY: &str = "./pravega/conf/standalone-config.properties";
 /**
  * Pravega Service abstraction for the test framework.
  */
@@ -26,7 +31,7 @@ pub trait PravegaService {
     /**
      * Create and start a PravegaService
      */
-    fn start(debug: bool) -> Self;
+    fn start(config: PravegaStandaloneServiceConfig) -> Self;
 
     /**
      * Stop a given service. If the service is already stopped,nothing would happen.
@@ -37,6 +42,16 @@ pub trait PravegaService {
      * Enable DEBUG level log of Pravega standalone
      */
     fn enable_debug_log(enable: bool);
+
+    /**
+     * Enable Auth for Pravega standalone
+     */
+    fn enable_auth(enable: bool);
+
+    /**
+     * Enable Auth for Pravega standalone
+     */
+    fn enable_tls(enable: bool);
 
     /**
      * Check if the service is up and running.
@@ -71,11 +86,16 @@ impl PravegaService for PravegaStandaloneService {
     /**
      * start the pravega standalone. the path should point to the pravega-standalone
      */
-    fn start(debug: bool) -> Self {
-        PravegaStandaloneService::enable_debug_log(debug);
+    fn start(config: PravegaStandaloneServiceConfig) -> Self {
+        PravegaStandaloneService::enable_debug_log(config.debug);
+        PravegaStandaloneService::enable_auth(config.auth);
+        PravegaStandaloneService::enable_tls(config.tls);
         let _ = create_dir("./log");
         let output = File::create("./log/output.log").expect("creating file for standalone log");
-        info!("start running pravega under path {}", PATH);
+        info!(
+            "start running pravega under path {} with config {:?}",
+            PATH, config
+        );
         let pravega = Command::new(PATH)
             .stdout(Stdio::from(output))
             .spawn()
@@ -111,7 +131,7 @@ impl PravegaService for PravegaStandaloneService {
     fn enable_debug_log(enable: bool) {
         let file_path = Path::new(&LOG);
         // Open and read the file entirely
-        let mut src = File::open(&file_path).expect("open file");
+        let mut src = File::open(&file_path).expect("open logback.xml file");
         let mut data = String::new();
         src.read_to_string(&mut data).expect("read data");
         drop(src); // Close the file early
@@ -127,8 +147,67 @@ impl PravegaService for PravegaStandaloneService {
         // Recreate the file and dump the processed contents to it
         let mut dst = File::create(&file_path).expect("create file");
         dst.write_all(new_data.as_bytes()).expect("write file");
+    }
 
-        info!("done");
+    fn enable_auth(enable: bool) {
+        let file_path = Path::new(&PROPERTY);
+        let file = File::open(&file_path).expect("open standalone property file");
+        let mut map = read(BufReader::new(file)).expect("read property file");
+
+        if enable {
+            map.insert("singlenode.security.auth.enable".to_string(), "true".to_string());
+            map.insert(
+                "singlenode.security.auth.pwdAuthHandler.accountsDb.location".to_string(),
+                "./pravega/conf/passwd".to_string(),
+            );
+        } else {
+            map.insert("singlenode.security.auth.enable".to_string(), "false".to_string());
+        };
+
+        // Recreate the file and dump the processed contents to it
+        let f = File::create(&file_path).expect("create file");
+        write(BufWriter::new(f), &map).expect("write file");
+    }
+
+    fn enable_tls(enable: bool) {
+        let file_path = Path::new(&PROPERTY);
+        let file = File::open(&file_path).expect("open standalone property file");
+        let mut map = read(BufReader::new(file)).expect("read property file");
+        // drop(src); // Close the file early
+
+        if enable {
+            map.insert("singlenode.security.tls.enable".to_string(), "true".to_string());
+            map.insert(
+                "singlenode.security.tls.privateKey.location".to_string(),
+                "./pravega/conf/server-key.key".to_string(),
+            );
+            map.insert(
+                "singlenode.security.tls.certificate.location".to_string(),
+                "./pravega/conf/server-cert.crt".to_string(),
+            );
+            map.insert(
+                "singlenode.security.tls.keyStore.location".to_string(),
+                "./pravega/conf/server.keystore.jks".to_string(),
+            );
+            map.insert(
+                "singlenode.security.tls.keyStore.pwd.location".to_string(),
+                "./pravega/conf/server.keystore.jks.passwd".to_string(),
+            );
+            map.insert(
+                "singlenode.security.tls.trustStore.location".to_string(),
+                "./pravega/conf/client.truststore.jks".to_string(),
+            );
+            map.insert(
+                "pravegaservice.service.published.host.nameOrIp".to_string(),
+                "localhost".to_string(),
+            );
+        } else {
+            map.insert("singlenode.security.tls.enable".to_string(), "false".to_string());
+        };
+
+        // Recreate the file and dump the processed contents to it
+        let f = File::create(&file_path).expect("create file");
+        write(BufWriter::new(f), &map).expect("write file");
     }
 }
 
@@ -136,4 +215,11 @@ impl Drop for PravegaStandaloneService {
     fn drop(&mut self) {
         self.stop().expect("Failed to stop pravega");
     }
+}
+
+#[derive(new, Clone, Debug)]
+pub struct PravegaStandaloneServiceConfig {
+    pub debug: bool,
+    pub auth: bool,
+    pub tls: bool,
 }

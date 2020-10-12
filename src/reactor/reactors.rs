@@ -12,11 +12,11 @@ use std::sync::Arc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tracing::{debug, error, info, warn};
 
+use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::ClientConfig;
 use pravega_wire_protocol::wire_commands::Replies;
 
-use crate::client_factory::ClientFactoryInternal;
+use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::reactor::event::{Incoming, ServerReply};
 use crate::reactor::segment_selector::SegmentSelector;
@@ -30,10 +30,17 @@ impl StreamReactor {
         stream: ScopedStream,
         sender: Sender<Incoming>,
         mut receiver: Receiver<Incoming>,
-        factory: Arc<ClientFactoryInternal>,
+        factory: ClientFactory,
         config: ClientConfig,
     ) {
-        let mut selector = SegmentSelector::new(stream, sender, config, factory.clone());
+        let delegation_token_provider = factory.create_delegation_token_provider(stream.clone()).await;
+        let mut selector = SegmentSelector::new(
+            stream,
+            sender,
+            config,
+            factory.clone(),
+            Arc::new(delegation_token_provider),
+        );
         // get the current segments and create corresponding event segment writers
         selector.initialize().await;
         info!("starting stream reactor");
@@ -53,8 +60,9 @@ impl StreamReactor {
                     if let Err(e) =
                         StreamReactor::process_server_reply(server_reply, &mut selector, &factory).await
                     {
+                        error!("error occurs when processing server reply: {}", e);
                         receiver.close();
-                        drain_recevier(receiver, e.to_owned()).await;
+                        drain_receiver(receiver, e.to_owned()).await;
                         break;
                     }
                 }
@@ -65,7 +73,7 @@ impl StreamReactor {
     async fn process_server_reply(
         server_reply: ServerReply,
         selector: &mut SegmentSelector,
-        factory: &Arc<ClientFactoryInternal>,
+        factory: &ClientFactory,
     ) -> Result<(), &'static str> {
         // it should always have writer because writer will
         // not be removed until it receives SegmentSealed reply
@@ -88,6 +96,24 @@ impl StreamReactor {
                     writer.reconnect(factory).await;
                 }
                 Ok(())
+            }
+
+            Replies::AuthTokenCheckFailed(cmd) => {
+                if cmd.is_token_expired() {
+                    debug!(
+                        "delegation token check failed due to token expired, refresh token and try again: stack trace {}, error code {}",
+                        cmd.server_stack_trace, cmd.error_code
+                    );
+                    writer.signal_delegation_token_expiry();
+                    writer.reconnect(factory).await;
+                    Ok(())
+                } else {
+                    error!(
+                        "delegation token check failed: stack trace {}, error code {}",
+                        cmd.server_stack_trace, cmd.error_code
+                    );
+                    Err("Authentication failed")
+                }
             }
 
             Replies::SegmentIsSealed(cmd) => {
@@ -116,7 +142,7 @@ impl StreamReactor {
                     selector.remove_segment_event_writer(&segment);
                     Ok(())
                 } else {
-                    Err("Stream is sealed")
+                    Err("No such segment")
                 }
             }
 
@@ -139,10 +165,18 @@ impl SegmentReactor {
         segment: ScopedSegment,
         sender: Sender<Incoming>,
         mut receiver: Receiver<Incoming>,
-        factory: Arc<ClientFactoryInternal>,
+        factory: ClientFactory,
         config: ClientConfig,
     ) {
-        let mut writer = SegmentWriter::new(segment.clone(), sender.clone(), config.retry_policy);
+        let delegation_token_provider = factory
+            .create_delegation_token_provider(ScopedStream::from(&segment))
+            .await;
+        let mut writer = SegmentWriter::new(
+            segment.clone(),
+            sender.clone(),
+            config.retry_policy,
+            Arc::new(delegation_token_provider),
+        );
         if let Err(_e) = writer.setup_connection(&factory).await {
             writer.reconnect(&factory).await;
         }
@@ -161,7 +195,7 @@ impl SegmentReactor {
                         SegmentReactor::process_server_reply(server_reply, &mut writer, &factory).await
                     {
                         receiver.close();
-                        drain_recevier(receiver, e.to_owned()).await;
+                        drain_receiver(receiver, e.to_owned()).await;
                         break;
                     }
                 }
@@ -171,7 +205,7 @@ impl SegmentReactor {
     async fn process_server_reply(
         server_reply: ServerReply,
         writer: &mut SegmentWriter,
-        factory: &Arc<ClientFactoryInternal>,
+        factory: &ClientFactory,
     ) -> Result<(), &'static str> {
         match server_reply.reply {
             Replies::DataAppended(cmd) => {
@@ -188,6 +222,24 @@ impl SegmentReactor {
                     writer.reconnect(factory).await;
                 }
                 Ok(())
+            }
+
+            Replies::AuthTokenCheckFailed(cmd) => {
+                if cmd.is_token_expired() {
+                    debug!(
+                        "delegation token check failed due to token expired, refresh token and try again: stack trace {}, error code {}",
+                        cmd.server_stack_trace, cmd.error_code
+                    );
+                    writer.signal_delegation_token_expiry();
+                    writer.reconnect(factory).await;
+                    Ok(())
+                } else {
+                    error!(
+                        "delegation token check failed: stack trace {}, error code {}",
+                        cmd.server_stack_trace, cmd.error_code
+                    );
+                    Err("Authentication failed")
+                }
             }
 
             Replies::SegmentIsSealed(cmd) => {
@@ -218,7 +270,7 @@ impl SegmentReactor {
     }
 }
 
-async fn drain_recevier(mut receiver: Receiver<Incoming>, msg: String) {
+async fn drain_receiver(mut receiver: Receiver<Incoming>, msg: String) {
     while let Some(remaining) = receiver.recv().await {
         if let Incoming::AppendEvent(event) = remaining {
             let err = Err(SegmentWriterError::ReactorClosed { msg: msg.clone() });

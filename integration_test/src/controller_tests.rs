@@ -8,15 +8,19 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::pravega_service::PravegaStandaloneServiceConfig;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_controller_client::ControllerClient;
+use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::{ClientConfigBuilder, TEST_CONTROLLER_URI};
+use std::sync::Arc;
 use tracing::info;
 
-pub fn test_controller_apis() {
+pub fn test_controller_apis(config: PravegaStandaloneServiceConfig) {
     let config = ClientConfigBuilder::default()
-        .controller_uri(TEST_CONTROLLER_URI)
+        .controller_uri(MOCK_CONTROLLER_URI)
+        .is_auth_enabled(config.auth)
+        .is_tls_enabled(config.tls)
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
@@ -53,10 +57,10 @@ pub fn test_controller_apis() {
 }
 
 pub async fn test_scale_stream(controller: &dyn ControllerClient) {
-    let scoped_stream = ScopedStream::new(
-        Scope::from("testScope123".to_owned()),
-        Stream::from("testStream".to_owned()),
-    );
+    let scoped_stream = ScopedStream {
+        scope: Scope::from("testScope123".to_owned()),
+        stream: Stream::from("testStream".to_owned()),
+    };
 
     let current_segments_result = controller.get_current_segments(&scoped_stream).await;
     info!(
@@ -82,4 +86,8 @@ pub async fn test_scale_stream(controller: &dyn ControllerClient) {
         current_segments_result
     );
     assert_eq!(2, current_segments_result.unwrap().key_segment_map.len());
+
+    let head_segments_result = controller.get_head_segments(&scoped_stream).await;
+    info!("Response for get_head_segments is {:?}", head_segments_result);
+    assert_eq!(1, head_segments_result.unwrap().len());
 }

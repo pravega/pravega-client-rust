@@ -8,12 +8,10 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use std::collections::VecDeque;
-use std::net::SocketAddr;
-
 use crate::trace;
 use crate::{get_random_u128, get_request_id};
 use snafu::ResultExt;
+use std::collections::VecDeque;
 use tokio::sync::mpsc::Sender;
 use tracing::{debug, error, field, info, info_span, warn};
 
@@ -25,12 +23,14 @@ use pravega_wire_protocol::client_connection::*;
 use pravega_wire_protocol::commands::{AppendBlockEndCommand, SetupAppendCommand};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
-use crate::client_factory::ClientFactoryInternal;
+use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::metric::ClientMetrics;
 use crate::raw_client::RawClient;
 use crate::reactor::event::{Incoming, PendingEvent, ServerReply};
+use pravega_rust_client_auth::DelegationTokenProvider;
 use std::fmt;
+use std::sync::Arc;
 use tracing_futures::Instrument;
 
 pub(crate) struct SegmentWriter {
@@ -41,7 +41,7 @@ pub(crate) struct SegmentWriter {
     pub(crate) segment: ScopedSegment,
 
     /// the endpoint for segment, it might change if the segment is moved to another host
-    endpoint: SocketAddr,
+    endpoint: PravegaNodeUri,
 
     /// client connection that writes to the segmentstore
     connection: Option<WritingClientConnection>,
@@ -60,6 +60,9 @@ pub(crate) struct SegmentWriter {
 
     /// The client retry policy
     retry_policy: RetryWithBackoff,
+
+    /// delegation token provider used to authenticate client when communicating with segmentstore
+    delegation_token_provider: Arc<DelegationTokenProvider>,
 }
 
 impl SegmentWriter {
@@ -71,9 +74,10 @@ impl SegmentWriter {
         segment: ScopedSegment,
         sender: Sender<Incoming>,
         retry_policy: RetryWithBackoff,
+        delegation_token_provider: Arc<DelegationTokenProvider>,
     ) -> Self {
         SegmentWriter {
-            endpoint: "127.0.0.1:0".parse::<SocketAddr>().expect("get socketaddr"), //Dummy address
+            endpoint: PravegaNodeUri::from("127.0.0.1:0"), //Dummy address
             id: WriterId::from(get_random_u128()),
             connection: None,
             segment,
@@ -82,6 +86,7 @@ impl SegmentWriter {
             event_num: 0,
             sender,
             retry_policy,
+            delegation_token_provider,
         }
     }
 
@@ -95,7 +100,7 @@ impl SegmentWriter {
 
     pub(crate) async fn setup_connection(
         &mut self,
-        factory: &ClientFactoryInternal,
+        factory: &ClientFactory,
     ) -> Result<(), SegmentWriterError> {
         let span = info_span!("setup connection", segment_writer= %self.id, segment= %self.segment, host = field::Empty);
         // span.enter doesn't work for async code https://docs.rs/tracing/0.1.17/tracing/span/struct.Span.html#in-asynchronous-code
@@ -111,16 +116,14 @@ impl SegmentWriter {
             };
             trace::current_span().record("host", &field::debug(&uri));
 
-            self.endpoint = uri.0.parse::<SocketAddr>().expect("should convert to socketaddr");
-
             let request = Requests::SetupAppend(SetupAppendCommand {
                 request_id: get_request_id(),
                 writer_id: self.id.0,
                 segment: self.segment.to_string(),
-                delegation_token: "".to_string(),
+                delegation_token: self.delegation_token_provider.retrieve_token(factory.get_controller_client()).await,
             });
 
-            let raw_client = factory.create_raw_client(self.endpoint);
+            let raw_client = factory.create_raw_client_for_endpoint(uri);
             let result = retry_async(self.retry_policy, || async {
                 debug!(
                     "setting up append for writer:{:?}/segment:{:?}",
@@ -320,7 +323,7 @@ impl SegmentWriter {
         ret
     }
 
-    pub(crate) async fn reconnect(&mut self, factory: &ClientFactoryInternal) {
+    pub(crate) async fn reconnect(&mut self, factory: &ClientFactory) {
         loop {
             debug!("Reconnecting event segment writer {:?}", self.id);
             // setup the connection
@@ -342,6 +345,10 @@ impl SegmentWriter {
 
             return;
         }
+    }
+
+    pub(crate) fn signal_delegation_token_expiry(&self) {
+        self.delegation_token_provider.signal_token_expiry()
     }
 }
 

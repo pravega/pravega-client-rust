@@ -11,6 +11,7 @@
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use pravega_rust_client_shared::*;
+use std::sync::Arc;
 
 /// helper function
 /// creates a scoped stream for integration test.

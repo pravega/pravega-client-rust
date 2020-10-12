@@ -16,29 +16,17 @@ use crate::mock_connection::MockConnection;
 use crate::wire_commands::{Replies, Requests};
 use async_trait::async_trait;
 use pravega_connection_pool::connection_pool::{ConnectionPoolError, Manager};
+use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfig};
+use pravega_rust_client_shared::PravegaNodeUri;
 use snafu::ResultExt;
 use std::fmt;
-use std::net::SocketAddr;
+use std::fs::File;
+use std::io::BufReader;
+use std::sync::Arc;
 use tokio::net::TcpStream;
+use tokio_rustls::{rustls, webpki::DNSNameRef, TlsConnector};
+use tracing::info;
 use uuid::Uuid;
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum ConnectionType {
-    Mock,
-    Tokio,
-}
-
-impl Default for ConnectionType {
-    fn default() -> Self {
-        ConnectionType::Tokio
-    }
-}
-
-impl fmt::Display for ConnectionType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self)
-    }
-}
 
 /// ConnectionFactory trait is the factory used to establish the TCP connection with remote servers.
 #[async_trait]
@@ -48,54 +36,102 @@ pub trait ConnectionFactory: Send + Sync {
     /// # Example
     ///
     /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use pravega_wire_protocol::connection_factory;
-    /// use pravega_wire_protocol::connection_factory::ConnectionFactory;
+    /// use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryConfig};
+    /// use pravega_rust_client_shared::PravegaNodeUri;
+    /// use pravega_rust_client_config::connection_type::ConnectionType;
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
     ///   let mut rt = Runtime::new().unwrap();
-    ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
-    ///   let cf = connection_factory::ConnectionFactory::create(connection_factory::ConnectionType::Tokio);
+    ///   let endpoint = PravegaNodeUri::from("localhost:9090".to_string());
+    ///   let config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
+    ///   let cf = ConnectionFactory::create(config);
     ///   let connection_future = cf.establish_connection(endpoint);
     ///   let mut connection = rt.block_on(connection_future).unwrap();
     /// }
     /// ```
     async fn establish_connection(
         &self,
-        endpoint: SocketAddr,
+        endpoint: PravegaNodeUri,
     ) -> Result<Box<dyn Connection>, ConnectionFactoryError>;
 }
 
 impl dyn ConnectionFactory {
-    pub fn create(connection_type: ConnectionType) -> Box<dyn ConnectionFactory> {
-        match connection_type {
-            ConnectionType::Tokio => Box::new(TokioConnectionFactory {}),
+    pub fn create(config: ConnectionFactoryConfig) -> Box<dyn ConnectionFactory> {
+        match config.connection_type {
+            ConnectionType::Tokio => Box::new(TokioConnectionFactory::new(
+                config.is_tls_enabled,
+                &config.cert_path,
+            )),
             ConnectionType::Mock => Box::new(MockConnectionFactory {}),
         }
     }
 }
 
-struct TokioConnectionFactory {}
+struct TokioConnectionFactory {
+    tls_enabled: bool,
+    path: String,
+}
+
+impl TokioConnectionFactory {
+    fn new(tls_enabled: bool, path: &str) -> Self {
+        TokioConnectionFactory {
+            tls_enabled,
+            path: path.to_owned(),
+        }
+    }
+}
 struct MockConnectionFactory {}
 
 #[async_trait]
 impl ConnectionFactory for TokioConnectionFactory {
     async fn establish_connection(
         &self,
-        endpoint: SocketAddr,
+        endpoint: PravegaNodeUri,
     ) -> Result<Box<dyn Connection>, ConnectionFactoryError> {
         let connection_type = ConnectionType::Tokio;
         let uuid = Uuid::new_v4();
-        let stream = TcpStream::connect(endpoint).await.context(Connect {
-            connection_type,
-            endpoint,
-        })?;
-        let mut tokio_connection: Box<dyn Connection> = Box::new(TokioConnection {
-            uuid,
-            endpoint,
-            stream: Some(stream),
-        }) as Box<dyn Connection>;
+        let mut tokio_connection = if self.tls_enabled {
+            info!(
+                "establish connection to segmentstore {:?} using TLS channel",
+                endpoint
+            );
+            let mut config = rustls::ClientConfig::new();
+            let mut pem = BufReader::new(File::open(&self.path).expect("open pem file"));
+            config.root_store.add_pem_file(&mut pem).expect("add pem file");
+            let connector = TlsConnector::from(Arc::new(config));
+            let stream = TcpStream::connect(endpoint.to_socket_addr())
+                .await
+                .context(Connect {
+                    connection_type,
+                    endpoint: endpoint.clone(),
+                })?;
+            // Endpoint returned by controller by default is an IP address, it is necessary to configure
+            // Pravega to return a hostname. Check pravegaservice.service.published.host.nameOrIp property.
+            let domain_name = endpoint.domain_name();
+            let domain = DNSNameRef::try_from_ascii_str(&domain_name).expect("get domain name");
+            let stream = connector
+                .connect(domain, stream)
+                .await
+                .expect("connect to tls stream");
+            Box::new(TokioConnection {
+                uuid,
+                endpoint: endpoint.clone(),
+                stream: Some(stream),
+            }) as Box<dyn Connection>
+        } else {
+            let stream = TcpStream::connect(endpoint.to_socket_addr())
+                .await
+                .context(Connect {
+                    connection_type,
+                    endpoint: endpoint.clone(),
+                })?;
+            Box::new(TokioConnection {
+                uuid,
+                endpoint: endpoint.clone(),
+                stream: Some(stream),
+            }) as Box<dyn Connection>
+        };
         verify_connection(&mut *tokio_connection)
             .await
             .context(Verify {})?;
@@ -107,7 +143,7 @@ impl ConnectionFactory for TokioConnectionFactory {
 impl ConnectionFactory for MockConnectionFactory {
     async fn establish_connection(
         &self,
-        endpoint: SocketAddr,
+        endpoint: PravegaNodeUri,
     ) -> Result<Box<dyn Connection>, ConnectionFactoryError> {
         let mock = MockConnection::new(endpoint);
         Ok(Box::new(mock) as Box<dyn Connection>)
@@ -163,14 +199,20 @@ impl SegmentConnectionManager {
 impl Manager for SegmentConnectionManager {
     type Conn = Box<dyn Connection>;
 
-    async fn establish_connection(&self, endpoint: SocketAddr) -> Result<Self::Conn, ConnectionPoolError> {
-        let result = self.connection_factory.establish_connection(endpoint).await;
+    async fn establish_connection(
+        &self,
+        endpoint: PravegaNodeUri,
+    ) -> Result<Self::Conn, ConnectionPoolError> {
+        let result = self
+            .connection_factory
+            .establish_connection(endpoint.clone())
+            .await;
 
         match result {
             Ok(conn) => Ok(conn),
-            Err(_e) => Err(ConnectionPoolError::EstablishConnection {
+            Err(e) => Err(ConnectionPoolError::EstablishConnection {
                 endpoint: endpoint.to_string(),
-                error_msg: String::from("Could not establish connection"),
+                error_msg: format!("Could not establish connection due to {:?}", e),
             }),
         }
     }
@@ -196,22 +238,43 @@ impl fmt::Debug for SegmentConnectionManager {
     }
 }
 
+/// The configuration for ConnectionFactory.
+#[derive(new)]
+pub struct ConnectionFactoryConfig {
+    connection_type: ConnectionType,
+    #[new(value = "false")]
+    is_tls_enabled: bool,
+    #[new(default)]
+    cert_path: String,
+}
+
+/// ConnectionFactoryConfig can be built from ClientConfig.
+impl From<&ClientConfig> for ConnectionFactoryConfig {
+    fn from(client_config: &ClientConfig) -> Self {
+        ConnectionFactoryConfig {
+            connection_type: client_config.connection_type,
+            is_tls_enabled: client_config.is_tls_enabled,
+            cert_path: client_config.trustcert.clone(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::wire_commands::{Decode, Encode};
     use log::info;
-    use std::net::SocketAddr;
+    use pravega_rust_client_config::connection_type::ConnectionType;
     use tokio::runtime::Runtime;
 
     #[test]
     fn test_mock_connection() {
         info!("test mock connection factory");
         let mut rt = Runtime::new().unwrap();
-
-        let connection_factory = ConnectionFactory::create(ConnectionType::Mock);
+        let config = ConnectionFactoryConfig::new(ConnectionType::Mock);
+        let connection_factory = ConnectionFactory::create(config);
         let connection_future =
-            connection_factory.establish_connection("127.1.1.1:9090".parse::<SocketAddr>().unwrap());
+            connection_factory.establish_connection(PravegaNodeUri::from("127.1.1.1:9090".to_string()));
         let mut mock_connection = rt.block_on(connection_future).unwrap();
 
         let request = Requests::Hello(HelloCommand {
@@ -240,10 +303,10 @@ mod tests {
     fn test_tokio_connection() {
         info!("test tokio connection factory");
         let mut rt = Runtime::new().unwrap();
-
-        let connection_factory = ConnectionFactory::create(ConnectionType::Tokio);
+        let config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
+        let connection_factory = ConnectionFactory::create(config);
         let connection_future =
-            connection_factory.establish_connection("127.1.1.1:9090".parse::<SocketAddr>().unwrap());
+            connection_factory.establish_connection(PravegaNodeUri::from("127.1.1.1:9090".to_string()));
         let mut _connection = rt.block_on(connection_future).expect("create tokio connection");
 
         info!("tokio connection factory test passed");

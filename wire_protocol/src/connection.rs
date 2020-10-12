@@ -10,11 +10,12 @@
 
 use crate::error::*;
 use async_trait::async_trait;
+use pravega_rust_client_shared::PravegaNodeUri;
 use snafu::ResultExt;
-use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::io::{ReadHalf, WriteHalf};
 use tokio::net::TcpStream;
+use tokio_rustls::client::TlsStream;
 use uuid::Uuid;
 
 /// Connection can send and read data using a TCP connection
@@ -25,15 +26,16 @@ pub trait Connection: Send + Sync {
     /// # Example
     ///
     /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use pravega_wire_protocol::connection_factory;
-    /// use pravega_wire_protocol::connection_factory::ConnectionFactory;
+    /// use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryConfig};
+    /// use pravega_rust_client_shared::PravegaNodeUri;
+    /// use pravega_rust_client_config::connection_type::ConnectionType;
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
     ///   let mut rt = Runtime::new().unwrap();
-    ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
-    ///   let cf = connection_factory::ConnectionFactory::create(connection_factory::ConnectionType::Tokio);
+    ///   let endpoint = PravegaNodeUri::from("localhost:8080".to_string());
+    ///   let config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
+    ///   let cf = ConnectionFactory::create(config);
     ///   let connection_future = cf.establish_connection(endpoint);
     ///   let mut connection = rt.block_on(connection_future).unwrap();
     ///   let mut payload: Vec<u8> = Vec::new();
@@ -47,15 +49,16 @@ pub trait Connection: Send + Sync {
     /// # Example
     ///
     /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use pravega_wire_protocol::connection_factory;
-    /// use pravega_wire_protocol::connection_factory::ConnectionFactory;
+    /// use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryConfig};
+    /// use pravega_rust_client_shared::PravegaNodeUri;
+    /// use pravega_rust_client_config::connection_type::ConnectionType;
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
     ///   let mut rt = Runtime::new().unwrap();
-    ///   let endpoint: SocketAddr = "127.0.0.1:0".parse().expect("Unable to parse socket address");
-    ///   let cf = connection_factory::ConnectionFactory::create(connection_factory::ConnectionType::Tokio);
+    ///   let endpoint = PravegaNodeUri::from("localhost:8080".to_string());
+    ///   let config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
+    ///   let cf = ConnectionFactory::create(config);
     ///   let connection_future = cf.establish_connection(endpoint);
     ///   let mut connection = rt.block_on(connection_future).unwrap();
     ///   let mut buf = [0; 10];
@@ -66,25 +69,27 @@ pub trait Connection: Send + Sync {
 
     fn split(&mut self) -> (Box<dyn ReadingConnection>, Box<dyn WritingConnection>);
 
-    fn get_endpoint(&self) -> SocketAddr;
+    fn get_endpoint(&self) -> PravegaNodeUri;
 
     fn get_uuid(&self) -> Uuid;
 
     fn is_valid(&self) -> bool;
 }
 
-pub struct TokioConnection {
+pub struct TokioConnection<Stream: AsyncReadExt + AsyncWriteExt + Send + Sync + Unpin + 'static> {
     pub uuid: Uuid,
-    pub endpoint: SocketAddr,
-    pub stream: Option<TcpStream>,
+    pub endpoint: PravegaNodeUri,
+    pub stream: Option<Stream>,
 }
 
 #[async_trait]
-impl Connection for TokioConnection {
+impl<Stream: AsyncReadExt + AsyncWriteExt + Send + Sync + Unpin + 'static + Validate> Connection
+    for TokioConnection<Stream>
+{
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
         assert!(!self.stream.is_none());
 
-        let endpoint = self.endpoint;
+        let endpoint = self.endpoint.clone();
         self.stream
             .as_mut()
             .expect("get connection")
@@ -97,7 +102,7 @@ impl Connection for TokioConnection {
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError> {
         assert!(!self.stream.is_none());
 
-        let endpoint = self.endpoint;
+        let endpoint = self.endpoint.clone();
         self.stream
             .as_mut()
             .expect("get connection")
@@ -113,19 +118,19 @@ impl Connection for TokioConnection {
         let (read_half, write_half) = tokio::io::split(self.stream.take().expect("take connection"));
         let read = Box::new(ReadingConnectionImpl {
             uuid: self.uuid,
-            endpoint: self.endpoint,
+            endpoint: self.endpoint.clone(),
             read_half,
         }) as Box<dyn ReadingConnection>;
         let write = Box::new(WritingConnectionImpl {
             uuid: self.uuid,
-            endpoint: self.endpoint,
+            endpoint: self.endpoint.clone(),
             write_half,
         }) as Box<dyn WritingConnection>;
         (read, write)
     }
 
-    fn get_endpoint(&self) -> SocketAddr {
-        self.endpoint
+    fn get_endpoint(&self) -> PravegaNodeUri {
+        self.endpoint.clone()
     }
 
     fn get_uuid(&self) -> Uuid {
@@ -133,11 +138,7 @@ impl Connection for TokioConnection {
     }
 
     fn is_valid(&self) -> bool {
-        let result = self.stream.as_ref().expect("get connection").peer_addr();
-        match result {
-            Err(_e) => false,
-            Ok(_addr) => true,
-        }
+        self.stream.as_ref().expect("get connection").is_valid()
     }
 }
 
@@ -147,16 +148,16 @@ pub trait ReadingConnection: Send + Sync {
     fn get_id(&self) -> Uuid;
 }
 
-pub struct ReadingConnectionImpl {
+pub struct ReadingConnectionImpl<Stream: AsyncReadExt + Send + Sync + 'static> {
     uuid: Uuid,
-    endpoint: SocketAddr,
-    read_half: ReadHalf<TcpStream>,
+    endpoint: PravegaNodeUri,
+    read_half: ReadHalf<Stream>,
 }
 
 #[async_trait]
-impl ReadingConnection for ReadingConnectionImpl {
+impl<Stream: AsyncReadExt + Send + Sync + 'static> ReadingConnection for ReadingConnectionImpl<Stream> {
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError> {
-        let endpoint = self.endpoint;
+        let endpoint = self.endpoint.clone();
         self.read_half
             .read_exact(buf)
             .await
@@ -175,16 +176,16 @@ pub trait WritingConnection: Send + Sync {
     fn get_id(&self) -> Uuid;
 }
 
-pub struct WritingConnectionImpl {
+pub struct WritingConnectionImpl<Stream: AsyncWriteExt + Send + Sync + 'static> {
     uuid: Uuid,
-    endpoint: SocketAddr,
-    write_half: WriteHalf<TcpStream>,
+    endpoint: PravegaNodeUri,
+    write_half: WriteHalf<Stream>,
 }
 
 #[async_trait]
-impl WritingConnection for WritingConnectionImpl {
+impl<Stream: AsyncWriteExt + Send + Sync + 'static> WritingConnection for WritingConnectionImpl<Stream> {
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
-        let endpoint = self.endpoint;
+        let endpoint = self.endpoint.clone();
         self.write_half
             .write_all(payload)
             .await
@@ -194,5 +195,22 @@ impl WritingConnection for WritingConnectionImpl {
 
     fn get_id(&self) -> Uuid {
         self.uuid
+    }
+}
+
+pub trait Validate {
+    fn is_valid(&self) -> bool;
+}
+
+impl Validate for TcpStream {
+    fn is_valid(&self) -> bool {
+        self.peer_addr().map_or_else(|_e| false, |_addr| true)
+    }
+}
+
+impl Validate for TlsStream<TcpStream> {
+    fn is_valid(&self) -> bool {
+        let (io, _session) = self.get_ref();
+        io.peer_addr().map_or_else(|_e| false, |_addr| true)
     }
 }

@@ -11,12 +11,12 @@
 use crate::error::*;
 use async_trait::async_trait;
 use pravega_connection_pool::connection_pool::ConnectionPool;
+use pravega_rust_client_shared::PravegaNodeUri;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::connection_factory::SegmentConnectionManager;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use snafu::ResultExt;
 use std::fmt;
-use std::net::SocketAddr;
 use tracing::{span, Level};
 
 /// RawClient is on top of the ClientConnection. It provides methods that take
@@ -40,7 +40,7 @@ pub trait RawClient<'a>: Send + Sync {
 
 pub struct RawClientImpl<'a> {
     pool: &'a ConnectionPool<SegmentConnectionManager>,
-    endpoint: SocketAddr,
+    endpoint: PravegaNodeUri,
 }
 
 impl<'a> fmt::Debug for RawClientImpl<'a> {
@@ -52,7 +52,7 @@ impl<'a> fmt::Debug for RawClientImpl<'a> {
 impl<'a> RawClientImpl<'a> {
     pub fn new(
         pool: &'a ConnectionPool<SegmentConnectionManager>,
-        endpoint: SocketAddr,
+        endpoint: PravegaNodeUri,
     ) -> RawClientImpl<'a> {
         RawClientImpl { pool, endpoint }
     }
@@ -64,12 +64,13 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
     async fn send_request(&self, request: &Requests) -> Result<Replies, RawClientError> {
         let connection = self
             .pool
-            .get_connection(self.endpoint)
+            .get_connection(self.endpoint.clone())
             .await
             .context(GetConnectionFromPool {})?;
         let mut client_connection = ClientConnectionImpl::new(connection);
         client_connection.write(request).await.context(WriteRequest {})?;
         let reply = client_connection.read().await.context(ReadReply {})?;
+        check_auth_token_expired(&reply)?;
         Ok(reply)
     }
 
@@ -81,23 +82,32 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
         let _guard = span.enter();
         let connection = self
             .pool
-            .get_connection(self.endpoint)
+            .get_connection(self.endpoint.clone())
             .await
             .context(GetConnectionFromPool {})?;
         let mut client_connection = ClientConnectionImpl::new(connection);
         client_connection.write(request).await.context(WriteRequest {})?;
-
         let reply = client_connection.read().await.context(ReadReply {})?;
-
+        check_auth_token_expired(&reply)?;
         Ok((reply, Box::new(client_connection) as Box<dyn ClientConnection>))
     }
+}
+
+fn check_auth_token_expired(reply: &Replies) -> Result<(), RawClientError> {
+    if let Replies::AuthTokenCheckFailed(ref cmd) = reply {
+        if cmd.is_token_expired() {
+            return Err(RawClientError::AuthTokenExpired { reply: reply.clone() });
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pravega_rust_client_config::connection_type::ConnectionType;
     use pravega_wire_protocol::commands::HelloCommand;
-    use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionType};
+    use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryConfig};
     use pravega_wire_protocol::wire_commands::Encode;
     use std::io::Write;
     use std::net::{SocketAddr, TcpListener};
@@ -112,7 +122,8 @@ mod tests {
     impl Common {
         fn new() -> Self {
             let rt = Runtime::new().expect("create tokio Runtime");
-            let connection_factory = ConnectionFactory::create(ConnectionType::Tokio);
+            let config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
+            let connection_factory = ConnectionFactory::create(config);
             let manager = SegmentConnectionManager::new(connection_factory, 2);
             let pool = ConnectionPool::new(manager);
             Common { rt, pool }
@@ -168,11 +179,10 @@ mod tests {
         let mut common = Common::new();
         let mut server = Server::new();
 
-        let raw_client = RawClientImpl::new(&common.pool, server.address);
+        let raw_client = RawClientImpl::new(&common.pool, PravegaNodeUri::from(server.address));
         let h = thread::spawn(move || {
             server.send_hello();
         });
-
         let request = Requests::Hello(HelloCommand {
             low_version: 5,
             high_version: 9,

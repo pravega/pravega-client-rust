@@ -14,13 +14,13 @@ use crate::connection::{Connection, ReadingConnection, WritingConnection};
 use crate::error::*;
 use crate::wire_commands::{Decode, Encode, Replies, Requests};
 use async_trait::async_trait;
-use std::net::SocketAddr;
+use pravega_rust_client_shared::PravegaNodeUri;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use uuid::Uuid;
 
 pub struct MockConnection {
     id: Uuid,
-    endpoint: SocketAddr,
+    endpoint: PravegaNodeUri,
     sender: Option<UnboundedSender<Replies>>,
     receiver: Option<UnboundedReceiver<Replies>>,
     buffer: Vec<u8>,
@@ -28,7 +28,7 @@ pub struct MockConnection {
 }
 
 impl MockConnection {
-    pub fn new(endpoint: SocketAddr) -> Self {
+    pub fn new(endpoint: PravegaNodeUri) -> Self {
         let (tx, rx) = unbounded_channel();
         MockConnection {
             id: Uuid::new_v4(),
@@ -82,8 +82,8 @@ impl Connection for MockConnection {
         (reader, writer)
     }
 
-    fn get_endpoint(&self) -> SocketAddr {
-        self.endpoint
+    fn get_endpoint(&self) -> PravegaNodeUri {
+        self.endpoint.clone()
     }
 
     fn get_uuid(&self) -> Uuid {
@@ -180,7 +180,7 @@ mod test {
     fn test_simple_write_and_read() {
         info!("mock client connection test");
         let mut rt = tokio::runtime::Runtime::new().unwrap();
-        let mut mock_connection = MockConnection::new("127.1.1.1:9090".parse::<SocketAddr>().unwrap());
+        let mut mock_connection = MockConnection::new(PravegaNodeUri::from("127.1.1.1:9090".to_string()));
         let request = Requests::Hello(HelloCommand {
             high_version: 9,
             low_version: 5,
