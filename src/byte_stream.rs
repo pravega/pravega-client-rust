@@ -223,7 +223,7 @@ impl ByteStreamReader {
             metadata_client,
             offset: 0,
             runtime_handle: handle,
-            timeout: Duration::from_secs(u64::MAX),
+            timeout: Duration::from_secs(3600),
         }
     }
 
@@ -242,7 +242,7 @@ impl ByteStreamReader {
         if let Some(time) = timeout {
             self.timeout = time;
         } else {
-            self.timeout = Duration::from_secs(u64::MAX);
+            self.timeout = Duration::from_secs(3600);
         }
     }
 }
