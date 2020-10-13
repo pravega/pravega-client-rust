@@ -62,9 +62,7 @@ impl SegmentMetadataClient {
             endpoint: Mutex::new(endpoint),
         }
     }
-}
 
-impl SegmentMetadataClient {
     /// Returns info for the current segment.
     pub async fn get_segment_info(&self) -> Result<SegmentInfo, SegmentMetadataClientError> {
         let controller = self.factory.get_controller_client();
