@@ -71,15 +71,22 @@ pub trait Connection: Send + Sync + Debug {
     /// ```
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError>;
 
+    /// Splits the Connection into a read half and a writer half so they can be owned
+    /// by different threads.
     fn split(&mut self) -> (Box<dyn ConnectionReadHalf>, Box<dyn ConnectionWriteHalf>);
 
+    /// Returns the endpoint of this Connection.
     fn get_endpoint(&self) -> PravegaNodeUri;
 
+    /// Returns the id of this Connection.
     fn get_uuid(&self) -> Uuid;
 
+    /// Checks if this connection is valid. A Connection is considered to be invalid after
+    /// split so it can be discarded when returning to the connection pol.
     fn is_valid(&self) -> bool;
 }
 
+/// The underlying connection is using Tokio TcpStream.
 pub struct TokioConnection {
     pub uuid: Uuid,
     pub endpoint: PravegaNodeUri,
@@ -386,8 +393,8 @@ impl Validate for TlsStream<TcpStream> {
     }
 }
 
-#[cfg(test)]
-mod test {
-    #[test]
-    fn test() {}
-}
+// #[cfg(test)]
+// mod test {
+//     #[test]
+//     fn test() {}
+// }

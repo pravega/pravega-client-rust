@@ -10,23 +10,22 @@
 
 use crate::client_factory::ClientFactory;
 use crate::error::*;
-use crate::raw_client::RawClient;
-use crate::segment::event::{Incoming, PendingEvent};
-use crate::segment::reactor::Reactor;
-use crate::segment_reader::AsyncSegmentReader;
-use crate::{get_random_u128, get_request_id};
-use pravega_rust_client_shared::{ScopedSegment, ScopedStream, WriterId};
-use pravega_wire_protocol::commands::{SealSegmentCommand, SegmentReadCommand, TruncateSegmentCommand};
-use pravega_wire_protocol::wire_commands::Replies;
-use pravega_wire_protocol::wire_commands::Requests;
+use crate::get_random_u128;
+use crate::reactor::event::{Incoming, PendingEvent};
+use crate::reactor::reactors::SegmentReactor;
+use crate::segment_metadata::SegmentMetadataClient;
+use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
+use pravega_rust_client_config::ClientConfig;
+use pravega_rust_client_shared::{ScopedSegment, WriterId};
 use std::cmp;
+use std::convert::TryInto;
 use std::io::Error;
 use std::io::{ErrorKind, Read, Seek, SeekFrom, Write};
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;
-use tracing::{info, info_span};
+use tracing::info_span;
 use tracing_futures::Instrument;
 use uuid::Uuid;
 
@@ -36,12 +35,11 @@ const CHANNEL_CAPACITY: usize = 100;
 type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 
 pub struct ByteStreamWriter {
-    segment: ScopedSegment,
     writer_id: WriterId,
     sender: Sender<Incoming>,
-    oneshot_receiver: Option<EventHandle>,
-    client_factory: ClientFactory,
+    metadata_client: SegmentMetadataClient,
     runtime_handle: Handle,
+    event_handle: Option<EventHandle>,
 }
 
 impl Write for ByteStreamWriter {
@@ -60,7 +58,7 @@ impl Write for ByteStreamWriter {
             match oneshot_receiver.try_recv() {
                 // The channel is currently empty
                 Err(TryRecvError::Empty) => Ok(Some(oneshot_receiver)),
-                Err(e) => Err(Error::new(ErrorKind::Other, format!("oneshot error: {:?}", e))),
+                Err(e) => Err(Error::new(ErrorKind::Other, format!("oneshot error {:?}", e))),
                 Ok(res) => {
                     if let Err(e) = res {
                         Err(Error::new(ErrorKind::Other, format!("{:?}", e)))
@@ -71,140 +69,60 @@ impl Write for ByteStreamWriter {
             }
         })?;
 
-        self.oneshot_receiver = oneshot_receiver;
+        self.event_handle = oneshot_receiver;
         Ok(buf.len())
     }
 
     fn flush(&mut self) -> Result<(), Error> {
-        let receiver = self.oneshot_receiver.take();
-        self.runtime_handle
-            .block_on(ByteStreamWriter::flush_internal(receiver))
+        let event_handle = self.event_handle.take();
+        if event_handle.is_none() {
+            Ok(())
+        } else {
+            self.runtime_handle.block_on(self.flush_internal(event_handle))
+        }
     }
 }
 
 impl ByteStreamWriter {
-    pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
+    pub(crate) fn new(segment: ScopedSegment, config: ClientConfig, factory: ClientFactory) -> Self {
         let (sender, receiver) = channel(CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
-        let writer_id = WriterId::from(get_random_u128());
-        let span = info_span!("Reactor", event_stream_writer = %writer_id);
+        let metadata_client = handle.block_on(factory.create_segment_metadata_client(segment.clone()));
+        let writer_id = WriterId(get_random_u128());
+        let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
         handle.enter(|| {
             tokio::spawn(
-                Reactor::run(
-                    ScopedStream::from(&segment),
-                    sender.clone(),
-                    receiver,
-                    factory.clone(),
-                )
-                .instrument(span),
+                SegmentReactor::run(segment, sender.clone(), receiver, factory.clone(), config)
+                    .instrument(span),
             )
         });
         ByteStreamWriter {
-            segment,
             writer_id,
             sender,
+            metadata_client,
             runtime_handle: handle,
-            oneshot_receiver: None,
-            client_factory: factory,
+            event_handle: None,
         }
     }
 
-    /// Seal the segment and no further writes are allowed.
+    /// Seal will seal the segment and no further writes are allowed.
     pub async fn seal(&mut self) -> Result<(), Error> {
-        // flushes pending writes before sealing the segment
-        let receiver = self.oneshot_receiver.take();
-        ByteStreamWriter::flush_internal(receiver)
+        let event_handle = self.event_handle.take();
+        self.flush_internal(event_handle).await?;
+        self.metadata_client
+            .seal_segment()
             .await
-            .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))?;
-
-        // seal the segment
-        let controller = self.client_factory.get_controller_client();
-        let endpoint = controller
-            .get_endpoint_for_segment(&self.segment)
-            .await
-            .map_err(|e| {
-                Error::new(
-                    ErrorKind::Other,
-                    format!("fetch endpoint for segment error: {:?}", e),
-                )
-            })?;
-        let raw_client = self.client_factory.get_raw_client(endpoint);
-        let delegation_token_provider = self
-            .client_factory
-            .create_delegation_token_provider(ScopedStream::from(&self.segment))
-            .await;
-        let reply = raw_client
-            .send_request(&Requests::SealSegment(SealSegmentCommand {
-                request_id: get_request_id(),
-                segment: self.segment.to_string(),
-                delegation_token: delegation_token_provider
-                    .retrieve_token(self.client_factory.get_controller_client())
-                    .await,
-            }))
-            .await
-            .map_err(|e| {
-                Error::new(
-                    ErrorKind::Other,
-                    format!(
-                        "send SealSegmentCommand to segment {:?} error: {:?}",
-                        self.segment, e
-                    ),
-                )
-            })?;
-        match reply {
-            Replies::SegmentSealed(_) => Ok(()),
-            _ => Err(Error::new(
-                ErrorKind::Other,
-                format!("reply is not SegmentSealed {:?}", reply),
-            )),
-        }
+            .map_err(|e| Error::new(ErrorKind::Other, format!("segment seal error: {:?}", e)))
     }
 
     /// Truncate data before a given offset for the segment. No reads are allowed before
     /// truncation point after calling this method.
     pub async fn truncate_data_before(&self, offset: i64) -> Result<(), Error> {
-        let controller = self.client_factory.get_controller_client();
-        let endpoint = controller
-            .get_endpoint_for_segment(&self.segment)
+        self.metadata_client
+            .truncate_segment(offset)
             .await
-            .map_err(|e| {
-                Error::new(
-                    ErrorKind::Other,
-                    format!("fetch endpoint for segment error: {:?}", e),
-                )
-            })?;
-        let raw_client = self.client_factory.get_raw_client(endpoint);
-        let delegation_token_provider = self
-            .client_factory
-            .create_delegation_token_provider(ScopedStream::from(&self.segment))
-            .await;
-        let reply = raw_client
-            .send_request(&Requests::TruncateSegment(TruncateSegmentCommand {
-                request_id: get_request_id(),
-                segment: self.segment.to_string(),
-                truncation_offset: offset,
-                delegation_token: delegation_token_provider
-                    .retrieve_token(self.client_factory.get_controller_client())
-                    .await,
-            }))
-            .await
-            .map_err(|e| {
-                Error::new(
-                    ErrorKind::Other,
-                    format!(
-                        "send TruncateSegmentCommand to segment {:?} error: {:?}",
-                        self.segment, e
-                    ),
-                )
-            })?;
-        match reply {
-            Replies::SegmentTruncated(_) => Ok(()),
-            _ => Err(Error::new(
-                ErrorKind::Other,
-                format!("reply is not SegmentTruncated {:?}", reply),
-            )),
-        }
+            .map_err(|e| Error::new(ErrorKind::Other, format!("segment truncation error: {:?}", e)))
     }
 
     async fn write_internal(
@@ -225,70 +143,77 @@ impl ByteStreamWriter {
         rx
     }
 
-    async fn flush_internal(receiver: Option<EventHandle>) -> Result<(), Error> {
-        if receiver.is_none() {
+    async fn flush_internal(&self, event_handle: Option<EventHandle>) -> Result<(), Error> {
+        if event_handle.is_none() {
             return Ok(());
         }
-        let result = receiver
+
+        let result = event_handle
             .unwrap()
             .await
-            .map_err(|e| Error::new(ErrorKind::Other, format!("oneshot error: {:?}", e)))?;
+            .map_err(|e| Error::new(ErrorKind::Other, format!("oneshot error {:?}", e)))?;
 
         if let Err(e) = result {
-            Err(Error::new(
-                ErrorKind::Other,
-                format!("segment writer error: {:?}", e),
-            ))
+            Err(Error::new(ErrorKind::Other, format!("{:?}", e)))
         } else {
             Ok(())
         }
     }
 }
 
-impl Drop for ByteStreamWriter {
-    fn drop(&mut self) {
-        self.runtime_handle
-            .block_on(self.sender.send(Incoming::CloseReactor))
-            .unwrap_or_else(|e| info!("cannot send close signal to reactor due to: {:?}", e));
-    }
-}
-
 pub struct ByteStreamReader {
     reader_id: Uuid,
-    reader: Box<dyn AsyncSegmentReader>,
+    reader: AsyncSegmentReaderImpl,
+    metadata_client: SegmentMetadataClient,
     offset: i64,
     runtime_handle: Handle,
-    buffer: ReaderBuffer,
 }
 
 impl Read for ByteStreamReader {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
-        // read from buffer first
-        let buffer_read = self.buffer.read(buf.len());
-        let buffer_read_length = buffer_read.len();
-        buf[..buffer_read_length].copy_from_slice(buffer_read);
-        self.offset += buffer_read_length as i64;
-        if buf.len() == buffer_read_length {
-            return Ok(buffer_read_length);
+        let result = self
+            .runtime_handle
+            .block_on(self.reader.read(self.offset, buf.len() as i32));
+        match result {
+            Ok(cmd) => {
+                if cmd.end_of_segment {
+                    Err(Error::new(ErrorKind::Other, "segment is sealed"))
+                } else {
+                    // Read may have returned more or less than the requested number of bytes.
+                    let size_to_return = cmp::min(buf.len(), cmd.data.len());
+                    self.offset += size_to_return as i64;
+                    buf[..size_to_return].copy_from_slice(&cmd.data[..size_to_return]);
+                    Ok(size_to_return)
+                }
+            }
+            Err(e) => Err(Error::new(ErrorKind::Other, format!("Error: {:?}", e))),
         }
+    }
+}
 
-        // buffer has been read, clear the buffer
-        self.buffer.clear();
-        let server_read_length = buf.len() - buffer_read_length;
-        let cmd = self.read_internal(server_read_length)?;
-        // if returned data size is smaller that asked, return it all to caller.
-        if cmd.data.len() < server_read_length {
-            buf[buffer_read_length..buffer_read_length + cmd.data.len()].copy_from_slice(&cmd.data);
-            self.offset += cmd.data.len() as i64;
-            Ok(buffer_read_length + cmd.data.len())
-        } else {
-            // if returned data size is larger than asked, put the rest into buffer and return
-            // the size that caller wants.
-            buf[buffer_read_length..].copy_from_slice(&cmd.data[..server_read_length]);
-            self.offset += server_read_length as i64;
-            self.buffer.fill(&cmd.data[server_read_length..]);
-            Ok(buf.len())
+impl ByteStreamReader {
+    pub(crate) fn new(segment: ScopedSegment, factory: &ClientFactory) -> Self {
+        let handle = factory.get_runtime_handle();
+        let async_reader = handle.block_on(factory.create_async_event_reader(segment.clone()));
+        let metadata_client = handle.block_on(factory.create_segment_metadata_client(segment));
+        ByteStreamReader {
+            reader_id: Uuid::new_v4(),
+            reader: async_reader,
+            metadata_client,
+            offset: 0,
+            runtime_handle: handle,
         }
+    }
+
+    pub fn current_head(&self) -> std::io::Result<u64> {
+        self.runtime_handle
+            .block_on(self.metadata_client.fetch_current_starting_head())
+            .map(|i| i as u64)
+            .map_err(|e| Error::new(ErrorKind::Other, e.to_string()))
+    }
+
+    pub fn current_offset(&self) -> i64 {
+        self.offset
     }
 }
 
@@ -298,12 +223,14 @@ impl Read for ByteStreamReader {
 /// Seek from the end of the stream is not implemented.
 impl Seek for ByteStreamReader {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
-        // clear the buffer since seek will start from a different offset.
-        self.buffer.clear();
-
         match pos {
             SeekFrom::Start(offset) => {
-                self.offset = offset as i64;
+                self.offset = offset.try_into().map_err(|e| {
+                    Error::new(
+                        ErrorKind::InvalidInput,
+                        format!("Overflowed when converting offset to i64: {:?}", e),
+                    )
+                })?;
                 Ok(self.offset as u64)
             }
             SeekFrom::Current(offset) => {
@@ -318,266 +245,123 @@ impl Seek for ByteStreamReader {
                     Ok(self.offset as u64)
                 }
             }
-            SeekFrom::End(_offset) => unimplemented!("Seek from the end is not implemented"),
-        }
-    }
-}
-
-impl ByteStreamReader {
-    pub(crate) fn new(segment: ScopedSegment, factory: &ClientFactory) -> Self {
-        let handle = factory.get_runtime_handle();
-        let async_reader = handle.block_on(factory.create_async_event_reader(segment));
-        ByteStreamReader::new_internal(handle, Box::new(async_reader))
-    }
-
-    fn new_internal(handle: Handle, async_reader: Box<dyn AsyncSegmentReader>) -> Self {
-        ByteStreamReader {
-            reader_id: Uuid::new_v4(),
-            reader: async_reader,
-            offset: 0,
-            runtime_handle: handle,
-            buffer: ReaderBuffer::new(),
-        }
-    }
-
-    fn read_internal(&mut self, length: usize) -> Result<SegmentReadCommand, Error> {
-        let result = self
-            .runtime_handle
-            .block_on(self.reader.read(self.offset, length as i32));
-        match result {
-            Ok(cmd) => {
-                if cmd.end_of_segment {
-                    Err(Error::new(ErrorKind::Other, "segment is sealed"))
+            SeekFrom::End(offset) => {
+                let tail = self
+                    .runtime_handle
+                    .block_on(self.metadata_client.fetch_current_segment_length())
+                    .map_err(|e| Error::new(ErrorKind::Other, e.to_string()))?;
+                if tail + offset < 0 {
+                    Err(Error::new(
+                        ErrorKind::InvalidInput,
+                        "Cannot seek to a negative offset",
+                    ))
                 } else {
-                    Ok(cmd)
+                    self.offset = tail + offset;
+                    Ok(self.offset as u64)
                 }
             }
-            Err(e) => Err(Error::new(ErrorKind::Other, format!("Error: {:?}", e))),
         }
     }
 }
 
-// This is the TYPE_PLUS_LENGTH_SIZE in segmentstore, which is the minimal length that
-// segmentstore will try to read, but not necessarily the minimal length that returns to the client.
-const READER_BUFFER_SIZE: usize = 8192;
-
-#[derive(Debug)]
-struct ReaderBuffer {
-    buf: Vec<u8>,
-    // start to read from offset
-    offset: usize,
-}
-
-impl ReaderBuffer {
-    fn new() -> Self {
-        // since we know the exact buffer size, initializing Vec with capacity can prevent
-        // reallocating memory as Vec size grows.
-        let buf = Vec::with_capacity(READER_BUFFER_SIZE);
-        ReaderBuffer { buf, offset: 0 }
-    }
-
-    fn read(&mut self, read: usize) -> &[u8] {
-        let size = cmp::min(read, self.buf.len() - self.offset);
-        let data = &self.buf[self.offset..self.offset + size];
-        self.offset += size;
-        data
-    }
-
-    fn fill(&mut self, data: &[u8]) {
-        // should not fill buffer when there are data left unread.
-        assert!(self.is_empty());
-        // data should not be larger than the buffer capacity.
-        assert!(data.len() <= READER_BUFFER_SIZE);
-
-        self.buf.extend_from_slice(data);
-    }
-
-    fn len(&self) -> usize {
-        self.buf.len() - self.offset
-    }
-
-    fn is_empty(&self) -> bool {
-        self.buf.is_empty()
-    }
-
-    fn is_full(&self) -> bool {
-        self.buf.len() == self.offset
-    }
-
-    fn clear(&mut self) {
-        self.buf.clear();
-        self.offset = 0;
-    }
-}
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::segment_reader::ReaderError;
-    use async_trait::async_trait;
-    use tokio::sync::Mutex;
+    use pravega_rust_client_config::connection_type::ConnectionType;
+    use pravega_rust_client_config::ClientConfigBuilder;
+    use pravega_rust_client_shared::PravegaNodeUri;
+    use tokio::runtime::Runtime;
 
     #[test]
-    fn test_reader_buffer_happy_read() {
-        let mut buffer = ReaderBuffer::new();
-        // read small size
-        let data = vec![1, 2, 3, 4, 5, 6, 7, 8];
-        buffer.fill(&data);
-        assert!(!buffer.is_empty());
-        assert_eq!(buffer.read(4), &data[..4]);
-        assert_eq!(buffer.read(4), &data[4..8]);
-        assert!(buffer.is_full());
-        buffer.clear();
-        assert!(buffer.is_empty());
-    }
+    fn test_byte_stream_seek() {
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock)
+            .mock(true)
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        let segment = ScopedSegment::from("testScope/testStream/123.#epoch.0");
+        let mut writer = factory.create_byte_stream_writer(segment.clone());
+        let mut reader = factory.create_byte_stream_reader(segment);
 
-    #[test]
-    #[should_panic]
-    fn test_reader_buffer_read_large_event() {
-        let mut buffer = ReaderBuffer::new();
-        let data = vec![0; 10000];
-        buffer.fill(&data);
-    }
+        // write 200 bytes
+        let payload = vec![1; 200];
+        writer.write(&payload).expect("write");
+        writer.flush().expect("flush");
 
-    #[test]
-    fn test_read_buffer_when_full() {
-        let mut buffer = ReaderBuffer::new();
-        let data = vec![1, 2, 3, 4, 5, 6, 7, 8];
-        buffer.fill(&data);
-        assert_eq!(buffer.read(8), &data[..8]);
-        let read = buffer.read(8);
-        assert_eq!(read.len(), 0);
-        assert!(buffer.is_full());
-    }
+        // read 200 bytes from beginning
+        let mut buf = vec![0; 200];
+        reader.read(&mut buf).expect("read");
+        assert_eq!(buf, vec![1; 200]);
 
-    struct MockAsyncSegmentReaderImpl {
-        size: Mutex<i32>,
-    }
+        // seek to head
+        reader.seek(SeekFrom::Start(0)).expect("seek to head");
+        assert_eq!(reader.current_offset(), 0);
 
-    impl MockAsyncSegmentReaderImpl {
-        fn new(size: i32) -> Self {
-            MockAsyncSegmentReaderImpl {
-                size: Mutex::new(size),
-            }
-        }
-    }
+        // seek to head with positive offset
+        reader.seek(SeekFrom::Start(100)).expect("seek to head");
+        assert_eq!(reader.current_offset(), 100);
 
-    #[async_trait]
-    impl AsyncSegmentReader for MockAsyncSegmentReaderImpl {
-        async fn read(&self, offset: i64, length: i32) -> Result<SegmentReadCommand, ReaderError> {
-            let mut guard = self.size.lock().await;
-            let ask = cmp::max(length, READER_BUFFER_SIZE as i32);
-            let return_size = if ask > *guard {
-                let size = *guard;
-                *guard = 0;
-                size
-            } else {
-                *guard -= ask;
-                ask
-            };
+        // seek to current with positive offset
+        assert_eq!(reader.current_offset(), 100);
+        reader.seek(SeekFrom::Current(100)).expect("seek to current");
+        assert_eq!(reader.current_offset(), 200);
 
-            Ok(SegmentReadCommand {
-                segment: "".to_string(),
-                offset: offset + return_size as i64,
-                at_tail: false,
-                end_of_segment: false,
-                data: vec![1; return_size as usize],
-                request_id: 0,
-            })
-        }
+        // seek to current with negative offset
+        reader.seek(SeekFrom::Current(-100)).expect("seek to current");
+        assert_eq!(reader.current_offset(), 100);
+
+        // seek to current invalid negative offset
+        assert!(reader.seek(SeekFrom::Current(-200)).is_err());
+
+        // seek to end
+        reader.seek(SeekFrom::End(0)).expect("seek to end");
+        assert_eq!(reader.current_offset(), 200);
+
+        // seek to end with positive offset
+        assert!(reader.seek(SeekFrom::End(1)).is_ok());
+
+        // seek to end with negative offset
+        reader.seek(SeekFrom::End(-100)).expect("seek to end");
+        assert_eq!(reader.current_offset(), 100);
+
+        // seek to end with invalid negative offset
+        assert!(reader.seek(SeekFrom::End(-300)).is_err());
     }
 
     #[test]
-    fn test_byte_stream_reader_normal_size_read() {
-        let mock = MockAsyncSegmentReaderImpl::new(1024 * 100);
+    fn test_byte_stream_truncate() {
+        let mut rt = Runtime::new().unwrap();
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock)
+            .mock(true)
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        let segment = ScopedSegment::from("testScope/testStream/123.#epoch.0");
+        let mut writer = factory.create_byte_stream_writer(segment.clone());
+        let mut reader = factory.create_byte_stream_reader(segment);
 
-        let runtime = tokio::runtime::Runtime::new().unwrap();
-        let handle = runtime.handle().clone();
-        let mut byte_stream_reader = ByteStreamReader::new_internal(handle, Box::new(mock));
+        // write 200 bytes
+        let payload = vec![1; 200];
+        writer.write(&payload).expect("write");
+        writer.flush().expect("flush");
 
-        let mut buf = vec![0; 1024];
-        byte_stream_reader.read(&mut buf).unwrap();
-        assert_eq!(byte_stream_reader.buffer.len(), READER_BUFFER_SIZE - 1024);
-        assert_eq!(byte_stream_reader.offset, 1024);
-        assert_eq!(buf, vec![1; 1024]);
-    }
+        // truncate to offset 100
+        rt.block_on(writer.truncate_data_before(100)).expect("truncate");
 
-    #[test]
-    fn test_byte_stream_reader_large_size_read() {
-        let mock = MockAsyncSegmentReaderImpl::new(1024 * 100);
+        // read truncated offset
+        reader.seek(SeekFrom::Start(0)).expect("seek to head");
+        let mut buf = vec![0; 100];
+        assert!(reader.read(&mut buf).is_err());
 
-        let runtime = tokio::runtime::Runtime::new().unwrap();
-        let handle = runtime.handle().clone();
-        let mut byte_stream_reader = ByteStreamReader::new_internal(handle, Box::new(mock));
-
-        let mut buf = vec![0; 8192];
-        byte_stream_reader.read(&mut buf).unwrap();
-        assert!(byte_stream_reader.buffer.is_empty());
-        assert_eq!(byte_stream_reader.offset, 8192);
-        assert_eq!(buf, vec![1; 8192]);
-    }
-
-    #[test]
-    fn test_byte_stream_reader_continuous_small_size_read() {
-        let mock = MockAsyncSegmentReaderImpl::new(1024 * 100);
-
-        let runtime = tokio::runtime::Runtime::new().unwrap();
-        let handle = runtime.handle().clone();
-        let mut byte_stream_reader = ByteStreamReader::new_internal(handle, Box::new(mock));
-
-        let mut to_read = 8192;
-        for i in 0..10 {
-            let mut buf = vec![0; 512];
-            byte_stream_reader.read(&mut buf).unwrap();
-            to_read -= 512;
-            assert_eq!(byte_stream_reader.buffer.len(), to_read);
-            assert_eq!(byte_stream_reader.offset, 512 * (i + 1));
-            assert_eq!(buf, vec![1; 512]);
-        }
-    }
-
-    #[test]
-    fn test_byte_stream_reader_mixed_size_read() {
-        let mock = MockAsyncSegmentReaderImpl::new(1024 * 100);
-
-        let runtime = tokio::runtime::Runtime::new().unwrap();
-        let handle = runtime.handle().clone();
-        let mut byte_stream_reader = ByteStreamReader::new_internal(handle, Box::new(mock));
-
-        let mut buf = vec![0; 2048];
-        byte_stream_reader.read(&mut buf).unwrap();
-        assert_eq!(byte_stream_reader.buffer.len(), 8192 - 2048);
-        assert_eq!(byte_stream_reader.offset, 2048);
-        assert_eq!(buf, vec![1; 2048]);
-
-        let mut buf = vec![0; 8192];
-        byte_stream_reader.read(&mut buf).unwrap();
-        assert_eq!(byte_stream_reader.buffer.len(), 8192 - 2048);
-        assert_eq!(byte_stream_reader.offset, 2048 + 8192);
-        assert_eq!(buf, vec![1; 8192]);
-    }
-
-    #[test]
-    fn test_byte_stream_reader_seek_read() {
-        let mock = MockAsyncSegmentReaderImpl::new(1024 * 100);
-
-        let runtime = tokio::runtime::Runtime::new().unwrap();
-        let handle = runtime.handle().clone();
-        let mut byte_stream_reader = ByteStreamReader::new_internal(handle, Box::new(mock));
-
-        byte_stream_reader.seek(SeekFrom::Start(0)).unwrap();
-        let mut buf = vec![0; 2048];
-        byte_stream_reader.read(&mut buf).unwrap();
-        assert_eq!(byte_stream_reader.buffer.len(), 8192 - 2048);
-        assert_eq!(byte_stream_reader.offset, 2048);
-        assert_eq!(buf, vec![1; 2048]);
-
-        byte_stream_reader.seek(SeekFrom::Current(1024)).unwrap();
-        assert_eq!(byte_stream_reader.offset, 2048 + 1024);
-        assert_eq!(byte_stream_reader.buffer.len(), 0);
-        let mut buf = vec![0; 2048];
-        byte_stream_reader.read(&mut buf).unwrap();
-        assert_eq!(byte_stream_reader.buffer.len(), 8192 - 2048);
-        assert_eq!(byte_stream_reader.offset, 2048 + 1024 + 2048);
-        assert_eq!(buf, vec![1; 2048]);
+        // read from current head
+        let offset = reader.current_head().expect("get current head");
+        reader.seek(SeekFrom::Start(offset)).expect("seek to new head");
+        let mut buf = vec![0; 100];
+        assert!(reader.read(&mut buf).is_ok());
+        assert_eq!(buf, vec![1; 100]);
     }
 }

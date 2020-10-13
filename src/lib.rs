@@ -39,6 +39,7 @@ pub mod event_stream_writer;
 pub mod metrics;
 pub mod raw_client;
 pub mod reader_group;
+pub mod segment_metadata;
 mod segment;
 pub mod segment_reader;
 mod stream;

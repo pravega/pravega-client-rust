@@ -329,13 +329,13 @@ async fn send_wrong_host(
 mod test {
     use super::*;
     use crate::commands::HelloCommand;
-    use log::info;
+    use tracing::info;
 
     #[test]
     fn test_simple_write_and_read() {
         info!("mock client connection test");
         let mut rt = tokio::runtime::Runtime::new().unwrap();
-        let mut mock_connection = MockConnection::new(PravegaNodeUri::from("127.1.1.1:9090".to_string()));
+        let mut mock_connection = MockConnection::new(PravegaNodeUri::from("127.1.1.1:9090"), MockType::Happy);
         let request = Requests::Hello(HelloCommand {
             high_version: 9,
             low_version: 5,
