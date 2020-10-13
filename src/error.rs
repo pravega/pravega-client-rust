@@ -24,6 +24,9 @@ use tokio::sync::oneshot;
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
 pub enum RawClientError {
+    #[snafu(display("Auth token has expired, refresh to try again: {}", reply))]
+    AuthTokenExpired { reply: Replies },
+
     #[snafu(display("Failed to get connection from connection pool: {}", source))]
     GetConnectionFromPool { source: ConnectionPoolError },
 
@@ -35,6 +38,12 @@ pub enum RawClientError {
 
     #[snafu(display("Reply incompatible wirecommand version: low {}, high {}", low, high))]
     IncompatibleVersion { low: i32, high: i32 },
+}
+
+impl RawClientError {
+    pub fn is_token_expired(&self) -> bool {
+        matches!(self, RawClientError::AuthTokenExpired { .. })
+    }
 }
 
 #[derive(Debug, Snafu)]

@@ -18,8 +18,10 @@ use pravega_wire_protocol::connection_factory::{
 };
 
 use crate::byte_stream::{ByteStreamReader, ByteStreamWriter};
+use crate::event_reader::EventReader;
 use crate::event_stream_writer::EventStreamWriter;
 use crate::raw_client::RawClientImpl;
+use crate::segment_metadata::SegmentMetadataClient;
 use crate::segment_reader::AsyncSegmentReaderImpl;
 use crate::table_synchronizer::TableSynchronizer;
 use crate::tablemap::TableMap;
@@ -65,7 +67,6 @@ impl ClientFactory {
         self.0.get_runtime_handle()
     }
 
-    #[allow(clippy::needless_lifetimes)] //Normally the compiler could infer lifetimes but async is throwing it for a loop.
     pub async fn create_async_event_reader(&self, segment: ScopedSegment) -> AsyncSegmentReaderImpl {
         AsyncSegmentReaderImpl::init(
             segment.clone(),
@@ -77,13 +78,12 @@ impl ClientFactory {
         .await
     }
 
-    #[allow(clippy::needless_lifetimes)] //Normally the compiler could infer lifetimes but async is throwing it for a loop.
     pub async fn create_table_map(&self, name: String) -> TableMap {
         TableMap::new(name, self.clone())
             .await
             .expect("Failed to create Table map")
     }
-    #[allow(clippy::needless_lifetimes)]
+
     pub async fn create_table_synchronizer(&self, name: String) -> TableSynchronizer {
         TableSynchronizer::new(name, self.clone()).await
     }
@@ -106,6 +106,10 @@ impl ClientFactory {
         EventStreamWriter::new(stream, self.clone())
     }
 
+    pub async fn create_event_stream_reader(&self, stream: ScopedStream) -> EventReader {
+        EventReader::init(stream, self.clone()).await
+    }
+
     pub async fn create_transactional_event_stream_writer(
         &self,
         stream: ScopedStream,
@@ -124,6 +128,16 @@ impl ClientFactory {
 
     pub async fn create_delegation_token_provider(&self, stream: ScopedStream) -> DelegationTokenProvider {
         self.0.create_delegation_token_provider(stream).await
+    }
+
+    pub async fn create_segment_metadata_client(&self, segment: ScopedSegment) -> SegmentMetadataClient {
+        SegmentMetadataClient::new(
+            segment.clone(),
+            self.clone(),
+            self.0
+                .create_delegation_token_provider(ScopedStream::from(&segment))
+                .await,
+        )
     }
 
     pub fn get_controller_client(&self) -> &dyn ControllerClient {

@@ -10,6 +10,7 @@
 #![allow(dead_code)]
 use super::ControllerClient;
 use super::ControllerError;
+use crate::ResultRetry;
 use async_trait::async_trait;
 use im::HashMap as ImHashMap;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
@@ -256,6 +257,18 @@ impl ControllerClient for MockController {
 
         Ok(StreamSegments {
             key_segment_map: segments.into(),
+        })
+    }
+
+    async fn get_head_segments(&self, _stream: &ScopedStream) -> ResultRetry<ImHashMap<Segment, i64>> {
+        Err(RetryError {
+            error: ControllerError::OperationError {
+                can_retry: false, // do not retry.
+                operation: "get head segments".into(),
+                error_msg: "unsupported operation.".into(),
+            },
+            total_delay: Duration::from_millis(1),
+            tries: 0,
         })
     }
 

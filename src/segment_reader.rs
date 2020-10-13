@@ -20,33 +20,170 @@ use crate::client_factory::ClientFactory;
 use crate::error::RawClientError;
 use crate::get_request_id;
 use crate::raw_client::RawClient;
+use pravega_rust_client_retry::retry_async::retry_async;
+use pravega_rust_client_retry::retry_result::RetryResult;
+use pravega_rust_client_retry::retry_result::Retryable;
+use tokio::sync::Mutex;
 
 #[derive(Debug, Snafu)]
 pub enum ReaderError {
     #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
-    SegmentTruncated {
+    SegmentIsTruncated {
+        segment: String,
         can_retry: bool,
         operation: String,
         error_msg: String,
     },
     #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
     SegmentSealed {
+        segment: String,
         can_retry: bool,
         operation: String,
         error_msg: String,
     },
     #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
     OperationError {
+        segment: String,
         can_retry: bool,
         operation: String,
         error_msg: String,
     },
     #[snafu(display("Could not connect due to {}", error_msg))]
     ConnectionError {
+        segment: String,
         can_retry: bool,
         source: RawClientError,
         error_msg: String,
     },
+    #[snafu(display("Reader failed to perform reads {} due to {}", operation, error_msg,))]
+    AuthTokenCheckFailed {
+        segment: String,
+        can_retry: bool,
+        operation: String,
+        error_msg: String,
+    },
+    #[snafu(display("Could not connect due to {}", error_msg))]
+    AuthTokenExpired {
+        segment: String,
+        can_retry: bool,
+        source: RawClientError,
+        error_msg: String,
+    },
+    #[snafu(display("Could not connect due to {}", error_msg))]
+    WrongHost {
+        segment: String,
+        can_retry: bool,
+        operation: String,
+        error_msg: String,
+    },
+}
+
+///
+/// Fetch the segment from a given ReaderError
+///
+impl ReaderError {
+    pub(crate) fn get_segment(&self) -> String {
+        use ReaderError::*;
+        match self {
+            SegmentIsTruncated {
+                segment,
+                can_retry: _,
+                operation: _,
+                error_msg: _,
+            } => segment.clone(),
+            SegmentSealed {
+                segment,
+                can_retry: _,
+                operation: _,
+                error_msg: _,
+            } => segment.clone(),
+            OperationError {
+                segment,
+                can_retry: _,
+                operation: _,
+                error_msg: _,
+            } => segment.clone(),
+            ConnectionError {
+                segment,
+                can_retry: _,
+                source: _,
+                error_msg: _,
+            } => segment.clone(),
+            AuthTokenCheckFailed {
+                segment,
+                can_retry: _,
+                operation: _,
+                error_msg: _,
+            } => segment.clone(),
+            AuthTokenExpired {
+                segment,
+                can_retry: _,
+                source: _,
+                error_msg: _,
+            } => segment.clone(),
+            WrongHost {
+                segment,
+                can_retry: _,
+                operation: _,
+                error_msg: _,
+            } => segment.clone(),
+        }
+    }
+
+    fn refresh_token(&self) -> bool {
+        matches!(self, ReaderError::AuthTokenExpired { .. })
+    }
+}
+// Implementation of Retryable trait for the error thrown by the Controller.
+// this ensures we can use the wrap_with_async_retry macros.
+impl Retryable for ReaderError {
+    fn can_retry(&self) -> bool {
+        use ReaderError::*;
+        match self {
+            SegmentIsTruncated {
+                segment: _,
+                can_retry,
+                operation: _,
+                error_msg: _,
+            } => *can_retry,
+            SegmentSealed {
+                segment: _,
+                can_retry,
+                operation: _,
+                error_msg: _,
+            } => *can_retry,
+            OperationError {
+                segment: _,
+                can_retry,
+                operation: _,
+                error_msg: _,
+            } => *can_retry,
+            ConnectionError {
+                segment: _,
+                can_retry,
+                source: _,
+                error_msg: _,
+            } => *can_retry,
+            AuthTokenCheckFailed {
+                segment: _,
+                can_retry,
+                operation: _,
+                error_msg: _,
+            } => *can_retry,
+            AuthTokenExpired {
+                segment: _,
+                can_retry,
+                source: _,
+                error_msg: _,
+            } => *can_retry,
+            WrongHost {
+                segment: _,
+                can_retry,
+                operation: _,
+                error_msg: _,
+            } => *can_retry,
+        }
+    }
 }
 
 ///
@@ -63,7 +200,7 @@ pub trait AsyncSegmentReader {
 #[derive(new)]
 pub struct AsyncSegmentReaderImpl {
     segment: ScopedSegment,
-    endpoint: PravegaNodeUri,
+    endpoint: Mutex<PravegaNodeUri>,
     factory: ClientFactory,
     delegation_token_provider: DelegationTokenProvider,
 }
@@ -71,8 +208,33 @@ pub struct AsyncSegmentReaderImpl {
 #[async_trait]
 impl AsyncSegmentReader for AsyncSegmentReaderImpl {
     async fn read(&self, offset: i64, length: i32) -> StdResult<SegmentReadCommand, ReaderError> {
-        let raw_client = self.factory.create_raw_client_for_endpoint(self.endpoint.clone());
-        self.read_inner(offset, length, &raw_client).await
+        retry_async(self.factory.get_config().retry_policy, || async {
+            let raw_client = self
+                .factory
+                .create_raw_client_for_endpoint(self.endpoint.lock().await.clone());
+            match self.read_inner(offset, length, &raw_client).await {
+                Ok(cmd) => RetryResult::Success(cmd),
+                Err(e) => {
+                    if e.can_retry() {
+                        let controller = self.factory.get_controller_client();
+                        let endpoint = controller
+                            .get_endpoint_for_segment(&self.segment)
+                            .await
+                            .expect("get endpoint for async semgnet reader");
+                        let mut guard = self.endpoint.lock().await;
+                        *guard = endpoint;
+                        if e.refresh_token() {
+                            self.delegation_token_provider.signal_token_expiry();
+                        }
+                        RetryResult::Retry(e)
+                    } else {
+                        RetryResult::Fail(e)
+                    }
+                }
+            }
+        })
+        .await
+        .map_err(|e| e.error)
     }
 }
 
@@ -90,7 +252,7 @@ impl AsyncSegmentReaderImpl {
 
         AsyncSegmentReaderImpl {
             segment,
-            endpoint,
+            endpoint: Mutex::new(endpoint),
             factory: factory.clone(),
             delegation_token_provider,
         }
@@ -123,17 +285,31 @@ impl AsyncSegmentReaderImpl {
                     );
                     Ok(cmd)
                 }
-                Replies::NoSuchSegment(_cmd) => Err(ReaderError::SegmentTruncated {
+                Replies::AuthTokenCheckFailed(_cmd) => Err(ReaderError::AuthTokenCheckFailed {
+                    segment: self.segment.to_string(),
+                    can_retry: false,
+                    operation: "Read segment".to_string(),
+                    error_msg: "Auth token expired".to_string(),
+                }),
+                Replies::NoSuchSegment(_cmd) => Err(ReaderError::SegmentIsTruncated {
+                    segment: self.segment.to_string(),
                     can_retry: false,
                     operation: "Read segment".to_string(),
                     error_msg: "No Such Segment".to_string(),
                 }),
-                Replies::SegmentTruncated(_cmd) => Err(ReaderError::SegmentTruncated {
+                Replies::SegmentIsTruncated(_cmd) => Err(ReaderError::SegmentIsTruncated {
+                    segment: self.segment.to_string(),
                     can_retry: false,
                     operation: "Read segment".to_string(),
                     error_msg: "Segment truncated".into(),
                 }),
-                Replies::SegmentSealed(cmd) => Ok(SegmentReadCommand {
+                Replies::WrongHost(_cmd) => Err(ReaderError::WrongHost {
+                    segment: self.segment.to_string(),
+                    can_retry: true,
+                    operation: "Read segment".to_string(),
+                    error_msg: "Wrong host".to_string(),
+                }),
+                Replies::SegmentIsSealed(cmd) => Ok(SegmentReadCommand {
                     segment: self.segment.to_string(),
                     offset,
                     at_tail: true,
@@ -142,16 +318,26 @@ impl AsyncSegmentReaderImpl {
                     request_id: cmd.request_id,
                 }),
                 _ => Err(ReaderError::OperationError {
+                    segment: self.segment.to_string(),
                     can_retry: false,
                     operation: "Read segment".to_string(),
                     error_msg: "".to_string(),
                 }),
             },
-            Err(error) => Err(ReaderError::ConnectionError {
-                can_retry: true,
-                source: error,
-                error_msg: "RawClient error".to_string(),
-            }),
+            Err(error) => match error {
+                RawClientError::AuthTokenExpired { .. } => Err(ReaderError::AuthTokenExpired {
+                    segment: self.segment.to_string(),
+                    can_retry: true,
+                    source: error,
+                    error_msg: "Auth token expired".to_string(),
+                }),
+                _ => Err(ReaderError::ConnectionError {
+                    segment: self.segment.to_string(),
+                    can_retry: true,
+                    source: error,
+                    error_msg: "RawClient error".to_string(),
+                }),
+            },
         }
     }
 }
@@ -167,7 +353,7 @@ mod tests {
     use pravega_rust_client_shared::*;
     use pravega_wire_protocol::client_connection::ClientConnection;
     use pravega_wire_protocol::commands::{
-        Command, EventCommand, NoSuchSegmentCommand, SegmentSealedCommand, SegmentTruncatedCommand,
+        Command, EventCommand, NoSuchSegmentCommand, SegmentIsSealedCommand, SegmentIsTruncatedCommand,
     };
 
     use super::*;
@@ -222,11 +408,13 @@ mod tests {
 
         let segment_name_copy = segment_name.clone();
         let mut raw_client = MockRawClientImpl::new();
-        raw_client.expect_send_request().returning(move |req: &Requests| {
-            //let s: Result<Replies, RawClientError> =
-            match req {
-                Requests::ReadSegment(cmd) => {
-                    if cmd.request_id == 1 {
+        let mut request_cnt = 1;
+        raw_client
+            .expect_send_request()
+            .returning(move |req: &Requests| match req {
+                Requests::ReadSegment(_cmd) => {
+                    if request_cnt == 1 {
+                        request_cnt += 1;
                         Ok(Replies::SegmentRead(SegmentReadCommand {
                             segment: segment_name_copy.to_string(),
                             offset: 0,
@@ -235,22 +423,29 @@ mod tests {
                             data: vec![0, 0, 0, 0, 0, 0, 0, 3, 97, 98, 99],
                             request_id: 1,
                         }))
-                    } else if cmd.request_id == 2 {
+                    } else if request_cnt == 2 {
+                        request_cnt += 1;
                         Ok(Replies::NoSuchSegment(NoSuchSegmentCommand {
                             segment: segment_name_copy.to_string(),
                             server_stack_trace: "".to_string(),
                             offset: 0,
                             request_id: 2,
                         }))
-                    } else if cmd.request_id == 3 {
-                        Ok(Replies::SegmentTruncated(SegmentTruncatedCommand {
+                    } else if request_cnt == 3 {
+                        request_cnt += 1;
+                        Ok(Replies::SegmentIsTruncated(SegmentIsTruncatedCommand {
                             request_id: 3,
                             segment: segment_name_copy.to_string(),
+                            start_offset: 0,
+                            server_stack_trace: "".to_string(),
+                            offset: 0,
                         }))
                     } else {
-                        Ok(Replies::SegmentSealed(SegmentSealedCommand {
+                        Ok(Replies::SegmentIsSealed(SegmentIsSealedCommand {
                             request_id: 4,
                             segment: segment_name_copy.to_string(),
+                            server_stack_trace: "".to_string(),
+                            offset: 0,
                         }))
                     }
                 }
@@ -260,8 +455,7 @@ mod tests {
                     offset: 0,
                     request_id: 1,
                 })),
-            }
-        });
+            });
         let async_segment_reader = runtime.block_on(factory.create_async_event_reader(segment_name));
         let data = runtime.block_on(async_segment_reader.read_inner(0, 11, &raw_client));
         let segment_read_result: SegmentReadCommand = data.unwrap();
@@ -280,24 +474,26 @@ mod tests {
         let data = runtime.block_on(async_segment_reader.read_inner(11, 1024, &raw_client));
         let segment_read_result: ReaderError = data.err().unwrap();
         match segment_read_result {
-            ReaderError::SegmentTruncated {
-                can_retry,
+            ReaderError::SegmentIsTruncated {
+                segment: _,
+                can_retry: _,
                 operation: _,
                 error_msg: _,
-            } => assert_eq!(can_retry, false),
-            _ => assert!(false, "Segment truncated excepted"),
+            } => assert_eq!(segment_read_result.can_retry(), false),
+            _ => assert!(false, "Segment is truncated expected"),
         }
 
         // simulate SegmentTruncated
         let data = runtime.block_on(async_segment_reader.read_inner(12, 1024, &raw_client));
         let segment_read_result: ReaderError = data.err().unwrap();
         match segment_read_result {
-            ReaderError::SegmentTruncated {
-                can_retry,
+            ReaderError::SegmentIsTruncated {
+                segment: _,
+                can_retry: _,
                 operation: _,
                 error_msg: _,
-            } => assert_eq!(can_retry, false),
-            _ => assert!(false, "Segment truncated excepted"),
+            } => assert_eq!(segment_read_result.can_retry(), false),
+            _ => assert!(false, "Segment is truncated expected"),
         }
 
         // simulate SealedSegment

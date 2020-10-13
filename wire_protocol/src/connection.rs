@@ -238,8 +238,6 @@ pub trait ConnectionReadHalf: Send + Sync {
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError>;
 
     fn get_id(&self) -> Uuid;
-
-    fn unsplit(&mut self, write_half: Box<dyn ConnectionWriteHalf>) -> Box<dyn Connection>;
 }
 
 pub struct ConnectionReadHalfTokio {
@@ -263,22 +261,6 @@ impl ConnectionReadHalf for ConnectionReadHalfTokio {
     fn get_id(&self) -> Uuid {
         self.uuid
     }
-
-    fn unsplit(&mut self, mut write_half: Box<dyn ConnectionWriteHalf>) -> Box<dyn Connection> {
-        let cast = write_half
-            .downcast_mut::<ConnectionWriteHalfTokio>()
-            .expect("merge read write half");
-        let connection = self
-            .read_half
-            .take()
-            .unwrap()
-            .unsplit(cast.write_half.take().unwrap());
-        Box::new(TokioConnection {
-            uuid: self.uuid,
-            endpoint: self.endpoint.clone(),
-            stream: Some(connection),
-        }) as Box<dyn Connection>
-    }
 }
 
 pub struct ConnectionReadHalfTls {
@@ -301,22 +283,6 @@ impl ConnectionReadHalf for ConnectionReadHalfTls {
 
     fn get_id(&self) -> Uuid {
         self.uuid
-    }
-
-    fn unsplit(&mut self, mut write_half: Box<dyn ConnectionWriteHalf>) -> Box<dyn Connection> {
-        let cast = write_half
-            .downcast_mut::<ConnectionWriteHalfTls>()
-            .expect("merge read write half");
-        let connection = self
-            .read_half
-            .take()
-            .unwrap()
-            .unsplit(cast.write_half.take().unwrap());
-        Box::new(TlsConnection {
-            uuid: self.uuid,
-            endpoint: self.endpoint.clone(),
-            stream: Some(connection),
-        }) as Box<dyn Connection>
     }
 }
 
@@ -393,8 +359,8 @@ impl Validate for TlsStream<TcpStream> {
     }
 }
 
-// #[cfg(test)]
-// mod test {
-//     #[test]
-//     fn test() {}
-// }
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test() {}
+}

@@ -608,6 +608,29 @@ pub struct EventRead {
     pub event: Vec<u8>,
 }
 
+/// A client for looking at and editing the metadata related to a specific segment.
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq)]
+pub struct SegmentInfo {
+    /// Which segment these properties relate to.
+    pub segment: ScopedSegment,
+
+    /// The offset at which data is available. In the event the stream has never been truncated this
+    /// is 0. However, if all data below a certain offset has been truncated, that offset will be
+    /// provide here. (Offsets are left absolute even if data is truncated so that positions in the
+    /// segment can be referred to consistently)
+    pub starting_offset: i64,
+
+    /// The offset at which new data would be written if it were to be added. This is equal to the
+    /// total length of all data written to the segment.
+    pub write_offset: i64,
+
+    /// If the segment is sealed and can no longer be written to.
+    pub is_sealed: bool,
+
+    /// The last time the segment was written to in milliseconds.
+    pub last_modified_time: i64,
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -667,24 +690,43 @@ mod test {
         assert_eq!(uri.to_socket_addr(), socket_addr);
     }
 
-    #[test]
-    fn test_scoped_stream() {
-        let expected = ScopedStream {
-            scope: Scope {
-                name: "scope".to_string(),
-            },
-            stream: Stream {
-                name: "stream".to_string(),
-            },
-        };
+    fn test_scoped_segment() {
+        let seg1 = ScopedSegment::from("test/123.#epoch.0");
+        assert_eq!(
+            seg1.stream,
+            Stream {
+                name: "test".to_string()
+            }
+        );
+        assert_eq!(
+            seg1.segment,
+            Segment {
+                number: 123,
+                tx_id: None
+            }
+        );
+        assert_eq!(seg1.to_string(), "/test/123.#epoch.0");
 
-        let derived = ScopedStream::from("scope/stream");
-        assert_eq!(expected, derived);
-
-        let derived = ScopedStream::from("scope/stream/");
-        assert_eq!(expected, derived);
-
-        let derived = ScopedStream::from("scope/stream/0");
-        assert_eq!(expected, derived);
+        let seg2 = ScopedSegment::from("scope/test/123");
+        assert_eq!(
+            seg2.scope,
+            Scope {
+                name: "scope".to_string()
+            }
+        );
+        assert_eq!(
+            seg1.stream,
+            Stream {
+                name: "test".to_string()
+            }
+        );
+        assert_eq!(
+            seg1.segment,
+            Segment {
+                number: 123,
+                tx_id: None
+            }
+        );
+        assert_eq!(seg2.to_string(), "scope/test/123.#epoch.0");
     }
 }

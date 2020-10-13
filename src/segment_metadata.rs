@@ -24,10 +24,10 @@ use snafu::Snafu;
 #[derive(Debug, Snafu)]
 pub enum SegmentMetadataClientError {
     #[snafu(display(
-    "SegmentMetadataClient for segment {} failed to {} due to {}",
-    segment,
-    operation,
-    error_msg
+        "SegmentMetadataClient for segment {} failed to {} due to {}",
+        segment,
+        operation,
+        error_msg
     ))]
     NoSuchSegment {
         segment: String,
@@ -82,12 +82,12 @@ impl SegmentMetadataClient {
                 }
             }
         })
-            .await
-            .map_err(|e| SegmentMetadataClientError::NoSuchSegment {
-                segment: self.segment.to_string(),
-                operation: "get segment info".to_string(),
-                error_msg: e.error,
-            })
+        .await
+        .map_err(|e| SegmentMetadataClientError::NoSuchSegment {
+            segment: self.segment.to_string(),
+            operation: "get segment info".to_string(),
+            error_msg: e.error,
+        })
     }
 
     /// Returns the length of the current segment. i.e. the total length of all data written to the segment.
@@ -135,12 +135,12 @@ impl SegmentMetadataClient {
                 }
             }
         })
-            .await
-            .map_err(|e| SegmentMetadataClientError::NoSuchSegment {
-                segment: self.segment.to_string(),
-                operation: "truncate segment".to_string(),
-                error_msg: e.error,
-            })
+        .await
+        .map_err(|e| SegmentMetadataClientError::NoSuchSegment {
+            segment: self.segment.to_string(),
+            operation: "truncate segment".to_string(),
+            error_msg: e.error,
+        })
     }
 
     /// Seals the segment so that no more writes can go to it.
@@ -174,11 +174,11 @@ impl SegmentMetadataClient {
                 }
             }
         })
-            .await
-            .map_err(|e| SegmentMetadataClientError::NoSuchSegment {
-                segment: self.segment.to_string(),
-                operation: "seal segment".to_string(),
-                error_msg: e.error,
-            })
+        .await
+        .map_err(|e| SegmentMetadataClientError::NoSuchSegment {
+            segment: self.segment.to_string(),
+            operation: "seal segment".to_string(),
+            error_msg: e.error,
+        })
     }
 }

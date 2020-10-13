@@ -15,6 +15,7 @@ mod byte_stream_tests;
 mod controller_tests;
 #[cfg(test)]
 mod disconnection_tests;
+mod event_stream_reader_tests;
 mod event_stream_writer_tests;
 mod pravega_service;
 mod tablemap_tests;
@@ -28,7 +29,7 @@ use lazy_static::*;
 use pravega_client_rust::metrics;
 use std::process::Command;
 use std::{thread, time};
-use tracing::{debug, error, info, info_span, warn};
+use tracing::{error, info, info_span, warn};
 
 #[macro_use]
 extern crate derive_new;
@@ -102,6 +103,8 @@ mod test {
         // transactional_event_stream_writer_tests::test_transactional_event_stream_writer(config.clone());
 
         byte_stream_tests::test_byte_stream(config.clone());
+
+        event_stream_reader_tests::test_event_stream_reader(config.clone());
 
         // Shut down Pravega standalone
         pravega.stop().unwrap();

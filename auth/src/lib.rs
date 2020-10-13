@@ -30,6 +30,7 @@ use pravega_controller_client::ControllerClient;
 use pravega_rust_client_shared::{DelegationToken, ScopedStream};
 use regex::Regex;
 use std::str::FromStr;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::SystemTime;
 use tokio::sync::Mutex;
 use tracing::{debug, info};
@@ -43,6 +44,7 @@ use tracing::{debug, info};
 pub struct DelegationTokenProvider {
     stream: ScopedStream,
     token: Mutex<Option<DelegationToken>>,
+    signal_expiry: AtomicBool,
 }
 
 const DEFAULT_REFRESH_THRESHOLD_SECONDS: u64 = 5;
@@ -52,6 +54,7 @@ impl DelegationTokenProvider {
         DelegationTokenProvider {
             stream,
             token: Mutex::new(None),
+            signal_expiry: AtomicBool::new(false),
         }
     }
 
@@ -60,7 +63,7 @@ impl DelegationTokenProvider {
     pub async fn retrieve_token(&self, controller: &dyn ControllerClient) -> String {
         let mut guard = self.token.lock().await;
         if let Some(ref token) = *guard {
-            if DelegationTokenProvider::is_token_valid(token.get_expiry_time()) {
+            if self.is_token_valid(token.get_expiry_time()) {
                 return token.get_value();
             }
         }
@@ -78,6 +81,13 @@ impl DelegationTokenProvider {
         *guard = Some(delegation_token)
     }
 
+    /// Mark the token as expired. Token may be marked as invalid by segmentstore due to a time skew
+    /// between client and segmentstore host. In that case, mark the token as expired
+    /// so that next time a new token could be fetched from controller.
+    pub fn signal_token_expiry(&self) {
+        self.signal_expiry.store(true, Ordering::Relaxed)
+    }
+
     async fn refresh_token(&self, controller: &dyn ControllerClient) -> DelegationToken {
         let jwt_token = controller
             .get_or_refresh_delegation_token_for(self.stream.clone())
@@ -86,7 +96,10 @@ impl DelegationTokenProvider {
         DelegationToken::new(jwt_token.clone(), extract_expiration_time(jwt_token))
     }
 
-    fn is_token_valid(time: Option<u64>) -> bool {
+    fn is_token_valid(&self, time: Option<u64>) -> bool {
+        if self.signal_expiry.load(Ordering::Relaxed) {
+            return false;
+        }
         if let Some(t) = time {
             let now = SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
@@ -186,7 +199,7 @@ mod test {
             assert_eq!(token1, token2);
 
             // time expired
-            assert!(!DelegationTokenProvider::is_token_valid(Some(
+            assert!(!token_provider.is_token_valid(Some(
                 cache.get_expiry_time().unwrap() - DEFAULT_REFRESH_THRESHOLD_SECONDS
             )))
         } else {

@@ -70,6 +70,7 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
         let mut client_connection = ClientConnectionImpl::new(connection);
         client_connection.write(request).await.context(WriteRequest {})?;
         let reply = client_connection.read().await.context(ReadReply {})?;
+        check_auth_token_expired(&reply)?;
         Ok(reply)
     }
 
@@ -86,11 +87,19 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
             .context(GetConnectionFromPool {})?;
         let mut client_connection = ClientConnectionImpl::new(connection);
         client_connection.write(request).await.context(WriteRequest {})?;
-
         let reply = client_connection.read().await.context(ReadReply {})?;
-
+        check_auth_token_expired(&reply)?;
         Ok((reply, Box::new(client_connection) as Box<dyn ClientConnection>))
     }
+}
+
+fn check_auth_token_expired(reply: &Replies) -> Result<(), RawClientError> {
+    if let Replies::AuthTokenCheckFailed(ref cmd) = reply {
+        if cmd.is_token_expired() {
+            return Err(RawClientError::AuthTokenExpired { reply: reply.clone() });
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

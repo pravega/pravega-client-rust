@@ -30,20 +30,18 @@
 use std::result::Result as StdResult;
 use std::time::{Duration, Instant};
 
-use snafu::Snafu;
-use tonic::transport::channel::Channel;
-use tonic::{metadata::MetadataValue, Code, Request, Status};
-
 use async_trait::async_trait;
 use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
     delete_scope_status, delete_stream_status, ping_txn_status, scale_request, scale_response,
     scale_status_response, txn_state, txn_status, update_stream_status, CreateScopeStatus,
     CreateStreamStatus, CreateTxnRequest, CreateTxnResponse, DelegationToken, DeleteScopeStatus,
-    DeleteStreamStatus, GetEpochSegmentsRequest, NodeUri, PingTxnRequest, PingTxnStatus, ScaleRequest,
-    ScaleResponse, ScaleStatusRequest, ScaleStatusResponse, ScopeInfo, SegmentId, SegmentRanges,
-    StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
+    DeleteStreamStatus, GetEpochSegmentsRequest, GetSegmentsRequest, NodeUri, PingTxnRequest, PingTxnStatus,
+    ScaleRequest, ScaleResponse, ScaleStatusRequest, ScaleStatusResponse, ScopeInfo, SegmentId,
+    SegmentRanges, SegmentsAtTime, StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState,
+    TxnStatus, UpdateStreamStatus,
 };
+use im::HashMap as ImHashMap;
 use pravega_rust_client_config::credentials::AUTHORIZATION;
 use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_retry::retry_async::retry_async;
@@ -51,12 +49,14 @@ use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_retry::retry_result::{RetryError, RetryResult, Retryable};
 use pravega_rust_client_retry::wrap_with_async_retry;
 use pravega_rust_client_shared::*;
+use snafu::Snafu;
 use std::convert::{From, Into};
 use std::str::FromStr;
 use std::sync::RwLock;
 use tokio::runtime::Handle;
 use tonic::codegen::http::uri::InvalidUri;
-use tonic::transport::{Certificate, ClientTlsConfig, Endpoint, Uri};
+use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Uri};
+use tonic::{metadata::MetadataValue, Code, Request, Status};
 use tracing::{debug, info};
 
 #[allow(non_camel_case_types)]
@@ -176,6 +176,11 @@ pub trait ControllerClient: Send + Sync {
      * API to get list of segments for a given stream and epoch.
      */
     async fn get_epoch_segments(&self, stream: &ScopedStream, epoch: i32) -> ResultRetry<StreamSegments>;
+
+    /**
+     * API to get segments pointing to the HEAD of the stream..
+     */
+    async fn get_head_segments(&self, stream: &ScopedStream) -> ResultRetry<ImHashMap<Segment, i64>>;
 
     /**
      * API to create a new transaction. The transaction timeout is relative to the creation time.
@@ -378,6 +383,12 @@ impl ControllerClient for ControllerClientImpl {
         wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_get_epoch_segments(stream, epoch)
+        )
+    }
+    async fn get_head_segments(&self, stream: &ScopedStream) -> ResultRetry<ImHashMap<Segment, i64>> {
+        wrap_with_async_retry!(
+            self.config.retry_policy.max_tries(MAX_RETRIES),
+            self.call_get_head_segments(stream)
         )
     }
 
@@ -784,6 +795,35 @@ impl ControllerClientImpl {
                     error_msg: "Operation failed".into(),
                 }),
             },
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
+        }
+    }
+
+    async fn call_get_head_segments(&self, stream: &ScopedStream) -> Result<ImHashMap<Segment, i64>> {
+        let request: StreamInfo = StreamInfo::from(stream);
+        let op_status: StdResult<tonic::Response<SegmentsAtTime>, tonic::Status> = self
+            .get_controller_client()
+            .get_segments(tonic::Request::new(GetSegmentsRequest {
+                stream_info: Some(request),
+                timestamp: 0,
+            }))
+            .await;
+        let operation_name = "getHeadSegments";
+        match op_status {
+            Ok(segment_ranges) => {
+                let head_segments = segment_ranges
+                    .into_inner()
+                    .segments
+                    .iter()
+                    .map(|seg_data| {
+                        let seg = seg_data.segment_id.as_ref().unwrap();
+                        let segment: Segment = Segment::from(seg.segment_id);
+                        let start_offset: i64 = seg_data.offset;
+                        (segment, start_offset)
+                    })
+                    .collect();
+                Ok(head_segments)
+            }
             Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }

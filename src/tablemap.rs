@@ -15,6 +15,8 @@ use crate::raw_client::RawClient;
 use async_stream::try_stream;
 use futures::stream::Stream;
 use pravega_rust_client_auth::DelegationTokenProvider;
+use pravega_rust_client_retry::retry_async::retry_async;
+use pravega_rust_client_retry::retry_result::RetryResult;
 use pravega_rust_client_shared::{PravegaNodeUri, Stream as PravegaStream};
 use pravega_rust_client_shared::{Scope, ScopedSegment, ScopedStream, Segment};
 use pravega_wire_protocol::commands::{
@@ -81,36 +83,50 @@ impl TableMap {
                 .create_delegation_token_provider(ScopedStream::from(&segment))
                 .await,
         };
-        let req = Requests::CreateTableSegment(CreateTableSegmentCommand {
-            request_id: get_request_id(),
-            segment: table_map.name.clone(),
-            delegation_token: table_map
-                .delegation_token_provider
-                .retrieve_token(factory.get_controller_client())
-                .await,
-        });
 
         let op = "Create table segment";
-        table_map
-            .factory
-            .create_raw_client_for_endpoint(endpoint.clone())
-            .send_request(&req)
-            .await
-            .map_err(|e| TableError::ConnectionError {
-                can_retry: true,
-                operation: op.to_string(),
-                source: e,
-            })
-            .and_then(|r| match r {
-                Replies::SegmentCreated(..) | Replies::SegmentAlreadyExists(..) => {
-                    info!("Table segment {} created", table_map.name);
-                    Ok(table_map)
+        retry_async(factory.get_config().retry_policy, || async {
+            let req = Requests::CreateTableSegment(CreateTableSegmentCommand {
+                request_id: get_request_id(),
+                segment: table_map.name.clone(),
+                delegation_token: table_map
+                    .delegation_token_provider
+                    .retrieve_token(factory.get_controller_client())
+                    .await,
+            });
+
+            let result = table_map
+                .factory
+                .create_raw_client_for_endpoint(endpoint.clone())
+                .send_request(&req)
+                .await;
+            match result {
+                Ok(reply) => RetryResult::Success(reply),
+                Err(e) => {
+                    if e.is_token_expired() {
+                        table_map.delegation_token_provider.signal_token_expiry();
+                        info!("auth token needs to refresh");
+                    }
+                    RetryResult::Retry(e)
                 }
-                _ => Err(TableError::OperationError {
-                    operation: op.to_string(),
-                    error_msg: r.to_string(),
-                }),
-            })
+            }
+        })
+        .await
+        .map_err(|e| TableError::ConnectionError {
+            can_retry: true,
+            operation: op.to_string(),
+            source: e.error,
+        })
+        .and_then(|r| match r {
+            Replies::SegmentCreated(..) | Replies::SegmentAlreadyExists(..) => {
+                info!("Table segment {} created", table_map.name);
+                Ok(table_map)
+            }
+            _ => Err(TableError::OperationError {
+                operation: op.to_string(),
+                error_msg: r.to_string(),
+            }),
+        })
     }
 
     ///
@@ -504,34 +520,48 @@ impl TableMap {
     ) -> Result<Vec<Version>, TableError> {
         let op = "Insert into tablemap";
 
-        let entries: Vec<(TableKey, TableValue)> = kvps
-            .iter()
-            .map(|(k, v, ver)| {
-                let tk = TableKey::new(k.clone(), *ver);
-                let tv = TableValue::new(v.clone());
-                (tk, tv)
-            })
-            .collect();
-        let te = TableEntries { entries };
-        let req = Requests::UpdateTableEntries(UpdateTableEntriesCommand {
-            request_id: get_request_id(),
-            segment: self.name.clone(),
-            delegation_token: self
-                .delegation_token_provider
-                .retrieve_token(self.factory.get_controller_client())
-                .await,
-            table_entries: te,
-            table_segment_offset: offset,
-        });
-        let re = self
-            .factory
-            .create_raw_client_for_endpoint(self.endpoint.clone())
-            .send_request(&req)
-            .await;
-        re.map_err(|e| TableError::ConnectionError {
+        retry_async(self.factory.get_config().retry_policy, || async {
+            let entries: Vec<(TableKey, TableValue)> = kvps
+                .iter()
+                .map(|(k, v, ver)| {
+                    let tk = TableKey::new(k.clone(), *ver);
+                    let tv = TableValue::new(v.clone());
+                    (tk, tv)
+                })
+                .collect();
+            let te = TableEntries { entries };
+
+            let req = Requests::UpdateTableEntries(UpdateTableEntriesCommand {
+                request_id: get_request_id(),
+                segment: self.name.clone(),
+                delegation_token: self
+                    .delegation_token_provider
+                    .retrieve_token(self.factory.get_controller_client())
+                    .await,
+                table_entries: te,
+                table_segment_offset: offset,
+            });
+            let result = self
+                .factory
+                .create_raw_client_for_endpoint(self.endpoint.clone())
+                .send_request(&req)
+                .await;
+            match result {
+                Ok(reply) => RetryResult::Success(reply),
+                Err(e) => {
+                    if e.is_token_expired() {
+                        self.delegation_token_provider.signal_token_expiry();
+                        info!("auth token needs to refresh");
+                    }
+                    RetryResult::Retry(e)
+                }
+            }
+        })
+        .await
+        .map_err(|e| TableError::ConnectionError {
             can_retry: true,
             operation: op.into(),
-            source: e,
+            source: e.error,
         })
         .and_then(|r| match r {
             Replies::TableEntriesUpdated(c) => Ok(c.updated_versions),
@@ -556,31 +586,45 @@ impl TableMap {
     /// The read result and the corresponding version is returned as a tuple.
     ///
     async fn get_raw_values(&self, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, Version)>, TableError> {
-        let table_keys: Vec<TableKey> = keys
-            .iter()
-            .map(|k| TableKey::new(k.clone(), TableKey::KEY_NO_VERSION))
-            .collect();
-
-        let req = Requests::ReadTable(ReadTableCommand {
-            request_id: get_request_id(),
-            segment: self.name.clone(),
-            delegation_token: self
-                .delegation_token_provider
-                .retrieve_token(self.factory.get_controller_client())
-                .await,
-            keys: table_keys,
-        });
-        let re = self
-            .factory
-            .create_raw_client_for_endpoint(self.endpoint.clone())
-            .send_request(&req)
-            .await;
-        debug!("Read Response {:?}", re);
         let op = "Read from tablemap";
-        re.map_err(|e| TableError::ConnectionError {
+
+        retry_async(self.factory.get_config().retry_policy, || async {
+            let table_keys: Vec<TableKey> = keys
+                .iter()
+                .map(|k| TableKey::new(k.clone(), TableKey::KEY_NO_VERSION))
+                .collect();
+
+            let req = Requests::ReadTable(ReadTableCommand {
+                request_id: get_request_id(),
+                segment: self.name.clone(),
+                delegation_token: self
+                    .delegation_token_provider
+                    .retrieve_token(self.factory.get_controller_client())
+                    .await,
+                keys: table_keys,
+            });
+            let result = self
+                .factory
+                .create_raw_client_for_endpoint(self.endpoint.clone())
+                .send_request(&req)
+                .await;
+            debug!("Read Response {:?}", result);
+            match result {
+                Ok(reply) => RetryResult::Success(reply),
+                Err(e) => {
+                    if e.is_token_expired() {
+                        self.delegation_token_provider.signal_token_expiry();
+                        info!("auth token needs to refresh");
+                    }
+                    RetryResult::Retry(e)
+                }
+            }
+        })
+        .await
+        .map_err(|e| TableError::ConnectionError {
             can_retry: true,
             operation: op.into(),
-            source: e,
+            source: e.error,
         })
         .and_then(|reply| match reply {
             Replies::TableRead(c) => {
@@ -608,30 +652,45 @@ impl TableMap {
     ///
     async fn remove_raw_values(&self, keys: Vec<(Vec<u8>, Version)>, offset: i64) -> Result<(), TableError> {
         let op = "Remove keys from tablemap";
-        let tks: Vec<TableKey> = keys
-            .iter()
-            .map(|(k, ver)| TableKey::new(k.clone(), *ver))
-            .collect();
-        let req = Requests::RemoveTableKeys(RemoveTableKeysCommand {
-            request_id: get_request_id(),
-            segment: self.name.clone(),
-            delegation_token: self
-                .delegation_token_provider
-                .retrieve_token(self.factory.get_controller_client())
-                .await,
-            keys: tks,
-            table_segment_offset: offset,
-        });
-        let re = self
-            .factory
-            .create_raw_client_for_endpoint(self.endpoint.clone())
-            .send_request(&req)
-            .await;
-        debug!("Reply for RemoveTableKeys request {:?}", re);
-        re.map_err(|e| TableError::ConnectionError {
+
+        retry_async(self.factory.get_config().retry_policy, || async {
+            let tks: Vec<TableKey> = keys
+                .iter()
+                .map(|(k, ver)| TableKey::new(k.clone(), *ver))
+                .collect();
+
+            let req = Requests::RemoveTableKeys(RemoveTableKeysCommand {
+                request_id: get_request_id(),
+                segment: self.name.clone(),
+                delegation_token: self
+                    .delegation_token_provider
+                    .retrieve_token(self.factory.get_controller_client())
+                    .await,
+                keys: tks,
+                table_segment_offset: offset,
+            });
+            let result = self
+                .factory
+                .create_raw_client_for_endpoint(self.endpoint.clone())
+                .send_request(&req)
+                .await;
+            debug!("Reply for RemoveTableKeys request {:?}", result);
+            match result {
+                Ok(reply) => RetryResult::Success(reply),
+                Err(e) => {
+                    if e.is_token_expired() {
+                        self.delegation_token_provider.signal_token_expiry();
+                        info!("auth token needs to refresh");
+                    }
+                    RetryResult::Retry(e)
+                }
+            }
+        })
+        .await
+        .map_err(|e| TableError::ConnectionError {
             can_retry: true,
             operation: op.into(),
-            source: e,
+            source: e.error,
         })
         .and_then(|r| match r {
             Replies::TableKeysRemoved(..) => Ok(()),
@@ -658,8 +717,9 @@ impl TableMap {
         max_keys_at_once: i32,
         token: &[u8],
     ) -> Result<(Vec<(Vec<u8>, Version)>, Vec<u8>), TableError> {
-        {
-            let op = "Read keys";
+        let op = "Read keys";
+
+        retry_async(self.factory.get_config().retry_policy, || async {
             let req = Requests::ReadTableKeys(ReadTableKeysCommand {
                 request_id: get_request_id(),
                 segment: self.name.clone(),
@@ -670,30 +730,41 @@ impl TableMap {
                 suggested_key_count: max_keys_at_once,
                 continuation_token: token.to_vec(),
             });
-            let re = self
+            let result = self
                 .factory
                 .create_raw_client_for_endpoint(self.endpoint.clone())
                 .send_request(&req)
                 .await;
-            debug!("Reply for read tableKeys request {:?}", re);
-            re.map_err(|e| TableError::ConnectionError {
-                can_retry: true,
-                operation: op.into(),
-                source: e,
-            })
-            .and_then(|r| match r {
-                Replies::TableKeysRead(c) => {
-                    let keys: Vec<(Vec<u8>, Version)> =
-                        c.keys.iter().map(|k| (k.data.clone(), k.key_version)).collect();
-
-                    Ok((keys, c.continuation_token))
+            debug!("Reply for read tableKeys request {:?}", result);
+            match result {
+                Ok(reply) => RetryResult::Success(reply),
+                Err(e) => {
+                    if e.is_token_expired() {
+                        self.delegation_token_provider.signal_token_expiry();
+                        info!("auth token needs to refresh");
+                    }
+                    RetryResult::Retry(e)
                 }
-                _ => Err(TableError::OperationError {
-                    operation: op.into(),
-                    error_msg: r.to_string(),
-                }),
-            })
-        }
+            }
+        })
+        .await
+        .map_err(|e| TableError::ConnectionError {
+            can_retry: true,
+            operation: op.into(),
+            source: e.error,
+        })
+        .and_then(|r| match r {
+            Replies::TableKeysRead(c) => {
+                let keys: Vec<(Vec<u8>, Version)> =
+                    c.keys.iter().map(|k| (k.data.clone(), k.key_version)).collect();
+
+                Ok((keys, c.continuation_token))
+            }
+            _ => Err(TableError::OperationError {
+                operation: op.into(),
+                error_msg: r.to_string(),
+            }),
+        })
     }
 
     ///
@@ -704,8 +775,9 @@ impl TableMap {
         max_entries_at_once: i32,
         token: &[u8],
     ) -> Result<(Vec<(Vec<u8>, Vec<u8>, Version)>, Vec<u8>), TableError> {
-        {
-            let op = "Read entries";
+        let op = "Read entries";
+
+        retry_async(self.factory.get_config().retry_policy, || async {
             let req = Requests::ReadTableEntries(ReadTableEntriesCommand {
                 request_id: get_request_id(),
                 segment: self.name.clone(),
@@ -716,37 +788,49 @@ impl TableMap {
                 suggested_entry_count: max_entries_at_once,
                 continuation_token: token.to_vec(),
             });
-            let re = self
+            let result = self
                 .factory
                 .create_raw_client_for_endpoint(self.endpoint.clone())
                 .send_request(&req)
                 .await;
-            debug!("Reply for read tableEntries request {:?}", re);
-            re.map_err(|e| TableError::ConnectionError {
-                can_retry: true,
-                operation: op.into(),
-                source: e,
-            })
-            .and_then(|r| {
-                match r {
-                    Replies::TableEntriesRead(c) => {
-                        let entries: Vec<(Vec<u8>, Vec<u8>, Version)> = c
-                            .entries
-                            .entries
-                            .iter()
-                            .map(|(k, v)| (k.data.clone(), v.data.clone(), k.key_version))
-                            .collect();
+            debug!("Reply for read tableEntries request {:?}", result);
 
-                        Ok((entries, c.continuation_token))
+            match result {
+                Ok(reply) => RetryResult::Success(reply),
+                Err(e) => {
+                    if e.is_token_expired() {
+                        self.delegation_token_provider.signal_token_expiry();
+                        info!("auth token needs to refresh");
                     }
-                    // unexpected response from Segment store causes a panic.
-                    _ => Err(TableError::OperationError {
-                        operation: op.into(),
-                        error_msg: r.to_string(),
-                    }),
+                    RetryResult::Retry(e)
                 }
-            })
-        }
+            }
+        })
+        .await
+        .map_err(|e| TableError::ConnectionError {
+            can_retry: true,
+            operation: op.into(),
+            source: e.error,
+        })
+        .and_then(|r| {
+            match r {
+                Replies::TableEntriesRead(c) => {
+                    let entries: Vec<(Vec<u8>, Vec<u8>, Version)> = c
+                        .entries
+                        .entries
+                        .iter()
+                        .map(|(k, v)| (k.data.clone(), v.data.clone(), k.key_version))
+                        .collect();
+
+                    Ok((entries, c.continuation_token))
+                }
+                // unexpected response from Segment store causes a panic.
+                _ => Err(TableError::OperationError {
+                    operation: op.into(),
+                    error_msg: r.to_string(),
+                }),
+            }
+        })
     }
 
     ///
@@ -759,26 +843,41 @@ impl TableMap {
         from_position: i64,
     ) -> Result<(Vec<(Vec<u8>, Vec<u8>, Version)>, i64), TableError> {
         let op = "Read entries delta";
-        let req = Requests::ReadTableEntriesDelta(ReadTableEntriesDeltaCommand {
-            request_id: get_request_id(),
-            segment: self.name.clone(),
-            delegation_token: self
-                .delegation_token_provider
-                .retrieve_token(self.factory.get_controller_client())
-                .await,
-            from_position,
-            suggested_entry_count: max_entries_at_once,
-        });
-        let re = self
-            .factory
-            .create_raw_client_for_endpoint(self.endpoint.clone())
-            .send_request(&req)
-            .await;
-        debug!("Reply for read tableEntriesDelta request {:?}", re);
-        re.map_err(|e| TableError::ConnectionError {
+
+        retry_async(self.factory.get_config().retry_policy, || async {
+            let req = Requests::ReadTableEntriesDelta(ReadTableEntriesDeltaCommand {
+                request_id: get_request_id(),
+                segment: self.name.clone(),
+                delegation_token: self
+                    .delegation_token_provider
+                    .retrieve_token(self.factory.get_controller_client())
+                    .await,
+                from_position,
+                suggested_entry_count: max_entries_at_once,
+            });
+            let result = self
+                .factory
+                .create_raw_client_for_endpoint(self.endpoint.clone())
+                .send_request(&req)
+                .await;
+            debug!("Reply for read tableEntriesDelta request {:?}", result);
+
+            match result {
+                Ok(reply) => RetryResult::Success(reply),
+                Err(e) => {
+                    if e.is_token_expired() {
+                        self.delegation_token_provider.signal_token_expiry();
+                        info!("auth token needs to refresh");
+                    }
+                    RetryResult::Retry(e)
+                }
+            }
+        })
+        .await
+        .map_err(|e| TableError::ConnectionError {
             can_retry: true,
             operation: op.into(),
-            source: e,
+            source: e.error,
         })
         .and_then(|r| {
             match r {

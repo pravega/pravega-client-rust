@@ -79,10 +79,6 @@ impl ClientConnectionReadHalf {
     pub fn get_id(&self) -> Uuid {
         self.read_half.get_id()
     }
-
-    pub fn unsplit(mut self, write_half: ClientConnectionWriteHalf) -> Box<dyn Connection> {
-        self.read_half.unsplit(write_half.write_half)
-    }
 }
 
 impl ClientConnectionWriteHalf {

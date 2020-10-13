@@ -18,13 +18,15 @@ use async_trait::async_trait;
 use pravega_connection_pool::connection_pool::{ConnectionPoolError, Manager};
 use pravega_rust_client_config::connection_type::MockType;
 use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfig};
-use pravega_rust_client_shared::PravegaNodeUri;
+use pravega_rust_client_shared::{PravegaNodeUri, SegmentInfo};
 use snafu::ResultExt;
+use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
 use tokio::net::TcpStream;
+use tokio::sync::Mutex;
 use tokio_rustls::{rustls, webpki::DNSNameRef, TlsConnector};
 use tracing::info;
 use uuid::Uuid;
@@ -64,7 +66,7 @@ impl dyn ConnectionFactory {
                 config.is_tls_enabled,
                 &config.cert_path,
             )),
-            ConnectionType::Mock(mock_type) => Box::new(MockConnectionFactory { mock_type }),
+            ConnectionType::Mock(mock_type) => Box::new(MockConnectionFactory ::new( mock_type )),
         }
     }
 }
@@ -81,9 +83,6 @@ impl TokioConnectionFactory {
             path: path.to_owned(),
         }
     }
-}
-struct MockConnectionFactory {
-    mock_type: MockType,
 }
 
 #[async_trait]
@@ -141,6 +140,21 @@ impl ConnectionFactory for TokioConnectionFactory {
         Ok(tokio_connection)
     }
 }
+struct MockConnectionFactory {
+    segments: Arc<Mutex<HashMap<String, SegmentInfo>>>,
+    writers: Arc<Mutex<HashMap<u128, String>>>,
+    mock_type: MockType,
+}
+
+impl MockConnectionFactory {
+    pub fn new(mock_type: MockType) -> Self {
+        MockConnectionFactory {
+            segments: Arc::new(Mutex::new(HashMap::new())),
+            writers: Arc::new(Mutex::new(HashMap::new())),
+            mock_type
+        }
+    }
+}
 
 #[async_trait]
 impl ConnectionFactory for MockConnectionFactory {
@@ -148,7 +162,7 @@ impl ConnectionFactory for MockConnectionFactory {
         &self,
         endpoint: PravegaNodeUri,
     ) -> Result<Box<dyn Connection>, ConnectionFactoryError> {
-        let mock = MockConnection::new(endpoint, self.mock_type);
+        let mock = MockConnection::new(endpoint, self.segments.clone(), self.writers.clone(), self.mock_type);
         Ok(Box::new(mock) as Box<dyn Connection>)
     }
 }
@@ -301,17 +315,17 @@ mod tests {
         info!("mock connection factory test passed");
     }
 
-    // #[test]
-    // #[should_panic]
-    // fn test_tokio_connection() {
-    //     info!("test tokio connection factory");
-    //     let mut rt = Runtime::new().unwrap();
-    //     let config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
-    //     let connection_factory = ConnectionFactory::create(config);
-    //     let connection_future =
-    //         connection_factory.establish_connection(PravegaNodeUri::from("127.1.1.1:9090".to_string()));
-    //     let mut _connection = rt.block_on(connection_future).expect("create tokio connection");
-    //
-    //     info!("tokio connection factory test passed");
-    // }
+    #[test]
+    #[should_panic]
+    fn test_tokio_connection() {
+        info!("test tokio connection factory");
+        let mut rt = Runtime::new().unwrap();
+        let config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
+        let connection_factory = ConnectionFactory::create(config);
+        let connection_future =
+            connection_factory.establish_connection(PravegaNodeUri::from("127.1.1.1:9090".to_string()));
+        let mut _connection = rt.block_on(connection_future).expect("create tokio connection");
+
+        info!("tokio connection factory test passed");
+    }
 }
