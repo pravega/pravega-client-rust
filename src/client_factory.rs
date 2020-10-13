@@ -131,13 +131,7 @@ impl ClientFactory {
     }
 
     pub async fn create_segment_metadata_client(&self, segment: ScopedSegment) -> SegmentMetadataClient {
-        SegmentMetadataClient::new(
-            segment.clone(),
-            self.clone(),
-            self.0
-                .create_delegation_token_provider(ScopedStream::from(&segment))
-                .await,
-        )
+        SegmentMetadataClient::new(segment.clone(), self.clone()).await
     }
 
     pub fn get_controller_client(&self) -> &dyn ControllerClient {
