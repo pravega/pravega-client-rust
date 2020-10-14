@@ -46,7 +46,7 @@ pub enum ConnectionPoolError {
 /// impl Manager for FooManager {
 /// type Conn = FooConnection;
 ///
-/// async fn establish_connection(&self, endpoint: PravegNodeUri) -> Result<Self::Conn, ConnectionPoolError> {
+/// async fn establish_connection(&self, endpoint: PravegaNodeUri) -> Result<Self::Conn, ConnectionPoolError> {
 ///         unimplemented!()
 ///     }
 ///
