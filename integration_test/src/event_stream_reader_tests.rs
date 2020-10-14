@@ -124,7 +124,6 @@ async fn test_release_segment_at(client_factory: &ClientFactory) {
     let mut reader = client_factory.create_event_stream_reader(str).await;
     let mut event_count = 0;
     let mut release_invoked = false;
-    let mut last_event_offset = 0;
     loop {
         if event_count == NUM_EVENTS + NUM_EVENTS + 5 {
             // all events have been read. Exit test.
@@ -139,7 +138,6 @@ async fn test_release_segment_at(client_factory: &ClientFactory) {
                 } else if let Some(event) = slice.next() {
                     assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
                     event_count += 1;
-                    last_event_offset = event.offset_in_segment;
                 } else {
                     info!(
                         "Finished reading from segment {:?}, segment is auto released",

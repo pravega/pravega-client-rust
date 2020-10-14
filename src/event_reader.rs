@@ -346,7 +346,7 @@ impl EventReader {
             "The offset where the segment slice is released should be less than the end offset"
         );
 
-        let segment = ScopedSegment::from(slice.meta.scoped_segment.clone().as_str());
+        let segment = ScopedSegment::from(slice.meta.scoped_segment.as_str());
         if slice.meta.read_offset != offset {
             self.meta.stop_reading(&slice.meta.scoped_segment);
 
@@ -414,7 +414,9 @@ impl EventReader {
                         "Received data from a different segment"
                     );
                     let mut slice_meta = self.meta.remove_segment(data.segment.clone()).await;
-                    if data.offset_in_segment != slice_meta.read_offset {
+                    if data.offset_in_segment
+                        != slice_meta.read_offset + slice_meta.segment_data.value.len() as i64
+                    {
                         info!("Data from an invalid offset {:?} observed. Expected offset {:?}. Ignoring this data", data.offset_in_segment, slice_meta.read_offset);
                         None
                     } else {
