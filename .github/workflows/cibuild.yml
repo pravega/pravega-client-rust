@@ -85,10 +85,10 @@ jobs:
           path: target	
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
 
-      - name: Install stable toolchain
+      - name: Install nightly toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
           override: true
           components: rustfmt, clippy
       - name: Run cargo test
@@ -97,22 +97,10 @@ jobs:
           command: test
           args: -p pravega-rust-client-channel -p pravega-controller-client -p pravega-rust-client-integration-test -p pravega-rust-client-retry -p pravega-rust-client-shared -p pravega-wire-protocol -p pravega-client-rust -p pravega-rust-client-auth -p pravega-rust-client-config
 
-      - name: Run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
-        with:
-          version: '0.14.3'
-          args: '--all'
-
-      - name: Upload to codecov.io
-        uses: codecov/codecov-action@v1.0.2
-        with:
-          token: ${{secrets.CODECOV_TOKEN}}
-
-      - name: Archive code coverage results
-        uses: actions/upload-artifact@v1
-        with:
-          name: code-coverage-report
-          path: cobertura.xml
+      - name: Run code cov
+        run: |
+          chmod +x ./.github/workflows/codecov/codecov.sh
+          ./.github/workflows/codecov/codecov.sh
           
   fmt:
     name: Rustfmt
