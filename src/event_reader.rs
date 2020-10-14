@@ -107,7 +107,7 @@ impl ReaderMeta {
         if let Some(receiver) = self.slice_release_receiver.remove(segment) {
             match receiver.await {
                 Ok(returned_meta) => {
-                    debug!("SegmentSLice returned {:?}", returned_meta);
+                    debug!("SegmentSlice returned {:?}", returned_meta);
                     if let Some(meta) = self.slices.remove(segment) {
                         info!("Meta removed for segment {:?}", meta);
                     }
