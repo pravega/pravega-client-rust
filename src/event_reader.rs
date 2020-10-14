@@ -21,7 +21,8 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::oneshot;
 use tracing::{debug, error, info, warn};
 
-pub type SegmentReadResult = Result<SegmentDataBuffer, ReaderError>;
+pub type ReaderErrorWithOffset = (ReaderError, i64);
+pub type SegmentReadResult = Result<SegmentDataBuffer, ReaderErrorWithOffset>;
 
 ///
 /// This represents an event reader. An event readers fetches its assigned segments and provides the
@@ -413,31 +414,43 @@ impl EventReader {
                         "Received data from a different segment"
                     );
                     let mut slice_meta = self.meta.remove_segment(data.segment.clone()).await;
-                    // add received data to Segment slice.
-                    EventReader::add_data_to_segment_slice(data, &mut slice_meta);
+                    if data.offset_in_segment != slice_meta.read_offset {
+                        info!("Data from an invalid offset {:?} observed. Expected offset {:?}. Ignoring this data", data.offset_in_segment, slice_meta.read_offset);
+                        None
+                    } else {
+                        // add received data to Segment slice.
+                        EventReader::add_data_to_segment_slice(data, &mut slice_meta);
 
-                    // Create an one-shot channel to receive SegmentSlice return.
-                    let (slice_return_tx, slice_return_rx) = oneshot::channel();
-                    self.meta
-                        .add_slice_release_receiver(slice_meta.scoped_segment.clone(), slice_return_rx);
+                        // Create an one-shot channel to receive SegmentSlice return.
+                        let (slice_return_tx, slice_return_rx) = oneshot::channel();
+                        self.meta
+                            .add_slice_release_receiver(slice_meta.scoped_segment.clone(), slice_return_rx);
 
-                    info!(
-                        "Segment Slice for {:?} is returned for consumption",
-                        slice_meta.scoped_segment
-                    );
-                    Some(SegmentSlice {
-                        meta: slice_meta,
-                        slice_return_tx: Some(slice_return_tx),
-                    })
+                        info!(
+                            "Segment Slice for {:?} is returned for consumption",
+                            slice_meta.scoped_segment
+                        );
+                        Some(SegmentSlice {
+                            meta: slice_meta,
+                            slice_return_tx: Some(slice_return_tx),
+                        })
+                    }
                 }
-                Err(e) => {
+                Err((e, offset)) => {
                     let segment = e.get_segment();
-                    debug!("Reader Error observed {:?} on segment {:?}", e, segment);
+                    debug!(
+                        "Reader Error observed {:?} on segment {:?} at offset {:?} ",
+                        e, segment, offset
+                    );
                     // Remove the slice from the reader meta and fetch successors.
                     let slice_meta = self.meta.remove_segment(segment.clone()).await;
-
-                    info!("Segment slice {:?} has received error {:?}", slice_meta, e);
-                    self.fetch_successors(e).await;
+                    if slice_meta.read_offset != offset {
+                        info!("Error at an invalid offset {:?} observed. Expected offset {:?}. Ignoring this data", offset, slice_meta.start_offset);
+                        self.meta.add_slices(slice_meta);
+                    } else {
+                        info!("Segment slice {:?} has received error {:?}", slice_meta, e);
+                        self.fetch_successors(e).await;
+                    }
 
                     debug!("segment Slice meta {:?}", self.meta.slices);
                     None

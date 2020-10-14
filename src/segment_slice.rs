@@ -243,7 +243,7 @@ impl SegmentSlice {
                             error_msg: "reached the end of stream".to_string(),
                         };
                         // send data: this waits until there is capacity in the channel.
-                        if let Err(e) = tx.send(Err(data)).await {
+                        if let Err(e) = tx.send(Err((data, offset))).await {
                             info!("Error while sending segment data to event parser {:?} ", e);
                             break;
                         }
@@ -267,7 +267,7 @@ impl SegmentSlice {
                 Err(e) => {
                     warn!("Error while reading from segment {:?}", e);
                     if !e.can_retry() {
-                        let _s = tx.send(Err(e)).await;
+                        let _s = tx.send(Err((e, offset))).await;
                         break;
                     }
                 }
@@ -379,7 +379,15 @@ impl Iterator for SegmentSlice {
         match res {
             Some(event) => {
                 self.meta.last_event_offset = event.offset_in_segment;
-                self.meta.read_offset = self.meta.segment_data.offset_in_segment;
+                self.meta.read_offset =
+                    event.offset_in_segment + event.value.len() as i64 + TYPE_PLUS_LENGTH_SIZE as i64;
+                if !self.meta.is_empty() {
+                    assert_eq!(
+                        self.meta.read_offset, self.meta.segment_data.offset_in_segment,
+                        "Error in offset computation"
+                    );
+                }
+                //self.meta.read_offset = self.meta.segment_data.offset_in_segment;
                 Some(event)
             }
             None => {

@@ -28,7 +28,129 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
     let client_factory = ClientFactory::new(config);
     let handle = client_factory.get_runtime_handle();
     handle.block_on(test_read_api(&client_factory));
-    handle.block_on(test_stream_scaling(&client_factory))
+    handle.block_on(test_stream_scaling(&client_factory));
+    handle.block_on(test_release_segment(&client_factory));
+    handle.block_on(test_release_segment_at(&client_factory));
+}
+
+async fn test_release_segment(client_factory: &ClientFactory) {
+    let scope_name = Scope::from("testReaderScaling".to_owned());
+    let stream_name = Stream::from("testReaderRelease1".to_owned());
+
+    const NUM_EVENTS: usize = 10;
+    // write 100 events.
+
+    let new_stream = create_scope_stream(
+        client_factory.get_controller_client(),
+        &scope_name,
+        &stream_name,
+        1,
+    )
+    .await;
+    // write events only if the stream is created.
+    if new_stream {
+        write_events_before_and_after_scale(
+            scope_name.clone(),
+            stream_name.clone(),
+            &client_factory,
+            NUM_EVENTS,
+        )
+        .await;
+    }
+    let str = ScopedStream {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+    };
+
+    let mut reader = client_factory.create_event_stream_reader(str).await;
+    let mut event_count = 0;
+    let mut release_invoked = false;
+    loop {
+        if event_count == NUM_EVENTS {
+            // all events have been read. Exit test.
+            break;
+        }
+        if let Some(mut slice) = reader.acquire_segment().await {
+            loop {
+                if !release_invoked && event_count == 5 {
+                    reader.release_segment(slice);
+                    release_invoked = true;
+                    break;
+                } else if let Some(event) = slice.next() {
+                    assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+                    event_count += 1;
+                } else {
+                    info!(
+                        "Finished reading from segment {:?}, segment is auto released",
+                        slice.meta.scoped_segment
+                    );
+                    break; // try to acquire the next segment.
+                }
+            }
+        }
+    }
+    assert_eq!(event_count, NUM_EVENTS);
+}
+
+async fn test_release_segment_at(client_factory: &ClientFactory) {
+    let scope_name = Scope::from("testReaderScaling".to_owned());
+    let stream_name = Stream::from("testReaderReleaseat".to_owned());
+
+    const NUM_EVENTS: usize = 10;
+    // write 100 events.
+
+    let new_stream = create_scope_stream(
+        client_factory.get_controller_client(),
+        &scope_name,
+        &stream_name,
+        1,
+    )
+    .await;
+    // write events only if the stream is created.
+    if new_stream {
+        write_events_before_and_after_scale(
+            scope_name.clone(),
+            stream_name.clone(),
+            &client_factory,
+            NUM_EVENTS,
+        )
+        .await;
+    }
+    let str = ScopedStream {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+    };
+
+    let mut reader = client_factory.create_event_stream_reader(str).await;
+    let mut event_count = 0;
+    let mut release_invoked = false;
+    let mut last_event_offset = 0;
+    loop {
+        if event_count == NUM_EVENTS + NUM_EVENTS + 5 {
+            // all events have been read. Exit test.
+            break;
+        }
+        if let Some(mut slice) = reader.acquire_segment().await {
+            loop {
+                if !release_invoked && event_count == 5 {
+                    reader.release_segment_at(slice, 0); // release segment @ the beginning, so that the reader reads all the data.
+                    release_invoked = true;
+                    break;
+                } else if let Some(event) = slice.next() {
+                    assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+                    event_count += 1;
+                    last_event_offset = event.offset_in_segment;
+                } else {
+                    info!(
+                        "Finished reading from segment {:?}, segment is auto released",
+                        slice.meta.scoped_segment
+                    );
+                    break; // try to acquire the next segment.
+                }
+            }
+        }
+    }
+    assert_eq!(event_count, NUM_EVENTS + NUM_EVENTS + 5); // 5 additional events.
 }
 
 async fn test_stream_scaling(client_factory: &ClientFactory) {
