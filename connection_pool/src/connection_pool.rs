@@ -35,7 +35,7 @@ pub enum ConnectionPoolError {
 /// ```no_run
 /// use async_trait::async_trait;
 /// use pravega_connection_pool::connection_pool::{Manager, ConnectionPoolError, ConnectionPool};
-/// use pravega_rust_client_shared::PravegNodeUri;
+/// use pravega_rust_client_shared::PravegaNodeUri;
 /// use tokio::runtime::Runtime;
 ///
 /// struct FooConnection {}
