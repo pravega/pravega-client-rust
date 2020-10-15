@@ -231,7 +231,7 @@ impl ByteStreamReader {
         self.runtime_handle
             .block_on(self.metadata_client.fetch_current_starting_head())
             .map(|i| i as u64)
-            .map_err(|e| Error::new(ErrorKind::Other, e.to_string()))
+            .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
     }
 
     pub fn current_offset(&self) -> i64 {
@@ -278,7 +278,7 @@ impl Seek for ByteStreamReader {
                 let tail = self
                     .runtime_handle
                     .block_on(self.metadata_client.fetch_current_segment_length())
-                    .map_err(|e| Error::new(ErrorKind::Other, e.to_string()))?;
+                    .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))?;
                 if tail + offset < 0 {
                     Err(Error::new(
                         ErrorKind::InvalidInput,

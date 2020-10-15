@@ -24,12 +24,7 @@ use tokio::sync::Mutex;
 
 #[derive(Debug, Snafu)]
 pub enum SegmentMetadataClientError {
-    #[snafu(display(
-        "SegmentMetadataClient for segment {} failed to {} due to {}",
-        segment,
-        operation,
-        error_msg
-    ))]
+    #[snafu(display("In call to {} Segment {} does not exist. {}", operation, segment, error_msg))]
     NoSuchSegment {
         segment: String,
         operation: String,

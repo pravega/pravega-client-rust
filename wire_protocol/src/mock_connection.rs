@@ -22,7 +22,7 @@ use std::cmp;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 pub struct MockConnection {
@@ -61,13 +61,13 @@ impl MockConnection {
 #[async_trait]
 impl Connection for MockConnection {
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
-        let mut segments = self.segments.lock().await;
-        let mut writers = self.writers.lock().await;
+        let mut segments_guard = self.segments.lock().await;
+        let mut writers_guard = self.writers.lock().await;
         send(
             self.sender.as_mut().expect("get sender"),
             payload,
-            &mut segments,
-            &mut writers,
+            &mut *segments_guard,
+            &mut *writers_guard,
         )
         .await
     }
@@ -160,9 +160,15 @@ impl ReadingConnection for MockReadingConnection {
 #[async_trait]
 impl WritingConnection for MockWritingConnection {
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
-        let mut segments = self.segments.lock().await;
-        let mut writers = self.writers.lock().await;
-        send(&mut self.sender, payload, &mut segments, &mut writers).await
+        let mut segments_guard = self.segments.lock().await;
+        let mut writers_guard = self.writers.lock().await;
+        send(
+            &mut self.sender,
+            payload,
+            &mut *segments_guard,
+            &mut *writers_guard,
+        )
+        .await
     }
 
     fn get_id(&self) -> Uuid {
@@ -173,8 +179,8 @@ impl WritingConnection for MockWritingConnection {
 async fn send(
     sender: &mut UnboundedSender<Replies>,
     payload: &[u8],
-    segments: &mut MutexGuard<'_, HashMap<String, SegmentInfo>>,
-    writers: &mut MutexGuard<'_, HashMap<u128, String>>,
+    segments: &mut HashMap<String, SegmentInfo>,
+    writers: &mut HashMap<u128, String>,
 ) -> Result<(), ConnectionError> {
     let request: Requests = Requests::read_from(payload).expect("mock connection decode request");
     match request {
