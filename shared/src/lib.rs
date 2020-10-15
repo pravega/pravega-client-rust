@@ -653,6 +653,7 @@ mod test {
         assert_eq!(uri.to_socket_addr(), socket_addr);
     }
 
+    #[test]
     fn test_scoped_segment() {
         let seg1 = ScopedSegment::from("test/123.#epoch.0");
         assert_eq!(

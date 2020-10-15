@@ -134,7 +134,7 @@ mod tests {
 
         let tx1 = tx.clone();
         tokio::spawn(async move {
-            thread::sleep(time::Duration::from_secs(1));
+            tokio::time::delay_for(tokio::time::Duration::from_secs(1)).await;
             if let Err(_) = tx1.send((1, 4)).await {
                 println!("receiver dropped");
             }

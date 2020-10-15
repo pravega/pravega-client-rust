@@ -35,7 +35,7 @@ pub enum ConnectionPoolError {
 /// ```no_run
 /// use async_trait::async_trait;
 /// use pravega_connection_pool::connection_pool::{Manager, ConnectionPoolError, ConnectionPool};
-/// use pravega_shared::PravegNodeUri;
+/// use pravega_rust_client_shared::PravegaNodeUri;
 /// use tokio::runtime::Runtime;
 ///
 /// struct FooConnection {}
@@ -46,7 +46,7 @@ pub enum ConnectionPoolError {
 /// impl Manager for FooManager {
 /// type Conn = FooConnection;
 ///
-/// async fn establish_connection(&self,endpoint: Pravega) -> Result<Self::Conn, ConnectionPoolError> {
+/// async fn establish_connection(&self, endpoint: PravegaNodeUri) -> Result<Self::Conn, ConnectionPoolError> {
 ///         unimplemented!()
 ///     }
 ///
@@ -67,7 +67,7 @@ pub enum ConnectionPoolError {
 /// let mut rt = Runtime::new().unwrap();
 /// let manager = FooManager{};
 /// let pool = ConnectionPool::new(manager);
-/// let endpoint = PravegaNodeUri::from("127.0.0.1:12345".to_string());
+/// let endpoint = PravegaNodeUri::from("127.0.0.1:12345");
 /// let connection = rt.block_on(pool.get_connection(endpoint));
 /// ```
 #[async_trait]
