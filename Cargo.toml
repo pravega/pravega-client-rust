@@ -17,7 +17,6 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 members = [
     "controller-client", "shared", "wire_protocol", "retry", "integration_test", "connection_pool", "channel", "bindings", "auth", "config"
 ]
-default-members = ["controller-client", "shared", "wire_protocol", "retry", "integration_test", "connection_pool", "channel", "auth", "config"]
 
 [dependencies]
 pravega-rust-client-shared = { path = "./shared"}
