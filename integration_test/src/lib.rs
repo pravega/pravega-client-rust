@@ -29,7 +29,7 @@ use lazy_static::*;
 use pravega_client_rust::metric;
 use std::process::Command;
 use std::{thread, time};
-use tracing::{debug, error, info, info_span, warn};
+use tracing::{error, info, info_span, warn};
 
 #[macro_use]
 extern crate derive_new;

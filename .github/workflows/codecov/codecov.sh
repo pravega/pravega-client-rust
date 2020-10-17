@@ -28,6 +28,7 @@ make install DESTDIR=../../kcov-build &&
 cd ../.. &&
 ls &&
 rm -rf kcov-master &&
-for file in target/debug/deps/pravega*[^\.d]; do [ -x "${file}" ] || continue; mkdir -p "target/cov/$(basename $file)"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/$(basename $file)" "$file"; done &&
+DIR=`find target/debug/deps/* -iname "pravega*[^\.d]" | grep -v integration_test` &&
+for file in $DIR; do [ -x "${file}" ] || continue; mkdir -p "target/cov/$(basename $file)"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/$(basename $file)" "$file"; done &&
 bash <(curl -s https://codecov.io/bash) -t 6af47fa4-eed7-4fce-adbd-77291bc74cac &&
 echo "Uploaded code coverage"
