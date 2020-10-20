@@ -9,6 +9,6 @@
 //
 
 pub(crate) mod event;
-pub(crate) mod reactor;
+pub(crate) mod reactors;
 pub(crate) mod segment_selector;
 pub(crate) mod segment_writer;

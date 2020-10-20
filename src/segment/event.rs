@@ -15,22 +15,11 @@ use pravega_wire_protocol::commands::{Command, EventCommand};
 use pravega_wire_protocol::wire_commands::Replies;
 
 use crate::error::*;
-use pravega_wire_protocol::connection::Connection;
 
 #[derive(Debug)]
 pub(crate) enum Incoming {
     AppendEvent(PendingEvent),
     ServerReply(ServerReply),
-    CloseReactor,
-    CloseSegmentWriter(CloseSegmentWriterInfo),
-}
-
-#[derive(Debug)]
-pub(crate) struct CloseSegmentWriterInfo {
-    pub(crate) id: WriterId,
-    pub(crate) segment: ScopedSegment,
-    pub(crate) conn: Box<dyn Connection>,
-    pub(crate) close_reactor: bool,
 }
 
 #[derive(new, Debug)]

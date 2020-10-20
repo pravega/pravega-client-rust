@@ -182,15 +182,6 @@ impl SegmentSelector {
     pub(crate) fn remove_segment_event_writer(&mut self, segment: &ScopedSegment) -> Option<SegmentWriter> {
         self.writers.remove(segment)
     }
-
-    /// Tries to close the segment selector by trying to close segment writers that it owns.
-    pub(crate) fn try_close(&mut self) -> bool {
-        let mut closed = true;
-        for w in self.writers.values_mut() {
-            closed &= w.try_close();
-        }
-        closed
-    }
 }
 
 #[cfg(test)]

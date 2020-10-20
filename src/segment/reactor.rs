@@ -73,30 +73,6 @@ impl Reactor {
                     Ok(())
                 }
             }
-            Incoming::CloseSegmentWriter(info) => {
-                let endpoint = info.conn.get_endpoint();
-                let pool = factory.get_connection_pool();
-                pool.add_connection(endpoint, info.conn);
-                info!("segment writer is closed, put connection back to pool");
-                selector.remove_segment_event_writer(&info.segment);
-                if selector.writers.is_empty() && info.close_reactor {
-                    Err("stream reactor is closed")
-                } else {
-                    Ok(())
-                }
-            }
-            Incoming::CloseReactor => {
-                let mut close = true;
-                for v in selector.writers.values_mut() {
-                    close &= v.try_close();
-                }
-
-                if close {
-                    Err("stream reactor is closed")
-                } else {
-                    Ok(())
-                }
-            }
         }
     }
 
@@ -136,9 +112,7 @@ impl Reactor {
                 let segment = ScopedSegment::from(&*cmd.segment);
                 if let Some(inflight) = selector.refresh_segment_event_writers_upon_sealed(&segment).await {
                     selector.resend(inflight).await;
-                    if let Some(mut writer) = selector.remove_segment_event_writer(&segment) {
-                        writer.try_close();
-                    }
+                    selector.remove_segment_event_writer(&segment);
                     Ok(())
                 } else {
                     Err("Stream is sealed")
@@ -153,9 +127,7 @@ impl Reactor {
                 let segment = ScopedSegment::from(&*cmd.segment);
                 if let Some(inflight) = selector.refresh_segment_event_writers_upon_sealed(&segment).await {
                     selector.resend(inflight).await;
-                    if let Some(mut writer) = selector.remove_segment_event_writer(&segment) {
-                        writer.try_close();
-                    }
+                    selector.remove_segment_event_writer(&segment);
                     Ok(())
                 } else {
                     Err("Stream is sealed")
@@ -198,40 +170,35 @@ pub(crate) mod test {
     use super::*;
     use crate::segment::event::PendingEvent;
     use crate::segment::segment_selector::test::create_segment_selector;
-    use crate::segment::segment_writer::test::create_segment_writer;
+    use crate::segment::segment_writer::SegmentWriter;
     use pravega_rust_client_config::connection_type::MockType;
     use tokio::sync::oneshot;
 
     type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 
     #[test]
-    fn test_stream_reactor_happy_run() {
+    fn test_reactor_happy_run() {
         let mut rt = tokio::runtime::Runtime::new().unwrap();
         let (mut selector, mut receiver, factory) = rt.block_on(create_segment_selector(MockType::Happy));
 
         // initialize segment selector
         rt.block_on(selector.initialize());
-        assert_eq!(selector.writers.len(), 1);
+        assert_eq!(selector.writers.len(), 2);
 
         // write data once and reactor should ack
         rt.block_on(write_once_for_selector(&mut selector, 512));
         let result = rt.block_on(Reactor::run_once(&mut selector, &mut receiver, &factory));
         assert!(result.is_ok());
-
-        let close = selector.try_close();
-        assert_eq!(close, false);
-        let result = rt.block_on(Reactor::run_once(&mut selector, &mut receiver, &factory));
-        assert!(result.is_err());
     }
 
     #[test]
-    fn test_stream_reactor_wrong_host() {
+    fn test_reactor_wrong_host() {
         let mut rt = tokio::runtime::Runtime::new().unwrap();
         let (mut selector, mut receiver, factory) = rt.block_on(create_segment_selector(MockType::WrongHost));
 
         // initialize segment selector
         rt.block_on(selector.initialize());
-        assert_eq!(selector.writers.len(), 1);
+        assert_eq!(selector.writers.len(), 2);
 
         // write data once, should get wrong host reply and writer should retry
         rt.block_on(write_once_for_selector(&mut selector, 512));
@@ -240,14 +207,14 @@ pub(crate) mod test {
     }
 
     #[test]
-    fn test_stream_reactor_stream_is_sealed() {
+    fn test_reactor_stream_is_sealed() {
         let mut rt = tokio::runtime::Runtime::new().unwrap();
         let (mut selector, mut receiver, factory) =
             rt.block_on(create_segment_selector(MockType::SegmentIsSealed));
 
         // initialize segment selector
         rt.block_on(selector.initialize());
-        assert_eq!(selector.writers.len(), 1);
+        assert_eq!(selector.writers.len(), 2);
 
         // write data once, should get segment sealed and reactor will fetch successors to continue
         rt.block_on(write_once_for_selector(&mut selector, 512));

@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::segment::reactor::Reactor;
+use crate::segment::reactors::Reactor;
 use pravega_rust_client_shared::*;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
@@ -18,7 +18,7 @@ use crate::error::*;
 use crate::get_random_u128;
 use crate::segment::event::{Incoming, PendingEvent};
 use tokio::runtime::Handle;
-use tracing::{info, info_span};
+use tracing::info_span;
 use tracing_futures::Instrument;
 
 type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
@@ -78,14 +78,6 @@ impl EventStreamWriter {
         } else {
             rx
         }
-    }
-}
-
-impl Drop for EventStreamWriter {
-    fn drop(&mut self) {
-        self.runtime_handle
-            .block_on(self.sender.send(Incoming::CloseReactor))
-            .unwrap_or_else(|e| info!("cannot send close signal to reactor due to: {:?}", e));
     }
 }
 

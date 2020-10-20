@@ -14,21 +14,17 @@ use crate::raw_client::RawClient;
 use pravega_rust_client_auth::DelegationTokenProvider;
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_result::RetryResult;
-use pravega_rust_client_shared::{ScopedSegment, SegmentInfo};
+use pravega_rust_client_shared::{PravegaNodeUri, ScopedSegment, ScopedStream, SegmentInfo};
 use pravega_wire_protocol::commands::{
     GetStreamSegmentInfoCommand, SealSegmentCommand, TruncateSegmentCommand,
 };
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use snafu::Snafu;
+use tokio::sync::Mutex;
 
 #[derive(Debug, Snafu)]
 pub enum SegmentMetadataClientError {
-    #[snafu(display(
-        "SegmentMetadataClient for segment {} failed to {} due to {}",
-        segment,
-        operation,
-        error_msg
-    ))]
+    #[snafu(display("In call to {} Segment {} does not exist. {}", operation, segment, error_msg))]
     NoSuchSegment {
         segment: String,
         operation: String,
@@ -37,20 +33,38 @@ pub enum SegmentMetadataClientError {
 }
 
 /// A client for looking at and editing the metadata related to a specific segment.
-#[derive(new)]
 pub struct SegmentMetadataClient {
     segment: ScopedSegment,
     factory: ClientFactory,
     delegation_token_provider: DelegationTokenProvider,
+    endpoint: Mutex<PravegaNodeUri>,
 }
 
 impl SegmentMetadataClient {
+    pub(crate) async fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
+        let endpoint = factory
+            .get_controller_client()
+            .get_endpoint_for_segment(&segment)
+            .await
+            .expect("get endpoint");
+        let token = factory
+            .create_delegation_token_provider(ScopedStream::from(&segment))
+            .await;
+        SegmentMetadataClient {
+            segment,
+            factory,
+            delegation_token_provider: token,
+            endpoint: Mutex::new(endpoint),
+        }
+    }
+
     /// Returns info for the current segment.
     pub async fn get_segment_info(&self) -> Result<SegmentInfo, SegmentMetadataClientError> {
         let controller = self.factory.get_controller_client();
 
         retry_async(self.factory.get_config().retry_policy, || async {
-            let raw_client = self.factory.create_raw_client(&self.segment).await;
+            let mut endpoint = self.endpoint.lock().await;
+            let raw_client = self.factory.create_raw_client_for_endpoint((*endpoint).clone());
             let result = raw_client
                 .send_request(&Requests::GetStreamSegmentInfo(GetStreamSegmentInfoCommand {
                     request_id: get_request_id(),
@@ -68,7 +82,14 @@ impl SegmentMetadataClient {
                         is_sealed: cmd.is_sealed,
                         last_modified_time: cmd.last_modified,
                     }),
-                    Replies::WrongHost(_cmd) => RetryResult::Retry("wrong host".to_string()),
+                    Replies::WrongHost(_cmd) => {
+                        let updated_endpoint = controller
+                            .get_endpoint_for_segment(&self.segment)
+                            .await
+                            .expect("get endpoint");
+                        *endpoint = updated_endpoint;
+                        RetryResult::Retry("wrong host".to_string())
+                    }
                     Replies::NoSuchSegment(_cmd) => RetryResult::Fail("no such segment".to_string()),
                     _ => RetryResult::Fail("unexpected reply".to_string()),
                 },
@@ -108,7 +129,8 @@ impl SegmentMetadataClient {
         let controller = self.factory.get_controller_client();
 
         retry_async(self.factory.get_config().retry_policy, || async {
-            let raw_client = self.factory.create_raw_client(&self.segment).await;
+            let mut endpoint = self.endpoint.lock().await;
+            let raw_client = self.factory.create_raw_client_for_endpoint((*endpoint).clone());
             let result = raw_client
                 .send_request(&Requests::TruncateSegment(TruncateSegmentCommand {
                     request_id: get_request_id(),
@@ -121,7 +143,14 @@ impl SegmentMetadataClient {
             match result {
                 Ok(reply) => match reply {
                     Replies::SegmentTruncated(_cmd) => RetryResult::Success(()),
-                    Replies::WrongHost(_cmd) => RetryResult::Retry("wrong host".to_string()),
+                    Replies::WrongHost(_cmd) => {
+                        let updated_endpoint = controller
+                            .get_endpoint_for_segment(&self.segment)
+                            .await
+                            .expect("get endpoint");
+                        *endpoint = updated_endpoint;
+                        RetryResult::Retry("wrong host".to_string())
+                    }
                     Replies::NoSuchSegment(_cmd) => RetryResult::Fail("no such segment".to_string()),
                     _ => RetryResult::Fail("unexpected reply".to_string()),
                 },
@@ -148,7 +177,8 @@ impl SegmentMetadataClient {
         let controller = self.factory.get_controller_client();
 
         retry_async(self.factory.get_config().retry_policy, || async {
-            let raw_client = self.factory.create_raw_client(&self.segment).await;
+            let mut endpoint = self.endpoint.lock().await;
+            let raw_client = self.factory.create_raw_client_for_endpoint((*endpoint).clone());
             let result = raw_client
                 .send_request(&Requests::SealSegment(SealSegmentCommand {
                     request_id: get_request_id(),
@@ -160,7 +190,14 @@ impl SegmentMetadataClient {
             match result {
                 Ok(reply) => match reply {
                     Replies::SegmentSealed(_cmd) => RetryResult::Success(()),
-                    Replies::WrongHost(_cmd) => RetryResult::Retry("wrong host".to_string()),
+                    Replies::WrongHost(_cmd) => {
+                        let updated_endpoint = controller
+                            .get_endpoint_for_segment(&self.segment)
+                            .await
+                            .expect("get endpoint");
+                        *endpoint = updated_endpoint;
+                        RetryResult::Retry("wrong host".to_string())
+                    }
                     Replies::NoSuchSegment(_cmd) => RetryResult::Fail("no such segment".to_string()),
                     _ => RetryResult::Fail("unexpected reply".to_string()),
                 },

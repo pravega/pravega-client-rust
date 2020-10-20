@@ -11,20 +11,19 @@
 use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::get_random_u128;
-use crate::reactor::event::{Incoming, PendingEvent};
-use crate::reactor::reactors::SegmentReactor;
+use crate::segment::event::{Incoming, PendingEvent};
+use crate::segment::reactor::Reactor;
 use crate::segment_metadata::SegmentMetadataClient;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
-use pravega_rust_client_config::ClientConfig;
-use pravega_rust_client_shared::{ScopedSegment, WriterId};
+use pravega_rust_client_shared::{ScopedSegment, ScopedStream, WriterId};
 use std::cmp;
 use std::convert::TryInto;
-use std::io::Error;
-use std::io::{ErrorKind, Read, Seek, SeekFrom, Write};
+use std::io::{Error, ErrorKind, Read, Seek, SeekFrom, Write};
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;
+use tokio::time::{timeout, Duration};
 use tracing::info_span;
 use tracing_futures::Instrument;
 use uuid::Uuid;
@@ -34,6 +33,13 @@ const CHANNEL_CAPACITY: usize = 100;
 
 type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 
+/// Allows for writing raw bytes directly to a segment.
+///
+/// This class does not frame, attach headers, or otherwise modify the bytes written to it in any
+/// way. So unlike EventStreamWriter the data written cannot be split apart when read.
+/// As such, any bytes written by this API can ONLY be read using ByteStreamReader.
+/// Similarly, unless some sort of framing is added it is probably an error to have multiple
+/// ByteStreamWriters write to the same segment as this will result in interleaved data.
 pub struct ByteStreamWriter {
     writer_id: WriterId,
     sender: Sender<Incoming>,
@@ -42,7 +48,12 @@ pub struct ByteStreamWriter {
     event_handle: Option<EventHandle>,
 }
 
+/// ByteStreamWriter implements Write trait in standard library.
+/// It can be wrapped by BufWriter to improve performance.
 impl Write for ByteStreamWriter {
+    /// Writes the given data to the server. It doesn't mean the data is persisted on the server side
+    /// when this method returns Ok, user should call flush to ensure all data has been acknowledged
+    /// by the server.
     fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
         let oneshot_receiver = self.runtime_handle.block_on(async {
             let mut position = 0;
@@ -73,6 +84,7 @@ impl Write for ByteStreamWriter {
         Ok(buf.len())
     }
 
+    /// This is a blocking call that will wait for data to be persisted on the server side.
     fn flush(&mut self) -> Result<(), Error> {
         let event_handle = self.event_handle.take();
         if event_handle.is_none() {
@@ -84,7 +96,7 @@ impl Write for ByteStreamWriter {
 }
 
 impl ByteStreamWriter {
-    pub(crate) fn new(segment: ScopedSegment, config: ClientConfig, factory: ClientFactory) -> Self {
+    pub(crate) fn new(segment: ScopedSegment, factory: &ClientFactory) -> Self {
         let (sender, receiver) = channel(CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
         let metadata_client = handle.block_on(factory.create_segment_metadata_client(segment.clone()));
@@ -93,8 +105,13 @@ impl ByteStreamWriter {
         // tokio::spawn is tied to the factory runtime.
         handle.enter(|| {
             tokio::spawn(
-                SegmentReactor::run(segment, sender.clone(), receiver, factory.clone(), config)
-                    .instrument(span),
+                Reactor::run(
+                    ScopedStream::from(&segment),
+                    sender.clone(),
+                    receiver,
+                    factory.clone(),
+                )
+                .instrument(span),
             )
         });
         ByteStreamWriter {
@@ -106,7 +123,7 @@ impl ByteStreamWriter {
         }
     }
 
-    /// Seal will seal the segment and no further writes are allowed.
+    /// Seals the segment and no further writes are allowed.
     pub async fn seal(&mut self) -> Result<(), Error> {
         let event_handle = self.event_handle.take();
         self.flush_internal(event_handle).await?;
@@ -161,32 +178,40 @@ impl ByteStreamWriter {
     }
 }
 
+/// Allows for reading raw bytes from a segment.
 pub struct ByteStreamReader {
     reader_id: Uuid,
     reader: AsyncSegmentReaderImpl,
     metadata_client: SegmentMetadataClient,
     offset: i64,
     runtime_handle: Handle,
+    timeout: Duration,
 }
 
 impl Read for ByteStreamReader {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
-        let result = self
-            .runtime_handle
-            .block_on(self.reader.read(self.offset, buf.len() as i32));
+        let read_future = self.reader.read(self.offset, buf.len() as i32);
+        let timeout_fut = self.runtime_handle.enter(|| timeout(self.timeout, read_future));
+        let result = self.runtime_handle.block_on(timeout_fut);
         match result {
-            Ok(cmd) => {
-                if cmd.end_of_segment {
-                    Err(Error::new(ErrorKind::Other, "segment is sealed"))
-                } else {
-                    // Read may have returned more or less than the requested number of bytes.
-                    let size_to_return = cmp::min(buf.len(), cmd.data.len());
-                    self.offset += size_to_return as i64;
-                    buf[..size_to_return].copy_from_slice(&cmd.data[..size_to_return]);
-                    Ok(size_to_return)
+            Ok(result) => match result {
+                Ok(cmd) => {
+                    if cmd.end_of_segment {
+                        Err(Error::new(ErrorKind::Other, "segment is sealed"))
+                    } else {
+                        // Read may have returned more or less than the requested number of bytes.
+                        let size_to_return = cmp::min(buf.len(), cmd.data.len());
+                        self.offset += size_to_return as i64;
+                        buf[..size_to_return].copy_from_slice(&cmd.data[..size_to_return]);
+                        Ok(size_to_return)
+                    }
                 }
-            }
-            Err(e) => Err(Error::new(ErrorKind::Other, format!("Error: {:?}", e))),
+                Err(e) => Err(Error::new(ErrorKind::Other, format!("Error: {:?}", e))),
+            },
+            Err(e) => Err(Error::new(
+                ErrorKind::TimedOut,
+                format!("Reader timed out after {:?}: {:?}", self.timeout, e),
+            )),
         }
     }
 }
@@ -202,6 +227,7 @@ impl ByteStreamReader {
             metadata_client,
             offset: 0,
             runtime_handle: handle,
+            timeout: Duration::from_secs(3600),
         }
     }
 
@@ -209,18 +235,25 @@ impl ByteStreamReader {
         self.runtime_handle
             .block_on(self.metadata_client.fetch_current_starting_head())
             .map(|i| i as u64)
-            .map_err(|e| Error::new(ErrorKind::Other, e.to_string()))
+            .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
     }
 
     pub fn current_offset(&self) -> i64 {
         self.offset
+    }
+
+    pub fn set_reader_timeout(&mut self, timeout: Option<Duration>) {
+        if let Some(time) = timeout {
+            self.timeout = time;
+        } else {
+            self.timeout = Duration::from_secs(3600);
+        }
     }
 }
 
 /// The Seek implementation for ByteStreamReader allows seeking to a byte offset from the beginning
 /// of the stream or a byte offset relative to the current position in the stream.
 /// If the stream has been truncated, the byte offset will be relative to the original beginning of the stream.
-/// Seek from the end of the stream is not implemented.
 impl Seek for ByteStreamReader {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         match pos {
@@ -249,7 +282,7 @@ impl Seek for ByteStreamReader {
                 let tail = self
                     .runtime_handle
                     .block_on(self.metadata_client.fetch_current_segment_length())
-                    .map_err(|e| Error::new(ErrorKind::Other, e.to_string()))?;
+                    .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))?;
                 if tail + offset < 0 {
                     Err(Error::new(
                         ErrorKind::InvalidInput,
@@ -267,23 +300,16 @@ impl Seek for ByteStreamReader {
 #[cfg(test)]
 mod test {
     use super::*;
-    use pravega_rust_client_config::connection_type::ConnectionType;
+    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
     use pravega_rust_client_config::ClientConfigBuilder;
-    use pravega_rust_client_shared::PravegaNodeUri;
+    use pravega_rust_client_shared::{
+        PravegaNodeUri, Retention, RetentionType, ScaleType, Scaling, Scope, Stream, StreamConfiguration,
+    };
     use tokio::runtime::Runtime;
 
     #[test]
     fn test_byte_stream_seek() {
-        let config = ClientConfigBuilder::default()
-            .connection_type(ConnectionType::Mock)
-            .mock(true)
-            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
-            .build()
-            .unwrap();
-        let factory = ClientFactory::new(config);
-        let segment = ScopedSegment::from("testScope/testStream/123.#epoch.0");
-        let mut writer = factory.create_byte_stream_writer(segment.clone());
-        let mut reader = factory.create_byte_stream_reader(segment);
+        let (mut writer, mut reader) = create_reader_and_writer();
 
         // write 200 bytes
         let payload = vec![1; 200];
@@ -333,16 +359,7 @@ mod test {
     #[test]
     fn test_byte_stream_truncate() {
         let mut rt = Runtime::new().unwrap();
-        let config = ClientConfigBuilder::default()
-            .connection_type(ConnectionType::Mock)
-            .mock(true)
-            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
-            .build()
-            .unwrap();
-        let factory = ClientFactory::new(config);
-        let segment = ScopedSegment::from("testScope/testStream/123.#epoch.0");
-        let mut writer = factory.create_byte_stream_writer(segment.clone());
-        let mut reader = factory.create_byte_stream_reader(segment);
+        let (mut writer, mut reader) = create_reader_and_writer();
 
         // write 200 bytes
         let payload = vec![1; 200];
@@ -363,5 +380,45 @@ mod test {
         let mut buf = vec![0; 100];
         assert!(reader.read(&mut buf).is_ok());
         assert_eq!(buf, vec![1; 100]);
+    }
+
+    fn create_reader_and_writer() -> (ByteStreamWriter, ByteStreamReader) {
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(MockType::Happy))
+            .mock(true)
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        create_stream(&factory);
+        let segment = ScopedSegment::from("testScope/testStream/0.#epoch.0");
+        let writer = factory.create_byte_stream_writer(segment.clone());
+        let reader = factory.create_byte_stream_reader(segment);
+        (writer, reader)
+    }
+
+    fn create_stream(factory: &ClientFactory) {
+        let controller = factory.get_controller_client();
+        let rt = factory.get_runtime_handle();
+        let scope = Scope::from("testScope".to_string());
+        rt.block_on(controller.create_scope(&scope))
+            .expect("create scope");
+
+        let stream = Stream::from("testStream".to_string());
+        let stream_config = StreamConfiguration {
+            scoped_stream: ScopedStream { scope, stream },
+            scaling: Scaling {
+                scale_type: ScaleType::FixedNumSegments,
+                target_rate: 0,
+                scale_factor: 0,
+                min_num_segments: 1,
+            },
+            retention: Retention {
+                retention_type: RetentionType::None,
+                retention_param: 0,
+            },
+        };
+        rt.block_on(controller.create_stream(&stream_config))
+            .expect("create stream");
     }
 }

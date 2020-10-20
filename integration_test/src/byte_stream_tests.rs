@@ -33,7 +33,6 @@ use tracing::info;
 
 pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     // spin up Pravega standalone
-    let mut rt = Runtime::new().unwrap();
     let scope_name = Scope::from("testScopeByteStream".to_owned());
     let stream_name = Stream::from("testStreamByteStream".to_owned());
     let config = ClientConfigBuilder::default()

@@ -66,7 +66,7 @@ impl dyn ConnectionFactory {
                 config.is_tls_enabled,
                 &config.cert_path,
             )),
-            ConnectionType::Mock(mock_type) => Box::new(MockConnectionFactory ::new( mock_type )),
+            ConnectionType::Mock(mock_type) => Box::new(MockConnectionFactory::new(mock_type)),
         }
     }
 }
@@ -151,7 +151,7 @@ impl MockConnectionFactory {
         MockConnectionFactory {
             segments: Arc::new(Mutex::new(HashMap::new())),
             writers: Arc::new(Mutex::new(HashMap::new())),
-            mock_type
+            mock_type,
         }
     }
 }
@@ -162,7 +162,12 @@ impl ConnectionFactory for MockConnectionFactory {
         &self,
         endpoint: PravegaNodeUri,
     ) -> Result<Box<dyn Connection>, ConnectionFactoryError> {
-        let mock = MockConnection::new(endpoint, self.segments.clone(), self.writers.clone(), self.mock_type);
+        let mock = MockConnection::new(
+            endpoint,
+            self.segments.clone(),
+            self.writers.clone(),
+            self.mock_type,
+        );
         Ok(Box::new(mock) as Box<dyn Connection>)
     }
 }

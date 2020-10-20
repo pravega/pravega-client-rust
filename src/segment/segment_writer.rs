@@ -13,7 +13,6 @@ use crate::{get_random_u128, get_request_id};
 use snafu::ResultExt;
 use std::collections::VecDeque;
 use tokio::sync::mpsc::Sender;
-use tokio::sync::oneshot;
 use tracing::{debug, error, field, info, info_span, warn};
 
 use pravega_rust_client_retry::retry_async::retry_async;
@@ -28,7 +27,7 @@ use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::metrics::ClientMetrics;
 use crate::raw_client::RawClient;
-use crate::segment::event::{CloseSegmentWriterInfo, Incoming, PendingEvent, ServerReply};
+use crate::segment::event::{Incoming, PendingEvent, ServerReply};
 use pravega_rust_client_auth::DelegationTokenProvider;
 use std::fmt;
 use std::sync::Arc;
@@ -61,11 +60,6 @@ pub(crate) struct SegmentWriter {
 
     /// Delegation token provider used to authenticate client when communicating with segmentstore.
     delegation_token_provider: Arc<DelegationTokenProvider>,
-
-    /// Use this handle to close the connection listener when segment writer is dropped or closed.
-    /// It can send a signal to the connection listener and let it send back the read half connection
-    /// so that the connection can be added back to the connection pool.
-    connection_listener_handle: Option<oneshot::Sender<WriteHalfConnectionWrapper>>,
 }
 
 impl SegmentWriter {
@@ -90,7 +84,6 @@ impl SegmentWriter {
             sender,
             retry_policy,
             delegation_token_provider,
-            connection_listener_handle: None,
         }
     }
 
@@ -110,21 +103,6 @@ impl SegmentWriter {
         factory: &ClientFactory,
     ) -> Result<(), SegmentWriterError> {
         let span = info_span!("setup connection", segment_writer= %self.id, segment= %self.segment, host = field::Empty);
-        if self.connection.is_some() {
-            // close the previous listener task
-            let write_half = self.connection.take().expect("get write half");
-            let handle = self
-                .connection_listener_handle
-                .take()
-                .expect("get listener handle");
-            handle
-                .send(WriteHalfConnectionWrapper {
-                    write_half,
-                    close_reactor: false,
-                })
-                .unwrap_or_else(|e| warn!("failed to clean up previous listener task due to {:?}", e));
-        }
-
         // span.enter doesn't work for async code https://docs.rs/tracing/0.1.17/tracing/span/struct.Span.html#in-asynchronous-code
         async {
             info!("setting up connection for segment writer");
@@ -186,65 +164,31 @@ impl SegmentWriter {
             let connection_id = w.get_id();
             self.connection = Some(w);
 
-            let (oneshot_sender, oneshot_receiver) = oneshot::channel();
-            self.connection_listener_handle = Some(oneshot_sender);
-
             let segment = self.segment.clone();
             let mut sender = self.sender.clone();
 
             // spins up a connection listener that keeps listening on the connection
             let listener_span = info_span!("connection listener", connection = %connection_id);
-            let id = self.id;
             tokio::spawn(async move {
-                let mut oneshot = oneshot_receiver;
                 loop {
-                    tokio::select! {
-                         result = &mut oneshot => {
-                             match result {
-                                Ok(wrapper) => {
-                                    let close_reactor = wrapper.close_reactor;
-                                    let connection = r.unsplit(wrapper.write_half);
-                                    let info = CloseSegmentWriterInfo {
-                                        id,
-                                        segment: segment.clone(),
-                                        conn: connection,
-                                        close_reactor,
-                                    };
-                                    let result = sender
-                                        .send(Incoming::CloseSegmentWriter(info))
-                                        .await;
-
-                                    if let Err(e) = result {
-                                        error!("failed to send read half back to processor due to {:?}",e);
-                                    }
-                                }
-                                Err(e) => {
-                                    error!("handle has dropped {:?}, closing the listener task", e);
-                                }
-                             }
-                             return;
-                         }
-                        result = r.read() => {
-                            let reply = match result {
-                                Ok(reply) => reply,
-                                Err(e) => {
-                                    warn!("connection failed to read data back from segmentstore due to {:?}, closing the listener task", e);
-                                    return;
-                                }
-                            };
-
-                            let result = sender
-                                .send(Incoming::ServerReply(ServerReply {
-                                    segment: segment.clone(),
-                                    reply,
-                                }))
-                                .await;
-
-                            if let Err(e) = result {
-                                error!("connection read data from segmentstore but failed to send reply back to processor due to {:?}",e);
-                                return;
-                            }
+                    let reply = match r.read().await {
+                        Ok(reply) => reply,
+                        Err(e) => {
+                            warn!("connection failed to read data back from segmentstore due to {:?}, closing the listener task", e);
+                            return;
                         }
+                    };
+
+                    let result = sender
+                        .send(Incoming::ServerReply(ServerReply {
+                            segment: segment.clone(),
+                            reply,
+                        }))
+                        .await;
+
+                    if let Err(e) = result {
+                        error!("connection read data from segmentstore but failed to send reply back to processor due to {:?}",e);
+                        return;
                     }
                 }
             }.instrument(listener_span));
@@ -410,25 +354,8 @@ impl SegmentWriter {
         }
     }
 
-    pub(crate) fn get_write_half(&mut self) -> Option<ClientConnectionWriteHalf> {
-        self.connection.take()
-    }
-
-    /// Sends the write half to the listener to merge the read&write half.
-    /// If no write_half exists for this segment writer, then reactor can be closed instantly.
-    pub(crate) fn try_close(&mut self) -> bool {
-        if let Some(handle) = self.connection_listener_handle.take() {
-            if let Some(writer) = self.connection.take() {
-                handle
-                    .send(WriteHalfConnectionWrapper {
-                        write_half: writer,
-                        close_reactor: true,
-                    })
-                    .expect("failed to retrieve connection in Segment Writer");
-                return false;
-            }
-        }
-        true
+    pub(crate) fn signal_delegation_token_expiry(&self) {
+        self.delegation_token_provider.signal_token_expiry()
     }
 }
 
@@ -474,8 +401,8 @@ pub(crate) mod test {
     use super::*;
     use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
     use pravega_rust_client_config::ClientConfigBuilder;
-    use tokio::sync::mpsc;
     use tokio::sync::mpsc::Receiver;
+    use tokio::sync::{mpsc, oneshot};
 
     type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 
@@ -523,22 +450,6 @@ pub(crate) mod test {
         assert!(caller_reply.is_ok());
         let caller_reply = rt.block_on(event_handle2).expect("caller receive reply");
         assert!(caller_reply.is_ok());
-
-        // retrieve connection after segment writer is closed
-        assert!(segment_writer.connection.is_some());
-        let id = segment_writer.connection.as_ref().unwrap().get_id();
-        assert!(segment_writer.connection_listener_handle.is_some());
-        segment_writer.try_close();
-        let reply = rt
-            .block_on(receiver.recv())
-            .expect("receive unsplit connection from segment writer");
-        let result = if let Incoming::CloseSegmentWriter(info) = reply {
-            assert_eq!(info.conn.get_uuid(), id);
-            true
-        } else {
-            false
-        };
-        assert!(result);
     }
 
     #[test]

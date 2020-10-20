@@ -177,18 +177,13 @@ impl From<&ScopedSegment> for ScopedStream {
 
 impl From<&str> for ScopedStream {
     fn from(string: &str) -> Self {
-        let mut buf = string.split('/').collect::<Vec<&str>>();
-        while buf.len() != 2 {
-            buf.pop().expect("get rid of extra encoded info");
-        }
-        let stream = buf.pop().expect("get scope from split string");
-        let scope = buf.pop().expect("get stream from split string");
+        let buf = string.split('/').collect::<Vec<&str>>();
         ScopedStream {
             scope: Scope {
-                name: scope.to_string(),
+                name: buf[0].to_string(),
             },
             stream: Stream {
-                name: stream.to_string(),
+                name: buf[1].to_string(),
             },
         }
     }
@@ -199,6 +194,12 @@ pub struct ScopedSegment {
     pub scope: Scope,
     pub stream: Stream,
     pub segment: Segment,
+}
+
+impl ScopedSegment {
+    pub fn get_scoped_stream(&self) -> ScopedStream {
+        ScopedStream::new(self.scope.clone(), self.stream.clone())
+    }
 }
 
 impl From<&str> for ScopedSegment {
@@ -690,6 +691,7 @@ mod test {
         assert_eq!(uri.to_socket_addr(), socket_addr);
     }
 
+    #[test]
     fn test_scoped_segment() {
         let seg1 = ScopedSegment::from("test/123.#epoch.0");
         assert_eq!(
@@ -728,5 +730,20 @@ mod test {
             }
         );
         assert_eq!(seg2.to_string(), "scope/test/123.#epoch.0");
+    }
+
+    #[test]
+    fn test_scoped_stream() {
+        let stream = ScopedStream {
+            scope: Scope {
+                name: "scope".to_string(),
+            },
+            stream: Stream {
+                name: "stream".to_string(),
+            },
+        };
+        let segment = ScopedSegment::from("scope/stream/123.#epoch.0");
+        let derived_stream = ScopedStream::from(&segment);
+        assert_eq!(stream, derived_stream);
     }
 }

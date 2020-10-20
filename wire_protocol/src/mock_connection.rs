@@ -9,21 +9,24 @@
 //
 
 extern crate byteorder;
-use crate::commands::{AppendSetupCommand, DataAppendedCommand, SegmentIsTruncatedCommand, SegmentReadCommand, SegmentTruncatedCommand, StreamSegmentInfoCommand, WrongHostCommand, SegmentIsSealedCommand};
+use crate::commands::{
+    AppendSetupCommand, DataAppendedCommand, SegmentIsSealedCommand, SegmentIsTruncatedCommand,
+    SegmentReadCommand, SegmentTruncatedCommand, StreamSegmentInfoCommand, WrongHostCommand,
+};
 use crate::connection::{Connection, ConnectionReadHalf, ConnectionWriteHalf};
 use crate::error::*;
 use crate::wire_commands::{Decode, Encode, Replies, Requests};
 use async_trait::async_trait;
 use downcast_rs::__std::fmt::Formatter;
 use pravega_rust_client_config::connection_type::MockType;
-use std::fmt;
-use std::fmt::Debug;
 use pravega_rust_client_shared::{PravegaNodeUri, ScopedSegment, SegmentInfo};
 use std::cmp;
 use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 pub struct MockConnection {
@@ -45,7 +48,7 @@ impl MockConnection {
         endpoint: PravegaNodeUri,
         segments: Arc<Mutex<HashMap<String, SegmentInfo>>>,
         writers: Arc<Mutex<HashMap<u128, String>>>,
-        mock_type: MockType
+        mock_type: MockType,
     ) -> Self {
         let (tx, rx) = unbounded_channel();
         MockConnection {
@@ -65,17 +68,25 @@ impl MockConnection {
 #[async_trait]
 impl Connection for MockConnection {
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
-        let mut segments = self.segments.lock().await;
-        let mut writers = self.writers.lock().await;
+        let mut segments_guard = self.segments.lock().await;
+        let mut writers_guard = self.writers.lock().await;
         match self.mock_type {
-            MockType::Happy => send_happy(self.sender.as_mut().expect("get sender"), payload, &mut segments, &mut writers).await,
+            MockType::Happy => {
+                send_happy(
+                    self.sender.as_mut().expect("get sender"),
+                    payload,
+                    &mut *segments_guard,
+                    &mut *writers_guard,
+                )
+                .await
+            }
             MockType::SegmentIsSealed => {
-                send_sealed(self.sender.as_mut().expect("get sender"), payload, &mut segments, &mut writers).await
+                send_sealed(self.sender.as_mut().expect("get sender"), payload).await
             }
             MockType::SegmentIsTruncated => {
-                send_truncated(self.sender.as_mut().expect("get sender"), payload ,&mut segments, &mut writers).await
+                send_truncated(self.sender.as_mut().expect("get sender"), payload).await
             }
-            MockType::WrongHost => send_wrong_host(self.sender.as_mut().expect("get sender"), payload, &mut segments, &mut writers).await,
+            MockType::WrongHost => send_wrong_host(self.sender.as_mut().expect("get sender"), payload).await,
         }
     }
 
@@ -100,8 +111,6 @@ impl Connection for MockConnection {
     fn split(&mut self) -> (Box<dyn ConnectionReadHalf>, Box<dyn ConnectionWriteHalf>) {
         let reader = Box::new(MockReadingConnection {
             id: self.id,
-            endpoint: self.endpoint.clone(),
-            mock_type: self.mock_type,
             receiver: self
                 .receiver
                 .take()
@@ -143,8 +152,6 @@ impl Debug for MockConnection {
 
 pub struct MockReadingConnection {
     id: Uuid,
-    endpoint: PravegaNodeUri,
-    mock_type: MockType,
     receiver: UnboundedReceiver<Replies>,
     buffer: Vec<u8>,
     index: usize,
@@ -183,13 +190,21 @@ impl ConnectionReadHalf for MockReadingConnection {
 #[async_trait]
 impl ConnectionWriteHalf for MockWritingConnection {
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
-        let mut segments = self.segments.lock().await;
-        let mut writers = self.writers.lock().await;
+        let mut segments_guard = self.segments.lock().await;
+        let mut writers_guard = self.writers.lock().await;
         match self.mock_type {
-            MockType::Happy => send_happy(&mut self.sender, payload, &mut segments, &mut writers).await,
-            MockType::SegmentIsSealed => send_sealed(&mut self.sender, payload, &mut segments, &mut writers).await,
-            MockType::SegmentIsTruncated => send_truncated(&mut self.sender, payload, &mut segments, &mut writers).await,
-            MockType::WrongHost => send_wrong_host(&mut self.sender, payload, &mut segments, &mut writers).await,
+            MockType::Happy => {
+                send_happy(
+                    &mut self.sender,
+                    payload,
+                    &mut *segments_guard,
+                    &mut *writers_guard,
+                )
+                .await
+            }
+            MockType::SegmentIsSealed => send_sealed(&mut self.sender, payload).await,
+            MockType::SegmentIsTruncated => send_truncated(&mut self.sender, payload).await,
+            MockType::WrongHost => send_wrong_host(&mut self.sender, payload).await,
         }
     }
 
@@ -198,8 +213,12 @@ impl ConnectionWriteHalf for MockWritingConnection {
     }
 }
 
-async fn send_happy(sender: &mut UnboundedSender<Replies>, payload: &[u8], segments: &mut MutexGuard<'_, HashMap<String, SegmentInfo>>,
-                    writers: &mut MutexGuard<'_, HashMap<u128, String>>) -> Result<(), ConnectionError> {
+async fn send_happy(
+    sender: &mut UnboundedSender<Replies>,
+    payload: &[u8],
+    segments: &mut HashMap<String, SegmentInfo>,
+    writers: &mut HashMap<u128, String>,
+) -> Result<(), ConnectionError> {
     let request: Requests = Requests::read_from(payload).expect("mock connection decode request");
     match request {
         Requests::Hello(cmd) => {
@@ -300,8 +319,7 @@ async fn send_happy(sender: &mut UnboundedSender<Replies>, payload: &[u8], segme
     Ok(())
 }
 
-async fn send_sealed(sender: &mut UnboundedSender<Replies>, payload: &[u8], segments: &mut MutexGuard<'_, HashMap<String, SegmentInfo>>,
-                     writers: &mut MutexGuard<'_, HashMap<u128, String>>) -> Result<(), ConnectionError> {
+async fn send_sealed(sender: &mut UnboundedSender<Replies>, payload: &[u8]) -> Result<(), ConnectionError> {
     let request: Requests = Requests::read_from(payload).expect("mock connection decode request");
     match request {
         Requests::Hello(cmd) => {
@@ -336,8 +354,6 @@ async fn send_sealed(sender: &mut UnboundedSender<Replies>, payload: &[u8], segm
 async fn send_truncated(
     sender: &mut UnboundedSender<Replies>,
     payload: &[u8],
-    segments: &mut MutexGuard<'_, HashMap<String, SegmentInfo>>,
-    writers: &mut MutexGuard<'_, HashMap<u128, String>>
 ) -> Result<(), ConnectionError> {
     let request: Requests = Requests::read_from(payload).expect("mock connection decode request");
     match request {
@@ -374,8 +390,6 @@ async fn send_truncated(
 async fn send_wrong_host(
     sender: &mut UnboundedSender<Replies>,
     payload: &[u8],
-    segments: &mut MutexGuard<'_, HashMap<String, SegmentInfo>>,
-    writers: &mut MutexGuard<'_, HashMap<u128, String>>
 ) -> Result<(), ConnectionError> {
     let request: Requests = Requests::read_from(payload).expect("mock connection decode request");
     match request {
@@ -418,10 +432,12 @@ mod test {
     fn test_simple_write_and_read() {
         info!("mock client connection test");
         let mut rt = tokio::runtime::Runtime::new().unwrap();
-        let mut mock_connection = MockConnection::new(PravegaNodeUri::from("127.1.1.1:9090"),
-        Arc::new(Mutex::new(HashMap::new())),
-        Arc::new(Mutex::new(HashMap::new())),
-        MockType::Happy);
+        let mut mock_connection = MockConnection::new(
+            PravegaNodeUri::from("127.1.1.1:9090"),
+            Arc::new(Mutex::new(HashMap::new())),
+            Arc::new(Mutex::new(HashMap::new())),
+            MockType::Happy,
+        );
         let request = Requests::Hello(HelloCommand {
             high_version: 9,
             low_version: 5,

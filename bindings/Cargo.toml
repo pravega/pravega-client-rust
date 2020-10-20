@@ -20,7 +20,6 @@ crate-type = ["cdylib"]
 default = ["python_binding"]
 javascript_binding = ["wasm-bindgen"]
 python_binding = ["pyo3"]
-
 #Run tests for bindings using command cargo test --no-default-features
 
 [dependencies]
