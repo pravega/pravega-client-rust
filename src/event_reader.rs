@@ -229,7 +229,7 @@ impl EventReader {
     ///
     /// Initialize the reader. This fetches the initial segments of the stream and spawns background
     /// tasks to start reads from those Segments.
-    /// Note: In future the TableSyncrhonizer can be used to fetch the segments assigned to this EventReader.
+    /// Note: In future the TableSynchronizer can be used to fetch the segments assigned to this EventReader.
     ///
     pub async fn init(stream: ScopedStream, factory: ClientFactory) -> Self {
         let (tx, rx) = mpsc::channel(1);

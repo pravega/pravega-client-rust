@@ -38,6 +38,7 @@ pub mod event_reader;
 pub mod event_stream_writer;
 #[macro_use]
 pub mod metric;
+pub mod event_reader_group;
 pub mod raw_client;
 mod reactor;
 pub mod reader_group;
