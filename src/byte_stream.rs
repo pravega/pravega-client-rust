@@ -86,11 +86,10 @@ impl Write for ByteStreamWriter {
 
     /// This is a blocking call that will wait for data to be persisted on the server side.
     fn flush(&mut self) -> Result<(), Error> {
-        let event_handle = self.event_handle.take();
-        if event_handle.is_none() {
-            Ok(())
-        } else {
+        if let Some(event_handle) = self.event_handle.take() {
             self.runtime_handle.block_on(self.flush_internal(event_handle))
+        } else {
+            Ok(())
         }
     }
 }
@@ -125,8 +124,9 @@ impl ByteStreamWriter {
 
     /// Seals the segment and no further writes are allowed.
     pub async fn seal(&mut self) -> Result<(), Error> {
-        let event_handle = self.event_handle.take();
-        self.flush_internal(event_handle).await?;
+        if let Some(event_handle) = self.event_handle.take() {
+            self.flush_internal(event_handle).await?;
+        }
         self.metadata_client
             .seal_segment()
             .await
@@ -160,13 +160,8 @@ impl ByteStreamWriter {
         rx
     }
 
-    async fn flush_internal(&self, event_handle: Option<EventHandle>) -> Result<(), Error> {
-        if event_handle.is_none() {
-            return Ok(());
-        }
-
+    async fn flush_internal(&self, event_handle: EventHandle) -> Result<(), Error> {
         let result = event_handle
-            .unwrap()
             .await
             .map_err(|e| Error::new(ErrorKind::Other, format!("oneshot error {:?}", e)))?;
 
@@ -300,6 +295,7 @@ impl Seek for ByteStreamReader {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::create_stream;
     use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
     use pravega_rust_client_config::ClientConfigBuilder;
     use pravega_rust_client_shared::PravegaNodeUri;
@@ -307,7 +303,8 @@ mod test {
 
     #[test]
     fn test_byte_stream_seek() {
-        let (mut writer, mut reader) = create_reader_and_writer();
+        let mut rt = Runtime::new().unwrap();
+        let (mut writer, mut reader) = create_reader_and_writer(&mut rt);
 
         // write 200 bytes
         let payload = vec![1; 200];
@@ -357,7 +354,7 @@ mod test {
     #[test]
     fn test_byte_stream_truncate() {
         let mut rt = Runtime::new().unwrap();
-        let (mut writer, mut reader) = create_reader_and_writer();
+        let (mut writer, mut reader) = create_reader_and_writer(&mut rt);
 
         // write 200 bytes
         let payload = vec![1; 200];
@@ -380,7 +377,7 @@ mod test {
         assert_eq!(buf, vec![1; 100]);
     }
 
-    fn create_reader_and_writer() -> (ByteStreamWriter, ByteStreamReader) {
+    fn create_reader_and_writer(runtime: &mut Runtime) -> (ByteStreamWriter, ByteStreamReader) {
         let config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(MockType::Happy))
             .mock(true)
@@ -388,7 +385,8 @@ mod test {
             .build()
             .unwrap();
         let factory = ClientFactory::new(config);
-        let segment = ScopedSegment::from("testScope/testStream/123.#epoch.0");
+        runtime.block_on(create_stream(&factory, "scope", "stream"));
+        let segment = ScopedSegment::from("scope/stream/0");
         let writer = factory.create_byte_stream_writer(segment.clone());
         let reader = factory.create_byte_stream_reader(segment);
         (writer, reader)

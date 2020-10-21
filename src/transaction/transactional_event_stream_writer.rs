@@ -178,12 +178,10 @@ impl TransactionalEventStreamWriter {
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
+    use crate::create_stream;
     use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
     use pravega_rust_client_config::ClientConfigBuilder;
-    use pravega_rust_client_shared::{
-        PravegaNodeUri, Retention, RetentionType, ScaleType, Scaling, Scope, ScopedSegment, Stream,
-        StreamConfiguration,
-    };
+    use pravega_rust_client_shared::{PravegaNodeUri, ScopedSegment};
     use tokio::runtime::Runtime;
 
     #[test]
@@ -208,43 +206,9 @@ pub(crate) mod test {
             .build()
             .unwrap();
         let factory = ClientFactory::new(config);
-        create_stream(&factory).await;
+        create_stream(&factory, "scope", "stream").await;
         factory
             .create_transactional_event_stream_writer(ScopedStream::from(&txn_segment), writer_id)
             .await
-    }
-
-    async fn create_stream(factory: &ClientFactory) {
-        factory
-            .get_controller_client()
-            .create_scope(&Scope {
-                name: "scope".to_string(),
-            })
-            .await
-            .unwrap();
-        factory
-            .get_controller_client()
-            .create_stream(&StreamConfiguration {
-                scoped_stream: ScopedStream {
-                    scope: Scope {
-                        name: "scope".to_string(),
-                    },
-                    stream: Stream {
-                        name: "stream".to_string(),
-                    },
-                },
-                scaling: Scaling {
-                    scale_type: ScaleType::FixedNumSegments,
-                    target_rate: 0,
-                    scale_factor: 0,
-                    min_num_segments: 1,
-                },
-                retention: Retention {
-                    retention_type: RetentionType::None,
-                    retention_param: 0,
-                },
-            })
-            .await
-            .unwrap();
     }
 }

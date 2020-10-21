@@ -26,7 +26,11 @@
 )]
 #![allow(clippy::multiple_crate_versions, clippy::needless_doctest_main)]
 
+use crate::client_factory::ClientFactory;
 use pcg_rand::Pcg32;
+use pravega_rust_client_shared::{
+    Retention, RetentionType, ScaleType, Scaling, Scope, ScopedStream, Stream, StreamConfiguration,
+};
 use rand::{Rng, SeedableRng};
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -80,3 +84,38 @@ pub(crate) fn get_random_f64() -> f64 {
 
 #[macro_use]
 extern crate derive_new;
+
+// helper method
+async fn create_stream(factory: &ClientFactory, scope: &str, stream: &str) {
+    factory
+        .get_controller_client()
+        .create_scope(&Scope {
+            name: "scope".to_string(),
+        })
+        .await
+        .unwrap();
+    factory
+        .get_controller_client()
+        .create_stream(&StreamConfiguration {
+            scoped_stream: ScopedStream {
+                scope: Scope {
+                    name: scope.to_string(),
+                },
+                stream: Stream {
+                    name: stream.to_string(),
+                },
+            },
+            scaling: Scaling {
+                scale_type: ScaleType::FixedNumSegments,
+                target_rate: 0,
+                scale_factor: 0,
+                min_num_segments: 1,
+            },
+            retention: Retention {
+                retention_type: RetentionType::None,
+                retention_param: 0,
+            },
+        })
+        .await
+        .unwrap();
+}
