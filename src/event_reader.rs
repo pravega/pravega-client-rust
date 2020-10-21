@@ -9,16 +9,18 @@
 //
 
 use crate::client_factory::ClientFactory;
+use crate::reader_group::reader_group_state::ReaderGroupState;
 use crate::segment_reader::ReaderError;
 use crate::segment_slice::{SegmentDataBuffer, SegmentSlice, SliceMetadata};
 use bytes::BufMut;
 use im::HashMap as ImHashMap;
-use pravega_rust_client_shared::{ScopedSegment, ScopedStream, Segment, SegmentWithRange};
+use pravega_rust_client_shared::{Reader, ScopedSegment, ScopedStream, Segment, SegmentWithRange};
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
-use tokio::sync::mpsc;
+use std::sync::Arc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::oneshot;
+use tokio::sync::{mpsc, Mutex};
 use tracing::{debug, error, info, warn};
 
 pub type ReaderErrorWithOffset = (ReaderError, i64);
@@ -73,6 +75,7 @@ pub type SegmentReadResult = Result<SegmentDataBuffer, ReaderErrorWithOffset>;
 ///
 #[derive(new)]
 pub struct EventReader {
+    id: Reader,
     stream: ScopedStream,
     factory: ClientFactory,
     rx: Receiver<SegmentReadResult>,
@@ -231,7 +234,7 @@ impl EventReader {
     /// tasks to start reads from those Segments.
     /// Note: In future the TableSynchronizer can be used to fetch the segments assigned to this EventReader.
     ///
-    pub async fn init(stream: ScopedStream, factory: ClientFactory) -> Self {
+    pub async fn init(id: String, stream: ScopedStream, factory: ClientFactory) -> Self {
         let (tx, rx) = mpsc::channel(1);
         let slice_meta_map = EventReader::get_slice_meta(&stream, &factory).await;
         let mut stop_reading_map: HashMap<String, oneshot::Sender<()>> = HashMap::new();
@@ -253,6 +256,50 @@ impl EventReader {
         // initialize the event reader.
         EventReader::init_event_reader(stream, factory, tx, rx, slice_meta_map, stop_reading_map)
     }
+
+    // pub async fn init_reader(id: String, rg_state: Arc<Mutex<ReaderGroupState>>) -> Self {
+    //     let reader = Reader::from(id);
+    //     // rg_state.lock().await.
+    //     let result = rg_state
+    //         .lock()
+    //         .await
+    //         .assign_segment_to_reader(&reader)
+    //         .await
+    //         .expect("Error while waiting for segments to be assigned");
+
+    // }
+    // ///
+    // /// Initialize the reader. This fetches the initial segments of the stream and spawns background
+    // /// tasks to start reads from those Segments.
+    // /// Note: In future the TableSynchronizer can be used to fetch the segments assigned to this EventReader.
+    // ///
+    // pub async fn init_reader(
+    //     id: String,
+    //     slice_meta_map: HashMap<String, SliceMetadata>,
+    //     factory: ClientFactory,
+    // ) -> Self {
+    //     let (tx, rx) = mpsc::channel(1);
+    //     // let slice_meta_map: HashMap<String, SliceMetadata> =
+    //     //     EventReader::get_slice_meta(&stream, &factory).await;
+    //     let mut stop_reading_map: HashMap<String, oneshot::Sender<()>> = HashMap::new();
+    //     // spawn background fetch tasks.
+    //     slice_meta_map.iter().for_each(|(segment, meta)| {
+    //         let (tx_stop, rx_stop) = oneshot::channel();
+    //         stop_reading_map.insert(segment.clone(), tx_stop);
+    //         factory.get_runtime_handle().enter(|| {
+    //             tokio::spawn(SegmentSlice::get_segment_data(
+    //                 ScopedSegment::from(segment.as_str()),
+    //                 meta.start_offset,
+    //                 tx.clone(),
+    //                 rx_stop,
+    //                 factory.clone(),
+    //             ))
+    //         });
+    //     });
+    //
+    //     // initialize the event reader.
+    //     EventReader::init_event_reader(stream, factory, tx, rx, slice_meta_map, stop_reading_map)
+    // }
 
     //
     // Fetch slice meta for this Event Reader.
@@ -297,6 +344,9 @@ impl EventReader {
         slice_stop_reading: HashMap<String, oneshot::Sender<()>>,
     ) -> Self {
         EventReader {
+            id: Reader {
+                name: "TODO".to_string(),
+            },
             stream,
             factory,
             rx,

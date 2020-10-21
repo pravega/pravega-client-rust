@@ -19,8 +19,10 @@ use pravega_wire_protocol::connection_factory::{
 
 use crate::byte_stream::{ByteStreamReader, ByteStreamWriter};
 use crate::event_reader::EventReader;
+use crate::event_reader_group::ReaderGroup;
 use crate::event_stream_writer::EventStreamWriter;
 use crate::raw_client::RawClientImpl;
+use crate::reader_group::reader_group_config::{ReaderGroupConfigV1, ReaderGroupConfigVersioned};
 use crate::segment_reader::AsyncSegmentReaderImpl;
 use crate::table_synchronizer::TableSynchronizer;
 use crate::tablemap::TableMap;
@@ -106,7 +108,13 @@ impl ClientFactory {
     }
 
     pub async fn create_event_stream_reader(&self, stream: ScopedStream) -> EventReader {
-        EventReader::init(stream, self.clone()).await
+        EventReader::init("TODO".to_string(), stream, self.clone()).await
+    }
+
+    pub async fn create_reader_group(&self, name: String, stream: ScopedStream) -> ReaderGroup {
+        let v1 = ReaderGroupConfigV1::new();
+        let rg_config = ReaderGroupConfigVersioned::V1(v1);
+        ReaderGroup::create(name, stream, rg_config, self.clone()).await
     }
 
     pub async fn create_transactional_event_stream_writer(

@@ -18,7 +18,7 @@ use std::collections::HashMap;
 
 /// ReaderGroupConfigVersioned enum contains all versions of Position struct
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-pub(crate) enum ReaderGroupConfigVersioned {
+pub enum ReaderGroupConfigVersioned {
     V1(ReaderGroupConfigV1),
 }
 
@@ -39,7 +39,7 @@ impl ReaderGroupConfigVersioned {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-pub(crate) struct ReaderGroupConfigV1 {
+pub struct ReaderGroupConfigV1 {
     /// maximum delay by which the readers return the latest read offsets of their
     /// assigned segments.
     group_refresh_time_millis: u64,
@@ -48,7 +48,7 @@ pub(crate) struct ReaderGroupConfigV1 {
 }
 
 impl ReaderGroupConfigV1 {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         ReaderGroupConfigV1 {
             group_refresh_time_millis: 3000,
             starting_stream_cuts: HashMap::new(),
