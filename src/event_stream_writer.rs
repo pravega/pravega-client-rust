@@ -8,8 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::reactor::reactors::StreamReactor;
-use pravega_rust_client_config::ClientConfig;
+use crate::segment::reactor::Reactor;
 use pravega_rust_client_shared::*;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
@@ -17,7 +16,7 @@ use tokio::sync::oneshot;
 use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::get_random_u128;
-use crate::reactor::event::{Incoming, PendingEvent};
+use crate::segment::event::{Incoming, PendingEvent};
 use tracing::info_span;
 use tracing_futures::Instrument;
 
@@ -31,15 +30,13 @@ pub struct EventStreamWriter {
 impl EventStreamWriter {
     const CHANNEL_CAPACITY: usize = 100;
 
-    pub(crate) fn new(stream: ScopedStream, config: ClientConfig, factory: ClientFactory) -> Self {
+    pub(crate) fn new(stream: ScopedStream, factory: ClientFactory) -> Self {
         let (tx, rx) = channel(EventStreamWriter::CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
         let writer_id = WriterId::from(get_random_u128());
         let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
-        handle.enter(|| {
-            tokio::spawn(StreamReactor::run(stream, tx.clone(), rx, factory.clone(), config).instrument(span))
-        });
+        handle.enter(|| tokio::spawn(Reactor::run(stream, tx.clone(), rx, factory.clone()).instrument(span)));
         EventStreamWriter {
             writer_id,
             sender: tx,
@@ -92,7 +89,7 @@ mod tests {
     use tokio::runtime::Runtime;
 
     use super::*;
-    use crate::reactor::event::PendingEvent;
+    use crate::segment::event::PendingEvent;
 
     #[test]
     fn test_pending_event() {

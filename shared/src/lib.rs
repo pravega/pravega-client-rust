@@ -175,6 +175,20 @@ impl From<&ScopedSegment> for ScopedStream {
     }
 }
 
+impl From<&str> for ScopedStream {
+    fn from(string: &str) -> Self {
+        let buf = string.split('/').collect::<Vec<&str>>();
+        ScopedStream {
+            scope: Scope {
+                name: buf[0].to_string(),
+            },
+            stream: Stream {
+                name: buf[1].to_string(),
+            },
+        }
+    }
+}
+
 #[derive(new, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScopedSegment {
     pub scope: Scope,
@@ -187,6 +201,7 @@ impl ScopedSegment {
         ScopedStream::new(self.scope.clone(), self.stream.clone())
     }
 }
+
 impl From<&str> for ScopedSegment {
     fn from(qualified_name: &str) -> Self {
         if NameUtils::is_transaction_segment(qualified_name) {
@@ -715,5 +730,20 @@ mod test {
             }
         );
         assert_eq!(seg2.to_string(), "scope/test/123.#epoch.0");
+    }
+
+    #[test]
+    fn test_scoped_stream() {
+        let stream = ScopedStream {
+            scope: Scope {
+                name: "scope".to_string(),
+            },
+            stream: Stream {
+                name: "stream".to_string(),
+            },
+        };
+        let segment = ScopedSegment::from("scope/stream/123.#epoch.0");
+        let derived_stream = ScopedStream::from(&segment);
+        assert_eq!(stream, derived_stream);
     }
 }

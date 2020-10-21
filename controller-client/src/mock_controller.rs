@@ -16,7 +16,7 @@ use im::HashMap as ImHashMap;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use ordered_float::OrderedFloat;
 use pravega_connection_pool::connection_pool::ConnectionPool;
-use pravega_rust_client_config::connection_type::ConnectionType;
+use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
 use pravega_rust_client_retry::retry_result::RetryError;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
@@ -42,11 +42,12 @@ pub struct MockController {
     pool: ConnectionPool<SegmentConnectionManager>,
     created_scopes: RwLock<HashMap<String, HashSet<ScopedStream>>>,
     created_streams: RwLock<HashMap<ScopedStream, StreamConfiguration>>,
+    transactions: RwLock<HashMap<TxId, TransactionStatus>>,
 }
 
 impl MockController {
     pub fn new(endpoint: PravegaNodeUri) -> Self {
-        let config = ConnectionFactoryConfig::new(ConnectionType::Mock);
+        let config = ConnectionFactoryConfig::new(ConnectionType::Mock(MockType::Happy));
         let cf = ConnectionFactory::create(config) as Box<dyn ConnectionFactory>;
         let manager = SegmentConnectionManager::new(cf, 10);
         let pool = ConnectionPool::new(manager);
@@ -55,6 +56,7 @@ impl MockController {
             pool,
             created_scopes: RwLock::new(HashMap::new()),
             created_streams: RwLock::new(HashMap::new()),
+            transactions: RwLock::new(HashMap::new()),
         }
     }
 }
@@ -279,9 +281,8 @@ impl ControllerClient for MockController {
     ) -> Result<TxnSegments, RetryError<ControllerError>> {
         let uuid = Uuid::new_v4().as_u128();
         let current_segments = self.get_current_segments(stream).await?;
-        for segment in current_segments.key_segment_map.values() {
-            create_tx_segment(TxId(uuid), segment.scoped_segment.clone(), self, false).await?;
-        }
+        let mut guard = self.transactions.write().await;
+        guard.insert(TxId(uuid), TransactionStatus::Open);
 
         Ok(TxnSegments {
             stream_segments: current_segments,
@@ -308,44 +309,34 @@ impl ControllerClient for MockController {
 
     async fn commit_transaction(
         &self,
-        stream: &ScopedStream,
+        _stream: &ScopedStream,
         tx_id: TxId,
         _writer_id: WriterId,
         _time: Timestamp,
     ) -> Result<(), RetryError<ControllerError>> {
-        let current_segments = get_segments_for_stream(stream, &self.created_streams.read().await)?;
-        for segment in current_segments {
-            commit_tx_segment(tx_id, segment, self, false).await?;
-        }
+        let mut guard = self.transactions.write().await;
+        guard.insert(tx_id, TransactionStatus::Committed);
         Ok(())
     }
 
     async fn abort_transaction(
         &self,
-        stream: &ScopedStream,
+        _stream: &ScopedStream,
         tx_id: TxId,
     ) -> Result<(), RetryError<ControllerError>> {
-        let current_segments = get_segments_for_stream(stream, &self.created_streams.read().await)?;
-        for segment in current_segments {
-            abort_tx_segment(tx_id, segment, self, false).await?;
-        }
+        let mut guard = self.transactions.write().await;
+        guard.insert(tx_id, TransactionStatus::Aborted);
         Ok(())
     }
 
     async fn check_transaction_status(
         &self,
         _stream: &ScopedStream,
-        _tx_id: TxId,
+        tx_id: TxId,
     ) -> Result<TransactionStatus, RetryError<ControllerError>> {
-        Err(RetryError {
-            error: ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: "check transaction status".into(),
-                error_msg: "unsupported operation.".into(),
-            },
-            total_delay: Duration::from_millis(1),
-            tries: 0,
-        })
+        let guard = self.transactions.read().await;
+        let status = guard.get(&tx_id).expect("get transaction");
+        Ok(status.clone())
     }
 
     async fn get_endpoint_for_segment(
@@ -384,14 +375,10 @@ impl ControllerClient for MockController {
         &self,
         _segment: &ScopedSegment,
     ) -> Result<StreamSegmentsWithPredecessors, RetryError<ControllerError>> {
-        Err(RetryError {
-            error: ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: "get successors".into(),
-                error_msg: "unsupported operation.".into(),
-            },
-            total_delay: Duration::from_millis(1),
-            tries: 0,
+        // empty hash map means the stream is sealed
+        Ok(StreamSegmentsWithPredecessors {
+            segment_with_predecessors: ImHashMap::new(),
+            replacement_segments: ImHashMap::new(),
         })
     }
 

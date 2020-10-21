@@ -11,12 +11,11 @@
 use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::get_random_u128;
-use crate::reactor::event::{Incoming, PendingEvent};
-use crate::reactor::reactors::SegmentReactor;
+use crate::segment::event::{Incoming, PendingEvent};
+use crate::segment::reactor::Reactor;
 use crate::segment_metadata::SegmentMetadataClient;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
-use pravega_rust_client_config::ClientConfig;
-use pravega_rust_client_shared::{ScopedSegment, WriterId};
+use pravega_rust_client_shared::{ScopedSegment, ScopedStream, WriterId};
 use std::cmp;
 use std::convert::TryInto;
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom, Write};
@@ -97,7 +96,7 @@ impl Write for ByteStreamWriter {
 }
 
 impl ByteStreamWriter {
-    pub(crate) fn new(segment: ScopedSegment, config: ClientConfig, factory: ClientFactory) -> Self {
+    pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
         let (sender, receiver) = channel(CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
         let metadata_client = handle.block_on(factory.create_segment_metadata_client(segment.clone()));
@@ -106,8 +105,13 @@ impl ByteStreamWriter {
         // tokio::spawn is tied to the factory runtime.
         handle.enter(|| {
             tokio::spawn(
-                SegmentReactor::run(segment, sender.clone(), receiver, factory.clone(), config)
-                    .instrument(span),
+                Reactor::run(
+                    ScopedStream::from(&segment),
+                    sender.clone(),
+                    receiver,
+                    factory.clone(),
+                )
+                .instrument(span),
             )
         });
         ByteStreamWriter {
@@ -296,7 +300,7 @@ impl Seek for ByteStreamReader {
 #[cfg(test)]
 mod test {
     use super::*;
-    use pravega_rust_client_config::connection_type::ConnectionType;
+    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
     use pravega_rust_client_config::ClientConfigBuilder;
     use pravega_rust_client_shared::PravegaNodeUri;
     use tokio::runtime::Runtime;
@@ -378,7 +382,7 @@ mod test {
 
     fn create_reader_and_writer() -> (ByteStreamWriter, ByteStreamReader) {
         let config = ClientConfigBuilder::default()
-            .connection_type(ConnectionType::Mock)
+            .connection_type(ConnectionType::Mock(MockType::Happy))
             .mock(true)
             .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
             .build()

@@ -303,8 +303,8 @@ mod tests {
             high_version: 9,
             low_version: 5,
         })
-            .write_fields()
-            .unwrap();
+        .write_fields()
+        .unwrap();
         let len = request.len();
         rt.block_on(mock_connection.send_async(&request))
             .expect("write to mock connection");

@@ -39,8 +39,8 @@ pub mod event_stream_writer;
 #[macro_use]
 pub mod metric;
 pub mod raw_client;
-mod reactor;
 pub mod reader_group;
+mod segment;
 pub mod segment_metadata;
 pub mod segment_reader;
 pub mod segment_slice;

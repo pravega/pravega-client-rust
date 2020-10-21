@@ -17,13 +17,12 @@ use crate::connection::{Connection, ConnectionReadHalf, ConnectionWriteHalf};
 use crate::error::*;
 use crate::wire_commands::{Decode, Encode, Replies, Requests};
 use async_trait::async_trait;
-use downcast_rs::__std::fmt::Formatter;
 use pravega_rust_client_config::connection_type::MockType;
 use pravega_rust_client_shared::{PravegaNodeUri, ScopedSegment, SegmentInfo};
 use std::cmp;
 use std::collections::HashMap;
 use std::fmt;
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex;
@@ -78,7 +77,7 @@ impl Connection for MockConnection {
                     &mut *segments_guard,
                     &mut *writers_guard,
                 )
-                    .await
+                .await
             }
             MockType::SegmentIsSealed => {
                 send_sealed(self.sender.as_mut().expect("get sender"), payload).await
@@ -200,7 +199,7 @@ impl ConnectionWriteHalf for MockWritingConnection {
                     &mut *segments_guard,
                     &mut *writers_guard,
                 )
-                    .await
+                .await
             }
             MockType::SegmentIsSealed => send_sealed(&mut self.sender, payload).await,
             MockType::SegmentIsTruncated => send_truncated(&mut self.sender, payload).await,
@@ -442,8 +441,8 @@ mod test {
             high_version: 9,
             low_version: 5,
         })
-            .write_fields()
-            .unwrap();
+        .write_fields()
+        .unwrap();
         let len = request.len();
         rt.block_on(mock_connection.send_async(&request))
             .expect("write to mock connection");
