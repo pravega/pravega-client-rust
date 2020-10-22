@@ -105,6 +105,7 @@ impl ReaderGroupState {
 
     /// Adds a reader to the reader group state.
     pub async fn add_reader(&mut self, reader: &Reader) -> Result<(), ReaderGroupStateError> {
+        info!("Adding reader {:?} to reader group", reader);
         let _res_str = self
             .sync
             .insert(|table| ReaderGroupState::add_reader_internal(table, reader))
@@ -676,7 +677,7 @@ pub struct Offset {
     /// But some events before this offset may not have been processed by application/caller.
     /// In case of failure, those unprocessed events may need to be read from application/caller
     /// again.
-    read: i64,
+    pub read: i64,
 }
 
 #[cfg(test)]
@@ -684,7 +685,6 @@ mod test {
     use super::*;
     use crate::table_synchronizer::{serialize, Value};
     use lazy_static::*;
-    use ordered_float::OrderedFloat;
     use pravega_rust_client_shared::{Scope, Segment, Stream};
 
     lazy_static! {

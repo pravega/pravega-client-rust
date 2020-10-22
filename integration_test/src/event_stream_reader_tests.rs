@@ -62,7 +62,11 @@ async fn test_release_segment(client_factory: &ClientFactory) {
         stream: stream_name.clone(),
     };
 
-    let mut reader = client_factory.create_event_stream_reader(str).await;
+    let rg = client_factory
+        .create_reader_group("rg-read-api".to_string(), str)
+        .await;
+    let mut reader = rg.create_reader("r1".to_string()).await;
+
     let mut event_count = 0;
     let mut release_invoked = false;
     loop {
@@ -121,7 +125,10 @@ async fn test_release_segment_at(client_factory: &ClientFactory) {
         stream: stream_name.clone(),
     };
 
-    let mut reader = client_factory.create_event_stream_reader(str).await;
+    let rg = client_factory
+        .create_reader_group("rg-release-segment".to_string(), str)
+        .await;
+    let mut reader = rg.create_reader("r1".to_string()).await;
     let mut event_count = 0;
     let mut release_invoked = false;
     loop {
@@ -180,7 +187,10 @@ async fn test_stream_scaling(client_factory: &ClientFactory) {
         stream: stream_name.clone(),
     };
 
-    let mut reader = client_factory.create_event_stream_reader(str).await;
+    let rg = client_factory
+        .create_reader_group("rg_stream_scaling".to_string(), str)
+        .await;
+    let mut reader = rg.create_reader("r1".to_string()).await;
     let mut event_count = 0;
     loop {
         if event_count == NUM_EVENTS + NUM_EVENTS {
@@ -234,8 +244,10 @@ async fn test_read_api(client_factory: &ClientFactory) {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
     };
-
-    let mut reader = client_factory.create_event_stream_reader(str).await;
+    let rg = client_factory
+        .create_reader_group("rg-read-api".to_string(), str)
+        .await;
+    let mut reader = rg.create_reader("r1".to_string()).await;
     let mut event_count = 0;
     while let Some(mut slice) = reader.acquire_segment().await {
         loop {
