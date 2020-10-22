@@ -14,13 +14,13 @@ use crate::reader_group::reader_group_config::ReaderGroupConfigVersioned;
 use crate::table_synchronizer::{deserialize_from, Table, TableSynchronizer, Value};
 #[cfg(test)]
 use mockall::automock;
-use pravega_rust_client_shared::{Reader, ScopedSegment, ScopedStream, Segment};
+use pravega_rust_client_shared::{Reader, ScopedSegment, Segment};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use snafu::{ensure, Snafu};
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 const ASSUMED_LAG_MILLIS: u64 = 30000;
 const DEFAULT_INNER_KEY: &str = "default";
@@ -268,11 +268,63 @@ impl ReaderGroupState {
         Ok(None)
     }
 
-    // pub async fn compute_segments_per_reader(&mut self) -> usize {
-    //     self.sync.fetch_updates().await.expect("should fetch updates");
-    //     let num_of_segments =
-    //         self.sync.get_inner_map(ASSIGNED).len() + self.sync.get_inner_map(UNASSIGNED).len();
-    // }
+    ///
+    /// Compute the number of segments per reader.
+    ///
+    pub async fn compute_segments_per_reader(&mut self) -> usize {
+        self.sync.fetch_updates().await.expect("should fetch updates");
+        let x = self.sync.get_inner_map(ASSIGNED);
+        let num_of_readers = x.len();
+        let mut num_assigned_segments = 0;
+        for v in x.values() {
+            let segments: HashMap<ScopedSegment, Offset> =
+                deserialize_from(&v.data).expect("deserialize assigned segments");
+            num_assigned_segments += segments.len();
+        }
+        let num_of_segments = num_assigned_segments + self.sync.get_inner_map(UNASSIGNED).len();
+        debug!(
+            " Number of segments {:?} num of readers {:?}",
+            num_of_segments, num_of_readers
+        );
+        let num_segments_per_reader = num_of_segments / num_of_readers;
+        if num_of_segments % num_of_readers == 0 {
+            num_segments_per_reader
+        } else {
+            num_segments_per_reader + 1
+        }
+    }
+
+    ///
+    /// Compute the number of segments per reader.
+    ///
+    pub async fn compute_segments_to_acquire(&mut self, reader: &Reader) -> usize {
+        self.sync.fetch_updates().await.expect("should fetch updates");
+        let assigned_segment_map = self.sync.get_inner_map(ASSIGNED);
+        let num_of_readers = assigned_segment_map.len();
+        let mut num_assigned_segments = 0;
+        for v in assigned_segment_map.values() {
+            let segments: HashMap<ScopedSegment, Offset> =
+                deserialize_from(&v.data).expect("deserialize assigned segments");
+            num_assigned_segments += segments.len();
+        }
+        let num_of_segments = num_assigned_segments + self.sync.get_inner_map(UNASSIGNED).len();
+        debug!(
+            " Number of segments {:?} num of readers {:?}",
+            num_of_segments, num_of_readers
+        );
+        let num_segments_per_reader = num_of_segments / num_of_readers;
+        let expected_segment_count_per_reader = if num_of_segments % num_of_readers == 0 {
+            num_segments_per_reader
+        } else {
+            num_segments_per_reader + 1
+        };
+        let current_segment_count = assigned_segment_map.get(&reader.to_string()).and_then(|v| {
+            let seg: HashMap<ScopedSegment, Offset> =
+                deserialize_from(&v.data).expect("deserialize of assigned segments");
+            Some(seg.len())
+        });
+        expected_segment_count_per_reader.saturating_sub(current_segment_count.unwrap_or_default())
+    }
 
     /// Returns the list of all segments.
     pub async fn get_segments(&mut self) -> HashSet<ScopedSegment> {
@@ -280,7 +332,11 @@ impl ReaderGroupState {
 
         let assigned_segments = self.sync.get_inner_map(ASSIGNED);
         let unassigned_segments = self.sync.get_inner_map(UNASSIGNED);
-
+        println!(
+            "Assigned Segments {:?} Unassigned Segment {:?}",
+            assigned_segments.len(),
+            unassigned_segments.len()
+        );
         let mut set: HashSet<ScopedSegment> = HashSet::new();
 
         for v in assigned_segments.values() {
@@ -305,62 +361,6 @@ impl ReaderGroupState {
         );
         set
     }
-
-    // pub async fn assign_segments_to_reader(
-    //     &mut self,
-    //     reader: &Reader,
-    // ) -> Result<Option<Vec<ScopedSegment>>, ReaderGroupStateError> {
-    //     let num_readers = self.get_online_readers().await.len();
-    //     let option = self
-    //         .sync
-    //         .insert(|table| ReaderGroupState::assign_segments_to_reader_internal(table, reader, num_readers))
-    //         .await
-    //         .context(SyncError {
-    //             error_msg: format!("assign segment to reader {:?}", reader),
-    //         })?;
-    //
-    //     if let Some(segment_str) = option {
-    //         Ok(Some(ScopedSegment::from(&*segment_str)))
-    //     } else {
-    //         Ok(None)
-    //     }
-    // }
-
-    // fn assign_segments_to_reader_internal(
-    //     table: &mut Table,
-    //     reader: &Reader,
-    //     num_readers: usize,
-    // ) -> Result<Vec<String>, SynchronizerError> {
-    //     let mut assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)?;
-    //     let unassigned_segments = ReaderGroupState::get_unassigned_segments_from_table(table);
-    //     ReaderGroupState::get_segments()
-    //
-    //     // unassigned segment does not exist
-    //     if unassigned_segments.is_empty() {
-    //         return Ok(None);
-    //     }
-    //
-    //     // naive way to get an unassigned segment
-    //     let mut segments = unassigned_segments
-    //         .keys()
-    //         .map(|k| k.to_owned())
-    //         .collect::<Vec<ScopedSegment>>();
-    //
-    //     let segment = segments.pop().expect("should contain at least one key");
-    //     let offset = unassigned_segments.get(&segment).expect("get offset");
-    //
-    //     assigned_segments.insert(segment.clone(), offset.to_owned());
-    //
-    //     table.insert(
-    //         ASSIGNED.to_owned(),
-    //         reader.to_string(),
-    //         "HashMap<ScopedSegment, Offset>".to_owned(),
-    //         Box::new(assigned_segments),
-    //     );
-    //     table.insert_tombstone(UNASSIGNED.to_owned(), segment.to_string())?;
-    //
-    //     Ok(Some(segment.to_string()))
-    // }
 
     /// Assigns an unassigned segment to a given reader
     pub async fn assign_segment_to_reader(
@@ -417,10 +417,10 @@ impl ReaderGroupState {
     }
 
     /// Returns the list of segments assigned to the requested reader.
-    pub(crate) async fn get_segments_for_reader(
+    pub async fn get_segments_for_reader(
         &mut self,
         reader: &Reader,
-    ) -> Result<HashSet<ScopedSegment>, SynchronizerError> {
+    ) -> Result<HashSet<(ScopedSegment, Offset)>, SynchronizerError> {
         self.sync.fetch_updates().await.expect("should fetch updates");
         let value =
             self.sync
@@ -433,8 +433,8 @@ impl ReaderGroupState {
             deserialize_from(&value.data).expect("deserialize reader owned segments");
         Ok(segments
             .iter()
-            .map(|(k, _v)| k.clone())
-            .collect::<HashSet<ScopedSegment>>())
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect::<HashSet<(ScopedSegment, Offset)>>())
     }
 
     /// Releases a currently assigned segment from the given reader.
@@ -670,7 +670,7 @@ impl ReaderGroupState {
     }
 }
 
-#[derive(new, Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[derive(new, Serialize, Deserialize, PartialEq, Debug, Clone, Hash, Eq)]
 pub struct Offset {
     /// The client has read to this offset and handle the result to the application/caller.
     /// But some events before this offset may not have been processed by application/caller.
