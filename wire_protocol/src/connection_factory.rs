@@ -9,7 +9,7 @@
 //
 
 use crate::client_connection::{read_wirecommand, write_wirecommand};
-use crate::commands::{HelloCommand, OLDEST_COMPATIBLE_VERSION, WIRE_VERSION};
+use crate::commands::{HelloCommand, TableKey, TableValue, OLDEST_COMPATIBLE_VERSION, WIRE_VERSION};
 use crate::connection::{Connection, TlsConnection, TokioConnection};
 use crate::error::*;
 use crate::mock_connection::MockConnection;
@@ -143,6 +143,7 @@ impl ConnectionFactory for TokioConnectionFactory {
 struct MockConnectionFactory {
     segments: Arc<Mutex<HashMap<String, SegmentInfo>>>,
     writers: Arc<Mutex<HashMap<u128, String>>>,
+    table_segments: Arc<Mutex<HashMap<String, HashMap<TableKey, TableValue>>>>,
     mock_type: MockType,
 }
 
@@ -151,6 +152,7 @@ impl MockConnectionFactory {
         MockConnectionFactory {
             segments: Arc::new(Mutex::new(HashMap::new())),
             writers: Arc::new(Mutex::new(HashMap::new())),
+            table_segments: Arc::new(Mutex::new(HashMap::new())),
             mock_type,
         }
     }
@@ -166,6 +168,7 @@ impl ConnectionFactory for MockConnectionFactory {
             endpoint,
             self.segments.clone(),
             self.writers.clone(),
+            self.table_segments.clone(),
             self.mock_type,
         );
         Ok(Box::new(mock) as Box<dyn Connection>)

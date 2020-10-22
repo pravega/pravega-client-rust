@@ -168,12 +168,12 @@ impl TableMap {
     }
 
     ///
-    /// Conditionally inserts a key-value pair into the table map. The Key and Value are serialized to to bytes using
-    /// cbor
+    /// Conditionally inserts a key-value pair into the table map. The Key and Value are serialized to bytes using
+    /// cbor.
     ///
     /// The insert is performed after checking the key_version passed.
     /// Once the update is done the newer version is returned.
-    /// TableError::BadKeyVersion is returned incase of an incorrect key version.
+    /// TableError::BadKeyVersion is returned in case of an incorrect key version.
     ///
     pub async fn insert_conditionally<K, V>(
         &self,
@@ -569,10 +569,6 @@ impl TableMap {
                 operation: op.into(),
                 error_msg: c.to_string(),
             }),
-            Replies::TableKeyDoesNotExist(c) => Err(TableError::KeyDoesNotExist {
-                operation: op.into(),
-                error_msg: c.to_string(),
-            }),
             // unexpected response from Segment store causes a panic.
             _ => Err(TableError::OperationError {
                 operation: op.into(),
@@ -582,7 +578,7 @@ impl TableMap {
     }
 
     ///
-    /// Get raw bytes for a givenKey. If not value is present then None is returned.
+    /// Get raw bytes for a given Key. If no value is present then None is returned.
     /// The read result and the corresponding version is returned as a tuple.
     ///
     async fn get_raw_values(&self, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, Version)>, TableError> {
@@ -898,5 +894,121 @@ impl TableMap {
                 }),
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_rust_client_config::ClientConfigBuilder;
+    use pravega_rust_client_shared::PravegaNodeUri;
+    use tokio::runtime::Runtime;
+
+    #[test]
+    fn test_table_map_unconditional_insert_and_remove() {
+        let mut rt = Runtime::new().unwrap();
+        let table_map = create_table_map(&mut rt);
+
+        // unconditionally insert non-existing key
+        let version = rt
+            .block_on(table_map.insert(&"key".to_string(), &"value".to_string(), -1))
+            .expect("unconditionally insert into table map");
+        assert_eq!(version, 1);
+
+        // unconditionally insert existing key
+        let version = rt
+            .block_on(table_map.insert(&"key".to_string(), &"value".to_string(), -1))
+            .expect("unconditionally insert into table map");
+        assert_eq!(version, 2);
+
+        // unconditionally remove
+        rt.block_on(table_map.remove(&"key".to_string(), -1))
+            .expect("remove key");
+
+        // get the key, should return None
+        let option: Option<(String, Version)> = rt
+            .block_on(table_map.get(&"key".to_string()))
+            .expect("remove key");
+        assert!(option.is_none());
+    }
+
+    #[test]
+    fn test_table_map_conditional_insert_and_remove() {
+        let mut rt = Runtime::new().unwrap();
+        let table_map = create_table_map(&mut rt);
+
+        // conditionally insert non-existing key
+        let version = rt
+            .block_on(table_map.insert_conditionally(&"key".to_string(), &"value".to_string(), 0, -1))
+            .expect("unconditionally insert into table map");
+        assert_eq!(version, 1);
+
+        // conditionally insert existing key
+        let version = rt
+            .block_on(table_map.insert_conditionally(&"key".to_string(), &"value".to_string(), 1, -1))
+            .expect("conditionally insert into table map");
+        assert_eq!(version, 2);
+
+        // conditionally insert key with wrong version
+        let result =
+            rt.block_on(table_map.insert_conditionally(&"key".to_string(), &"value".to_string(), 1, -1));
+        assert!(result.is_err());
+
+        // conditionally remove key
+        let result = rt.block_on(table_map.remove_conditionally(&"key".to_string(), 2, -1));
+        assert!(result.is_ok());
+
+        // get the key, should return None
+        let option: Option<(String, Version)> = rt
+            .block_on(table_map.get(&"key".to_string()))
+            .expect("remove key");
+        assert!(option.is_none());
+    }
+
+    #[test]
+    fn test_table_map_insert_remove_all() {
+        let mut rt = Runtime::new().unwrap();
+        let table_map = create_table_map(&mut rt);
+
+        // conditionally insert all
+        let mut kvs = vec![];
+        let k1 = "k1".to_string();
+        let v1 = "v1".to_string();
+        let k2 = "k2".to_string();
+        let v2 = "v2".to_string();
+        kvs.push((&k1, &v1, 0));
+        kvs.push((&k2, &v2, 0));
+
+        let version = rt
+            .block_on(table_map.insert_conditionally_all(kvs, -1))
+            .expect("unconditionally insert all into table map");
+        let expected = vec![1, 1];
+        assert_eq!(version, expected);
+
+        // conditionally remove all
+        let ks = vec![(&k1, 1), (&k2, 1)];
+        rt.block_on(table_map.remove_conditionally_all(ks, -1))
+            .expect("conditionally remove all from table map");
+
+        // get the key, should return None
+        let option: Option<(String, Version)> =
+            rt.block_on(table_map.get(&"k1".to_string())).expect("remove key");
+        assert!(option.is_none());
+        let option: Option<(String, Version)> =
+            rt.block_on(table_map.get(&"k2".to_string())).expect("remove key");
+        assert!(option.is_none());
+    }
+
+    // helper function
+    fn create_table_map(rt: &mut Runtime) -> TableMap {
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(MockType::Happy))
+            .mock(true)
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091"))
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        rt.block_on(factory.create_table_map("tablemap".to_string()))
     }
 }

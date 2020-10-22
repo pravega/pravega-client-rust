@@ -293,18 +293,16 @@ impl ControllerClient for MockController {
     async fn ping_transaction(
         &self,
         _stream: &ScopedStream,
-        _tx_id: TxId,
+        tx_id: TxId,
         _lease: Duration,
     ) -> Result<PingStatus, RetryError<ControllerError>> {
-        Err(RetryError {
-            error: ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: "ping transaction".into(),
-                error_msg: "unsupported operation.".into(),
-            },
-            total_delay: Duration::from_millis(1),
-            tries: 0,
-        })
+        let guard = self.transactions.read().await;
+        let status = guard.get(&tx_id).expect("get transaction status");
+        match status {
+            TransactionStatus::Committed => Ok(PingStatus::Committed),
+            TransactionStatus::Aborted => Ok(PingStatus::Aborted),
+            _ => Ok(PingStatus::Ok),
+        }
     }
 
     async fn commit_transaction(

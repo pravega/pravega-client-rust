@@ -18,6 +18,7 @@ use lazy_static::*;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::i64;
 use std::io::Cursor;
 use std::io::{Read, Write};
@@ -2151,9 +2152,9 @@ impl fmt::Display for TableKeyBadVersionCommand {
 
 /**
  * Table Key Struct.
- * Need overide the serialize
+ * Need to override the serialize
  */
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq)]
 pub struct TableKey {
     pub payload: i32,
     pub data: Vec<u8>,
@@ -2171,6 +2172,21 @@ impl TableKey {
             data,
             key_version,
         }
+    }
+}
+
+impl Hash for TableKey {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        self.data.hash(state);
+    }
+}
+
+impl PartialEq for TableKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.data == other.data
     }
 }
 
