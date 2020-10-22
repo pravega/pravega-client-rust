@@ -552,6 +552,7 @@ mod test {
             PravegaNodeUri::from("127.1.1.1:9090"),
             Arc::new(Mutex::new(HashMap::new())),
             Arc::new(Mutex::new(HashMap::new())),
+            Arc::new(Mutex::new(HashMap::new())),
             MockType::Happy,
         );
         let request = Requests::Hello(HelloCommand {
