@@ -377,6 +377,31 @@ mod test {
         assert_eq!(buf, vec![1; 100]);
     }
 
+    #[test]
+    fn test_byte_stream_seal() {
+        let mut rt = Runtime::new().unwrap();
+        let (mut writer, mut reader) = create_reader_and_writer(&mut rt);
+
+        // write 200 bytes
+        let payload = vec![1; 200];
+        writer.write(&payload).expect("write");
+        writer.flush().expect("flush");
+
+        // seal the segment
+        rt.block_on(writer.seal()).expect("seal");
+
+        // read sealed stream
+        reader.seek(SeekFrom::Start(0)).expect("seek to new head");
+        let mut buf = vec![0; 200];
+        assert!(reader.read(&mut buf).is_ok());
+        assert_eq!(buf, vec![1; 200]);
+
+        let payload = vec![1; 200];
+        writer.write(&payload).expect("write");
+        let result = writer.flush();
+        assert!(result.is_err());
+    }
+
     fn create_reader_and_writer(runtime: &mut Runtime) -> (ByteStreamWriter, ByteStreamReader) {
         let config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(MockType::Happy))

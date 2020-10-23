@@ -11,9 +11,10 @@
 extern crate byteorder;
 use crate::commands::{
     AppendSetupCommand, DataAppendedCommand, SegmentAlreadyExistsCommand, SegmentCreatedCommand,
-    SegmentIsSealedCommand, SegmentIsTruncatedCommand, SegmentReadCommand, SegmentTruncatedCommand,
-    StreamSegmentInfoCommand, TableEntries, TableEntriesUpdatedCommand, TableKey, TableKeyBadVersionCommand,
-    TableKeyDoesNotExistCommand, TableKeysRemovedCommand, TableReadCommand, TableValue, WrongHostCommand,
+    SegmentIsSealedCommand, SegmentIsTruncatedCommand, SegmentReadCommand, SegmentSealedCommand,
+    SegmentTruncatedCommand, StreamSegmentInfoCommand, TableEntries, TableEntriesDeltaReadCommand,
+    TableEntriesUpdatedCommand, TableKey, TableKeyBadVersionCommand, TableKeyDoesNotExistCommand,
+    TableKeysRemovedCommand, TableReadCommand, TableValue, WrongHostCommand,
 };
 use crate::connection::{Connection, ConnectionReadHalf, ConnectionWriteHalf};
 use crate::error::*;
@@ -30,6 +31,9 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
+type TableSegmentIndex = HashMap<String, HashMap<TableKey, TableValue>>;
+type TableSegment = HashMap<String, Vec<(TableKey, TableValue)>>;
+
 pub struct MockConnection {
     id: Uuid,
     mock_type: MockType,
@@ -42,8 +46,10 @@ pub struct MockConnection {
     segments: Arc<Mutex<HashMap<String, SegmentInfo>>>,
     // maps from writerId to segment
     writers: Arc<Mutex<HashMap<u128, String>>>,
-    // internal table segments
-    table_segments: Arc<Mutex<HashMap<String, HashMap<TableKey, TableValue>>>>,
+    // table segment index
+    table_segment_index: Arc<Mutex<TableSegmentIndex>>,
+    // table segment
+    table_segment: Arc<Mutex<TableSegment>>,
 }
 
 impl MockConnection {
@@ -51,7 +57,8 @@ impl MockConnection {
         endpoint: PravegaNodeUri,
         segments: Arc<Mutex<HashMap<String, SegmentInfo>>>,
         writers: Arc<Mutex<HashMap<u128, String>>>,
-        table_segments: Arc<Mutex<HashMap<String, HashMap<TableKey, TableValue>>>>,
+        table_segment_index: Arc<Mutex<TableSegmentIndex>>,
+        table_segment: Arc<Mutex<TableSegment>>,
         mock_type: MockType,
     ) -> Self {
         let (tx, rx) = unbounded_channel();
@@ -65,7 +72,8 @@ impl MockConnection {
             buffer_offset: 0,
             segments,
             writers,
-            table_segments,
+            table_segment_index,
+            table_segment,
         }
     }
 }
@@ -75,7 +83,8 @@ impl Connection for MockConnection {
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
         let mut segments_guard = self.segments.lock().await;
         let mut writers_guard = self.writers.lock().await;
-        let mut table_segments_guard = self.table_segments.lock().await;
+        let mut table_segment_index_guard = self.table_segment_index.lock().await;
+        let mut table_segment_guard = self.table_segment.lock().await;
         match self.mock_type {
             MockType::Happy => {
                 send_happy(
@@ -83,7 +92,8 @@ impl Connection for MockConnection {
                     payload,
                     &mut *segments_guard,
                     &mut *writers_guard,
-                    &mut *table_segments_guard,
+                    &mut *table_segment_index_guard,
+                    &mut *table_segment_guard,
                 )
                 .await
             }
@@ -131,7 +141,8 @@ impl Connection for MockConnection {
             sender: self.sender.take().expect("split mock connection and get sender"),
             segments: self.segments.clone(),
             writers: self.writers.clone(),
-            table_segments: self.table_segments.clone(),
+            table_segment_index: self.table_segment_index.clone(),
+            table_segment: self.table_segment.clone(),
         }) as Box<dyn ConnectionWriteHalf>;
         (reader, writer)
     }
@@ -174,8 +185,10 @@ pub struct MockWritingConnection {
     segments: Arc<Mutex<HashMap<String, SegmentInfo>>>,
     // maps from writerId to segment
     writers: Arc<Mutex<HashMap<u128, String>>>,
-    // table segments
-    table_segments: Arc<Mutex<HashMap<String, HashMap<TableKey, TableValue>>>>,
+    // table segment index
+    table_segment_index: Arc<Mutex<TableSegmentIndex>>,
+    // table segment
+    table_segment: Arc<Mutex<TableSegment>>,
 }
 
 #[async_trait]
@@ -202,7 +215,8 @@ impl ConnectionWriteHalf for MockWritingConnection {
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
         let mut segments_guard = self.segments.lock().await;
         let mut writers_guard = self.writers.lock().await;
-        let mut table_segments_guard = self.table_segments.lock().await;
+        let mut table_segment_index_guard = self.table_segment_index.lock().await;
+        let mut table_segment_guard = self.table_segment.lock().await;
         match self.mock_type {
             MockType::Happy => {
                 send_happy(
@@ -210,7 +224,8 @@ impl ConnectionWriteHalf for MockWritingConnection {
                     payload,
                     &mut *segments_guard,
                     &mut *writers_guard,
-                    &mut *table_segments_guard,
+                    &mut *table_segment_index_guard,
+                    &mut *table_segment_guard,
                 )
                 .await
             }
@@ -230,7 +245,8 @@ async fn send_happy(
     payload: &[u8],
     segments: &mut HashMap<String, SegmentInfo>,
     writers: &mut HashMap<u128, String>,
-    table_segment: &mut HashMap<String, HashMap<TableKey, TableValue>>,
+    table_segment_index: &mut HashMap<String, HashMap<TableKey, TableValue>>,
+    table_segment: &mut HashMap<String, Vec<(TableKey, TableValue)>>,
 ) -> Result<(), ConnectionError> {
     let request: Requests = Requests::read_from(payload).expect("mock connection decode request");
     match request {
@@ -259,6 +275,16 @@ async fn send_happy(
         Requests::AppendBlockEnd(cmd) => {
             let segment = writers.get(&cmd.writer_id).expect("writer hasn't been set up");
             let segment_info = segments.get_mut(segment).expect("segment is not created");
+            if segment_info.is_sealed {
+                let reply = Replies::SegmentIsSealed(SegmentIsSealedCommand {
+                    request_id: cmd.request_id,
+                    segment: segment.to_string(),
+                    server_stack_trace: "".to_string(),
+                    offset: 0,
+                });
+                sender.send(reply).expect("send reply");
+                return Ok(());
+            }
             segment_info.write_offset += cmd.data.len() as i64;
 
             let reply = Replies::DataAppended(DataAppendedCommand {
@@ -275,6 +301,16 @@ async fn send_happy(
             segment_info.starting_offset = cmd.truncation_offset;
 
             let reply = Replies::SegmentTruncated(SegmentTruncatedCommand {
+                request_id: cmd.request_id,
+                segment: cmd.segment,
+            });
+            sender.send(reply).expect("send reply");
+        }
+        Requests::SealSegment(cmd) => {
+            let segment_info = segments.get_mut(&cmd.segment).expect("segment is not created");
+            segment_info.is_sealed = true;
+
+            let reply = Replies::SegmentSealed(SegmentSealedCommand {
                 request_id: cmd.request_id,
                 segment: cmd.segment,
             });
@@ -327,14 +363,15 @@ async fn send_happy(
         }
         Requests::CreateTableSegment(cmd) => {
             let segment = cmd.segment;
-            let reply = if table_segment.contains_key(&segment) {
+            let reply = if table_segment_index.contains_key(&segment) {
                 Replies::SegmentAlreadyExists(SegmentAlreadyExistsCommand {
                     request_id: cmd.request_id,
                     segment,
                     server_stack_trace: "".to_string(),
                 })
             } else {
-                table_segment.insert(segment.clone(), HashMap::new());
+                table_segment_index.insert(segment.clone(), HashMap::new());
+                table_segment.insert(segment.clone(), vec![]);
                 Replies::SegmentCreated(SegmentCreatedCommand {
                     request_id: cmd.request_id,
                     segment,
@@ -343,14 +380,18 @@ async fn send_happy(
             sender.send(reply).expect("send reply");
         }
         Requests::UpdateTableEntries(cmd) => {
-            let table = table_segment.get_mut(&cmd.segment).expect("get table segment");
-
+            let index = table_segment_index
+                .get_mut(&cmd.segment)
+                .expect("get table segment index");
+            let segment = table_segment.get_mut(&cmd.segment).expect("get table segment");
             let mut versions = vec![];
             for (k, v) in cmd.table_entries.entries {
-                let old_version = table
+                let old_version = index
                     .get_key_value(&k)
-                    .map_or_else(|| 0, |(key, _value)| key.key_version);
+                    .map_or_else(|| -1, |(key, _value)| key.key_version);
                 versions.push(old_version + 1);
+
+                // -1 is key not exist, i64 min_value is unconditionally insert
                 if k.key_version != old_version && k.key_version != i64::min_value() {
                     let reply = Replies::TableKeyBadVersion(TableKeyBadVersionCommand {
                         request_id: cmd.request_id,
@@ -360,13 +401,14 @@ async fn send_happy(
                     sender.send(reply).expect("send reply");
                     return Ok(());
                 }
-                table.remove(&k); // delete the old key, or no-op if key doesn't exist
+                index.remove(&k); // delete the old key, or no-op if key doesn't exist
                 let new_key = TableKey {
                     payload: k.payload,
                     data: k.data.clone(),
                     key_version: old_version + 1,
                 };
-                table.insert(new_key, v); // unconditionally insert
+                index.insert(new_key.clone(), v.clone());
+                segment.push((new_key, v));
             }
             let reply = Replies::TableEntriesUpdated(TableEntriesUpdatedCommand {
                 request_id: cmd.request_id,
@@ -376,7 +418,7 @@ async fn send_happy(
         }
         Requests::RemoveTableKeys(cmd) => {
             let segment = cmd.segment;
-            let table = table_segment.get_mut(&segment).expect("get table segment");
+            let table = table_segment_index.get_mut(&segment).expect("get table segment");
             for k in cmd.keys {
                 if !table.contains_key(&k) {
                     let reply = Replies::TableKeyDoesNotExist(TableKeyDoesNotExistCommand {
@@ -413,7 +455,9 @@ async fn send_happy(
         }
         Requests::ReadTable(cmd) => {
             let mut entries = vec![];
-            let table = table_segment.get_mut(&cmd.segment).expect("get table segment");
+            let table = table_segment_index
+                .get_mut(&cmd.segment)
+                .expect("get table segment");
             for k in cmd.keys {
                 if let Some((key, val)) = table.get_key_value(&k) {
                     entries.push((key.clone(), val.clone()));
@@ -425,6 +469,27 @@ async fn send_happy(
                 request_id: cmd.request_id,
                 segment: cmd.segment.clone(),
                 entries: TableEntries { entries },
+            });
+            sender.send(reply).expect("send reply");
+        }
+        Requests::ReadTableEntriesDelta(cmd) => {
+            let segment = table_segment.get_mut(&cmd.segment).expect("get table segment");
+            let mut delta = vec![];
+
+            let to_position = cmp::min(
+                segment.len() as i64,
+                cmd.from_position + cmd.suggested_entry_count as i64,
+            );
+            for i in cmd.from_position..to_position {
+                delta.push(segment[i as usize].clone());
+            }
+            let reply = Replies::TableEntriesDeltaRead(TableEntriesDeltaReadCommand {
+                request_id: cmd.request_id,
+                segment: cmd.segment.to_string(),
+                entries: TableEntries { entries: delta },
+                should_clear: false,
+                reached_end: false,
+                last_position: to_position as i64,
             });
             sender.send(reply).expect("send reply");
         }
@@ -550,6 +615,7 @@ mod test {
         let mut rt = tokio::runtime::Runtime::new().unwrap();
         let mut mock_connection = MockConnection::new(
             PravegaNodeUri::from("127.1.1.1:9090"),
+            Arc::new(Mutex::new(HashMap::new())),
             Arc::new(Mutex::new(HashMap::new())),
             Arc::new(Mutex::new(HashMap::new())),
             Arc::new(Mutex::new(HashMap::new())),

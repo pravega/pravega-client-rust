@@ -140,10 +140,15 @@ impl ConnectionFactory for TokioConnectionFactory {
         Ok(tokio_connection)
     }
 }
+
+type TableSegmentIndex = HashMap<String, HashMap<TableKey, TableValue>>;
+type TableSegment = HashMap<String, Vec<(TableKey, TableValue)>>;
+
 struct MockConnectionFactory {
     segments: Arc<Mutex<HashMap<String, SegmentInfo>>>,
     writers: Arc<Mutex<HashMap<u128, String>>>,
-    table_segments: Arc<Mutex<HashMap<String, HashMap<TableKey, TableValue>>>>,
+    table_segment_index: Arc<Mutex<TableSegmentIndex>>,
+    table_segment: Arc<Mutex<TableSegment>>,
     mock_type: MockType,
 }
 
@@ -152,7 +157,8 @@ impl MockConnectionFactory {
         MockConnectionFactory {
             segments: Arc::new(Mutex::new(HashMap::new())),
             writers: Arc::new(Mutex::new(HashMap::new())),
-            table_segments: Arc::new(Mutex::new(HashMap::new())),
+            table_segment_index: Arc::new(Mutex::new(HashMap::new())),
+            table_segment: Arc::new(Mutex::new(HashMap::new())),
             mock_type,
         }
     }
@@ -168,7 +174,8 @@ impl ConnectionFactory for MockConnectionFactory {
             endpoint,
             self.segments.clone(),
             self.writers.clone(),
-            self.table_segments.clone(),
+            self.table_segment_index.clone(),
+            self.table_segment.clone(),
             self.mock_type,
         );
         Ok(Box::new(mock) as Box<dyn Connection>)

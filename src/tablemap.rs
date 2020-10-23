@@ -914,13 +914,13 @@ mod test {
         let version = rt
             .block_on(table_map.insert(&"key".to_string(), &"value".to_string(), -1))
             .expect("unconditionally insert into table map");
-        assert_eq!(version, 1);
+        assert_eq!(version, 0);
 
         // unconditionally insert existing key
         let version = rt
             .block_on(table_map.insert(&"key".to_string(), &"value".to_string(), -1))
             .expect("unconditionally insert into table map");
-        assert_eq!(version, 2);
+        assert_eq!(version, 1);
 
         // unconditionally remove
         rt.block_on(table_map.remove(&"key".to_string(), -1))
@@ -940,23 +940,23 @@ mod test {
 
         // conditionally insert non-existing key
         let version = rt
-            .block_on(table_map.insert_conditionally(&"key".to_string(), &"value".to_string(), 0, -1))
+            .block_on(table_map.insert_conditionally(&"key".to_string(), &"value".to_string(), -1, -1))
             .expect("unconditionally insert into table map");
-        assert_eq!(version, 1);
+        assert_eq!(version, 0);
 
         // conditionally insert existing key
         let version = rt
-            .block_on(table_map.insert_conditionally(&"key".to_string(), &"value".to_string(), 1, -1))
+            .block_on(table_map.insert_conditionally(&"key".to_string(), &"value".to_string(), 0, -1))
             .expect("conditionally insert into table map");
-        assert_eq!(version, 2);
+        assert_eq!(version, 1);
 
         // conditionally insert key with wrong version
         let result =
-            rt.block_on(table_map.insert_conditionally(&"key".to_string(), &"value".to_string(), 1, -1));
+            rt.block_on(table_map.insert_conditionally(&"key".to_string(), &"value".to_string(), 0, -1));
         assert!(result.is_err());
 
         // conditionally remove key
-        let result = rt.block_on(table_map.remove_conditionally(&"key".to_string(), 2, -1));
+        let result = rt.block_on(table_map.remove_conditionally(&"key".to_string(), 1, -1));
         assert!(result.is_ok());
 
         // get the key, should return None
@@ -977,17 +977,17 @@ mod test {
         let v1 = "v1".to_string();
         let k2 = "k2".to_string();
         let v2 = "v2".to_string();
-        kvs.push((&k1, &v1, 0));
-        kvs.push((&k2, &v2, 0));
+        kvs.push((&k1, &v1, -1));
+        kvs.push((&k2, &v2, -1));
 
         let version = rt
             .block_on(table_map.insert_conditionally_all(kvs, -1))
             .expect("unconditionally insert all into table map");
-        let expected = vec![1, 1];
+        let expected = vec![0, 0];
         assert_eq!(version, expected);
 
         // conditionally remove all
-        let ks = vec![(&k1, 1), (&k2, 1)];
+        let ks = vec![(&k1, 0), (&k2, 0)];
         rt.block_on(table_map.remove_conditionally_all(ks, -1))
             .expect("conditionally remove all from table map");
 
