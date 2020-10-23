@@ -180,6 +180,9 @@ impl SegmentWriter {
                                 .send(Incoming::ConnectionFailure(ConnectionFailure {
                                     segment: segment.clone(),
                                 })).await;
+                            if let Err(e) = result {
+                                error!("failed to send connectionFailure signal to processor {:?}", e);
+                            }
                             return;
                         }
                     };

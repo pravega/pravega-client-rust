@@ -106,9 +106,11 @@ impl DelegationTokenProvider {
                 .expect("get unix time");
             if now.as_secs() + DEFAULT_REFRESH_THRESHOLD_SECONDS >= t {
                 info!(
-                    "current time {} expired,  expiry time {}",
-                    now.as_secs() + DEFAULT_REFRESH_THRESHOLD_SECONDS,
-                    t
+                    "token will expire at {}. Current time is {} and token refresh threshold is\
+                    {}, need to refresh token",
+                    t,
+                    now.as_secs(),
+                    DEFAULT_REFRESH_THRESHOLD_SECONDS,
                 );
                 return false;
             }
