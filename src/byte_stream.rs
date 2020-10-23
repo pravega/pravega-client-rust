@@ -10,12 +10,12 @@
 
 use crate::client_factory::ClientFactory;
 use crate::error::*;
+use crate::event_stream_writer::EventStreamWriter;
 use crate::get_random_u128;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::reactors::SegmentReactor;
 use crate::segment_metadata::SegmentMetadataClient;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
-use crate::event_stream_writer::EventStreamWriter;
 use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::{ScopedSegment, WriterId};
 use std::cmp;
