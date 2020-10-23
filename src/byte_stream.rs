@@ -15,6 +15,7 @@ use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::reactors::SegmentReactor;
 use crate::segment_metadata::SegmentMetadataClient;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
+use crate::event_stream_writer::EventStreamWriter;
 use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::{ScopedSegment, WriterId};
 use std::cmp;
@@ -59,7 +60,7 @@ impl Write for ByteStreamWriter {
         let oneshot_receiver = self.runtime_handle.block_on(async {
             let mut position = 0;
             let mut oneshot_receiver = loop {
-                let advance = std::cmp::min(buf.len() - position, PendingEvent::MAX_WRITE_SIZE);
+                let advance = std::cmp::min(buf.len() - position, EventStreamWriter::MAX_EVENT_SIZE);
                 let payload = buf[position..position + advance].to_vec();
                 let oneshot_receiver = ByteStreamWriter::write_internal(self.sender.clone(), payload).await;
                 position += advance;

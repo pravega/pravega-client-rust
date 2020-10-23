@@ -66,7 +66,7 @@ lazy_static! {
     static ref CONFIG: Config = {
         let mut config = bincode2::config();
         config.big_endian();
-        config.limit(0x007f_ffff);
+        config.limit(MAX_WIRECOMMAND_SIZE.into());
         config.array_length(LengthOption::U32);
         config.string_length(LengthOption::U16);
         config
