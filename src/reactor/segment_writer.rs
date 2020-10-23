@@ -181,7 +181,7 @@ impl SegmentWriter {
                                     segment: segment.clone(),
                                 })).await;
                             if let Err(e) = result {
-                                error!("failed to send connectionFailure signal to processor {:?}", e);
+                                error!("failed to send connectionFailure signal to reactor {:?}", e);
                             }
                             return;
                         }
@@ -195,7 +195,7 @@ impl SegmentWriter {
                         .await;
 
                     if let Err(e) = result {
-                        error!("connection read data from segmentstore but failed to send reply back to processor due to {:?}",e);
+                        error!("connection read data from segmentstore but failed to send reply back to reactor due to {:?}",e);
                         return;
                     }
                 }
