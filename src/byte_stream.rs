@@ -57,17 +57,10 @@ impl Write for ByteStreamWriter {
     /// when this method returns Ok, user should call flush to ensure all data has been acknowledged
     /// by the server.
     fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
+        let bytes_to_write = std::cmp::min(buf.len(), EventStreamWriter::MAX_EVENT_SIZE);
         let oneshot_receiver = self.runtime_handle.block_on(async {
-            let mut position = 0;
-            let mut oneshot_receiver = loop {
-                let advance = std::cmp::min(buf.len() - position, EventStreamWriter::MAX_EVENT_SIZE);
-                let payload = buf[position..position + advance].to_vec();
-                let oneshot_receiver = ByteStreamWriter::write_internal(self.sender.clone(), payload).await;
-                position += advance;
-                if position == buf.len() {
-                    break oneshot_receiver;
-                }
-            };
+            let payload = buf[0..bytes_to_write].to_vec();
+            let mut oneshot_receiver = ByteStreamWriter::write_internal(self.sender.clone(), payload).await;
             match oneshot_receiver.try_recv() {
                 // The channel is currently empty
                 Err(TryRecvError::Empty) => Ok(Some(oneshot_receiver)),
@@ -83,7 +76,7 @@ impl Write for ByteStreamWriter {
         })?;
 
         self.event_handle = oneshot_receiver;
-        Ok(buf.len())
+        Ok(bytes_to_write)
     }
 
     /// This is a blocking call that will wait for data to be persisted on the server side.
