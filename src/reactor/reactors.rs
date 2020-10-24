@@ -66,6 +66,13 @@ impl StreamReactor {
                         break;
                     }
                 }
+                Incoming::ConnectionFailure(connection_failure) => {
+                    let writer = selector
+                        .writers
+                        .get_mut(&connection_failure.segment)
+                        .expect("must have writer");
+                    writer.reconnect(&factory).await;
+                }
             }
         }
     }
@@ -198,6 +205,9 @@ impl SegmentReactor {
                         drain_receiver(receiver, e.to_owned()).await;
                         break;
                     }
+                }
+                Incoming::ConnectionFailure(_connection_failure) => {
+                    writer.reconnect(&factory).await;
                 }
             }
         }
