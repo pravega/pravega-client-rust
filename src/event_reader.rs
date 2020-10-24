@@ -9,7 +9,7 @@
 //
 
 use crate::client_factory::ClientFactory;
-use crate::reader_group::reader_group_state::ReaderGroupState;
+use crate::reader_group::reader_group_state::{Offset, ReaderGroupState};
 use crate::segment_reader::ReaderError;
 use crate::segment_slice::{SegmentDataBuffer, SegmentSlice, SliceMetadata};
 use bytes::BufMut;
@@ -544,7 +544,7 @@ impl EventReader {
     //
     // Fetch successors of the segment where an error was observed.
     // ensure we stop the read task and spawn read tasks for the successor segments.
-    // (This logic will be moved to the TableSynchronizer in the subsequent PR).
+    //
     async fn fetch_successors(&mut self, e: ReaderError) {
         match e {
             ReaderError::SegmentSealed {
@@ -560,32 +560,101 @@ impl EventReader {
                 error_msg: _,
             } => {
                 self.meta.stop_reading(&segment); // stop reading segment.
-                                                  // Fetch next segments that can be read from.
-                let successors = self.get_successors(&segment).await;
-                let s = self.meta.next_segments_to_read(segment, successors);
-                debug!("Segments which can be read next are {:?}", s);
-                {
-                    for seg in s {
-                        let meta = SliceMetadata {
-                            scoped_segment: seg.to_string(),
-                            ..Default::default()
-                        };
-                        let (tx_drop_fetch, rx_drop_fetch) = oneshot::channel();
-                        tokio::spawn(SegmentSlice::get_segment_data(
-                            seg.clone(),
-                            meta.start_offset,
-                            self.tx.clone(),
-                            rx_drop_fetch,
-                            self.factory.clone(),
-                        ));
-                        self.meta.add_stop_reading_tx(seg.to_string(), tx_drop_fetch);
-                        // update map with newer segments.
-                        self.meta.add_slices(meta);
-                    }
+
+                let completed_scoped_segment = ScopedSegment::from(segment.as_str());
+                // Fetch next segments that can be read from.
+                let successors = self
+                    .factory
+                    .get_controller_client()
+                    .get_successors(&completed_scoped_segment)
+                    .await
+                    .expect("Failed to fetch successors of the segment")
+                    .segment_with_predecessors;
+                info!("Segment Completed {:?}", segment);
+                self.rg_state
+                    .lock()
+                    .await
+                    .segment_completed(&self.id, &completed_scoped_segment, &successors)
+                    .await
+                    .expect("Update segment completed");
+                if let Some(new_segments) = self.assign_segments_to_reader().await {
+                    // fetch current segments.
+                    let current_segments = self
+                        .rg_state
+                        .lock()
+                        .await
+                        .get_segments_for_reader(&self.id)
+                        .await
+                        .expect("Read segments");
+                    let new_segments: HashSet<(ScopedSegment, Offset)> = current_segments
+                        .into_iter()
+                        .filter(|(seg, _off)| new_segments.contains(seg))
+                        .collect();
+
+                    //let new_segments = self.meta.next_segments_to_read(segment, successors);
+                    debug!("Segments which can be read next are {:?}", new_segments);
+                    self.initiate_segment_reads(new_segments);
                 }
             }
             _ => error!("Error observed while reading from Pravega {:?}", e),
         };
+    }
+
+    ///
+    /// Try to assign newer segments to be read by this reader.
+    /// This function tries to acquire the desired number of segments.
+    async fn assign_segments_to_reader(&self) -> Option<Vec<ScopedSegment>> {
+        let mut new_segments: Vec<ScopedSegment> = Vec::new();
+        let new_segments_to_acquire = self
+            .rg_state
+            .lock()
+            .await
+            .compute_segments_to_acquire(&self.id)
+            .await;
+        if new_segments_to_acquire == 0 {
+            None
+        } else {
+            for _ in 0..new_segments_to_acquire {
+                if let Some(seg) = self
+                    .rg_state
+                    .lock()
+                    .await
+                    .assign_segment_to_reader(&self.id)
+                    .await
+                    .expect("Error while waiting for segments to be assigned")
+                {
+                    debug!("Acquiring segment {:?} for reader {:?}", seg, self.id);
+                    new_segments.push(seg);
+                } else {
+                    // There are no new unassigned segments to be acquired.
+                    break;
+                }
+            }
+            debug!("Segments acquired by reader {:?} is {:?}", self.id, new_segments);
+            Some(new_segments)
+        }
+    }
+
+    /// Initiate a task to read data from the newly assigned segments.
+    fn initiate_segment_reads(&mut self, new_segments: HashSet<(ScopedSegment, Offset)>) {
+        for (seg, offset) in new_segments {
+            let meta = SliceMetadata {
+                scoped_segment: seg.to_string(),
+                start_offset: offset.read,
+                ..Default::default()
+            };
+            let (tx_drop_fetch, rx_drop_fetch) = oneshot::channel();
+            tokio::spawn(SegmentSlice::get_segment_data(
+                seg.clone(),
+                meta.start_offset,
+                self.tx.clone(),
+                rx_drop_fetch,
+                self.factory.clone(),
+            ));
+            self.meta.add_stop_reading_tx(seg.to_string(), tx_drop_fetch);
+            // update map with newer segments.
+            self.meta.add_slices(meta);
+        }
     }
 
     // Helper method to append data to SliceMetadata.

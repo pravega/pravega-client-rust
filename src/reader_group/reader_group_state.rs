@@ -14,7 +14,7 @@ use crate::reader_group::reader_group_config::ReaderGroupConfigVersioned;
 use crate::table_synchronizer::{deserialize_from, Table, TableSynchronizer, Value};
 #[cfg(test)]
 use mockall::automock;
-use pravega_rust_client_shared::{Reader, ScopedSegment, Segment};
+use pravega_rust_client_shared::{Reader, ScopedSegment, Segment, SegmentWithRange};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use snafu::{ensure, Snafu};
@@ -523,7 +523,7 @@ impl ReaderGroupState {
         &mut self,
         reader: &Reader,
         segment_completed: &ScopedSegment,
-        successors_mapped_to_their_predecessors: &HashMap<ScopedSegment, Vec<Segment>>,
+        successors_mapped_to_their_predecessors: &im::HashMap<SegmentWithRange, Vec<Segment>>,
     ) -> Result<(), ReaderGroupStateError> {
         let _res_str = self
             .sync
@@ -549,7 +549,7 @@ impl ReaderGroupState {
         table: &mut Table,
         reader: &Reader,
         segment_completed: &ScopedSegment,
-        successors_mapped_to_their_predecessors: &HashMap<ScopedSegment, Vec<Segment>>,
+        successors_mapped_to_their_predecessors: &im::HashMap<SegmentWithRange, Vec<Segment>>,
     ) -> Result<Option<String>, SynchronizerError> {
         let mut assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)?;
         let mut future_segments = ReaderGroupState::get_future_segments_from_table(table);
@@ -567,16 +567,16 @@ impl ReaderGroupState {
 
         // add missing successors to future_segments
         for (segment, list) in successors_mapped_to_their_predecessors {
-            if !future_segments.contains_key(segment) {
+            if !future_segments.contains_key(&segment.scoped_segment) {
                 let required_to_complete = HashSet::from_iter(list.clone().into_iter());
                 table.insert(
                     FUTURE.to_owned(),
-                    segment.to_string(),
+                    segment.scoped_segment.to_string(),
                     "HashSet<i64>".to_owned(),
                     Box::new(required_to_complete.clone()),
                 );
                 // need to update the temp map since later operation may depend on it
-                future_segments.insert(segment.to_owned(), required_to_complete);
+                future_segments.insert(segment.scoped_segment.to_owned(), required_to_complete);
             }
         }
 
@@ -685,6 +685,7 @@ mod test {
     use super::*;
     use crate::table_synchronizer::{serialize, Value};
     use lazy_static::*;
+    use ordered_float::OrderedFloat;
     use pravega_rust_client_shared::{Scope, Segment, Stream};
 
     lazy_static! {
@@ -792,19 +793,30 @@ mod test {
         let mut successor0 = SEGMENT_TEST.clone();
         successor0.segment.number = 1;
 
+        let successor0_range = SegmentWithRange {
+            scoped_segment: succesor0.clone(),
+            min_key: OrderedFloat(0.0),
+            max_key: OrderedFloat(0.5),
+        };
+
         let mut successor1 = SEGMENT_TEST.clone();
         successor1.segment.number = 2;
+        let successor1_range = SegmentWithRange {
+            scoped_segment: succesor1.clone(),
+            min_key: OrderedFloat(0.5),
+            max_key: OrderedFloat(1.0),
+        };
 
-        let mut successors_mapped_to_their_predecessors = HashMap::new();
+        let mut successors_mapped_to_their_predecessors = im::HashMap::new();
         successors_mapped_to_their_predecessors.insert(
-            successor0.clone(),
+            successor1_range,
             vec![Segment {
                 number: 0,
                 tx_id: None,
             }],
         );
         successors_mapped_to_their_predecessors.insert(
-            successor1.clone(),
+            successor2_range,
             vec![Segment {
                 number: 0,
                 tx_id: None,
