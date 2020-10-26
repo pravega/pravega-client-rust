@@ -100,7 +100,7 @@ impl ByteStreamWriter {
         let handle = factory.get_runtime_handle();
         let metadata_client = handle.block_on(factory.create_segment_metadata_client(segment.clone()));
         let writer_id = WriterId(get_random_u128());
-        let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
+        let span = info_span!("SegmentReactor", event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
         handle.enter(|| {
             tokio::spawn(
