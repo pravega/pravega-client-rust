@@ -268,7 +268,7 @@ async fn send_happy(
                 request_id: cmd.request_id,
                 segment: cmd.segment,
                 writer_id: cmd.writer_id,
-                last_event_number: -9_223_372_036_854_775_808, // when there is no previous event in this segment
+                last_event_number: i64::MIN, // when there is no previous event in this segment
             });
             sender.send(reply).expect("send reply");
         }
@@ -512,7 +512,7 @@ async fn send_sealed(sender: &mut UnboundedSender<Replies>, payload: &[u8]) -> R
                 request_id: cmd.request_id,
                 segment: cmd.segment,
                 writer_id: cmd.writer_id,
-                last_event_number: -9_223_372_036_854_775_808, // when there is no previous event in this segment
+                last_event_number: i64::MIN, // when there is no previous event in this segment
             });
             sender.send(reply).expect("send reply");
         }
@@ -547,7 +547,7 @@ async fn send_truncated(
                 request_id: cmd.request_id,
                 segment: cmd.segment,
                 writer_id: cmd.writer_id,
-                last_event_number: -9_223_372_036_854_775_808, // when there is no previous event in this segment
+                last_event_number: i64::MIN, // when there is no previous event in this segment
             });
             sender.send(reply).expect("send reply");
         }
@@ -583,7 +583,7 @@ async fn send_wrong_host(
                 request_id: cmd.request_id,
                 segment: cmd.segment,
                 writer_id: cmd.writer_id,
-                last_event_number: -9_223_372_036_854_775_808, // when there is no previous event in this segment
+                last_event_number: i64::MIN, // when there is no previous event in this segment
             });
             sender.send(reply).expect("send reply");
         }
