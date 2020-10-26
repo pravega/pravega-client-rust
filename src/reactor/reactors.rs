@@ -72,13 +72,13 @@ impl Reactor {
                 } else {
                     Ok(())
                 }
-                Incoming::ConnectionFailure(connection_failure) => {
-                    let writer = selector
-                        .writers
-                        .get_mut(&connection_failure.segment)
-                        .expect("must have writer");
-                    writer.reconnect(&factory).await;
-                }
+            }
+            Incoming::ConnectionFailure(connection_failure) => {
+                let writer = selector
+                    .writers
+                    .get_mut(&connection_failure.segment)
+                    .expect("must have writer");
+                writer.reconnect(&factory).await;
             }
         }
     }
