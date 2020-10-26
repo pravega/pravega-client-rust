@@ -27,7 +27,7 @@ use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::metric::ClientMetrics;
 use crate::raw_client::RawClient;
-use crate::segment::event::{Incoming, PendingEvent, ServerReply};
+use crate::reactor::event::{Incoming, PendingEvent, ServerReply};
 use pravega_rust_client_auth::DelegationTokenProvider;
 use std::fmt;
 use std::sync::Arc;

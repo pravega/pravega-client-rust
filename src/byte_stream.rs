@@ -11,8 +11,8 @@
 use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::get_random_u128;
-use crate::segment::event::{Incoming, PendingEvent};
-use crate::segment::reactor::Reactor;
+use crate::reactor::event::{Incoming, PendingEvent};
+use crate::reactor::reactors::Reactor;
 use crate::segment_metadata::SegmentMetadataClient;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream, WriterId};

@@ -17,8 +17,8 @@ use pravega_wire_protocol::wire_commands::Replies;
 
 use crate::client_factory::ClientFactory;
 use crate::error::*;
-use crate::segment::event::{Incoming, ServerReply};
-use crate::segment::segment_selector::SegmentSelector;
+use crate::reactor::event::{Incoming, ServerReply};
+use crate::reactor::segment_selector::SegmentSelector;
 
 #[derive(new)]
 pub(crate) struct Reactor {}
@@ -168,9 +168,9 @@ async fn drain_recevier(receiver: &mut Receiver<Incoming>, msg: String) {
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
-    use crate::segment::event::PendingEvent;
-    use crate::segment::segment_selector::test::create_segment_selector;
-    use crate::segment::segment_writer::SegmentWriter;
+    use crate::reactor::event::PendingEvent;
+    use crate::reactor::segment_selector::test::create_segment_selector;
+    use crate::reactor::segment_writer::SegmentWriter;
     use pravega_rust_client_config::connection_type::MockType;
     use tokio::sync::oneshot;
 

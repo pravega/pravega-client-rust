@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::segment::reactor::Reactor;
+use crate::reactor::reactors::Reactor;
 use pravega_rust_client_shared::*;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
@@ -16,7 +16,7 @@ use tokio::sync::oneshot;
 use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::get_random_u128;
-use crate::segment::event::{Incoming, PendingEvent};
+use crate::reactor::event::{Incoming, PendingEvent};
 use tracing::info_span;
 use tracing_futures::Instrument;
 
@@ -89,7 +89,7 @@ mod tests {
     use tokio::runtime::Runtime;
 
     use super::*;
-    use crate::segment::event::PendingEvent;
+    use crate::reactor::event::PendingEvent;
 
     #[test]
     fn test_pending_event() {

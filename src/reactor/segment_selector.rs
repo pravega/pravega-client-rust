@@ -18,8 +18,8 @@ use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::*;
 
 use crate::client_factory::ClientFactory;
-use crate::segment::event::{Incoming, PendingEvent};
-use crate::segment::segment_writer::SegmentWriter;
+use crate::reactor::event::{Incoming, PendingEvent};
+use crate::reactor::segment_writer::SegmentWriter;
 use pravega_rust_client_auth::DelegationTokenProvider;
 use std::sync::Arc;
 
