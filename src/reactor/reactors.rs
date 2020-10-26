@@ -164,6 +164,7 @@ impl Reactor {
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
+    use crate::error::*;
     use crate::reactor::event::PendingEvent;
     use crate::reactor::segment_selector::test::create_segment_selector;
     use crate::reactor::segment_writer::SegmentWriter;
