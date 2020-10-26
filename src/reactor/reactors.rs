@@ -16,7 +16,6 @@ use pravega_rust_client_shared::*;
 use pravega_wire_protocol::wire_commands::Replies;
 
 use crate::client_factory::ClientFactory;
-use crate::error::*;
 use crate::reactor::event::{Incoming, ServerReply};
 use crate::reactor::segment_selector::SegmentSelector;
 
@@ -66,8 +65,7 @@ impl Reactor {
             }
             Incoming::ServerReply(server_reply) => {
                 if let Err(e) = Reactor::process_server_reply(server_reply, selector, factory).await {
-                    receiver.close();
-                    drain_recevier(receiver, e.to_owned()).await;
+                    error!("failed to process server reply due to {:?}", e);
                     Err(e)
                 } else {
                     Ok(())
@@ -78,7 +76,8 @@ impl Reactor {
                     .writers
                     .get_mut(&connection_failure.segment)
                     .expect("must have writer");
-                writer.reconnect(&factory).await;
+                writer.reconnect(factory).await;
+                Ok(())
             }
         }
     }
@@ -158,16 +157,6 @@ impl Reactor {
                 );
                 Err("Unexpected reply")
             }
-        }
-    }
-}
-
-async fn drain_recevier(receiver: &mut Receiver<Incoming>, msg: String) {
-    receiver.close();
-    while let Some(remaining) = receiver.recv().await {
-        if let Incoming::AppendEvent(event) = remaining {
-            let err = Err(SegmentWriterError::ReactorClosed { msg: msg.clone() });
-            event.oneshot_sender.send(err).expect("send error");
         }
     }
 }
