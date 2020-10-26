@@ -63,7 +63,7 @@ async fn test_release_segment(client_factory: &ClientFactory) {
     };
 
     let rg = client_factory
-        .create_reader_group("rg-read-api".to_string(), str)
+        .create_reader_group("rg-release".to_string(), str)
         .await;
     let mut reader = rg.create_reader("r1".to_string()).await;
 
@@ -159,7 +159,7 @@ async fn test_release_segment_at(client_factory: &ClientFactory) {
 }
 
 async fn test_stream_scaling(client_factory: &ClientFactory) {
-    let scope_name = Scope::from("testReaderScaling".to_owned());
+    let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testReaderStream".to_owned());
 
     const NUM_EVENTS: usize = 10;

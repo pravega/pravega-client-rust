@@ -180,47 +180,6 @@ impl ReaderMeta {
         }
     }
 
-    //
-    // Fetch the next segments that can be read by the Event Reader.
-    //
-    fn next_segments_to_read(
-        &mut self,
-        completed_segment: String,
-        successors_mapped_to_their_predecessors: ImHashMap<SegmentWithRange, Vec<Segment>>,
-    ) -> Vec<ScopedSegment> {
-        info!(
-            "Completed segments {:?}, successor_to_predecessor: {:?} ",
-            completed_segment, successors_mapped_to_their_predecessors
-        );
-        info!("FutureSegments {:?}", self.future_segments);
-        // add missing successors to future_segments
-        for (segment, list) in successors_mapped_to_their_predecessors {
-            if !self.future_segments.contains_key(&segment.scoped_segment) {
-                let required_to_complete = HashSet::from_iter(list.clone().into_iter());
-                // update future segments.
-                self.future_segments
-                    .insert(segment.scoped_segment.to_owned(), required_to_complete);
-            }
-        }
-        debug!("Future Segments after update {:?}", self.future_segments);
-        // remove the completed segment from the dependency list
-        for required_to_complete in self.future_segments.values_mut() {
-            // the hash set needs update
-            required_to_complete.remove(&ScopedSegment::from(completed_segment.as_str()).segment);
-        }
-        debug!(
-            "Future Segments after removing the segment which completed. {:?}",
-            self.future_segments
-        );
-        // find successors that are ready to read. A successor is ready to read
-        // once all its predecessors are completed.
-        self.future_segments
-            .iter()
-            .filter(|&(_segment, set)| set.is_empty())
-            .map(|(segment, _set)| segment.to_owned())
-            .collect::<Vec<ScopedSegment>>()
-    }
-
     fn get_segment_id_with_data(&self) -> Option<String> {
         self.slices
             .iter()
@@ -286,6 +245,7 @@ impl EventReader {
                 break;
             }
         }
+        // Get all assigned segments for the reader.
         let assigned_segments = rg_state
             .lock()
             .await
@@ -571,12 +531,14 @@ impl EventReader {
                     .expect("Failed to fetch successors of the segment")
                     .segment_with_predecessors;
                 info!("Segment Completed {:?}", segment);
+                // Update rg_state with the completed segment and its successors.
                 self.rg_state
                     .lock()
                     .await
                     .segment_completed(&self.id, &completed_scoped_segment, &successors)
                     .await
                     .expect("Update segment completed");
+                // Assign newer segments to this reader if available.
                 if let Some(new_segments) = self.assign_segments_to_reader().await {
                     // fetch current segments.
                     let current_segments = self
@@ -590,9 +552,8 @@ impl EventReader {
                         .into_iter()
                         .filter(|(seg, _off)| new_segments.contains(seg))
                         .collect();
-
-                    //let new_segments = self.meta.next_segments_to_read(segment, successors);
                     debug!("Segments which can be read next are {:?}", new_segments);
+                    // Initiate segment reads to the newer segments.
                     self.initiate_segment_reads(new_segments);
                 }
             }
