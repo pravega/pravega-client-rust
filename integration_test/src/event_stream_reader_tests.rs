@@ -16,6 +16,9 @@ use pravega_rust_client_shared::{
     Retention, RetentionType, ScaleType, Scaling, Scope, ScopedSegment, ScopedStream, Segment, Stream,
     StreamConfiguration,
 };
+use std::thread;
+use std::time::Duration;
+use tokio::runtime::Handle;
 use tracing::{debug, error, info, warn};
 
 pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
@@ -31,6 +34,8 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
     handle.block_on(test_stream_scaling(&client_factory));
     handle.block_on(test_release_segment(&client_factory));
     handle.block_on(test_release_segment_at(&client_factory));
+    handle.block_on(test_multiple_readers(&client_factory));
+    test_multiple_readers(&client_factory);
 }
 
 async fn test_release_segment(client_factory: &ClientFactory) {
@@ -265,6 +270,64 @@ async fn test_read_api(client_factory: &ClientFactory) {
         if event_count == NUM_EVENTS {
             // all events have been read. Exit test.
             break;
+        }
+    }
+}
+
+fn test_multiple_readers(client_factory: &ClientFactory) {
+    let h = client_factory.get_runtime_handle();
+    let scope_name = Scope::from("testScope".to_owned());
+    let stream_name = Stream::from("testMultiReader".to_owned());
+    let str = ScopedStream {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+    };
+    h.block_on(async {
+        const NUM_EVENTS: usize = 10;
+
+        let new_stream = create_scope_stream(
+            client_factory.get_controller_client(),
+            &scope_name,
+            &stream_name,
+            4,
+        )
+        .await;
+        // write events only if the stream is created.
+        if new_stream {
+            // write events
+            write_events(
+                scope_name.clone(),
+                stream_name.clone(),
+                client_factory,
+                NUM_EVENTS,
+            )
+            .await;
+        }
+    });
+
+    let rg = h.block_on(client_factory.create_reader_group("rg_multi_reader".to_string(), str));
+    // reader 1 will be assigned all the segments.
+    let mut reader1 = h.block_on(rg.create_reader("r1".to_string()));
+    // no segments will be assigned to reader2
+    let mut reader2 = h.block_on(rg.create_reader("r2".to_string()));
+
+    if let Some(mut slice) = h.block_on(reader1.acquire_segment()) {
+        if let Some(event) = slice.next() {
+            assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+            // wait for release timeout.
+            thread::sleep(Duration::from_secs(10));
+            reader1.release_segment(slice);
+        } else {
+            assert!(false, "A valid slice is expected");
+        }
+    }
+
+    if let Some(mut slice) = h.block_on(reader2.acquire_segment()) {
+        if let Some(event) = slice.next() {
+            assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+            reader2.release_segment(slice);
+        } else {
+            assert!(false, "A valid slice is expected for reader2");
         }
     }
 }

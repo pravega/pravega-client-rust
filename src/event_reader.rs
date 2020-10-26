@@ -473,6 +473,24 @@ impl EventReader {
     /// returning the data.
     ///
     pub async fn acquire_segment(&mut self) -> Option<SegmentSlice> {
+        // Assign newer segments to this reader if available.
+        if let Some(new_segments) = self.assign_segments_to_reader().await {
+            // fetch current segments.
+            let current_segments = self
+                .rg_state
+                .lock()
+                .await
+                .get_segments_for_reader(&self.id)
+                .await
+                .expect("Read segments");
+            let new_segments: HashSet<(ScopedSegment, Offset)> = current_segments
+                .into_iter()
+                .filter(|(seg, _off)| new_segments.contains(seg))
+                .collect();
+            debug!("Segments which can be read next are {:?}", new_segments);
+            // Initiate segment reads to the newer segments.
+            self.initiate_segment_reads(new_segments);
+        }
         // 1.Check if any of the segments have event data
         if let Some(segment_with_data) = self.meta.get_segment_id_with_data() {
             let slice_meta = self.meta.slices.remove(segment_with_data.as_str()).unwrap();
