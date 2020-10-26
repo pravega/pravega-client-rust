@@ -320,10 +320,10 @@ impl ReaderGroupState {
         } else {
             num_segments_per_reader + 1
         };
-        let current_segment_count = assigned_segment_map.get(&reader.to_string()).and_then(|v| {
+        let current_segment_count = assigned_segment_map.get(&reader.to_string()).map(|v| {
             let seg: HashMap<ScopedSegment, Offset> =
                 deserialize_from(&v.data).expect("deserialize of assigned segments");
-            Some(seg.len())
+            seg.len()
         });
         isize::try_from(expected_segment_count_per_reader).unwrap()
             - isize::try_from(current_segment_count.unwrap_or_default()).unwrap()
@@ -345,12 +345,7 @@ impl ReaderGroupState {
         for v in assigned_segments.values() {
             let segments: HashMap<ScopedSegment, Offset> =
                 deserialize_from(&v.data).expect("deserialize assigned segments");
-            set.extend(
-                segments
-                    .keys()
-                    .map(|segment| segment.clone())
-                    .collect::<HashSet<ScopedSegment>>(),
-            )
+            set.extend(segments.keys().cloned().collect::<HashSet<ScopedSegment>>())
         }
 
         set.extend(
