@@ -67,8 +67,6 @@ pub mod controller {
 
 pub mod mock_controller;
 mod model_helper;
-#[cfg(test)]
-mod test;
 
 // Max number of retries by the controller in case of a retryable failure.
 const MAX_RETRIES: i32 = 10;
@@ -1162,5 +1160,478 @@ impl ControllerClientImpl {
             Ok(response) => Ok(response.into_inner().delegation_token),
             Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use tonic::{transport::Server, Request, Response, Status};
+
+    use controller::controller_service_server::{ControllerService, ControllerServiceServer};
+    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_rust_client_config::ClientConfigBuilder;
+    use std::collections::HashMap;
+    use tokio::runtime::Runtime;
+
+    #[test]
+    fn test_controller_client() {
+        let mut rt = Runtime::new().unwrap();
+        rt.spawn(run_server());
+
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(MockType::Happy))
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
+            .build()
+            .unwrap();
+        let controller = ControllerClientImpl::new(config.clone(), rt.handle().clone());
+        let scope = Scope {
+            name: "scope".to_string(),
+        };
+
+        // test create scope
+        let res = rt
+            .block_on(controller.create_scope(&scope))
+            .expect("create scope");
+        assert!(res);
+
+        // test create stream
+        let scoped_stream = ScopedStream {
+            scope: scope.clone(),
+            stream: Stream {
+                name: "stream".to_string(),
+            },
+        };
+        let stream_config = StreamConfiguration {
+            scoped_stream: scoped_stream.clone(),
+            scaling: Scaling {
+                scale_type: ScaleType::FixedNumSegments,
+                target_rate: 0,
+                scale_factor: 0,
+                min_num_segments: 0,
+            },
+            retention: Retention {
+                retention_type: RetentionType::None,
+                retention_param: 0,
+            },
+        };
+        let res = rt
+            .block_on(controller.create_stream(&stream_config))
+            .expect("create stream");
+        assert!(res);
+
+        // test update stream
+        let res = rt
+            .block_on(controller.update_stream(&stream_config))
+            .expect("update stream");
+        assert!(res);
+
+        // test truncate stream
+        let cut = StreamCut {
+            scoped_stream: scoped_stream.clone(),
+            segment_offset_map: HashMap::new(),
+        };
+        let res = rt
+            .block_on(controller.truncate_stream(&cut))
+            .expect("truncate stream");
+        assert!(res);
+
+        // test seal stream
+        let res = rt
+            .block_on(controller.seal_stream(&scoped_stream))
+            .expect("seal stream");
+        assert!(res);
+
+        // test delete stream
+        let res = rt
+            .block_on(controller.delete_stream(&scoped_stream))
+            .expect("delete stream");
+        assert!(res);
+
+        // test get current segments
+        let res = rt
+            .block_on(controller.get_current_segments(&scoped_stream))
+            .expect("get current segments");
+        assert!(res.key_segment_map.is_empty());
+
+        // test get epoch segments
+        let scoped_segment = ScopedSegment {
+            scope: scope.clone(),
+            stream: Stream {
+                name: "stream".to_string(),
+            },
+            segment: Segment {
+                number: 0,
+                tx_id: None,
+            },
+        };
+        let res = rt
+            .block_on(controller.get_endpoint_for_segment(&scoped_segment))
+            .expect("get epoch segments");
+        assert_eq!(
+            res,
+            PravegaNodeUri {
+                0: "127.0.0.1:9090".to_string()
+            }
+        );
+
+        // test get head segments
+        let res = rt
+            .block_on(controller.get_head_segments(&scoped_stream))
+            .expect("get head segments");
+        assert!(res.is_empty());
+
+        // test get successors
+        let res = rt
+            .block_on(controller.get_successors(&scoped_segment))
+            .expect("get successors segments");
+        assert!(res.segment_with_predecessors.is_empty());
+
+        // test scale
+        let segments = vec![];
+        let ranges = vec![];
+        rt.block_on(controller.scale_stream(&scoped_stream, &segments, &ranges))
+            .expect("scale");
+
+        // test check scale
+        let res = rt
+            .block_on(controller.check_scale(&scoped_stream, 0))
+            .expect("check scale");
+        assert!(res);
+
+        // test get endpoint
+        let uri = rt
+            .block_on(controller.get_endpoint_for_segment(&scoped_segment))
+            .expect("get node uri");
+        assert_eq!(
+            uri,
+            PravegaNodeUri {
+                0: "127.0.0.1:9090".to_string()
+            }
+        );
+
+        // test create transaction
+        let res = rt
+            .block_on(controller.create_transaction(&scoped_stream, Duration::from_secs(1)))
+            .expect("create transaction");
+        assert!(res.stream_segments.key_segment_map.is_empty());
+
+        // test commit transaction
+        rt.block_on(controller.commit_transaction(
+            &scoped_stream,
+            TxId { 0: 0 },
+            WriterId { 0: 0 },
+            Timestamp { 0: 0 },
+        ))
+        .expect("commit transaction");
+
+        // test abort transaction
+        rt.block_on(controller.abort_transaction(&scoped_stream, TxId { 0: 0 }))
+            .expect("abort transaction");
+
+        // test ping transaction
+        let res = rt
+            .block_on(controller.ping_transaction(&scoped_stream, TxId { 0: 0 }, Duration::from_secs(1)))
+            .expect("ping transaction");
+        assert_eq!(res, PingStatus::Ok);
+
+        // test check transaction status
+        let res = rt
+            .block_on(controller.check_transaction_status(&scoped_stream, TxId { 0: 0 }))
+            .expect("check transaction status");
+        assert_eq!(res, TransactionStatus::Open);
+
+        // test create scope
+        let res = rt
+            .block_on(controller.create_scope(&scope))
+            .expect("create scope");
+        assert!(res);
+
+        // test delete scope
+        let res = rt
+            .block_on(controller.delete_scope(&scope))
+            .expect("delete scope");
+        assert!(res);
+
+        // test get delegation token
+        let res = rt
+            .block_on(controller.get_or_refresh_delegation_token_for(scoped_stream))
+            .expect("get delegation token");
+        assert_eq!(res, "123".to_string());
+    }
+
+    #[derive(Default)]
+    pub struct MockServerImpl {}
+
+    #[tonic::async_trait]
+    impl ControllerService for MockServerImpl {
+        async fn create_stream(
+            &self,
+            _request: Request<StreamConfig>,
+        ) -> std::result::Result<Response<CreateStreamStatus>, Status> {
+            let reply = CreateStreamStatus { status: 0 };
+            Ok(Response::new(reply))
+        }
+        async fn update_stream(
+            &self,
+            _request: Request<StreamConfig>,
+        ) -> std::result::Result<Response<UpdateStreamStatus>, Status> {
+            let reply = UpdateStreamStatus { status: 0 };
+            Ok(Response::new(reply))
+        }
+        async fn truncate_stream(
+            &self,
+            _request: Request<controller::StreamCut>,
+        ) -> std::result::Result<Response<UpdateStreamStatus>, Status> {
+            let reply = UpdateStreamStatus { status: 0 };
+            Ok(Response::new(reply))
+        }
+        async fn seal_stream(
+            &self,
+            _request: Request<StreamInfo>,
+        ) -> std::result::Result<Response<UpdateStreamStatus>, Status> {
+            let reply = UpdateStreamStatus { status: 0 };
+            Ok(Response::new(reply))
+        }
+        async fn delete_stream(
+            &self,
+            _request: Request<StreamInfo>,
+        ) -> std::result::Result<Response<DeleteStreamStatus>, Status> {
+            let reply = DeleteStreamStatus { status: 0 };
+            Ok(Response::new(reply))
+        }
+        async fn get_current_segments(
+            &self,
+            _request: Request<StreamInfo>,
+        ) -> std::result::Result<Response<SegmentRanges>, Status> {
+            let reply = SegmentRanges {
+                segment_ranges: vec![],
+                delegation_token: "123".to_string(),
+            };
+            Ok(Response::new(reply))
+        }
+        async fn get_epoch_segments(
+            &self,
+            _request: Request<GetEpochSegmentsRequest>,
+        ) -> std::result::Result<Response<SegmentRanges>, Status> {
+            let reply = SegmentRanges {
+                segment_ranges: vec![],
+                delegation_token: "123".to_string(),
+            };
+            Ok(Response::new(reply))
+        }
+        async fn get_segments(
+            &self,
+            _request: Request<GetSegmentsRequest>,
+        ) -> std::result::Result<Response<SegmentsAtTime>, Status> {
+            let reply = SegmentsAtTime {
+                segments: vec![],
+                delegation_token: "123".to_string(),
+            };
+            Ok(Response::new(reply))
+        }
+        async fn get_segments_immediately_following(
+            &self,
+            _request: Request<SegmentId>,
+        ) -> std::result::Result<Response<SuccessorResponse>, Status> {
+            let reply = SuccessorResponse {
+                segments: vec![],
+                delegation_token: "123".to_string(),
+            };
+            Ok(Response::new(reply))
+        }
+        async fn scale(
+            &self,
+            _request: Request<ScaleRequest>,
+        ) -> std::result::Result<Response<ScaleResponse>, Status> {
+            let reply = ScaleResponse {
+                status: scale_response::ScaleStreamStatus::Started as i32,
+                segments: vec![],
+                epoch: 0,
+            };
+            Ok(Response::new(reply))
+        }
+        async fn check_scale(
+            &self,
+            _request: Request<ScaleStatusRequest>,
+        ) -> std::result::Result<Response<ScaleStatusResponse>, Status> {
+            let reply = ScaleStatusResponse {
+                status: scale_status_response::ScaleStatus::Success as i32,
+            };
+            Ok(Response::new(reply))
+        }
+        async fn get_uri(
+            &self,
+            _request: Request<controller::SegmentId>,
+        ) -> std::result::Result<Response<NodeUri>, Status> {
+            let reply = NodeUri {
+                endpoint: "127.0.0.1".to_string(),
+                port: 9090,
+            };
+            Ok(Response::new(reply))
+        }
+        async fn create_transaction(
+            &self,
+            _request: Request<CreateTxnRequest>,
+        ) -> std::result::Result<Response<CreateTxnResponse>, Status> {
+            let reply = CreateTxnResponse {
+                txn_id: Some(controller::TxnId {
+                    high_bits: 0,
+                    low_bits: 0,
+                }),
+                active_segments: vec![],
+                delegation_token: "123".to_string(),
+            };
+            Ok(Response::new(reply))
+        }
+        async fn commit_transaction(
+            &self,
+            _request: Request<TxnRequest>,
+        ) -> std::result::Result<Response<TxnStatus>, Status> {
+            let reply = TxnStatus {
+                status: txn_status::Status::Success as i32,
+            };
+            Ok(Response::new(reply))
+        }
+        async fn abort_transaction(
+            &self,
+            _request: Request<TxnRequest>,
+        ) -> std::result::Result<Response<TxnStatus>, Status> {
+            let reply = TxnStatus {
+                status: txn_status::Status::Success as i32,
+            };
+            Ok(Response::new(reply))
+        }
+        async fn ping_transaction(
+            &self,
+            _request: Request<PingTxnRequest>,
+        ) -> std::result::Result<Response<PingTxnStatus>, Status> {
+            let reply = PingTxnStatus {
+                status: ping_txn_status::Status::Ok as i32,
+            };
+            Ok(Response::new(reply))
+        }
+        async fn check_transaction_state(
+            &self,
+            _request: Request<TxnRequest>,
+        ) -> std::result::Result<Response<TxnState>, Status> {
+            let reply = TxnState {
+                state: txn_state::State::Open as i32,
+            };
+            Ok(Response::new(reply))
+        }
+        async fn create_scope(
+            &self,
+            _request: Request<ScopeInfo>,
+        ) -> std::result::Result<Response<CreateScopeStatus>, Status> {
+            let reply = CreateScopeStatus {
+                status: create_scope_status::Status::Success as i32,
+            };
+            Ok(Response::new(reply))
+        }
+        async fn delete_scope(
+            &self,
+            _request: Request<ScopeInfo>,
+        ) -> std::result::Result<Response<DeleteScopeStatus>, Status> {
+            let reply = DeleteScopeStatus {
+                status: delete_scope_status::Status::Success as i32,
+            };
+            Ok(Response::new(reply))
+        }
+        async fn get_delegation_token(
+            &self,
+            _request: Request<controller::StreamInfo>,
+        ) -> std::result::Result<Response<DelegationToken>, Status> {
+            let reply = controller::DelegationToken {
+                delegation_token: "123".to_string(),
+            };
+            Ok(Response::new(reply))
+        }
+        async fn get_controller_server_list(
+            &self,
+            _request: Request<controller::ServerRequest>,
+        ) -> std::result::Result<Response<controller::ServerResponse>, Status> {
+            let reply = controller::ServerResponse { node_uri: vec![] };
+            Ok(Response::new(reply))
+        }
+        async fn get_segments_immediatly_following(
+            &self,
+            _request: Request<controller::SegmentId>,
+        ) -> std::result::Result<Response<controller::SuccessorResponse>, Status> {
+            let reply = controller::SuccessorResponse {
+                segments: vec![],
+                delegation_token: "123".to_string(),
+            };
+            Ok(Response::new(reply))
+        }
+        async fn get_segments_between(
+            &self,
+            _request: Request<controller::StreamCutRange>,
+        ) -> std::result::Result<Response<controller::StreamCutRangeResponse>, Status> {
+            let reply = controller::StreamCutRangeResponse {
+                segments: vec![],
+                delegation_token: "123".to_string(),
+            };
+            Ok(Response::new(reply))
+        }
+        async fn is_segment_valid(
+            &self,
+            _request: Request<controller::SegmentId>,
+        ) -> std::result::Result<Response<controller::SegmentValidityResponse>, Status> {
+            let reply = controller::SegmentValidityResponse { response: true };
+            Ok(Response::new(reply))
+        }
+        async fn is_stream_cut_valid(
+            &self,
+            _request: Request<controller::StreamCut>,
+        ) -> std::result::Result<Response<controller::StreamCutValidityResponse>, Status> {
+            let reply = controller::StreamCutValidityResponse { response: true };
+            Ok(Response::new(reply))
+        }
+        async fn list_streams_in_scope(
+            &self,
+            _request: Request<controller::StreamsInScopeRequest>,
+        ) -> std::result::Result<Response<controller::StreamsInScopeResponse>, Status> {
+            let reply = controller::StreamsInScopeResponse {
+                streams: vec![],
+                continuation_token: Some(controller::ContinuationToken {
+                    token: "123".to_string(),
+                }),
+                status: controller::streams_in_scope_response::Status::Success as i32,
+            };
+            Ok(Response::new(reply))
+        }
+        async fn remove_writer(
+            &self,
+            _request: Request<controller::RemoveWriterRequest>,
+        ) -> std::result::Result<Response<controller::RemoveWriterResponse>, Status> {
+            let reply = controller::RemoveWriterResponse {
+                result: controller::remove_writer_response::Status::Success as i32,
+            };
+            Ok(Response::new(reply))
+        }
+        async fn note_timestamp_from_writer(
+            &self,
+            _request: Request<controller::TimestampFromWriter>,
+        ) -> std::result::Result<Response<controller::TimestampResponse>, Status> {
+            let reply = controller::TimestampResponse {
+                result: controller::timestamp_response::Status::Success as i32,
+            };
+            Ok(Response::new(reply))
+        }
+    }
+
+    async fn run_server() {
+        let addr = "127.0.0.2:9091".parse().unwrap();
+        let server = MockServerImpl::default();
+
+        println!("mock controller server listening on {}", addr);
+
+        Server::builder()
+            .add_service(ControllerServiceServer::new(server))
+            .serve(addr)
+            .await
+            .unwrap();
     }
 }
