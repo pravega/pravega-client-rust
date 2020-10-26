@@ -12,7 +12,6 @@ use crate::trace;
 use crate::{get_random_u128, get_request_id};
 use snafu::ResultExt;
 use std::collections::VecDeque;
-use tokio::sync::mpsc::Sender;
 use tracing::{debug, error, field, info, info_span, warn};
 
 use pravega_rust_client_retry::retry_async::retry_async;
@@ -29,6 +28,7 @@ use crate::metric::ClientMetrics;
 use crate::raw_client::RawClient;
 use crate::reactor::event::{ConnectionFailure, Incoming, PendingEvent, ServerReply};
 use pravega_rust_client_auth::DelegationTokenProvider;
+use pravega_rust_client_channel::{CapacityGuard, ChannelSender};
 use std::fmt;
 use std::sync::Arc;
 use tracing_futures::Instrument;
@@ -56,7 +56,7 @@ pub(crate) struct SegmentWriter {
     event_num: i64,
 
     /// the sender that sends back reply to processor
-    sender: Sender<Incoming>,
+    sender: ChannelSender<Incoming>,
 
     /// The client retry policy
     retry_policy: RetryWithBackoff,
@@ -72,7 +72,7 @@ impl SegmentWriter {
 
     pub(crate) fn new(
         segment: ScopedSegment,
-        sender: Sender<Incoming>,
+        sender: ChannelSender<Incoming>,
         retry_policy: RetryWithBackoff,
         delegation_token_provider: Arc<DelegationTokenProvider>,
     ) -> Self {
@@ -165,7 +165,7 @@ impl SegmentWriter {
             self.connection = Some(w);
 
             let segment = self.segment.clone();
-            let mut sender = self.sender.clone();
+            let sender = self.sender.clone();
 
             // spins up a connection listener that keeps listening on the connection
             let listener_span = info_span!("connection listener", connection = %connection_id);
@@ -177,9 +177,9 @@ impl SegmentWriter {
                         Err(e) => {
                             warn!("connection failed to read data back from segmentstore due to {:?}, closing the listener task", e);
                             let result = sender
-                                .send(Incoming::ConnectionFailure(ConnectionFailure {
+                                .send((Incoming::ConnectionFailure(ConnectionFailure {
                                     segment: segment.clone(),
-                                })).await;
+                                }), 0)).await;
                             if let Err(e) = result {
                                 error!("failed to send connectionFailure signal to reactor {:?}", e);
                             }
@@ -188,10 +188,10 @@ impl SegmentWriter {
                     };
 
                     let result = sender
-                        .send(Incoming::ServerReply(ServerReply {
+                        .send((Incoming::ServerReply(ServerReply {
                             segment: segment.clone(),
                             reply,
-                        }))
+                        }), 0))
                         .await;
 
                     if let Err(e) = result {
@@ -207,18 +207,24 @@ impl SegmentWriter {
 
     /// first add the event to the pending list
     /// then write the pending list if the inflight list is empty
-    pub(crate) async fn write(&mut self, event: PendingEvent) -> Result<(), SegmentWriterError> {
-        self.add_pending(event);
+    pub(crate) async fn write(
+        &mut self,
+        event: PendingEvent,
+        cap_guard: CapacityGuard,
+    ) -> Result<(), SegmentWriterError> {
+        self.event_num += 1;
+        let append = Append {
+            event_id: self.event_num,
+            event,
+            cap_guard,
+        };
+        self.add_pending(append);
         self.write_pending_events().await
     }
 
     /// add the event to the pending list
-    pub(crate) fn add_pending(&mut self, event: PendingEvent) {
-        self.event_num += 1;
-        self.pending.push_back(Append {
-            event_id: self.event_num,
-            event,
-        });
+    pub(crate) fn add_pending(&mut self, append: Append) {
+        self.pending.push_back(append);
     }
 
     /// write the pending events to the server. It will grab at most MAX_WRITE_SIZE of data
@@ -289,7 +295,7 @@ impl SegmentWriter {
             return;
         }
 
-        // event id is -9223372036854775808 if no event acked for appendsetup
+        // event id is i64::MIN if no event acked for appendsetup
         if event_id < 0 {
             return;
         }
@@ -319,13 +325,13 @@ impl SegmentWriter {
 
     /// get the unacked events. Notice that it will pass the ownership
     /// of the unacked events to the caller, which means this method can only be called once.
-    pub(crate) fn get_unacked_events(&mut self) -> Vec<PendingEvent> {
+    pub(crate) fn get_unacked_events(&mut self) -> Vec<Append> {
         let mut ret = vec![];
         while let Some(append) = self.inflight.pop_front() {
-            ret.push(append.event);
+            ret.push(append);
         }
         while let Some(append) = self.pending.pop_front() {
-            ret.push(append.event);
+            ret.push(append);
         }
         ret
     }
@@ -385,7 +391,8 @@ impl fmt::Debug for SegmentWriter {
     }
 }
 
-struct Append {
-    event_id: i64,
-    event: PendingEvent,
+pub(crate) struct Append {
+    pub(crate) event_id: i64,
+    pub(crate) event: PendingEvent,
+    pub(crate) cap_guard: CapacityGuard,
 }

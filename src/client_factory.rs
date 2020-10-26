@@ -103,7 +103,7 @@ impl ClientFactory {
     }
 
     pub fn create_event_stream_writer(&self, stream: ScopedStream) -> EventStreamWriter {
-        EventStreamWriter::new(stream, self.0.config.clone(), self.clone())
+        EventStreamWriter::new(stream, self.clone())
     }
 
     pub async fn create_event_stream_reader(&self, stream: ScopedStream) -> EventReader {
@@ -119,7 +119,7 @@ impl ClientFactory {
     }
 
     pub fn create_byte_stream_writer(&self, segment: ScopedSegment) -> ByteStreamWriter {
-        ByteStreamWriter::new(segment, self.0.config.clone(), self.clone())
+        ByteStreamWriter::new(segment, self.clone())
     }
 
     pub fn create_byte_stream_reader(&self, segment: ScopedSegment) -> ByteStreamReader {

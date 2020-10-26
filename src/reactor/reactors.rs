@@ -8,50 +8,34 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use std::sync::Arc;
-use tokio::sync::mpsc::{Receiver, Sender};
+use pravega_rust_client_channel::ChannelReceiver;
 use tracing::{debug, error, info, warn};
 
-use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::wire_commands::Replies;
 
 use crate::client_factory::ClientFactory;
-use crate::error::*;
 use crate::reactor::event::{Incoming, ServerReply};
 use crate::reactor::segment_selector::SegmentSelector;
-use crate::reactor::segment_writer::SegmentWriter;
 
 #[derive(new)]
 pub(crate) struct StreamReactor {}
 
 impl StreamReactor {
     pub(crate) async fn run(
-        stream: ScopedStream,
-        sender: Sender<Incoming>,
-        mut receiver: Receiver<Incoming>,
+        mut selector: SegmentSelector,
+        mut receiver: ChannelReceiver<Incoming>,
         factory: ClientFactory,
-        config: ClientConfig,
     ) {
-        let delegation_token_provider = factory.create_delegation_token_provider(stream.clone()).await;
-        let mut selector = SegmentSelector::new(
-            stream,
-            sender,
-            config,
-            factory.clone(),
-            Arc::new(delegation_token_provider),
-        );
-        // get the current segments and create corresponding event segment writers
-        selector.initialize().await;
         info!("starting stream reactor");
         loop {
-            let event = receiver.recv().await.expect("sender closed, processor exit");
+            let (event, cap_guard) = receiver.recv().await.expect("sender closed, processor exit");
             match event {
                 Incoming::AppendEvent(pending_event) => {
                     let segment = selector.get_segment_for_event(&pending_event.routing_key);
                     let event_segment_writer = selector.writers.get_mut(&segment).expect("must have writer");
 
-                    if let Err(e) = event_segment_writer.write(pending_event).await {
+                    if let Err(e) = event_segment_writer.write(pending_event, cap_guard).await {
                         warn!("failed to write append to segment due to {:?}, reconnecting", e);
                         event_segment_writer.reconnect(&factory).await;
                     }
@@ -61,8 +45,6 @@ impl StreamReactor {
                         StreamReactor::process_server_reply(server_reply, &mut selector, &factory).await
                     {
                         error!("error occurs when processing server reply: {}", e);
-                        receiver.close();
-                        drain_receiver(receiver, e.to_owned()).await;
                         break;
                     }
                 }
@@ -160,131 +142,6 @@ impl StreamReactor {
                 );
                 Err("Unexpected reply")
             }
-        }
-    }
-}
-
-#[derive(new)]
-pub(crate) struct SegmentReactor {}
-
-impl SegmentReactor {
-    pub(crate) async fn run(
-        segment: ScopedSegment,
-        sender: Sender<Incoming>,
-        mut receiver: Receiver<Incoming>,
-        factory: ClientFactory,
-        config: ClientConfig,
-    ) {
-        let delegation_token_provider = factory
-            .create_delegation_token_provider(ScopedStream::from(&segment))
-            .await;
-        let mut writer = SegmentWriter::new(
-            segment.clone(),
-            sender.clone(),
-            config.retry_policy,
-            Arc::new(delegation_token_provider),
-        );
-        if let Err(_e) = writer.setup_connection(&factory).await {
-            writer.reconnect(&factory).await;
-        }
-
-        loop {
-            let event = receiver.recv().await.expect("sender closed, processor exit");
-            match event {
-                Incoming::AppendEvent(pending_event) => {
-                    if let Err(e) = writer.write(pending_event).await {
-                        warn!("failed to write append to segment due to {:?}, reconnecting", e);
-                        writer.reconnect(&factory).await;
-                    }
-                }
-                Incoming::ServerReply(server_reply) => {
-                    if let Err(e) =
-                        SegmentReactor::process_server_reply(server_reply, &mut writer, &factory).await
-                    {
-                        receiver.close();
-                        drain_receiver(receiver, e.to_owned()).await;
-                        break;
-                    }
-                }
-                Incoming::ConnectionFailure(_connection_failure) => {
-                    writer.reconnect(&factory).await;
-                }
-            }
-        }
-    }
-    async fn process_server_reply(
-        server_reply: ServerReply,
-        writer: &mut SegmentWriter,
-        factory: &ClientFactory,
-    ) -> Result<(), &'static str> {
-        match server_reply.reply {
-            Replies::DataAppended(cmd) => {
-                debug!(
-                    "data appended for writer {:?}, latest event id is: {:?}",
-                    writer.id, cmd.event_number
-                );
-                writer.ack(cmd.event_number);
-                if let Err(e) = writer.write_pending_events().await {
-                    warn!(
-                        "writer {:?} failed to flush data to segment {:?} due to {:?}, reconnecting",
-                        writer.id, writer.segment, e
-                    );
-                    writer.reconnect(factory).await;
-                }
-                Ok(())
-            }
-
-            Replies::AuthTokenCheckFailed(cmd) => {
-                if cmd.is_token_expired() {
-                    debug!(
-                        "delegation token check failed due to token expired, refresh token and try again: stack trace {}, error code {}",
-                        cmd.server_stack_trace, cmd.error_code
-                    );
-                    writer.signal_delegation_token_expiry();
-                    writer.reconnect(factory).await;
-                    Ok(())
-                } else {
-                    error!(
-                        "delegation token check failed: stack trace {}, error code {}",
-                        cmd.server_stack_trace, cmd.error_code
-                    );
-                    Err("Authentication failed")
-                }
-            }
-
-            Replies::SegmentIsSealed(cmd) => {
-                warn!(
-                    "segment {:?} sealed: stack trace {}",
-                    cmd.segment, cmd.server_stack_trace
-                );
-                Err("Segment is sealed")
-            }
-
-            // same handling logic as segment sealed reply
-            Replies::NoSuchSegment(cmd) => {
-                warn!(
-                    "no such segment {:?} due to segment truncation: stack trace {}",
-                    cmd.segment, cmd.server_stack_trace
-                );
-                Err("No such segment")
-            }
-
-            _ => {
-                error!(
-                    "receive unexpected reply {:?}, closing segment reactor",
-                    server_reply.reply
-                );
-                Err("Unexpected reply")
-            }
-        }
-    }
-}
-
-async fn drain_receiver(mut receiver: Receiver<Incoming>, msg: String) {
-    while let Some(remaining) = receiver.recv().await {
-        if let Incoming::AppendEvent(event) = remaining {
-            let err = Err(SegmentWriterError::ReactorClosed { msg: msg.clone() });
-            event.oneshot_sender.send(err).expect("send error");
         }
     }
 }
