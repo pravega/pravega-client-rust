@@ -16,8 +16,8 @@ use bytes::BufMut;
 use im::HashMap as ImHashMap;
 use pravega_rust_client_shared::{Reader, ScopedSegment, ScopedStream, Segment, SegmentWithRange};
 use std::collections::{HashMap, HashSet};
-use std::iter::FromIterator;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::oneshot;
 use tokio::sync::{mpsc, Mutex};
@@ -87,8 +87,9 @@ pub struct EventReader {
 pub struct ReaderMeta {
     slices: HashMap<String, SliceMetadata>,
     future_segments: HashMap<ScopedSegment, HashSet<Segment>>,
-    slice_release_receiver: HashMap<String, oneshot::Receiver<SliceMetadata>>,
+    slice_release_receiver: HashMap<String, oneshot::Receiver<Option<SliceMetadata>>>,
     slice_stop_reading: HashMap<String, oneshot::Sender<()>>,
+    last_segment_release: Instant,
 }
 
 impl ReaderMeta {
@@ -98,7 +99,7 @@ impl ReaderMeta {
     fn add_slice_release_receiver(
         &mut self,
         scoped_segment: String,
-        slice_return_rx: oneshot::Receiver<SliceMetadata>,
+        slice_return_rx: oneshot::Receiver<Option<SliceMetadata>>,
     ) {
         self.slice_release_receiver
             .insert(scoped_segment, slice_return_rx);
@@ -107,14 +108,11 @@ impl ReaderMeta {
     //
     // Wait until the user application returns the Segment Slice.
     //
-    async fn wait_for_segment_slice_return(&mut self, segment: &str) -> SliceMetadata {
+    async fn wait_for_segment_slice_return(&mut self, segment: &str) -> Option<SliceMetadata> {
         if let Some(receiver) = self.slice_release_receiver.remove(segment) {
             match receiver.await {
                 Ok(returned_meta) => {
                     debug!("SegmentSlice returned {:?}", returned_meta);
-                    if let Some(meta) = self.slices.remove(segment) {
-                        info!("Meta removed for segment {:?}", meta);
-                    }
                     returned_meta
                 }
                 Err(e) => {
@@ -132,14 +130,14 @@ impl ReaderMeta {
     // If the reader does not have the segment slice it waits for the segment slice which is out
     // for consumption.
     //
-    async fn remove_segment(&mut self, segment: String) -> SliceMetadata {
+    async fn remove_segment(&mut self, segment: String) -> Option<SliceMetadata> {
         match self.slices.remove(&segment) {
             Some(meta) => {
                 debug!(
                     "Segment slice {:?} has not been dished out for consumption",
                     &segment
                 );
-                meta
+                Some(meta)
             }
             None => {
                 debug!(
@@ -231,18 +229,20 @@ impl EventReader {
         let reader = Reader::from(id);
         let new_segments_to_acquire = rg_state.lock().await.compute_segments_to_acquire(&reader).await;
         // attempt acquiring the desired number of segments.
-        for _ in 0..new_segments_to_acquire {
-            if let Some(seg) = rg_state
-                .lock()
-                .await
-                .assign_segment_to_reader(&reader)
-                .await
-                .expect("Error while waiting for segments to be assigned")
-            {
-                debug!("Acquiring segment {:?} for reader {:?}", seg, reader);
-            } else {
-                // There are no new unassigned segments to be acquired.
-                break;
+        if new_segments_to_acquire > 0 {
+            for _ in 0..new_segments_to_acquire {
+                if let Some(seg) = rg_state
+                    .lock()
+                    .await
+                    .assign_segment_to_reader(&reader)
+                    .await
+                    .expect("Error while waiting for segments to be assigned")
+                {
+                    debug!("Acquiring segment {:?} for reader {:?}", seg, reader);
+                } else {
+                    // There are no new unassigned segments to be acquired.
+                    break;
+                }
             }
         }
         // Get all assigned segments for the reader.
@@ -347,6 +347,7 @@ impl EventReader {
                 future_segments: HashMap::new(),
                 slice_release_receiver: HashMap::new(),
                 slice_stop_reading,
+                last_segment_release: Instant::now(),
             },
             rg_state,
         }
@@ -356,19 +357,26 @@ impl EventReader {
     /// Release a partially read segment slice back to event reader.
     ///
     pub fn release_segment(&mut self, slice: SegmentSlice) {
-        //stop reading data
-        if let Some(tx) = slice.slice_return_tx {
-            if let Err(_e) = tx.send(slice.meta.clone()) {
-                warn!(
-                    "Failed to send segment slice release data for slice {:?}",
-                    slice.meta
-                );
-            }
+        if self.meta.last_segment_release.elapsed() > Duration::from_secs(10) {
+            debug!("Try rebalance segments across readers");
+            self.factory
+                .get_runtime_handle()
+                .block_on(self.release_segment_from_reader(slice));
         } else {
-            panic!("This is unexpected, No sender for SegmentSlice present.");
+            //send an indication to the waiting rx that slice has been returned.
+            if let Some(tx) = slice.slice_return_tx {
+                if let Err(_e) = tx.send(Some(slice.meta.clone())) {
+                    warn!(
+                        "Failed to send segment slice release data for slice {:?}",
+                        slice.meta
+                    );
+                }
+            } else {
+                panic!("This is unexpected, No sender for SegmentSlice present.");
+            }
+            //update meta data.
+            self.meta.add_slices(slice.meta);
         }
-        //update meta data.
-        self.meta.add_slices(slice.meta);
     }
 
     ///
@@ -420,6 +428,41 @@ impl EventReader {
         }
     }
 
+    async fn release_segment_from_reader(&mut self, slice: SegmentSlice) {
+        let new_segments_to_release = self
+            .rg_state
+            .lock()
+            .await
+            .compute_segments_to_acquire(&self.id)
+            .await;
+        // check if segments needs to be released from the reader
+        if new_segments_to_release < 0 {
+            // Stop reading from the segment.
+            self.meta.stop_reading(&slice.meta.scoped_segment);
+            // Send None to the waiting slice_return_rx.
+            if let Some(tx) = slice.slice_return_tx {
+                if let Err(_e) = tx.send(None) {
+                    warn!(
+                        "Failed to send segment slice release data for slice {:?}",
+                        slice.meta
+                    );
+                }
+            } else {
+                panic!("This is unexpected, No sender for SegmentSlice present.");
+            }
+            self.rg_state
+                .lock()
+                .await
+                .release_segment(
+                    &self.id,
+                    &ScopedSegment::from(slice.meta.scoped_segment.as_str()),
+                    &Offset::new(slice.meta.read_offset),
+                )
+                .await
+                .expect("Failed to release segment from RG state for reader");
+        }
+    }
+
     ///
     /// This function returns a SegmentSlice from the data received from the SegmentStore(s).
     /// Individual events can be read from the data received using `SegmentSlice.next()`.
@@ -450,29 +493,35 @@ impl EventReader {
             match read_result {
                 // received segment data
                 Ok(data) => {
-                    let mut slice_meta = self.meta.remove_segment(data.segment.clone()).await;
-                    if data.offset_in_segment
-                        != slice_meta.read_offset + slice_meta.segment_data.value.len() as i64
-                    {
-                        info!("Data from an invalid offset {:?} observed. Expected offset {:?}. Ignoring this data", data.offset_in_segment, slice_meta.read_offset);
-                        None
+                    if let Some(mut slice_meta) = self.meta.remove_segment(data.segment.clone()).await {
+                        if data.offset_in_segment
+                            != slice_meta.read_offset + slice_meta.segment_data.value.len() as i64
+                        {
+                            info!("Data from an invalid offset {:?} observed. Expected offset {:?}. Ignoring this data", data.offset_in_segment, slice_meta.read_offset);
+                            None
+                        } else {
+                            // add received data to Segment slice.
+                            EventReader::add_data_to_segment_slice(data, &mut slice_meta);
+
+                            // Create an one-shot channel to receive SegmentSlice return.
+                            let (slice_return_tx, slice_return_rx) = oneshot::channel();
+                            self.meta.add_slice_release_receiver(
+                                slice_meta.scoped_segment.clone(),
+                                slice_return_rx,
+                            );
+
+                            info!(
+                                "Segment Slice for {:?} is returned for consumption",
+                                slice_meta.scoped_segment
+                            );
+                            Some(SegmentSlice {
+                                meta: slice_meta,
+                                slice_return_tx: Some(slice_return_tx),
+                            })
+                        }
                     } else {
-                        // add received data to Segment slice.
-                        EventReader::add_data_to_segment_slice(data, &mut slice_meta);
-
-                        // Create an one-shot channel to receive SegmentSlice return.
-                        let (slice_return_tx, slice_return_rx) = oneshot::channel();
-                        self.meta
-                            .add_slice_release_receiver(slice_meta.scoped_segment.clone(), slice_return_rx);
-
-                        info!(
-                            "Segment Slice for {:?} is returned for consumption",
-                            slice_meta.scoped_segment
-                        );
-                        Some(SegmentSlice {
-                            meta: slice_meta,
-                            slice_return_tx: Some(slice_return_tx),
-                        })
+                        debug!("Ignore the received data since None was returned");
+                        None
                     }
                 }
                 Err((e, offset)) => {
@@ -482,13 +531,14 @@ impl EventReader {
                         e, segment, offset
                     );
                     // Remove the slice from the reader meta and fetch successors.
-                    let slice_meta = self.meta.remove_segment(segment.clone()).await;
-                    if slice_meta.read_offset != offset {
-                        info!("Error at an invalid offset {:?} observed. Expected offset {:?}. Ignoring this data", offset, slice_meta.start_offset);
-                        self.meta.add_slices(slice_meta);
-                    } else {
-                        info!("Segment slice {:?} has received error {:?}", slice_meta, e);
-                        self.fetch_successors(e).await;
+                    if let Some(slice_meta) = self.meta.remove_segment(segment.clone()).await {
+                        if slice_meta.read_offset != offset {
+                            info!("Error at an invalid offset {:?} observed. Expected offset {:?}. Ignoring this data", offset, slice_meta.start_offset);
+                            self.meta.add_slices(slice_meta);
+                        } else {
+                            info!("Segment slice {:?} has received error {:?}", slice_meta, e);
+                            self.fetch_successors(e).await;
+                        }
                     }
 
                     debug!("segment Slice meta {:?}", self.meta.slices);
@@ -572,7 +622,7 @@ impl EventReader {
             .await
             .compute_segments_to_acquire(&self.id)
             .await;
-        if new_segments_to_acquire == 0 {
+        if new_segments_to_acquire <= 0 {
             None
         } else {
             for _ in 0..new_segments_to_acquire {

@@ -37,7 +37,7 @@ pub struct Event {
 ///
 pub struct SegmentSlice {
     pub meta: SliceMetadata,
-    pub(crate) slice_return_tx: Option<oneshot::Sender<SliceMetadata>>,
+    pub(crate) slice_return_tx: Option<oneshot::Sender<Option<SliceMetadata>>>,
 }
 
 ///
@@ -192,7 +192,7 @@ impl SegmentSlice {
     pub(crate) fn new(
         segment: ScopedSegment,
         start_offset: i64,
-        slice_return_tx: oneshot::Sender<SliceMetadata>,
+        slice_return_tx: oneshot::Sender<Option<SliceMetadata>>,
     ) -> Self {
         SegmentSlice {
             meta: SliceMetadata {
@@ -400,7 +400,7 @@ impl Iterator for SegmentSlice {
                     info!("Partial event present in the segment slice of {:?}, this will be returned post a new read request", self.meta.scoped_segment);
                 }
                 if let Some(sender) = self.slice_return_tx.take() {
-                    let _ = sender.send(self.meta.clone());
+                    let _ = sender.send(Some(self.meta.clone()));
                 }
                 None
             }
