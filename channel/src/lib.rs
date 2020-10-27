@@ -46,6 +46,10 @@ impl<T> ChannelSender<T> {
         self.sender.send(message)?;
         Ok(())
     }
+
+    pub fn remain(&self) -> usize {
+        self.semaphore.permits()
+    }
 }
 
 impl<T> Clone for ChannelSender<T> {
@@ -123,6 +127,7 @@ mod tests {
         runtime.block_on(test_sender_block());
         runtime.block_on(test_sender_close_first());
         runtime.block_on(test_receiver_close_first());
+        runtime.block_on(test_guard_drop());
     }
 
     async fn test_simple_test() {
@@ -255,5 +260,29 @@ mod tests {
         tokio::time::delay_for(time::Duration::from_secs(1)).await;
         let result = tx.send((2, 4)).await;
         assert!(result.is_err());
+    }
+
+    async fn test_guard_drop() {
+        let (tx, mut rx) = create_channel(100);
+        tx.send((10, 10)).await.expect("send message to channel");
+        tx.send((20, 20)).await.expect("send message to channel");
+        tx.send((30, 30)).await.expect("send message to channel");
+        tx.send((40, 40)).await.expect("send message to channel");
+        assert_eq!(tx.remain(), 0);
+
+        let mut guards = vec![];
+        for _i in 0..4 {
+            if let Some((event, guard)) = rx.recv().await {
+                guards.push((event, guard));
+            }
+        }
+
+        guards.reverse();
+        let mut cap = 0;
+        for (event, guard) in guards {
+            drop(guard);
+            cap += event;
+            assert_eq!(tx.remain(), cap);
+        }
     }
 }

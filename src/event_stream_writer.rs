@@ -31,7 +31,7 @@ pub struct EventStreamWriter {
 impl EventStreamWriter {
     pub const MAX_EVENT_SIZE: usize = 8 * 1024 * 1024;
     // maximum 64 MB total size of events could be in memory
-    const CHANNEL_CAPACITY: usize = 64 * 1024 * 1024;
+    const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
     pub(crate) fn new(stream: ScopedStream, factory: ClientFactory) -> Self {
         let handle = factory.get_runtime_handle();

@@ -50,7 +50,7 @@ type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 
 impl Transaction {
     // maximum bytes stored in memory
-    const CHANNEL_CAPACITY: usize = 64 * 1024 * 1024;
+    const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
     // Transaction should be created by transactional event stream writer, so this new method
     // is not public.
