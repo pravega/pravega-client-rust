@@ -76,5 +76,5 @@ harness = false
 
 # temporary fix for incompatible metrics version
 [patch.crates-io]
-metrics-exporter-prometheus = { git = 'https://github.com/Tristan1900/metrics.git' }
-metrics = { git = 'https://github.com/Tristan1900/metrics.git' }
+metrics-exporter-prometheus = { git = 'https://github.com/Tristan1900/metrics' }
+metrics = { git = 'https://github.com/Tristan1900/metrics' }
