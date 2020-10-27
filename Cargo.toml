@@ -48,8 +48,8 @@ pcg_rand = "0.11.1"
 bytes = "0.5"
 im = "14.3.0"
 tokio-util = "0.3.1"
-metrics = "0.13.0-alpha.3"
-metrics-exporter-prometheus = "0.1.0-alpha.3"
+metrics = "0.13.0-alpha.4"
+metrics-exporter-prometheus = "0.1.0-alpha.4"
 enum-iterator = "0.6.0"
 
 [dev-dependencies]
@@ -74,6 +74,7 @@ cli = ["clap", "structopt"]
 name = "benchmark"
 harness = false
 
-# temporary fix for incompatible h2 version, remove this after Tokio 0.3 upgrade
+# temporary fix for incompatible metrics version
 [patch.crates-io]
-h2 = { git = 'https://github.com/Tristan1900/h2' }
+metrics-exporter-prometheus = { git = 'https://github.com/Tristan1900/metrics.git' }
+metrics = { git = 'https://github.com/Tristan1900/metrics.git' }
