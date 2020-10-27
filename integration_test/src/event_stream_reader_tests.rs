@@ -317,7 +317,7 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
             thread::sleep(Duration::from_secs(10));
             reader1.release_segment(slice);
         } else {
-            assert!(false, "A valid slice is expected");
+            panic!("A valid slice is expected");
         }
     }
 
@@ -326,7 +326,7 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
             assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
             reader2.release_segment(slice);
         } else {
-            assert!(false, "A valid slice is expected for reader2");
+            panic!("A valid slice is expected for reader2");
         }
     }
 }
