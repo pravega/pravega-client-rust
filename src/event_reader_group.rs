@@ -50,7 +50,7 @@ impl ReaderGroup {
         client_factory: &ClientFactory,
         init_segments: HashMap<ScopedSegment, Offset>,
     ) -> ReaderGroupState {
-        ReaderGroupState::new(name, &client_factory, rg_config, init_segments).await
+        ReaderGroupState::new(name, client_factory, rg_config, init_segments).await
     }
         }
     }
