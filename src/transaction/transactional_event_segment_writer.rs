@@ -53,7 +53,7 @@ impl TransactionalEventSegmentWriter {
         }
     }
 
-    /// sets up connection for this transaction segment by sending wirecommand SetupAppend.
+    /// Sets up connection for this transaction segment by sending wirecommand SetupAppend.
     /// If an error happened, try to reconnect to the server.
     pub(super) async fn initialize(&mut self, factory: &ClientFactory) {
         if let Err(_e) = self.event_segment_writer.setup_connection(factory).await {
@@ -61,7 +61,7 @@ impl TransactionalEventSegmentWriter {
         }
     }
 
-    /// writes event to the sever by calling event_segment_writer.
+    /// Writes an event to the sever by calling event_segment_writer.
     pub(super) async fn write_event(
         &mut self,
         event: Vec<u8>,
@@ -80,7 +80,7 @@ impl TransactionalEventSegmentWriter {
         Ok(())
     }
 
-    /// wait until all the outstanding events has been acked.
+    /// Waits until all the outstanding events have been acked.
     pub(super) async fn flush(
         &mut self,
         factory: &ClientFactory,
@@ -92,7 +92,7 @@ impl TransactionalEventSegmentWriter {
         Ok(())
     }
 
-    /// process any events that are waiting for server acks. It will wait until responses arrive.
+    /// Processes any events that are waiting for server acks. It will wait until responses arrive.
     async fn process_unacked_events(
         &mut self,
         factory: &ClientFactory,
@@ -105,7 +105,7 @@ impl TransactionalEventSegmentWriter {
         }
     }
 
-    /// try to process events that are waiting for server acks. If there is no response from server
+    /// Tries to process events that are waiting for server acks. If there is no response from server
     /// then return immediately.
     async fn try_process_unacked_events(
         &mut self,
@@ -121,7 +121,7 @@ impl TransactionalEventSegmentWriter {
         }
     }
 
-    /// processes the sever reply.
+    /// Processes the sever reply.
     async fn process_server_reply(
         &mut self,
         income: Incoming,
@@ -159,27 +159,26 @@ impl TransactionalEventSegmentWriter {
         }
     }
 
-    /// processes the data appended wirecommand.
+    /// Processes the data appended wirecommand.
     async fn process_data_appended(&mut self, factory: &ClientFactory, cmd: DataAppendedCommand) {
         debug!(
             "data appended for writer {:?}, latest event id is: {:?}",
-            self.event_segment_writer.get_id(),
-            cmd.event_number
+            self.event_segment_writer.id, cmd.event_number
         );
 
         self.event_segment_writer.ack(cmd.event_number);
         if let Err(e) = self.event_segment_writer.write_pending_events().await {
             warn!(
                 "writer {:?} failed to flush data to segment {:?} due to {:?}, reconnecting",
-                self.event_segment_writer.get_id(),
-                self.event_segment_writer.get_segment_name(),
+                self.event_segment_writer.id,
+                self.event_segment_writer.segment.to_string(),
                 e
             );
             self.event_segment_writer.reconnect(factory).await;
         }
     }
 
-    /// check if the latest inflight event has completed. If it has completed then there are no
+    /// Checks if the latest inflight event has completed. If it has completed then there are no
     /// more inflight events.
     fn remove_completed(&mut self) -> Result<(), TransactionalEventSegmentWriterError> {
         assert!(self.outstanding.is_some());
@@ -194,5 +193,36 @@ impl TransactionalEventSegmentWriter {
             }
             Err(e) => Err(TransactionalEventSegmentWriterError::OneshotError { source: e }),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_rust_client_config::ClientConfigBuilder;
+    use pravega_rust_client_shared::{PravegaNodeUri, ScopedStream};
+    use tokio::runtime::Runtime;
+
+    #[test]
+    fn test_txn_event_segment_writer() {
+        let mut rt = Runtime::new().unwrap();
+        let txn_segment = ScopedSegment::from("scope/stream/0");
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(MockType::Happy))
+            .mock(true)
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
+            .build()
+            .unwrap();
+        let retry_policy = config.retry_policy();
+        let factory = ClientFactory::new(config);
+        let token_provider =
+            rt.block_on(factory.create_delegation_token_provider(ScopedStream::from(&txn_segment)));
+        let mut txn_writer =
+            TransactionalEventSegmentWriter::new(txn_segment, retry_policy, Arc::new(token_provider));
+        rt.block_on(txn_writer.initialize(&factory));
+        rt.block_on(txn_writer.write_event(vec![1; 1024], &factory))
+            .expect("write to txn segment");
+        rt.block_on(txn_writer.flush(&factory)).expect("flush to segment");
     }
 }

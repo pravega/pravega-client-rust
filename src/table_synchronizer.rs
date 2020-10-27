@@ -33,14 +33,12 @@ use tracing::debug;
 /// Each process can perform logic based on its in memory map and apply updates by supplying a
 /// function to create Insert/Remove objects.
 /// Updates from other processes can be obtained by calling fetchUpdates().
-
-/// TableSynchronizer contains a name, a table_map that sends the map entries to server
-/// and an in memory map.
 pub struct TableSynchronizer {
-    /// The name of the TableSynchronizer.
+    /// The name of the TableSynchronizer. This is also the name of the stream name of table segment.
+    /// Different instances of TableSynchronizer with same name will point to the same table segment.
     name: String,
 
-    /// TableMap is used to talk to the server.
+    /// TableMap is the table segment client.
     table_map: TableMap,
 
     /// in_memory_map is a two-level nested hash map that uses two keys to identify a value.
@@ -56,7 +54,7 @@ pub struct TableSynchronizer {
     /// since some logic may depend on a certain map not being changed during an update.
     in_memory_map_version: HashMap<Key, Value>,
 
-    /// An offset that is used to make conditional update on the server side.
+    /// An offset that is used to make conditional updates.
     table_segment_offset: i64,
 
     /// The latest fetch position on the server side.
@@ -121,7 +119,7 @@ impl TableSynchronizer {
             .collect()
     }
 
-    ///Gets the name of the table_synchronizer, the name is the same as the stream name.
+    /// Gets the name of the table_synchronizer, the name is the same as the stream name.
     pub fn get_name(&self) -> String {
         self.name.clone()
     }
@@ -192,6 +190,7 @@ impl TableSynchronizer {
             None
         }
     }
+
     /// Fetches the latest map from remote server and applies it to the local map.
     pub async fn fetch_updates(&mut self) -> Result<i32, TableError> {
         debug!(
@@ -690,7 +689,6 @@ async fn conditionally_write(
 
             to_send.push((&update.composite_key, value, key_version));
         }
-
         let result = table_synchronizer
             .table_map
             .insert_conditionally_all(to_send, table_synchronizer.table_segment_offset)
@@ -872,7 +870,11 @@ mod test {
     use super::*;
     use crate::table_synchronizer::{deserialize_from, Table};
     use crate::table_synchronizer::{serialize, Value};
+    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_rust_client_config::ClientConfigBuilder;
+    use pravega_rust_client_shared::PravegaNodeUri;
     use std::collections::HashMap;
+    use tokio::runtime::Runtime;
 
     #[test]
     fn test_intern_key_split() {
@@ -1008,5 +1010,38 @@ mod test {
         let value = table.get("test_outer", "test_inner").expect("get value");
         let deserialized_data: i32 = deserialize_from(&value.data).expect("deserialize");
         assert_eq!(deserialized_data, 1);
+    }
+
+    #[test]
+    fn test_integration_with_table_map() {
+        let mut rt = Runtime::new().unwrap();
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(MockType::Happy))
+            .mock(true)
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        let mut sync = rt.block_on(factory.create_table_synchronizer("sync".to_string()));
+        rt.block_on(sync.insert(|table| {
+            table.insert(
+                "outer_key".to_owned(),
+                "inner_key".to_owned(),
+                "i32".to_owned(),
+                Box::new(1),
+            );
+            Ok(None)
+        }))
+        .unwrap();
+        let value_option = sync.get("outer_key", "inner_key");
+        assert!(value_option.is_some());
+
+        rt.block_on(sync.remove(|table| {
+            table.insert_tombstone("outer_key".to_owned(), "inner_key".to_owned())?;
+            Ok(None)
+        }))
+        .unwrap();
+        let value_option = sync.get("outer_key", "inner_key");
+        assert!(value_option.is_none());
     }
 }

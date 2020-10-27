@@ -21,7 +21,7 @@ pravega-rust-client-config = { path = "../config"}
 async-trait = "0.1.36"
 prost = "0.6.1"
 snafu = "0.6.2"
-tokio = { version = "0.2.8", features = ["full"] }
+tokio = { version = "0.2.22", features = ["full"] }
 tonic = { version = "0.3.1", features = ["tls"] }
 derive_more = "0.99.9"
 ordered-float = "1.0.2"
@@ -32,6 +32,7 @@ im = "14.3.0"
 tracing = "0.1"
 jsonwebtoken = "7"
 serde = {version = "1.0", features = ["derive"] }
+h2 = "0.2.6"
 
 [build-dependencies]
 tonic-build = "0.3.1"

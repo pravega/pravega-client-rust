@@ -10,7 +10,7 @@
 
 extern crate byteorder;
 use crate::commands::MAX_WIRECOMMAND_SIZE;
-use crate::connection::{Connection, ReadingConnection, WritingConnection};
+use crate::connection::{Connection, ConnectionReadHalf, ConnectionWriteHalf};
 use crate::error::*;
 use crate::wire_commands::{Decode, Encode, Replies, Requests};
 use async_trait::async_trait;
@@ -20,6 +20,7 @@ use snafu::{ensure, ResultExt};
 use std::io::Cursor;
 use std::ops::DerefMut;
 use uuid::Uuid;
+
 pub const LENGTH_FIELD_OFFSET: u32 = 4;
 pub const LENGTH_FIELD_LENGTH: u32 = 4;
 
@@ -28,7 +29,7 @@ pub const LENGTH_FIELD_LENGTH: u32 = 4;
 pub trait ClientConnection: Send + Sync {
     async fn read(&mut self) -> Result<Replies, ClientConnectionError>;
     async fn write(&mut self, request: &Requests) -> Result<(), ClientConnectionError>;
-    fn split(&mut self) -> (ReadingClientConnection, WritingClientConnection);
+    fn split(&mut self) -> (ClientConnectionReadHalf, ClientConnectionWriteHalf);
     fn get_uuid(&self) -> Uuid;
 }
 
@@ -36,12 +37,13 @@ pub struct ClientConnectionImpl<'a> {
     pub connection: PooledConnection<'a, Box<dyn Connection>>,
 }
 
-pub struct ReadingClientConnection {
-    read_half: Box<dyn ReadingConnection>,
+pub struct ClientConnectionReadHalf {
+    read_half: Box<dyn ConnectionReadHalf>,
 }
 
-pub struct WritingClientConnection {
-    write_half: Box<dyn WritingConnection>,
+#[derive(Debug)]
+pub struct ClientConnectionWriteHalf {
+    write_half: Box<dyn ConnectionWriteHalf>,
 }
 
 impl<'a> ClientConnectionImpl<'a> {
@@ -50,7 +52,7 @@ impl<'a> ClientConnectionImpl<'a> {
     }
 }
 
-impl ReadingClientConnection {
+impl ClientConnectionReadHalf {
     pub async fn read(&mut self) -> Result<Replies, ClientConnectionError> {
         let mut header: Vec<u8> = vec![0; LENGTH_FIELD_OFFSET as usize + LENGTH_FIELD_LENGTH as usize];
         self.read_half.read_async(&mut header[..]).await.context(Read {
@@ -79,7 +81,7 @@ impl ReadingClientConnection {
     }
 }
 
-impl WritingClientConnection {
+impl ClientConnectionWriteHalf {
     pub async fn write(&mut self, request: &Requests) -> Result<(), ClientConnectionError> {
         let payload = request.write_fields().context(EncodeCommand {})?;
         self.write_half.send_async(&payload).await.context(Write {})
@@ -101,11 +103,11 @@ impl ClientConnection for ClientConnectionImpl<'_> {
         write_wirecommand(&mut **self.connection.deref_mut(), request).await
     }
 
-    fn split(&mut self) -> (ReadingClientConnection, WritingClientConnection) {
+    fn split(&mut self) -> (ClientConnectionReadHalf, ClientConnectionWriteHalf) {
         let (r, w) = self.connection.split();
         self.connection.invalidate();
-        let reader = ReadingClientConnection { read_half: r };
-        let writer = WritingClientConnection { write_half: w };
+        let reader = ClientConnectionReadHalf { read_half: r };
+        let writer = ClientConnectionWriteHalf { write_half: w };
         (reader, writer)
     }
 
@@ -152,19 +154,19 @@ mod tests {
     use crate::connection_factory::{ConnectionFactory, ConnectionFactoryConfig, SegmentConnectionManager};
     use crate::wire_commands::Replies;
     use pravega_connection_pool::connection_pool::ConnectionPool;
-    use pravega_rust_client_config::connection_type::ConnectionType;
+    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
     use pravega_rust_client_shared::PravegaNodeUri;
     use tokio::runtime::Runtime;
 
     #[test]
     fn client_connection_write_and_read() {
         let mut rt = Runtime::new().expect("create tokio Runtime");
-        let config = ConnectionFactoryConfig::new(ConnectionType::Mock);
+        let config = ConnectionFactoryConfig::new(ConnectionType::Mock(MockType::Happy));
         let connection_factory = ConnectionFactory::create(config);
         let manager = SegmentConnectionManager::new(connection_factory, 1);
         let pool = ConnectionPool::new(manager);
         let connection = rt
-            .block_on(pool.get_connection(PravegaNodeUri::from("127.0.0.1:9090".to_string())))
+            .block_on(pool.get_connection(PravegaNodeUri::from("127.0.0.1:9090")))
             .expect("get connection from pool");
 
         let mut client_connection = ClientConnectionImpl::new(connection);

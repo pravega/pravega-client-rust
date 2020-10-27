@@ -9,13 +9,14 @@
 //
 
 use crate::client_connection::{read_wirecommand, write_wirecommand};
-use crate::commands::{HelloCommand, OLDEST_COMPATIBLE_VERSION, WIRE_VERSION};
-use crate::connection::{Connection, TokioConnection};
+use crate::commands::{HelloCommand, TableKey, TableValue, OLDEST_COMPATIBLE_VERSION, WIRE_VERSION};
+use crate::connection::{Connection, TlsConnection, TokioConnection};
 use crate::error::*;
 use crate::mock_connection::MockConnection;
 use crate::wire_commands::{Replies, Requests};
 use async_trait::async_trait;
 use pravega_connection_pool::connection_pool::{ConnectionPoolError, Manager};
+use pravega_rust_client_config::connection_type::MockType;
 use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfig};
 use pravega_rust_client_shared::{PravegaNodeUri, SegmentInfo};
 use snafu::ResultExt;
@@ -65,7 +66,7 @@ impl dyn ConnectionFactory {
                 config.is_tls_enabled,
                 &config.cert_path,
             )),
-            ConnectionType::Mock => Box::new(MockConnectionFactory::new()),
+            ConnectionType::Mock(mock_type) => Box::new(MockConnectionFactory::new(mock_type)),
         }
     }
 }
@@ -115,7 +116,7 @@ impl ConnectionFactory for TokioConnectionFactory {
                 .connect(domain, stream)
                 .await
                 .expect("connect to tls stream");
-            Box::new(TokioConnection {
+            Box::new(TlsConnection {
                 uuid,
                 endpoint: endpoint.clone(),
                 stream: Some(stream),
@@ -139,16 +140,26 @@ impl ConnectionFactory for TokioConnectionFactory {
         Ok(tokio_connection)
     }
 }
+
+type TableSegmentIndex = HashMap<String, HashMap<TableKey, TableValue>>;
+type TableSegment = HashMap<String, Vec<(TableKey, TableValue)>>;
+
 struct MockConnectionFactory {
     segments: Arc<Mutex<HashMap<String, SegmentInfo>>>,
     writers: Arc<Mutex<HashMap<u128, String>>>,
+    table_segment_index: Arc<Mutex<TableSegmentIndex>>,
+    table_segment: Arc<Mutex<TableSegment>>,
+    mock_type: MockType,
 }
 
 impl MockConnectionFactory {
-    pub fn new() -> Self {
+    pub fn new(mock_type: MockType) -> Self {
         MockConnectionFactory {
             segments: Arc::new(Mutex::new(HashMap::new())),
             writers: Arc::new(Mutex::new(HashMap::new())),
+            table_segment_index: Arc::new(Mutex::new(HashMap::new())),
+            table_segment: Arc::new(Mutex::new(HashMap::new())),
+            mock_type,
         }
     }
 }
@@ -159,7 +170,14 @@ impl ConnectionFactory for MockConnectionFactory {
         &self,
         endpoint: PravegaNodeUri,
     ) -> Result<Box<dyn Connection>, ConnectionFactoryError> {
-        let mock = MockConnection::new(endpoint, self.segments.clone(), self.writers.clone());
+        let mock = MockConnection::new(
+            endpoint,
+            self.segments.clone(),
+            self.writers.clone(),
+            self.table_segment_index.clone(),
+            self.table_segment.clone(),
+            self.mock_type,
+        );
         Ok(Box::new(mock) as Box<dyn Connection>)
     }
 }
@@ -278,17 +296,17 @@ mod tests {
     use super::*;
     use crate::wire_commands::{Decode, Encode};
     use log::info;
-    use pravega_rust_client_config::connection_type::ConnectionType;
+    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
     use tokio::runtime::Runtime;
 
     #[test]
     fn test_mock_connection() {
         info!("test mock connection factory");
         let mut rt = Runtime::new().unwrap();
-        let config = ConnectionFactoryConfig::new(ConnectionType::Mock);
+        let config = ConnectionFactoryConfig::new(ConnectionType::Mock(MockType::Happy));
         let connection_factory = ConnectionFactory::create(config);
         let connection_future =
-            connection_factory.establish_connection(PravegaNodeUri::from("127.1.1.1:9090".to_string()));
+            connection_factory.establish_connection(PravegaNodeUri::from("127.1.1.1:9090"));
         let mut mock_connection = rt.block_on(connection_future).unwrap();
 
         let request = Requests::Hello(HelloCommand {
