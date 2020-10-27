@@ -27,7 +27,7 @@ use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::metric::ClientMetrics;
 use crate::raw_client::RawClient;
-use crate::reactor::event::{Incoming, PendingEvent, ServerReply};
+use crate::reactor::event::{ConnectionFailure, Incoming, PendingEvent, ServerReply};
 use pravega_rust_client_auth::DelegationTokenProvider;
 use std::fmt;
 use std::sync::Arc;
@@ -176,6 +176,13 @@ impl SegmentWriter {
                         Ok(reply) => reply,
                         Err(e) => {
                             warn!("connection failed to read data back from segmentstore due to {:?}, closing the listener task", e);
+                            let result = sender
+                                .send(Incoming::ConnectionFailure(ConnectionFailure {
+                                    segment: segment.clone(),
+                                })).await;
+                            if let Err(e) = result {
+                                error!("failed to send connectionFailure signal to reactor {:?}", e);
+                            }
                             return;
                         }
                     };
@@ -188,7 +195,7 @@ impl SegmentWriter {
                         .await;
 
                     if let Err(e) = result {
-                        error!("connection read data from segmentstore but failed to send reply back to processor due to {:?}",e);
+                        error!("connection read data from segmentstore but failed to send reply back to reactor due to {:?}",e);
                         return;
                     }
                 }

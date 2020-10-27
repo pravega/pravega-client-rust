@@ -20,12 +20,18 @@ use crate::error::*;
 pub(crate) enum Incoming {
     AppendEvent(PendingEvent),
     ServerReply(ServerReply),
+    ConnectionFailure(ConnectionFailure),
 }
 
 #[derive(new, Debug)]
 pub(crate) struct ServerReply {
     pub(crate) segment: ScopedSegment,
     pub(crate) reply: Replies,
+}
+
+#[derive(new, Debug)]
+pub(crate) struct ConnectionFailure {
+    pub(crate) segment: ScopedSegment,
 }
 
 #[derive(Debug)]

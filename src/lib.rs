@@ -42,6 +42,7 @@ pub mod event_reader_group;
 pub mod raw_client;
 mod reactor;
 pub mod reader_group;
+pub mod segment_metadata;
 pub mod segment_reader;
 pub mod segment_slice;
 mod stream;

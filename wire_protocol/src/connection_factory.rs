@@ -17,13 +17,15 @@ use crate::wire_commands::{Replies, Requests};
 use async_trait::async_trait;
 use pravega_connection_pool::connection_pool::{ConnectionPoolError, Manager};
 use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfig};
-use pravega_rust_client_shared::PravegaNodeUri;
+use pravega_rust_client_shared::{PravegaNodeUri, SegmentInfo};
 use snafu::ResultExt;
+use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
 use tokio::net::TcpStream;
+use tokio::sync::Mutex;
 use tokio_rustls::{rustls, webpki::DNSNameRef, TlsConnector};
 use tracing::info;
 use uuid::Uuid;
@@ -63,7 +65,7 @@ impl dyn ConnectionFactory {
                 config.is_tls_enabled,
                 &config.cert_path,
             )),
-            ConnectionType::Mock => Box::new(MockConnectionFactory {}),
+            ConnectionType::Mock => Box::new(MockConnectionFactory::new()),
         }
     }
 }
@@ -81,7 +83,6 @@ impl TokioConnectionFactory {
         }
     }
 }
-struct MockConnectionFactory {}
 
 #[async_trait]
 impl ConnectionFactory for TokioConnectionFactory {
@@ -138,6 +139,19 @@ impl ConnectionFactory for TokioConnectionFactory {
         Ok(tokio_connection)
     }
 }
+struct MockConnectionFactory {
+    segments: Arc<Mutex<HashMap<String, SegmentInfo>>>,
+    writers: Arc<Mutex<HashMap<u128, String>>>,
+}
+
+impl MockConnectionFactory {
+    pub fn new() -> Self {
+        MockConnectionFactory {
+            segments: Arc::new(Mutex::new(HashMap::new())),
+            writers: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+}
 
 #[async_trait]
 impl ConnectionFactory for MockConnectionFactory {
@@ -145,7 +159,7 @@ impl ConnectionFactory for MockConnectionFactory {
         &self,
         endpoint: PravegaNodeUri,
     ) -> Result<Box<dyn Connection>, ConnectionFactoryError> {
-        let mock = MockConnection::new(endpoint);
+        let mock = MockConnection::new(endpoint, self.segments.clone(), self.writers.clone());
         Ok(Box::new(mock) as Box<dyn Connection>)
     }
 }

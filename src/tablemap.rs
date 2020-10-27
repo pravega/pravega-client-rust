@@ -103,7 +103,7 @@ impl TableMap {
             match result {
                 Ok(reply) => RetryResult::Success(reply),
                 Err(e) => {
-                    if e.refresh_token() {
+                    if e.is_token_expired() {
                         table_map.delegation_token_provider.signal_token_expiry();
                         info!("auth token needs to refresh");
                     }
@@ -549,7 +549,7 @@ impl TableMap {
             match result {
                 Ok(reply) => RetryResult::Success(reply),
                 Err(e) => {
-                    if e.refresh_token() {
+                    if e.is_token_expired() {
                         self.delegation_token_provider.signal_token_expiry();
                         info!("auth token needs to refresh");
                     }
@@ -612,7 +612,7 @@ impl TableMap {
             match result {
                 Ok(reply) => RetryResult::Success(reply),
                 Err(e) => {
-                    if e.refresh_token() {
+                    if e.is_token_expired() {
                         self.delegation_token_provider.signal_token_expiry();
                         info!("auth token needs to refresh");
                     }
@@ -678,7 +678,7 @@ impl TableMap {
             match result {
                 Ok(reply) => RetryResult::Success(reply),
                 Err(e) => {
-                    if e.refresh_token() {
+                    if e.is_token_expired() {
                         self.delegation_token_provider.signal_token_expiry();
                         info!("auth token needs to refresh");
                     }
@@ -739,7 +739,7 @@ impl TableMap {
             match result {
                 Ok(reply) => RetryResult::Success(reply),
                 Err(e) => {
-                    if e.refresh_token() {
+                    if e.is_token_expired() {
                         self.delegation_token_provider.signal_token_expiry();
                         info!("auth token needs to refresh");
                     }
@@ -798,7 +798,7 @@ impl TableMap {
             match result {
                 Ok(reply) => RetryResult::Success(reply),
                 Err(e) => {
-                    if e.refresh_token() {
+                    if e.is_token_expired() {
                         self.delegation_token_provider.signal_token_expiry();
                         info!("auth token needs to refresh");
                     }
@@ -865,7 +865,7 @@ impl TableMap {
             match result {
                 Ok(reply) => RetryResult::Success(reply),
                 Err(e) => {
-                    if e.refresh_token() {
+                    if e.is_token_expired() {
                         self.delegation_token_provider.signal_token_expiry();
                         info!("auth token needs to refresh");
                     }
