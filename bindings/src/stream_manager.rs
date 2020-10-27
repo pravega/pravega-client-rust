@@ -8,13 +8,10 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use std::sync::Arc;
-use tokio::sync::Mutex;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use crate::stream_writer_transactional::StreamTxnWriter;
         use crate::stream_writer::StreamWriter;
-        use crate::stream_reader::StreamReader;
         use pravega_client_rust::client_factory::ClientFactory;
         use pravega_rust_client_shared::*;
         use pravega_rust_client_config::{ClientConfig, ClientConfigBuilder};
@@ -257,21 +254,21 @@ impl StreamManager {
     /// reader=manager.create_reader("scope", "stream")
     /// ```
     ///
-    #[text_signature = "($self, scope_name, stream_name)"]
-    pub fn create_reader(&self, scope_name: &str, stream_name: &str) -> PyResult<StreamReader> {
-        let scoped_stream = ScopedStream {
-            scope: Scope::from(scope_name.to_string()),
-            stream: Stream::from(stream_name.to_string()),
-        };
-        let handle = self.cf.get_runtime_handle();
-        let reader = handle.block_on(self.cf.create_event_stream_reader(scoped_stream.clone()));
-        let stream_reader = StreamReader::new(
-            Arc::new(Mutex::new(reader)),
-            self.cf.get_runtime_handle(),
-            scoped_stream,
-        );
-        Ok(stream_reader)
-    }
+    // #[text_signature = "($self, scope_name, stream_name)"]
+    // pub fn create_reader_group(&self, scope_name: &str, stream_name: &str) -> PyResult<StreamReader> {
+    //     let scoped_stream = ScopedStream {
+    //         scope: Scope::from(scope_name.to_string()),
+    //         stream: Stream::from(stream_name.to_string()),
+    //     };
+    //     let handle = self.cf.get_runtime_handle();
+    //     let reader = handle.block_on(self.cf.create_event_stream_reader(scoped_stream.clone()));
+    //     let stream_reader = StreamReader::new(
+    //         Arc::new(Mutex::new(reader)),
+    //         self.cf.get_runtime_handle(),
+    //         scoped_stream,
+    //     );
+    //     Ok(stream_reader)
+    // }
 
     /// Returns the facet string representation.
     fn to_str(&self) -> String {
