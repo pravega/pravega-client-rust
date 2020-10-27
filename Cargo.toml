@@ -74,3 +74,6 @@ cli = ["clap", "structopt"]
 name = "benchmark"
 harness = false
 
+# temporary fix for incompatible h2 version, remove this after Tokio 0.3 upgrade
+[patch.crates-io]
+h2 = { git = 'https://github.com/Tristan1900/h2' }
