@@ -9,7 +9,8 @@
 //
 
 use crate::client_factory::ClientFactory;
-use crate::reader_group::reader_group_state::{Offset, ReaderGroupState};
+use crate::reader_group::reader_group_state::Offset;
+
 use crate::segment_reader::ReaderError;
 use crate::segment_slice::{SegmentDataBuffer, SegmentSlice, SliceMetadata};
 use bytes::BufMut;
@@ -26,6 +27,15 @@ use tracing::{debug, error, info, warn};
 pub type ReaderErrorWithOffset = (ReaderError, i64);
 pub type SegmentReadResult = Result<SegmentDataBuffer, ReaderErrorWithOffset>;
 
+const REBALANCE_INTERVAL: Duration = Duration::from_secs(10);
+
+cfg_if::cfg_if! {
+    if #[cfg(test)] {
+        use crate::reader_group::reader_group_state::MockReaderGroupState as ReaderGroupState;
+    } else {
+        use crate::reader_group::reader_group_state::ReaderGroupState;
+    }
+}
 ///
 /// This represents an event reader. An event readers fetches its assigned segments and provides the
 /// following APIs.
@@ -90,6 +100,7 @@ pub struct ReaderMeta {
     slice_release_receiver: HashMap<String, oneshot::Receiver<Option<SliceMetadata>>>,
     slice_stop_reading: HashMap<String, oneshot::Sender<()>>,
     last_segment_release: Instant,
+    last_segment_acquire: Instant,
 }
 
 impl ReaderMeta {
@@ -348,6 +359,7 @@ impl EventReader {
                 slice_release_receiver: HashMap::new(),
                 slice_stop_reading,
                 last_segment_release: Instant::now(),
+                last_segment_acquire: Instant::now(),
             },
             rg_state,
         }
@@ -357,7 +369,7 @@ impl EventReader {
     /// Release a partially read segment slice back to event reader.
     ///
     pub fn release_segment(&mut self, slice: SegmentSlice) {
-        if self.meta.last_segment_release.elapsed() > Duration::from_secs(10) {
+        if self.meta.last_segment_release.elapsed() > REBALANCE_INTERVAL {
             debug!("Try rebalance segments across readers");
             self.factory
                 .get_runtime_handle()
@@ -473,25 +485,28 @@ impl EventReader {
     /// returning the data.
     ///
     pub async fn acquire_segment(&mut self) -> Option<SegmentSlice> {
-        // Assign newer segments to this reader if available.
-        if let Some(new_segments) = self.assign_segments_to_reader().await {
-            // fetch current segments.
-            let current_segments = self
-                .rg_state
-                .lock()
-                .await
-                .get_segments_for_reader(&self.id)
-                .await
-                .expect("Read segments");
-            let new_segments: HashSet<(ScopedSegment, Offset)> = current_segments
-                .into_iter()
-                .filter(|(seg, _off)| new_segments.contains(seg))
-                .collect();
-            debug!("Segments which can be read next are {:?}", new_segments);
-            // Initiate segment reads to the newer segments.
-            self.initiate_segment_reads(new_segments);
+        // Check if newer segments should be acquired.
+        if self.meta.last_segment_acquire.elapsed() > REBALANCE_INTERVAL {
+            // Assign newer segments to this reader if available.
+            if let Some(new_segments) = self.assign_segments_to_reader().await {
+                // fetch current segments.
+                let current_segments = self
+                    .rg_state
+                    .lock()
+                    .await
+                    .get_segments_for_reader(&self.id)
+                    .await
+                    .expect("Read segments");
+                let new_segments: HashSet<(ScopedSegment, Offset)> = current_segments
+                    .into_iter()
+                    .filter(|(seg, _off)| new_segments.contains(seg))
+                    .collect();
+                debug!("Segments which can be read next are {:?}", new_segments);
+                // Initiate segment reads to the newer segments.
+                self.initiate_segment_reads(new_segments);
+            }
         }
-        // 1.Check if any of the segments have event data
+        // Check if any of the segments already has event data and return it.
         if let Some(segment_with_data) = self.meta.get_segment_id_with_data() {
             let slice_meta = self.meta.slices.remove(segment_with_data.as_str()).unwrap();
             // Create an one-shot channel to receive SegmentSlice return.
@@ -558,7 +573,6 @@ impl EventReader {
                             self.fetch_successors(e).await;
                         }
                     }
-
                     debug!("segment Slice meta {:?}", self.meta.slices);
                     None
                 }
@@ -712,335 +726,348 @@ impl EventReader {
 
 #[cfg(test)]
 mod tests {
-    // use crate::client_factory::ClientFactory;
-    use crate::event_reader::SegmentReadResult;
-    // use crate::reader_group::reader_group_state::MockReaderGroupState as ReaderGroupState;
+    use super::*;
+    use crate::client_factory::ClientFactory;
+    use crate::event_reader::{EventReader, SegmentReadResult};
+    // use crate::reader_group::reader_group_state::MockReaderGroupState; // as ReaderGroupState;
+    // use crate::reader_group::reader_group_state::ReaderGroupState;
     use crate::segment_slice::{SegmentDataBuffer, SegmentSlice, SliceMetadata};
     use bytes::{BufMut, BytesMut};
-    // use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
-    use pravega_rust_client_shared::{Scope, ScopedSegment, ScopedStream, Stream};
+    use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
+    use pravega_rust_client_shared::{Reader, Scope, ScopedSegment, ScopedStream, Stream};
     use pravega_wire_protocol::commands::{Command, EventCommand};
     use std::collections::HashMap;
     use std::iter;
-    // use std::sync::Arc;
+    use std::sync::Arc;
     use tokio::sync::mpsc::Sender;
     use tokio::sync::oneshot;
     use tokio::sync::oneshot::error::TryRecvError;
-    // use tokio::sync::{mpsc, Mutex};
+    use tokio::sync::{mpsc, Mutex};
     use tokio::time::{delay_for, Duration};
-    // use tracing::Level;
+    use tracing::Level;
 
     /*
      This test verifies EventReader reads from a stream where only one segment has data while the other segment is empty.
     */
-    // #[test]
-    // fn test_read_events_single_segment() {
-    //     const NUM_EVENTS: usize = 100;
-    //     let (tx, rx) = mpsc::channel(1);
-    //     tracing_subscriber::fmt().with_max_level(Level::TRACE).finish();
-    //     let cf = ClientFactory::new(
-    //         ClientConfigBuilder::default()
-    //             .controller_uri(MOCK_CONTROLLER_URI)
-    //             .build()
-    //             .unwrap(),
-    //     );
-    //     let stream = get_scoped_stream("scope", "test");
-    //
-    //     // simulate data being received from Segment store.
-    //     cf.get_runtime_handle().enter(|| {
-    //         tokio::spawn(generate_variable_size_events(
-    //             tx.clone(),
-    //             10,
-    //             NUM_EVENTS,
-    //             0,
-    //             false,
-    //         ));
-    //     });
-    //
-    //     // simulate initialization of a Reader
-    //     let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
-    //     // create a new Event Reader with the segment slice data.
-    //     let mut reader = EventReader::init_event_reader(
-    //         Arc::new(Mutex::new(ReaderGroupState::default())),
-    //         Reader::from("r1".to_string()),
-    //         cf.clone(),
-    //         tx.clone(),
-    //         rx,
-    //         create_slice_map(init_segments),
-    //         HashMap::new(),
-    //     );
-    //
-    //     let mut event_count = 0;
-    //     let mut event_size = 0;
-    //
-    //     // Attempt to acquire a segment.
-    //     while let Some(mut slice) = cf.get_runtime_handle().block_on(reader.acquire_segment()) {
-    //         loop {
-    //             if let Some(event) = slice.next() {
-    //                 println!("Read event {:?}", event);
-    //                 assert_eq!(event.value.len(), event_size + 1, "Event has been missed");
-    //                 assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
-    //                 event_size += 1;
-    //                 event_count += 1;
-    //             } else {
-    //                 println!(
-    //                     "Finished reading from segment {:?}, segment is auto released",
-    //                     slice.meta.scoped_segment
-    //                 );
-    //                 break; // try to acquire the next segment.
-    //             }
-    //         }
-    //         if event_count == NUM_EVENTS {
-    //             // all events have been read. Exit test.
-    //             break;
-    //         }
-    //     }
-    // }
+    #[test]
+    fn test_read_events_single_segment() {
+        const NUM_EVENTS: usize = 100;
+        let (tx, rx) = mpsc::channel(1);
+        tracing_subscriber::fmt().with_max_level(Level::TRACE).finish();
+        let cf = ClientFactory::new(
+            ClientConfigBuilder::default()
+                .controller_uri(MOCK_CONTROLLER_URI)
+                .build()
+                .unwrap(),
+        );
+
+        // simulate data being received from Segment store.
+        cf.get_runtime_handle().enter(|| {
+            tokio::spawn(generate_variable_size_events(
+                tx.clone(),
+                10,
+                NUM_EVENTS,
+                0,
+                false,
+            ));
+        });
+
+        // simulate initialization of a Reader
+        let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
+        let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
+        rg_mock
+            .expect_compute_segments_to_acquire()
+            .return_const(0 as isize);
+        // create a new Event Reader with the segment slice data.
+        let mut reader = EventReader::init_event_reader(
+            Arc::new(Mutex::new(rg_mock)),
+            Reader::from("r1".to_string()),
+            cf.clone(),
+            tx.clone(),
+            rx,
+            create_slice_map(init_segments),
+            HashMap::new(),
+        );
+
+        let mut event_count = 0;
+        let mut event_size = 0;
+
+        // Attempt to acquire a segment.
+        while let Some(mut slice) = cf.get_runtime_handle().block_on(reader.acquire_segment()) {
+            loop {
+                if let Some(event) = slice.next() {
+                    println!("Read event {:?}", event);
+                    assert_eq!(event.value.len(), event_size + 1, "Event has been missed");
+                    assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
+                    event_size += 1;
+                    event_count += 1;
+                } else {
+                    println!(
+                        "Finished reading from segment {:?}, segment is auto released",
+                        slice.meta.scoped_segment
+                    );
+                    break; // try to acquire the next segment.
+                }
+            }
+            if event_count == NUM_EVENTS {
+                // all events have been read. Exit test.
+                break;
+            }
+        }
+    }
 
     /*
       This test verifies an EventReader reading from a stream where both the segments are sending data.
     */
-    // #[test]
-    // fn test_read_events_multiple_segments() {
-    //     const NUM_EVENTS: usize = 100;
-    //     let (tx, rx) = mpsc::channel(1);
-    //     tracing_subscriber::fmt().with_max_level(Level::TRACE).finish();
-    //     let cf = ClientFactory::new(
-    //         ClientConfigBuilder::default()
-    //             .controller_uri(MOCK_CONTROLLER_URI)
-    //             .build()
-    //             .unwrap(),
-    //     );
-    //     let stream = get_scoped_stream("scope", "test");
-    //
-    //     // simulate data being received from Segment store. 2 async tasks pumping in data.
-    //     cf.get_runtime_handle().enter(|| {
-    //         tokio::spawn(generate_variable_size_events(
-    //             tx.clone(),
-    //             100,
-    //             NUM_EVENTS,
-    //             0,
-    //             false,
-    //         ));
-    //     });
-    //     cf.get_runtime_handle().enter(|| {
-    //         //simulate a delay with data received by this segment.
-    //         tokio::spawn(generate_variable_size_events(
-    //             tx.clone(),
-    //             100,
-    //             NUM_EVENTS,
-    //             1,
-    //             true,
-    //         ));
-    //     });
-    //
-    //     // simulate initialization of a Reader
-    //     let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
-    //
-    //     // create a new Event Reader with the segment slice data.
-    //     let mut reader = EventReader::init_event_reader(
-    //         Arc::new(Mutex::new(ReaderGroupState::default())),
-    //         Reader::from("r1".to_string()),
-    //         cf.clone(),
-    //         tx.clone(),
-    //         rx,
-    //         create_slice_map(init_segments),
-    //         HashMap::new(),
-    //     );
-    //
-    //     let mut event_count_per_segment: HashMap<String, usize> = HashMap::new();
-    //
-    //     let mut total_events_read = 0;
-    //     // Attempt to acquire a segment.
-    //     while let Some(mut slice) = cf.get_runtime_handle().block_on(reader.acquire_segment()) {
-    //         let segment = slice.meta.scoped_segment.clone();
-    //         println!("Received Segment Slice {:?}", segment);
-    //         let mut event_count = 0;
-    //         loop {
-    //             if let Some(event) = slice.next() {
-    //                 println!("Read event {:?}", event);
-    //                 assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
-    //                 event_count += 1;
-    //             } else {
-    //                 println!(
-    //                     "Finished reading from segment {:?}, segment is auto released",
-    //                     slice.meta.scoped_segment
-    //                 );
-    //                 break; // try to acquire the next segment.
-    //             }
-    //         }
-    //         total_events_read += event_count;
-    //         *event_count_per_segment
-    //             .entry(segment.clone())
-    //             .or_insert(event_count) += event_count;
-    //         if total_events_read == NUM_EVENTS * 2 {
-    //             // all events have been read. Exit test.
-    //             break;
-    //         }
-    //     }
-    // }
+    #[test]
+    fn test_read_events_multiple_segments() {
+        const NUM_EVENTS: usize = 100;
+        let (tx, rx) = mpsc::channel(1);
+        tracing_subscriber::fmt().with_max_level(Level::TRACE).finish();
+        let cf = ClientFactory::new(
+            ClientConfigBuilder::default()
+                .controller_uri(MOCK_CONTROLLER_URI)
+                .build()
+                .unwrap(),
+        );
 
-    // #[test]
-    // fn test_return_slice() {
-    //     const NUM_EVENTS: usize = 2;
-    //     let (tx, rx) = mpsc::channel(1);
-    //     tracing_subscriber::fmt().with_max_level(Level::TRACE).finish();
-    //     let cf = ClientFactory::new(
-    //         ClientConfigBuilder::default()
-    //             .controller_uri(MOCK_CONTROLLER_URI)
-    //             .build()
-    //             .unwrap(),
-    //     );
-    //     let stream = get_scoped_stream("scope", "test");
-    //
-    //     // simulate data being received from Segment store.
-    //     cf.get_runtime_handle().enter(|| {
-    //         tokio::spawn(generate_variable_size_events(
-    //             tx.clone(),
-    //             10,
-    //             NUM_EVENTS,
-    //             0,
-    //             false,
-    //         ));
-    //     });
-    //
-    //     // simulate initialization of a Reader
-    //     let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
-    //
-    //     // create a new Event Reader with the segment slice data.
-    //     let mut reader = EventReader::init_event_reader(
-    //         Arc::new(Mutex::new(ReaderGroupState::default())),
-    //         Reader::from("r1".to_string()),
-    //         cf.clone(),
-    //         tx.clone(),
-    //         rx,
-    //         create_slice_map(init_segments),
-    //         HashMap::new(),
-    //     );
-    //
-    //     // acquire a segment
-    //     let mut slice = cf
-    //         .get_runtime_handle()
-    //         .block_on(reader.acquire_segment())
-    //         .unwrap();
-    //
-    //     // read an event.
-    //     let event = slice.next().unwrap();
-    //     assert_eq!(event.value.len(), 1);
-    //     assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
-    //     assert_eq!(event.offset_in_segment, 0); // first event.
-    //
-    //     // release the segment slice.
-    //     reader.release_segment(slice);
-    //
-    //     // acquire the next segment
-    //     let slice = cf
-    //         .get_runtime_handle()
-    //         .block_on(reader.acquire_segment())
-    //         .unwrap();
-    //     //Do not read, simply return it back.
-    //     reader.release_segment(slice);
-    //
-    //     // Try acquiring the segment again.
-    //     let mut slice = cf
-    //         .get_runtime_handle()
-    //         .block_on(reader.acquire_segment())
-    //         .unwrap();
-    //     // Verify a partial event being present. This implies
-    //     let event = slice.next().unwrap();
-    //     assert_eq!(event.value.len(), 2);
-    //     assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
-    //     assert_eq!(event.offset_in_segment, 8 + 1); // first event.
-    // }
+        // simulate data being received from Segment store. 2 async tasks pumping in data.
+        cf.get_runtime_handle().enter(|| {
+            tokio::spawn(generate_variable_size_events(
+                tx.clone(),
+                100,
+                NUM_EVENTS,
+                0,
+                false,
+            ));
+        });
+        cf.get_runtime_handle().enter(|| {
+            //simulate a delay with data received by this segment.
+            tokio::spawn(generate_variable_size_events(
+                tx.clone(),
+                100,
+                NUM_EVENTS,
+                1,
+                true,
+            ));
+        });
 
-    // #[test]
-    // fn test_return_slice_at_offset() {
-    //     const NUM_EVENTS: usize = 2;
-    //     let (tx, rx) = mpsc::channel(1);
-    //     let (stop_tx, stop_rx) = oneshot::channel();
-    //     tracing_subscriber::fmt().with_max_level(Level::TRACE).finish();
-    //     let cf = ClientFactory::new(
-    //         ClientConfigBuilder::default()
-    //             .controller_uri(MOCK_CONTROLLER_URI)
-    //             .build()
-    //             .unwrap(),
-    //     );
-    //     let stream = get_scoped_stream("scope", "test");
-    //
-    //     // simulate data being received from Segment store.
-    //     cf.get_runtime_handle().enter(|| {
-    //         tokio::spawn(generate_constant_size_events(
-    //             tx.clone(),
-    //             20,
-    //             NUM_EVENTS,
-    //             0,
-    //             false,
-    //             stop_rx,
-    //         ));
-    //     });
-    //     let mut stop_reading_map: HashMap<String, oneshot::Sender<()>> = HashMap::new();
-    //     stop_reading_map.insert("scope/test/0.#epoch.0".to_string(), stop_tx);
-    //
-    //     // simulate initialization of a Reader
-    //     let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
-    //
-    //     // create a new Event Reader with the segment slice data.
-    //     let mut reader = EventReader::init_event_reader(
-    //         Arc::new(Mutex::new(ReaderGroupState::default())),
-    //         Reader::from("r1".to_string()),
-    //         cf.clone(),
-    //         tx.clone(),
-    //         rx,
-    //         create_slice_map(init_segments),
-    //         stop_reading_map,
-    //     );
-    //
-    //     // acquire a segment
-    //     let mut slice = cf
-    //         .get_runtime_handle()
-    //         .block_on(reader.acquire_segment())
-    //         .unwrap();
-    //
-    //     // read an event.
-    //     let event = slice.next().unwrap();
-    //     assert_eq!(event.value.len(), 1);
-    //     assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
-    //     assert_eq!(event.offset_in_segment, 0); // first event.
-    //
-    //     let result = slice.next();
-    //     assert!(result.is_some());
-    //     let event = result.unwrap();
-    //     assert_eq!(event.value.len(), 1);
-    //     assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
-    //     assert_eq!(event.offset_in_segment, 9); // second event.
-    //
-    //     // release the segment slice.
-    //     reader.release_segment_at(slice, 0);
-    //
-    //     // simulate a segment read at offset 0.
-    //     let (_stop_tx, stop_rx) = oneshot::channel();
-    //     cf.get_runtime_handle().enter(|| {
-    //         tokio::spawn(generate_constant_size_events(
-    //             tx.clone(),
-    //             20,
-    //             NUM_EVENTS,
-    //             0,
-    //             false,
-    //             stop_rx,
-    //         ));
-    //     });
-    //
-    //     // acquire the next segment
-    //     let mut slice = cf
-    //         .get_runtime_handle()
-    //         .block_on(reader.acquire_segment())
-    //         .unwrap();
-    //     // Verify a partial event being present. This implies
-    //     let event = slice.next().unwrap();
-    //     assert_eq!(event.value.len(), 1);
-    //     assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
-    //     assert_eq!(event.offset_in_segment, 0); // first event.
-    // }
+        // simulate initialization of a Reader
+        let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
+        let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
+        rg_mock
+            .expect_compute_segments_to_acquire()
+            .return_const(0 as isize);
+        // create a new Event Reader with the segment slice data.
+        let mut reader = EventReader::init_event_reader(
+            Arc::new(Mutex::new(rg_mock)),
+            Reader::from("r1".to_string()),
+            cf.clone(),
+            tx.clone(),
+            rx,
+            create_slice_map(init_segments),
+            HashMap::new(),
+        );
+
+        let mut event_count_per_segment: HashMap<String, usize> = HashMap::new();
+
+        let mut total_events_read = 0;
+        // Attempt to acquire a segment.
+        while let Some(mut slice) = cf.get_runtime_handle().block_on(reader.acquire_segment()) {
+            let segment = slice.meta.scoped_segment.clone();
+            println!("Received Segment Slice {:?}", segment);
+            let mut event_count = 0;
+            loop {
+                if let Some(event) = slice.next() {
+                    println!("Read event {:?}", event);
+                    assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
+                    event_count += 1;
+                } else {
+                    println!(
+                        "Finished reading from segment {:?}, segment is auto released",
+                        slice.meta.scoped_segment
+                    );
+                    break; // try to acquire the next segment.
+                }
+            }
+            total_events_read += event_count;
+            *event_count_per_segment
+                .entry(segment.clone())
+                .or_insert(event_count) += event_count;
+            if total_events_read == NUM_EVENTS * 2 {
+                // all events have been read. Exit test.
+                break;
+            }
+        }
+    }
+
+    #[test]
+    fn test_return_slice() {
+        const NUM_EVENTS: usize = 2;
+        let (tx, rx) = mpsc::channel(1);
+        tracing_subscriber::fmt().with_max_level(Level::TRACE).finish();
+        let cf = ClientFactory::new(
+            ClientConfigBuilder::default()
+                .controller_uri(MOCK_CONTROLLER_URI)
+                .build()
+                .unwrap(),
+        );
+
+        // simulate data being received from Segment store.
+        cf.get_runtime_handle().enter(|| {
+            tokio::spawn(generate_variable_size_events(
+                tx.clone(),
+                10,
+                NUM_EVENTS,
+                0,
+                false,
+            ));
+        });
+
+        // simulate initialization of a Reader
+        let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
+
+        let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
+        rg_mock
+            .expect_compute_segments_to_acquire()
+            .return_const(0 as isize);
+
+        // create a new Event Reader with the segment slice data.
+        let mut reader = EventReader::init_event_reader(
+            Arc::new(Mutex::new(rg_mock)),
+            Reader::from("r1".to_string()),
+            cf.clone(),
+            tx.clone(),
+            rx,
+            create_slice_map(init_segments),
+            HashMap::new(),
+        );
+
+        // acquire a segment
+        let mut slice = cf
+            .get_runtime_handle()
+            .block_on(reader.acquire_segment())
+            .unwrap();
+
+        // read an event.
+        let event = slice.next().unwrap();
+        assert_eq!(event.value.len(), 1);
+        assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
+        assert_eq!(event.offset_in_segment, 0); // first event.
+
+        // release the segment slice.
+        reader.release_segment(slice);
+
+        // acquire the next segment
+        let slice = cf
+            .get_runtime_handle()
+            .block_on(reader.acquire_segment())
+            .unwrap();
+        //Do not read, simply return it back.
+        reader.release_segment(slice);
+
+        // Try acquiring the segment again.
+        let mut slice = cf
+            .get_runtime_handle()
+            .block_on(reader.acquire_segment())
+            .unwrap();
+        // Verify a partial event being present. This implies
+        let event = slice.next().unwrap();
+        assert_eq!(event.value.len(), 2);
+        assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
+        assert_eq!(event.offset_in_segment, 8 + 1); // first event.
+    }
+
+    #[test]
+    fn test_return_slice_at_offset() {
+        const NUM_EVENTS: usize = 2;
+        let (tx, rx) = mpsc::channel(1);
+        let (stop_tx, stop_rx) = oneshot::channel();
+        tracing_subscriber::fmt().with_max_level(Level::TRACE).finish();
+        let cf = ClientFactory::new(
+            ClientConfigBuilder::default()
+                .controller_uri(MOCK_CONTROLLER_URI)
+                .build()
+                .unwrap(),
+        );
+
+        // simulate data being received from Segment store.
+        cf.get_runtime_handle().enter(|| {
+            tokio::spawn(generate_constant_size_events(
+                tx.clone(),
+                20,
+                NUM_EVENTS,
+                0,
+                false,
+                stop_rx,
+            ));
+        });
+        let mut stop_reading_map: HashMap<String, oneshot::Sender<()>> = HashMap::new();
+        stop_reading_map.insert("scope/test/0.#epoch.0".to_string(), stop_tx);
+
+        // simulate initialization of a Reader
+        let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
+        let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
+        rg_mock
+            .expect_compute_segments_to_acquire()
+            .return_const(0 as isize);
+        // create a new Event Reader with the segment slice data.
+        let mut reader = EventReader::init_event_reader(
+            Arc::new(Mutex::new(rg_mock)),
+            Reader::from("r1".to_string()),
+            cf.clone(),
+            tx.clone(),
+            rx,
+            create_slice_map(init_segments),
+            stop_reading_map,
+        );
+
+        // acquire a segment
+        let mut slice = cf
+            .get_runtime_handle()
+            .block_on(reader.acquire_segment())
+            .unwrap();
+
+        // read an event.
+        let event = slice.next().unwrap();
+        assert_eq!(event.value.len(), 1);
+        assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
+        assert_eq!(event.offset_in_segment, 0); // first event.
+
+        let result = slice.next();
+        assert!(result.is_some());
+        let event = result.unwrap();
+        assert_eq!(event.value.len(), 1);
+        assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
+        assert_eq!(event.offset_in_segment, 9); // second event.
+
+        // release the segment slice.
+        reader.release_segment_at(slice, 0);
+
+        // simulate a segment read at offset 0.
+        let (_stop_tx, stop_rx) = oneshot::channel();
+        cf.get_runtime_handle().enter(|| {
+            tokio::spawn(generate_constant_size_events(
+                tx.clone(),
+                20,
+                NUM_EVENTS,
+                0,
+                false,
+                stop_rx,
+            ));
+        });
+
+        // acquire the next segment
+        let mut slice = cf
+            .get_runtime_handle()
+            .block_on(reader.acquire_segment())
+            .unwrap();
+        // Verify a partial event being present. This implies
+        let event = slice.next().unwrap();
+        assert_eq!(event.value.len(), 1);
+        assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
+        assert_eq!(event.offset_in_segment, 0); // first event.
+    }
 
     fn read_n_events(slice: &mut SegmentSlice, events_to_read: usize) {
         let mut event_count = 0;

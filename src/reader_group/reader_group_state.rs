@@ -791,7 +791,7 @@ mod test {
         successor0.segment.number = 1;
 
         let successor0_range = SegmentWithRange {
-            scoped_segment: succesor0.clone(),
+            scoped_segment: successor0.clone(),
             min_key: OrderedFloat(0.0),
             max_key: OrderedFloat(0.5),
         };
@@ -799,21 +799,21 @@ mod test {
         let mut successor1 = SEGMENT_TEST.clone();
         successor1.segment.number = 2;
         let successor1_range = SegmentWithRange {
-            scoped_segment: succesor1.clone(),
+            scoped_segment: successor1.clone(),
             min_key: OrderedFloat(0.5),
             max_key: OrderedFloat(1.0),
         };
 
         let mut successors_mapped_to_their_predecessors = im::HashMap::new();
         successors_mapped_to_their_predecessors.insert(
-            successor1_range,
+            successor0_range,
             vec![Segment {
                 number: 0,
                 tx_id: None,
             }],
         );
         successors_mapped_to_their_predecessors.insert(
-            successor2_range,
+            successor1_range,
             vec![Segment {
                 number: 0,
                 tx_id: None,

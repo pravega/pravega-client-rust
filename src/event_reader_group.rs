@@ -11,11 +11,18 @@
 use crate::client_factory::ClientFactory;
 use crate::event_reader::EventReader;
 use crate::reader_group::reader_group_config::ReaderGroupConfigVersioned;
-use crate::reader_group::reader_group_state::{Offset, ReaderGroupState, ReaderGroupStateError};
+use crate::reader_group::reader_group_state::{Offset, ReaderGroupStateError};
 use pravega_rust_client_shared::{Reader, ScopedSegment, ScopedStream};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+cfg_if::cfg_if! {
+    if #[cfg(test)] {
+        use crate::reader_group::reader_group_state::MockReaderGroupState as ReaderGroupState;
+    } else {
+        use crate::reader_group::reader_group_state::ReaderGroupState;
+    }
+}
 
 #[derive(new)]
 pub struct ReaderGroup {
@@ -26,6 +33,28 @@ pub struct ReaderGroup {
 }
 
 impl ReaderGroup {
+    cfg_if::cfg_if! {
+        if #[cfg(test)] {
+            async fn create_rg_state(
+            _name: String,
+            _rg_config: ReaderGroupConfigVersioned,
+            _client_factory: &ClientFactory,
+            _init_segments: HashMap<ScopedSegment, Offset>,
+        ) -> ReaderGroupState {
+            ReaderGroupState::default()
+        }
+        } else {
+            async fn create_rg_state (
+        name: String,
+        rg_config: ReaderGroupConfigVersioned,
+        client_factory: &ClientFactory,
+        init_segments: HashMap<ScopedSegment, Offset>,
+    ) -> ReaderGroupState {
+        ReaderGroupState::new(name, &client_factory, rg_config, init_segments).await
+    }
+        }
+    }
+
     ///
     /// Create a reader group.
     ///
@@ -53,12 +82,13 @@ impl ReaderGroup {
                 )
             })
             .collect();
+        let rg_state =
+            ReaderGroup::create_rg_state(name.clone(), rg_config.clone(), &client_factory, init_segments)
+                .await;
         ReaderGroup {
             name: name.clone(),
             config: rg_config.clone(),
-            state: Arc::new(Mutex::new(
-                ReaderGroupState::new(name, &client_factory, rg_config, init_segments).await,
-            )),
+            state: Arc::new(Mutex::new(rg_state)),
             client_factory,
         }
     }

@@ -34,7 +34,6 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
     handle.block_on(test_stream_scaling(&client_factory));
     handle.block_on(test_release_segment(&client_factory));
     handle.block_on(test_release_segment_at(&client_factory));
-    handle.block_on(test_multiple_readers(&client_factory));
     test_multiple_readers(&client_factory);
 }
 
