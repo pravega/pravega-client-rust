@@ -147,6 +147,7 @@ fn test_seal(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, rt: &
 
     // read beyond sealed segment
     let mut buf: Vec<u8> = vec![0; 8];
-    let result = reader.read(&mut buf);
-    assert!(result.is_err())
+    let size = reader.read(&mut buf).expect("read from byte stream");
+    assert_eq!(size, 0);
+    assert_eq!(buf, vec![0; 8]);
 }
