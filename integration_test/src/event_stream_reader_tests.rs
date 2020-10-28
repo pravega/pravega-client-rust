@@ -35,6 +35,7 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
     handle.block_on(test_release_segment(&client_factory));
     handle.block_on(test_release_segment_at(&client_factory));
     test_multiple_readers(&client_factory);
+    test_reader_offline(&client_factory);
 }
 
 async fn test_release_segment(client_factory: &ClientFactory) {
@@ -329,6 +330,70 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
             panic!("A valid slice is expected for reader2");
         }
     }
+}
+
+fn test_reader_offline(client_factory: &ClientFactory) {
+    let h = client_factory.get_runtime_handle();
+    let scope_name = Scope::from("testScope".to_owned());
+    let stream_name = Stream::from("testReaderOffline".to_owned());
+    let str = ScopedStream {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+    };
+    const NUM_EVENTS: usize = 10;
+    h.block_on(async {
+        let new_stream = create_scope_stream(
+            client_factory.get_controller_client(),
+            &scope_name,
+            &stream_name,
+            4,
+        )
+        .await;
+        // write events only if the stream is created.
+        if new_stream {
+            // write events
+            write_events(
+                scope_name.clone(),
+                stream_name.clone(),
+                client_factory,
+                NUM_EVENTS,
+            )
+            .await;
+        }
+    });
+
+    let rg = h.block_on(client_factory.create_reader_group("rg_reader_offline".to_string(), str));
+    // reader 1 will be assigned all the segments.
+    let mut reader1 = h.block_on(rg.create_reader("r1".to_string()));
+
+    // read one event using reader1 and release it back.
+    // A drop of segment slice does the same .
+    if let Some(mut slice) = h.block_on(reader1.acquire_segment()) {
+        if let Some(event) = slice.next() {
+            assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+            // wait for release timeout.
+            thread::sleep(Duration::from_secs(10));
+            reader1.release_segment(slice);
+        } else {
+            panic!("A valid slice is expected");
+        }
+    }
+    // reader offline.
+    h.block_on(reader1.reader_offline());
+
+    let mut reader2 = h.block_on(rg.create_reader("r2".to_string()));
+
+    let mut events_read = 1; // one event has been already read by reader 1.
+    while let Some(mut slice) = h.block_on(reader2.acquire_segment()) {
+        while let Some(event) = slice.next() {
+            assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+            events_read += 1;
+        }
+        if events_read == NUM_EVENTS {
+            break;
+        }
+    }
+    assert_eq!(NUM_EVENTS, events_read);
 }
 
 // helper method to write events to Pravega

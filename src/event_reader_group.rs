@@ -24,6 +24,47 @@ cfg_if::cfg_if! {
     }
 }
 
+/**
+ * A reader group is a collection of readers that collectively read all the events in the
+ * stream. The events are distributed among the readers in the group such that each event goes
+ * to only one reader.
+ *
+ * The readers in the group may change over time. Readers are added to the group by calling
+ * {@link io.pravega.client.EventStreamClientFactory#createReader(String, String, Serializer, ReaderConfig)}
+ * and are removed by calling {@link #readerOffline(String, Position)}
+ */
+///
+/// A reader group is a collection of readers that collectively reall all the events in the stream.
+/// The events are distributed among the readers in the group such that each event goes to only one reader.
+///
+/// The readers in the group may change over time. Readers are added to the group by invoking the createReader
+/// API.
+/// An example usage pattern is as follows
+///
+/// ```no_run
+/// use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
+/// use pravega_client_rust::client_factory::ClientFactory;
+/// use pravega_rust_client_shared::{ScopedStream, Scope, Stream};
+///
+/// #[tokio::main]
+/// async fn main() {
+///    let config = ClientConfigBuilder::default()
+///         .controller_uri(MOCK_CONTROLLER_URI)
+///         .build()
+///         .expect("creating config");
+///     let client_factory = ClientFactory::new(config);
+///     let stream = ScopedStream {
+///         scope: Scope::from("scope".to_string()),
+///         stream: Stream::from("stream".to_string()),
+///     };
+///     // Create a reader group to read data from the Pravega stream.
+///     let rg = client_factory.create_reader_group("rg".to_string(), stream).await;
+///     // Create a reader under the reader group.
+///     let mut reader1 = rg.create_reader("r1".to_string()).await;
+///     let mut reader2 = rg.create_reader("r2".to_string()).await;
+///     // EventReader APIs can be used to read events.
+/// }
+/// ```
 #[derive(new)]
 pub struct ReaderGroup {
     name: String,
