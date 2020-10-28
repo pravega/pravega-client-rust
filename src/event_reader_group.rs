@@ -24,15 +24,6 @@ cfg_if::cfg_if! {
     }
 }
 
-/**
- * A reader group is a collection of readers that collectively read all the events in the
- * stream. The events are distributed among the readers in the group such that each event goes
- * to only one reader.
- *
- * The readers in the group may change over time. Readers are added to the group by calling
- * {@link io.pravega.client.EventStreamClientFactory#createReader(String, String, Serializer, ReaderConfig)}
- * and are removed by calling {@link #readerOffline(String, Position)}
- */
 ///
 /// A reader group is a collection of readers that collectively reall all the events in the stream.
 /// The events are distributed among the readers in the group such that each event goes to only one reader.
