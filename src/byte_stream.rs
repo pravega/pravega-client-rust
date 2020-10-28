@@ -84,11 +84,7 @@ impl Write for ByteStreamWriter {
         if let Some((last_event_handle, size)) = self.event_handles.pop() {
             self.runtime_handle
                 .block_on(self.flush_internal(last_event_handle))?;
-            for (_event_handle, payload_size) in &self.event_handles {
-                self.current_offset += payload_size;
-            }
-            self.current_offset += size;
-            self.event_handles.clear();
+            self.update_current_offset_after_flush(size);
         }
         Ok(())
     }
@@ -150,7 +146,7 @@ impl ByteStreamWriter {
     pub async fn seal(&mut self) -> Result<(), Error> {
         if let Some((event_handle, size)) = self.event_handles.pop() {
             self.flush_internal(event_handle).await?;
-            self.current_offset += size;
+            self.update_current_offset_after_flush(size);
         }
         self.metadata_client
             .seal_segment()
@@ -195,6 +191,14 @@ impl ByteStreamWriter {
         } else {
             Ok(())
         }
+    }
+
+    fn update_current_offset_after_flush(&mut self, size: usize) {
+        for (_event_handle, payload_size) in &self.event_handles {
+            self.current_offset += payload_size;
+        }
+        self.current_offset += size;
+        self.event_handles.clear();
     }
 }
 
