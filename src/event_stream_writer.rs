@@ -8,8 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::reactor::reactors::StreamReactor;
-use pravega_rust_client_config::ClientConfig;
+use crate::reactor::reactors::Reactor;
 use pravega_rust_client_shared::*;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
@@ -32,15 +31,13 @@ impl EventStreamWriter {
     pub const MAX_EVENT_SIZE: usize = 8 * 1024 * 1024;
     const CHANNEL_CAPACITY: usize = 100;
 
-    pub(crate) fn new(stream: ScopedStream, config: ClientConfig, factory: ClientFactory) -> Self {
+    pub(crate) fn new(stream: ScopedStream, factory: ClientFactory) -> Self {
         let (tx, rx) = channel(EventStreamWriter::CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
         let writer_id = WriterId::from(get_random_u128());
         let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
-        handle.enter(|| {
-            tokio::spawn(StreamReactor::run(stream, tx.clone(), rx, factory.clone(), config).instrument(span))
-        });
+        handle.enter(|| tokio::spawn(Reactor::run(stream, tx.clone(), rx, factory.clone()).instrument(span)));
         EventStreamWriter {
             writer_id,
             sender: tx,

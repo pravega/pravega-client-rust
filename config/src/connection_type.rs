@@ -12,8 +12,16 @@ use std::fmt;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ConnectionType {
-    Mock,
+    Mock(MockType),
     Tokio,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum MockType {
+    Happy,
+    SegmentIsSealed,
+    SegmentIsTruncated,
+    WrongHost,
 }
 
 impl Default for ConnectionType {
