@@ -387,7 +387,6 @@ impl Iterator for SegmentSlice {
                         "Error in offset computation"
                     );
                 }
-                //self.meta.read_offset = self.meta.segment_data.offset_in_segment;
                 Some(event)
             }
             None => {
@@ -399,11 +398,18 @@ impl Iterator for SegmentSlice {
                 } else {
                     info!("Partial event present in the segment slice of {:?}, this will be returned post a new read request", self.meta.scoped_segment);
                 }
-                if let Some(sender) = self.slice_return_tx.take() {
-                    let _ = sender.send(Some(self.meta.clone()));
-                }
                 None
             }
+        }
+    }
+}
+
+// Ensure a Drop of Segment slice releases the segment back to the reader group.
+impl Drop for SegmentSlice {
+    fn drop(&mut self) {
+        if let Some(sender) = self.slice_return_tx.take() {
+            self.slice_return_tx = None;
+            let _ = sender.send(Some(self.meta.clone()));
         }
     }
 }

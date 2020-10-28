@@ -368,7 +368,7 @@ impl EventReader {
     ///
     /// Release a partially read segment slice back to event reader.
     ///
-    pub fn release_segment(&mut self, slice: SegmentSlice) {
+    pub fn release_segment(&mut self, mut slice: SegmentSlice) {
         if self.meta.last_segment_release.elapsed() > REBALANCE_INTERVAL {
             debug!("Try rebalance segments across readers");
             self.factory
@@ -376,7 +376,7 @@ impl EventReader {
                 .block_on(self.release_segment_from_reader(slice));
         } else {
             //send an indication to the waiting rx that slice has been returned.
-            if let Some(tx) = slice.slice_return_tx {
+            if let Some(tx) = slice.slice_return_tx.take() {
                 if let Err(_e) = tx.send(Some(slice.meta.clone())) {
                     warn!(
                         "Failed to send segment slice release data for slice {:?}",
@@ -387,7 +387,7 @@ impl EventReader {
                 panic!("This is unexpected, No sender for SegmentSlice present.");
             }
             //update meta data.
-            self.meta.add_slices(slice.meta);
+            self.meta.add_slices(slice.meta.clone());
         }
     }
 
@@ -414,7 +414,7 @@ impl EventReader {
 
             let slice_meta = SliceMetadata {
                 start_offset: slice.meta.read_offset,
-                scoped_segment: slice.meta.scoped_segment,
+                scoped_segment: slice.meta.scoped_segment.clone(),
                 last_event_offset: slice.meta.last_event_offset,
                 read_offset: offset,
                 end_offset: slice.meta.end_offset,
@@ -440,7 +440,7 @@ impl EventReader {
         }
     }
 
-    async fn release_segment_from_reader(&mut self, slice: SegmentSlice) {
+    async fn release_segment_from_reader(&mut self, mut slice: SegmentSlice) {
         let new_segments_to_release = self
             .rg_state
             .lock()
@@ -452,7 +452,7 @@ impl EventReader {
             // Stop reading from the segment.
             self.meta.stop_reading(&slice.meta.scoped_segment);
             // Send None to the waiting slice_return_rx.
-            if let Some(tx) = slice.slice_return_tx {
+            if let Some(tx) = slice.slice_return_tx.take() {
                 if let Err(_e) = tx.send(None) {
                     warn!(
                         "Failed to send segment slice release data for slice {:?}",
@@ -1093,7 +1093,7 @@ mod tests {
     fn create_slice_map(init_segments: Vec<SegmentSlice>) -> HashMap<String, SliceMetadata> {
         let mut map = HashMap::with_capacity(init_segments.len());
         for s in init_segments {
-            map.insert(s.meta.scoped_segment.clone(), s.meta);
+            map.insert(s.meta.scoped_segment.clone(), s.meta.clone());
         }
         map
     }
