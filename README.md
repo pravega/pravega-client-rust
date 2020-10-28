@@ -3,7 +3,7 @@
 
 # Rust client for Pravega
 
-This is a native Rust client for [Pravega](Pravega.io). 
+This is a native Rust client for [Pravega](https://www.pravega.io/). 
 
 ## Status
 
