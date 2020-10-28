@@ -37,18 +37,18 @@ cfg_if::cfg_if! {
     }
 }
 ///
-/// This represents an event reader. An event readers fetches its assigned segments and provides the
-/// following APIs.
+/// This represents an event reader. An event reader fetches data from its assigned segments as a SegmentSlice,
+/// where a SegmentSlice represents data from a Pravega Segment. It provides the following APIs.
 /// 1. A method to initialize the event reader [EventReader#init](EventReader#init)
-/// 2. A method to obtain the a SegmentSlice to read data from.  A SegmentSlice has data for a given
-///Segment. The user can use the SegmentSlice's iterator API to fetch individual events from a given Segment Slice.
+/// 2. A method to obtain a SegmentSlice to read events from a Pravega segment.The user can use the
+/// SegmentSlice's iterator API to fetch individual events from a given Segment Slice.
 /// [EventReader#acquire_segment](EventReader#acquire_segment).
 /// 3. A method to release the Segment back at the given offset. [EventReader#release_segment_at](EventReader#release_segment_at).
 ///    This method needs to be invoked only the user does not consume all the events in a SegmentSlice.
 ///
 /// An example usage pattern is as follows
 ///
-/// no_run
+/// ```no_run
 /// use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
 /// use pravega_client_rust::client_factory::ClientFactory;
 /// use pravega_rust_client_shared::{ScopedStream, Scope, Stream};
@@ -64,24 +64,27 @@ cfg_if::cfg_if! {
 ///         scope: Scope::from("scope".to_string()),
 ///         stream: Stream::from("stream".to_string()),
 ///     };
-///     // Create a reader obtain a segment slice and read events from it.
-///     let mut reader = client_factory.create_event_stream_reader(stream).await;
+///     // Create a reader group to read data from the Pravega stream.
+///     let rg = client_factory.create_reader_group("rg".to_string(), stream).await;
+///     // Create a reader under the reader group. The segments of the stream are assigned among the
+///     // readers which are part of the reader group.
+///     let mut reader1 = rg.create_reader("r1".to_string()).await;
 ///     // read all events from a given segment slice.
-///     if let Some(mut segment_slice) =  reader.acquire_segment().await {
+///     if let Some(mut segment_slice) =  reader1.acquire_segment().await {
 ///         while let Some(event) = segment_slice.next() {
 ///             println!("Event read is {:?}", event);
 ///         }
 ///     }
 ///     // read one event from the a given  segment slice and return it back.
-///     if let Some(mut segment_slice) = reader.acquire_segment().await {
+///     if let Some(mut segment_slice) = reader1.acquire_segment().await {
 ///         if let Some(event) = segment_slice.next() {
 ///             println!("Event read is {:?}", event);
 ///             // release the segment slice back to the reader.
-///             reader.release_segment(segment_slice);
+///             reader1.release_segment(segment_slice);
 ///         }
 ///     }
 /// }
-///
+/// ```
 ///
 #[derive(new)]
 pub struct EventReader {
@@ -198,40 +201,9 @@ impl ReaderMeta {
 
 impl EventReader {
     ///
-    /// Initialize the reader. This fetches the initial segments of the stream and spawns background
-    /// tasks to start reads from those Segments.
-    /// Note: In future the TableSynchronizer can be used to fetch the segments assigned to this EventReader.
+    /// Initialize the reader. This fetches the assigned segments from the TableSynchronizer and
+    /// spawns background tasks to start reads from those Segments.
     ///
-    // pub async fn init(id: String, stream: ScopedStream, factory: ClientFactory) -> Self {
-    //     let (tx, rx) = mpsc::channel(1);
-    //     let slice_meta_map = EventReader::get_slice_meta(&stream, &factory).await;
-    //     let mut stop_reading_map: HashMap<String, oneshot::Sender<()>> = HashMap::new();
-    //     // spawn background fetch tasks.
-    //     slice_meta_map.iter().for_each(|(segment, meta)| {
-    //         let (tx_stop, rx_stop) = oneshot::channel();
-    //         stop_reading_map.insert(segment.clone(), tx_stop);
-    //         factory.get_runtime_handle().enter(|| {
-    //             tokio::spawn(SegmentSlice::get_segment_data(
-    //                 ScopedSegment::from(segment.as_str()),
-    //                 meta.start_offset,
-    //                 tx.clone(),
-    //                 rx_stop,
-    //                 factory.clone(),
-    //             ))
-    //         });
-    //     });
-    //
-    //     // initialize the event reader.
-    //     EventReader::init_event_reader(
-    //         Reader { name: id },
-    //         factory,
-    //         tx,
-    //         rx,
-    //         slice_meta_map,
-    //         stop_reading_map,
-    //     )
-    // }
-
     pub async fn init_reader(
         id: String,
         rg_state: Arc<Mutex<ReaderGroupState>>,
@@ -371,9 +343,10 @@ impl EventReader {
     pub fn release_segment(&mut self, mut slice: SegmentSlice) {
         if self.meta.last_segment_release.elapsed() > REBALANCE_INTERVAL {
             debug!("Try rebalance segments across readers");
+            let read_offset = slice.meta.read_offset;
             self.factory
                 .get_runtime_handle()
-                .block_on(self.release_segment_from_reader(slice));
+                .block_on(self.release_segment_from_reader(slice, read_offset));
         } else {
             //send an indication to the waiting rx that slice has been returned.
             if let Some(tx) = slice.slice_return_tx.take() {
@@ -407,40 +380,48 @@ impl EventReader {
             slice.meta.end_offset >= offset,
             "The offset where the segment slice is released should be less than the end offset"
         );
-
-        let segment = ScopedSegment::from(slice.meta.scoped_segment.as_str());
-        if slice.meta.read_offset != offset {
-            self.meta.stop_reading(&slice.meta.scoped_segment);
-
-            let slice_meta = SliceMetadata {
-                start_offset: slice.meta.read_offset,
-                scoped_segment: slice.meta.scoped_segment.clone(),
-                last_event_offset: slice.meta.last_event_offset,
-                read_offset: offset,
-                end_offset: slice.meta.end_offset,
-                segment_data: SegmentDataBuffer::empty(),
-                partial_data_present: false,
-            };
-
-            // reinitialize the segment data reactor.
-            let (tx_drop_fetch, rx_drop_fetch) = oneshot::channel();
+        if self.meta.last_segment_release.elapsed() > REBALANCE_INTERVAL {
+            debug!("Try rebalance segments across readers");
             self.factory
                 .get_runtime_handle()
-                .spawn(SegmentSlice::get_segment_data(
-                    segment.clone(),
-                    slice_meta.read_offset, // start reading from the offset provided.
-                    self.tx.clone(),
-                    rx_drop_fetch,
-                    self.factory.clone(),
-                ));
-            self.meta.add_stop_reading_tx(segment.to_string(), tx_drop_fetch);
-            self.meta.add_slices(slice_meta);
+                .block_on(self.release_segment_from_reader(slice, offset));
         } else {
-            self.release_segment(slice);
+            let segment = ScopedSegment::from(slice.meta.scoped_segment.as_str());
+            if slice.meta.read_offset != offset {
+                self.meta.stop_reading(&slice.meta.scoped_segment);
+
+                let slice_meta = SliceMetadata {
+                    start_offset: slice.meta.read_offset,
+                    scoped_segment: slice.meta.scoped_segment.clone(),
+                    last_event_offset: slice.meta.last_event_offset,
+                    read_offset: offset,
+                    end_offset: slice.meta.end_offset,
+                    segment_data: SegmentDataBuffer::empty(),
+                    partial_data_present: false,
+                };
+
+                // reinitialize the segment data reactor.
+                let (tx_drop_fetch, rx_drop_fetch) = oneshot::channel();
+                self.factory
+                    .get_runtime_handle()
+                    .spawn(SegmentSlice::get_segment_data(
+                        segment.clone(),
+                        slice_meta.read_offset, // start reading from the offset provided.
+                        self.tx.clone(),
+                        rx_drop_fetch,
+                        self.factory.clone(),
+                    ));
+                self.meta.add_stop_reading_tx(segment.to_string(), tx_drop_fetch);
+                self.meta.add_slices(slice_meta);
+            } else {
+                self.release_segment(slice);
+            }
         }
     }
 
-    async fn release_segment_from_reader(&mut self, mut slice: SegmentSlice) {
+    // Release the segment of the provided SegmenSlice if more segments are assigned to this specific
+    // reader.
+    async fn release_segment_from_reader(&mut self, mut slice: SegmentSlice, read_offset: i64) {
         let new_segments_to_release = self
             .rg_state
             .lock()
@@ -468,7 +449,7 @@ impl EventReader {
                 .release_segment(
                     &self.id,
                     &ScopedSegment::from(slice.meta.scoped_segment.as_str()),
-                    &Offset::new(slice.meta.read_offset),
+                    &Offset::new(read_offset),
                 )
                 .await
                 .expect("Failed to release segment from RG state for reader");
@@ -643,9 +624,9 @@ impl EventReader {
         };
     }
 
-    ///
-    /// Try to assign newer segments to be read by this reader.
-    /// This function tries to acquire the desired number of segments.
+    //
+    // This function tries to acquire newer segments for the reader.
+    //
     async fn assign_segments_to_reader(&self) -> Option<Vec<ScopedSegment>> {
         let mut new_segments: Vec<ScopedSegment> = Vec::new();
         let new_segments_to_acquire = self
@@ -729,8 +710,6 @@ mod tests {
     use super::*;
     use crate::client_factory::ClientFactory;
     use crate::event_reader::{EventReader, SegmentReadResult};
-    // use crate::reader_group::reader_group_state::MockReaderGroupState; // as ReaderGroupState;
-    // use crate::reader_group::reader_group_state::ReaderGroupState;
     use crate::segment_slice::{SegmentDataBuffer, SegmentSlice, SliceMetadata};
     use bytes::{BufMut, BytesMut};
     use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};

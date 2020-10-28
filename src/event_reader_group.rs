@@ -11,7 +11,7 @@
 use crate::client_factory::ClientFactory;
 use crate::event_reader::EventReader;
 use crate::reader_group::reader_group_config::ReaderGroupConfigVersioned;
-use crate::reader_group::reader_group_state::{Offset, ReaderGroupStateError};
+use crate::reader_group::reader_group_state::Offset;
 use pravega_rust_client_shared::{Reader, ScopedSegment, ScopedStream};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -33,6 +33,7 @@ pub struct ReaderGroup {
 }
 
 impl ReaderGroup {
+    // This ensures the mock reader group state object is used for unit tests.
     cfg_if::cfg_if! {
         if #[cfg(test)] {
             async fn create_rg_state(
@@ -56,7 +57,9 @@ impl ReaderGroup {
     }
 
     ///
-    /// Create a reader group.
+    /// Create a reader group that will be used the read events from a provided Pravega stream.
+    /// This function is idempotent and invoking it multiple times does not re-initialize an already
+    /// existing reader group.
     ///
     pub async fn create(
         name: String,
@@ -93,6 +96,10 @@ impl ReaderGroup {
         }
     }
 
+    ///
+    /// Create a new EventReader under the ReaderGroup. This method panics if the reader is
+    /// already part of the reader group.
+    ///
     pub async fn create_reader(&self, reader_id: String) -> EventReader {
         let r: Reader = Reader::from(reader_id.clone());
         self.state
@@ -103,34 +110,46 @@ impl ReaderGroup {
             .expect("Error while creating the reader");
         EventReader::init_reader(reader_id, self.state.clone(), self.client_factory.clone()).await
     }
-
-    pub async fn delete_reader(&mut self, reader_id: String) -> Result<(), ReaderGroupStateError> {
-        let r: Reader = Reader::from(reader_id);
-        let owned_segments: HashMap<ScopedSegment, Offset> = HashMap::new(); // TODO
-        self.state.lock().await.remove_reader(&r, owned_segments).await
-    }
 }
 
 #[cfg(test)]
 mod tests {
 
-    // use super::*;
-    // use crate::client_factory::MockClientFactory;
-    // use crate::reader_group::reader_group_config::ReaderGroupConfigV1;
-    // use crate::reader_group::reader_group_state::MockReaderGroupState;
+    use super::*;
+    use crate::error::SynchronizerError::SyncUpdateError;
+    use crate::reader_group::reader_group_config::ReaderGroupConfigV1;
+    use crate::reader_group::reader_group_state::ReaderGroupStateError;
+    use pravega_rust_client_config::ClientConfigBuilder;
+    use pravega_rust_client_config::MOCK_CONTROLLER_URI;
 
-    // #[tokio::test]
-    // async fn test_create() {
-    //     let state = MockReaderGroupState::default();
-    //     state.expect_add_reader().returning(Ok(()));
-    //     let v1 = ReaderGroupConfigV1::new();
-    //     let rg_config = ReaderGroupConfigVersioned::V1(v1);
-    //     let mut rg = ReaderGroup {
-    //         name: "rg".to_string(),
-    //         config: rg_config,
-    //         state: state,
-    //         client_factory: MockClientFactory::default(),
-    //     };
-    //     rg.create_reader("r1".to_string()).await;
-    // }
+    #[tokio::test]
+    #[should_panic]
+    async fn test_create_reader_error() {
+        let client_factory = ClientFactory::new(
+            ClientConfigBuilder::default()
+                .controller_uri(MOCK_CONTROLLER_URI)
+                .build()
+                .unwrap(),
+        );
+        let mut mock_rg_state = ReaderGroupState::default();
+
+        //Configure mock.
+        let err: Result<(), ReaderGroupStateError> = Result::Err(ReaderGroupStateError::SyncError {
+            error_msg: "Reader already exists".to_string(),
+            source: SyncUpdateError {
+                error_msg: "update failed".to_string(),
+            },
+        });
+        mock_rg_state.expect_add_reader().return_once(move |_| err);
+
+        let v1 = ReaderGroupConfigV1::new();
+        let rg_config = ReaderGroupConfigVersioned::V1(v1);
+        let rg = ReaderGroup {
+            name: "rg".to_string(),
+            config: rg_config,
+            state: Arc::new(Mutex::new(mock_rg_state)),
+            client_factory,
+        };
+        rg.create_reader("r1".to_string()).await;
+    }
 }
