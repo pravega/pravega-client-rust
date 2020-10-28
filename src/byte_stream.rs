@@ -46,7 +46,8 @@ pub struct ByteStreamWriter {
     sender: Sender<Incoming>,
     metadata_client: SegmentMetadataClient,
     runtime_handle: Handle,
-    event_handle: Option<EventHandle>,
+    event_handles: Vec<(EventHandle, usize)>,
+    current_offset: usize,
 }
 
 /// ByteStreamWriter implements Write trait in standard library.
@@ -62,29 +63,34 @@ impl Write for ByteStreamWriter {
             let mut oneshot_receiver = ByteStreamWriter::write_internal(self.sender.clone(), payload).await;
             match oneshot_receiver.try_recv() {
                 // The channel is currently empty
-                Err(TryRecvError::Empty) => Ok(Some(oneshot_receiver)),
+                Err(TryRecvError::Empty) => Ok(oneshot_receiver),
                 Err(e) => Err(Error::new(ErrorKind::Other, format!("oneshot error {:?}", e))),
                 Ok(res) => {
                     if let Err(e) = res {
                         Err(Error::new(ErrorKind::Other, format!("{:?}", e)))
                     } else {
-                        Ok(None)
+                        Ok(oneshot_receiver)
                     }
                 }
             }
         })?;
 
-        self.event_handle = oneshot_receiver;
+        self.event_handles.push((oneshot_receiver, bytes_to_write));
         Ok(bytes_to_write)
     }
 
     /// This is a blocking call that will wait for data to be persisted on the server side.
     fn flush(&mut self) -> Result<(), Error> {
-        if let Some(event_handle) = self.event_handle.take() {
-            self.runtime_handle.block_on(self.flush_internal(event_handle))
-        } else {
-            Ok(())
+        if let Some((last_event_handle, size)) = self.event_handles.pop() {
+            self.runtime_handle
+                .block_on(self.flush_internal(last_event_handle))?;
+            for (_event_handle, payload_size) in &self.event_handles {
+                self.current_offset += payload_size;
+            }
+            self.current_offset += size;
+            self.event_handles.clear();
         }
+        Ok(())
     }
 }
 
@@ -112,14 +118,39 @@ impl ByteStreamWriter {
             sender,
             metadata_client,
             runtime_handle: handle,
-            event_handle: None,
+            event_handles: vec![],
+            current_offset: 0,
         }
+    }
+
+    /// Returns the current write offset. Any bytes prior to this offset are persisted on
+    /// the server.
+    pub fn current_offset(&mut self) -> Result<usize, Error> {
+        let mut ack_up_to = 0;
+        for (event_handle, size) in self.event_handles.iter_mut() {
+            match event_handle.try_recv() {
+                // No ack for the following events
+                Err(TryRecvError::Empty) => break,
+                Err(e) => return Err(Error::new(ErrorKind::Other, format!("oneshot error {:?}", e))),
+                Ok(res) => {
+                    if let Err(e) = res {
+                        return Err(Error::new(ErrorKind::Other, format!("{:?}", e)));
+                    } else {
+                        self.current_offset += size.clone();
+                        ack_up_to += 1;
+                    }
+                }
+            }
+        }
+        self.event_handles.drain(0..ack_up_to);
+        Ok(self.current_offset)
     }
 
     /// Seals the segment and no further writes are allowed.
     pub async fn seal(&mut self) -> Result<(), Error> {
-        if let Some(event_handle) = self.event_handle.take() {
+        if let Some((event_handle, size)) = self.event_handles.pop() {
             self.flush_internal(event_handle).await?;
+            self.current_offset += size;
         }
         self.metadata_client
             .seal_segment()
@@ -394,6 +425,35 @@ mod test {
         writer.write(&payload).expect("write");
         let result = writer.flush();
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_writer_current_offset() {
+        let mut rt = Runtime::new().unwrap();
+        let (mut writer, _reader) = create_reader_and_writer(&mut rt);
+
+        // write 200 bytes
+        let payload = vec![1; 100];
+        writer.write(&payload).expect("write");
+        assert_eq!(writer.current_offset, 0);
+        assert_eq!(writer.event_handles.len(), 1);
+
+        let payload = vec![1; 100];
+        writer.write(&payload).expect("write");
+        assert_eq!(writer.current_offset, 0);
+        assert_eq!(writer.event_handles.len(), 2);
+
+        writer.flush().expect("flush");
+        assert_eq!(writer.current_offset, 200);
+        assert!(writer.event_handles.is_empty());
+
+        // write another 200 bytes
+        let payload = vec![1; 200];
+        writer.write(&payload).expect("write");
+        assert_eq!(writer.current_offset, 200);
+        // seal the segment
+        rt.block_on(writer.seal()).expect("seal");
+        assert_eq!(writer.current_offset, 400);
     }
 
     fn create_reader_and_writer(runtime: &mut Runtime) -> (ByteStreamWriter, ByteStreamReader) {
