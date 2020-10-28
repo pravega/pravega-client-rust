@@ -135,11 +135,6 @@ fn test_truncation(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader,
 }
 
 fn test_seal(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, rt: &mut Runtime) {
-    // Bug: sealed segment cannot read starting offset within last 8 bytes
-    let payload = vec![3, 3, 3, 3];
-    let size = writer.write(&payload).expect("write payload1 to byte stream");
-    assert_eq!(size, 4);
-
     // seal
     rt.block_on(writer.seal()).expect("seal");
 
