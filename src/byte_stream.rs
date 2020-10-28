@@ -132,7 +132,7 @@ impl ByteStreamWriter {
                     if let Err(e) = res {
                         return Err(Error::new(ErrorKind::Other, format!("{:?}", e)));
                     } else {
-                        self.current_offset += size.clone();
+                        self.current_offset += *size;
                         ack_up_to += 1;
                     }
                 }
