@@ -251,3 +251,46 @@ impl Transaction {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::transaction::transactional_event_stream_writer::test::create_txn_stream_writer;
+    use tokio::runtime::Runtime;
+
+    #[test]
+    fn test_txn_commit() {
+        let mut rt = Runtime::new().unwrap();
+        let mut txn_stream_writer = rt.block_on(create_txn_stream_writer());
+        let mut txn = rt
+            .block_on(txn_stream_writer.begin())
+            .expect("begin a transaction");
+
+        let status = rt.block_on(txn.check_status()).unwrap();
+        assert_eq!(status, TransactionStatus::Open);
+
+        rt.block_on(txn.write_event(None, vec![1; 1024])).unwrap();
+
+        rt.block_on(txn.commit(Timestamp(0))).unwrap();
+        let status = rt.block_on(txn.check_status()).unwrap();
+        assert_eq!(status, TransactionStatus::Committed);
+    }
+
+    #[test]
+    fn test_txn_abort() {
+        let mut rt = Runtime::new().unwrap();
+        let mut txn_stream_writer = rt.block_on(create_txn_stream_writer());
+        let mut txn = rt
+            .block_on(txn_stream_writer.begin())
+            .expect("begin a transaction");
+
+        let status = rt.block_on(txn.check_status()).unwrap();
+        assert_eq!(status, TransactionStatus::Open);
+
+        rt.block_on(txn.write_event(None, vec![1; 1024])).unwrap();
+
+        rt.block_on(txn.abort()).unwrap();
+        let status = rt.block_on(txn.check_status()).unwrap();
+        assert_eq!(status, TransactionStatus::Aborted);
+    }
+}

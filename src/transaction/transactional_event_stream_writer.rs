@@ -13,7 +13,6 @@ use crate::error::*;
 use crate::transaction::pinger::{Pinger, PingerHandle};
 use crate::transaction::{Transaction, TransactionInfo};
 use pravega_rust_client_auth::DelegationTokenProvider;
-use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::{ScopedStream, StreamSegments, TransactionStatus, TxId, WriterId};
 use snafu::ResultExt;
 use std::collections::BTreeMap;
@@ -29,7 +28,7 @@ use tracing_futures::Instrument;
 /// ```no_run
 /// use std::net::SocketAddr;
 /// use tokio;
-/// use pravega_rust_client_shared::{Timestamp, ScopedStream, Scope, Stream, WriterId};
+/// use pravega_rust_client_shared::{Timestamp, ScopedStream, Scope, Stream, WriterId, PravegaNodeUri};
 /// use pravega_client_rust::client_factory::ClientFactory;
 /// use pravega_rust_client_config::ClientConfigBuilder;
 ///
@@ -44,7 +43,7 @@ use tracing_futures::Instrument;
 ///     // omit the step to create scope and stream in Pravega
 ///
 ///     let config = ClientConfigBuilder::default()
-///         .controller_uri("127.0.0.1:9090".parse::<SocketAddr>().unwrap())
+///         .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
 ///         .build()
 ///         .expect("creating config");
 ///     let client_factory = ClientFactory::new(config.clone());
@@ -66,22 +65,18 @@ pub struct TransactionalEventStreamWriter {
     stream: ScopedStream,
     writer_id: WriterId,
     factory: ClientFactory,
-    config: ClientConfig,
     pinger_handle: PingerHandle,
     delegation_token_provider: Arc<DelegationTokenProvider>,
 }
 
 impl TransactionalEventStreamWriter {
-    // use ClientFactory to initialize a TransactionalEventStreamWriter, so this new method is
-    // marked as pub(crate).
-    pub(crate) async fn new(
-        stream: ScopedStream,
-        writer_id: WriterId,
-        factory: ClientFactory,
-        config: ClientConfig,
-    ) -> Self {
-        let (mut pinger, pinger_handle) =
-            Pinger::new(stream.clone(), config.transaction_timeout_time, factory.clone());
+    // use ClientFactory to initialize a TransactionalEventStreamWriter.
+    pub(crate) async fn new(stream: ScopedStream, writer_id: WriterId, factory: ClientFactory) -> Self {
+        let (mut pinger, pinger_handle) = Pinger::new(
+            stream.clone(),
+            factory.get_config().transaction_timeout_time,
+            factory.clone(),
+        );
         let delegation_token_provider =
             Arc::new(factory.create_delegation_token_provider(stream.clone()).await);
         let runtime_handle = factory.get_runtime_handle();
@@ -91,7 +86,6 @@ impl TransactionalEventStreamWriter {
             stream,
             writer_id,
             factory,
-            config,
             pinger_handle,
             delegation_token_provider,
         }
@@ -104,7 +98,7 @@ impl TransactionalEventStreamWriter {
             .get_controller_client()
             .create_transaction(
                 &self.stream,
-                Duration::from_millis(self.config.transaction_timeout_time),
+                Duration::from_millis(self.factory.get_config().transaction_timeout_time),
             )
             .await
             .map_err(|e| e.error)
@@ -157,9 +151,42 @@ impl TransactionalEventStreamWriter {
             false,
         ))
     }
+}
 
-    /// This method gets a copy of the ClientConfig
-    pub fn get_config(&self) -> ClientConfig {
-        self.config.clone()
+#[cfg(test)]
+pub(crate) mod test {
+    use super::*;
+    use crate::create_stream;
+    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_rust_client_config::ClientConfigBuilder;
+    use pravega_rust_client_shared::{PravegaNodeUri, ScopedSegment};
+    use tokio::runtime::Runtime;
+
+    #[test]
+    fn test_txn_stream_writer() {
+        let mut rt = Runtime::new().unwrap();
+        let mut txn_stream_writer = rt.block_on(create_txn_stream_writer());
+        let transaction = rt.block_on(txn_stream_writer.begin()).expect("open transaction");
+        let fetched_transaction = rt
+            .block_on(txn_stream_writer.get_txn(transaction.get_txn_id()))
+            .expect("get transaction");
+        assert_eq!(transaction.get_txn_id(), fetched_transaction.get_txn_id());
+    }
+
+    // helper function
+    pub(crate) async fn create_txn_stream_writer() -> TransactionalEventStreamWriter {
+        let txn_segment = ScopedSegment::from("scope/stream/0");
+        let writer_id = WriterId(123);
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(MockType::Happy))
+            .mock(true)
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091"))
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        create_stream(&factory, "scope", "stream").await;
+        factory
+            .create_transactional_event_stream_writer(ScopedStream::from(&txn_segment), writer_id)
+            .await
     }
 }

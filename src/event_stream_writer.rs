@@ -9,6 +9,7 @@
 //
 
 use pravega_rust_client_channel::{create_channel, ChannelSender};
+use crate::reactor::reactors::Reactor;
 use pravega_rust_client_shared::*;
 use tokio::sync::oneshot;
 
@@ -16,7 +17,6 @@ use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::get_random_u128;
 use crate::reactor::event::{Incoming, PendingEvent};
-use crate::reactor::reactors::StreamReactor;
 use crate::reactor::segment_selector::SegmentSelector;
 use tracing::info_span;
 use tracing_futures::Instrument;
@@ -46,7 +46,7 @@ impl EventStreamWriter {
 
         let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
-        handle.enter(|| tokio::spawn(StreamReactor::run(selector, rx, factory.clone()).instrument(span)));
+        handle.enter(|| tokio::spawn(Reactor::run(selector, rx, factory.clone()).instrument(span)));
         EventStreamWriter {
             writer_id,
             sender: tx,

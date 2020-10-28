@@ -46,7 +46,7 @@ impl PingerHandle {
         if let Err(e) = self.0.send(PingerEvent::Add(txn_id)).await {
             error!("pinger failed to add transaction: {:?}", e);
             Err(TransactionalEventStreamWriterError::PingerError {
-                msg: String::from("add transaction"),
+                msg: format!("failed to add transaction due to: {:?}", e),
             })
         } else {
             Ok(())
@@ -57,7 +57,7 @@ impl PingerHandle {
         if let Err(e) = self.0.send(PingerEvent::Remove(txn_id)).await {
             error!("pinger failed to remove transaction: {:?}", e);
             Err(TransactionalEventStreamWriterError::PingerError {
-                msg: String::from("remove transaction"),
+                msg: format!("failed to remove transaction due to: {:?}", e),
             })
         } else {
             Ok(())
@@ -68,7 +68,7 @@ impl PingerHandle {
         if let Err(e) = self.0.send(PingerEvent::Terminate).await {
             error!("pinger failed to shutdown: {:?}", e);
             Err(TransactionalEventStreamWriterError::PingerError {
-                msg: String::from("shutdown"),
+                msg: format!("failed to shutdown transaction due to: {:?}", e),
             })
         } else {
             Ok(())

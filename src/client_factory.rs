@@ -115,7 +115,7 @@ impl ClientFactory {
         stream: ScopedStream,
         writer_id: WriterId,
     ) -> TransactionalEventStreamWriter {
-        TransactionalEventStreamWriter::new(stream, writer_id, self.clone(), self.0.config.clone()).await
+        TransactionalEventStreamWriter::new(stream, writer_id, self.clone()).await
     }
 
     pub fn create_byte_stream_writer(&self, segment: ScopedSegment) -> ByteStreamWriter {
