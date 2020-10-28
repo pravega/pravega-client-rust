@@ -384,8 +384,9 @@ fn test_reader_offline(client_factory: &ClientFactory) {
     let mut reader2 = h.block_on(rg.create_reader("r2".to_string()));
 
     let mut events_read = 1; // one event has been already read by reader 1.
-    while let Some(mut slice) = h.block_on(reader2.acquire_segment()) {
-        while let Some(event) = slice.next() {
+    while let Some(slice) = h.block_on(reader2.acquire_segment()) {
+        // read from a Segment slice.
+        for event in slice {
             assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
             events_read += 1;
         }
