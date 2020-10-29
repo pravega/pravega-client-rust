@@ -93,6 +93,15 @@ impl StreamReader {
         Ok(py_future_clone)
     }
 
+    ///
+    /// Set the reader offline.
+    ///
+    #[text_signature = "($self)"]
+    pub fn reader_offline(&self) -> PyResult<()> {
+        self.handle.block_on(self.reader_offline_async());
+        Ok(())
+    }
+
     /// Returns the facet string representation.
     fn to_str(&self) -> String {
         format!("Stream: {:?} ", self.stream)
@@ -126,6 +135,11 @@ impl StreamReader {
         let asyncio = PyModule::import(py, "asyncio")?;
         let event_loop = asyncio.call0("get_running_loop")?;
         Ok(event_loop.into())
+    }
+
+    // Helper method for to set reader_offline.
+    async fn reader_offline_async(&self) {
+        self.reader.lock().await.reader_offline().await;
     }
 }
 

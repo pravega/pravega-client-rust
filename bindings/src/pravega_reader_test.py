@@ -9,8 +9,6 @@
 #
 
 import unittest
-import secrets
-import string
 import pravega_client;
 import asyncio
 import random
@@ -20,10 +18,9 @@ import random
 def _run(coro):
     return asyncio.get_event_loop().run_until_complete(coro)
 
-
 class PravegaReaderTest(unittest.TestCase):
     def test_writeEventAndRead(self):
-        scope = "testScope"+str(random.randint(0, 100))
+        scope = "testRead"+str(random.randint(0, 100))
         print("Creating a Stream Manager, ensure Pravega is running")
         stream_manager = pravega_client.StreamManager("127.0.0.1:9090")
 
@@ -40,8 +37,8 @@ class PravegaReaderTest(unittest.TestCase):
         print("Write events")
         w1.write_event("test event")
         w1.write_event("test event")
-
-        r1 = stream_manager.create_reader(scope, "testStream")
+        reader_group = stream_manager.create_reader_group("rg-1", scope, "testStream");
+        r1 = reader_group.create_reader("reader-1")
         segment_slice = _run(self.get_segment_slice(r1))
         print(segment_slice)
         # consume the segment slice for events.

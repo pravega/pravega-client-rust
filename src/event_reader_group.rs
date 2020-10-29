@@ -129,6 +129,12 @@ impl ReaderGroup {
     }
 
     ///
+    /// Get the reader name.
+    ///
+    pub fn get_name(&self) -> String {
+        self.name.clone()
+    }
+    ///
     /// Create a new EventReader under the ReaderGroup. This method panics if the reader is
     /// already part of the reader group.
     ///

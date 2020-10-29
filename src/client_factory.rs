@@ -108,10 +108,6 @@ impl ClientFactory {
         EventStreamWriter::new(stream, self.clone())
     }
 
-    // pub async fn create_event_stream_reader(&self, stream: ScopedStream) -> EventReader {
-    //     EventReader::init("TODO".to_string(), stream, self.clone()).await
-    // }
-
     pub async fn create_reader_group(&self, name: String, stream: ScopedStream) -> ReaderGroup {
         info!(
             "Creating reader group {:?} to read data from stream {:?}",
