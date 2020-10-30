@@ -187,10 +187,7 @@ pub(crate) struct Slice {
 
 impl Slice {
     fn get_set_to_none(&mut self) -> Option<SegmentSlice> {
-        let slice = self.seg_slice.take();
-        // self.seg_slice = Some(SegmentSlice::default());
-        // self.is_empty = true;
-        slice
+        self.seg_slice.take()
     }
 }
 
