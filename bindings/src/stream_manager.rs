@@ -244,32 +244,6 @@ impl StreamManager {
         Ok(txn_stream_writer)
     }
 
-    ///
-    /// Create a Reader for a given Stream.
-    ///
-    /// ```
-    /// import pravega_client;
-    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
-    /// // Create a reader against an already created Pravega scope and Stream.
-    /// reader=manager.create_reader("scope", "stream")
-    /// ```
-    ///
-    // #[text_signature = "($self, scope_name, stream_name)"]
-    // pub fn create_reader_group(&self, scope_name: &str, stream_name: &str) -> PyResult<StreamReader> {
-    //     let scoped_stream = ScopedStream {
-    //         scope: Scope::from(scope_name.to_string()),
-    //         stream: Stream::from(stream_name.to_string()),
-    //     };
-    //     let handle = self.cf.get_runtime_handle();
-    //     let reader = handle.block_on(self.cf.create_event_stream_reader(scoped_stream.clone()));
-    //     let stream_reader = StreamReader::new(
-    //         Arc::new(Mutex::new(reader)),
-    //         self.cf.get_runtime_handle(),
-    //         scoped_stream,
-    //     );
-    //     Ok(stream_reader)
-    // }
-
     /// Returns the facet string representation.
     fn to_str(&self) -> String {
         format!(

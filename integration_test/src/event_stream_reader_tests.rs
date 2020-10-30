@@ -10,6 +10,7 @@
 
 use crate::pravega_service::PravegaStandaloneServiceConfig;
 use pravega_client_rust::client_factory::ClientFactory;
+use pravega_client_rust::event_reader_group::ReaderGroup;
 use pravega_controller_client::ControllerClient;
 use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_rust_client_shared::{
@@ -43,7 +44,6 @@ async fn test_release_segment(client_factory: &ClientFactory) {
     let stream_name = Stream::from("testReaderRelease1".to_owned());
 
     const NUM_EVENTS: usize = 10;
-    // write 100 events.
 
     let new_stream = create_scope_stream(
         client_factory.get_controller_client(),
@@ -52,7 +52,8 @@ async fn test_release_segment(client_factory: &ClientFactory) {
         1,
     )
     .await;
-    // write events only if the stream is created.
+    // write events only if the stream is created. This is useful if we are running the reader tests
+    // multiple times.
     if new_stream {
         write_events_before_and_after_scale(
             scope_name.clone(),
@@ -67,18 +68,14 @@ async fn test_release_segment(client_factory: &ClientFactory) {
         stream: stream_name.clone(),
     };
 
-    let rg = client_factory
+    let rg: ReaderGroup = client_factory
         .create_reader_group("rg-release".to_string(), str)
         .await;
     let mut reader = rg.create_reader("r1".to_string()).await;
 
     let mut event_count = 0;
     let mut release_invoked = false;
-    loop {
-        if event_count == NUM_EVENTS {
-            // all events have been read. Exit test.
-            break;
-        }
+    while event_count < NUM_EVENTS {
         if let Some(mut slice) = reader.acquire_segment().await {
             loop {
                 if !release_invoked && event_count == 5 {

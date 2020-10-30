@@ -297,7 +297,7 @@ impl ReaderGroupState {
     }
 
     ///
-    /// Compute the number of segments per reader.
+    /// Compute the number of segments to acquire.
     ///
     pub async fn compute_segments_to_acquire(&mut self, reader: &Reader) -> isize {
         self.sync.fetch_updates().await.expect("should fetch updates");
@@ -387,31 +387,19 @@ impl ReaderGroupState {
         let mut assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)?;
         let unassigned_segments = ReaderGroupState::get_unassigned_segments_from_table(table);
 
-        // unassigned segment does not exist
-        if unassigned_segments.is_empty() {
-            return Ok(None);
+        if let Some((segment, offset)) = unassigned_segments.into_iter().next() {
+            assigned_segments.insert(segment.clone(), offset);
+            table.insert(
+                ASSIGNED.to_owned(),
+                reader.to_string(),
+                "HashMap<ScopedSegment, Offset>".to_owned(),
+                Box::new(assigned_segments),
+            );
+            table.insert_tombstone(UNASSIGNED.to_owned(), segment.to_string())?;
+            Ok(Some(segment.to_string()))
+        } else {
+            Ok(None)
         }
-
-        // naive way to get an unassigned segment
-        let mut segments = unassigned_segments
-            .keys()
-            .map(|k| k.to_owned())
-            .collect::<Vec<ScopedSegment>>();
-
-        let segment = segments.pop().expect("should contain at least one key");
-        let offset = unassigned_segments.get(&segment).expect("get offset");
-
-        assigned_segments.insert(segment.clone(), offset.to_owned());
-
-        table.insert(
-            ASSIGNED.to_owned(),
-            reader.to_string(),
-            "HashMap<ScopedSegment, Offset>".to_owned(),
-            Box::new(assigned_segments),
-        );
-        table.insert_tombstone(UNASSIGNED.to_owned(), segment.to_string())?;
-
-        Ok(Some(segment.to_string()))
     }
 
     /// Returns the list of segments assigned to the requested reader.
