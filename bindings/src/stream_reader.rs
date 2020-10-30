@@ -69,15 +69,8 @@ impl StreamReader {
         let read = self.reader.clone();
         self.handle.spawn(async move {
             let slice_result = read.lock().await.acquire_segment().await;
-            let slice_py: Slice = match slice_result {
-                Some(slice) => Slice {
-                    seg_slice: slice,
-                    is_empty: false,
-                },
-                None => Slice {
-                    seg_slice: SegmentSlice::default(),
-                    is_empty: true,
-                },
+            let slice_py: Slice = Slice {
+                seg_slice: slice_result,
             };
             let gil = Python::acquire_gil();
             let py = gil.python();
@@ -99,6 +92,14 @@ impl StreamReader {
     #[text_signature = "($self)"]
     pub fn reader_offline(&self) -> PyResult<()> {
         self.handle.block_on(self.reader_offline_async());
+        Ok(())
+    }
+
+    #[text_signature = "($self, slice)"]
+    pub fn release_segment(&self, slice: &mut Slice) -> PyResult<()> {
+        if let Some(s) = slice.get_set_to_none() {
+            self.handle.block_on(self.release_segment_async(s));
+        }
         Ok(())
     }
 
@@ -141,6 +142,11 @@ impl StreamReader {
     async fn reader_offline_async(&self) {
         self.reader.lock().await.reader_offline().await;
     }
+
+    // Helper method for to release segment
+    async fn release_segment_async(&self, slice: SegmentSlice) {
+        self.reader.lock().await.release_segment(slice);
+    }
 }
 
 ///
@@ -176,8 +182,16 @@ impl EventData {
 #[pyclass]
 #[derive(new)]
 pub(crate) struct Slice {
-    seg_slice: SegmentSlice,
-    is_empty: bool,
+    seg_slice: Option<SegmentSlice>,
+}
+
+impl Slice {
+    fn get_set_to_none(&mut self) -> Option<SegmentSlice> {
+        let slice = self.seg_slice.take();
+        // self.seg_slice = Some(SegmentSlice::default());
+        // self.is_empty = true;
+        slice
+    }
 }
 
 #[pyproto]
@@ -187,15 +201,15 @@ impl PyIterProtocol for Slice {
     }
 
     fn __next__(mut slf: PyRefMut<Self>) -> Option<EventData> {
-        if slf.is_empty {
-            info!("Empty Slice while reading");
-            None
-        } else {
-            let next_event: Option<Event> = slf.seg_slice.next();
+        if let Some(mut slice) = slf.seg_slice.take() {
+            let next_event: Option<Event> = slice.next();
             next_event.map(|e| EventData {
                 offset_in_segment: e.offset_in_segment,
                 value: e.value,
             })
+        } else {
+            info!("Empty Slice");
+            None
         }
     }
 }
