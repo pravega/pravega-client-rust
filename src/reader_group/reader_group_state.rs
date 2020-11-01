@@ -468,7 +468,7 @@ impl ReaderGroupState {
         );
         // ensure this segment is not part of unassigned segments.
         ensure!(
-                !unassigned_segments.contains_key(&segment),
+                !unassigned_segments.contains_key(segment),
                 SyncUpdateError {
                     error_msg: format!(
                         "Failed to release segment:: unassigned_segment should not have already contained this released segment {:?}",
