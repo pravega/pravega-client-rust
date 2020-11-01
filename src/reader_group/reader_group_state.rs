@@ -17,7 +17,7 @@ use mockall::automock;
 use pravega_rust_client_shared::{Reader, ScopedSegment, Segment, SegmentWithRange};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
-use snafu::{ensure, Snafu};
+use snafu::{ensure, OptionExt, Snafu};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::iter::FromIterator;
@@ -430,6 +430,10 @@ impl ReaderGroupState {
         segment: &ScopedSegment,
         offset: &Offset,
     ) -> Result<(), ReaderGroupStateError> {
+        debug!(
+            "Release segment {:?} for reader {:?} at offset {:?}",
+            segment, reader, offset.read
+        );
         self.sync
             .insert(|table| ReaderGroupState::release_segment_internal(table, reader, segment, offset))
             .await
@@ -452,39 +456,26 @@ impl ReaderGroupState {
         let mut assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)?;
         let unassigned_segments = ReaderGroupState::get_unassigned_segments_from_table(table);
 
-        let mut to_remove_list = assigned_segments
-            .iter()
-            .filter(|&(s, _pos)| *s == *segment)
-            .map(|(s, _pos)| s.to_owned())
-            .collect::<Vec<ScopedSegment>>();
-
-        ensure!(
-            to_remove_list.len() == 1,
-            SyncUpdateError {
-                error_msg: format!(
-                    "Failed to release segment: should contain only one segment {:?} in assigned list but contain {}",
-                    segment,
-                    to_remove_list.len()
-                )
-            }
+        let old_offset = assigned_segments.remove(segment).context(SyncUpdateError {
+            error_msg: format!(
+                "Failed to release segment: should contain only one segment {:?} in assigned list but contains none",
+                segment,
+            )
+        });
+        debug!(
+            "Removed segment {:?} from assigned segments, the older offset is {:?}",
+            segment, old_offset
         );
-
-        let to_remove_segment = to_remove_list.pop().expect("pop found segment");
-
+        // ensure this segment is not part of unassigned segments.
         ensure!(
-            !unassigned_segments.contains_key(&to_remove_segment),
-            SyncUpdateError {
-                error_msg: format!(
-                    "Failed to release segment:: unassigned_segment should not have already contained this released segment {:?}",
-                    segment
-                )
-            }
-        );
-
-        assigned_segments
-            .remove(&to_remove_segment)
-            .expect("should contain the releasing segment");
-
+                !unassigned_segments.contains_key(&segment),
+                SyncUpdateError {
+                    error_msg: format!(
+                        "Failed to release segment:: unassigned_segment should not have already contained this released segment {:?}",
+                        segment
+                    )
+                });
+        // update table
         table.insert(
             ASSIGNED.to_owned(),
             reader.to_string(),
@@ -493,7 +484,7 @@ impl ReaderGroupState {
         );
         table.insert(
             UNASSIGNED.to_owned(),
-            to_remove_segment.to_string(),
+            segment.clone().to_string(),
             "Offset".to_owned(),
             Box::new(offset.to_owned()),
         );
