@@ -43,7 +43,7 @@ pub(crate) struct SegmentWriter {
     pub(crate) segment: ScopedSegment,
 
     /// Client connection that writes to the segmentstore.
-    connection: Option<ClientConnectionWriteHalf>,
+    pub(crate) connection: Option<ClientConnectionWriteHalf>,
 
     /// Closes listener task before setting up new connection.
     connection_listener_handle: Option<oneshot::Sender<bool>>,
@@ -199,6 +199,7 @@ impl SegmentWriter {
                                     let result = sender
                                         .send((Incoming::ConnectionFailure(ConnectionFailure {
                                             segment: segment.clone(),
+                                            connection_id: r.get_id(),
                                         }), 0)).await;
                                     if let Err(e) = result {
                                         error!("failed to send connectionFailure signal to reactor {:?}", e);

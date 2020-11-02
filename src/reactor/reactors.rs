@@ -65,7 +65,16 @@ impl Reactor {
                     .writers
                     .get_mut(&connection_failure.segment)
                     .expect("must have writer");
-                writer.reconnect(factory).await;
+                if let Some(ref write_half) = writer.connection {
+                    // Only reconnect if the current connection is having connection
+                    // failure. It might happen that the write op has already triggered
+                    // the connection failure and has reconnected. It's necessary to avoid
+                    // reconnect twice since resending duplicate inflight events will
+                    // cause InvalidEventNumber error.
+                    if write_half.get_id() == connection_failure.connection_id {
+                        writer.reconnect(factory).await;
+                    }
+                }
                 Ok(())
             }
         }
