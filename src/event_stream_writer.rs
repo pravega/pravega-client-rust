@@ -8,8 +8,8 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use pravega_rust_client_channel::{create_channel, ChannelSender};
 use crate::reactor::reactors::Reactor;
+use pravega_rust_client_channel::{create_channel, ChannelSender};
 use pravega_rust_client_shared::*;
 use tokio::sync::oneshot;
 

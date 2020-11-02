@@ -13,11 +13,11 @@ use crate::error::*;
 use crate::event_stream_writer::EventStreamWriter;
 use crate::get_random_u128;
 use crate::reactor::event::{Incoming, PendingEvent};
+use crate::reactor::reactors::Reactor;
 use crate::reactor::segment_selector::SegmentSelector;
 use crate::segment_metadata::SegmentMetadataClient;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 use pravega_rust_client_channel::{create_channel, ChannelSender};
-use crate::reactor::reactors::Reactor;
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream, WriterId};
 use std::cmp;
 use std::convert::TryInto;
@@ -107,8 +107,7 @@ impl ByteStreamWriter {
         handle.block_on(selector.initialize(current_segments));
         let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
-        handle
-            .enter(|| tokio::spawn(StreamReactor::run(selector, receiver, factory.clone()).instrument(span)));
+        handle.enter(|| tokio::spawn(Reactor::run(selector, receiver, factory.clone()).instrument(span)));
         ByteStreamWriter {
             writer_id,
             sender,

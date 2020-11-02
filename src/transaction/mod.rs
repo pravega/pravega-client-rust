@@ -14,7 +14,7 @@ pub mod transactional_event_stream_writer;
 use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::reactor::event::{Incoming, PendingEvent};
-use crate::reactor::reactors::StreamReactor;
+use crate::reactor::reactors::Reactor;
 use crate::reactor::segment_selector::SegmentSelector;
 use crate::transaction::pinger::PingerHandle;
 use pravega_rust_client_channel::{create_channel, ChannelSender};
@@ -54,7 +54,7 @@ impl Transaction {
 
     // Transaction should be created by transactional event stream writer, so this new method
     // is not public.
-    fn new(
+    async fn new(
         info: TransactionInfo,
         stream_segments: StreamSegments,
         handle: PingerHandle,
@@ -72,17 +72,13 @@ impl Transaction {
             };
         }
         let rt_handle = factory.get_runtime_handle();
-        let mut selector = rt_handle.block_on(SegmentSelector::new(
-            info.stream.clone(),
-            tx.clone(),
-            factory.clone(),
-        ));
-        rt_handle.block_on(selector.initialize(stream_segments));
+        let mut selector = SegmentSelector::new(info.stream.clone(), tx.clone(), factory.clone()).await;
+        selector.initialize(stream_segments).await;
         let writer_id = info.writer_id;
         let txn_id = info.txn_id;
         let span = info_span!("StreamReactor", txn_id = %txn_id, event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
-        rt_handle.enter(|| tokio::spawn(StreamReactor::run(selector, rx, factory.clone()).instrument(span)));
+        rt_handle.enter(|| tokio::spawn(Reactor::run(selector, rx, factory.clone()).instrument(span)));
         Transaction {
             info,
             sender: tx,
@@ -141,6 +137,8 @@ impl Transaction {
                 error_msg: format!("{:?}", e),
             });
         }
+
+        let mut ack_up_to = 0;
         for event in &mut self.event_handles {
             match event.try_recv() {
                 Ok(res) => {
@@ -148,6 +146,8 @@ impl Transaction {
                         return Err(TransactionError::TxnSegmentWriterError {
                             error_msg: format!("error when writing event: {:?}", e),
                         });
+                    } else {
+                        ack_up_to += 1;
                     }
                 }
                 Err(TryRecvError::Empty) => {
@@ -160,6 +160,7 @@ impl Transaction {
                 }
             }
         }
+        self.event_handles.drain(0..ack_up_to);
         Ok(())
     }
 
@@ -186,6 +187,7 @@ impl Transaction {
                 }
             }
         }
+        self.event_handles.clear();
 
         // remove this transaction from ping list
         self.handle
@@ -292,5 +294,21 @@ mod test {
         rt.block_on(txn.abort()).unwrap();
         let status = rt.block_on(txn.check_status()).unwrap();
         assert_eq!(status, TransactionStatus::Aborted);
+    }
+
+    #[test]
+    fn test_txn_write_event() {
+        let mut rt = Runtime::new().unwrap();
+        let mut txn_stream_writer = rt.block_on(create_txn_stream_writer());
+        let mut txn = rt
+            .block_on(txn_stream_writer.begin())
+            .expect("begin a transaction");
+        rt.block_on(txn.write_event(None, vec![1; 1024])).unwrap();
+        rt.block_on(txn.write_event(None, vec![1; 1024])).unwrap();
+        rt.block_on(txn.write_event(None, vec![1; 1024])).unwrap();
+        assert!(!txn.event_handles.is_empty());
+
+        rt.block_on(txn.commit(Timestamp(0))).unwrap();
+        assert!(txn.event_handles.is_empty());
     }
 }

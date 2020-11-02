@@ -178,17 +178,16 @@ pub(crate) mod test {
     use super::*;
     use im::HashMap as ImHashMap;
     use ordered_float::OrderedFloat;
+    use pravega_rust_client_channel::{create_channel, ChannelReceiver};
     use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
     use pravega_rust_client_config::ClientConfigBuilder;
     use tokio::runtime::Runtime;
-    use tokio::sync::mpsc;
-    use tokio::sync::mpsc::Receiver;
 
     #[test]
     fn test_segment_selector() {
         let mut rt = Runtime::new().unwrap();
-        let (mut selector, _receiver, _factory) = rt.block_on(create_segment_selector(MockType::Happy));
-        rt.block_on(selector.initialize());
+        let (mut selector, _sender, _receiver, _factory) =
+            rt.block_on(create_segment_selector(MockType::Happy));
         assert_eq!(selector.writers.len(), 2);
 
         // update successors for sealed segment
@@ -225,7 +224,12 @@ pub(crate) mod test {
     // helper function section
     pub(crate) async fn create_segment_selector(
         mock: MockType,
-    ) -> (SegmentSelector, Receiver<Incoming>, ClientFactory) {
+    ) -> (
+        SegmentSelector,
+        ChannelSender<Incoming>,
+        ChannelReceiver<Incoming>,
+        ClientFactory,
+    ) {
         let stream = ScopedStream::from("testScope/testStream");
         let config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(mock))
@@ -258,18 +262,14 @@ pub(crate) mod test {
             })
             .await
             .unwrap();
-        let (sender, receiver) = mpsc::channel(10);
-        let delegation_token_provider = DelegationTokenProvider::new(stream.clone());
-        (
-            SegmentSelector::new(
-                stream,
-                sender,
-                factory.get_config().to_owned(),
-                factory.clone(),
-                Arc::new(delegation_token_provider),
-            ),
-            receiver,
-            factory,
-        )
+        let (sender, receiver) = create_channel(1024);
+        let mut selector = SegmentSelector::new(stream.clone(), sender.clone(), factory.clone()).await;
+        let stream_segments = factory
+            .get_controller_client()
+            .get_current_segments(&stream)
+            .await
+            .unwrap();
+        selector.initialize(stream_segments).await;
+        (selector, sender, receiver, factory)
     }
 }

@@ -32,7 +32,7 @@ use regex::Regex;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::SystemTime;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 use tracing::{debug, info};
 
 /// A client-side proxy for obtaining a delegation token from the server.
@@ -43,7 +43,7 @@ use tracing::{debug, info};
 /// The implementation is JWT based.
 pub struct DelegationTokenProvider {
     stream: ScopedStream,
-    token: Mutex<Option<DelegationToken>>,
+    token: RwLock<Option<DelegationToken>>,
     signal_expiry: AtomicBool,
 }
 
@@ -53,7 +53,7 @@ impl DelegationTokenProvider {
     pub fn new(stream: ScopedStream) -> Self {
         DelegationTokenProvider {
             stream,
-            token: Mutex::new(None),
+            token: RwLock::new(None),
             signal_expiry: AtomicBool::new(false),
         }
     }
@@ -61,23 +61,25 @@ impl DelegationTokenProvider {
     /// Returns the delegation token. It returns an existing delegation token if it is not close to expiry.
     /// If the token is close to expiry, it obtains a new delegation token and returns that one instead.
     pub async fn retrieve_token(&self, controller: &dyn ControllerClient) -> String {
-        let mut guard = self.token.lock().await;
-        if let Some(ref token) = *guard {
+        let read_guard = self.token.read().await;
+        if let Some(ref token) = *read_guard {
             if self.is_token_valid(token.get_expiry_time()) {
                 return token.get_value();
             }
         }
-        debug!("no token exists, refresh to get a new one");
+        debug!("token does not exist or is about to expire, refresh to get a new one");
+        drop(read_guard);
+        let mut write_guard = self.token.write().await;
         let token = self.refresh_token(controller).await;
         let value = token.get_value();
-        *guard = Some(token);
+        *write_guard = Some(token);
         value
     }
 
     /// Populate the cached token.
     /// An empty token can be used when auth is disabled.
     pub async fn populate(&self, delegation_token: DelegationToken) {
-        let mut guard = self.token.lock().await;
+        let mut guard = self.token.write().await;
         *guard = Some(delegation_token)
     }
 

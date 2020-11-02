@@ -12,7 +12,7 @@ use crate::trace;
 use crate::{get_random_u128, get_request_id};
 use snafu::ResultExt;
 use std::collections::VecDeque;
-use tracing::{debug, error, field, info, info_span, warn};
+use tracing::{debug, error, field, info, info_span, trace, warn};
 
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
@@ -31,6 +31,8 @@ use pravega_rust_client_auth::DelegationTokenProvider;
 use pravega_rust_client_channel::{CapacityGuard, ChannelSender};
 use std::fmt;
 use std::sync::Arc;
+use tokio::select;
+use tokio::sync::oneshot;
 use tracing_futures::Instrument;
 
 pub(crate) struct SegmentWriter {
@@ -42,6 +44,8 @@ pub(crate) struct SegmentWriter {
 
     /// Client connection that writes to the segmentstore.
     connection: Option<ClientConnectionWriteHalf>,
+
+    connection_listener_handle: Option<oneshot::Sender<bool>>,
 
     /// Events that are sent but unacknowledged.
     inflight: VecDeque<Append>,
@@ -84,6 +88,7 @@ impl SegmentWriter {
             sender,
             retry_policy,
             delegation_token_provider,
+            connection_listener_handle: None,
         }
     }
 
@@ -120,7 +125,10 @@ impl SegmentWriter {
                 request_id: get_request_id(),
                 writer_id: self.id.0,
                 segment: self.segment.to_string(),
-                delegation_token: self.delegation_token_provider.retrieve_token(factory.get_controller_client()).await,
+                delegation_token: self
+                    .delegation_token_provider
+                    .retrieve_token(factory.get_controller_client())
+                    .await,
             });
 
             let raw_client = factory.create_raw_client_for_endpoint(uri);
@@ -137,7 +145,7 @@ impl SegmentWriter {
                     }
                 }
             })
-                .await;
+            .await;
 
             let mut connection = match result {
                 Ok((reply, connection)) => match reply {
@@ -161,44 +169,56 @@ impl SegmentWriter {
             };
 
             let (mut r, w) = connection.split();
-            let connection_id = w.get_id();
             self.connection = Some(w);
 
             let segment = self.segment.clone();
             let sender = self.sender.clone();
 
+            let (oneshot_tx, mut oneshot_rx) = oneshot::channel();
+            if let Some(s) = self.connection_listener_handle.take() {
+                let _res = s.send(true);
+            }
+            self.connection_listener_handle = Some(oneshot_tx);
             // spins up a connection listener that keeps listening on the connection
-            let listener_span = info_span!("connection listener", connection = %connection_id);
+            let listener_id = r.get_id();
             tokio::spawn(async move {
                 loop {
-                    let reply = match r.read().await {
-                        Ok(reply) => reply,
-                        Err(e) => {
-                            warn!("connection failed to read data back from segmentstore due to {:?}, closing the listener task", e);
-                            let result = sender
-                                .send((Incoming::ConnectionFailure(ConnectionFailure {
-                                    segment: segment.clone(),
-                                }), 0)).await;
-                            if let Err(e) = result {
-                                error!("failed to send connectionFailure signal to reactor {:?}", e);
-                            }
-                            return;
+                    select! {
+                        _ = &mut oneshot_rx => {
+                            debug!("shut down connection listener {:?}", listener_id);
+                            break;
                         }
-                    };
+                        result = r.read() => {
+                            let reply = match result {
+                                Ok(reply) => reply,
+                                Err(e) => {
+                                    warn!("connection failed to read data back from segmentstore due to {:?}, closing the listener task {:?}", e, listener_id);
+                                    let result = sender
+                                        .send((Incoming::ConnectionFailure(ConnectionFailure {
+                                            segment: segment.clone(),
+                                        }), 0)).await;
+                                    if let Err(e) = result {
+                                        error!("failed to send connectionFailure signal to reactor {:?}", e);
+                                    }
+                                    break;
+                                }
+                            };
+                            let res = sender
+                                .send((Incoming::ServerReply(ServerReply {
+                                    segment: segment.clone(),
+                                    reply,
+                                }), 0))
+                                .await;
 
-                    let result = sender
-                        .send((Incoming::ServerReply(ServerReply {
-                            segment: segment.clone(),
-                            reply,
-                        }), 0))
-                        .await;
-
-                    if let Err(e) = result {
-                        error!("connection read data from segmentstore but failed to send reply back to reactor due to {:?}",e);
-                        return;
+                            if let Err(e) = res {
+                                error!("connection read data from segmentstore but failed to send reply back to reactor due to {:?}",e);
+                                break;
+                            }
+                        }
                     }
                 }
-            }.instrument(listener_span));
+                info!("listener task shut down {:?}", listener_id);
+            });
             info!("finished setting up connection");
             Ok(())
         }.instrument(span).await
@@ -265,7 +285,6 @@ impl SegmentWriter {
             self.id,
             self.connection.as_ref().expect("must have connection").get_id(),
         );
-
         let request = Requests::AppendBlockEnd(AppendBlockEndCommand {
             writer_id: self.id.0,
             size_of_whole_events: total_size as i32,
@@ -309,7 +328,7 @@ impl SegmentWriter {
 
             let acked = self.inflight.pop_front().expect("must have");
             if acked.event.oneshot_sender.send(Result::Ok(())).is_err() {
-                debug!(
+                trace!(
                     "failed to send ack back to caller using oneshot due to Receiver dropped: event id {:?}",
                     acked.event_id
                 );
@@ -413,10 +432,10 @@ struct WriteHalfConnectionWrapper {
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
+    use pravega_rust_client_channel::{create_channel, ChannelReceiver};
     use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
     use pravega_rust_client_config::ClientConfigBuilder;
-    use tokio::sync::mpsc::Receiver;
-    use tokio::sync::{mpsc, oneshot};
+    use tokio::sync::oneshot;
 
     type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 
@@ -424,27 +443,29 @@ pub(crate) mod test {
     fn test_segment_writer_happy_write() {
         // set up segment writer
         let mut rt = tokio::runtime::Runtime::new().unwrap();
-        let (mut segment_writer, mut receiver, factory) = create_segment_writer(MockType::Happy);
+        let (mut segment_writer, mut sender, mut receiver, factory) = create_segment_writer(MockType::Happy);
 
         // test set up connection
         let result = rt.block_on(segment_writer.setup_connection(&factory));
         assert!(result.is_ok());
 
         // write data using mock connection
-        let (event, event_handle1) = create_event(512);
-        let reply = rt
+        let (event, guard, event_handle1) = rt.block_on(create_event(512, &mut sender, &mut receiver));
+        let (reply, cap_guard) = rt
             .block_on(async {
-                segment_writer.write(event).await.expect("write data");
-                receiver.recv().await
+                segment_writer.write(event, guard).await.expect("write data");
+                return receiver.recv().await;
             })
             .expect("receive DataAppend from segment writer");
 
+        assert_eq!(cap_guard.size, 0);
         assert_eq!(segment_writer.event_num, 1);
         assert_eq!(segment_writer.inflight.len(), 1);
         assert!(segment_writer.pending.is_empty());
 
-        let (event, event_handle2) = create_event(512);
-        rt.block_on(segment_writer.write(event)).expect("write data");
+        let (event, guard, event_handle2) = rt.block_on(create_event(512, &mut sender, &mut receiver));
+        rt.block_on(segment_writer.write(event, guard))
+            .expect("write data");
 
         assert_eq!(segment_writer.event_num, 2);
         assert_eq!(segment_writer.inflight.len(), 1);
@@ -452,11 +473,12 @@ pub(crate) mod test {
         ack_server_reply(reply, &mut segment_writer);
         rt.block_on(segment_writer.write_pending_events())
             .expect("write data");
-        let reply = rt
+        let (reply, cap_guard) = rt
             .block_on(receiver.recv())
             .expect("receive DataAppend from segment writer");
         ack_server_reply(reply, &mut segment_writer);
 
+        assert_eq!(cap_guard.size, 0);
         assert!(segment_writer.inflight.is_empty());
         assert!(segment_writer.pending.is_empty());
 
@@ -470,20 +492,22 @@ pub(crate) mod test {
     fn test_segment_writer_reply_error() {
         // set up segment writer
         let mut rt = tokio::runtime::Runtime::new().unwrap();
-        let (mut segment_writer, mut receiver, factory) = create_segment_writer(MockType::SegmentIsSealed);
+        let (mut segment_writer, mut sender, mut receiver, factory) =
+            create_segment_writer(MockType::SegmentIsSealed);
 
         // test set up connection
         let result = rt.block_on(segment_writer.setup_connection(&factory));
         assert!(result.is_ok());
 
         // write data using mock connection to a sealed segment
-        let (event, _event_handle) = create_event(512);
-        let reply = rt
+        let (event, guard, _event_handle) = rt.block_on(create_event(512, &mut sender, &mut receiver));
+        let (reply, cap_guard) = rt
             .block_on(async {
-                segment_writer.write(event).await.expect("write data");
+                segment_writer.write(event, guard).await.expect("write data");
                 receiver.recv().await
             })
             .expect("receive DataAppend from segment writer");
+        assert_eq!(cap_guard.size, 0);
 
         let result = if let Incoming::ServerReply(server) = reply {
             if let Replies::SegmentIsSealed(_cmd) = server.reply {
@@ -500,7 +524,12 @@ pub(crate) mod test {
     // helper function section
     pub(crate) fn create_segment_writer(
         mock: MockType,
-    ) -> (SegmentWriter, Receiver<Incoming>, ClientFactory) {
+    ) -> (
+        SegmentWriter,
+        ChannelSender<Incoming>,
+        ChannelReceiver<Incoming>,
+        ClientFactory,
+    ) {
         let segment = ScopedSegment::from("testScope/testStream/0");
         let config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(mock))
@@ -509,25 +538,36 @@ pub(crate) mod test {
             .build()
             .unwrap();
         let factory = ClientFactory::new(config);
-        let (sender, receiver) = mpsc::channel(10);
+        let (sender, receiver) = create_channel(1024);
         let delegation_token_provider = DelegationTokenProvider::new(ScopedStream::from(&segment));
         (
             SegmentWriter::new(
                 segment,
-                sender,
+                sender.clone(),
                 factory.get_config().retry_policy,
                 Arc::new(delegation_token_provider),
             ),
+            sender,
             receiver,
             factory,
         )
     }
 
-    fn create_event(size: usize) -> (PendingEvent, EventHandle) {
+    async fn create_event(
+        size: usize,
+        sender: &mut ChannelSender<Incoming>,
+        receiver: &mut ChannelReceiver<Incoming>,
+    ) -> (PendingEvent, CapacityGuard, EventHandle) {
         let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
         let event = PendingEvent::new(Some("routing_key".into()), vec![1; size], oneshot_sender)
             .expect("create pending event");
-        (event, oneshot_receiver)
+        sender.send((Incoming::AppendEvent(event), 512)).await.unwrap();
+        let (event, guard) = receiver.recv().await.unwrap();
+        if let Incoming::AppendEvent(e) = event {
+            (e, guard, oneshot_receiver)
+        } else {
+            panic!("wrong type");
+        }
     }
 
     fn ack_server_reply(reply: Incoming, writer: &mut SegmentWriter) {

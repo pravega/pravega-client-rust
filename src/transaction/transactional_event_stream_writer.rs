@@ -112,7 +112,8 @@ impl TransactionalEventStreamWriter {
             self.pinger_handle.clone(),
             self.factory.clone(),
             false,
-        ))
+        )
+        .await)
     }
 
     /// This method returns the Transaction based on the given transaction id.
@@ -134,7 +135,8 @@ impl TransactionalEventStreamWriter {
                 self.pinger_handle.clone(),
                 self.factory.clone(),
                 true,
-            ));
+            )
+            .await);
         }
         let segments = self
             .factory
@@ -149,7 +151,8 @@ impl TransactionalEventStreamWriter {
             self.pinger_handle.clone(),
             self.factory.clone(),
             false,
-        ))
+        )
+        .await)
     }
 }
 

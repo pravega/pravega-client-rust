@@ -104,7 +104,7 @@ pub fn create_channel<U>(capacity: usize) -> (ChannelSender<U>, ChannelReceiver<
 
 pub struct CapacityGuard {
     semaphore: Arc<Semaphore>,
-    size: usize,
+    pub size: usize,
 }
 
 impl Drop for CapacityGuard {
