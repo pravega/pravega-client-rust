@@ -138,7 +138,10 @@ impl ReaderMeta {
                 }
             }
         } else {
-            panic!("This is unexpected, No receiver for SegmentSlice present.");
+            panic!(
+                "This is unexpected, No receiver for SegmentSlice {:?} present.",
+                segment
+            );
         }
     }
 
@@ -325,6 +328,13 @@ impl EventReader {
         }
     }
 
+    // for testing purposes.
+    #[doc(hidden)]
+    fn set_last_acquire_release_time(&mut self, time: Instant) {
+        self.meta.last_segment_release = time;
+        self.meta.last_segment_acquire = time;
+    }
+
     ///
     /// Release a partially read segment slice back to event reader.
     ///
@@ -341,6 +351,7 @@ impl EventReader {
             self.factory
                 .get_runtime_handle()
                 .block_on(self.release_segment_from_reader(slice, read_offset));
+            self.meta.last_segment_release = Instant::now();
         } else {
             //send an indication to the waiting rx that slice has been returned.
             if let Some(tx) = slice.slice_return_tx.take() {
@@ -500,6 +511,7 @@ impl EventReader {
                 debug!("Segments which can be read next are {:?}", new_segments);
                 // Initiate segment reads to the newer segments.
                 self.initiate_segment_reads(new_segments);
+                self.meta.last_segment_acquire = Instant::now();
             }
         }
         // Check if any of the segments already has event data and return it.
@@ -732,9 +744,13 @@ impl EventReader {
 mod tests {
     use super::*;
     use crate::client_factory::ClientFactory;
+    use crate::error::SynchronizerError;
     use crate::event_reader::{EventReader, SegmentReadResult};
+    use crate::reader_group::reader_group_state::ReaderGroupStateError;
     use crate::segment_slice::{SegmentDataBuffer, SegmentSlice, SliceMetadata};
     use bytes::{BufMut, BytesMut};
+    use mockall::predicate;
+    use mockall::predicate::*;
     use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
     use pravega_rust_client_shared::{Reader, Scope, ScopedSegment, ScopedStream, Stream};
     use pravega_wire_protocol::commands::{Command, EventCommand};
@@ -816,6 +832,103 @@ mod tests {
                 break;
             }
         }
+    }
+
+    #[test]
+    fn test_acquire_segments() {
+        const NUM_EVENTS: usize = 10;
+        let (tx, rx) = mpsc::channel(1);
+        tracing_subscriber::fmt().with_max_level(Level::TRACE).finish();
+        let cf = ClientFactory::new(
+            ClientConfigBuilder::default()
+                .controller_uri(MOCK_CONTROLLER_URI)
+                .build()
+                .unwrap(),
+        );
+
+        // simulate data being received from Segment store.
+        cf.get_runtime_handle().enter(|| {
+            tokio::spawn(generate_variable_size_events(
+                tx.clone(),
+                1024,
+                NUM_EVENTS,
+                0,
+                false,
+            ));
+        });
+
+        // simulate initialization of a Reader
+        let init_segments = vec![create_segment_slice(0)];
+        let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
+        rg_mock
+            .expect_compute_segments_to_acquire()
+            .with(predicate::eq(Reader::from("r1".to_string())))
+            .return_const(1 as isize);
+
+        // mock rg_state.assign_segment_to_reader
+        let res: Result<Option<ScopedSegment>, ReaderGroupStateError> =
+            Ok(Some(ScopedSegment::from("scope/test/1.#epoch.0")));
+        rg_mock
+            .expect_assign_segment_to_reader()
+            .with(predicate::eq(Reader::from("r1".to_string())))
+            .return_once(move |_| res);
+        //mock rg_state get_segments for reader
+        let mut new_current_segments: HashSet<(ScopedSegment, Offset)> = HashSet::new();
+        new_current_segments.insert((ScopedSegment::from("scope/test/1.#epoch.0"), Offset::new(0)));
+        new_current_segments.insert((ScopedSegment::from("scope/test/0.#epoch.0"), Offset::new(0)));
+        let res: Result<HashSet<(ScopedSegment, Offset)>, SynchronizerError> = Ok(new_current_segments);
+        rg_mock
+            .expect_get_segments_for_reader()
+            .with(predicate::eq(Reader::from("r1".to_string())))
+            .return_once(move |_| res);
+
+        // simulate data being received from Segment store.
+        cf.get_runtime_handle().enter(|| {
+            tokio::spawn(generate_variable_size_events(
+                tx.clone(),
+                1024,
+                NUM_EVENTS,
+                1,
+                false,
+            ));
+        });
+
+        let before_time = Instant::now() - Duration::from_secs(15);
+        // create a new Event Reader with the segment slice data.
+        let mut reader = EventReader::init_event_reader(
+            Arc::new(Mutex::new(rg_mock)),
+            Reader::from("r1".to_string()),
+            cf.clone(),
+            tx.clone(),
+            rx,
+            create_slice_map(init_segments),
+            HashMap::new(),
+        );
+        reader.set_last_acquire_release_time(before_time);
+
+        let mut event_count = 0;
+
+        // Attempt to acquire a segment.
+        while let Some(mut slice) = cf.get_runtime_handle().block_on(reader.acquire_segment()) {
+            loop {
+                if let Some(event) = slice.next() {
+                    println!("Read event {:?}", event);
+                    assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
+                    event_count += 1;
+                } else {
+                    println!(
+                        "Finished reading from segment {:?}, segment is auto released",
+                        slice.meta.scoped_segment
+                    );
+                    break; // try to acquire the next segment.
+                }
+            }
+            if event_count == NUM_EVENTS + NUM_EVENTS {
+                // all events have been read. Exit test.
+                break;
+            }
+        }
+        assert_eq!(event_count, NUM_EVENTS + NUM_EVENTS);
     }
 
     /*
@@ -1176,6 +1289,7 @@ mod tests {
     ) {
         let mut segment_name = "scope/test/".to_owned();
         segment_name.push_str(segment_id.to_string().as_ref());
+        segment_name.push_str(".#epoch.0");
         let mut buf = BytesMut::with_capacity(buf_size);
         let mut offset: i64 = 0;
         for i in 1..num_events + 1 {

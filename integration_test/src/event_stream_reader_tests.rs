@@ -63,13 +63,13 @@ async fn test_release_segment(client_factory: &ClientFactory) {
         )
         .await;
     }
-    let str = ScopedStream {
+    let stream = ScopedStream {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
     };
 
     let rg: ReaderGroup = client_factory
-        .create_reader_group("rg-release".to_string(), str)
+        .create_reader_group("rg-release".to_string(), stream)
         .await;
     let mut reader = rg.create_reader("r1".to_string()).await;
 
