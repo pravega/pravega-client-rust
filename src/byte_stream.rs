@@ -117,16 +117,6 @@ impl ByteStreamWriter {
         }
     }
 
-    /// Sends a wirecommnd to server to fetch the current write offset for this segment.
-    pub async fn current_offset(&self) -> Result<usize, Error> {
-        let segment_info = self
-            .metadata_client
-            .get_segment_info()
-            .await
-            .map_err(|e| Error::new(ErrorKind::Other, format!("get segment info error: {:?}", e)))?;
-        Ok(segment_info.write_offset as usize)
-    }
-
     /// Seals the segment and no further writes are allowed.
     pub async fn seal(&mut self) -> Result<(), Error> {
         if let Some(event_handle) = self.event_handle.take() {
@@ -402,30 +392,6 @@ mod test {
         writer.write(&payload).expect("write");
         let result = writer.flush();
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_writer_current_offset() {
-        let mut rt = Runtime::new().unwrap();
-        let (mut writer, _reader) = create_reader_and_writer(&mut rt);
-
-        // write 200 bytes
-        let payload = vec![1; 200];
-        writer.write(&payload).expect("write");
-        writer.flush().expect("flush");
-        let offset = rt.block_on(writer.current_offset()).expect("get current offset");
-        assert_eq!(offset, 200);
-
-        // write another 200 bytes
-        let payload = vec![1; 200];
-        writer.write(&payload).expect("write");
-        let offset = rt.block_on(writer.current_offset()).expect("get current offset");
-        assert_eq!(offset, 200);
-
-        // seal the segment
-        rt.block_on(writer.seal()).expect("seal");
-        let offset = rt.block_on(writer.current_offset()).expect("get current offset");
-        assert_eq!(offset, 400);
     }
 
     fn create_reader_and_writer(runtime: &mut Runtime) -> (ByteStreamWriter, ByteStreamReader) {

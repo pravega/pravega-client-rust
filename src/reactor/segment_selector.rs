@@ -22,6 +22,7 @@ use crate::reactor::segment_writer::{Append, SegmentWriter};
 use pravega_rust_client_auth::DelegationTokenProvider;
 use std::sync::Arc;
 
+/// Maintains mapping from segments to segment writers.
 pub(crate) struct SegmentSelector {
     /// The stream of this SegmentSelector.
     pub(crate) stream: ScopedStream,
@@ -40,6 +41,9 @@ pub(crate) struct SegmentSelector {
 
     /// Delegation token for authentication.
     pub(crate) delegation_token_provider: Arc<DelegationTokenProvider>,
+
+    /// Whether segment writer should use conditional append.
+    pub(crate) conditional_append: bool,
 }
 
 impl SegmentSelector {
@@ -47,6 +51,7 @@ impl SegmentSelector {
         stream: ScopedStream,
         sender: ChannelSender<Incoming>,
         factory: ClientFactory,
+        conditional_append: bool,
     ) -> Self {
         let delegation_token_provider = factory.create_delegation_token_provider(stream.clone()).await;
         SegmentSelector {
@@ -56,6 +61,7 @@ impl SegmentSelector {
             sender,
             factory,
             delegation_token_provider: Arc::new(delegation_token_provider),
+            conditional_append,
         }
     }
 
@@ -263,7 +269,7 @@ pub(crate) mod test {
             .await
             .unwrap();
         let (sender, receiver) = create_channel(1024);
-        let mut selector = SegmentSelector::new(stream.clone(), sender.clone(), factory.clone()).await;
+        let mut selector = SegmentSelector::new(stream.clone(), sender.clone(), factory.clone(), false).await;
         let stream_segments = factory
             .get_controller_client()
             .get_current_segments(&stream)

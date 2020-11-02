@@ -19,7 +19,7 @@ use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_retry::retry_result::RetryResult;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::*;
-use pravega_wire_protocol::commands::{AppendBlockEndCommand, SetupAppendCommand};
+use pravega_wire_protocol::commands::{AppendBlockEndCommand, SetupAppendCommand, ConditionalAppendCommand, EventCommand};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
 use crate::client_factory::ClientFactory;
@@ -65,6 +65,12 @@ pub(crate) struct SegmentWriter {
 
     /// Delegation token provider used to authenticate client when communicating with segmentstore.
     delegation_token_provider: Arc<DelegationTokenProvider>,
+
+    /// Whether to use conditional append
+    conditional_append: bool,
+
+    /// Conditional append based on segment offset
+    offset: usize,
 }
 
 impl SegmentWriter {
@@ -269,7 +275,7 @@ impl SegmentWriter {
                 SegmentWriter::MAX_WRITE_SIZE
             );
             if append.event.data.len() + to_send.len() <= SegmentWriter::MAX_WRITE_SIZE as usize
-                || event_count == SegmentWriter::MAX_EVENTS as usize
+                && event_count < SegmentWriter::MAX_EVENTS as usize
             {
                 event_count += 1;
                 total_size += append.event.data.len();
@@ -289,14 +295,25 @@ impl SegmentWriter {
             self.id,
             self.connection.as_ref().expect("must have connection").get_id(),
         );
-        let request = Requests::AppendBlockEnd(AppendBlockEndCommand {
-            writer_id: self.id.0,
-            size_of_whole_events: total_size as i32,
-            data: to_send,
-            num_event: self.inflight.len() as i32,
-            last_event_number: self.inflight.back().expect("last event").event_id,
-            request_id: get_request_id(),
-        });
+
+        let request = if self.conditional_append {
+            Requests::ConditionalAppend(ConditionalAppendCommand {
+                writer_id: self.id.0,
+                event_number: self.inflight.back().expect("last event").event_id,
+                expected_offset: 0,
+                event: EventCommand { data: to_send },
+                request_id: get_request_id()
+            })
+        } else {
+            Requests::AppendBlockEnd(AppendBlockEndCommand {
+                writer_id: self.id.0,
+                size_of_whole_events: total_size as i32,
+                data: to_send,
+                num_event: self.inflight.len() as i32,
+                last_event_number: self.inflight.back().expect("last event").event_id,
+                request_id: get_request_id(),
+            })
+        };
 
         let writer = self.connection.as_mut().expect("must have connection");
         writer.write(&request).await.context(SegmentWriting {})?;
