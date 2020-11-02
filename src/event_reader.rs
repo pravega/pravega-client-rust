@@ -138,10 +138,11 @@ impl ReaderMeta {
                 }
             }
         } else {
-            panic!(
-                "This is unexpected, No receiver for SegmentSlice {:?} present.",
+            warn!(
+                "Invalid segment {:?} provided for while waiting for segment slice return",
                 segment
             );
+            None
         }
     }
 
@@ -330,7 +331,7 @@ impl EventReader {
 
     // for testing purposes.
     #[doc(hidden)]
-    fn set_last_acquire_release_time(&mut self, time: Instant) {
+    pub fn set_last_acquire_release_time(&mut self, time: Instant) {
         self.meta.last_segment_release = time;
         self.meta.last_segment_acquire = time;
     }
@@ -445,8 +446,8 @@ impl EventReader {
             .expect("Update ReaderGroup to ensure reader is offline");
     }
 
-    // Release the segment of the provided SegmenSlice if more segments are assigned to this specific
-    // reader.
+    // Release the segment of the provided SegmentSlice from the reader. This segment is marked as
+    // unassigned in the reader group state and other reads can acquire it.
     async fn release_segment_from_reader(&mut self, mut slice: SegmentSlice, read_offset: i64) {
         let new_segments_to_release = self
             .rg_state
@@ -458,6 +459,10 @@ impl EventReader {
         if new_segments_to_release < 0 {
             // Stop reading from the segment.
             self.meta.stop_reading(&slice.meta.scoped_segment);
+            self.meta
+                .slices
+                .remove(&slice.meta.scoped_segment)
+                .expect("Segment missing in meta while releasing from reader");
             // Send None to the waiting slice_return_rx.
             if let Some(tx) = slice.slice_return_tx.take() {
                 if let Err(_e) = tx.send(None) {
@@ -568,6 +573,7 @@ impl EventReader {
                             })
                         }
                     } else {
+                        //None is sent if the the segment is released from the reader.
                         debug!("Ignore the received data since None was returned");
                         None
                     }
@@ -700,6 +706,7 @@ impl EventReader {
             let meta = SliceMetadata {
                 scoped_segment: seg.to_string(),
                 start_offset: offset.read,
+                read_offset: offset.read, // read offset should be same as start_offset.
                 ..Default::default()
             };
             let (tx_drop_fetch, rx_drop_fetch) = oneshot::channel();
