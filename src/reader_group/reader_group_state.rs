@@ -299,7 +299,7 @@ impl ReaderGroupState {
     ///
     /// Compute the number of segments to acquire.
     ///
-    pub async fn compute_segments_to_acquire(&mut self, reader: &Reader) -> isize {
+    pub async fn compute_segments_to_acquire_or_release(&mut self, reader: &Reader) -> isize {
         self.sync.fetch_updates().await.expect("should fetch updates");
         let assigned_segment_map = self.sync.get_inner_map(ASSIGNED);
         let num_of_readers = assigned_segment_map.len();

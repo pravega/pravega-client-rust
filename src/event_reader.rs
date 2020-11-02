@@ -234,7 +234,11 @@ impl EventReader {
         factory: ClientFactory,
     ) -> Self {
         let reader = Reader::from(id);
-        let new_segments_to_acquire = rg_state.lock().await.compute_segments_to_acquire(&reader).await;
+        let new_segments_to_acquire = rg_state
+            .lock()
+            .await
+            .compute_segments_to_acquire_or_release(&reader)
+            .await;
         // attempt acquiring the desired number of segments.
         if new_segments_to_acquire > 0 {
             for _ in 0..new_segments_to_acquire {
@@ -453,7 +457,7 @@ impl EventReader {
             .rg_state
             .lock()
             .await
-            .compute_segments_to_acquire(&self.id)
+            .compute_segments_to_acquire_or_release(&self.id)
             .await;
         // check if segments needs to be released from the reader
         if new_segments_to_release < 0 {
@@ -674,7 +678,7 @@ impl EventReader {
             .rg_state
             .lock()
             .await
-            .compute_segments_to_acquire(&self.id)
+            .compute_segments_to_acquire_or_release(&self.id)
             .await;
         if new_segments_to_acquire <= 0 {
             None
