@@ -195,7 +195,7 @@ mod test {
         let token_provider = DelegationTokenProvider::new(stream);
         let token1 = rt.block_on(token_provider.retrieve_token(&mock_controller));
 
-        let guard = rt.block_on(token_provider.token.lock());
+        let guard = rt.block_on(token_provider.token.write());
         if let Some(cache) = guard.as_ref() {
             let token2 = cache.get_value();
             assert_eq!(token1, token2);

@@ -45,6 +45,7 @@ pub(crate) struct SegmentWriter {
     /// Client connection that writes to the segmentstore.
     connection: Option<ClientConnectionWriteHalf>,
 
+    /// Closes listener task before setting up new connection.
     connection_listener_handle: Option<oneshot::Sender<bool>>,
 
     /// Events that are sent but unacknowledged.
@@ -111,6 +112,14 @@ impl SegmentWriter {
         // span.enter doesn't work for async code https://docs.rs/tracing/0.1.17/tracing/span/struct.Span.html#in-asynchronous-code
         async {
             info!("setting up connection for segment writer");
+            // close current listener task
+            let (oneshot_tx, mut oneshot_rx) = oneshot::channel();
+            if let Some(s) = self.connection_listener_handle.take() {
+                let _res = s.send(true);
+            }
+            self.connection_listener_handle = Some(oneshot_tx);
+
+            // get endpoint
             let uri = match factory
                 .get_controller_client()
                 .get_endpoint_for_segment(&self.segment) // retries are internal to the controller client.
@@ -173,12 +182,6 @@ impl SegmentWriter {
 
             let segment = self.segment.clone();
             let sender = self.sender.clone();
-
-            let (oneshot_tx, mut oneshot_rx) = oneshot::channel();
-            if let Some(s) = self.connection_listener_handle.take() {
-                let _res = s.send(true);
-            }
-            self.connection_listener_handle = Some(oneshot_tx);
             // spins up a connection listener that keeps listening on the connection
             let listener_id = r.get_id();
             tokio::spawn(async move {
@@ -192,7 +195,7 @@ impl SegmentWriter {
                             let reply = match result {
                                 Ok(reply) => reply,
                                 Err(e) => {
-                                    warn!("connection failed to read data back from segmentstore due to {:?}, closing the listener task {:?}", e, listener_id);
+                                    warn!("connection failed to read data back from segmentstore due to {:?}, closing listener task {:?}", e, listener_id);
                                     let result = sender
                                         .send((Incoming::ConnectionFailure(ConnectionFailure {
                                             segment: segment.clone(),
@@ -364,7 +367,7 @@ impl SegmentWriter {
     /// If error occurs during any one of the steps above, redo the reconnect from step 1.
     pub(crate) async fn reconnect(&mut self, factory: &ClientFactory) {
         loop {
-            debug!("Reconnecting event segment writer {:?}", self.id);
+            debug!("Reconnecting segment writer {:?}", self.id);
             // setup the connection
             let setup_res = self.setup_connection(factory).await;
             if setup_res.is_err() {
