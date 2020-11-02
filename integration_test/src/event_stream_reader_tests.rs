@@ -338,7 +338,7 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
     };
-    const NUM_EVENTS: usize = 50;
+    const NUM_EVENTS: usize = 20;
     h.block_on(async {
         let new_stream = create_scope_stream(
             client_factory.get_controller_client(),
