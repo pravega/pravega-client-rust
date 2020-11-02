@@ -21,7 +21,7 @@ use crate::byte_stream::{ByteStreamReader, ByteStreamWriter};
 use crate::event_reader_group::ReaderGroup;
 use crate::event_stream_writer::EventStreamWriter;
 use crate::raw_client::RawClientImpl;
-use crate::reader_group::reader_group_config::{ReaderGroupConfigV1, ReaderGroupConfigVersioned};
+use crate::reader_group_config::ReaderGroupConfig;
 use crate::segment_metadata::SegmentMetadataClient;
 use crate::segment_reader::AsyncSegmentReaderImpl;
 use crate::table_synchronizer::TableSynchronizer;
@@ -113,9 +113,7 @@ impl ClientFactory {
             "Creating reader group {:?} to read data from stream {:?}",
             name, stream
         );
-        let v1 = ReaderGroupConfigV1::new();
-        let rg_config = ReaderGroupConfigVersioned::V1(v1);
-        ReaderGroup::create(name, stream, rg_config, self.clone()).await
+        ReaderGroup::create(name, stream, ReaderGroupConfig::default(), self.clone()).await
     }
 
     pub async fn create_transactional_event_stream_writer(

@@ -805,7 +805,7 @@ mod tests {
         let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
         rg_mock
-            .expect_compute_segments_to_acquire()
+            .expect_compute_segments_to_acquire_or_release()
             .return_const(0 as isize);
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
@@ -872,7 +872,7 @@ mod tests {
         let init_segments = vec![create_segment_slice(0)];
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
         rg_mock
-            .expect_compute_segments_to_acquire()
+            .expect_compute_segments_to_acquire_or_release()
             .with(predicate::eq(Reader::from("r1".to_string())))
             .return_const(1 as isize);
 
@@ -982,7 +982,7 @@ mod tests {
         let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
         rg_mock
-            .expect_compute_segments_to_acquire()
+            .expect_compute_segments_to_acquire_or_release()
             .return_const(0 as isize);
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
@@ -1055,7 +1055,7 @@ mod tests {
 
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
         rg_mock
-            .expect_compute_segments_to_acquire()
+            .expect_compute_segments_to_acquire_or_release()
             .return_const(0 as isize);
 
         // create a new Event Reader with the segment slice data.
@@ -1135,7 +1135,7 @@ mod tests {
         let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
         rg_mock
-            .expect_compute_segments_to_acquire()
+            .expect_compute_segments_to_acquire_or_release()
             .return_const(0 as isize);
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(

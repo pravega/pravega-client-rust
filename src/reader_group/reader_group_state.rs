@@ -10,7 +10,7 @@
 
 use crate::client_factory::ClientFactory;
 use crate::error::*;
-use crate::reader_group::reader_group_config::ReaderGroupConfigVersioned;
+use crate::reader_group_config::ReaderGroupConfigVersioned;
 use crate::table_synchronizer::{deserialize_from, Table, TableSynchronizer, Value};
 #[cfg(test)]
 use mockall::automock;
