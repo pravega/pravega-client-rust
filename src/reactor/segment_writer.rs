@@ -269,7 +269,7 @@ impl SegmentWriter {
                 SegmentWriter::MAX_WRITE_SIZE
             );
             if append.event.data.len() + to_send.len() <= SegmentWriter::MAX_WRITE_SIZE as usize
-                || event_count == SegmentWriter::MAX_EVENTS as usize
+                && event_count < SegmentWriter::MAX_EVENTS as usize
             {
                 event_count += 1;
                 total_size += append.event.data.len();
