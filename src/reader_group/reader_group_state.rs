@@ -271,32 +271,6 @@ impl ReaderGroupState {
     }
 
     ///
-    /// Compute the number of segments per reader.
-    ///
-    pub async fn compute_segments_per_reader(&mut self) -> usize {
-        self.sync.fetch_updates().await.expect("should fetch updates");
-        let x = self.sync.get_inner_map(ASSIGNED);
-        let num_of_readers = x.len();
-        let mut num_assigned_segments = 0;
-        for v in x.values() {
-            let segments: HashMap<ScopedSegment, Offset> =
-                deserialize_from(&v.data).expect("deserialize assigned segments");
-            num_assigned_segments += segments.len();
-        }
-        let num_of_segments = num_assigned_segments + self.sync.get_inner_map(UNASSIGNED).len();
-        debug!(
-            " Number of segments {:?} num of readers {:?}",
-            num_of_segments, num_of_readers
-        );
-        let num_segments_per_reader = num_of_segments / num_of_readers;
-        if num_of_segments % num_of_readers == 0 {
-            num_segments_per_reader
-        } else {
-            num_segments_per_reader + 1
-        }
-    }
-
-    ///
     /// Compute the number of segments to acquire.
     ///
     pub async fn compute_segments_to_acquire_or_release(&mut self, reader: &Reader) -> isize {
