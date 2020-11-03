@@ -19,7 +19,9 @@ use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_retry::retry_result::RetryResult;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::*;
-use pravega_wire_protocol::commands::{AppendBlockEndCommand, SetupAppendCommand, ConditionalAppendCommand, EventCommand};
+use pravega_wire_protocol::commands::{
+    AppendBlockEndCommand, ConditionalAppendCommand, EventCommand, SetupAppendCommand,
+};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
 use crate::client_factory::ClientFactory;
@@ -65,12 +67,6 @@ pub(crate) struct SegmentWriter {
 
     /// Delegation token provider used to authenticate client when communicating with segmentstore.
     delegation_token_provider: Arc<DelegationTokenProvider>,
-
-    /// Whether to use conditional append
-    conditional_append: bool,
-
-    /// Conditional append based on segment offset
-    offset: usize,
 }
 
 impl SegmentWriter {
@@ -97,14 +93,6 @@ impl SegmentWriter {
             delegation_token_provider,
             connection_listener_handle: None,
         }
-    }
-
-    pub(crate) fn pending_append_num(&self) -> usize {
-        self.pending.len()
-    }
-
-    pub(crate) fn inflight_append_num(&self) -> usize {
-        self.inflight.len()
     }
 
     /// Sends a SetupAppend wirecommand to segmentstore. Upon completing setup, it
@@ -296,13 +284,13 @@ impl SegmentWriter {
             self.connection.as_ref().expect("must have connection").get_id(),
         );
 
-        let request = if self.conditional_append {
+        let request = if let Some(offset) = self.inflight.front().unwrap().event.conditional_offset {
             Requests::ConditionalAppend(ConditionalAppendCommand {
                 writer_id: self.id.0,
                 event_number: self.inflight.back().expect("last event").event_id,
-                expected_offset: 0,
+                expected_offset: offset,
                 event: EventCommand { data: to_send },
-                request_id: get_request_id()
+                request_id: get_request_id(),
             })
         } else {
             Requests::AppendBlockEnd(AppendBlockEndCommand {
@@ -407,8 +395,33 @@ impl SegmentWriter {
         }
     }
 
+    /// Force delegation token provider to refresh.
     pub(crate) fn signal_delegation_token_expiry(&self) {
         self.delegation_token_provider.signal_token_expiry()
+    }
+
+    /// Fails event that has id bigger than or equal to the given event id.
+    pub(crate) fn fail_events_upon_conditional_check_failure(&mut self, event_id: i64) {
+        // remove failed append from inflight list
+        while let Some(append) = self.inflight.pop_back() {
+            if append.event_id >= event_id {
+                let _res = append
+                    .event
+                    .oneshot_sender
+                    .send(Result::Err(SegmentWriterError::ConditionalCheckFailed {}));
+            } else {
+                self.inflight.push_back(append);
+                break;
+            }
+        }
+
+        // clear pending list
+        while let Some(append) = self.pending.pop_back() {
+            let _res = append
+                .event
+                .oneshot_sender
+                .send(Result::Err(SegmentWriterError::ConditionalCheckFailed {}));
+        }
     }
 }
 
@@ -441,13 +454,6 @@ pub(crate) struct Append {
     pub(crate) event_id: i64,
     pub(crate) event: PendingEvent,
     pub(crate) cap_guard: CapacityGuard,
-}
-
-#[derive(Debug)]
-struct WriteHalfConnectionWrapper {
-    write_half: ClientConnectionWriteHalf,
-    // whether to close the reactor after merging the write half and read half
-    close_reactor: bool,
 }
 
 #[cfg(test)]
@@ -580,7 +586,7 @@ pub(crate) mod test {
         receiver: &mut ChannelReceiver<Incoming>,
     ) -> (PendingEvent, CapacityGuard, EventHandle) {
         let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
-        let event = PendingEvent::new(Some("routing_key".into()), vec![1; size], oneshot_sender)
+        let event = PendingEvent::new(Some("routing_key".into()), vec![1; size], None, oneshot_sender)
             .expect("create pending event");
         sender.send((Incoming::AppendEvent(event), 512)).await.unwrap();
         let (event, guard) = receiver.recv().await.unwrap();

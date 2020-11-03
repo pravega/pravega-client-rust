@@ -115,7 +115,7 @@ impl Transaction {
 
         let size = event.len();
         let (tx, rx) = oneshot::channel();
-        if let Some(pending_event) = PendingEvent::with_header(routing_key, event, tx) {
+        if let Some(pending_event) = PendingEvent::with_header(routing_key, event, None, tx) {
             let append_event = Incoming::AppendEvent(pending_event);
             if let Err(e) = self.sender.send((append_event, size)).await {
                 error!(

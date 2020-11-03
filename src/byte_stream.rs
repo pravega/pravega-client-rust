@@ -47,6 +47,7 @@ pub struct ByteStreamWriter {
     metadata_client: SegmentMetadataClient,
     runtime_handle: Handle,
     event_handle: Option<EventHandle>,
+    write_offset: i64,
 }
 
 /// ByteStreamWriter implements Write trait in standard library.
@@ -59,22 +60,17 @@ impl Write for ByteStreamWriter {
         let bytes_to_write = std::cmp::min(buf.len(), EventStreamWriter::MAX_EVENT_SIZE);
         let oneshot_receiver = self.runtime_handle.block_on(async {
             let payload = buf[0..bytes_to_write].to_vec();
-            let mut oneshot_receiver = ByteStreamWriter::write_internal(self.sender.clone(), payload).await;
+            let mut oneshot_receiver = self.write_internal(self.sender.clone(), payload).await;
             match oneshot_receiver.try_recv() {
                 // The channel is currently empty
-                Err(TryRecvError::Empty) => Ok(Some(oneshot_receiver)),
+                Err(TryRecvError::Empty) => Ok(oneshot_receiver),
                 Err(e) => Err(Error::new(ErrorKind::Other, format!("oneshot error {:?}", e))),
-                Ok(res) => {
-                    if let Err(e) = res {
-                        Err(Error::new(ErrorKind::Other, format!("{:?}", e)))
-                    } else {
-                        Ok(None)
-                    }
-                }
+                _ => Ok(oneshot_receiver),
             }
         })?;
 
-        self.event_handle = oneshot_receiver;
+        self.write_offset += bytes_to_write as i64;
+        self.event_handle = Some(oneshot_receiver);
         Ok(bytes_to_write)
     }
 
@@ -102,9 +98,14 @@ impl ByteStreamWriter {
         ));
         let current_segments = handle
             .block_on(factory.get_controller_client().get_current_segments(&stream))
-            .expect("retry failed");
-        // get the current segments and create corresponding event segment writers
+            .expect("retry failed to get current segments");
+        // get the current segments and create corresponding segment writers
         handle.block_on(selector.initialize(current_segments));
+        // get current write offset and set the segment writer to use conditional append
+        let segment_info = handle
+            .block_on(metadata_client.get_segment_info())
+            .expect("retry failed to get segment info");
+
         let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
         handle.enter(|| tokio::spawn(Reactor::run(selector, receiver, factory.clone()).instrument(span)));
@@ -114,6 +115,7 @@ impl ByteStreamWriter {
             metadata_client,
             runtime_handle: handle,
             event_handle: None,
+            write_offset: segment_info.write_offset,
         }
     }
 
@@ -137,13 +139,27 @@ impl ByteStreamWriter {
             .map_err(|e| Error::new(ErrorKind::Other, format!("segment truncation error: {:?}", e)))
     }
 
+    /// Tracks the current write position for this writer.
+    pub fn current_write_offset(&mut self) -> i64 {
+        self.write_offset
+    }
+
+    pub fn seek_to_tail(&mut self) {
+        let segment_info = self
+            .runtime_handle
+            .block_on(self.metadata_client.get_segment_info())
+            .expect("retry failed to get segment info");
+        self.write_offset = segment_info.write_offset;
+    }
+
     async fn write_internal(
+        &self,
         sender: ChannelSender<Incoming>,
         event: Vec<u8>,
     ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         let size = event.len();
         let (tx, rx) = oneshot::channel();
-        if let Some(pending_event) = PendingEvent::without_header(None, event, tx) {
+        if let Some(pending_event) = PendingEvent::without_header(None, event, Some(self.write_offset), tx) {
             let append_event = Incoming::AppendEvent(pending_event);
             if let Err(_e) = sender.send((append_event, size)).await {
                 let (tx_error, rx_error) = oneshot::channel();
@@ -161,11 +177,7 @@ impl ByteStreamWriter {
             .await
             .map_err(|e| Error::new(ErrorKind::Other, format!("oneshot error {:?}", e)))?;
 
-        if let Err(e) = result {
-            Err(Error::new(ErrorKind::Other, format!("{:?}", e)))
-        } else {
-            Ok(())
-        }
+        result.map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
     }
 }
 

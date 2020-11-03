@@ -41,9 +41,6 @@ pub(crate) struct SegmentSelector {
 
     /// Delegation token for authentication.
     pub(crate) delegation_token_provider: Arc<DelegationTokenProvider>,
-
-    /// Whether segment writer should use conditional append.
-    pub(crate) conditional_append: bool,
 }
 
 impl SegmentSelector {
@@ -51,7 +48,6 @@ impl SegmentSelector {
         stream: ScopedStream,
         sender: ChannelSender<Incoming>,
         factory: ClientFactory,
-        conditional_append: bool,
     ) -> Self {
         let delegation_token_provider = factory.create_delegation_token_provider(stream.clone()).await;
         SegmentSelector {
@@ -61,7 +57,6 @@ impl SegmentSelector {
             sender,
             factory,
             delegation_token_provider: Arc::new(delegation_token_provider),
-            conditional_append,
         }
     }
 
@@ -174,7 +169,7 @@ impl SegmentSelector {
     }
 
     /// Removes segment writer from the internal map.
-    pub(crate) fn remove_segment_event_writer(&mut self, segment: &ScopedSegment) -> Option<SegmentWriter> {
+    pub(crate) fn remove_segment_writer(&mut self, segment: &ScopedSegment) -> Option<SegmentWriter> {
         self.writers.remove(segment)
     }
 }
@@ -269,7 +264,7 @@ pub(crate) mod test {
             .await
             .unwrap();
         let (sender, receiver) = create_channel(1024);
-        let mut selector = SegmentSelector::new(stream.clone(), sender.clone(), factory.clone(), false).await;
+        let mut selector = SegmentSelector::new(stream.clone(), sender.clone(), factory.clone()).await;
         let stream_segments = factory
             .get_controller_client()
             .get_current_segments(&stream)
