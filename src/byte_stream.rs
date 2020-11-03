@@ -389,9 +389,9 @@ mod test {
         assert_eq!(buf, vec![1; 200]);
 
         let payload = vec![1; 200];
-        writer.write(&payload).expect("write");
-        let result = writer.flush();
-        assert!(result.is_err());
+        let write_result = writer.write(&payload);
+        let flush_result = writer.flush();
+        assert!(write_result.is_err() || flush_result.is_err());
     }
 
     fn create_reader_and_writer(runtime: &mut Runtime) -> (ByteStreamWriter, ByteStreamReader) {
