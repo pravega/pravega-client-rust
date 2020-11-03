@@ -40,7 +40,7 @@ cfg_if::cfg_if! {
 /// This represents an event reader. An event reader fetches data from its assigned segments as a SegmentSlice,
 /// where a SegmentSlice represents data from a Pravega Segment. It provides the following APIs.
 /// 1. A method to initialize the event reader [EventReader#init](EventReader#init)
-/// 2. A method to obtain a SegmentSlice to read events from a Pravega segment.The user can use the
+/// 2. A method to obtain a SegmentSlice to read events from a Pravega segment. The user can use the
 /// SegmentSlice's iterator API to fetch individual events from a given Segment Slice.
 /// [EventReader#acquire_segment](EventReader#acquire_segment).
 /// 3. A method to release the Segment back at the given offset. [EventReader#release_segment_at](EventReader#release_segment_at).
@@ -95,12 +95,12 @@ pub struct EventReader {
     factory: ClientFactory,
     rx: Receiver<SegmentReadResult>,
     tx: Sender<SegmentReadResult>,
-    meta: ReaderMeta,
+    meta: ReaderState,
     rg_state: Arc<Mutex<ReaderGroupState>>,
 }
 
 /// Reader meta data.
-pub struct ReaderMeta {
+pub struct ReaderState {
     slices: HashMap<String, SliceMetadata>,
     slices_dished_out: HashMap<String, i64>,
     slice_release_receiver: HashMap<String, oneshot::Receiver<Option<SliceMetadata>>>,
@@ -109,7 +109,7 @@ pub struct ReaderMeta {
     last_segment_acquire: Instant,
 }
 
-impl ReaderMeta {
+impl ReaderState {
     //
     // Add a release receiver which is used to inform a EventReader when the Segment slice is returned.
     //
@@ -321,7 +321,7 @@ impl EventReader {
             factory,
             rx,
             tx,
-            meta: ReaderMeta {
+            meta: ReaderState {
                 slices: segment_slice_map,
                 slices_dished_out: Default::default(),
                 slice_release_receiver: HashMap::new(),

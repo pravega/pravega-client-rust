@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use snafu::{ensure, OptionExt, Snafu};
 use std::collections::{HashMap, HashSet};
-use std::convert::TryFrom;
+use std::convert::TryInto;
 use std::iter::FromIterator;
 use tracing::{debug, info, warn};
 
@@ -299,8 +299,9 @@ impl ReaderGroupState {
                 deserialize_from(&v.data).expect("deserialize of assigned segments");
             seg.len()
         });
-        isize::try_from(expected_segment_count_per_reader).unwrap()
-            - isize::try_from(current_segment_count.unwrap_or_default()).unwrap()
+        let expected: isize = expected_segment_count_per_reader.try_into().unwrap();
+        let current: isize = current_segment_count.unwrap_or_default().try_into().unwrap();
+        expected - current
     }
 
     /// Returns the list of all segments.
