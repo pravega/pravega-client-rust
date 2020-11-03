@@ -16,6 +16,48 @@ use serde_cbor::to_vec;
 use snafu::ResultExt;
 use std::collections::HashMap;
 
+///
+/// Specifies the ReaderGroupConfig.
+/// ReaderGroupConfig::default() ensures the group refresh interval is set to 3 seconds
+///
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct ReaderGroupConfig {
+    pub(crate) config: ReaderGroupConfigVersioned,
+}
+
+impl ReaderGroupConfig {
+    ///
+    /// Create a new ReaderGroupConfig by specifying the group refresh interval in millis.
+    ///
+    pub fn new(group_refresh_time_millis: u64) -> Self {
+        let conf_v1 = ReaderGroupConfigV1 {
+            group_refresh_time_millis,
+            starting_stream_cuts: HashMap::new(),
+            ending_stream_cuts: HashMap::new(),
+        };
+        ReaderGroupConfig {
+            config: ReaderGroupConfigVersioned::V1(conf_v1),
+        }
+    }
+
+    fn to_bytes(&self) -> Result<Vec<u8>, SerdeError> {
+        self.config.to_bytes()
+    }
+
+    fn from_bytes(input: &[u8]) -> Result<Self, SerdeError> {
+        let decoded = ReaderGroupConfigVersioned::from_bytes(input);
+        decoded.map(|config| ReaderGroupConfig { config })
+    }
+}
+
+impl Default for ReaderGroupConfig {
+    fn default() -> Self {
+        ReaderGroupConfig {
+            config: ReaderGroupConfigVersioned::V1(ReaderGroupConfigV1::new()),
+        }
+    }
+}
+
 /// ReaderGroupConfigVersioned enum contains all versions of Position struct
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) enum ReaderGroupConfigVersioned {
