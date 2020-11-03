@@ -313,7 +313,7 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
         if let Some(event) = slice.next() {
             assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
             // wait for release timeout.
-            thread::sleep(Duration::from_secs(10));
+            thread::sleep(Duration::from_secs(20));
             reader1.release_segment(slice);
         } else {
             panic!("A valid slice is expected");
