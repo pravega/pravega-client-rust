@@ -281,7 +281,7 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
         stream: stream_name.clone(),
     };
     h.block_on(async {
-        const NUM_EVENTS: usize = 10;
+        const NUM_EVENTS: usize = 50;
 
         let new_stream = create_scope_stream(
             client_factory.get_controller_client(),
@@ -338,7 +338,7 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
     };
-    const NUM_EVENTS: usize = 20;
+    const NUM_EVENTS: usize = 50;
     h.block_on(async {
         let new_stream = create_scope_stream(
             client_factory.get_controller_client(),

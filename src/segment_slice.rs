@@ -244,7 +244,7 @@ impl SegmentSlice {
                         };
                         // send data: this waits until there is capacity in the channel.
                         if let Err(e) = tx.send(Err((data, offset))).await {
-                            info!("Error while sending segment data to event parser {:?} ", e);
+                            warn!("Error while sending segment data to event parser {:?} ", e);
                             break;
                         }
                         drop(tx);
