@@ -205,15 +205,15 @@ impl ReaderState {
         }
     }
 
-    fn stop_reading_all(&mut self) -> HashSet<String> {
-        let mut segments = HashSet::new();
-        for (seg, tx) in self.slice_stop_reading.drain() {
+    //
+    // Stop all the background tasks that are trying to read from owned segments.
+    //
+    fn stop_reading_all(&mut self) {
+        for (_, tx) in self.slice_stop_reading.drain() {
             if tx.send(()).is_err() {
                 debug!("Channel already closed, ignoring the error");
             }
-            segments.insert(seg);
         }
-        segments
     }
 
     fn get_segment_id_with_data(&self) -> Option<String> {
