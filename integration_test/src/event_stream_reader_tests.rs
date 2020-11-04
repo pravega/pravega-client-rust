@@ -16,9 +16,11 @@ use pravega_rust_client_shared::{
     Retention, RetentionType, ScaleType, Scaling, Scope, ScopedSegment, ScopedStream, Segment, Stream,
     StreamConfiguration,
 };
+use tokio::runtime::Runtime;
 use tracing::{debug, error, info, warn};
 
 pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
+    info!("test event stream reader");
     let config = ClientConfigBuilder::default()
         .controller_uri(MOCK_CONTROLLER_URI)
         .is_auth_enabled(config.auth)
@@ -26,12 +28,14 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
-    let handle = client_factory.get_runtime_handle();
-    handle.block_on(test_read_api(&client_factory));
-    handle.block_on(test_stream_scaling(&client_factory))
+    let mut rt = Runtime::new().unwrap();
+    rt.block_on(test_read_api(&client_factory));
+    rt.block_on(test_stream_scaling(&client_factory));
+    info!("test event stream reader passed");
 }
 
 async fn test_stream_scaling(client_factory: &ClientFactory) {
+    info!("test event stream reader scaling");
     let scope_name = Scope::from("testReaderScaling".to_owned());
     let stream_name = Stream::from("testReaderStream".to_owned());
 
@@ -83,10 +87,12 @@ async fn test_stream_scaling(client_factory: &ClientFactory) {
         }
     }
     assert_eq!(event_count, NUM_EVENTS + NUM_EVENTS);
+    info!("test event stream reader scaling passed");
 }
 
 //Test reading out data from a stream.
 async fn test_read_api(client_factory: &ClientFactory) {
+    info!("test event stream reader read api");
     let scope_name = Scope::from("testReaderScope".to_owned());
     let stream_name = Stream::from("testReaderStream".to_owned());
 
@@ -135,6 +141,7 @@ async fn test_read_api(client_factory: &ClientFactory) {
             break;
         }
     }
+    info!("test event stream reader read api passed");
 }
 
 // helper method to write events to Pravega
