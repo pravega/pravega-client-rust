@@ -153,10 +153,10 @@ impl SegmentSelector {
 
     /// Resends a list of events.
     pub(crate) async fn resend(&mut self, to_resend: Vec<Append>) {
-        for event in to_resend {
-            let segment = self.get_segment_for_event(&event.event.routing_key);
+        for append in to_resend {
+            let segment = self.get_segment_for_event(&append.event.routing_key);
             let segment_writer = self.writers.get_mut(&segment).expect("must have writer");
-            segment_writer.add_pending(event);
+            segment_writer.add_pending(append.event, append.cap_guard);
             if let Err(e) = segment_writer.write_pending_events().await {
                 warn!(
                     "failed to resend an event due to: {:?}, reconnecting the event segment writer",

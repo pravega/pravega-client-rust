@@ -237,19 +237,18 @@ impl SegmentWriter {
         event: PendingEvent,
         cap_guard: CapacityGuard,
     ) -> Result<(), SegmentWriterError> {
-        self.event_num += 1;
-        let append = Append {
-            event_id: self.event_num,
-            event,
-            cap_guard,
-        };
-        self.add_pending(append);
+        self.add_pending(event, cap_guard);
         self.write_pending_events().await
     }
 
     /// Adds the event to the pending list
-    pub(crate) fn add_pending(&mut self, append: Append) {
-        self.pending.push_back(append);
+    pub(crate) fn add_pending(&mut self, event: PendingEvent, cap_guard: CapacityGuard) {
+        self.event_num += 1;
+        self.pending.push_back(Append {
+            event_id: self.event_num,
+            event,
+            cap_guard,
+        });
     }
 
     /// Writes the pending events to the server. It will grab at most MAX_WRITE_SIZE of data
