@@ -10,8 +10,8 @@
 
 use crate::client_factory::ClientFactory;
 use crate::event_reader::EventReader;
-use crate::reader_group::reader_group_config::ReaderGroupConfigVersioned;
 use crate::reader_group::reader_group_state::Offset;
+use crate::reader_group_config::ReaderGroupConfig;
 use pravega_rust_client_shared::{Reader, ScopedSegment, ScopedStream};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -25,11 +25,13 @@ cfg_if::cfg_if! {
 }
 
 ///
-/// A reader group is a collection of readers that collectively reall all the events in the stream.
+/// A reader group is a collection of readers that collectively read all the events in the stream.
 /// The events are distributed among the readers in the group such that each event goes to only one reader.
 ///
-/// The readers in the group may change over time. Readers are added to the group by invoking the createReader
-/// API.
+/// The readers in the group may change over time. Readers are added to the group by invoking the
+/// [`ReaderGroup::create_reader`] API.
+///
+/// [`ReaderGroup::create_reader`]: ReaderGroup::create_reader
 /// An example usage pattern is as follows
 ///
 /// ```no_run
@@ -59,7 +61,7 @@ cfg_if::cfg_if! {
 #[derive(new)]
 pub struct ReaderGroup {
     name: String,
-    config: ReaderGroupConfigVersioned,
+    config: ReaderGroupConfig,
     pub state: Arc<Mutex<ReaderGroupState>>,
     client_factory: ClientFactory,
 }
@@ -70,7 +72,7 @@ impl ReaderGroup {
         if #[cfg(test)] {
             async fn create_rg_state(
             _name: String,
-            _rg_config: ReaderGroupConfigVersioned,
+            _rg_config: ReaderGroupConfig,
             _client_factory: &ClientFactory,
             _init_segments: HashMap<ScopedSegment, Offset>,
         ) -> ReaderGroupState {
@@ -79,11 +81,11 @@ impl ReaderGroup {
         } else {
             async fn create_rg_state (
         name: String,
-        rg_config: ReaderGroupConfigVersioned,
+        rg_config: ReaderGroupConfig,
         client_factory: &ClientFactory,
         init_segments: HashMap<ScopedSegment, Offset>,
     ) -> ReaderGroupState {
-        ReaderGroupState::new(name, client_factory, rg_config, init_segments).await
+        ReaderGroupState::new(name, client_factory, rg_config.config, init_segments).await
     }
         }
     }
@@ -96,7 +98,7 @@ impl ReaderGroup {
     pub async fn create(
         name: String,
         stream: ScopedStream,
-        rg_config: ReaderGroupConfigVersioned,
+        rg_config: ReaderGroupConfig,
         client_factory: ClientFactory,
     ) -> ReaderGroup {
         let segments = client_factory
@@ -134,6 +136,7 @@ impl ReaderGroup {
     pub fn get_name(&self) -> String {
         self.name.clone()
     }
+
     ///
     /// Create a new EventReader under the ReaderGroup. This method panics if the reader is
     /// already part of the reader group.
@@ -155,7 +158,6 @@ mod tests {
 
     use super::*;
     use crate::error::SynchronizerError::SyncUpdateError;
-    use crate::reader_group::reader_group_config::ReaderGroupConfigV1;
     use crate::reader_group::reader_group_state::ReaderGroupStateError;
     use pravega_rust_client_config::ClientConfigBuilder;
     use pravega_rust_client_config::MOCK_CONTROLLER_URI;
@@ -180,11 +182,9 @@ mod tests {
         });
         mock_rg_state.expect_add_reader().return_once(move |_| err);
 
-        let v1 = ReaderGroupConfigV1::new();
-        let rg_config = ReaderGroupConfigVersioned::V1(v1);
         let rg = ReaderGroup {
             name: "rg".to_string(),
-            config: rg_config,
+            config: ReaderGroupConfig::default(),
             state: Arc::new(Mutex::new(mock_rg_state)),
             client_factory,
         };

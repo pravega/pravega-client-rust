@@ -10,6 +10,7 @@
 
 use crate::pravega_service::PravegaStandaloneServiceConfig;
 use pravega_client_rust::client_factory::ClientFactory;
+use pravega_client_rust::event_reader_group::ReaderGroup;
 use pravega_controller_client::ControllerClient;
 use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_rust_client_shared::{
@@ -17,7 +18,7 @@ use pravega_rust_client_shared::{
     StreamConfiguration,
 };
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::runtime::Handle;
 use tracing::{debug, error, info, warn};
 
@@ -36,6 +37,7 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
     handle.block_on(test_release_segment_at(&client_factory));
     test_multiple_readers(&client_factory);
     test_reader_offline(&client_factory);
+    test_segment_rebalance(&client_factory);
 }
 
 async fn test_release_segment(client_factory: &ClientFactory) {
@@ -43,7 +45,6 @@ async fn test_release_segment(client_factory: &ClientFactory) {
     let stream_name = Stream::from("testReaderRelease1".to_owned());
 
     const NUM_EVENTS: usize = 10;
-    // write 100 events.
 
     let new_stream = create_scope_stream(
         client_factory.get_controller_client(),
@@ -52,7 +53,8 @@ async fn test_release_segment(client_factory: &ClientFactory) {
         1,
     )
     .await;
-    // write events only if the stream is created.
+    // write events only if the stream is created. This is useful if we are running the reader tests
+    // multiple times.
     if new_stream {
         write_events_before_and_after_scale(
             scope_name.clone(),
@@ -62,23 +64,19 @@ async fn test_release_segment(client_factory: &ClientFactory) {
         )
         .await;
     }
-    let str = ScopedStream {
+    let stream = ScopedStream {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
     };
 
-    let rg = client_factory
-        .create_reader_group("rg-release".to_string(), str)
+    let rg: ReaderGroup = client_factory
+        .create_reader_group("rg-release".to_string(), stream)
         .await;
     let mut reader = rg.create_reader("r1".to_string()).await;
 
     let mut event_count = 0;
     let mut release_invoked = false;
-    loop {
-        if event_count == NUM_EVENTS {
-            // all events have been read. Exit test.
-            break;
-        }
+    while event_count < NUM_EVENTS {
         if let Some(mut slice) = reader.acquire_segment().await {
             loop {
                 if !release_invoked && event_count == 5 {
@@ -283,7 +281,7 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
         stream: stream_name.clone(),
     };
     h.block_on(async {
-        const NUM_EVENTS: usize = 10;
+        const NUM_EVENTS: usize = 50;
 
         let new_stream = create_scope_stream(
             client_factory.get_controller_client(),
@@ -315,7 +313,7 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
         if let Some(event) = slice.next() {
             assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
             // wait for release timeout.
-            thread::sleep(Duration::from_secs(10));
+            thread::sleep(Duration::from_secs(20));
             reader1.release_segment(slice);
         } else {
             panic!("A valid slice is expected");
@@ -330,6 +328,88 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
             panic!("A valid slice is expected for reader2");
         }
     }
+}
+
+fn test_segment_rebalance(client_factory: &ClientFactory) {
+    let h = client_factory.get_runtime_handle();
+    let scope_name = Scope::from("testScope".to_owned());
+    let stream_name = Stream::from("testsegrebalance".to_owned());
+    let str = ScopedStream {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+    };
+    const NUM_EVENTS: usize = 50;
+    h.block_on(async {
+        let new_stream = create_scope_stream(
+            client_factory.get_controller_client(),
+            &scope_name,
+            &stream_name,
+            4,
+        )
+        .await;
+        // write events only if the stream is created.
+        if new_stream {
+            // write events with random routing keys.
+            write_events(
+                scope_name.clone(),
+                stream_name.clone(),
+                client_factory,
+                NUM_EVENTS,
+            )
+            .await;
+        }
+    });
+
+    let rg = h.block_on(client_factory.create_reader_group("rg_reblance_reader".to_string(), str));
+    // reader 1 will be assigned all the segments.
+    let mut reader1 = h.block_on(rg.create_reader("r1".to_string()));
+    // no segments will be assigned to reader2 until a rebalance
+    let mut reader2 = h.block_on(rg.create_reader("r2".to_string()));
+
+    // change the last seg acquire and release time to ensure segment balance is triggered.
+    let last_acquire_release_time = Instant::now() - Duration::from_secs(20);
+    reader1.set_last_acquire_release_time(last_acquire_release_time);
+    reader2.set_last_acquire_release_time(last_acquire_release_time);
+    let mut events_read = 0;
+    if let Some(mut slice) = h.block_on(reader1.acquire_segment()) {
+        if let Some(event) = slice.next() {
+            assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+            events_read += 1;
+            // this should trigger a release.
+            reader1.release_segment(slice);
+        } else {
+            panic!("A valid slice is expected");
+        }
+    }
+
+    // try acquiring a segment on reader 2 and verify segments are acquired.
+    if let Some(mut slice) = h.block_on(reader2.acquire_segment()) {
+        if let Some(event) = slice.next() {
+            // validate that reader 2 acquired a segment.
+            assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+            events_read += 1;
+            reader2.release_segment(slice);
+        } else {
+            panic!("A valid slice is expected for reader2");
+        }
+    }
+    // set reader 2 offline. This should ensure all the segments assigned to reader2 are available to be assigned by reader1.else {  }
+    h.block_on(reader2.reader_offline());
+    //reset the time to ensure reader1 acquires segment in the next cycle.
+    reader1.set_last_acquire_release_time(Instant::now() - Duration::from_secs(20));
+
+    while let Some(slice) = h.block_on(reader1.acquire_segment()) {
+        // read all events in the slice.
+        for event in slice {
+            assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+            events_read += 1;
+        }
+        if events_read == NUM_EVENTS {
+            break;
+        }
+    }
+
+    println!("{}", events_read);
 }
 
 fn test_reader_offline(client_factory: &ClientFactory) {
@@ -477,5 +557,5 @@ async fn create_scope_stream(
     controller_client
         .create_stream(&request)
         .await
-        .expect("create stream")
+        .expect("create stream failed")
 }

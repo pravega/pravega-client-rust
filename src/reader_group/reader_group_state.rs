@@ -10,16 +10,16 @@
 
 use crate::client_factory::ClientFactory;
 use crate::error::*;
-use crate::reader_group::reader_group_config::ReaderGroupConfigVersioned;
+use crate::reader_group_config::ReaderGroupConfigVersioned;
 use crate::table_synchronizer::{deserialize_from, Table, TableSynchronizer, Value};
 #[cfg(test)]
 use mockall::automock;
 use pravega_rust_client_shared::{Reader, ScopedSegment, Segment, SegmentWithRange};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
-use snafu::{ensure, Snafu};
+use snafu::{ensure, OptionExt, Snafu};
 use std::collections::{HashMap, HashSet};
-use std::convert::TryFrom;
+use std::convert::TryInto;
 use std::iter::FromIterator;
 use tracing::{debug, info, warn};
 
@@ -271,35 +271,9 @@ impl ReaderGroupState {
     }
 
     ///
-    /// Compute the number of segments per reader.
+    /// Compute the number of segments to acquire.
     ///
-    pub async fn compute_segments_per_reader(&mut self) -> usize {
-        self.sync.fetch_updates().await.expect("should fetch updates");
-        let x = self.sync.get_inner_map(ASSIGNED);
-        let num_of_readers = x.len();
-        let mut num_assigned_segments = 0;
-        for v in x.values() {
-            let segments: HashMap<ScopedSegment, Offset> =
-                deserialize_from(&v.data).expect("deserialize assigned segments");
-            num_assigned_segments += segments.len();
-        }
-        let num_of_segments = num_assigned_segments + self.sync.get_inner_map(UNASSIGNED).len();
-        debug!(
-            " Number of segments {:?} num of readers {:?}",
-            num_of_segments, num_of_readers
-        );
-        let num_segments_per_reader = num_of_segments / num_of_readers;
-        if num_of_segments % num_of_readers == 0 {
-            num_segments_per_reader
-        } else {
-            num_segments_per_reader + 1
-        }
-    }
-
-    ///
-    /// Compute the number of segments per reader.
-    ///
-    pub async fn compute_segments_to_acquire(&mut self, reader: &Reader) -> isize {
+    pub async fn compute_segments_to_acquire_or_release(&mut self, reader: &Reader) -> isize {
         self.sync.fetch_updates().await.expect("should fetch updates");
         let assigned_segment_map = self.sync.get_inner_map(ASSIGNED);
         let num_of_readers = assigned_segment_map.len();
@@ -325,8 +299,9 @@ impl ReaderGroupState {
                 deserialize_from(&v.data).expect("deserialize of assigned segments");
             seg.len()
         });
-        isize::try_from(expected_segment_count_per_reader).unwrap()
-            - isize::try_from(current_segment_count.unwrap_or_default()).unwrap()
+        let expected: isize = expected_segment_count_per_reader.try_into().unwrap();
+        let current: isize = current_segment_count.unwrap_or_default().try_into().unwrap();
+        expected - current
     }
 
     /// Returns the list of all segments.
@@ -387,31 +362,19 @@ impl ReaderGroupState {
         let mut assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)?;
         let unassigned_segments = ReaderGroupState::get_unassigned_segments_from_table(table);
 
-        // unassigned segment does not exist
-        if unassigned_segments.is_empty() {
-            return Ok(None);
+        if let Some((segment, offset)) = unassigned_segments.into_iter().next() {
+            assigned_segments.insert(segment.clone(), offset);
+            table.insert(
+                ASSIGNED.to_owned(),
+                reader.to_string(),
+                "HashMap<ScopedSegment, Offset>".to_owned(),
+                Box::new(assigned_segments),
+            );
+            table.insert_tombstone(UNASSIGNED.to_owned(), segment.to_string())?;
+            Ok(Some(segment.to_string()))
+        } else {
+            Ok(None)
         }
-
-        // naive way to get an unassigned segment
-        let mut segments = unassigned_segments
-            .keys()
-            .map(|k| k.to_owned())
-            .collect::<Vec<ScopedSegment>>();
-
-        let segment = segments.pop().expect("should contain at least one key");
-        let offset = unassigned_segments.get(&segment).expect("get offset");
-
-        assigned_segments.insert(segment.clone(), offset.to_owned());
-
-        table.insert(
-            ASSIGNED.to_owned(),
-            reader.to_string(),
-            "HashMap<ScopedSegment, Offset>".to_owned(),
-            Box::new(assigned_segments),
-        );
-        table.insert_tombstone(UNASSIGNED.to_owned(), segment.to_string())?;
-
-        Ok(Some(segment.to_string()))
     }
 
     /// Returns the list of segments assigned to the requested reader.
@@ -442,6 +405,10 @@ impl ReaderGroupState {
         segment: &ScopedSegment,
         offset: &Offset,
     ) -> Result<(), ReaderGroupStateError> {
+        debug!(
+            "Release segment {:?} for reader {:?} at offset {:?}",
+            segment, reader, offset.read
+        );
         self.sync
             .insert(|table| ReaderGroupState::release_segment_internal(table, reader, segment, offset))
             .await
@@ -464,39 +431,26 @@ impl ReaderGroupState {
         let mut assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)?;
         let unassigned_segments = ReaderGroupState::get_unassigned_segments_from_table(table);
 
-        let mut to_remove_list = assigned_segments
-            .iter()
-            .filter(|&(s, _pos)| *s == *segment)
-            .map(|(s, _pos)| s.to_owned())
-            .collect::<Vec<ScopedSegment>>();
-
-        ensure!(
-            to_remove_list.len() == 1,
-            SyncUpdateError {
-                error_msg: format!(
-                    "Failed to release segment: should contain only one segment {:?} in assigned list but contain {}",
-                    segment,
-                    to_remove_list.len()
-                )
-            }
+        let old_offset = assigned_segments.remove(segment).context(SyncUpdateError {
+            error_msg: format!(
+                "Failed to release segment: should contain only one segment {:?} in assigned list but contains none",
+                segment,
+            )
+        });
+        debug!(
+            "Removed segment {:?} from assigned segments, the older offset is {:?}",
+            segment, old_offset
         );
-
-        let to_remove_segment = to_remove_list.pop().expect("pop found segment");
-
+        // ensure this segment is not part of unassigned segments.
         ensure!(
-            !unassigned_segments.contains_key(&to_remove_segment),
-            SyncUpdateError {
-                error_msg: format!(
-                    "Failed to release segment:: unassigned_segment should not have already contained this released segment {:?}",
-                    segment
-                )
-            }
-        );
-
-        assigned_segments
-            .remove(&to_remove_segment)
-            .expect("should contain the releasing segment");
-
+                !unassigned_segments.contains_key(segment),
+                SyncUpdateError {
+                    error_msg: format!(
+                        "Failed to release segment:: unassigned_segment should not have already contained this released segment {:?}",
+                        segment
+                    )
+                });
+        // update table
         table.insert(
             ASSIGNED.to_owned(),
             reader.to_string(),
@@ -505,7 +459,7 @@ impl ReaderGroupState {
         );
         table.insert(
             UNASSIGNED.to_owned(),
-            to_remove_segment.to_string(),
+            segment.clone().to_string(),
             "Offset".to_owned(),
             Box::new(offset.to_owned()),
         );
