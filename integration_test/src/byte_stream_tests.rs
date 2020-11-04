@@ -64,6 +64,13 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     test_seek(&mut reader);
     test_truncation(&mut writer, &mut reader, &mut rt);
     test_seal(&mut writer, &mut reader, &mut rt);
+
+    let segment = ScopedSegment {
+        scope: Scope::from("testScopeByteStreamConditionalAppend".to_owned()),
+        stream: Stream::from("testStreamByteStreamConditionalAppend".to_owned()),
+        segment: Segment::from(0),
+    };
+    test_conditional_append(&client_factory, segment);
 }
 
 fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader) {
@@ -74,7 +81,6 @@ fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamRea
 
     let size1 = writer.write(&payload1).expect("write payload1 to byte stream");
     assert_eq!(size1, 4);
-
     let size2 = writer.write(&payload2).expect("write payload2 to byte stream");
     assert_eq!(size2, 4);
     writer.flush().expect("flush byte stream writer");
@@ -150,4 +156,26 @@ fn test_seal(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, rt: &
     let size = reader.read(&mut buf).expect("read from byte stream");
     assert_eq!(size, 0);
     assert_eq!(buf, vec![0; 8]);
+}
+
+fn test_conditional_append(factory: &ClientFactory, segment: ScopedSegment) {
+    let mut writer1 = factory.create_byte_stream_writer(segment.clone());
+    let payload = vec![1; 1024];
+    writer1.write(&payload).expect("writer1 write payload");
+    assert_eq!(writer1.current_write_offset(), 1024);
+    writer1.flush().expect("writer1 flush");
+
+    let mut writer2 = factory.create_byte_stream_writer(segment.clone());
+    writer2.write(&payload).expect("writer2 write payload");
+    assert_eq!(writer1.current_write_offset(), 2048);
+    writer2.flush().expect("writer2 flush");
+
+    let writer_res = writer1.write(&payload);
+    let flush_res = writer1.flush();
+    assert!(writer_res.is_err() || flush_res.is_err());
+
+    writer1.seek_to_tail();
+    writer1.write(&payload).expect("writer1 write payload");
+    assert_eq!(writer1.current_write_offset(), 3072);
+    writer1.flush().expect("writer1 flush");
 }

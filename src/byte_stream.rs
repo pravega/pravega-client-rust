@@ -26,6 +26,7 @@ use tokio::runtime::Handle;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;
 use tokio::time::{timeout, Duration};
+use tracing::debug;
 use tracing::info_span;
 use tracing_futures::Instrument;
 use uuid::Uuid;
@@ -69,6 +70,10 @@ impl Write for ByteStreamWriter {
             }
         })?;
 
+        debug!(
+            "writing payload of size {} based on offset {}",
+            bytes_to_write, self.write_offset
+        );
         self.write_offset += bytes_to_write as i64;
         self.event_handle = Some(oneshot_receiver);
         Ok(bytes_to_write)
