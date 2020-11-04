@@ -79,6 +79,10 @@ impl Reactor {
                 }
                 Ok(())
             }
+            Incoming::Close() => {
+                info!("receive signal to close reactor");
+                Err("close")
+            }
         }
     }
 

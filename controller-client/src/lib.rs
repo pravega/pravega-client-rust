@@ -41,7 +41,7 @@ use controller::{
     SegmentRanges, SegmentsAtTime, StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState,
     TxnStatus, UpdateStreamStatus,
 };
-use im::HashMap as ImHashMap;
+use im::{HashMap as ImHashMap, OrdMap};
 use pravega_rust_client_config::credentials::AUTHORIZATION;
 use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_retry::retry_async::retry_async;
@@ -865,7 +865,32 @@ impl ControllerClientImpl {
             .await;
         let operation_name = "createTransaction";
         match op_status {
-            Ok(create_txn_response) => Ok(TxnSegments::from(create_txn_response.into_inner())),
+            Ok(create_txn_response) => {
+                let raw = TxnSegments::from(create_txn_response.into_inner());
+                let txn_id = raw.tx_id;
+                let mut processed_map = OrdMap::new();
+                for (k, v) in raw.stream_segments.key_segment_map {
+                    let segment_with_range = SegmentWithRange {
+                        scoped_segment: ScopedSegment {
+                            scope: v.scoped_segment.scope,
+                            stream: v.scoped_segment.stream,
+                            segment: Segment {
+                                number: v.scoped_segment.segment.number,
+                                tx_id: Some(txn_id),
+                            },
+                        },
+                        min_key: v.min_key,
+                        max_key: v.max_key,
+                    };
+                    processed_map.insert(k, segment_with_range);
+                }
+                Ok(TxnSegments {
+                    stream_segments: StreamSegments {
+                        key_segment_map: processed_map,
+                    },
+                    tx_id: txn_id,
+                })
+            }
             Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }

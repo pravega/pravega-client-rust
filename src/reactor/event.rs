@@ -22,6 +22,7 @@ pub(crate) enum Incoming {
     AppendEvent(PendingEvent),
     ServerReply(ServerReply),
     Reconnect(WriterInfo),
+    Close(),
 }
 
 #[derive(new, Debug)]

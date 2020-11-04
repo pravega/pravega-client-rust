@@ -389,6 +389,7 @@ impl SegmentWriter {
                 ))
                 .await
                 .expect("send reconnect signal to reactor");
+            return;
         }
 
         while self.inflight.back().is_some() {

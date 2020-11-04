@@ -97,6 +97,12 @@ impl EventStreamWriter {
     }
 }
 
+impl Drop for EventStreamWriter {
+    fn drop(&mut self) {
+        let _res = self.sender.send((Incoming::Close(), 0));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use tokio::runtime::Runtime;

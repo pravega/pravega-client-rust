@@ -14,7 +14,7 @@ use tracing_subscriber::FmtSubscriber;
 pub fn init() {
     let subscriber = FmtSubscriber::builder()
         .with_ansi(true)
-        .with_max_level(Level::DEBUG)
+        .with_max_level(Level::INFO)
         .finish();
 
     let my_dispatch = Dispatch::new(subscriber);

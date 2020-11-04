@@ -254,6 +254,12 @@ impl Transaction {
     }
 }
 
+impl Drop for Transaction {
+    fn drop(&mut self) {
+        let _res = self.sender.send((Incoming::Close(), 0));
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
