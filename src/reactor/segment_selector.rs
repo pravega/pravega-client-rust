@@ -61,8 +61,17 @@ impl SegmentSelector {
 
     /// Initializes segment writers by setting up connections so that segment
     /// writers are ready to use after initialization.
-    pub(crate) async fn initialize(&mut self, segments: StreamSegments) {
-        self.current_segments = segments;
+    pub(crate) async fn initialize(&mut self, stream_segments: Option<StreamSegments>) {
+        if let Some(ss) = stream_segments {
+            self.current_segments = ss;
+        } else {
+            self.current_segments = self
+                .factory
+                .get_controller_client()
+                .get_current_segments(&self.stream)
+                .await
+                .expect("retry failed");
+        }
         self.create_missing_writers().await;
     }
 
@@ -269,7 +278,7 @@ pub(crate) mod test {
             .get_current_segments(&stream)
             .await
             .unwrap();
-        selector.initialize(stream_segments).await;
+        selector.initialize(Some(stream_segments)).await;
         (selector, sender, receiver, factory)
     }
 }

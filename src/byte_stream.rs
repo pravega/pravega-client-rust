@@ -14,7 +14,6 @@ use crate::event_stream_writer::EventStreamWriter;
 use crate::get_random_u128;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::reactors::Reactor;
-use crate::reactor::segment_selector::SegmentSelector;
 use crate::segment_metadata::SegmentMetadataClient;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 use pravega_rust_client_channel::{create_channel, ChannelSender};
@@ -95,19 +94,14 @@ impl ByteStreamWriter {
         let metadata_client = handle.block_on(factory.create_segment_metadata_client(segment.clone()));
         let writer_id = WriterId(get_random_u128());
         let stream = ScopedStream::from(&segment);
-        let mut selector = handle.block_on(SegmentSelector::new(
-            stream.clone(),
-            sender.clone(),
-            factory.clone(),
-        ));
-        let current_segments = handle
-            .block_on(factory.get_controller_client().get_current_segments(&stream))
-            .expect("retry failed");
         // get the current segments and create corresponding event segment writers
-        handle.block_on(selector.initialize(current_segments));
         let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
-        handle.enter(|| tokio::spawn(Reactor::run(selector, receiver, factory.clone()).instrument(span)));
+        handle.enter(|| {
+            tokio::spawn(
+                Reactor::run(stream, sender.clone(), receiver, factory.clone(), None).instrument(span),
+            )
+        });
         ByteStreamWriter {
             writer_id,
             sender,

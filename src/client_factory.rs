@@ -18,9 +18,10 @@ use pravega_wire_protocol::connection_factory::{
 };
 
 use crate::byte_stream::{ByteStreamReader, ByteStreamWriter};
-use crate::event_reader::EventReader;
+use crate::event_reader_group::ReaderGroup;
 use crate::event_stream_writer::EventStreamWriter;
 use crate::raw_client::RawClientImpl;
+use crate::reader_group_config::ReaderGroupConfig;
 use crate::segment_metadata::SegmentMetadataClient;
 use crate::segment_reader::AsyncSegmentReaderImpl;
 use crate::table_synchronizer::TableSynchronizer;
@@ -30,6 +31,7 @@ use pravega_rust_client_auth::DelegationTokenProvider;
 use std::fmt;
 use std::sync::Arc;
 use tokio::runtime::{Handle, Runtime};
+use tracing::info;
 
 #[derive(Clone)]
 pub struct ClientFactory(Arc<ClientFactoryInternal>);
@@ -106,8 +108,12 @@ impl ClientFactory {
         EventStreamWriter::new(stream, self.clone())
     }
 
-    pub async fn create_event_stream_reader(&self, stream: ScopedStream) -> EventReader {
-        EventReader::init(stream, self.clone()).await
+    pub async fn create_reader_group(&self, name: String, stream: ScopedStream) -> ReaderGroup {
+        info!(
+            "Creating reader group {:?} to read data from stream {:?}",
+            name, stream
+        );
+        ReaderGroup::create(name, stream, ReaderGroupConfig::default(), self.clone()).await
     }
 
     pub async fn create_transactional_event_stream_writer(

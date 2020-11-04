@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use pravega_rust_client_channel::ChannelReceiver;
+use pravega_rust_client_channel::{ChannelReceiver, ChannelSender};
 use tracing::{debug, error, info, warn};
 
 use pravega_rust_client_shared::*;
@@ -23,10 +23,15 @@ pub(crate) struct Reactor {}
 
 impl Reactor {
     pub(crate) async fn run(
-        mut selector: SegmentSelector,
+        stream: ScopedStream,
+        sender: ChannelSender<Incoming>,
         mut receiver: ChannelReceiver<Incoming>,
         factory: ClientFactory,
+        stream_segments: Option<StreamSegments>,
     ) {
+        let mut selector = SegmentSelector::new(stream, sender, factory.clone()).await;
+        // get the current segments and create corresponding event segment writers
+        selector.initialize(stream_segments).await;
         info!("starting reactor");
         while Reactor::run_once(&mut selector, &mut receiver, &factory)
             .await

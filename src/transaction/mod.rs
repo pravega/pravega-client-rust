@@ -15,7 +15,6 @@ use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::reactors::Reactor;
-use crate::reactor::segment_selector::SegmentSelector;
 use crate::transaction::pinger::PingerHandle;
 use pravega_rust_client_channel::{create_channel, ChannelSender};
 use pravega_rust_client_shared::{
@@ -72,13 +71,22 @@ impl Transaction {
             };
         }
         let rt_handle = factory.get_runtime_handle();
-        let mut selector = SegmentSelector::new(info.stream.clone(), tx.clone(), factory.clone()).await;
-        selector.initialize(stream_segments).await;
         let writer_id = info.writer_id;
         let txn_id = info.txn_id;
         let span = info_span!("StreamReactor", txn_id = %txn_id, event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
-        rt_handle.enter(|| tokio::spawn(Reactor::run(selector, rx, factory.clone()).instrument(span)));
+        rt_handle.enter(|| {
+            tokio::spawn(
+                Reactor::run(
+                    info.stream.clone(),
+                    tx.clone(),
+                    rx,
+                    factory.clone(),
+                    Some(stream_segments),
+                )
+                .instrument(span),
+            )
+        });
         Transaction {
             info,
             sender: tx,
