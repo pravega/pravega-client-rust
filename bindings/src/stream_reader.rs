@@ -95,8 +95,12 @@ impl StreamReader {
         Ok(())
     }
 
+    ///
+    /// Release the segment back.
+    ///
     #[text_signature = "($self, slice)"]
     pub fn release_segment(&self, slice: &mut Slice) -> PyResult<()> {
+        info!("Release segment slice back");
         if let Some(s) = slice.get_set_to_none() {
             self.handle.block_on(self.release_segment_async(s));
         }
@@ -200,6 +204,7 @@ impl PyIterProtocol for Slice {
     fn __next__(mut slf: PyRefMut<Self>) -> Option<EventData> {
         if let Some(mut slice) = slf.seg_slice.take() {
             let next_event: Option<Event> = slice.next();
+            slf.seg_slice = Some(slice);
             next_event.map(|e| EventData {
                 offset_in_segment: e.offset_in_segment,
                 value: e.value,
