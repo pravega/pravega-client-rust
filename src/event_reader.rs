@@ -152,12 +152,6 @@ impl ReaderState {
         }
     }
 
-    fn close_all_slice_return_channel(&mut self) {
-        for (_, mut rx) in self.slice_release_receiver.drain() {
-            rx.close();
-        }
-    }
-
     //
     // Remove segment slice from reader meta and return it.
     // If the reader does not have the segment slice it waits for the segment slice which is out
