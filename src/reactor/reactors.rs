@@ -60,11 +60,11 @@ impl Reactor {
                 }
             }
             Incoming::Reconnect(writer_info) => {
-                warn!("reconnect for writer {:?}", writer_info);
-                let writer = selector
-                    .writers
-                    .get_mut(&writer_info.segment)
-                    .expect("must have writer");
+                let option = selector.writers.get_mut(&writer_info.segment);
+                if option.is_none() {
+                    return Ok(());
+                }
+                let writer = option.unwrap();
                 if let Some(ref write_half) = writer.connection {
                     // Only reconnect if the current connection is having connection
                     // failure. It might happen that the write op has already triggered
@@ -73,6 +73,7 @@ impl Reactor {
                     // cause InvalidEventNumber error.
                     if write_half.get_id() == writer_info.connection_id && writer_info.writer_id == writer.id
                     {
+                        warn!("reconnect for writer {:?}", writer_info);
                         writer.reconnect(factory).await;
                     }
                 }
