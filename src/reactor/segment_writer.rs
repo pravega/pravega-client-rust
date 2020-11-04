@@ -26,7 +26,7 @@ use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::metric::ClientMetrics;
 use crate::raw_client::RawClient;
-use crate::reactor::event::{ConnectionFailure, Incoming, PendingEvent, ServerReply};
+use crate::reactor::event::{Incoming, PendingEvent, ServerReply, WriterInfo};
 use pravega_rust_client_auth::DelegationTokenProvider;
 use pravega_rust_client_channel::{CapacityGuard, ChannelSender};
 use std::fmt;
@@ -108,7 +108,7 @@ impl SegmentWriter {
         &mut self,
         factory: &ClientFactory,
     ) -> Result<(), SegmentWriterError> {
-        let span = info_span!("setup connection", segment_writer= %self.id, segment= %self.segment, host = field::Empty);
+        let span = info_span!("setup connection", segment_writer_id= %self.id, segment= %self.segment, host = field::Empty);
         // span.enter doesn't work for async code https://docs.rs/tracing/0.1.17/tracing/span/struct.Span.html#in-asynchronous-code
         async {
             info!("setting up connection for segment writer");
@@ -184,6 +184,7 @@ impl SegmentWriter {
             let sender = self.sender.clone();
             // spins up a connection listener that keeps listening on the connection
             let listener_id = r.get_id();
+            let writer_id = self.id;
             tokio::spawn(async move {
                 loop {
                     select! {
@@ -197,9 +198,10 @@ impl SegmentWriter {
                                 Err(e) => {
                                     warn!("connection failed to read data back from segmentstore due to {:?}, closing listener task {:?}", e, listener_id);
                                     let result = sender
-                                        .send((Incoming::ConnectionFailure(ConnectionFailure {
+                                        .send((Incoming::Reconnect(WriterInfo {
                                             segment: segment.clone(),
                                             connection_id: r.get_id(),
+                                            writer_id,
                                         }), 0)).await;
                                     if let Err(e) = result {
                                         error!("failed to send connectionFailure signal to reactor {:?}", e);
@@ -367,26 +369,48 @@ impl SegmentWriter {
     ///
     /// If error occurs during any one of the steps above, redo the reconnect from step 1.
     pub(crate) async fn reconnect(&mut self, factory: &ClientFactory) {
-        loop {
-            debug!("Reconnecting segment writer {:?}", self.id);
-            // setup the connection
-            let setup_res = self.setup_connection(factory).await;
-            if setup_res.is_err() {
-                continue;
-            }
+        debug!("Reconnecting segment writer {:?}", self.id);
+        let connection_id = if let Some(ref write_half) = self.connection {
+            write_half.get_id()
+        } else {
+            panic!("should always have connection here");
+        };
 
-            while self.inflight.back().is_some() {
-                self.pending
-                    .push_front(self.inflight.pop_back().expect("must have event"));
-            }
+        // setup the connection
+        let setup_res = self.setup_connection(factory).await;
+        if setup_res.is_err() {
+            self.sender
+                .send((
+                    Incoming::Reconnect(WriterInfo {
+                        segment: self.segment.clone(),
+                        connection_id,
+                        writer_id: self.id,
+                    }),
+                    0,
+                ))
+                .await
+                .expect("send reconnect signal to reactor");
+        }
 
-            // flush any pending events
-            let flush_res = self.write_pending_events().await;
-            if flush_res.is_err() {
-                continue;
-            }
+        while self.inflight.back().is_some() {
+            self.pending
+                .push_front(self.inflight.pop_back().expect("must have event"));
+        }
 
-            return;
+        // flush any pending events
+        let flush_res = self.write_pending_events().await;
+        if flush_res.is_err() {
+            self.sender
+                .send((
+                    Incoming::Reconnect(WriterInfo {
+                        segment: self.segment.clone(),
+                        connection_id,
+                        writer_id: self.id,
+                    }),
+                    0,
+                ))
+                .await
+                .expect("send reconnect signal to reactor");
         }
     }
 

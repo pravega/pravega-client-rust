@@ -21,7 +21,7 @@ use uuid::Uuid;
 pub(crate) enum Incoming {
     AppendEvent(PendingEvent),
     ServerReply(ServerReply),
-    ConnectionFailure(ConnectionFailure),
+    Reconnect(WriterInfo),
 }
 
 #[derive(new, Debug)]
@@ -31,9 +31,10 @@ pub(crate) struct ServerReply {
 }
 
 #[derive(new, Debug)]
-pub(crate) struct ConnectionFailure {
+pub(crate) struct WriterInfo {
     pub(crate) segment: ScopedSegment,
     pub(crate) connection_id: Uuid,
+    pub(crate) writer_id: WriterId,
 }
 
 #[derive(Debug)]

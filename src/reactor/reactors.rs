@@ -59,11 +59,11 @@ impl Reactor {
                     Ok(())
                 }
             }
-            Incoming::ConnectionFailure(connection_failure) => {
-                warn!("connection failure: {:?}", connection_failure.segment);
+            Incoming::Reconnect(writer_info) => {
+                warn!("reconnect for writer {:?}", writer_info);
                 let writer = selector
                     .writers
-                    .get_mut(&connection_failure.segment)
+                    .get_mut(&writer_info.segment)
                     .expect("must have writer");
                 if let Some(ref write_half) = writer.connection {
                     // Only reconnect if the current connection is having connection
@@ -71,7 +71,8 @@ impl Reactor {
                     // the connection failure and has reconnected. It's necessary to avoid
                     // reconnect twice since resending duplicate inflight events will
                     // cause InvalidEventNumber error.
-                    if write_half.get_id() == connection_failure.connection_id {
+                    if write_half.get_id() == writer_info.connection_id && writer_info.writer_id == writer.id
+                    {
                         writer.reconnect(factory).await;
                     }
                 }
