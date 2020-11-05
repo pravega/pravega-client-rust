@@ -71,12 +71,12 @@ mod test {
     fn integration_test() {
         trace::init();
         // metric::metric_init(PROMETHEUS_SCRAPE_PORT.parse::<SocketAddr>().unwrap());
-        // let span = info_span!("integration test", auth = false, tls = false);
-        // span.in_scope(|| {
-        //     info!("Running integration test");
-        //     let config = PravegaStandaloneServiceConfig::new(false, false, false);
-        //     run_tests(config);
-        // });
+        let span = info_span!("integration test", auth = false, tls = false);
+        span.in_scope(|| {
+            info!("Running integration test");
+            let config = PravegaStandaloneServiceConfig::new(false, false, false);
+            run_tests(config);
+        });
 
         let span = info_span!("integration test", auth = true, tls = true);
         span.in_scope(|| {
@@ -92,19 +92,19 @@ mod test {
     fn run_tests(config: PravegaStandaloneServiceConfig) {
         let mut pravega = PravegaStandaloneService::start(config.clone());
         wait_for_standalone_with_timeout(true, 30);
-        // controller_tests::test_controller_apis(config.clone());
-        //
-        // tablemap_tests::test_tablemap(config.clone());
-        //
-        // event_stream_writer_tests::test_event_stream_writer(config.clone());
-        //
-        // tablesynchronizer_tests::test_tablesynchronizer(config.clone());
-        //
-        // transactional_event_stream_writer_tests::test_transactional_event_stream_writer(config.clone());
+        controller_tests::test_controller_apis(config.clone());
+
+        tablemap_tests::test_tablemap(config.clone());
+
+        event_stream_writer_tests::test_event_stream_writer(config.clone());
+
+        tablesynchronizer_tests::test_tablesynchronizer(config.clone());
+
+        transactional_event_stream_writer_tests::test_transactional_event_stream_writer(config.clone());
 
         byte_stream_tests::test_byte_stream(config.clone());
 
-        // event_stream_reader_tests::test_event_stream_reader(config.clone());
+        event_stream_reader_tests::test_event_stream_reader(config.clone());
 
         // Shut down Pravega standalone
         pravega.stop().unwrap();

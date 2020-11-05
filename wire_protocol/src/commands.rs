@@ -2299,3 +2299,40 @@ impl Reply for TableEntriesDeltaReadCommand {
         self.request_id
     }
 }
+
+/**
+ * 60.ConditionalAppendRawBytes Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct ConditionalAppendRawBytesCommand {
+    pub writer_id: u128,
+    pub event_number: i64,
+    pub expected_offset: i64,
+    pub data: Vec<u8>,
+    pub request_id: i64,
+}
+
+impl Command for ConditionalAppendRawBytesCommand {
+    const TYPE_CODE: i32 = 89;
+
+    fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
+        let encoded = CONFIG.serialize(&self).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(encoded)
+    }
+
+    fn read_from(input: &[u8]) -> Result<Self, CommandError> {
+        let decoded: ConditionalAppendRawBytesCommand =
+            CONFIG.deserialize(&input[..]).context(InvalidData {
+                command_type: Self::TYPE_CODE,
+            })?;
+        Ok(decoded)
+    }
+}
+
+impl Request for ConditionalAppendRawBytesCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}

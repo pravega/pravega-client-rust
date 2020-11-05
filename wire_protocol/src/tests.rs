@@ -814,6 +814,29 @@ fn test_table_entries_delta_read() {
     test_command(table_entries_delta_read);
 }
 
+#[test]
+fn test_conditional_append_raw_bytes() {
+    let writer_id_number: u128 = 123;
+    let data = vec![1; 1024];
+    let conditional_append_raw_bytes_command = WireCommands::Requests(Requests::ConditionalAppendRawBytes(
+        ConditionalAppendRawBytesCommand {
+            writer_id: writer_id_number,
+            event_number: 1,
+            expected_offset: 0,
+            data,
+            request_id: 1,
+        },
+    ));
+
+    let decoded = test_command(conditional_append_raw_bytes_command);
+    if let WireCommands::Requests(Requests::ConditionalAppendRawBytes(command)) = decoded {
+        let data = vec![1; 1024];
+        assert_eq!(command.data, data);
+    } else {
+        panic!("test failed");
+    }
+}
+
 fn test_command(command: WireCommands) -> WireCommands {
     let encoded: Vec<u8> = command.write_fields().unwrap();
     let decoded = WireCommands::read_from(&encoded).unwrap();
