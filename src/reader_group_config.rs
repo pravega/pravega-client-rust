@@ -60,7 +60,7 @@ impl Default for ReaderGroupConfig {
 
 /// ReaderGroupConfigVersioned enum contains all versions of Position struct
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-pub enum ReaderGroupConfigVersioned {
+pub(crate) enum ReaderGroupConfigVersioned {
     V1(ReaderGroupConfigV1),
 }
 
@@ -81,7 +81,7 @@ impl ReaderGroupConfigVersioned {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-pub struct ReaderGroupConfigV1 {
+pub(crate) struct ReaderGroupConfigV1 {
     /// maximum delay by which the readers return the latest read offsets of their
     /// assigned segments.
     group_refresh_time_millis: u64,
@@ -96,7 +96,7 @@ impl Default for ReaderGroupConfigV1 {
 }
 
 impl ReaderGroupConfigV1 {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         ReaderGroupConfigV1 {
             group_refresh_time_millis: 3000,
             starting_stream_cuts: HashMap::new(),
