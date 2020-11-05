@@ -285,7 +285,7 @@ impl SegmentWriter {
                 }
                 event_count += 1;
                 total_size += append.event.data.len();
-                to_send.extend(append.event.data.clone());
+                to_send.extend(&append.event.data);
                 self.inflight.push_back(append);
             } else {
                 self.pending.push_front(append);
