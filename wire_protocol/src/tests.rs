@@ -213,14 +213,14 @@ fn test_conditional_append() {
             writer_id: writer_id_number,
             event_number: 1,
             expected_offset: 0,
-            event,
+            data: event.write_fields().unwrap(),
             request_id: 1,
         }));
 
     let decoded = test_command(conditional_append_command);
     if let WireCommands::Requests(Requests::ConditionalAppend(command)) = decoded {
         let data = String::from("event-1").into_bytes();
-        assert_eq!(command.event, EventCommand { data });
+        assert_eq!(command.data, EventCommand { data }.write_fields().unwrap());
     } else {
         panic!("test failed");
     }
@@ -812,29 +812,6 @@ fn test_table_entries_delta_read() {
             last_position: 0,
         }));
     test_command(table_entries_delta_read);
-}
-
-#[test]
-fn test_conditional_append_raw_bytes() {
-    let writer_id_number: u128 = 123;
-    let data = vec![1; 1024];
-    let conditional_append_raw_bytes_command = WireCommands::Requests(Requests::ConditionalAppendRawBytes(
-        ConditionalAppendRawBytesCommand {
-            writer_id: writer_id_number,
-            event_number: 1,
-            expected_offset: 0,
-            data,
-            request_id: 1,
-        },
-    ));
-
-    let decoded = test_command(conditional_append_raw_bytes_command);
-    if let WireCommands::Requests(Requests::ConditionalAppendRawBytes(command)) = decoded {
-        let data = vec![1; 1024];
-        assert_eq!(command.data, data);
-    } else {
-        panic!("test failed");
-    }
 }
 
 fn test_command(command: WireCommands) -> WireCommands {
