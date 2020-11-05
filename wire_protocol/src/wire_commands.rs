@@ -52,7 +52,6 @@ pub enum Requests {
     ReadTableKeys(ReadTableKeysCommand),
     ReadTableEntries(ReadTableEntriesCommand),
     ReadTableEntriesDelta(ReadTableEntriesDeltaCommand),
-    ConditionalAppendRawBytes(ConditionalAppendRawBytesCommand),
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -141,9 +140,6 @@ impl Request for Requests {
             Requests::ReadTableEntries(read_table_entries_cmd) => read_table_entries_cmd.get_request_id(),
             Requests::ReadTableEntriesDelta(read_table_entries_delta_cmd) => {
                 read_table_entries_delta_cmd.get_request_id()
-            }
-            Requests::ConditionalAppendRawBytes(conditional_append_raw_bytes_cmd) => {
-                conditional_append_raw_bytes_cmd.get_request_id()
             }
             _ => -1,
         }
@@ -394,12 +390,6 @@ impl Encode for Requests {
             Requests::ReadTableEntriesDelta(read_table_entries_delta_cmd) => {
                 res.extend_from_slice(&ReadTableEntriesDeltaCommand::TYPE_CODE.to_be_bytes());
                 let se = read_table_entries_delta_cmd.write_fields()?;
-                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
-                res.extend(se);
-            }
-            Requests::ConditionalAppendRawBytes(conditional_append_raw_bytes) => {
-                res.extend_from_slice(&ConditionalAppendRawBytesCommand::TYPE_CODE.to_be_bytes());
-                let se = conditional_append_raw_bytes.write_fields()?;
                 res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
@@ -705,10 +695,6 @@ impl Decode for Requests {
             }
 
             EventCommand::TYPE_CODE => Ok(Requests::Event(EventCommand::read_from(input)?)),
-
-            ConditionalAppendRawBytesCommand::TYPE_CODE => Ok(Requests::ConditionalAppendRawBytes(
-                ConditionalAppendRawBytesCommand::read_from(input)?,
-            )),
 
             _ => InvalidType {
                 command_type: type_code,

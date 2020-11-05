@@ -10,18 +10,15 @@
 
 use super::error::CommandError;
 use super::error::InvalidData;
-use super::error::Io;
 use bincode2::Config;
 use bincode2::LengthOption;
-use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
+use byteorder::{BigEndian, ByteOrder};
 use lazy_static::*;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::i64;
-use std::io::Cursor;
-use std::io::{Read, Write};
 
 pub const WIRE_VERSION: i32 = 10;
 pub const OLDEST_COMPATIBLE_VERSION: i32 = 5;
@@ -605,24 +602,13 @@ impl Command for AppendBlockEndCommand {
 /**
  * 16.ConditionalAppend Command
  */
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct ConditionalAppendCommand {
     pub writer_id: u128,
     pub event_number: i64,
     pub expected_offset: i64,
-    pub event: EventCommand,
+    pub data: Vec<u8>,
     pub request_id: i64,
-}
-
-impl ConditionalAppendCommand {
-    fn read_event(rdr: &mut Cursor<&[u8]>) -> Result<EventCommand, std::io::Error> {
-        let _type_code = rdr.read_i32::<BigEndian>()?;
-        let event_length = rdr.read_u32::<BigEndian>()?;
-        // read the data in event
-        let mut msg: Vec<u8> = vec![0; event_length as usize];
-        rdr.read_exact(&mut msg)?;
-        Ok(EventCommand { data: msg })
-    }
 }
 
 impl Command for ConditionalAppendCommand {
@@ -630,34 +616,17 @@ impl Command for ConditionalAppendCommand {
     // Customize the serialize and deserialize method.
     // Because in ConditionalAppend the event should be serialize as |type_code|length|data|
     fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
-        let mut res = Vec::new();
-        res.extend_from_slice(&self.writer_id.to_be_bytes());
-        res.extend_from_slice(&self.event_number.to_be_bytes());
-        res.extend_from_slice(&self.expected_offset.to_be_bytes());
-        res.write_all(&self.event.write_fields()?).context(Io {
+        let encoded = CONFIG.serialize(&self).context(InvalidData {
             command_type: Self::TYPE_CODE,
         })?;
-        res.extend_from_slice(&self.request_id.to_be_bytes());
-        Ok(res)
+        Ok(encoded)
     }
 
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let mut rdr = Cursor::new(input);
-        let ctx = Io {
+        let decoded: ConditionalAppendCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
             command_type: Self::TYPE_CODE,
-        };
-        let writer_id = rdr.read_u128::<BigEndian>().context(ctx)?;
-        let event_number = rdr.read_i64::<BigEndian>().context(ctx)?;
-        let expected_offset = rdr.read_i64::<BigEndian>().context(ctx)?;
-        let event = ConditionalAppendCommand::read_event(&mut rdr).context(ctx)?;
-        let request_id = rdr.read_i64::<BigEndian>().context(ctx)?;
-        Ok(ConditionalAppendCommand {
-            writer_id,
-            event_number,
-            expected_offset,
-            event,
-            request_id,
-        })
+        })?;
+        Ok(decoded)
     }
 }
 
@@ -2295,43 +2264,6 @@ impl Command for TableEntriesDeltaReadCommand {
 }
 
 impl Reply for TableEntriesDeltaReadCommand {
-    fn get_request_id(&self) -> i64 {
-        self.request_id
-    }
-}
-
-/**
- * 60.ConditionalAppendRawBytes Command
- */
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-pub struct ConditionalAppendRawBytesCommand {
-    pub writer_id: u128,
-    pub event_number: i64,
-    pub expected_offset: i64,
-    pub data: Vec<u8>,
-    pub request_id: i64,
-}
-
-impl Command for ConditionalAppendRawBytesCommand {
-    const TYPE_CODE: i32 = 89;
-
-    fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
-        let encoded = CONFIG.serialize(&self).context(InvalidData {
-            command_type: Self::TYPE_CODE,
-        })?;
-        Ok(encoded)
-    }
-
-    fn read_from(input: &[u8]) -> Result<Self, CommandError> {
-        let decoded: ConditionalAppendRawBytesCommand =
-            CONFIG.deserialize(&input[..]).context(InvalidData {
-                command_type: Self::TYPE_CODE,
-            })?;
-        Ok(decoded)
-    }
-}
-
-impl Request for ConditionalAppendRawBytesCommand {
     fn get_request_id(&self) -> i64 {
         self.request_id
     }

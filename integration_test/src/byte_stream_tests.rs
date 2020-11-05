@@ -173,14 +173,14 @@ fn test_seal(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, rt: &
 fn test_multiple_writers_conditional_append(factory: &ClientFactory, segment: ScopedSegment) {
     let mut writer1 = factory.create_byte_stream_writer(segment.clone());
     let payload = vec![1; 1024];
-    writer1.write(&payload).expect("writer1 write payload");
+    let _num = writer1.write(&payload).expect("writer1 write payload");
     assert_eq!(writer1.current_write_offset(), 1024);
     writer1.flush().expect("writer1 flush");
     writer1.seek_to_tail();
     assert_eq!(writer1.current_write_offset(), 1024);
 
-    let mut writer2 = factory.create_byte_stream_writer(segment.clone());
-    writer2.write(&payload).expect("writer2 write payload");
+    let mut writer2 = factory.create_byte_stream_writer(segment);
+    let _num = writer2.write(&payload).expect("writer2 write payload");
     assert_eq!(writer2.current_write_offset(), 2048);
     writer2.flush().expect("writer2 flush");
 
@@ -189,7 +189,7 @@ fn test_multiple_writers_conditional_append(factory: &ClientFactory, segment: Sc
     assert!(writer_res.is_err() || flush_res.is_err());
 
     writer1.seek_to_tail();
-    writer1.write(&payload).expect("writer1 write payload");
+    let _num = writer1.write(&payload).expect("writer1 write payload");
     assert_eq!(writer1.current_write_offset(), 3072);
     writer1.flush().expect("writer1 flush");
     writer1.seek_to_tail();

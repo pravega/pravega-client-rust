@@ -19,9 +19,7 @@ use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_retry::retry_result::RetryResult;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::*;
-use pravega_wire_protocol::commands::{
-    AppendBlockEndCommand, ConditionalAppendRawBytesCommand, SetupAppendCommand,
-};
+use pravega_wire_protocol::commands::{AppendBlockEndCommand, ConditionalAppendCommand, SetupAppendCommand};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
 use crate::client_factory::ClientFactory;
@@ -255,7 +253,7 @@ impl SegmentWriter {
         let mut to_send = vec![];
         let mut event_count = 0;
         // conditional append
-        let mut conditional = self.pending.front().unwrap().event.conditional_offset.is_some();
+        let conditional = self.pending.front().unwrap().event.conditional_offset.is_some();
         let mut offset: i64 = -1;
 
         while let Some(append) = self.pending.pop_front() {
@@ -270,17 +268,17 @@ impl SegmentWriter {
                 && conditional == append.event.conditional_offset.is_some()
             {
                 if conditional {
-                    let event_offset = append.event.conditional_offset.as_ref().unwrap().clone();
+                    let event_offset = append.event.conditional_offset.as_ref().unwrap().to_owned();
                     if offset == -1 {
                         // first conditional append
-                        offset = event_offset + append.event.data.len();
+                        offset = event_offset + append.event.data.len() as i64;
                     } else if offset != event_offset {
                         // next conditional append does not depend on the previous one to succeed,
                         // do not send them in one event.
                         self.pending.push_front(append);
                         break;
                     } else {
-                        offset += append.event.len();
+                        offset += append.event.data.len() as i64;
                     }
                 }
                 event_count += 1;
@@ -304,7 +302,7 @@ impl SegmentWriter {
         );
 
         let request = if let Some(offset) = self.inflight.front().unwrap().event.conditional_offset {
-            Requests::ConditionalAppendRawBytes(ConditionalAppendRawBytesCommand {
+            Requests::ConditionalAppend(ConditionalAppendCommand {
                 writer_id: self.id.0,
                 event_number: self.inflight.back().expect("last event").event_id,
                 expected_offset: offset,
