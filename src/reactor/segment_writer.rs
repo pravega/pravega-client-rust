@@ -112,11 +112,8 @@ impl SegmentWriter {
         // span.enter doesn't work for async code https://docs.rs/tracing/0.1.17/tracing/span/struct.Span.html#in-asynchronous-code
         async {
             info!("setting up connection for segment writer");
-            // close current listener task
+            // close current listener task by dropping the sender, receiver will automatically closes
             let (oneshot_tx, mut oneshot_rx) = oneshot::channel();
-            if let Some(s) = self.connection_listener_handle.take() {
-                let _res = s.send(true);
-            }
             self.connection_listener_handle = Some(oneshot_tx);
 
             // get endpoint
