@@ -105,7 +105,7 @@ impl ReaderGroupConfigBuilder {
     ///
     pub fn build(&self) -> ReaderGroupConfig {
         assert!(
-            self.starting_stream_cuts.len() > 0,
+            !self.starting_stream_cuts.is_empty(),
             "Atleast 1 stream should be part of the reader group config"
         );
         ReaderGroupConfig {
