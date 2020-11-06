@@ -342,6 +342,132 @@ impl AsyncSegmentReaderImpl {
     }
 }
 
+pub(crate) struct AsyncSegmentReaderWrapper {
+    buffer: Arc<Mutex<Vec<u8>>>,
+    reader: Arc<AsyncSegmentReaderImpl>,
+    offset: Arc<AtomicI64>,
+    end_of_segment: Arc<AtomicBool>,
+    handle: Handle,
+    receiver: Option<oneshot::Receiver<Result<(), ReaderError>>>,
+}
+
+impl AsyncSegmentReaderWrapper {
+    const DEFAULT_BUFFER_SIZE: usize = 1024 * 1024;
+
+    pub(crate) fn new(
+        handle: Handle,
+        reader: AsyncSegmentReaderImpl,
+        offset: i64,
+    ) -> Result<Self, ReaderError> {
+        let buffer = Arc::new(Mutex::new(Vec::with_capacity(
+            AsyncSegmentReaderWrapper::DEFAULT_BUFFER_SIZE,
+        )));
+        let mut wrapper = AsyncSegmentReaderWrapper {
+            buffer,
+            reader: Arc::new(reader),
+            offset: Arc::new(AtomicI64::new(offset)),
+            handle,
+            end_of_segment: Arc::new(AtomicBool::new(false)),
+            receiver: None,
+        };
+        wrapper.fill_buffer_if_needed()?;
+        Ok(wrapper)
+    }
+    pub(crate) async fn read(&mut self, buf: &mut [u8]) -> StdResult<usize, ReaderError> {
+        self.fill_buffer_if_needed()?;
+        let mut guard = self.buffer.lock().await;
+
+        let size_to_return = cmp::min(buf.len(), *guard.len());
+        buf[..size_to_return].copy_from_slice(&guard[..size_to_return]);
+        *guard.drain(..size_to_return);
+
+        Ok(size_to_return)
+    }
+
+    pub(crate) fn extract_reader(self) -> impl AsyncSegmentReader {}
+
+    fn fill_buffer_if_needed(&mut self) -> Result<(), ReaderError> {
+        if let Some(ref mut receiver) = self.receiver {
+            match receiver.try_recv() {
+                Ok(()) => {
+                    // issue next buffer fill
+                    let receiver = self.fill_buffer();
+                    self.receiver = Some(receiver);
+                    Ok(())
+                }
+                Err(TryRecvError::Empty) => {
+                    // current buffer fill request is ongoing
+                    Ok(())
+                }
+                _ => panic!("failed to get buffer fill result"),
+            }
+        } else {
+            // no ongoing buffer fill, issue a new one
+            let receiver = self.fill_buffer();
+            self.receiver = Some(receiver);
+            Ok(())
+        }
+    }
+
+    fn fill_buffer(&self) -> oneshot::Receiver<Result<(), ReaderError>> {
+        let (sender, receiver) = oneshot::channel();
+        self.handle.enter(|| {
+            tokio::spawn(AsyncSegmentReaderWrapper::fill_buffer_async(
+                self.reader.clone(),
+                self.buffer.clone(),
+                self.offset.clone(),
+                self.end_of_segment.clone(),
+                sender,
+            ))
+        });
+        receiver
+    }
+
+    async fn fill_buffer_async(
+        reader: Arc<AsyncSegmentReaderImpl>,
+        buffer: Arc<Mutex<Vec<u8>>>,
+        offset: Arc<AtomicI64>,
+        end_of_segment: Arc<AtomicBool>,
+        sender: oneshot::Sender<Result<(), ReaderError>>,
+    ) {
+        let guard = buffer.lock().await;
+        let to_read = AsyncSegmentReaderWrapper::DEFAULT_BUFFER_SIZE - *guard.len();
+        if to_read == 0 {
+            // buffer if full
+            return;
+        }
+        drop(guard);
+
+        let read = reader.read(offset.load(Ordering::Relaxed), to_read).await;
+        match read {
+            Ok(cmd) => {
+                if cmd.end_of_segment {
+                    end_of_segment.store(true, Ordering::Relaxed);
+                }
+                let current_offset = offset.load(Ordering::Relaxed);
+
+                // verify offset
+                assert_eq!(
+                    cmd.offset, current_offset,
+                    format!(
+                        "ReadSegment returned data for the wrong offset {} vs {}",
+                        cmd.offset, current_offset
+                    )
+                );
+
+                // update offset
+                offset.store(current_offset + cmd.data.len(), Ordering::Relaxed);
+
+                // fill buffer
+                let mut guard = buffer.lock().await;
+                *guard.extend(&cmd.data);
+            }
+            Err(e) => sender.send(Err(e)),
+        }
+        sender.send(Ok(()));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
