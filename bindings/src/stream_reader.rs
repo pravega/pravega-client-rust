@@ -16,7 +16,7 @@ cfg_if! {
         use pyo3::PyResult;
         use pyo3::PyObjectProtocol;
         use tokio::runtime::Handle;
-        use log::info;
+        use tracing::info;
         use std::sync::Arc;
         use pravega_client_rust::segment_slice::{Event, SegmentSlice};
         use pyo3::PyIterProtocol;

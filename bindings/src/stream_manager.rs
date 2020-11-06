@@ -18,7 +18,7 @@ cfg_if! {
         use pyo3::prelude::*;
         use pyo3::PyResult;
         use pyo3::{exceptions, PyObjectProtocol};
-        use log::info;
+        use tracing::info;
     }
 }
 
@@ -71,15 +71,14 @@ impl StreamManager {
     /// Create a Scope in Pravega.
     ///
     #[text_signature = "($self, scope_name)"]
-    pub fn create_scope(&self, scope_name: &str) -> PyResult<bool> {
+    pub fn create_scope(&self, scope_name: &str, py: Python) -> PyResult<bool> {
         let handle = self.cf.get_runtime_handle();
 
         info!("creating scope {:?}", scope_name);
 
-        let controller = self.cf.get_controller_client();
+        let controller = py.allow_threads(move || self.cf.get_controller_client());
         let scope_name = Scope::from(scope_name.to_string());
-
-        let scope_result = handle.block_on(controller.create_scope(&scope_name));
+        let scope_result = py.allow_threads(move || handle.block_on(controller.create_scope(&scope_name)));
         info!("Scope creation status {:?}", scope_result);
         match scope_result {
             Ok(t) => Ok(t),

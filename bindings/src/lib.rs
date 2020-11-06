@@ -32,8 +32,8 @@ cfg_if! {
 
         /*
          *  This exception indicates a transaction has failed. Usually because the
-            transaction timed out or someone called transaction.abort()
-        */
+         *   transaction timed out or someone called transaction.abort()
+         */
         create_exception!(pravega_client, TxnFailedException, Exception);
     }
 }
@@ -42,6 +42,7 @@ cfg_if! {
 #[pymodule]
 /// A Python module implemented in Rust.
 fn pravega_client(py: Python, m: &PyModule) -> PyResult<()> {
+    pyo3_log::init();
     m.add_class::<StreamManager>()?;
     m.add_class::<StreamWriter>()?;
     m.add_class::<StreamTxnWriter>()?;

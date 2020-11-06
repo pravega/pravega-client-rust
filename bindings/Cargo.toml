@@ -24,7 +24,6 @@ python_binding = ["pyo3"]
 #Run tests for bindings using command cargo test --no-default-features
 
 [dependencies]
-log = "0.4"
 pravega-client-rust = { path = "../" }
 pravega-wire-protocol = { path = "../wire_protocol"}
 pravega-controller-client = { path = "../controller-client"}
@@ -37,8 +36,10 @@ lazy_static = "1.4.0"
 uuid = {version = "0.8", features = ["v4"]}
 futures = "0.3.5"
 derive-new = "0.5"
+tracing = "0.1.21"
 #Python bindings
 pyo3 = { features = ["extension-module"], optional = true, version = "0.11.0" }
+pyo3-log = "0.1"
 #WASM bindings
 wasm-bindgen = { version = "0.2.63", optional = true }
 cfg-if = "0.1.10"
