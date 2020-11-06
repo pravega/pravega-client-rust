@@ -113,7 +113,7 @@ impl SegmentWriter {
         async {
             info!("setting up connection for segment writer");
             // close current listener task by dropping the sender, receiver will automatically closes
-            let (oneshot_tx, mut oneshot_rx) = oneshot::channel();
+            let (oneshot_tx, oneshot_rx) = oneshot::channel();
             self.connection_listener_handle = Some(oneshot_tx);
 
             // get endpoint
@@ -174,57 +174,64 @@ impl SegmentWriter {
                 Err(e) => return Err(SegmentWriterError::RetryRawClient { err: e }),
             };
 
-            let (mut r, w) = connection.split();
+            let (r, w) = connection.split();
             self.connection = Some(w);
 
-            let segment = self.segment.clone();
-            let sender = self.sender.clone();
             // spins up a connection listener that keeps listening on the connection
-            let listener_id = r.get_id();
-            let writer_id = self.id;
-            tokio::spawn(async move {
-                loop {
-                    select! {
-                        _ = &mut oneshot_rx => {
-                            debug!("shut down connection listener {:?}", listener_id);
-                            break;
-                        }
-                        result = r.read() => {
-                            let reply = match result {
-                                Ok(reply) => reply,
-                                Err(e) => {
-                                    warn!("connection failed to read data back from segmentstore due to {:?}, closing listener task {:?}", e, listener_id);
-                                    let result = sender
-                                        .send((Incoming::Reconnect(WriterInfo {
-                                            segment: segment.clone(),
-                                            connection_id: r.get_id(),
-                                            writer_id,
-                                        }), 0)).await;
-                                    if let Err(e) = result {
-                                        error!("failed to send connectionFailure signal to reactor {:?}", e);
-                                    }
-                                    break;
-                                }
-                            };
-                            let res = sender
-                                .send((Incoming::ServerReply(ServerReply {
-                                    segment: segment.clone(),
-                                    reply,
-                                }), 0))
-                                .await;
+            self.spawn_listener_task(r, oneshot_rx);
+            info!("finished setting up connection");
+            Ok(())
+        }
+        .instrument(span)
+        .await
+    }
 
-                            if let Err(e) = res {
-                                error!("connection read data from segmentstore but failed to send reply back to reactor due to {:?}",e);
+    fn spawn_listener_task(&self, mut r: ClientConnectionReadHalf, mut oneshot_rx: oneshot::Receiver<bool>) {
+        let segment = self.segment.clone();
+        let sender = self.sender.clone();
+        let listener_id = r.get_id();
+        let writer_id = self.id;
+
+        tokio::spawn(async move {
+            loop {
+                select! {
+                    _ = &mut oneshot_rx => {
+                        debug!("shut down connection listener {:?}", listener_id);
+                        break;
+                    }
+                    result = r.read() => {
+                        let reply = match result {
+                            Ok(reply) => reply,
+                            Err(e) => {
+                                warn!("connection failed to read data back from segmentstore due to {:?}, closing listener task {:?}", e, listener_id);
+                                let result = sender
+                                    .send((Incoming::Reconnect(WriterInfo {
+                                        segment: segment.clone(),
+                                        connection_id: r.get_id(),
+                                        writer_id,
+                                    }), 0)).await;
+                                if let Err(e) = result {
+                                    error!("failed to send connectionFailure signal to reactor {:?}", e);
+                                }
                                 break;
                             }
+                        };
+                        let res = sender
+                            .send((Incoming::ServerReply(ServerReply {
+                                segment: segment.clone(),
+                                reply,
+                            }), 0))
+                            .await;
+
+                        if let Err(e) = res {
+                            error!("connection read data from segmentstore but failed to send reply back to reactor due to {:?}",e);
+                            break;
                         }
                     }
                 }
-                info!("listener task shut down {:?}", listener_id);
-            });
-            info!("finished setting up connection");
-            Ok(())
-        }.instrument(span).await
+            }
+            info!("listener task shut down {:?}", listener_id);
+        });
     }
 
     /// Adds the event to the pending list
