@@ -23,7 +23,10 @@ use crate::raw_client::RawClient;
 use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_result::RetryResult;
 use pravega_rust_client_retry::retry_result::Retryable;
-use tokio::sync::Mutex;
+use std::cmp;
+use std::sync::Arc;
+use tokio::runtime::Handle;
+use tokio::sync::{oneshot, Mutex};
 
 #[derive(Debug, Snafu)]
 pub enum ReaderError {
@@ -342,129 +345,136 @@ impl AsyncSegmentReaderImpl {
     }
 }
 
+/// A wrapper around the AsyncSegmentReader.
+///
+/// It maintains a buffer and prefetches data to fill that buffer in the background so that
+/// every read call can read from the local buffer instead of waiting for server response.
 pub(crate) struct AsyncSegmentReaderWrapper {
-    buffer: Arc<Mutex<Vec<u8>>>,
+    buffer: Vec<u8>,
     reader: Arc<AsyncSegmentReaderImpl>,
-    offset: Arc<AtomicI64>,
-    end_of_segment: Arc<AtomicBool>,
+    offset: i64,
+    end_of_segment: bool,
+    is_truncated: bool,
+    outstanding: Outstanding,
     handle: Handle,
-    receiver: Option<oneshot::Receiver<Result<(), ReaderError>>>,
 }
 
 impl AsyncSegmentReaderWrapper {
     const DEFAULT_BUFFER_SIZE: usize = 1024 * 1024;
-
-    pub(crate) fn new(
-        handle: Handle,
-        reader: AsyncSegmentReaderImpl,
-        offset: i64,
-    ) -> Result<Self, ReaderError> {
-        let buffer = Arc::new(Mutex::new(Vec::with_capacity(
-            AsyncSegmentReaderWrapper::DEFAULT_BUFFER_SIZE,
-        )));
+    const DEFAULT_READ_LENGTH: usize = 256 * 1024;
+    pub(crate) fn new(handle: Handle, reader: AsyncSegmentReaderImpl, offset: i64) -> Self {
         let mut wrapper = AsyncSegmentReaderWrapper {
-            buffer,
+            buffer: Vec::with_capacity(AsyncSegmentReaderWrapper::DEFAULT_BUFFER_SIZE),
             reader: Arc::new(reader),
-            offset: Arc::new(AtomicI64::new(offset)),
+            offset,
             handle,
-            end_of_segment: Arc::new(AtomicBool::new(false)),
-            receiver: None,
+            end_of_segment: false,
+            is_truncated: false,
+            outstanding: Outstanding {
+                end_of_segment: false,
+                cmd: None,
+                receiver: None,
+            },
         };
-        wrapper.fill_buffer_if_needed()?;
-        Ok(wrapper)
+        wrapper.issue_request_if_needed();
+        wrapper
     }
     pub(crate) async fn read(&mut self, buf: &mut [u8]) -> StdResult<usize, ReaderError> {
-        self.fill_buffer_if_needed()?;
-        let mut guard = self.buffer.lock().await;
+        self.issue_request_if_needed();
+        while self.buffer.is_empty() {
+            if self.outstanding.is_empty() {
+                return Ok(0);
+            }
+            self.fill_buffer().await?;
+        }
 
-        let size_to_return = cmp::min(buf.len(), *guard.len());
-        buf[..size_to_return].copy_from_slice(&guard[..size_to_return]);
-        *guard.drain(..size_to_return);
+        let size_to_return = cmp::min(buf.len(), self.buffer.len());
+        buf[..size_to_return].copy_from_slice(&self.buffer[..size_to_return]);
+        self.buffer.drain(..size_to_return);
 
         Ok(size_to_return)
     }
 
-    pub(crate) fn extract_reader(self) -> impl AsyncSegmentReader {}
+    pub(crate) fn extract_reader(self) {}
 
-    fn fill_buffer_if_needed(&mut self) -> Result<(), ReaderError> {
-        if let Some(ref mut receiver) = self.receiver {
-            match receiver.try_recv() {
-                Ok(()) => {
-                    // issue next buffer fill
-                    let receiver = self.fill_buffer();
-                    self.receiver = Some(receiver);
-                    Ok(())
-                }
-                Err(TryRecvError::Empty) => {
-                    // current buffer fill request is ongoing
-                    Ok(())
-                }
-                _ => panic!("failed to get buffer fill result"),
+    fn issue_request_if_needed(&mut self) {
+        let updated_read_length = cmp::max(
+            AsyncSegmentReaderWrapper::DEFAULT_READ_LENGTH,
+            self.buffer.capacity() - self.buffer.len(),
+        );
+        if !self.end_of_segment && !self.is_truncated && self.outstanding.is_empty() {
+            let (sender, receiver) = oneshot::channel();
+            self.handle.enter(|| {
+                tokio::spawn(AsyncSegmentReaderWrapper::read_async(
+                    self.reader.clone(),
+                    sender,
+                    self.offset + self.buffer.len() as i64,
+                    updated_read_length as i32,
+                ))
+            });
+            self.outstanding = Outstanding {
+                end_of_segment: false,
+                cmd: None,
+                receiver: Some(receiver),
             }
-        } else {
-            // no ongoing buffer fill, issue a new one
-            let receiver = self.fill_buffer();
-            self.receiver = Some(receiver);
-            Ok(())
         }
     }
 
-    fn fill_buffer(&self) -> oneshot::Receiver<Result<(), ReaderError>> {
-        let (sender, receiver) = oneshot::channel();
-        self.handle.enter(|| {
-            tokio::spawn(AsyncSegmentReaderWrapper::fill_buffer_async(
-                self.reader.clone(),
-                self.buffer.clone(),
-                self.offset.clone(),
-                self.end_of_segment.clone(),
-                sender,
-            ))
-        });
-        receiver
-    }
-
-    async fn fill_buffer_async(
+    // issue the read in the background
+    async fn read_async(
         reader: Arc<AsyncSegmentReaderImpl>,
-        buffer: Arc<Mutex<Vec<u8>>>,
-        offset: Arc<AtomicI64>,
-        end_of_segment: Arc<AtomicBool>,
-        sender: oneshot::Sender<Result<(), ReaderError>>,
+        sender: oneshot::Sender<Result<SegmentReadCommand, ReaderError>>,
+        offset: i64,
+        length: i32,
     ) {
-        let guard = buffer.lock().await;
-        let to_read = AsyncSegmentReaderWrapper::DEFAULT_BUFFER_SIZE - *guard.len();
-        if to_read == 0 {
-            // buffer if full
-            return;
-        }
-        drop(guard);
+        let result = reader.read(offset, length).await;
+        let _res = sender.send(result);
+    }
 
-        let read = reader.read(offset.load(Ordering::Relaxed), to_read).await;
-        match read {
-            Ok(cmd) => {
-                if cmd.end_of_segment {
-                    end_of_segment.store(true, Ordering::Relaxed);
+    async fn fill_buffer(&mut self) -> Result<(), ReaderError> {
+        let data = self.outstanding.get_data().await?;
+
+        let to_fill = cmp::min(self.buffer.capacity() - self.buffer.len(), data.len());
+        self.buffer.extend(&data[..to_fill]);
+        data.drain(0..to_fill);
+        self.end_of_segment = self.outstanding.end_of_segment;
+        Ok(())
+    }
+}
+
+struct Outstanding {
+    end_of_segment: bool,
+    cmd: Option<SegmentReadCommand>,
+    receiver: Option<oneshot::Receiver<Result<SegmentReadCommand, ReaderError>>>,
+}
+
+impl Outstanding {
+    fn is_empty(&self) -> bool {
+        self.receiver.is_none() && self.cmd.is_none()
+    }
+
+    async fn get_data(&mut self) -> Result<&mut Vec<u8>, ReaderError> {
+        assert!(!self.is_empty());
+
+        if self.cmd.is_none() {
+            let recv = self.receiver.take().expect("must have pending request");
+            if let Ok(res) = recv.await {
+                match res {
+                    Ok(cmd) => {
+                        self.cmd = Some(cmd);
+                    }
+                    Err(e) => return Err(e),
                 }
-                let current_offset = offset.load(Ordering::Relaxed);
-
-                // verify offset
-                assert_eq!(
-                    cmd.offset, current_offset,
-                    format!(
-                        "ReadSegment returned data for the wrong offset {} vs {}",
-                        cmd.offset, current_offset
-                    )
-                );
-
-                // update offset
-                offset.store(current_offset + cmd.data.len(), Ordering::Relaxed);
-
-                // fill buffer
-                let mut guard = buffer.lock().await;
-                *guard.extend(&cmd.data);
+            } else {
+                panic!("should be able to receive reply");
             }
-            Err(e) => sender.send(Err(e)),
         }
-        sender.send(Ok(()));
+        if let Some(ref mut cmd) = self.cmd {
+            self.end_of_segment = cmd.end_of_segment;
+            return Ok(&mut cmd.data);
+        } else {
+            panic!("should have data available");
+        }
     }
 }
 
@@ -633,5 +643,19 @@ mod tests {
         assert_eq!(segment_read_result.at_tail, true);
         assert_eq!(segment_read_result.end_of_segment, true);
         assert_eq!(segment_read_result.data.len(), 0);
+    }
+
+    struct MockSegmentReader {}
+
+    #[async_trait]
+    impl AsyncSegmentReader for MockSegmentReader {
+        async fn read(&self, offset: i64, length: i32) -> Result<SegmentReadCommand, ReaderError> {
+            unimplemented!()
+        }
+    }
+
+    #[test]
+    fn test_async_segment_reader_wrapper() {
+        let mock = MockSegmentReader {};
     }
 }
