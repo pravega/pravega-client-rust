@@ -97,18 +97,18 @@ impl ReaderGroup {
     ///
     pub async fn create(
         name: String,
-        stream: ScopedStream,
         rg_config: ReaderGroupConfig,
         client_factory: ClientFactory,
     ) -> ReaderGroup {
-        let segments = client_factory
-            .get_controller_client()
-            .get_head_segments(&stream)
-            .await
-            .expect("Error while fetching stream's starting segments to read from ");
-        let init_segments: HashMap<ScopedSegment, Offset> = segments
-            .iter()
-            .map(|(seg, off)| {
+        let streams: Vec<ScopedStream> = rg_config.get_streams();
+        let mut init_segments: HashMap<ScopedSegment, Offset> = HashMap::new();
+        for stream in streams {
+            let segments = client_factory
+                .get_controller_client()
+                .get_head_segments(&stream)
+                .await
+                .expect("Error while fetching stream's starting segments to read from ");
+            init_segments.extend(segments.iter().map(|(seg, off)| {
                 (
                     ScopedSegment {
                         scope: stream.scope.clone(),
@@ -117,8 +117,8 @@ impl ReaderGroup {
                     },
                     Offset::new(*off),
                 )
-            })
-            .collect();
+            }));
+        }
         let rg_state =
             ReaderGroup::create_rg_state(name.clone(), rg_config.clone(), &client_factory, init_segments)
                 .await;
@@ -159,12 +159,14 @@ mod tests {
     use super::*;
     use crate::error::SynchronizerError::SyncUpdateError;
     use crate::reader_group::reader_group_state::ReaderGroupStateError;
+    use crate::reader_group_config::ReaderGroupConfigBuilder;
     use pravega_rust_client_config::ClientConfigBuilder;
     use pravega_rust_client_config::MOCK_CONTROLLER_URI;
 
-    #[tokio::test]
+    // test to validate creation of an already existing reader.
+    #[test]
     #[should_panic]
-    async fn test_create_reader_error() {
+    fn test_create_reader_error() {
         let client_factory = ClientFactory::new(
             ClientConfigBuilder::default()
                 .controller_uri(MOCK_CONTROLLER_URI)
@@ -181,13 +183,16 @@ mod tests {
             },
         });
         mock_rg_state.expect_add_reader().return_once(move |_| err);
-
         let rg = ReaderGroup {
             name: "rg".to_string(),
-            config: ReaderGroupConfig::default(),
+            config: ReaderGroupConfigBuilder::default()
+                .add_stream(ScopedStream::from("scope/s1"))
+                .build(),
             state: Arc::new(Mutex::new(mock_rg_state)),
-            client_factory,
+            client_factory: client_factory.clone(),
         };
-        rg.create_reader("r1".to_string()).await;
+        client_factory
+            .get_runtime_handle()
+            .block_on(rg.create_reader("r1".to_string()));
     }
 }
