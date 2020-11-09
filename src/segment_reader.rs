@@ -196,7 +196,7 @@ impl Retryable for ReaderError {
 /// AsyncSegmentReaderImpl::new(&segment_name, connection_pool, "http://controller uri").await
 ///
 #[async_trait]
-pub trait AsyncSegmentReader {
+pub trait AsyncSegmentReader: Send + Sync {
     async fn read(&self, offset: i64, length: i32) -> StdResult<SegmentReadCommand, ReaderError>;
 }
 
@@ -351,7 +351,7 @@ impl AsyncSegmentReaderImpl {
 /// every read call can read from the local buffer instead of waiting for server response.
 pub(crate) struct AsyncSegmentReaderWrapper {
     buffer: Vec<u8>,
-    reader: Arc<AsyncSegmentReaderImpl>,
+    reader: Arc<Box<dyn AsyncSegmentReader>>,
     offset: i64,
     end_of_segment: bool,
     is_truncated: bool,
@@ -362,10 +362,10 @@ pub(crate) struct AsyncSegmentReaderWrapper {
 impl AsyncSegmentReaderWrapper {
     const DEFAULT_BUFFER_SIZE: usize = 1024 * 1024;
     const DEFAULT_READ_LENGTH: usize = 256 * 1024;
-    pub(crate) fn new(handle: Handle, reader: AsyncSegmentReaderImpl, offset: i64) -> Self {
+    pub(crate) fn new(handle: Handle, reader: Arc<Box<dyn AsyncSegmentReader>>, offset: i64) -> Self {
         let mut wrapper = AsyncSegmentReaderWrapper {
             buffer: Vec::with_capacity(AsyncSegmentReaderWrapper::DEFAULT_BUFFER_SIZE),
-            reader: Arc::new(reader),
+            reader,
             offset,
             handle,
             end_of_segment: false,
@@ -391,11 +391,14 @@ impl AsyncSegmentReaderWrapper {
         let size_to_return = cmp::min(buf.len(), self.buffer.len());
         buf[..size_to_return].copy_from_slice(&self.buffer[..size_to_return]);
         self.buffer.drain(..size_to_return);
+        self.offset += size_to_return as i64;
 
         Ok(size_to_return)
     }
 
-    pub(crate) fn extract_reader(self) {}
+    pub(crate) fn extract_reader(self) -> Arc<Box<dyn AsyncSegmentReader>> {
+        self.reader
+    }
 
     fn issue_request_if_needed(&mut self) {
         let updated_read_length = cmp::max(
@@ -422,7 +425,7 @@ impl AsyncSegmentReaderWrapper {
 
     // issue the read in the background
     async fn read_async(
-        reader: Arc<AsyncSegmentReaderImpl>,
+        reader: Arc<Box<dyn AsyncSegmentReader>>,
         sender: oneshot::Sender<Result<SegmentReadCommand, ReaderError>>,
         offset: i64,
         length: i32,
@@ -495,6 +498,7 @@ mod tests {
     use super::*;
     use crate::client_factory::ClientFactory;
     use pravega_rust_client_config::ClientConfigBuilder;
+    use tokio::runtime::Runtime;
 
     // Setup mock.
     mock! {
@@ -650,12 +654,29 @@ mod tests {
     #[async_trait]
     impl AsyncSegmentReader for MockSegmentReader {
         async fn read(&self, offset: i64, length: i32) -> Result<SegmentReadCommand, ReaderError> {
-            unimplemented!()
+            Ok(SegmentReadCommand {
+                segment: "segment".to_string(),
+                offset,
+                at_tail: false,
+                end_of_segment: false,
+                data: vec![1; length as usize],
+                request_id: 0,
+            })
         }
     }
 
     #[test]
     fn test_async_segment_reader_wrapper() {
         let mock = MockSegmentReader {};
+        let runtime = Runtime::new().unwrap();
+        let handle = runtime.handle();
+        let mut wrapper = AsyncSegmentReaderWrapper::new(handle.clone(), Arc::new(Box::new(mock)), 0);
+        let mut buf = vec![0; 1024];
+        handle
+            .block_on(wrapper.read(&mut buf))
+            .expect("read from wrapper");
+        assert!(!wrapper.outstanding.is_empty());
+        assert_eq!(wrapper.buffer.len(), 1024 * 1024 - 1024);
+        assert_eq!(wrapper.offset, 1024);
     }
 }
