@@ -467,15 +467,16 @@ impl Outstanding {
 
         if self.cmd.is_none() {
             let recv = self.receiver.take().expect("must have pending request");
-            if let Ok(res) = recv.await {
-                match res {
+            match recv.await {
+                Ok(res) => match res {
                     Ok(cmd) => {
                         self.cmd = Some(cmd);
                     }
                     Err(e) => return Err(e),
+                },
+                Err(e) => {
+                    panic!("should be able to receive reply {}", e);
                 }
-            } else {
-                panic!("should be able to receive reply");
             }
         }
         if let Some(ref mut cmd) = self.cmd {
