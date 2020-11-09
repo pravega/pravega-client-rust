@@ -15,16 +15,16 @@ use crate::get_random_u128;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::reactors::Reactor;
 use crate::segment_metadata::SegmentMetadataClient;
-use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
+use crate::segment_reader::AsyncSegmentReaderWrapper;
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream, WriterId};
-use std::cmp;
 use std::convert::TryInto;
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom, Write};
+use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;
-use tokio::time::{timeout, Duration};
+use tokio::time::Duration;
 use tracing::info_span;
 use tracing_futures::Instrument;
 use uuid::Uuid;
@@ -170,47 +170,34 @@ impl ByteStreamWriter {
 /// Allows for reading raw bytes from a segment.
 pub struct ByteStreamReader {
     reader_id: Uuid,
-    reader: AsyncSegmentReaderImpl,
+    reader: Option<AsyncSegmentReaderWrapper>,
+    reader_buffer_size: usize,
     metadata_client: SegmentMetadataClient,
-    offset: i64,
     runtime_handle: Handle,
     timeout: Duration,
 }
 
 impl Read for ByteStreamReader {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
-        let read_future = self.reader.read(self.offset, buf.len() as i32);
-        let timeout_fut = self.runtime_handle.enter(|| timeout(self.timeout, read_future));
-        let result = self.runtime_handle.block_on(timeout_fut);
-        match result {
-            Ok(result) => match result {
-                Ok(cmd) => {
-                    // Read may have returned more or less than the requested number of bytes.
-                    let size_to_return = cmp::min(buf.len(), cmd.data.len());
-                    self.offset += size_to_return as i64;
-                    buf[..size_to_return].copy_from_slice(&cmd.data[..size_to_return]);
-                    Ok(size_to_return)
-                }
-                Err(e) => Err(Error::new(ErrorKind::Other, format!("Error: {:?}", e))),
-            },
-            Err(e) => Err(Error::new(
-                ErrorKind::TimedOut,
-                format!("Reader timed out after {:?}: {:?}", self.timeout, e),
-            )),
-        }
+        let result = self
+            .runtime_handle
+            .block_on(self.reader.as_mut().unwrap().read(buf));
+        result.map_err(|e| Error::new(ErrorKind::Other, format!("Error: {:?}", e)))
     }
 }
 
 impl ByteStreamReader {
-    pub(crate) fn new(segment: ScopedSegment, factory: &ClientFactory) -> Self {
+    pub(crate) fn new(segment: ScopedSegment, factory: &ClientFactory, buffer_size: usize) -> Self {
         let handle = factory.get_runtime_handle();
         let async_reader = handle.block_on(factory.create_async_event_reader(segment.clone()));
+        let async_reader_wrapper =
+            AsyncSegmentReaderWrapper::new(handle.clone(), Arc::new(Box::new(async_reader)), 0, buffer_size);
         let metadata_client = handle.block_on(factory.create_segment_metadata_client(segment));
         ByteStreamReader {
             reader_id: Uuid::new_v4(),
-            reader: async_reader,
+            reader: Some(async_reader_wrapper),
+            reader_buffer_size: buffer_size,
             metadata_client,
-            offset: 0,
             runtime_handle: handle,
             timeout: Duration::from_secs(3600),
         }
@@ -224,7 +211,7 @@ impl ByteStreamReader {
     }
 
     pub fn current_offset(&self) -> i64 {
-        self.offset
+        self.reader.as_ref().unwrap().offset
     }
 
     pub fn set_reader_timeout(&mut self, timeout: Option<Duration>) {
@@ -233,6 +220,17 @@ impl ByteStreamReader {
         } else {
             self.timeout = Duration::from_secs(3600);
         }
+    }
+
+    fn recreate_reader_wrapper(&mut self, offset: i64) {
+        let internal_reader = self.reader.take().unwrap().extract_reader();
+        let new_reader_wrapper = AsyncSegmentReaderWrapper::new(
+            self.runtime_handle.clone(),
+            internal_reader,
+            offset,
+            self.reader_buffer_size,
+        );
+        self.reader = Some(new_reader_wrapper);
     }
 }
 
@@ -243,24 +241,25 @@ impl Seek for ByteStreamReader {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         match pos {
             SeekFrom::Start(offset) => {
-                self.offset = offset.try_into().map_err(|e| {
+                let offset = offset.try_into().map_err(|e| {
                     Error::new(
                         ErrorKind::InvalidInput,
                         format!("Overflowed when converting offset to i64: {:?}", e),
                     )
                 })?;
-                Ok(self.offset as u64)
+                self.recreate_reader_wrapper(offset);
+                Ok(offset as u64)
             }
             SeekFrom::Current(offset) => {
-                let new_offset = self.offset + offset;
+                let new_offset = self.reader.as_ref().unwrap().offset + offset;
                 if new_offset < 0 {
                     Err(Error::new(
                         ErrorKind::InvalidInput,
                         "Cannot seek to a negative offset",
                     ))
                 } else {
-                    self.offset = new_offset;
-                    Ok(self.offset as u64)
+                    self.recreate_reader_wrapper(new_offset);
+                    Ok(new_offset as u64)
                 }
             }
             SeekFrom::End(offset) => {
@@ -274,8 +273,9 @@ impl Seek for ByteStreamReader {
                         "Cannot seek to a negative offset",
                     ))
                 } else {
-                    self.offset = tail + offset;
-                    Ok(self.offset as u64)
+                    let new_offset = tail + offset;
+                    self.recreate_reader_wrapper(new_offset);
+                    Ok(new_offset as u64)
                 }
             }
         }

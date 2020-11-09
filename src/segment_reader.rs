@@ -352,7 +352,8 @@ impl AsyncSegmentReaderImpl {
 pub(crate) struct AsyncSegmentReaderWrapper {
     buffer: Vec<u8>,
     reader: Arc<Box<dyn AsyncSegmentReader>>,
-    offset: i64,
+    read_size: usize,
+    pub(crate) offset: i64,
     end_of_segment: bool,
     is_truncated: bool,
     outstanding: Outstanding,
@@ -360,12 +361,16 @@ pub(crate) struct AsyncSegmentReaderWrapper {
 }
 
 impl AsyncSegmentReaderWrapper {
-    const DEFAULT_BUFFER_SIZE: usize = 1024 * 1024;
-    const DEFAULT_READ_LENGTH: usize = 256 * 1024;
-    pub(crate) fn new(handle: Handle, reader: Arc<Box<dyn AsyncSegmentReader>>, offset: i64) -> Self {
+    pub(crate) fn new(
+        handle: Handle,
+        reader: Arc<Box<dyn AsyncSegmentReader>>,
+        offset: i64,
+        buffer_size: usize,
+    ) -> Self {
         let mut wrapper = AsyncSegmentReaderWrapper {
-            buffer: Vec::with_capacity(AsyncSegmentReaderWrapper::DEFAULT_BUFFER_SIZE),
+            buffer: Vec::with_capacity(buffer_size),
             reader,
+            read_size: buffer_size,
             offset,
             handle,
             end_of_segment: false,
@@ -401,10 +406,7 @@ impl AsyncSegmentReaderWrapper {
     }
 
     fn issue_request_if_needed(&mut self) {
-        let updated_read_length = cmp::max(
-            AsyncSegmentReaderWrapper::DEFAULT_READ_LENGTH,
-            self.buffer.capacity() - self.buffer.len(),
-        );
+        let updated_read_length = cmp::max(self.read_size, self.buffer.capacity() - self.buffer.len());
         if !self.end_of_segment && !self.is_truncated && self.outstanding.is_empty() {
             let (sender, receiver) = oneshot::channel();
             self.handle.enter(|| {
@@ -440,7 +442,11 @@ impl AsyncSegmentReaderWrapper {
         let to_fill = cmp::min(self.buffer.capacity() - self.buffer.len(), data.len());
         self.buffer.extend(&data[..to_fill]);
         data.drain(0..to_fill);
+        if data.is_empty() {
+            self.outstanding.clear();
+        }
         self.end_of_segment = self.outstanding.end_of_segment;
+        self.issue_request_if_needed();
         Ok(())
     }
 }
@@ -474,10 +480,15 @@ impl Outstanding {
         }
         if let Some(ref mut cmd) = self.cmd {
             self.end_of_segment = cmd.end_of_segment;
-            return Ok(&mut cmd.data);
+            Ok(&mut cmd.data)
         } else {
             panic!("should have data available");
         }
+    }
+
+    fn clear(&mut self) {
+        self.cmd = None;
+        self.receiver = None;
     }
 }
 
@@ -670,13 +681,29 @@ mod tests {
         let mock = MockSegmentReader {};
         let runtime = Runtime::new().unwrap();
         let handle = runtime.handle();
-        let mut wrapper = AsyncSegmentReaderWrapper::new(handle.clone(), Arc::new(Box::new(mock)), 0);
+        let mut wrapper = AsyncSegmentReaderWrapper::new(
+            runtime.handle().clone(),
+            Arc::new(Box::new(mock)),
+            0,
+            1024 * 1024,
+        );
+
+        // simple read
         let mut buf = vec![0; 1024];
-        handle
+        let read = handle
             .block_on(wrapper.read(&mut buf))
             .expect("read from wrapper");
-        assert!(!wrapper.outstanding.is_empty());
+        assert_eq!(read, 1024);
         assert_eq!(wrapper.buffer.len(), 1024 * 1024 - 1024);
         assert_eq!(wrapper.offset, 1024);
+
+        // read to end
+        let mut buf = vec![0; 1024 * 1024];
+        let read = handle
+            .block_on(wrapper.read(&mut buf))
+            .expect("read from wrapper");
+        assert_eq!(read, 1024 * 1024 - 1024);
+        assert_eq!(wrapper.buffer.len(), 0);
+        assert_eq!(wrapper.offset, 1024 * 1024);
     }
 }

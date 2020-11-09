@@ -29,7 +29,7 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::net::SocketAddr;
 use tokio::runtime::{Handle, Runtime};
-use tracing::info;
+use tracing::{error, info};
 
 pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     // spin up Pravega standalone
@@ -70,7 +70,6 @@ fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamRea
     info!("test byte stream write and read");
     let payload1 = vec![1, 1, 1, 1];
     let payload2 = vec![2, 2, 2, 2];
-    let expected = [&payload1[..], &payload2[..]].concat();
 
     let size1 = writer.write(&payload1).expect("write payload1 to byte stream");
     assert_eq!(size1, 4);
@@ -79,10 +78,16 @@ fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamRea
     assert_eq!(size2, 4);
     writer.flush().expect("flush byte stream writer");
 
-    let mut buf: Vec<u8> = vec![0; 8];
-    let bytes = reader.read(&mut buf).expect("read from byte stream");
-    assert_eq!(bytes, 8);
-    assert_eq!(buf, expected);
+    let mut buf: Vec<u8> = vec![0; 4];
+    // Note: wrapper issues a read when reader was initialized and that read returned
+    // with result of 4 when the first write is flushed.
+    let bytes1 = reader.read(&mut buf).expect("read from byte stream");
+    assert_eq!(bytes1, 4);
+    assert_eq!(buf, payload1);
+
+    let bytes2 = reader.read(&mut buf).expect("read from byte stream");
+    assert_eq!(bytes2, 4);
+    assert_eq!(buf, payload2);
 
     info!("test byte stream write and read passed");
 }
@@ -113,6 +118,7 @@ fn test_seek(reader: &mut ByteStreamReader) {
 }
 
 fn test_truncation(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, rt: &mut Runtime) {
+    info!("test byte stream truncate");
     // truncate
     rt.block_on(writer.truncate_data_before(4)).expect("truncate");
 
@@ -132,9 +138,11 @@ fn test_truncation(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader,
     let size = reader.read(&mut buf).expect("read from byte stream");
     assert_eq!(size, 4);
     assert_eq!(buf, vec![2; 4]);
+    info!("test byte stream truncate finished");
 }
 
 fn test_seal(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, rt: &mut Runtime) {
+    info!("test byte stream seal");
     // seal
     rt.block_on(writer.seal()).expect("seal");
 
@@ -145,9 +153,11 @@ fn test_seal(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, rt: &
     assert_eq!(size, 4);
     assert_eq!(buf, vec![2; 4]);
 
+    error!("read here");
     // read beyond sealed segment
     let mut buf: Vec<u8> = vec![0; 8];
     let size = reader.read(&mut buf).expect("read from byte stream");
     assert_eq!(size, 0);
     assert_eq!(buf, vec![0; 8]);
+    info!("test byte stream seal finished");
 }

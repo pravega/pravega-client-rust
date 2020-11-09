@@ -20,6 +20,7 @@ use snafu::Snafu;
 use std::fmt::Debug;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::oneshot;
+use tokio::time::Elapsed;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
@@ -38,6 +39,9 @@ pub enum RawClientError {
 
     #[snafu(display("Reply incompatible wirecommand version: low {}, high {}", low, high))]
     IncompatibleVersion { low: i32, high: i32 },
+
+    #[snafu(display("Request has timed out: {}", source))]
+    RequestTimeout { source: Elapsed },
 }
 
 impl RawClientError {
