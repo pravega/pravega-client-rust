@@ -69,15 +69,8 @@ impl StreamReader {
         let read = self.reader.clone();
         self.handle.spawn(async move {
             let slice_result = read.lock().await.acquire_segment().await;
-            let slice_py: Slice = match slice_result {
-                Some(slice) => Slice {
-                    seg_slice: slice,
-                    is_empty: false,
-                },
-                None => Slice {
-                    seg_slice: SegmentSlice::default(),
-                    is_empty: true,
-                },
+            let slice_py: Slice = Slice {
+                seg_slice: slice_result,
             };
             let gil = Python::acquire_gil();
             let py = gil.python();
@@ -91,6 +84,27 @@ impl StreamReader {
         });
 
         Ok(py_future_clone)
+    }
+
+    ///
+    /// Set the reader offline.
+    ///
+    #[text_signature = "($self)"]
+    pub fn reader_offline(&self) -> PyResult<()> {
+        self.handle.block_on(self.reader_offline_async());
+        Ok(())
+    }
+
+    ///
+    /// Release the segment back.
+    ///
+    #[text_signature = "($self, slice)"]
+    pub fn release_segment(&self, slice: &mut Slice) -> PyResult<()> {
+        info!("Release segment slice back");
+        if let Some(s) = slice.get_set_to_none() {
+            self.handle.block_on(self.release_segment_async(s));
+        }
+        Ok(())
     }
 
     /// Returns the facet string representation.
@@ -127,6 +141,16 @@ impl StreamReader {
         let event_loop = asyncio.call0("get_running_loop")?;
         Ok(event_loop.into())
     }
+
+    // Helper method for to set reader_offline.
+    async fn reader_offline_async(&self) {
+        self.reader.lock().await.reader_offline().await;
+    }
+
+    // Helper method for to release segment
+    async fn release_segment_async(&self, slice: SegmentSlice) {
+        self.reader.lock().await.release_segment(slice);
+    }
 }
 
 ///
@@ -162,8 +186,13 @@ impl EventData {
 #[pyclass]
 #[derive(new)]
 pub(crate) struct Slice {
-    seg_slice: SegmentSlice,
-    is_empty: bool,
+    seg_slice: Option<SegmentSlice>,
+}
+
+impl Slice {
+    fn get_set_to_none(&mut self) -> Option<SegmentSlice> {
+        self.seg_slice.take()
+    }
 }
 
 #[pyproto]
@@ -173,15 +202,16 @@ impl PyIterProtocol for Slice {
     }
 
     fn __next__(mut slf: PyRefMut<Self>) -> Option<EventData> {
-        if slf.is_empty {
-            info!("Empty Slice while reading");
-            None
-        } else {
-            let next_event: Option<Event> = slf.seg_slice.next();
+        if let Some(mut slice) = slf.seg_slice.take() {
+            let next_event: Option<Event> = slice.next();
+            slf.seg_slice = Some(slice);
             next_event.map(|e| EventData {
                 offset_in_segment: e.offset_in_segment,
                 value: e.value,
             })
+        } else {
+            info!("Empty Slice");
+            None
         }
     }
 }

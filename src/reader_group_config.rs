@@ -89,6 +89,12 @@ pub(crate) struct ReaderGroupConfigV1 {
     ending_stream_cuts: HashMap<ScopedStream, StreamCutVersioned>,
 }
 
+impl Default for ReaderGroupConfigV1 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ReaderGroupConfigV1 {
     pub(crate) fn new() -> Self {
         ReaderGroupConfigV1 {

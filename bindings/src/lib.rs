@@ -13,6 +13,7 @@ extern crate cfg_if;
 
 mod stream_manager;
 mod stream_reader;
+mod stream_reader_group;
 mod stream_writer;
 mod stream_writer_transactional;
 mod transaction;
@@ -25,6 +26,7 @@ cfg_if! {
         extern crate derive_new;
         use stream_writer::StreamWriter;
         use stream_reader::StreamReader;
+        use stream_reader_group::StreamReaderGroup;
         use crate::stream_writer_transactional::StreamTxnWriter;
         use crate::transaction::StreamTransaction;
         use pyo3::create_exception;
@@ -32,8 +34,8 @@ cfg_if! {
 
         /*
          *  This exception indicates a transaction has failed. Usually because the
-            transaction timed out or someone called transaction.abort()
-        */
+         *   transaction timed out or someone called transaction.abort()
+         */
         create_exception!(pravega_client, TxnFailedException, Exception);
     }
 }
@@ -47,6 +49,7 @@ fn pravega_client(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<StreamTxnWriter>()?;
     m.add_class::<StreamTransaction>()?;
     m.add_class::<StreamReader>()?;
+    m.add_class::<StreamReaderGroup>()?;
     m.add("TxnFailedException", py.get_type::<TxnFailedException>())?;
     Ok(())
 }

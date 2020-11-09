@@ -15,6 +15,7 @@ import pravega_client;
 from pravega_client import TxnFailedException;
 
 class PravegaTest(unittest.TestCase):
+
     def test_writeEvent(self):
         scope = ''.join(secrets.choice(string.ascii_lowercase + string.digits)
                       for i in range(10))
