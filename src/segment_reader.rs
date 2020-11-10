@@ -27,6 +27,7 @@ use std::cmp;
 use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::{oneshot, Mutex};
+use tracing::{error, warn};
 
 #[derive(Debug, Snafu)]
 pub enum ReaderError {
@@ -433,7 +434,10 @@ impl AsyncSegmentReaderWrapper {
         length: i32,
     ) {
         let result = reader.read(offset, length).await;
-        let _res = sender.send(result);
+        sender
+            .send(result)
+            .map_err(|e| error!("failed to send reply back: {:?}", e))
+            .expect("send reply back");
     }
 
     async fn fill_buffer(&mut self) -> Result<(), ReaderError> {
@@ -475,7 +479,7 @@ impl Outstanding {
                     Err(e) => return Err(e),
                 },
                 Err(e) => {
-                    panic!("should be able to receive reply {}", e);
+                    warn!("should be able to receive reply: {}", e);
                 }
             }
         }
@@ -483,7 +487,7 @@ impl Outstanding {
             self.end_of_segment = cmd.end_of_segment;
             Ok(&mut cmd.data)
         } else {
-            panic!("should have data available");
+            panic!("should have SegmentRead command");
         }
     }
 
