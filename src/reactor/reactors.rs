@@ -80,6 +80,8 @@ impl Reactor {
                     {
                         warn!("reconnect for writer {:?}", writer_info);
                         writer.reconnect(factory).await;
+                    } else {
+                        info!("reconnect signal received for writer: {:?}, but does not match current writer: id {}, connection id {}, ignore", writer_info, writer.id, write_half.get_id());
                     }
                 }
                 Ok(())

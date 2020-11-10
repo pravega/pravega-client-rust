@@ -42,6 +42,7 @@ use controller::{
     TxnStatus, UpdateStreamStatus,
 };
 use im::{HashMap as ImHashMap, OrdMap};
+use ordered_float::OrderedFloat;
 use pravega_rust_client_config::credentials::AUTHORIZATION;
 use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_retry::retry_async::retry_async;
@@ -868,22 +869,26 @@ impl ControllerClientImpl {
             Ok(create_txn_response) => {
                 let raw = TxnSegments::from(create_txn_response.into_inner());
                 let txn_id = raw.tx_id;
-                let mut processed_map = OrdMap::new();
-                for (k, v) in raw.stream_segments.key_segment_map {
-                    let segment_with_range = SegmentWithRange {
-                        scoped_segment: ScopedSegment {
-                            scope: v.scoped_segment.scope,
-                            stream: v.scoped_segment.stream,
-                            segment: Segment {
-                                number: v.scoped_segment.segment.number,
-                                tx_id: Some(txn_id),
+                let processed_map: OrdMap<OrderedFloat<f64>, SegmentWithRange> = raw
+                    .stream_segments
+                    .key_segment_map
+                    .iter()
+                    .map(|(k, v)| {
+                        let segment_with_range = SegmentWithRange {
+                            scoped_segment: ScopedSegment {
+                                scope: v.scoped_segment.scope.clone(),
+                                stream: v.scoped_segment.stream.clone(),
+                                segment: Segment {
+                                    number: v.scoped_segment.segment.number,
+                                    tx_id: Some(txn_id),
+                                },
                             },
-                        },
-                        min_key: v.min_key,
-                        max_key: v.max_key,
-                    };
-                    processed_map.insert(k, segment_with_range);
-                }
+                            min_key: v.min_key,
+                            max_key: v.max_key,
+                        };
+                        (k.to_owned(), segment_with_range)
+                    })
+                    .collect();
                 Ok(TxnSegments {
                     stream_segments: StreamSegments {
                         key_segment_map: processed_map,
