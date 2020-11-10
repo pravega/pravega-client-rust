@@ -17,7 +17,6 @@ use pravega_wire_protocol::connection_factory::SegmentConnectionManager;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use snafu::ResultExt;
 use std::fmt;
-use tracing::{span, Level};
 
 /// RawClient is on top of the ClientConnection. It provides methods that take
 /// Request enums and return Reply enums asynchronously. It has logic to process some of the replies from
@@ -78,8 +77,6 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
         &self,
         request: &Requests,
     ) -> Result<(Replies, Box<dyn ClientConnection + 'a>), RawClientError> {
-        let span = span!(Level::DEBUG, "send_setup_request");
-        let _guard = span.enter();
         let connection = self
             .pool
             .get_connection(self.endpoint.clone())

@@ -23,6 +23,7 @@ use tokio::runtime::Handle;
 use tracing::{debug, error, info, warn};
 
 pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
+    info!("test event stream reader");
     let config = ClientConfigBuilder::default()
         .controller_uri(MOCK_CONTROLLER_URI)
         .is_auth_enabled(config.auth)
@@ -30,6 +31,7 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
+
     let handle = client_factory.get_runtime_handle();
     handle.block_on(test_read_api(&client_factory));
     handle.block_on(test_stream_scaling(&client_factory));
@@ -216,10 +218,12 @@ async fn test_stream_scaling(client_factory: &ClientFactory) {
         }
     }
     assert_eq!(event_count, NUM_EVENTS + NUM_EVENTS);
+    info!("test event stream reader scaling passed");
 }
 
 //Test reading out data from a stream.
 async fn test_read_api(client_factory: &ClientFactory) {
+    info!("test event stream reader read api");
     let scope_name = Scope::from("testReaderScope".to_owned());
     let stream_name = Stream::from("testReaderStream".to_owned());
 
@@ -270,6 +274,7 @@ async fn test_read_api(client_factory: &ClientFactory) {
             break;
         }
     }
+    info!("test event stream reader read api passed");
 }
 
 fn test_multiple_readers(client_factory: &ClientFactory) {
@@ -489,7 +494,6 @@ async fn write_events(
         stream: stream_name,
     };
     let mut writer = client_factory.create_event_stream_writer(scoped_stream);
-
     for _x in 0..num_events {
         let rx = writer.write_event(String::from("aaa").into_bytes()).await;
         rx.await.expect("Failed to write Event").unwrap();

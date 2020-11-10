@@ -92,7 +92,7 @@ async fn create_stream(factory: &ClientFactory, scope: &str, stream: &str) {
     factory
         .get_controller_client()
         .create_scope(&Scope {
-            name: "scope".to_string(),
+            name: scope.to_string(),
         })
         .await
         .unwrap();
