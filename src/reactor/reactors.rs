@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use pravega_rust_client_channel::ChannelReceiver;
+use pravega_rust_client_channel::{ChannelReceiver, ChannelSender};
 use tracing::{debug, error, info, warn};
 
 use pravega_rust_client_shared::*;
@@ -23,10 +23,15 @@ pub(crate) struct Reactor {}
 
 impl Reactor {
     pub(crate) async fn run(
-        mut selector: SegmentSelector,
+        stream: ScopedStream,
+        sender: ChannelSender<Incoming>,
         mut receiver: ChannelReceiver<Incoming>,
         factory: ClientFactory,
+        stream_segments: Option<StreamSegments>,
     ) {
+        let mut selector = SegmentSelector::new(stream, sender, factory.clone()).await;
+        // get the current segments and create corresponding event segment writers
+        selector.initialize(stream_segments).await;
         info!("starting reactor");
         while Reactor::run_once(&mut selector, &mut receiver, &factory)
             .await
@@ -59,23 +64,31 @@ impl Reactor {
                     Ok(())
                 }
             }
-            Incoming::ConnectionFailure(connection_failure) => {
-                warn!("connection failure: {:?}", connection_failure.segment);
-                let writer = selector
-                    .writers
-                    .get_mut(&connection_failure.segment)
-                    .expect("must have writer");
+            Incoming::Reconnect(writer_info) => {
+                let option = selector.writers.get_mut(&writer_info.segment);
+                if option.is_none() {
+                    return Ok(());
+                }
+                let writer = option.unwrap();
                 if let Some(ref write_half) = writer.connection {
                     // Only reconnect if the current connection is having connection
                     // failure. It might happen that the write op has already triggered
                     // the connection failure and has reconnected. It's necessary to avoid
                     // reconnect twice since resending duplicate inflight events will
                     // cause InvalidEventNumber error.
-                    if write_half.get_id() == connection_failure.connection_id {
+                    if write_half.get_id() == writer_info.connection_id && writer_info.writer_id == writer.id
+                    {
+                        warn!("reconnect for writer {:?}", writer_info);
                         writer.reconnect(factory).await;
+                    } else {
+                        info!("reconnect signal received for writer: {:?}, but does not match current writer: id {}, connection id {}, ignore", writer_info, writer.id, write_half.get_id());
                     }
                 }
                 Ok(())
+            }
+            Incoming::Close() => {
+                info!("receive signal to close reactor");
+                Err("close")
             }
         }
     }
@@ -241,7 +254,7 @@ pub(crate) mod test {
         size: usize,
     ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
-        let event = PendingEvent::new(Some("routing_key".into()), vec![1; size], None, oneshot_sender)
+        let event = PendingEvent::new(Some("routing_key".into()), vec![1; size], oneshot_sender)
             .expect("create pending event");
         sender.send((Incoming::AppendEvent(event), size)).await.unwrap();
         oneshot_receiver

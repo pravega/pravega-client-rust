@@ -131,6 +131,7 @@ fn test_seek(reader: &mut ByteStreamReader) {
 }
 
 fn test_truncation(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, rt: &mut Runtime) {
+    info!("test byte stream truncate");
     // truncate
     rt.block_on(writer.truncate_data_before(4)).expect("truncate");
 
@@ -150,9 +151,11 @@ fn test_truncation(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader,
     let size = reader.read(&mut buf).expect("read from byte stream");
     assert_eq!(size, 4);
     assert_eq!(buf, vec![2; 4]);
+    info!("test byte stream truncate passed");
 }
 
 fn test_seal(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, rt: &mut Runtime) {
+    info!("test byte stream seal");
     // seal
     rt.block_on(writer.seal()).expect("seal");
 
@@ -168,6 +171,7 @@ fn test_seal(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, rt: &
     let size = reader.read(&mut buf).expect("read from byte stream");
     assert_eq!(size, 0);
     assert_eq!(buf, vec![0; 8]);
+    info!("test byte stream seal passed");
 }
 
 fn test_multiple_writers_conditional_append(factory: &ClientFactory, segment: ScopedSegment) {

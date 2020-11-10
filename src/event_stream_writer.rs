@@ -30,7 +30,7 @@ pub struct EventStreamWriter {
 
 impl EventStreamWriter {
     pub const MAX_EVENT_SIZE: usize = 8 * 1024 * 1024;
-    // maximum 64 MB total size of events could be in memory
+    // maximum 16 MB total size of events could be in memory
     const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
     pub(crate) fn new(stream: ScopedStream, factory: ClientFactory) -> Self {
@@ -46,7 +46,9 @@ impl EventStreamWriter {
 
         let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
-        handle.enter(|| tokio::spawn(Reactor::run(selector, rx, factory.clone()).instrument(span)));
+        handle.enter(|| {
+            tokio::spawn(Reactor::run(stream, tx.clone(), rx, factory.clone(), None).instrument(span))
+        });
         EventStreamWriter {
             writer_id,
             sender: tx,
@@ -94,6 +96,12 @@ impl EventStreamWriter {
         } else {
             rx
         }
+    }
+}
+
+impl Drop for EventStreamWriter {
+    fn drop(&mut self) {
+        let _res = self.sender.send((Incoming::Close(), 0));
     }
 }
 

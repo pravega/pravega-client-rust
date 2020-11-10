@@ -62,8 +62,17 @@ impl SegmentSelector {
 
     /// Initializes segment writers by setting up connections so that segment
     /// writers are ready to use after initialization.
-    pub(crate) async fn initialize(&mut self, segments: StreamSegments) {
-        self.current_segments = segments;
+    pub(crate) async fn initialize(&mut self, stream_segments: Option<StreamSegments>) {
+        if let Some(ss) = stream_segments {
+            self.current_segments = ss;
+        } else {
+            self.current_segments = self
+                .factory
+                .get_controller_client()
+                .get_current_segments(&self.stream)
+                .await
+                .expect("retry failed");
+        }
         self.create_missing_writers().await;
     }
 
@@ -154,10 +163,10 @@ impl SegmentSelector {
 
     /// Resends a list of events.
     pub(crate) async fn resend(&mut self, to_resend: Vec<Append>) {
-        for event in to_resend {
-            let segment = self.get_segment_for_event(&event.event.routing_key);
+        for append in to_resend {
+            let segment = self.get_segment_for_event(&append.event.routing_key);
             let segment_writer = self.writers.get_mut(&segment).expect("must have writer");
-            segment_writer.add_pending(event);
+            segment_writer.add_pending(append.event, append.cap_guard);
             if let Err(e) = segment_writer.write_pending_events().await {
                 warn!(
                     "failed to resend an event due to: {:?}, reconnecting the event segment writer",
@@ -270,7 +279,7 @@ pub(crate) mod test {
             .get_current_segments(&stream)
             .await
             .unwrap();
-        selector.initialize(stream_segments).await;
+        selector.initialize(Some(stream_segments)).await;
         (selector, sender, receiver, factory)
     }
 }

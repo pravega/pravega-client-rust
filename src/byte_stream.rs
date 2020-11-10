@@ -96,24 +96,14 @@ impl ByteStreamWriter {
         let metadata_client = handle.block_on(factory.create_segment_metadata_client(segment.clone()));
         let writer_id = WriterId(get_random_u128());
         let stream = ScopedStream::from(&segment);
-        let mut selector = handle.block_on(SegmentSelector::new(
-            stream.clone(),
-            sender.clone(),
-            factory.clone(),
-        ));
-        let current_segments = handle
-            .block_on(factory.get_controller_client().get_current_segments(&stream))
-            .expect("retry failed to get current segments");
-        // get the current segments and create corresponding segment writers
-        handle.block_on(selector.initialize(current_segments));
-        // get current write offset and set the segment writer to use conditional append
-        let segment_info = handle
-            .block_on(metadata_client.get_segment_info())
-            .expect("retry failed to get segment info");
-
+        // get the current segments and create corresponding event segment writers
         let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
-        handle.enter(|| tokio::spawn(Reactor::run(selector, receiver, factory.clone()).instrument(span)));
+        handle.enter(|| {
+            tokio::spawn(
+                Reactor::run(stream, sender.clone(), receiver, factory.clone(), None).instrument(span),
+            )
+        });
         ByteStreamWriter {
             writer_id,
             sender,
@@ -158,7 +148,6 @@ impl ByteStreamWriter {
     }
 
     async fn write_internal(
-        &self,
         sender: ChannelSender<Incoming>,
         event: Vec<u8>,
     ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
@@ -301,6 +290,12 @@ impl Seek for ByteStreamReader {
     }
 }
 
+impl Drop for ByteStreamWriter {
+    fn drop(&mut self) {
+        let _res = self.sender.send((Incoming::Close(), 0));
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -406,9 +401,9 @@ mod test {
         assert_eq!(buf, vec![1; 200]);
 
         let payload = vec![1; 200];
-        writer.write(&payload).expect("write");
-        let result = writer.flush();
-        assert!(result.is_err());
+        let write_result = writer.write(&payload);
+        let flush_result = writer.flush();
+        assert!(write_result.is_err() || flush_result.is_err());
     }
 
     fn create_reader_and_writer(runtime: &mut Runtime) -> (ByteStreamWriter, ByteStreamReader) {

@@ -37,7 +37,7 @@ pub struct Event {
 ///
 pub struct SegmentSlice {
     pub meta: SliceMetadata,
-    pub(crate) slice_return_tx: Option<oneshot::Sender<SliceMetadata>>,
+    pub(crate) slice_return_tx: Option<oneshot::Sender<Option<SliceMetadata>>>,
 }
 
 ///
@@ -47,6 +47,7 @@ pub struct SegmentSlice {
 pub struct SliceMetadata {
     pub start_offset: i64,
     pub scoped_segment: String,
+    pub last_event_offset: i64,
     pub read_offset: i64,
     pub end_offset: i64,
     pub(crate) segment_data: SegmentDataBuffer,
@@ -164,6 +165,7 @@ impl Default for SliceMetadata {
         SliceMetadata {
             start_offset: Default::default(),
             scoped_segment: Default::default(),
+            last_event_offset: Default::default(),
             read_offset: Default::default(),
             end_offset: i64::MAX,
             segment_data: SegmentDataBuffer::empty(),
@@ -190,13 +192,14 @@ impl SegmentSlice {
     pub(crate) fn new(
         segment: ScopedSegment,
         start_offset: i64,
-        slice_return_tx: oneshot::Sender<SliceMetadata>,
+        slice_return_tx: oneshot::Sender<Option<SliceMetadata>>,
     ) -> Self {
         SegmentSlice {
             meta: SliceMetadata {
                 start_offset,
                 scoped_segment: segment.to_string(),
-                read_offset: 0,
+                last_event_offset: 0,
+                read_offset: start_offset,
                 end_offset: i64::MAX,
                 segment_data: SegmentDataBuffer::empty(),
                 partial_data_present: false,
@@ -240,8 +243,8 @@ impl SegmentSlice {
                             error_msg: "reached the end of stream".to_string(),
                         };
                         // send data: this waits until there is capacity in the channel.
-                        if let Err(e) = tx.send(Err(data)).await {
-                            info!("Error while sending segment data to event parser {:?} ", e);
+                        if let Err(e) = tx.send(Err((data, offset))).await {
+                            warn!("Error while sending segment data to event parser {:?} ", e);
                             break;
                         }
                         drop(tx);
@@ -264,7 +267,7 @@ impl SegmentSlice {
                 Err(e) => {
                     warn!("Error while reading from segment {:?}", e);
                     if !e.can_retry() {
-                        let _s = tx.send(Err(e)).await;
+                        let _s = tx.send(Err((e, offset))).await;
                         break;
                     }
                 }
@@ -375,7 +378,15 @@ impl Iterator for SegmentSlice {
 
         match res {
             Some(event) => {
-                self.meta.read_offset = event.offset_in_segment;
+                self.meta.last_event_offset = event.offset_in_segment;
+                self.meta.read_offset =
+                    event.offset_in_segment + event.value.len() as i64 + TYPE_PLUS_LENGTH_SIZE as i64;
+                if !self.meta.is_empty() {
+                    assert_eq!(
+                        self.meta.read_offset, self.meta.segment_data.offset_in_segment,
+                        "Error in offset computation"
+                    );
+                }
                 Some(event)
             }
             None => {
@@ -387,11 +398,18 @@ impl Iterator for SegmentSlice {
                 } else {
                     info!("Partial event present in the segment slice of {:?}, this will be returned post a new read request", self.meta.scoped_segment);
                 }
-                if let Some(sender) = self.slice_return_tx.take() {
-                    let _ = sender.send(self.meta.clone());
-                }
                 None
             }
+        }
+    }
+}
+
+// Ensure a Drop of Segment slice releases the segment back to the reader group.
+impl Drop for SegmentSlice {
+    fn drop(&mut self) {
+        if let Some(sender) = self.slice_return_tx.take() {
+            self.slice_return_tx = None;
+            let _ = sender.send(Some(self.meta.clone()));
         }
     }
 }
@@ -485,6 +503,7 @@ mod tests {
             meta: SliceMetadata {
                 start_offset: 0,
                 scoped_segment: segment.to_string(),
+                last_event_offset: 0,
                 read_offset: 0,
                 end_offset: i64::MAX,
                 segment_data: SegmentDataBuffer::empty(),

@@ -8,5 +8,4 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-pub(crate) mod reader_group_config;
-pub(crate) mod reader_group_state;
+pub mod reader_group_state;
