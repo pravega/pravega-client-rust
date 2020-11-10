@@ -17,7 +17,6 @@ use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::get_random_u128;
 use crate::reactor::event::{Incoming, PendingEvent};
-use crate::reactor::segment_selector::SegmentSelector;
 use tracing::info_span;
 use tracing_futures::Instrument;
 
@@ -37,18 +36,9 @@ impl EventStreamWriter {
         let handle = factory.get_runtime_handle();
         let (tx, rx) = create_channel(Self::CHANNEL_CAPACITY);
         let writer_id = WriterId::from(get_random_u128());
-        let mut selector = handle.block_on(SegmentSelector::new(stream.clone(), tx.clone(), factory.clone()));
-        let current_segments = handle
-            .block_on(factory.get_controller_client().get_current_segments(&stream))
-            .expect("retry failed");
-        // get the current segments and create corresponding event segment writers
-        handle.block_on(selector.initialize(current_segments));
-
-        let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
-        // tokio::spawn is tied to the factory runtime.
-        handle.enter(|| {
-            tokio::spawn(Reactor::run(stream, tx.clone(), rx, factory.clone(), None).instrument(span))
-        });
+        let span = info_span!("Reactor", event_stream_writer = %writer_id);
+        // spawn is tied to the factory runtime.
+        handle.spawn(Reactor::run(stream, tx.clone(), rx, factory, None).instrument(span));
         EventStreamWriter {
             writer_id,
             sender: tx,

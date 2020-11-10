@@ -14,7 +14,6 @@ use crate::event_stream_writer::EventStreamWriter;
 use crate::get_random_u128;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::reactors::Reactor;
-use crate::reactor::segment_selector::SegmentSelector;
 use crate::segment_metadata::SegmentMetadataClient;
 use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 use pravega_rust_client_channel::{create_channel, ChannelSender};
@@ -93,17 +92,16 @@ impl ByteStreamWriter {
     pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
         let handle = factory.get_runtime_handle();
         let (sender, receiver) = create_channel(CHANNEL_CAPACITY);
-        let metadata_client = handle.block_on(factory.create_segment_metadata_client(segment.clone()));
+        let (metadata_client, segment_info) = handle.block_on(async {
+            let meta = factory.create_segment_metadata_client(segment.clone()).await;
+            let info = meta.get_segment_info().await.expect("get segment info");
+            (meta, info)
+        });
         let writer_id = WriterId(get_random_u128());
         let stream = ScopedStream::from(&segment);
-        // get the current segments and create corresponding event segment writers
-        let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
-        // tokio::spawn is tied to the factory runtime.
-        handle.enter(|| {
-            tokio::spawn(
-                Reactor::run(stream, sender.clone(), receiver, factory.clone(), None).instrument(span),
-            )
-        });
+        let span = info_span!("Reactor", byte_stream_writer = %writer_id);
+        // spawn is tied to the factory runtime.
+        handle.spawn(Reactor::run(stream, sender.clone(), receiver, factory, None).instrument(span));
         ByteStreamWriter {
             writer_id,
             sender,
@@ -143,11 +141,12 @@ impl ByteStreamWriter {
         let segment_info = self
             .runtime_handle
             .block_on(self.metadata_client.get_segment_info())
-            .expect("retry failed to get segment info");
+            .expect("failed to get segment info");
         self.write_offset = segment_info.write_offset;
     }
 
     async fn write_internal(
+        &self,
         sender: ChannelSender<Incoming>,
         event: Vec<u8>,
     ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {

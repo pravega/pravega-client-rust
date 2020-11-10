@@ -163,8 +163,9 @@ impl Reactor {
 
             Replies::ConditionalCheckFailed(cmd) => {
                 warn!("conditional check failed {:?}", cmd);
-                assert_eq!(writer.id.0, cmd.writer_id, "writer id should match");
-                writer.fail_events_upon_conditional_check_failure(cmd.event_number);
+                if writer.id.0 == cmd.writer_id {
+                    writer.fail_events_upon_conditional_check_failure(cmd.event_number);
+                }
                 Ok(())
             }
             _ => {
@@ -254,7 +255,7 @@ pub(crate) mod test {
         size: usize,
     ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
-        let event = PendingEvent::new(Some("routing_key".into()), vec![1; size], oneshot_sender)
+        let event = PendingEvent::new(Some("routing_key".into()), vec![1; size], None, oneshot_sender)
             .expect("create pending event");
         sender.send((Incoming::AppendEvent(event), size)).await.unwrap();
         oneshot_receiver

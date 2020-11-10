@@ -493,6 +493,16 @@ async fn send_happy(
             });
             sender.send(reply).expect("send reply");
         }
+        Requests::ConditionalAppend(_cmd) => {
+            let reply = Replies::DataAppended(DataAppendedCommand {
+                writer_id: 0,
+                event_number: 0,
+                previous_event_number: 0,
+                request_id: 0,
+                current_segment_write_offset: 0,
+            });
+            sender.send(reply).expect("send reply");
+        }
         _ => {
             panic!("unsupported request {:?}", request);
         }

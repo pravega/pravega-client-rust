@@ -521,7 +521,7 @@ pub(crate) mod test {
         assert!(result.is_ok());
 
         // write data using mock connection
-        let (event, guard, event_handle1) = rt.block_on(create_event(512, &mut sender, &mut receiver));
+        let (event, guard, event_handle1) = rt.block_on(create_event(512, &mut sender, &mut receiver, None));
         let (reply, cap_guard) = rt
             .block_on(async {
                 segment_writer.write(event, guard).await.expect("write data");
@@ -534,7 +534,7 @@ pub(crate) mod test {
         assert_eq!(segment_writer.inflight.len(), 1);
         assert!(segment_writer.pending.is_empty());
 
-        let (event, guard, event_handle2) = rt.block_on(create_event(512, &mut sender, &mut receiver));
+        let (event, guard, event_handle2) = rt.block_on(create_event(512, &mut sender, &mut receiver, None));
         rt.block_on(segment_writer.write(event, guard))
             .expect("write data");
 
@@ -571,7 +571,7 @@ pub(crate) mod test {
         assert!(result.is_ok());
 
         // write data using mock connection to a sealed segment
-        let (event, guard, _event_handle) = rt.block_on(create_event(512, &mut sender, &mut receiver));
+        let (event, guard, _event_handle) = rt.block_on(create_event(512, &mut sender, &mut receiver, None));
         let (reply, cap_guard) = rt
             .block_on(async {
                 segment_writer.write(event, guard).await.expect("write data");
@@ -590,6 +590,108 @@ pub(crate) mod test {
             false
         };
         assert!(result);
+    }
+
+    #[test]
+    fn test_segment_writer_mixed_writes() {
+        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let (mut segment_writer, mut sender, mut receiver, factory) = create_segment_writer(MockType::Happy);
+        // test set up connection
+        let result = rt.block_on(segment_writer.setup_connection(&factory));
+        assert!(result.is_ok());
+
+        // conditional and unconditional events should not be mixed
+        let (event0, guard0, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(0)));
+        let (event1, guard1, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, None));
+
+        segment_writer.add_pending(event0, guard0);
+        segment_writer.add_pending(event1, guard1);
+
+        rt.block_on(segment_writer.write_pending_events()).expect("write");
+        assert_eq!(segment_writer.pending.len(), 1);
+        assert_eq!(segment_writer.inflight.len(), 1);
+
+        segment_writer.inflight.clear();
+        segment_writer.pending.clear();
+
+        // conditional events with aligned offsets
+        let (event0, guard0, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(0)));
+        let (event1, guard1, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(128)));
+
+        segment_writer.add_pending(event0, guard0);
+        segment_writer.add_pending(event1, guard1);
+
+        rt.block_on(segment_writer.write_pending_events()).expect("write");
+        assert_eq!(segment_writer.pending.len(), 0);
+        assert_eq!(segment_writer.inflight.len(), 2);
+
+        segment_writer.inflight.clear();
+        segment_writer.pending.clear();
+
+        // conditional events with unaligned offsets
+        let (event0, guard0, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(0)));
+        let (event1, guard1, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(256)));
+
+        segment_writer.add_pending(event0, guard0);
+        segment_writer.add_pending(event1, guard1);
+
+        rt.block_on(segment_writer.write_pending_events()).expect("write");
+        assert_eq!(segment_writer.pending.len(), 1);
+        assert_eq!(segment_writer.inflight.len(), 1);
+    }
+
+    #[test]
+    fn test_segment_writer_conditional_append_failure() {
+        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let (mut segment_writer, mut sender, mut receiver, factory) = create_segment_writer(MockType::Happy);
+        // test set up connection
+        let result = rt.block_on(segment_writer.setup_connection(&factory));
+        assert!(result.is_ok());
+
+        // wrong offset
+        let (event0, guard0, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(1)));
+        let (event1, guard1, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(129)));
+        let (event2, guard2, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(257)));
+
+        segment_writer.add_pending(event0, guard0);
+        segment_writer.add_pending(event1, guard1);
+        segment_writer.add_pending(event2, guard2);
+
+        rt.block_on(segment_writer.write_pending_events()).expect("write");
+        assert_eq!(segment_writer.pending.len(), 0);
+        assert_eq!(segment_writer.inflight.len(), 3);
+
+        segment_writer.fail_events_upon_conditional_check_failure(1);
+        assert_eq!(segment_writer.pending.len(), 0);
+        assert_eq!(segment_writer.inflight.len(), 0);
+
+        let (event0, guard0, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(1)));
+        let (event1, guard1, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(129)));
+        let (event2, guard2, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(257)));
+
+        segment_writer.add_pending(event0, guard0);
+        segment_writer.add_pending(event1, guard1);
+        rt.block_on(segment_writer.write_pending_events()).expect("write");
+        segment_writer.add_pending(event2, guard2);
+
+        assert_eq!(segment_writer.pending.len(), 1);
+        assert_eq!(segment_writer.inflight.len(), 2);
+
+        segment_writer.fail_events_upon_conditional_check_failure(1);
+        assert_eq!(segment_writer.pending.len(), 0);
+        assert_eq!(segment_writer.inflight.len(), 0);
     }
 
     // helper function section
@@ -628,16 +730,17 @@ pub(crate) mod test {
         size: usize,
         sender: &mut ChannelSender<Incoming>,
         receiver: &mut ChannelReceiver<Incoming>,
+        offset: Option<i64>,
     ) -> (PendingEvent, CapacityGuard, EventHandle) {
         let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
-        let event = PendingEvent::new(Some("routing_key".into()), vec![1; size], None, oneshot_sender)
+        let event = PendingEvent::new(Some("routing_key".into()), vec![1; size], offset, oneshot_sender)
             .expect("create pending event");
-        sender.send((Incoming::AppendEvent(event), 512)).await.unwrap();
-        let (event, guard) = receiver.recv().await.unwrap();
-        if let Incoming::AppendEvent(e) = event {
-            (e, guard, oneshot_receiver)
-        } else {
-            panic!("wrong type");
+        sender.send((Incoming::AppendEvent(event), size)).await.unwrap();
+        loop {
+            let (event, guard) = receiver.recv().await.unwrap();
+            if let Incoming::AppendEvent(e) = event {
+                return (e, guard, oneshot_receiver);
+            }
         }
     }
 
