@@ -92,11 +92,7 @@ impl ByteStreamWriter {
     pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
         let handle = factory.get_runtime_handle();
         let (sender, receiver) = create_channel(CHANNEL_CAPACITY);
-        let (metadata_client, segment_info) = handle.block_on(async {
-            let meta = factory.create_segment_metadata_client(segment.clone()).await;
-            let info = meta.get_segment_info().await.expect("get segment info");
-            (meta, info)
-        });
+        let metadata_client = handle.block_on(factory.create_segment_metadata_client(segment.clone()));
         let writer_id = WriterId(get_random_u128());
         let stream = ScopedStream::from(&segment);
         let span = info_span!("Reactor", byte_stream_writer = %writer_id);
@@ -108,7 +104,7 @@ impl ByteStreamWriter {
             metadata_client,
             runtime_handle: handle,
             event_handle: None,
-            write_offset: segment_info.write_offset,
+            write_offset: 0,
         }
     }
 
@@ -137,6 +133,7 @@ impl ByteStreamWriter {
         self.write_offset
     }
 
+    /// Seek to the tail of the segment.
     pub fn seek_to_tail(&mut self) {
         let segment_info = self
             .runtime_handle
