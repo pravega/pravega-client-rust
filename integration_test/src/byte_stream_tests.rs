@@ -184,6 +184,7 @@ fn test_multiple_writers_conditional_append(factory: &ClientFactory, segment: Sc
     assert_eq!(writer1.current_write_offset(), 1024);
 
     let mut writer2 = factory.create_byte_stream_writer(segment);
+    writer2.seek_to_tail();
     let _num = writer2.write(&payload).expect("writer2 write payload");
     assert_eq!(writer2.current_write_offset(), 2048);
     writer2.flush().expect("writer2 flush");

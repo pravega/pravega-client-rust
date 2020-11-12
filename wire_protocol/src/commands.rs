@@ -20,7 +20,7 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::i64;
 
-pub const WIRE_VERSION: i32 = 10;
+pub const WIRE_VERSION: i32 = 11;
 pub const OLDEST_COMPATIBLE_VERSION: i32 = 5;
 pub const TYPE_SIZE: u32 = 4;
 pub const TYPE_PLUS_LENGTH_SIZE: u32 = 8;
