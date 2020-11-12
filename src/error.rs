@@ -18,8 +18,6 @@ use pravega_wire_protocol::wire_commands::Replies;
 use serde_cbor::Error as CborError;
 use snafu::Snafu;
 use std::fmt::Debug;
-use tokio::sync::mpsc::error::TryRecvError;
-use tokio::sync::oneshot;
 use tokio::time::Elapsed;
 
 #[derive(Debug, Snafu)]

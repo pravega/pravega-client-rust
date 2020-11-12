@@ -60,10 +60,29 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     let mut writer = client_factory.create_byte_stream_writer(scoped_segment.clone());
     let mut reader = client_factory.create_byte_stream_reader(scoped_segment);
 
-    test_write_and_read(&mut writer, &mut reader);
+    test_simple_write_and_read(&mut writer, &mut reader);
     test_seek(&mut reader);
     test_truncation(&mut writer, &mut reader, &mut rt);
     test_seal(&mut writer, &mut reader, &mut rt);
+
+    let scope_name = Scope::from("testScopeByteStreamPrefetch".to_owned());
+    let stream_name = Stream::from("testStreamByteStreamPrefetch".to_owned());
+    let segment = ScopedSegment {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+        segment: Segment::from(0),
+    };
+    handle.block_on(utils::create_scope_stream(
+        client_factory.get_controller_client(),
+        &scope_name,
+        &stream_name,
+        1,
+    ));
+
+    let mut writer = client_factory.create_byte_stream_writer(segment.clone());
+    let mut reader = client_factory.create_byte_stream_reader(segment);
+
+    test_write_and_read_with_workload(&mut writer, &mut reader);
 }
 
 fn test_simple_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader) {
@@ -161,4 +180,29 @@ fn test_seal(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, rt: &
     assert_eq!(buf, vec![0; 8]);
 
     info!("test byte stream seal passed");
+}
+
+fn test_write_and_read_with_workload(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader) {
+    info!("test write and read with workload");
+    for _i in 0..10 {
+        for _j in 0..1000 {
+            let buf = vec![1; 1024];
+            let size = writer.write(&buf).expect("write to byte stream");
+            assert_eq!(size, 1024)
+        }
+        writer.flush().expect("flush data");
+    }
+
+    let mut read = 0;
+    loop {
+        let mut buf = vec![0; 1024];
+        let size = reader.read(&mut buf).expect("read from byte stream");
+        read += size;
+        if read == 1024 * 1000 * 10 {
+            break;
+        }
+    }
+    assert_eq!(reader.available(), 0);
+
+    info!("test write and read with workload passed");
 }

@@ -16,7 +16,6 @@ use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::reactors::Reactor;
 use crate::segment_metadata::SegmentMetadataClient;
 use crate::segment_reader::PrefetchingAsyncSegmentReader;
-use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 use pravega_rust_client_channel::{create_channel, ChannelSender};
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream, WriterId};
 use std::convert::TryInto;
@@ -25,7 +24,6 @@ use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;
-use tokio::time::Duration;
 use tracing::info_span;
 use tracing_futures::Instrument;
 use uuid::Uuid;
@@ -171,7 +169,6 @@ pub struct ByteStreamReader {
     reader_buffer_size: usize,
     metadata_client: SegmentMetadataClient,
     runtime_handle: Handle,
-    timeout: Duration,
 }
 
 impl Read for ByteStreamReader {
@@ -200,10 +197,10 @@ impl ByteStreamReader {
             reader_buffer_size: buffer_size,
             metadata_client,
             runtime_handle: handle,
-            timeout: Duration::from_secs(3600),
         }
     }
 
+    /// Returns the head of current readable data in the segment.
     pub fn current_head(&self) -> std::io::Result<u64> {
         self.runtime_handle
             .block_on(self.metadata_client.fetch_current_starting_head())
@@ -211,16 +208,14 @@ impl ByteStreamReader {
             .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
     }
 
+    /// Returns the read offset.
     pub fn current_offset(&self) -> i64 {
         self.reader.as_ref().unwrap().offset
     }
 
-    pub fn set_reader_timeout(&mut self, timeout: Option<Duration>) {
-        if let Some(time) = timeout {
-            self.timeout = time;
-        } else {
-            self.timeout = Duration::from_secs(3600);
-        }
+    /// Returns the bytes that are available to read instantly without fetching from server.
+    pub fn available(&self) -> usize {
+        self.reader.as_ref().unwrap().available()
     }
 
     fn recreate_reader_wrapper(&mut self, offset: i64) {

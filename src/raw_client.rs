@@ -18,7 +18,6 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use snafu::ResultExt;
 use std::fmt;
 use tokio::time::{timeout, Duration};
-use tracing::{span, Level};
 
 /// RawClient is on top of the ClientConnection. It provides methods that take
 /// Request enums and return Reply enums asynchronously. It has logic to process some of the replies from

@@ -29,7 +29,7 @@ use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::oneshot::error::TryRecvError;
 use tokio::sync::{oneshot, Mutex};
-use tracing::{error, warn};
+use tracing::warn;
 
 #[derive(Debug, Snafu)]
 pub enum ReaderError {
@@ -419,17 +419,22 @@ impl PrefetchingAsyncSegmentReader {
         self.reader
     }
 
+    /// Returns the size of data availble in buffer
+    pub(crate) fn available(&self) -> usize {
+        let mut size = 0;
+        for cmd in &self.buffer {
+            size += cmd.data.len();
+        }
+        size
+    }
+
     fn issue_request_if_needed(&mut self) {
         if !self.end_of_segment && self.receiver.is_none() {
             let (sender, receiver) = oneshot::channel();
-            let mut buffer_len = 0;
-            for cmd in &self.buffer {
-                buffer_len += cmd.data.len();
-            }
             self.handle.spawn(PrefetchingAsyncSegmentReader::read_async(
                 self.reader.clone(),
                 sender,
-                self.offset + buffer_len as i64,
+                self.offset + self.available() as i64,
                 self.read_size as i32,
             ));
             self.receiver = Some(receiver);
@@ -446,7 +451,7 @@ impl PrefetchingAsyncSegmentReader {
         let result = reader.read(offset, length).await;
         sender
             .send(result)
-            .map_err(|e| error!("failed to send reply back: {:?}", e))
+            .map_err(|e| warn!("failed to send reply back: {:?}", e))
             .expect("send reply back");
     }
 
@@ -454,9 +459,10 @@ impl PrefetchingAsyncSegmentReader {
         if self.buffer.len() >= BUFFERED_REPLY_NUMBER {
             return Ok(());
         }
-        if let Some(ref mut recv) = self.receiver {
+        if let Some(mut recv) = self.receiver.take() {
             match recv.try_recv() {
                 Err(TryRecvError::Empty) => {
+                    self.receiver = Some(recv);
                     return Ok(());
                 }
                 Err(e) => warn!("failed to receive reply from background read: {}", e),
