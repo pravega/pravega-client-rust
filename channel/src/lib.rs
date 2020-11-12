@@ -46,6 +46,10 @@ impl<T> ChannelSender<T> {
         self.sender.send(message)?;
         Ok(())
     }
+
+    pub fn remain(&self) -> usize {
+        self.semaphore.permits()
+    }
 }
 
 impl<T> Clone for ChannelSender<T> {
@@ -65,15 +69,18 @@ pub struct ChannelReceiver<T> {
 }
 
 impl<T> ChannelReceiver<T> {
-    pub async fn recv(&mut self) -> Option<(T, usize)> {
+    pub async fn recv(&mut self) -> Option<(T, CapacityGuard)> {
         let message = self.receiver.recv().await;
         if let Some(msg) = message {
             let size = msg.1;
             let n_permits = min(size, self.capacity);
-            self.semaphore.release(n_permits);
-            Some(msg)
+            let guard = CapacityGuard {
+                semaphore: self.semaphore.clone(),
+                size: n_permits,
+            };
+            Some((msg.0, guard))
         } else {
-            message
+            None
         }
     }
 }
@@ -95,10 +102,21 @@ pub fn create_channel<U>(capacity: usize) -> (ChannelSender<U>, ChannelReceiver<
     (sender, receiver)
 }
 
+pub struct CapacityGuard {
+    semaphore: Arc<Semaphore>,
+    pub size: usize,
+}
+
+impl Drop for CapacityGuard {
+    fn drop(&mut self) {
+        self.semaphore.release(self.size);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::create_channel;
-    use std::{thread, time};
+    use std::time;
     use tokio::runtime::Runtime;
 
     #[test]
@@ -109,6 +127,7 @@ mod tests {
         runtime.block_on(test_sender_block());
         runtime.block_on(test_sender_close_first());
         runtime.block_on(test_receiver_close_first());
+        runtime.block_on(test_guard_drop());
     }
 
     async fn test_simple_test() {
@@ -122,7 +141,7 @@ mod tests {
         });
 
         if let Some(i) = rx.recv().await {
-            assert_eq!(i, (1, 4));
+            assert_eq!(i.0, 1);
         } else {
             panic!("Test failed");
         }
@@ -130,7 +149,7 @@ mod tests {
 
     async fn test_send_order() {
         // can only hold 4 bytes
-        let (tx, mut rx) = create_channel(4);
+        let (tx, mut rx) = create_channel(8);
 
         let tx1 = tx.clone();
         tokio::spawn(async move {
@@ -149,13 +168,13 @@ mod tests {
 
         // 2 should come first.
         if let Some(i) = rx.recv().await {
-            assert_eq!(i, (2, 4));
+            assert_eq!(i.0, 2);
         } else {
             panic!("test failed");
         }
 
         if let Some(i) = rx.recv().await {
-            assert_eq!(i, (1, 4));
+            assert_eq!(i.0, 1);
         } else {
             panic!("test failed");
         }
@@ -183,13 +202,15 @@ mod tests {
 
         if let Some(message) = rx.recv().await {
             match message {
-                (1, 4) => {
-                    let second = rx.recv().await.expect("get second message");
-                    assert_eq!(second, (2, 4));
+                (1, guard) => {
+                    drop(guard);
+                    let (second, _) = rx.recv().await.expect("get second message");
+                    assert_eq!(second, 2);
                 }
-                (2, 4) => {
-                    let second = rx.recv().await.expect("get second message");
-                    assert_eq!(second, (1, 4));
+                (2, guard) => {
+                    drop(guard);
+                    let (second, _) = rx.recv().await.expect("get first message");
+                    assert_eq!(second, 1);
                 }
                 _ => panic!("test failed"),
             }
@@ -213,7 +234,7 @@ mod tests {
 
         for i in 0..10 {
             if let Some(j) = rx.recv().await {
-                assert_eq!((i, 4), j);
+                assert_eq!(i, j.0);
             }
         }
 
@@ -232,12 +253,36 @@ mod tests {
 
         tokio::spawn(async move {
             if let Some(i) = rx.recv().await {
-                assert_eq!(i, (1, 4));
+                assert_eq!(i.0, 1);
                 return;
             }
         });
-        thread::sleep(time::Duration::from_secs(1));
+        tokio::time::delay_for(time::Duration::from_secs(1)).await;
         let result = tx.send((2, 4)).await;
         assert!(result.is_err());
+    }
+
+    async fn test_guard_drop() {
+        let (tx, mut rx) = create_channel(100);
+        tx.send((10, 10)).await.expect("send message to channel");
+        tx.send((20, 20)).await.expect("send message to channel");
+        tx.send((30, 30)).await.expect("send message to channel");
+        tx.send((40, 40)).await.expect("send message to channel");
+        assert_eq!(tx.remain(), 0);
+
+        let mut guards = vec![];
+        for _i in 0..4 {
+            if let Some((event, guard)) = rx.recv().await {
+                guards.push((event, guard));
+            }
+        }
+
+        guards.reverse();
+        let mut cap = 0;
+        for (event, guard) in guards {
+            drop(guard);
+            cap += event;
+            assert_eq!(tx.remain(), cap);
+        }
     }
 }

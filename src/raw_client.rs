@@ -89,8 +89,6 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
         &self,
         request: &Requests,
     ) -> Result<(Replies, Box<dyn ClientConnection + 'a>), RawClientError> {
-        let span = span!(Level::DEBUG, "send_setup_request");
-        let _guard = span.enter();
         let connection = self
             .pool
             .get_connection(self.endpoint.clone())

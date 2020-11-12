@@ -96,30 +96,9 @@ pub enum TransactionalEventStreamWriterError {
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
-pub enum TransactionalEventSegmentWriterError {
-    #[snafu(display("Mpsc failed with error {:?}", source))]
-    MpscError { source: TryRecvError },
-
-    #[snafu(display("Mpsc closed with sender dropped"))]
-    MpscSenderDropped {},
-
-    #[snafu(display("Oneshot failed with error {:?}", source))]
-    OneshotError { source: oneshot::error::TryRecvError },
-
-    #[snafu(display("EventSegmentWriter failed due to {:?}", source))]
-    WriterError { source: SegmentWriterError },
-
-    #[snafu(display("Unexpected reply from segmentstore {:?}", error))]
-    UnexpectedReply { error: Replies },
-}
-
-#[derive(Debug, Snafu)]
-#[snafu(visibility = "pub")]
 pub enum TransactionError {
-    #[snafu(display("Transactional segment writer failed due to {:?}", source))]
-    TxnSegmentWriterError {
-        source: TransactionalEventSegmentWriterError,
-    },
+    #[snafu(display("Transactional failed to write due to {:?}", error_msg))]
+    TxnSegmentWriterError { error_msg: String },
 
     #[snafu(display("Transactional stream writer failed due to {:?}", source))]
     TxnStreamWriterError {

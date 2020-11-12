@@ -138,7 +138,8 @@ fn test_truncation(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader,
     let size = reader.read(&mut buf).expect("read from byte stream");
     assert_eq!(size, 4);
     assert_eq!(buf, vec![2; 4]);
-    info!("test byte stream truncate finished");
+
+    info!("test byte stream truncate passed");
 }
 
 fn test_seal(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, rt: &mut Runtime) {
@@ -158,5 +159,6 @@ fn test_seal(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, rt: &
     let size = reader.read(&mut buf).expect("read from byte stream");
     assert_eq!(size, 0);
     assert_eq!(buf, vec![0; 8]);
-    info!("test byte stream seal finished");
+
+    info!("test byte stream seal passed");
 }

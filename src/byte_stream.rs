@@ -16,12 +16,13 @@ use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::reactors::Reactor;
 use crate::segment_metadata::SegmentMetadataClient;
 use crate::segment_reader::PrefetchingAsyncSegmentReader;
+use crate::segment_reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
+use pravega_rust_client_channel::{create_channel, ChannelSender};
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream, WriterId};
 use std::convert::TryInto;
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::sync::Arc;
 use tokio::runtime::Handle;
-use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;
 use tokio::time::Duration;
@@ -29,8 +30,7 @@ use tracing::info_span;
 use tracing_futures::Instrument;
 use uuid::Uuid;
 
-const BUFFER_SIZE: usize = 4096;
-const CHANNEL_CAPACITY: usize = 100;
+const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
 type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 
@@ -43,7 +43,7 @@ type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 /// ByteStreamWriters write to the same segment as this will result in interleaved data.
 pub struct ByteStreamWriter {
     writer_id: WriterId,
-    sender: Sender<Incoming>,
+    sender: ChannelSender<Incoming>,
     metadata_client: SegmentMetadataClient,
     runtime_handle: Handle,
     event_handle: Option<EventHandle>,
@@ -90,21 +90,17 @@ impl Write for ByteStreamWriter {
 
 impl ByteStreamWriter {
     pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
-        let (sender, receiver) = channel(CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
+        let (sender, receiver) = create_channel(CHANNEL_CAPACITY);
         let metadata_client = handle.block_on(factory.create_segment_metadata_client(segment.clone()));
         let writer_id = WriterId(get_random_u128());
-        let span = info_span!("SegmentReactor", event_stream_writer = %writer_id);
+        let stream = ScopedStream::from(&segment);
+        // get the current segments and create corresponding event segment writers
+        let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
         handle.enter(|| {
             tokio::spawn(
-                Reactor::run(
-                    ScopedStream::from(&segment),
-                    sender.clone(),
-                    receiver,
-                    factory.clone(),
-                )
-                .instrument(span),
+                Reactor::run(stream, sender.clone(), receiver, factory.clone(), None).instrument(span),
             )
         });
         ByteStreamWriter {
@@ -137,13 +133,14 @@ impl ByteStreamWriter {
     }
 
     async fn write_internal(
-        mut sender: Sender<Incoming>,
+        sender: ChannelSender<Incoming>,
         event: Vec<u8>,
     ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
+        let size = event.len();
         let (tx, rx) = oneshot::channel();
         if let Some(pending_event) = PendingEvent::without_header(None, event, tx) {
             let append_event = Incoming::AppendEvent(pending_event);
-            if let Err(_e) = sender.send(append_event).await {
+            if let Err(_e) = sender.send((append_event, size)).await {
                 let (tx_error, rx_error) = oneshot::channel();
                 tx_error
                     .send(Err(SegmentWriterError::SendToProcessor {}))
@@ -286,6 +283,12 @@ impl Seek for ByteStreamReader {
     }
 }
 
+impl Drop for ByteStreamWriter {
+    fn drop(&mut self) {
+        let _res = self.sender.send((Incoming::Close(), 0));
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -391,9 +394,9 @@ mod test {
         assert_eq!(buf, vec![1; 200]);
 
         let payload = vec![1; 200];
-        writer.write(&payload).expect("write");
-        let result = writer.flush();
-        assert!(result.is_err());
+        let write_result = writer.write(&payload);
+        let flush_result = writer.flush();
+        assert!(write_result.is_err() || flush_result.is_err());
     }
 
     fn create_reader_and_writer(runtime: &mut Runtime) -> (ByteStreamWriter, ByteStreamReader) {
@@ -404,8 +407,8 @@ mod test {
             .build()
             .unwrap();
         let factory = ClientFactory::new(config);
-        runtime.block_on(create_stream(&factory, "scope", "stream"));
-        let segment = ScopedSegment::from("scope/stream/0");
+        runtime.block_on(create_stream(&factory, "testScope", "testStream"));
+        let segment = ScopedSegment::from("testScope/testStream/0.#epoch.0");
         let writer = factory.create_byte_stream_writer(segment.clone());
         let reader = factory.create_byte_stream_reader(segment);
         (writer, reader)

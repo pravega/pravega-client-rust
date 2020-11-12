@@ -18,7 +18,7 @@ use std::collections::HashMap;
 
 ///
 /// Specifies the ReaderGroupConfig.
-/// ReaderGroupConfig::default() ensures the group refresh interval is set to 3 seconds
+/// ReaderGroupConfig::default() ensures the group refresh interval is set to 3 seconds.
 ///
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct ReaderGroupConfig {
@@ -40,20 +40,80 @@ impl ReaderGroupConfig {
         }
     }
 
-    fn to_bytes(&self) -> Result<Vec<u8>, SerdeError> {
+    ///
+    /// Method to serialize the ReaderGroupConfig into bytes.
+    ///
+    pub fn to_bytes(&self) -> Result<Vec<u8>, SerdeError> {
         self.config.to_bytes()
     }
 
-    fn from_bytes(input: &[u8]) -> Result<Self, SerdeError> {
+    ///
+    /// Method to de-serialize the ReaderGroupConfig object from bytes.
+    ///
+    pub fn from_bytes(input: &[u8]) -> Result<Self, SerdeError> {
         let decoded = ReaderGroupConfigVersioned::from_bytes(input);
         decoded.map(|config| ReaderGroupConfig { config })
     }
+
+    ///
+    /// Method to obtain the streams in a ReaderGroupConfig.
+    ///
+    pub fn get_streams(&self) -> Vec<ScopedStream> {
+        let ReaderGroupConfigVersioned::V1(v1) = &self.config;
+        v1.starting_stream_cuts
+            .keys()
+            .cloned()
+            .collect::<Vec<ScopedStream>>()
+    }
 }
 
-impl Default for ReaderGroupConfig {
+pub struct ReaderGroupConfigBuilder {
+    group_refresh_time_millis: u64,
+    starting_stream_cuts: HashMap<ScopedStream, StreamCutVersioned>,
+}
+
+impl Default for ReaderGroupConfigBuilder {
     fn default() -> Self {
+        Self {
+            group_refresh_time_millis: 3000,
+            starting_stream_cuts: Default::default(),
+        }
+    }
+}
+
+impl ReaderGroupConfigBuilder {
+    ///
+    /// Set reader group refresh time.
+    ///
+    pub fn set_group_refresh_time(&mut self, group_refresh_time_millis: u64) -> &mut Self {
+        self.group_refresh_time_millis = group_refresh_time_millis;
+        self
+    }
+
+    ///
+    /// Add a Pravega Stream to the reader group.
+    ///
+    pub fn add_stream(&mut self, stream: ScopedStream) -> &mut Self {
+        self.starting_stream_cuts
+            .insert(stream, StreamCutVersioned::UNBOUNDED);
+        self
+    }
+
+    ///
+    /// Build a ReaderGroupConfig object.
+    /// This method panics for invalid configuration.
+    ///
+    pub fn build(&self) -> ReaderGroupConfig {
+        assert!(
+            !self.starting_stream_cuts.is_empty(),
+            "Atleast 1 stream should be part of the reader group config"
+        );
         ReaderGroupConfig {
-            config: ReaderGroupConfigVersioned::V1(ReaderGroupConfigV1::new()),
+            config: ReaderGroupConfigVersioned::V1(ReaderGroupConfigV1 {
+                group_refresh_time_millis: self.group_refresh_time_millis,
+                starting_stream_cuts: self.starting_stream_cuts.clone(),
+                ending_stream_cuts: Default::default(), // This will be extended when bounded processing is enabled.
+            }),
         }
     }
 }
@@ -87,6 +147,12 @@ pub(crate) struct ReaderGroupConfigV1 {
     group_refresh_time_millis: u64,
     starting_stream_cuts: HashMap<ScopedStream, StreamCutVersioned>,
     ending_stream_cuts: HashMap<ScopedStream, StreamCutVersioned>,
+}
+
+impl Default for ReaderGroupConfigV1 {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ReaderGroupConfigV1 {
@@ -149,5 +215,49 @@ mod tests {
         let encoded = config.to_bytes().expect("encode to byte array");
         let decoded = ReaderGroupConfigVersioned::from_bytes(&encoded).expect("decode from byte array");
         assert_eq!(ReaderGroupConfigVersioned::V1(v1), decoded);
+    }
+
+    #[test]
+    fn test_reader_group_config_builder() {
+        let rg_config = ReaderGroupConfigBuilder::default()
+            .set_group_refresh_time(4000)
+            .add_stream(ScopedStream::from("scope1/s1"))
+            .add_stream(ScopedStream::from("scope2/s2"))
+            .build();
+        let ReaderGroupConfigVersioned::V1(v1) = rg_config.config;
+        assert_eq!(v1.group_refresh_time_millis, 4000);
+        //Validate both the streams are present.
+        assert!(v1
+            .starting_stream_cuts
+            .contains_key(&ScopedStream::from("scope1/s1")));
+        assert!(v1
+            .starting_stream_cuts
+            .contains_key(&ScopedStream::from("scope2/s2")));
+        for val in v1.starting_stream_cuts.values() {
+            assert_eq!(&StreamCutVersioned::UNBOUNDED, val);
+        }
+    }
+
+    #[test]
+    fn test_reader_group_config_builder_default() {
+        let rg_config = ReaderGroupConfigBuilder::default()
+            .add_stream(ScopedStream::from("scope1/s1"))
+            .build();
+        let ReaderGroupConfigVersioned::V1(v1) = rg_config.config;
+        // verify default
+        assert_eq!(v1.group_refresh_time_millis, 3000);
+        //Validate both the streams are present.
+        assert!(v1
+            .starting_stream_cuts
+            .contains_key(&ScopedStream::from("scope1/s1")));
+        for val in v1.starting_stream_cuts.values() {
+            assert_eq!(&StreamCutVersioned::UNBOUNDED, val);
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_reader_group_config_builder_invalid() {
+        let _rg_config = ReaderGroupConfigBuilder::default().build();
     }
 }

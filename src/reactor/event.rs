@@ -15,12 +15,14 @@ use pravega_wire_protocol::commands::{Command, EventCommand};
 use pravega_wire_protocol::wire_commands::Replies;
 
 use crate::error::*;
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub(crate) enum Incoming {
     AppendEvent(PendingEvent),
     ServerReply(ServerReply),
-    ConnectionFailure(ConnectionFailure),
+    Reconnect(WriterInfo),
+    Close(),
 }
 
 #[derive(new, Debug)]
@@ -30,8 +32,10 @@ pub(crate) struct ServerReply {
 }
 
 #[derive(new, Debug)]
-pub(crate) struct ConnectionFailure {
+pub(crate) struct WriterInfo {
     pub(crate) segment: ScopedSegment,
+    pub(crate) connection_id: Uuid,
+    pub(crate) writer_id: WriterId,
 }
 
 #[derive(Debug)]
