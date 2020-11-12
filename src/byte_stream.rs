@@ -15,7 +15,7 @@ use crate::get_random_u128;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::reactors::Reactor;
 use crate::segment_metadata::SegmentMetadataClient;
-use crate::segment_reader::AsyncSegmentReaderWrapper;
+use crate::segment_reader::PrefetchingAsyncSegmentReader;
 use pravega_rust_client_shared::{ScopedSegment, ScopedStream, WriterId};
 use std::convert::TryInto;
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom, Write};
@@ -170,7 +170,7 @@ impl ByteStreamWriter {
 /// Allows for reading raw bytes from a segment.
 pub struct ByteStreamReader {
     reader_id: Uuid,
-    reader: Option<AsyncSegmentReaderWrapper>,
+    reader: Option<PrefetchingAsyncSegmentReader>,
     reader_buffer_size: usize,
     metadata_client: SegmentMetadataClient,
     runtime_handle: Handle,
@@ -190,8 +190,12 @@ impl ByteStreamReader {
     pub(crate) fn new(segment: ScopedSegment, factory: &ClientFactory, buffer_size: usize) -> Self {
         let handle = factory.get_runtime_handle();
         let async_reader = handle.block_on(factory.create_async_event_reader(segment.clone()));
-        let async_reader_wrapper =
-            AsyncSegmentReaderWrapper::new(handle.clone(), Arc::new(Box::new(async_reader)), 0, buffer_size);
+        let async_reader_wrapper = PrefetchingAsyncSegmentReader::new(
+            handle.clone(),
+            Arc::new(Box::new(async_reader)),
+            0,
+            buffer_size,
+        );
         let metadata_client = handle.block_on(factory.create_segment_metadata_client(segment));
         ByteStreamReader {
             reader_id: Uuid::new_v4(),
@@ -224,7 +228,7 @@ impl ByteStreamReader {
 
     fn recreate_reader_wrapper(&mut self, offset: i64) {
         let internal_reader = self.reader.take().unwrap().extract_reader();
-        let new_reader_wrapper = AsyncSegmentReaderWrapper::new(
+        let new_reader_wrapper = PrefetchingAsyncSegmentReader::new(
             self.runtime_handle.clone(),
             internal_reader,
             offset,

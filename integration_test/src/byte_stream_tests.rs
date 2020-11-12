@@ -66,7 +66,7 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     test_seal(&mut writer, &mut reader, &mut rt);
 }
 
-fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader) {
+fn test_simple_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader) {
     info!("test byte stream write and read");
     let payload1 = vec![1, 1, 1, 1];
     let payload2 = vec![2, 2, 2, 2];
@@ -79,7 +79,7 @@ fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamRea
     writer.flush().expect("flush byte stream writer");
 
     let mut buf: Vec<u8> = vec![0; 4];
-    // Note: wrapper issues a read when reader was initialized and that read returned
+    // Note: prefetching issues a read when reader was initialized and that read returned
     // with result of 4 when the first write is flushed.
     let bytes1 = reader.read(&mut buf).expect("read from byte stream");
     assert_eq!(bytes1, 4);
@@ -153,7 +153,6 @@ fn test_seal(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, rt: &
     assert_eq!(size, 4);
     assert_eq!(buf, vec![2; 4]);
 
-    error!("read here");
     // read beyond sealed segment
     let mut buf: Vec<u8> = vec![0; 8];
     let size = reader.read(&mut buf).expect("read from byte stream");

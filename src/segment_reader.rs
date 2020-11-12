@@ -24,8 +24,10 @@ use pravega_rust_client_retry::retry_async::retry_async;
 use pravega_rust_client_retry::retry_result::RetryResult;
 use pravega_rust_client_retry::retry_result::Retryable;
 use std::cmp;
+use std::collections::VecDeque;
 use std::sync::Arc;
 use tokio::runtime::Handle;
+use tokio::sync::oneshot::error::TryRecvError;
 use tokio::sync::{oneshot, Mutex};
 use tracing::{error, warn};
 
@@ -346,83 +348,91 @@ impl AsyncSegmentReaderImpl {
     }
 }
 
-/// A wrapper around the AsyncSegmentReader.
+/// Prefetches data using AsyncSegmentReader.
 ///
 /// It maintains a buffer and prefetches data to fill that buffer in the background so that
 /// every read call can read from the local buffer instead of waiting for server response.
-pub(crate) struct AsyncSegmentReaderWrapper {
-    buffer: Vec<u8>,
+pub(crate) struct PrefetchingAsyncSegmentReader {
+    buffer: VecDeque<SegmentReadCommand>,
     reader: Arc<Box<dyn AsyncSegmentReader>>,
     read_size: usize,
     pub(crate) offset: i64,
     end_of_segment: bool,
-    is_truncated: bool,
-    outstanding: Outstanding,
+    receiver: Option<oneshot::Receiver<Result<SegmentReadCommand, ReaderError>>>,
     handle: Handle,
 }
 
-impl AsyncSegmentReaderWrapper {
+// maximum number of buffered reply
+const BUFFERED_REPLY_NUMBER: usize = 2;
+
+impl PrefetchingAsyncSegmentReader {
     pub(crate) fn new(
         handle: Handle,
         reader: Arc<Box<dyn AsyncSegmentReader>>,
         offset: i64,
         buffer_size: usize,
     ) -> Self {
-        let mut wrapper = AsyncSegmentReaderWrapper {
-            buffer: Vec::with_capacity(buffer_size),
+        let mut wrapper = PrefetchingAsyncSegmentReader {
+            buffer: VecDeque::with_capacity(BUFFERED_REPLY_NUMBER),
             reader,
-            read_size: buffer_size,
+            read_size: buffer_size / BUFFERED_REPLY_NUMBER,
             offset,
             handle,
             end_of_segment: false,
-            is_truncated: false,
-            outstanding: Outstanding {
-                end_of_segment: false,
-                cmd: None,
-                receiver: None,
-            },
+            receiver: None,
         };
         wrapper.issue_request_if_needed();
         wrapper
     }
+
+    /// Reads from buffered data.
+    ///
+    /// Note: bytes returned could be less than requested.
     pub(crate) async fn read(&mut self, buf: &mut [u8]) -> StdResult<usize, ReaderError> {
+        self.fill_buffer_if_available()?;
         self.issue_request_if_needed();
+
         while self.buffer.is_empty() {
-            if self.outstanding.is_empty() {
+            if self.end_of_segment {
+                // no more bytes could be read from the current offset
                 return Ok(0);
             }
             self.fill_buffer().await?;
+            self.issue_request_if_needed();
         }
 
-        let size_to_return = cmp::min(buf.len(), self.buffer.len());
-        buf[..size_to_return].copy_from_slice(&self.buffer[..size_to_return]);
-        self.buffer.drain(..size_to_return);
+        let mut cmd = self.buffer.pop_back().expect("must not be empty");
+        self.end_of_segment = cmd.end_of_segment;
+
+        let size_to_return = cmp::min(buf.len(), cmd.data.len());
+        buf[..size_to_return].copy_from_slice(cmd.data.drain(..size_to_return).as_slice());
         self.offset += size_to_return as i64;
+        if !cmd.data.is_empty() {
+            self.buffer.push_back(cmd);
+        }
 
         Ok(size_to_return)
     }
 
+    /// Returns the underlying reader and drops the prefetching reader.
     pub(crate) fn extract_reader(self) -> Arc<Box<dyn AsyncSegmentReader>> {
         self.reader
     }
 
     fn issue_request_if_needed(&mut self) {
-        let updated_read_length = cmp::max(self.read_size, self.buffer.capacity() - self.buffer.len());
-        if !self.end_of_segment && !self.is_truncated && self.outstanding.is_empty() {
+        if !self.end_of_segment && self.receiver.is_none() {
             let (sender, receiver) = oneshot::channel();
-            self.handle.enter(|| {
-                tokio::spawn(AsyncSegmentReaderWrapper::read_async(
-                    self.reader.clone(),
-                    sender,
-                    self.offset + self.buffer.len() as i64,
-                    updated_read_length as i32,
-                ))
-            });
-            self.outstanding = Outstanding {
-                end_of_segment: false,
-                cmd: None,
-                receiver: Some(receiver),
+            let mut buffer_len = 0;
+            for cmd in &self.buffer {
+                buffer_len += cmd.data.len();
             }
+            self.handle.spawn(PrefetchingAsyncSegmentReader::read_async(
+                self.reader.clone(),
+                sender,
+                self.offset + buffer_len as i64,
+                self.read_size as i32,
+            ));
+            self.receiver = Some(receiver);
         }
     }
 
@@ -440,60 +450,41 @@ impl AsyncSegmentReaderWrapper {
             .expect("send reply back");
     }
 
-    async fn fill_buffer(&mut self) -> Result<(), ReaderError> {
-        let data = self.outstanding.get_data().await?;
-
-        let to_fill = cmp::min(self.buffer.capacity() - self.buffer.len(), data.len());
-        self.buffer.extend(&data[..to_fill]);
-        data.drain(0..to_fill);
-        if data.is_empty() {
-            self.outstanding.clear();
+    fn fill_buffer_if_available(&mut self) -> Result<(), ReaderError> {
+        if self.buffer.len() >= BUFFERED_REPLY_NUMBER {
+            return Ok(());
         }
-        self.end_of_segment = self.outstanding.end_of_segment;
-        self.issue_request_if_needed();
-        Ok(())
-    }
-}
-
-struct Outstanding {
-    end_of_segment: bool,
-    cmd: Option<SegmentReadCommand>,
-    receiver: Option<oneshot::Receiver<Result<SegmentReadCommand, ReaderError>>>,
-}
-
-impl Outstanding {
-    fn is_empty(&self) -> bool {
-        self.receiver.is_none() && self.cmd.is_none()
-    }
-
-    async fn get_data(&mut self) -> Result<&mut Vec<u8>, ReaderError> {
-        assert!(!self.is_empty());
-
-        if self.cmd.is_none() {
-            let recv = self.receiver.take().expect("must have pending request");
-            match recv.await {
+        if let Some(ref mut recv) = self.receiver {
+            match recv.try_recv() {
+                Err(TryRecvError::Empty) => {
+                    return Ok(());
+                }
+                Err(e) => warn!("failed to receive reply from background read: {}", e),
                 Ok(res) => match res {
                     Ok(cmd) => {
-                        self.cmd = Some(cmd);
+                        self.buffer.push_front(cmd);
+                    }
+                    Err(e) => return Err(e),
+                },
+            }
+        }
+        Ok(())
+    }
+    async fn fill_buffer(&mut self) -> Result<(), ReaderError> {
+        if let Some(receiver) = self.receiver.take() {
+            match receiver.await {
+                Ok(res) => match res {
+                    Ok(cmd) => {
+                        self.buffer.push_front(cmd);
                     }
                     Err(e) => return Err(e),
                 },
                 Err(e) => {
-                    warn!("should be able to receive reply: {}", e);
+                    warn!("failed to receive reply from background read: {}", e);
                 }
             }
         }
-        if let Some(ref mut cmd) = self.cmd {
-            self.end_of_segment = cmd.end_of_segment;
-            Ok(&mut cmd.data)
-        } else {
-            panic!("should have SegmentRead command");
-        }
-    }
-
-    fn clear(&mut self) {
-        self.cmd = None;
-        self.receiver = None;
+        Ok(())
     }
 }
 
@@ -682,33 +673,34 @@ mod tests {
     }
 
     #[test]
-    fn test_async_segment_reader_wrapper() {
+    fn test_prefetch_async_segment_reader() {
         let mock = MockSegmentReader {};
         let runtime = Runtime::new().unwrap();
         let handle = runtime.handle();
-        let mut wrapper = AsyncSegmentReaderWrapper::new(
+        let mut prefetch_reader = PrefetchingAsyncSegmentReader::new(
             runtime.handle().clone(),
             Arc::new(Box::new(mock)),
             0,
-            1024 * 1024,
+            1024 * 4,
         );
 
-        // simple read
+        // one buffered reply should contains 1024 * 2 size of data,
+        // first read should read half of the buffered reply
         let mut buf = vec![0; 1024];
         let read = handle
-            .block_on(wrapper.read(&mut buf))
+            .block_on(prefetch_reader.read(&mut buf))
             .expect("read from wrapper");
         assert_eq!(read, 1024);
-        assert_eq!(wrapper.buffer.len(), 1024 * 1024 - 1024);
-        assert_eq!(wrapper.offset, 1024);
+        assert_eq!(prefetch_reader.buffer.len(), 1);
+        assert_eq!(prefetch_reader.buffer.back().unwrap().data.len(), 1024);
+        assert_eq!(prefetch_reader.offset, 1024);
 
-        // read to end
-        let mut buf = vec![0; 1024 * 1024];
+        // reads next 1024 bytes and finishes the first buffered reply.
+        let mut buf = vec![0; 1024];
         let read = handle
-            .block_on(wrapper.read(&mut buf))
+            .block_on(prefetch_reader.read(&mut buf))
             .expect("read from wrapper");
-        assert_eq!(read, 1024 * 1024 - 1024);
-        assert_eq!(wrapper.buffer.len(), 0);
-        assert_eq!(wrapper.offset, 1024 * 1024);
+        assert_eq!(read, 1024);
+        assert_eq!(prefetch_reader.offset, 1024 * 2);
     }
 }
