@@ -401,17 +401,22 @@ impl PrefetchingAsyncSegmentReader {
             self.issue_request_if_needed();
         }
 
-        let mut cmd = self.buffer.pop_back().expect("must not be empty");
-        self.end_of_segment = cmd.end_of_segment;
-
-        let size_to_return = cmp::min(buf.len(), cmd.data.len());
-        buf[..size_to_return].copy_from_slice(cmd.data.drain(..size_to_return).as_slice());
-        self.offset += size_to_return as i64;
-        if !cmd.data.is_empty() {
-            self.buffer.push_back(cmd);
+        let mut need_to_read = buf.len();
+        let mut copy_offset = 0;
+        while let Some(mut cmd) = self.buffer.pop_back() {
+            self.end_of_segment = cmd.end_of_segment;
+            let read_size = cmp::min(need_to_read, cmd.data.len());
+            buf[copy_offset..copy_offset + read_size].copy_from_slice(cmd.data.drain(..read_size).as_slice());
+            self.offset += read_size as i64;
+            need_to_read -= read_size;
+            copy_offset += read_size;
+            if !cmd.data.is_empty() {
+                self.buffer.push_back(cmd);
+                break;
+            }
         }
 
-        Ok(size_to_return)
+        Ok(buf.len() - need_to_read)
     }
 
     /// Returns the underlying reader and drops the prefetching reader.
