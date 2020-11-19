@@ -19,7 +19,9 @@ use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_retry::retry_result::RetryResult;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::*;
-use pravega_wire_protocol::commands::{AppendBlockEndCommand, ConditionalAppendCommand, SetupAppendCommand};
+use pravega_wire_protocol::commands::{
+    AppendBlockEndCommand, ConditionalBlockEndCommand, SetupAppendCommand,
+};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
 use crate::client_factory::ClientFactory;
@@ -306,7 +308,7 @@ impl SegmentWriter {
         );
 
         let request = if let Some(offset) = self.inflight.front().unwrap().event.conditional_offset {
-            Requests::ConditionalAppend(ConditionalAppendCommand {
+            Requests::ConditionalBlockEnd(ConditionalBlockEndCommand {
                 writer_id: self.id.0,
                 event_number: self.inflight.back().expect("last event").event_id,
                 expected_offset: offset,
