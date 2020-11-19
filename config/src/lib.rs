@@ -32,14 +32,8 @@ use derive_builder::*;
 use getset::{CopyGetters, Getters};
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_shared::PravegaNodeUri;
-use std::collections::HashMap;
-use std::env;
 
 pub const MOCK_CONTROLLER_URI: (&str, u16) = ("localhost", 9090);
-const AUTH_PROPS_PREFIX: &str = "pravega.client.auth.";
-const AUTH_METHOD: &str = "method";
-const AUTH_TOKEN: &str = "token";
-const AUTH_PROPS_PREFIX_ENV: &str = "pravega_client_auth_";
 
 #[derive(Builder, Debug, Getters, CopyGetters, Clone)]
 #[builder(setter(into))]
@@ -79,7 +73,7 @@ pub struct ClientConfig {
     #[builder(default = "false")]
     pub is_tls_enabled: bool,
 
-    #[builder(default = "self.extract_credentials()")]
+    #[builder(default = "self.default_credentials()")]
     pub credentials: Credentials,
 
     #[get_copy = "pub"]
@@ -92,29 +86,14 @@ impl ClientConfigBuilder {
         "./ca-cert.crt".to_owned()
     }
 
-    fn extract_credentials(&self) -> Credentials {
-        let ret_val = env::vars()
-            .filter(|(k, _v)| k.starts_with(AUTH_PROPS_PREFIX_ENV))
-            .map(|(k, v)| {
-                let k = k.replace("_", ".");
-                let k = &k[AUTH_PROPS_PREFIX.len()..];
-                (k.to_owned(), v)
-            })
-            .collect::<HashMap<String, String>>();
-        if ret_val.contains_key(AUTH_METHOD) {
-            let method = ret_val.get(AUTH_METHOD).expect("get auth method").to_owned();
-            let token = ret_val.get(AUTH_TOKEN).expect("get auth token").to_owned();
-            Credentials::new(method, token)
-        } else {
-            Credentials::default("admin".into(), "1111_aaaa".into())
-        }
+    fn default_credentials(&self) -> Credentials {
+        Credentials::basic("admin".into(), "1111_aaaa".into())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
     use std::net::Ipv4Addr;
 
     #[test]
@@ -150,18 +129,18 @@ mod tests {
         assert_eq!(config.retry_policy(), RetryWithBackoff::default());
     }
 
-    #[test]
-    fn test_extract_credentials() {
-        // retrieve from env
-        env::set_var("pravega_client_auth_method", "Basic");
-        env::set_var("pravega_client_auth_token", "123456");
-
-        let config = ClientConfigBuilder::default()
-            .controller_uri("127.0.0.2:9091".to_string())
-            .build()
-            .unwrap();
-
-        assert_eq!(config.credentials.get_authentication_type(), "Basic".to_owned());
-        assert_eq!(config.credentials.get_authentication_token(), "123456".to_owned());
-    }
+    // #[test]
+    // fn test_extract_credentials() {
+    //     // retrieve from env
+    //     env::set_var("pravega_client_auth_method", "Basic");
+    //     env::set_var("pravega_client_auth_token", "123456");
+    //
+    //     let config = ClientConfigBuilder::default()
+    //         .controller_uri("127.0.0.2:9091".to_string())
+    //         .build()
+    //         .unwrap();
+    //
+    //     assert_eq!(config.credentials.get_authentication_type(), "Basic".to_owned());
+    //     assert_eq!(config.credentials.get_authentication_token(), "123456".to_owned());
+    // }
 }
