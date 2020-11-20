@@ -54,9 +54,10 @@ jobs:
         run: |
           virtualenv venv
           source venv/bin/activate
-      - name: install wheel
-        id: install_wheel
-        run: python -u .github/workflows/install_wheel.py
+          maturin develop
+#      - name: install wheel
+#        id: install_wheel
+#        run: python -u .github/workflows/install_wheel.py
       - name: install tox
         run: pip install tox tox-gh-actions
       - name: Test with tox
