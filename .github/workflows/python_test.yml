@@ -49,7 +49,11 @@ jobs:
           components: rustfmt, clippy
       - run: rustup set default-host ${{ matrix.platform.rust-target }}
       - name: install maturin
-        run: pip install maturin
+        run: pip install maturin virtualenv
+      - name: create virtualenv
+        run: |
+          virtualenv venv
+          source venv/bin/activate
       - name: install wheel
         id: install_wheel
         run: python -u .github/workflows/install_wheel.py
