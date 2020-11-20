@@ -120,7 +120,8 @@ async fn obtain_access_token(
 
     let mut header_map = HeaderMap::new();
     header_map.insert(CONTENT_TYPE, "application/json".parse().unwrap());
-    send_http_request(&path, payload, header_map).await
+    let token = send_http_request(&path, payload, header_map).await?;
+    Ok(token.access_token)
 }
 
 async fn authorize(base_url: &str, realm: &str, token: &str) -> Result<String, reqwest::Error> {
@@ -136,14 +137,23 @@ async fn authorize(base_url: &str, realm: &str, token: &str) -> Result<String, r
     header_map.insert(CONTENT_TYPE, "application/json".parse().unwrap());
     let bearer = format!("{} {}", AUTHORIZATION, token);
     header_map.insert(AUTHORIZATION, bearer.parse().unwrap());
-    send_http_request(&path, payload, header_map).await
+    let rpt = send_http_request(&path, payload, header_map).await?;
+    Ok(rpt.access_token)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Token {
+    pub access_token: String,
+    pub token_type: String,
+    pub session_state: String,
+    pub scope: String,
 }
 
 async fn send_http_request(
     path: &str,
     payload: serde_json::Value,
     header_map: HeaderMap,
-) -> Result<String, reqwest::Error> {
+) -> Result<Token, reqwest::Error> {
     let client = reqwest::Client::new();
     let response = client
         .post(path)
@@ -152,6 +162,7 @@ async fn send_http_request(
         .send()
         .await?
         .error_for_status()?;
+    println!("response is {:?}", response);
     response.json().await
 }
 
@@ -166,7 +177,7 @@ mod test {
     }
 
     #[test]
-    fn test() {
+    fn test_json_deserialize() {
         let json_string = r#"{"realm":"nautilus","auth-server-url":"http://keycloak.jarviscb.nautilus-lab-ns.com/auth","ssl-required":"NONE","bearer-only":false,"public-client":false,"resource":"pravega-controller","confidential-port":0,"credentials":{"secret":"fc8b819b-5151-4613-ac02-43cab04976eb"}}"#;
         let v: KeyCloakJson = serde_json::from_str(json_string).unwrap();
         assert_eq!(v.realm, "nautilus");
