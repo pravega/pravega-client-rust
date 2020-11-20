@@ -35,7 +35,7 @@ jobs:
           deps: https://github.com/pravega/pravega/releases/download/v0.8.0/pravega-0.8.0.tgz
       - name: runPravega
         id: runPravega
-        run: /github/home/pravega-0.8.0/bin/pravega-standalone
+        run: pravega-0.8.0/bin/pravega-standalone
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
