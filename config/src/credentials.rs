@@ -14,7 +14,7 @@ use serde_json;
 use std::fs::File;
 use std::io::{BufReader, Read};
 
-pub const URL_TOKEN: &str = "realms/{realm-name}/protocol/openid-connect/token";
+pub const URL_TOKEN: &str = "/realms/{realm-name}/protocol/openid-connect/token";
 pub const BASIC: &str = "Basic";
 pub const BEARER: &str = "Bearer";
 pub const UMA_GRANT_TYPE: &str = "urn:ietf:params:oauth:grant-type:uma-ticket";
