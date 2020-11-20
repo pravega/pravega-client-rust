@@ -1,0 +1,27 @@
+#! /usr/bin/env python3
+
+import os
+import sys
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).parent.parent.parent
+
+# For macOS and Windows and linux, run Maturin against the Python interpreter that's
+# been installed and configured for this CI run, i.e. the one that's running
+# this script.
+# Note the docker image konstin2/maturin:master does not work.
+
+os.chdir("./bindings")
+command = [
+    "maturin",
+    "develop",
+]
+subprocess.run(command, check=True)
+os.chdir("..")
+wheels = [x for x in (ROOT / "target" / "wheels").iterdir()]
+if len(wheels) != 2:
+    raise RuntimeError("expected one wheel, found " + repr(wheels))
+
+print("::set-output name=wheel_path::" + str(wheels[1]))
+print("::set-output name=wheel_name::" + wheels[1].name)

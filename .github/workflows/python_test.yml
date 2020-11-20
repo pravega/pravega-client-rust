@@ -1,0 +1,48 @@
+name: pythontest
+
+jobs:
+  wheel:
+    name: python${{ matrix.python-version }}-${{ matrix.platform.python-architecture }} ${{ matrix.platform.os }}
+    runs-on: ${{ matrix.platform.os }}
+    strategy:
+      matrix:
+        python-version: [3.8] # This list needs to be kept in sync with maturin_build_wheel.py.
+        platform: [
+        { os: "ubuntu-latest",  python-architecture: "x64", rust-target: "x86_64-unknown-linux-gnu" },
+        { os: "macOS-latest",   python-architecture: "x64", rust-target: "x86_64-apple-darwin" },
+        { os: "windows-latest", python-architecture: "x64", rust-target: "x86_64-pc-windows-msvc" },
+        # { os: "windows-latest", python-architecture: "x86", rust-target: "i686-pc-windows-msvc" },
+        ]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v2
+      - name: Download Pravega standalone
+        uses: teddyking/dependency-action@v2.0.0
+        with:
+          deps:https://github.com/pravega/pravega/releases/download/v0.8.0/pravega-0.8.0.tgz
+      - name: runPravega
+        id: runPravega
+        run: |
+          /github/home/pravega-0.8.0/bin/pravega-standalone >/dev/null 2>&1 &
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: ${{ matrix.platform.python-architecture }}
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.platform.rust-target }}
+          override: true
+          components: rustfmt, clippy
+      - run: rustup set default-host ${{ matrix.platform.rust-target }}
+      - name: install maturin
+        run: pip install maturin
+      - name: install wheel
+        id: install_wheel
+        run: python -u .github/workflows/install_wheel.py
+      - name: install tox
+        run: pip install tox tox-gh-actions
+      - name: Test with tox
+        run: tox
