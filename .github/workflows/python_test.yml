@@ -10,7 +10,9 @@ on:
       - master
 
 name: pythontest
-
+defaults:
+  run:
+    working-directory: ./bindings
 jobs:
   wheel:
     name: python${{ matrix.python-version }}-${{ matrix.platform.python-architecture }} ${{ matrix.platform.os }}
