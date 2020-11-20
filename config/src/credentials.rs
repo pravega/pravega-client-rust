@@ -94,8 +94,6 @@ struct KeyCloakJson {
     confidential_port: i32,
     #[serde(rename(deserialize = "public-client"))]
     public_client: bool,
-    #[serde(rename(deserialize = "verify-token-audience"))]
-    verify_token_audience: bool,
     credentials: Credential,
 }
 
@@ -169,7 +167,7 @@ mod test {
 
     #[test]
     fn test() {
-        let json_string = r#"{"realm":"nautilus","auth-server-url":"http://keycloak.jarviscb.nautilus-lab-ns.com/auth","ssl-required":"NONE","bearer-only":false,"public-client":false,"resource":"pravega-controller","confidential-port":0,"verify-token-audience":true,"credentials":{"secret":"fc8b819b-5151-4613-ac02-43cab04976eb"}}"#;
+        let json_string = r#"{"realm":"nautilus","auth-server-url":"http://keycloak.jarviscb.nautilus-lab-ns.com/auth","ssl-required":"NONE","bearer-only":false,"public-client":false,"resource":"pravega-controller","confidential-port":0,"credentials":{"secret":"fc8b819b-5151-4613-ac02-43cab04976eb"}}"#;
         let v: KeyCloakJson = serde_json::from_str(json_string).unwrap();
         assert_eq!(v.realm, "nautilus");
         assert_eq!(
@@ -181,7 +179,6 @@ mod test {
         assert!(!v.public_client);
         assert_eq!(v.resource, "pravega-controller");
         assert_eq!(v.confidential_port, 0);
-        assert!(v.verify_token_audience);
         assert_eq!(v.confidential_port, 0);
         assert_eq!(v.credentials.secret, "fc8b819b-5151-4613-ac02-43cab04976eb");
     }
