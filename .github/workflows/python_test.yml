@@ -42,9 +42,7 @@ jobs:
         run: |
           wget https://github.com/pravega/pravega/releases/download/v0.8.0/pravega-0.8.0.tgz
           tar -xzvf pravega-0.8.0.tgz
-          pravega-0.8.0/bin/pravega-standalone
-      - name: debug
-        run: ls -al
+          pravega-0.8.0/bin/pravega-standalone /dev/null 2>&1 &
 #      - name: runPravega
 #        id: runPravega
 #        run: $HOME/pravega-0.8.0/bin/pravega-standalone
