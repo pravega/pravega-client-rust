@@ -33,9 +33,11 @@ jobs:
         uses: teddyking/dependency-action@v2.0.0
         with:
           deps: https://github.com/pravega/pravega/releases/download/v0.8.0/pravega-0.8.0.tgz
+      - name: debug
+        run: ls -al
       - name: runPravega
         id: runPravega
-        run: pravega-0.8.0/bin/pravega-standalone
+        run: $HOME/pravega-0.8.0/bin/pravega-standalone
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
