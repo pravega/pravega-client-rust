@@ -22,30 +22,15 @@ jobs:
         python-version: [3.8] # This list needs to be kept in sync with maturin_build_wheel.py.
         platform: [
         { os: "ubuntu-latest",  python-architecture: "x64", rust-target: "x86_64-unknown-linux-gnu" },
-        # { os: "macOS-latest",   python-architecture: "x64", rust-target: "x86_64-apple-darwin" },
-        # { os: "windows-latest", python-architecture: "x64", rust-target: "x86_64-pc-windows-msvc" },
-        # { os: "windows-latest", python-architecture: "x86", rust-target: "i686-pc-windows-msvc" },
         ]
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
-#      - name: Download Pravega standalone
-#        uses: teddyking/dependency-action@master
-#        with:
-#          deps: https://github.com/pravega/pravega/releases/download/v0.8.0/pravega-0.8.0.tgz
-#      - name: Copy Pravega standalone
-#        uses: canastro/copy-file-action@master
-#        with:
-#          source: "/github/home/pravega-0.8.0"
-#          target: "pravega-0.8.0"
-      - name: Download Pravega standalone
+      - name: Download and Run Pravega standalone
         run: |
           wget https://github.com/pravega/pravega/releases/download/v0.8.0/pravega-0.8.0.tgz
           tar -xzvf pravega-0.8.0.tgz
           pravega-0.8.0/bin/pravega-standalone /dev/null 2>&1 &
-#      - name: runPravega
-#        id: runPravega
-#        run: $HOME/pravega-0.8.0/bin/pravega-standalone
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
@@ -66,9 +51,6 @@ jobs:
           virtualenv venv
           source venv/bin/activate
           maturin develop
-#      - name: install wheel
-#        id: install_wheel
-#        run: python -u .github/workflows/install_wheel.py
       - name: install tox
         run: pip install tox tox-gh-actions
       - name: Test with tox
