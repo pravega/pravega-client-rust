@@ -64,7 +64,7 @@ impl Credentials {
         let rpt = authorize(
             &key_cloak_json.auth_server_url,
             &key_cloak_json.realm,
-            &key_cloak_json.resource,
+            &access_token,
         )
         .await
         .expect("get rpt");
