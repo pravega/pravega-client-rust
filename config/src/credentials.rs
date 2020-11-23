@@ -161,6 +161,8 @@ async fn send_http_request(
     header_map: HeaderMap,
 ) -> Result<Token, reqwest::Error> {
     let client = reqwest::Client::new();
+    println!("headers is {:?}", header_map);
+    println!("payload is {:?}", payload);
     let response = client
         .post(path)
         .headers(header_map)
