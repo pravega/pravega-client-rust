@@ -118,6 +118,7 @@ async fn obtain_access_token(
 
     let path = base_url.to_owned() + &url.to_owned();
 
+    println!("sending to {}", path);
     let mut header_map = HeaderMap::new();
     header_map.insert(CONTENT_TYPE, "application/json".parse().unwrap());
     let token = send_http_request(&path, payload, header_map).await?;
@@ -139,8 +140,8 @@ async fn authorize(
 
     let path = base_url.to_owned() + &url.to_owned();
 
+    println!("sending to {}", path);
     let mut header_map = HeaderMap::new();
-    header_map.insert(CONTENT_TYPE, "application/json".parse().unwrap());
     let bearer = format!("{} {}", BEARER, token);
     header_map.insert(AUTHORIZATION, bearer.parse().unwrap());
     let rpt = send_http_request(&path, payload, header_map).await?;
