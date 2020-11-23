@@ -141,7 +141,7 @@ async fn authorize(
 
     let mut header_map = HeaderMap::new();
     header_map.insert(CONTENT_TYPE, "application/json".parse().unwrap());
-    let bearer = format!("{} {}", AUTHORIZATION, token);
+    let bearer = format!("{} {}", BEARER, token);
     header_map.insert(AUTHORIZATION, bearer.parse().unwrap());
     let rpt = send_http_request(&path, payload, header_map).await?;
     Ok(rpt.access_token)
