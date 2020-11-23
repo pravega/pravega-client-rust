@@ -65,7 +65,6 @@ impl Credentials {
             &key_cloak_json.auth_server_url,
             &key_cloak_json.realm,
             &key_cloak_json.resource,
-            &access_token,
         )
         .await
         .expect("get rpt");
@@ -125,17 +124,11 @@ async fn obtain_access_token(
     Ok(token.access_token)
 }
 
-async fn authorize(
-    base_url: &str,
-    realm: &str,
-    client_id: &str,
-    token: &str,
-) -> Result<String, reqwest::Error> {
+async fn authorize(base_url: &str, realm: &str, token: &str) -> Result<String, reqwest::Error> {
     let url = URL_TOKEN.replace("{realm-name}", realm);
 
     let payload = serde_json::json!({
         "grant_type": UMA_GRANT_TYPE.to_owned(),
-        "audience": client_id.to_owned(),
     });
 
     let path = base_url.to_owned() + &url.to_owned();
