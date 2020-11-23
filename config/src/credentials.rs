@@ -119,7 +119,7 @@ async fn obtain_access_token(
     let path = base_url.to_owned() + &url.to_owned();
 
     let mut header_map = HeaderMap::new();
-    header_map.insert(CONTENT_TYcarPE, "application/json".parse().unwrap());
+    header_map.insert(CONTENT_TYPE, "application/json".parse().unwrap());
     let token = send_http_request(&path, payload, header_map).await?;
     Ok(token.access_token)
 }
