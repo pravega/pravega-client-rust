@@ -61,10 +61,10 @@ impl Credentials {
         .expect("obtain access token");
 
         // second POST request for rpt
-
         let rpt = authorize(
             &key_cloak_json.auth_server_url,
             &key_cloak_json.realm,
+            &key_cloak_json.resource,
             &access_token,
         )
         .await
@@ -119,16 +119,22 @@ async fn obtain_access_token(
     let path = base_url.to_owned() + &url.to_owned();
 
     let mut header_map = HeaderMap::new();
-    header_map.insert(CONTENT_TYPE, "application/json".parse().unwrap());
+    header_map.insert(CONTENT_TYcarPE, "application/json".parse().unwrap());
     let token = send_http_request(&path, payload, header_map).await?;
     Ok(token.access_token)
 }
 
-async fn authorize(base_url: &str, realm: &str, token: &str) -> Result<String, reqwest::Error> {
+async fn authorize(
+    base_url: &str,
+    realm: &str,
+    client_id: &str,
+    token: &str,
+) -> Result<String, reqwest::Error> {
     let url = URL_TOKEN.replace("{realm-name}", realm);
 
     let payload = serde_json::json!({
         "grant_type": UMA_GRANT_TYPE.to_owned(),
+        "audience": client_id.to_owned(),
     });
 
     let path = base_url.to_owned() + &url.to_owned();
