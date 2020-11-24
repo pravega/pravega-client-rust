@@ -145,9 +145,6 @@ async fn authorize(base_url: &str, realm: &str, token: &str) -> Result<String, r
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Token {
     pub access_token: String,
-    pub token_type: String,
-    pub session_state: String,
-    pub scope: String,
 }
 
 async fn send_http_request(
