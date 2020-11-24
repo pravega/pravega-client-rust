@@ -139,6 +139,7 @@ async fn authorize(base_url: &str, realm: &str, token: &str) -> Result<String, r
     let bearer = format!("{} {}", BEARER, token);
     header_map.insert(AUTHORIZATION, bearer.parse().unwrap());
     let rpt = send_http_request(&path, payload, header_map).await?;
+    println!("get rpt token {}", rpt.access_token);
     Ok(rpt.access_token)
 }
 
