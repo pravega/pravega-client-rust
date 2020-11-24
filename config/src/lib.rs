@@ -128,19 +128,4 @@ mod tests {
         assert_eq!(config.connection_type(), ConnectionType::Tokio);
         assert_eq!(config.retry_policy(), RetryWithBackoff::default());
     }
-
-    // #[test]
-    // fn test_extract_credentials() {
-    //     // retrieve from env
-    //     env::set_var("pravega_client_auth_method", "Basic");
-    //     env::set_var("pravega_client_auth_token", "123456");
-    //
-    //     let config = ClientConfigBuilder::default()
-    //         .controller_uri("127.0.0.2:9091".to_string())
-    //         .build()
-    //         .unwrap();
-    //
-    //     assert_eq!(config.credentials.get_authentication_type(), "Basic".to_owned());
-    //     assert_eq!(config.credentials.get_authentication_token(), "123456".to_owned());
-    // }
 }

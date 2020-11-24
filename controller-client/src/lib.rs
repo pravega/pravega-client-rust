@@ -493,7 +493,6 @@ impl ControllerClientImpl {
         let ch = h.block_on(get_channel(&config));
         let client = if config.is_auth_enabled {
             let token = config.credentials.get_request_metadata();
-            println!("token is: {}", token);
             let token = MetadataValue::from_str(&token).expect("convert to metadata value");
             ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
                 req.metadata_mut().insert(AUTHORIZATION, token.clone());
