@@ -18,7 +18,9 @@ pub const URL_TOKEN: &str = "/realms/{realm-name}/protocol/openid-connect/token"
 pub const BASIC: &str = "Basic";
 pub const BEARER: &str = "Bearer";
 pub const UMA_GRANT_TYPE: &str = "urn:ietf:params:oauth:grant-type:uma-ticket";
+pub const CLIENT_CREDENTIAL_GRANT_TYPE: &str = "client_credentials";
 pub const AUTHORIZATION: &str = "authorization";
+pub const AUDIENCE: &str = "pravega-controller";
 
 #[derive(Debug, Clone)]
 pub struct Credentials {
@@ -112,12 +114,11 @@ async fn obtain_access_token(
     let payload = serde_json::json!({
         "client_id": client_id.to_owned(),
         "client_secret": client_secret.to_owned(),
-        "grant_type": "client_credentials".to_owned(),
+        "grant_type": CLIENT_CREDENTIAL_GRANT_TYPE.to_owned(),
     });
 
     let path = base_url.to_owned() + &url.to_owned();
 
-    println!("sending to {}", path);
     let mut header_map = HeaderMap::new();
     header_map.insert(CONTENT_TYPE, "application/json".parse().unwrap());
     let token = send_http_request(&path, payload, header_map).await?;
@@ -129,17 +130,15 @@ async fn authorize(base_url: &str, realm: &str, token: &str) -> Result<String, r
 
     let payload = serde_json::json!({
         "grant_type": UMA_GRANT_TYPE.to_owned(),
-        "audience": "pravega-controller".to_owned(),
+        "audience": AUDIENCE.to_owned(),
     });
 
     let path = base_url.to_owned() + &url.to_owned();
 
-    println!("sending to {}", path);
     let mut header_map = HeaderMap::new();
     let bearer = format!("{} {}", BEARER, token);
     header_map.insert(AUTHORIZATION, bearer.parse().unwrap());
     let rpt = send_http_request(&path, payload, header_map).await?;
-    println!("get rpt token {}", rpt.access_token);
     Ok(rpt.access_token)
 }
 
@@ -154,8 +153,6 @@ async fn send_http_request(
     header_map: HeaderMap,
 ) -> Result<Token, reqwest::Error> {
     let client = reqwest::Client::new();
-    println!("headers is {:?}", header_map);
-    println!("payload is {:?}", payload);
     let response = client
         .post(path)
         .headers(header_map)
@@ -163,7 +160,6 @@ async fn send_http_request(
         .send()
         .await?
         .error_for_status()?;
-    println!("response is {:?}", response);
     response.json().await
 }
 
