@@ -495,7 +495,7 @@ impl ControllerClientImpl {
             let token = config.credentials.get_request_metadata();
             let token = MetadataValue::from_str(&token).expect("convert to metadata value");
             ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
-                req.metadata_mut().insert(AUTHORIZATION, token.clone());
+                req.metadata_mut().insert("Authorization", token.clone());
                 Ok(req)
             })
         } else {
