@@ -129,6 +129,7 @@ async fn authorize(base_url: &str, realm: &str, token: &str) -> Result<String, r
 
     let payload = serde_json::json!({
         "grant_type": UMA_GRANT_TYPE.to_owned(),
+        "audience": "pravega-controller".to_owned(),
     });
 
     let path = base_url.to_owned() + &url.to_owned();
