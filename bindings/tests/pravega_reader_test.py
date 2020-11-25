@@ -9,7 +9,7 @@
 #
 
 import unittest
-import pravega_client;
+import pravega_client
 import asyncio
 import random
 
@@ -55,50 +55,50 @@ class PravegaReaderTest(unittest.TestCase):
     # This test verifies data reading a Pravega stream with multiple readers.
     # It also invokes release Segment after consuming the first segment slice and marks the first
     # reader as offline. This test verifies if we are able to read all the 100 elements.
-    # def test_multipleReader(self):
-    #     suffix = str(random.randint(0, 100))
-    #     scope = "testRead";
-    #     stream = "testMulti" + suffix
-    #     print("Creating a Stream Manager, ensure Pravega is running")
-    #     stream_manager = pravega_client.StreamManager("127.0.0.1:9090")
-    #
-    #     print("Creating a scope")
-    #     scope_result = stream_manager.create_scope(scope)
-    #     print(scope_result)
-    #     print("Creating a stream ", stream)
-    #     stream_result = stream_manager.create_stream(scope, stream, 2)
-    #     print(stream_result)
-    #
-    #     print("Creating a writer for Stream")
-    #     w1 = stream_manager.create_writer(scope, stream)
-    #
-    #     print("Write events 100 events")
-    #     for i in range(100):
-    #         w1.write_event("data")
-    #
-    #     reader_group = stream_manager.create_reader_group("rg-multi" + suffix, scope, stream);
-    #     r1 = reader_group.create_reader("r1")
-    #     slice1 = _run(self.get_segment_slice(r1))
-    #     print(slice1)
-    #     # consume the segment slice for events.
-    #     count=0
-    #     for event in slice1:
-    #         count+=1
-    #         self.assertEqual(b'data', event.data(), "Invalid event data")
-    #     print("Number of events read after consuming slice1 ", count)
-    #     #release the segment.
-    #     r1.release_segment(slice1)
-    #     #mark the reader as offline.
-    #     r1.reader_offline()
-    #
-    #     r2 = reader_group.create_reader("r2")
-    #     slice2 = _run(self.get_segment_slice(r2))
-    #     for event in slice2:
-    #         count+=1
-    #         self.assertEqual(b'data', event.data(), "Invalid event data")
-    #
-    #     print("Number of events read after consuming slice2 ", count)
-    #     self.assertEqual(count, 100, "100 events are expected")
+    def test_multipleReader(self):
+        suffix = str(random.randint(0, 100))
+        scope = "testRead"
+        stream = "testMulti" + suffix
+        print("Creating a Stream Manager, ensure Pravega is running")
+        stream_manager = pravega_client.StreamManager("127.0.0.1:9090")
+
+        print("Creating a scope")
+        scope_result = stream_manager.create_scope(scope)
+        print(scope_result)
+        print("Creating a stream ", stream)
+        stream_result = stream_manager.create_stream(scope, stream, 2)
+        print(stream_result)
+
+        print("Creating a writer for Stream")
+        w1 = stream_manager.create_writer(scope, stream)
+
+        print("Write events 100 events")
+        for i in range(100):
+            w1.write_event("data")
+
+        reader_group = stream_manager.create_reader_group("rg-multi" + suffix, scope, stream);
+        r1 = reader_group.create_reader("r1")
+        slice1 = _run(self.get_segment_slice(r1))
+        print(slice1)
+        # consume the segment slice for events.
+        count=0
+        for event in slice1:
+            count+=1
+            self.assertEqual(b'data', event.data(), "Invalid event data")
+        print("Number of events read after consuming slice1 ", count)
+        #release the segment.
+        r1.release_segment(slice1)
+        #mark the reader as offline.
+        r1.reader_offline()
+
+        r2 = reader_group.create_reader("r2")
+        slice2 = _run(self.get_segment_slice(r2))
+        for event in slice2:
+            count+=1
+            self.assertEqual(b'data', event.data(), "Invalid event data")
+
+        print("Number of events read after consuming slice2 ", count)
+        self.assertEqual(count, 100, "100 events are expected")
 
     # This test verifies data reading a Pravega stream with multiple readers.
     # It also invokes release Segment after consuming part of the first segment slice and marks the first
