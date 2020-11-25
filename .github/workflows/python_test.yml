@@ -44,14 +44,7 @@ jobs:
           override: true
           components: rustfmt, clippy
       - run: rustup set default-host ${{ matrix.platform.rust-target }}
-      - name: Install maturin
-        run: pip install maturin virtualenv
-      - name: Create virtualenv, build and install python bindings.
-        run: |
-          virtualenv venv
-          source venv/bin/activate
-          maturin develop
-      - name: install tox
-        run: pip install tox
+      - name: Install maturin and tox
+        run: pip install maturin virtualenv tox
       - name: Test with tox
         run: tox -e py
