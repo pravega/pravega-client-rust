@@ -493,7 +493,7 @@ async fn send_happy(
             });
             sender.send(reply).expect("send reply");
         }
-        Requests::ConditionalAppend(cmd) => {
+        Requests::ConditionalBlockEnd(cmd) => {
             let segment = writers.get(&cmd.writer_id).expect("writer hasn't been set up");
             let segment_info = segments.get_mut(segment).expect("segment is not created");
             if segment_info.is_sealed {
