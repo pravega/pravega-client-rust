@@ -819,7 +819,7 @@ fn test_conditional_block_end() {
     let writer_id_number: u128 = 123;
     let data = vec![1; 1024];
     let conditional_append_raw_bytes_command =
-        WireCommands::Requests(Requests::ConditionalBloclEnd(ConditionalBlockEndCommand {
+        WireCommands::Requests(Requests::ConditionalBlockEnd(ConditionalBlockEndCommand {
             writer_id: writer_id_number,
             event_number: 1,
             expected_offset: 0,
@@ -828,7 +828,7 @@ fn test_conditional_block_end() {
         }));
 
     let decoded = test_command(conditional_append_raw_bytes_command);
-    if let WireCommands::Requests(Requests::ConditionalBloclEnd(command)) = decoded {
+    if let WireCommands::Requests(Requests::ConditionalBlockEnd(command)) = decoded {
         let data = vec![1; 1024];
         assert_eq!(command.data, data);
     } else {
