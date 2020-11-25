@@ -52,6 +52,6 @@ jobs:
           source venv/bin/activate
           maturin develop
       - name: install tox
-        run: pip install tox tox-gh-actions
+        run: pip install tox
       - name: Test with tox
-        run: tox
+        run: tox -e py
