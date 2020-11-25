@@ -16,7 +16,7 @@ use std::collections::{BTreeMap, HashMap};
 impl From<NodeUri> for PravegaNodeUri {
     fn from(value: NodeUri) -> PravegaNodeUri {
         let mut uri: String = value.endpoint;
-        uri.push_str(":");
+        uri.push(':');
         uri.push_str(&value.port.to_string());
         PravegaNodeUri::from(uri)
     }
