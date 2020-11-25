@@ -8,7 +8,6 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 
-import unittest
 import pravega_client
 import random
 import asyncio
@@ -47,7 +46,7 @@ class PravegaReaderTest(aiounittest.AsyncTestCase):
         w1.write_event("test event")
         reader_group = stream_manager.create_reader_group("rg" + suffix, scope, stream);
         r1 = reader_group.create_reader("reader-1")
-        segment_slice = await self.get_segment_slice(r1)
+        segment_slice = await r1.get_segment_slice_async()
         print(segment_slice)
         # consume the segment slice for events.
         count=0
@@ -83,7 +82,7 @@ class PravegaReaderTest(aiounittest.AsyncTestCase):
 
         reader_group = stream_manager.create_reader_group("rg-multi" + suffix, scope, stream);
         r1 = reader_group.create_reader("r1")
-        slice1 = await self.get_segment_slice(r1)
+        slice1 = await r1.get_segment_slice_async()
         print(slice1)
         # consume the segment slice for events.
         count=0
@@ -97,7 +96,7 @@ class PravegaReaderTest(aiounittest.AsyncTestCase):
         r1.reader_offline()
 
         r2 = reader_group.create_reader("r2")
-        slice2 = await self.get_segment_slice(r2)
+        slice2 = await r2.get_segment_slice_async()
         for event in slice2:
             count+=1
             self.assertEqual(b'data', event.data(), "Invalid event data")
@@ -129,9 +128,9 @@ class PravegaReaderTest(aiounittest.AsyncTestCase):
         for i in range(100):
             w1.write_event("data")
 
-        reader_group = stream_manager.create_reader_group("rg-partial" + suffix, scope, stream);
+        reader_group = stream_manager.create_reader_group("rg-partial" + suffix, scope, stream)
         r1 = reader_group.create_reader("r1")
-        slice1 = await self.get_segment_slice(r1)
+        slice1 = await r1.get_segment_slice_async()
         print(slice1)
         # consume the just 1 event from the first segment slice.
         count=0
@@ -146,21 +145,16 @@ class PravegaReaderTest(aiounittest.AsyncTestCase):
         r1.reader_offline()
 
         r2 = reader_group.create_reader("r2")
-        slice2 = await self.get_segment_slice(r2)
+        slice2 = await r2.get_segment_slice_async()
         for event in slice2:
             count+=1
             self.assertEqual(b'data', event.data(), "Invalid event data")
         print("Number of events read after consuming slice2 ", count)
         if count != 100:
-            slice3 = await self.get_segment_slice(r2)
+            slice3 = await r2.get_segment_slice_async()
             for event in slice3:
                 count+=1
                 self.assertEqual(b'data', event.data(), "Invalid event data")
             print("Number of events read after consuming slice3 ", count)
 
         self.assertEqual(count, 100, "100 events are expected")
-
-    # wrapper function to ensure we pass a co-routine to run method, since we cannot directly invoke
-    # await reader.get_segment_slice_async() inside the test.
-    async def get_segment_slice(self, reader):
-        return await reader.get_segment_slice_async()
