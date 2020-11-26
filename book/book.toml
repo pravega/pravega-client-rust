@@ -1,0 +1,6 @@
+[book]
+authors = ["Sandeep"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Pravega Native Client"
