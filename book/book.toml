@@ -1,5 +1,5 @@
 [book]
-authors = ["Sandeep"]
+authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.com>", "Sandeep Shridhar <sandeep.shridhar@dell.com>"]
 language = "en"
 multilingual = false
 src = "src"
