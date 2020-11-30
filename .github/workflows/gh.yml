@@ -23,10 +23,10 @@ jobs:
 
       # Build the cargo doc and copy it to ./book/book/doc
       - name: Build the doc
-          run: |
-            cargo doc --no-deps
-            cp -r target/doc book/book/doc
-            echo "<meta http-equiv=refresh content=0;url=pravega_client_rust/index.html>" > book/book/doc/index.html
+        run: |
+          cargo doc --no-deps
+          cp -r target/doc book/book/doc
+          echo "<meta http-equiv=refresh content=0;url=pravega_client_rust/index.html>" > book/book/doc/index.html
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
