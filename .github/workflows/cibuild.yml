@@ -65,7 +65,7 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 11
-          cd $R
+          
       - name: Checkout sources
         uses: actions/checkout@v2
         
