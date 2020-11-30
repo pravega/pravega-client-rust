@@ -5,9 +5,9 @@ It contains examples and documentation to explain all of Pravega RUST client's u
 
 Please choose from the chapters on the left to jump to individual topics, or continue below to start with Pravega RUST Clients's README.
 
-* User Guide: [stable](https://pravega.github.io/pravega-client-rust/) | [master](./doc/index.html)
+* User Guide: [stable](https://pravega.github.io/pravega-client-rust/) | [master](./index.html)
 
-* API Documentation: [stable](https://docs.rs/pravega_native_client/) |  [master](https://pravega.github.io/pravega-client-rust/master/doc)
+* API Documentation: [stable](https://docs.rs/pravega_native_client/) |  [master](./doc/index.html)
 
 {{#include ../../README.md}}
 
