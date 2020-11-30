@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["SegmentMetadataClientError",""]],"struct":[["SegmentMetadataClient","A client for looking at and editing the metadata related to a specific segment."]]});

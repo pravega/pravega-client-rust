@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["EventStreamWriter","EventStreamWriter contains a writer id and a mpsc sender which is used to send Event to the StreamWriter"]]});

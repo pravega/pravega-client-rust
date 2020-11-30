@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["ByteStreamReader","Allows for reading raw bytes from a segment."],["ByteStreamWriter","Allows for writing raw bytes directly to a segment."]]});
