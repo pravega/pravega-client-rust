@@ -230,8 +230,8 @@ written as part of a transaction can be committed atomically by calling commit()
 events going into the stream or none of them and the commit call failing with an exception.</p>
 <p>Prior to committing a transaction, the events written to it cannot be read or otherwise seen by readers.</p>
 <pre><code class="language-python">import pravega_client                                         
-manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)        
-w1=stream_manager.create_transaction_writer(scope,&quot;testTxn&quot;, 1)
+manager = pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)        
+w1 = stream_manager.create_transaction_writer(scope,&quot;testTxn&quot;, 1)
 # Begin a Transaction
 txn1 = w1.begin_txn()
 txn1.write_event(&quot;test event1&quot;)
