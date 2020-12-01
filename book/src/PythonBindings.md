@@ -50,7 +50,7 @@ reader_group=manager.create_reader_group("rg1", "scope", "stream")
 
 A StreamWriter object created using the StreamManager can be used to write events into the Pravega Stream. The events 
 that are written will appear in the Stream exactly once. The event of type String is converted into bytes with `UTF-8` encoding.
-The user can optionally specify the routing key. The StreamWriter can also write a byte arry into the Pravega Stream 
+The user can optionally specify the routing key. The StreamWriter can also write a byte array into the Pravega Stream 
 with/without a routing key.
 
 Note that the implementation provides retry logic to handle connection failures and service host failures. Internal 
