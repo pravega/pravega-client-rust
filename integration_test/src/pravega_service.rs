@@ -90,14 +90,14 @@ impl PravegaService for PravegaStandaloneService {
         PravegaStandaloneService::enable_debug_log(config.debug);
         PravegaStandaloneService::enable_auth(config.auth);
         PravegaStandaloneService::enable_tls(config.tls);
-        // let _ = create_dir("./log");
-        // let output = File::create("./log/output.log").expect("creating file for standalone log");
+        let _ = create_dir("./log");
+        let output = File::create("./log/output.log").expect("creating file for standalone log");
         info!(
             "start running pravega under path {} with config {:?}",
             PATH, config
         );
         let pravega = Command::new(PATH)
-            .stdout(Stdio::inherit())
+            .stdout(Stdio::from(output))
             .spawn()
             .expect("failed to start pravega standalone");
         info!("child pid: {}", pravega.id());
@@ -159,6 +159,14 @@ impl PravegaService for PravegaStandaloneService {
             map.insert(
                 "singlenode.security.auth.pwdAuthHandler.accountsDb.location".to_string(),
                 "./pravega/conf/passwd".to_string(),
+            );
+            map.insert(
+                "singlenode.security.auth.credentials.username".to_string(),
+                "admin".to_string(),
+            );
+            map.insert(
+                "singlenode.security.auth.credentials.password".to_string(),
+                "1111_aaaa".to_string(),
             );
         } else {
             map.insert("singlenode.security.auth.enable".to_string(), "false".to_string());

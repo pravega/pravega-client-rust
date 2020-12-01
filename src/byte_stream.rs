@@ -57,10 +57,10 @@ impl Write for ByteStreamWriter {
     /// by the server.
     fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
         let bytes_to_write = std::cmp::min(buf.len(), EventStreamWriter::MAX_EVENT_SIZE);
-        let oneshot_receiver = self.runtime_handle.block_on(async {
-            let payload = buf[0..bytes_to_write].to_vec();
-            self.write_internal(self.sender.clone(), payload).await
-        });
+        let payload = buf[0..bytes_to_write].to_vec();
+        let oneshot_receiver = self
+            .runtime_handle
+            .block_on(self.write_internal(self.sender.clone(), payload));
 
         debug!(
             "writing payload of size {} based on offset {}",
