@@ -90,14 +90,14 @@ impl PravegaService for PravegaStandaloneService {
         PravegaStandaloneService::enable_debug_log(config.debug);
         PravegaStandaloneService::enable_auth(config.auth);
         PravegaStandaloneService::enable_tls(config.tls);
-        let _ = create_dir("./log");
-        let output = File::create("./log/output.log").expect("creating file for standalone log");
+        // let _ = create_dir("./log");
+        // let output = File::create("./log/output.log").expect("creating file for standalone log");
         info!(
             "start running pravega under path {} with config {:?}",
             PATH, config
         );
         let pravega = Command::new(PATH)
-            .stdout(Stdio::from(output))
+            .stdout()
             .spawn()
             .expect("failed to start pravega standalone");
         info!("child pid: {}", pravega.id());
