@@ -104,9 +104,9 @@ class PravegaReaderTest(aiounittest.AsyncTestCase):
         print("Number of events read after consuming slice2 ", count)
         self.assertEqual(count, 100, "100 events are expected")
 
-    # # This test verifies data reading a Pravega stream with multiple readers.
-    # # It also invokes release Segment after consuming part of the first segment slice and marks the first
-    # # reader as offline. This test verifies if we are able to read all the 100 elements.
+    # This test verifies data reading a Pravega stream with multiple readers.
+    # It also invokes release Segment after consuming part of the first segment slice and marks the first
+    # reader as offline. This test verifies if we are able to read all the 100 elements.
     async def test_multipleReaderPartialRead(self):
         suffix = str(random.randint(0, 100))
         scope = "testRead"
