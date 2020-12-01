@@ -175,6 +175,7 @@ fn test_seal(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, rt: &
 }
 
 fn test_multiple_writers_conditional_append(factory: &ClientFactory, segment: ScopedSegment) {
+    info!("test byte stream multiple writers concurrent append");
     let mut writer1 = factory.create_byte_stream_writer(segment.clone());
     let payload = vec![1; 1024];
     let _num = writer1.write(&payload).expect("writer1 write payload");
@@ -199,4 +200,5 @@ fn test_multiple_writers_conditional_append(factory: &ClientFactory, segment: Sc
     writer1.flush().expect("writer1 flush");
     writer1.seek_to_tail();
     assert_eq!(writer1.current_write_offset(), 3072);
+    info!("test byte stream multiple writers concurrent append passed");
 }
