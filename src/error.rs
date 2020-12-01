@@ -80,6 +80,9 @@ pub enum SegmentWriterError {
 
     #[snafu(display("Reactor is closed due to: {:?}", msg))]
     ReactorClosed { msg: String },
+
+    #[snafu(display("Conditional append has failed"))]
+    ConditionalCheckFailed {},
 }
 
 #[derive(Debug, Snafu)]

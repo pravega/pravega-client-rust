@@ -19,7 +19,9 @@ use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_retry::retry_result::RetryResult;
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::*;
-use pravega_wire_protocol::commands::{AppendBlockEndCommand, SetupAppendCommand};
+use pravega_wire_protocol::commands::{
+    AppendBlockEndCommand, ConditionalBlockEndCommand, SetupAppendCommand,
+};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
 use crate::client_factory::ClientFactory;
@@ -91,14 +93,6 @@ impl SegmentWriter {
             delegation_token_provider,
             connection_listener_handle: None,
         }
-    }
-
-    pub(crate) fn pending_append_num(&self) -> usize {
-        self.pending.len()
-    }
-
-    pub(crate) fn inflight_append_num(&self) -> usize {
-        self.inflight.len()
     }
 
     /// Sends a SetupAppend wirecommand to segmentstore. Upon completing setup, it
@@ -173,7 +167,6 @@ impl SegmentWriter {
                 },
                 Err(e) => return Err(SegmentWriterError::RetryRawClient { err: e }),
             };
-
             let (r, w) = connection.split();
             self.connection = Some(w);
 
@@ -265,6 +258,9 @@ impl SegmentWriter {
         let mut total_size = 0;
         let mut to_send = vec![];
         let mut event_count = 0;
+        // conditional append
+        let conditional = self.pending.front().unwrap().event.conditional_offset.is_some();
+        let mut offset: i64 = -1;
 
         while let Some(append) = self.pending.pop_front() {
             assert!(
@@ -275,10 +271,25 @@ impl SegmentWriter {
             );
             if append.event.data.len() + to_send.len() <= SegmentWriter::MAX_WRITE_SIZE as usize
                 && event_count < SegmentWriter::MAX_EVENTS as usize
+                && conditional == append.event.conditional_offset.is_some()
             {
+                if conditional {
+                    let event_offset = append.event.conditional_offset.as_ref().unwrap().to_owned();
+                    if offset == -1 {
+                        // first conditional append
+                        offset = event_offset + append.event.data.len() as i64;
+                    } else if offset != event_offset {
+                        // next conditional append does not depend on the previous one to succeed,
+                        // do not send them in one event.
+                        self.pending.push_front(append);
+                        break;
+                    } else {
+                        offset += append.event.data.len() as i64;
+                    }
+                }
                 event_count += 1;
                 total_size += append.event.data.len();
-                to_send.extend(append.event.data.clone());
+                to_send.extend(&append.event.data);
                 self.inflight.push_back(append);
             } else {
                 self.pending.push_front(append);
@@ -287,21 +298,33 @@ impl SegmentWriter {
         }
 
         debug!(
-            "flushing {} events of total size {} to segment {:?}; event segment writer id {:?}/connection id: {:?}",
+            "flushing {} events of total size {} to segment {:?} based on offset {:?}; event segment writer id {:?}/connection id: {:?}",
             event_count,
             to_send.len(),
             self.segment.to_string(),
+            self.inflight.front().as_ref().unwrap().event.conditional_offset,
             self.id,
             self.connection.as_ref().expect("must have connection").get_id(),
         );
-        let request = Requests::AppendBlockEnd(AppendBlockEndCommand {
-            writer_id: self.id.0,
-            size_of_whole_events: total_size as i32,
-            data: to_send,
-            num_event: self.inflight.len() as i32,
-            last_event_number: self.inflight.back().expect("last event").event_id,
-            request_id: get_request_id(),
-        });
+
+        let request = if let Some(offset) = self.inflight.front().unwrap().event.conditional_offset {
+            Requests::ConditionalBlockEnd(ConditionalBlockEndCommand {
+                writer_id: self.id.0,
+                event_number: self.inflight.back().expect("last event").event_id,
+                expected_offset: offset,
+                data: to_send,
+                request_id: get_request_id(),
+            })
+        } else {
+            Requests::AppendBlockEnd(AppendBlockEndCommand {
+                writer_id: self.id.0,
+                size_of_whole_events: total_size as i32,
+                data: to_send,
+                num_event: self.inflight.len() as i32,
+                last_event_number: self.inflight.back().expect("last event").event_id,
+                request_id: get_request_id(),
+            })
+        };
 
         let writer = self.connection.as_mut().expect("must have connection");
         writer.write(&request).await.context(SegmentWriting {})?;
@@ -418,8 +441,33 @@ impl SegmentWriter {
         }
     }
 
+    /// Force delegation token provider to refresh.
     pub(crate) fn signal_delegation_token_expiry(&self) {
         self.delegation_token_provider.signal_token_expiry()
+    }
+
+    /// Fails event that has id bigger than or equal to the given event id.
+    pub(crate) fn fail_events_upon_conditional_check_failure(&mut self, event_id: i64) {
+        // remove failed append from inflight list
+        while let Some(append) = self.inflight.pop_back() {
+            if append.event_id >= event_id {
+                let _res = append
+                    .event
+                    .oneshot_sender
+                    .send(Result::Err(SegmentWriterError::ConditionalCheckFailed {}));
+            } else {
+                self.inflight.push_back(append);
+                break;
+            }
+        }
+
+        // clear pending list
+        while let Some(append) = self.pending.pop_back() {
+            let _res = append
+                .event
+                .oneshot_sender
+                .send(Result::Err(SegmentWriterError::ConditionalCheckFailed {}));
+        }
     }
 }
 
@@ -454,13 +502,6 @@ pub(crate) struct Append {
     pub(crate) cap_guard: CapacityGuard,
 }
 
-#[derive(Debug)]
-struct WriteHalfConnectionWrapper {
-    write_half: ClientConnectionWriteHalf,
-    // whether to close the reactor after merging the write half and read half
-    close_reactor: bool,
-}
-
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
@@ -482,7 +523,7 @@ pub(crate) mod test {
         assert!(result.is_ok());
 
         // write data using mock connection
-        let (event, guard, event_handle1) = rt.block_on(create_event(512, &mut sender, &mut receiver));
+        let (event, guard, event_handle1) = rt.block_on(create_event(512, &mut sender, &mut receiver, None));
         let (reply, cap_guard) = rt
             .block_on(async {
                 segment_writer.write(event, guard).await.expect("write data");
@@ -495,7 +536,7 @@ pub(crate) mod test {
         assert_eq!(segment_writer.inflight.len(), 1);
         assert!(segment_writer.pending.is_empty());
 
-        let (event, guard, event_handle2) = rt.block_on(create_event(512, &mut sender, &mut receiver));
+        let (event, guard, event_handle2) = rt.block_on(create_event(512, &mut sender, &mut receiver, None));
         rt.block_on(segment_writer.write(event, guard))
             .expect("write data");
 
@@ -532,7 +573,7 @@ pub(crate) mod test {
         assert!(result.is_ok());
 
         // write data using mock connection to a sealed segment
-        let (event, guard, _event_handle) = rt.block_on(create_event(512, &mut sender, &mut receiver));
+        let (event, guard, _event_handle) = rt.block_on(create_event(512, &mut sender, &mut receiver, None));
         let (reply, cap_guard) = rt
             .block_on(async {
                 segment_writer.write(event, guard).await.expect("write data");
@@ -551,6 +592,108 @@ pub(crate) mod test {
             false
         };
         assert!(result);
+    }
+
+    #[test]
+    fn test_segment_writer_mixed_writes() {
+        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let (mut segment_writer, mut sender, mut receiver, factory) = create_segment_writer(MockType::Happy);
+        // test set up connection
+        let result = rt.block_on(segment_writer.setup_connection(&factory));
+        assert!(result.is_ok());
+
+        // conditional and unconditional events should not be mixed
+        let (event0, guard0, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(0)));
+        let (event1, guard1, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, None));
+
+        segment_writer.add_pending(event0, guard0);
+        segment_writer.add_pending(event1, guard1);
+
+        rt.block_on(segment_writer.write_pending_events()).expect("write");
+        assert_eq!(segment_writer.pending.len(), 1);
+        assert_eq!(segment_writer.inflight.len(), 1);
+
+        segment_writer.inflight.clear();
+        segment_writer.pending.clear();
+
+        // conditional events with aligned offsets
+        let (event0, guard0, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(0)));
+        let (event1, guard1, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(128)));
+
+        segment_writer.add_pending(event0, guard0);
+        segment_writer.add_pending(event1, guard1);
+
+        rt.block_on(segment_writer.write_pending_events()).expect("write");
+        assert_eq!(segment_writer.pending.len(), 0);
+        assert_eq!(segment_writer.inflight.len(), 2);
+
+        segment_writer.inflight.clear();
+        segment_writer.pending.clear();
+
+        // conditional events with unaligned offsets
+        let (event0, guard0, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(0)));
+        let (event1, guard1, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(256)));
+
+        segment_writer.add_pending(event0, guard0);
+        segment_writer.add_pending(event1, guard1);
+
+        rt.block_on(segment_writer.write_pending_events()).expect("write");
+        assert_eq!(segment_writer.pending.len(), 1);
+        assert_eq!(segment_writer.inflight.len(), 1);
+    }
+
+    #[test]
+    fn test_segment_writer_conditional_append_failure() {
+        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let (mut segment_writer, mut sender, mut receiver, factory) = create_segment_writer(MockType::Happy);
+        // test set up connection
+        let result = rt.block_on(segment_writer.setup_connection(&factory));
+        assert!(result.is_ok());
+
+        // wrong offset
+        let (event0, guard0, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(1)));
+        let (event1, guard1, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(129)));
+        let (event2, guard2, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(257)));
+
+        segment_writer.add_pending(event0, guard0);
+        segment_writer.add_pending(event1, guard1);
+        segment_writer.add_pending(event2, guard2);
+
+        rt.block_on(segment_writer.write_pending_events()).expect("write");
+        assert_eq!(segment_writer.pending.len(), 0);
+        assert_eq!(segment_writer.inflight.len(), 3);
+
+        segment_writer.fail_events_upon_conditional_check_failure(1);
+        assert_eq!(segment_writer.pending.len(), 0);
+        assert_eq!(segment_writer.inflight.len(), 0);
+
+        let (event0, guard0, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(1)));
+        let (event1, guard1, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(129)));
+        let (event2, guard2, _event_handle) =
+            rt.block_on(create_event(128, &mut sender, &mut receiver, Some(257)));
+
+        segment_writer.add_pending(event0, guard0);
+        segment_writer.add_pending(event1, guard1);
+        rt.block_on(segment_writer.write_pending_events()).expect("write");
+        segment_writer.add_pending(event2, guard2);
+
+        assert_eq!(segment_writer.pending.len(), 1);
+        assert_eq!(segment_writer.inflight.len(), 2);
+
+        segment_writer.fail_events_upon_conditional_check_failure(1);
+        assert_eq!(segment_writer.pending.len(), 0);
+        assert_eq!(segment_writer.inflight.len(), 0);
     }
 
     // helper function section
@@ -589,16 +732,17 @@ pub(crate) mod test {
         size: usize,
         sender: &mut ChannelSender<Incoming>,
         receiver: &mut ChannelReceiver<Incoming>,
+        offset: Option<i64>,
     ) -> (PendingEvent, CapacityGuard, EventHandle) {
         let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
-        let event = PendingEvent::new(Some("routing_key".into()), vec![1; size], oneshot_sender)
+        let event = PendingEvent::new(Some("routing_key".into()), vec![1; size], offset, oneshot_sender)
             .expect("create pending event");
-        sender.send((Incoming::AppendEvent(event), 512)).await.unwrap();
-        let (event, guard) = receiver.recv().await.unwrap();
-        if let Incoming::AppendEvent(e) = event {
-            (e, guard, oneshot_receiver)
-        } else {
-            panic!("wrong type");
+        sender.send((Incoming::AppendEvent(event), size)).await.unwrap();
+        loop {
+            let (event, guard) = receiver.recv().await.unwrap();
+            if let Incoming::AppendEvent(e) = event {
+                return (e, guard, oneshot_receiver);
+            }
         }
     }
 

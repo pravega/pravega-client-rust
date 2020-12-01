@@ -545,7 +545,7 @@ async fn test_conditional_append_and_read_segment(factory: &ClientFactory) {
         writer_id: 1,
         event_number: 1,
         expected_offset: 0,
-        event: test_event.clone(),
+        data: test_event.write_fields().unwrap(),
     });
     let reply = Replies::DataAppended(DataAppendedCommand {
         writer_id: 1,
@@ -672,7 +672,7 @@ async fn test_merge_segment(factory: &ClientFactory) {
         writer_id: 2,
         event_number: 1,
         expected_offset: 0,
-        event: test_event.clone(),
+        data: test_event.write_fields().unwrap(),
     });
     let reply = Replies::DataAppended(DataAppendedCommand {
         writer_id: 2,

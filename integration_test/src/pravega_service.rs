@@ -160,6 +160,14 @@ impl PravegaService for PravegaStandaloneService {
                 "singlenode.security.auth.pwdAuthHandler.accountsDb.location".to_string(),
                 "./pravega/conf/passwd".to_string(),
             );
+            map.insert(
+                "singlenode.security.auth.credentials.username".to_string(),
+                "admin".to_string(),
+            );
+            map.insert(
+                "singlenode.security.auth.credentials.password".to_string(),
+                "1111_aaaa".to_string(),
+            );
         } else {
             map.insert("singlenode.security.auth.enable".to_string(), "false".to_string());
         };

@@ -22,6 +22,7 @@ use crate::reactor::segment_writer::{Append, SegmentWriter};
 use pravega_rust_client_auth::DelegationTokenProvider;
 use std::sync::Arc;
 
+/// Maintains mapping from segments to segment writers.
 pub(crate) struct SegmentSelector {
     /// The stream of this SegmentSelector.
     pub(crate) stream: ScopedStream,
@@ -177,7 +178,7 @@ impl SegmentSelector {
     }
 
     /// Removes segment writer from the internal map.
-    pub(crate) fn remove_segment_event_writer(&mut self, segment: &ScopedSegment) -> Option<SegmentWriter> {
+    pub(crate) fn remove_segment_writer(&mut self, segment: &ScopedSegment) -> Option<SegmentWriter> {
         self.writers.remove(segment)
     }
 }

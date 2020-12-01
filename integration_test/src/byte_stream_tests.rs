@@ -67,6 +67,23 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
 
     let scope_name = Scope::from("testScopeByteStreamPrefetch".to_owned());
     let stream_name = Stream::from("testStreamByteStreamPrefetch".to_owned());
+    handle.block_on(utils::create_scope_stream(
+        client_factory.get_controller_client(),
+        &scope_name,
+        &stream_name,
+        1,
+    ));
+    let scoped_segment = ScopedSegment {
+        scope: scope_name,
+        stream: stream_name,
+        segment: Segment::from(0),
+    };
+    let mut writer = client_factory.create_byte_stream_writer(scoped_segment.clone());
+    let mut reader = client_factory.create_byte_stream_reader(scoped_segment);
+    test_write_and_read_with_workload(&mut writer, &mut reader);
+
+    let scope_name = Scope::from("testScopeByteStreamConditionalAppend".to_owned());
+    let stream_name = Stream::from("testStreamByteStreamConditionalAppend".to_owned());
     let segment = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
@@ -78,20 +95,19 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
         &stream_name,
         1,
     ));
-
-    let mut writer = client_factory.create_byte_stream_writer(segment.clone());
-    let mut reader = client_factory.create_byte_stream_reader(segment);
-
-    test_write_and_read_with_workload(&mut writer, &mut reader);
+    test_multiple_writers_conditional_append(&client_factory, segment);
 }
 
 fn test_simple_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader) {
     info!("test byte stream write and read");
-    let payload1 = vec![1, 1, 1, 1];
-    let payload2 = vec![2, 2, 2, 2];
+    let payload1 = vec![1; 4];
+    let payload2 = vec![2; 4];
 
     let size1 = writer.write(&payload1).expect("write payload1 to byte stream");
     assert_eq!(size1, 4);
+    writer.flush().expect("flush byte stream writer");
+    writer.seek_to_tail();
+    assert_eq!(writer.current_write_offset(), 4);
 
     let size2 = writer.write(&payload2).expect("write payload2 to byte stream");
     assert_eq!(size2, 4);
@@ -205,4 +221,33 @@ fn test_write_and_read_with_workload(writer: &mut ByteStreamWriter, reader: &mut
     assert_eq!(reader.available(), 0);
 
     info!("test write and read with workload passed");
+}
+
+fn test_multiple_writers_conditional_append(factory: &ClientFactory, segment: ScopedSegment) {
+    info!("test byte stream multiple writers concurrent append");
+    let mut writer1 = factory.create_byte_stream_writer(segment.clone());
+    let payload = vec![1; 1024];
+    let _num = writer1.write(&payload).expect("writer1 write payload");
+    assert_eq!(writer1.current_write_offset(), 1024);
+    writer1.flush().expect("writer1 flush");
+    writer1.seek_to_tail();
+    assert_eq!(writer1.current_write_offset(), 1024);
+
+    let mut writer2 = factory.create_byte_stream_writer(segment);
+    writer2.seek_to_tail();
+    let _num = writer2.write(&payload).expect("writer2 write payload");
+    assert_eq!(writer2.current_write_offset(), 2048);
+    writer2.flush().expect("writer2 flush");
+
+    let writer_res = writer1.write(&payload);
+    let flush_res = writer1.flush();
+    assert!(writer_res.is_err() || flush_res.is_err());
+
+    writer1.seek_to_tail();
+    let _num = writer1.write(&payload).expect("writer1 write payload");
+    assert_eq!(writer1.current_write_offset(), 3072);
+    writer1.flush().expect("writer1 flush");
+    writer1.seek_to_tail();
+    assert_eq!(writer1.current_write_offset(), 3072);
+    info!("test byte stream multiple writers concurrent append passed");
 }
