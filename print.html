@@ -161,7 +161,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#pravega-native-client-user-guide" id="pravega-native-client-user-guide">Pravega Native Client User Guide</a></h1>
-<p>Welcome to the Pravega RUST client user guide! This book is a companion to <a href="https://docs.rs/pravega_native_client">Pravega RUST Client API docs</a>. 
+<p>Welcome to the Pravega Rust client user guide! This book is a companion to <a href="https://docs.rs/pravega_native_client">Pravega Rust Client API docs</a>. 
 It contains examples and documentation to explain all of Pravega RUST client's use cases in detail.</p>
 <p>Please choose from the chapters on the left to jump to individual topics, or continue below to start with Pravega RUST Clients's README.</p>
 <ul>
@@ -299,8 +299,8 @@ the responsibility of reading from different segments in the Pravega stream.</p>
 manager = pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
 // lets assume the Pravega scope and stream are already created.
 reader_group = manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;)
-reader=reader_group.create_reader(&quot;reader_id&quot;);
-slice=await reader.get_segment_slice_async()
+reader = reader_group.create_reader(&quot;reader_id&quot;);
+slice = await reader.get_segment_slice_async()
 for event in slice:
     print(event.data())
 </code></pre>
