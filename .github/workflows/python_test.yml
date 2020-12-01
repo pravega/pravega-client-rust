@@ -36,7 +36,7 @@ jobs:
           wget https://github.com/pravega/pravega/releases/download/v0.8.0/pravega-0.8.0.tgz
           tar -xzvf pravega-0.8.0.tgz
           pravega-0.8.0/bin/pravega-standalone > pravega.log 2>&1 &
-          sleep 60 && echo "Started standalone"
+          sleep 300 && echo "Started standalone"
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
