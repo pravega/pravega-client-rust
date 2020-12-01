@@ -174,7 +174,7 @@ mod test {
 
     #[test]
     fn test_json_deserialize() {
-        let json_string = r#"{"realm":"nautilus","auth-server-url":"http://keycloak.jarviscb.nautilus-lab-ns.com/auth","ssl-required":"NONE","bearer-only":false,"public-client":false,"resource":"pravega-controller","confidential-port":0,"credentials":{"secret":"fc8b819b-5151-4613-ac02-43cab04976eb"}}"#;
+        let json_string = r#"{"realm":"nautilus","auth-server-url":"http://keycloak.jarviscb.nautilus-lab-ns.com/auth","ssl-required":"NONE","bearer-only":false,"public-client":false,"resource":"pravega-controller","confidential-port":0,"credentials":{"secret":"123456"}}"#;
         let v: KeyCloakJson = serde_json::from_str(json_string).unwrap();
         assert_eq!(v.realm, "nautilus");
         assert_eq!(
@@ -187,6 +187,6 @@ mod test {
         assert_eq!(v.resource, "pravega-controller");
         assert_eq!(v.confidential_port, 0);
         assert_eq!(v.confidential_port, 0);
-        assert_eq!(v.credentials.secret, "fc8b819b-5151-4613-ac02-43cab04976eb");
+        assert_eq!(v.credentials.secret, "123456");
     }
 }
