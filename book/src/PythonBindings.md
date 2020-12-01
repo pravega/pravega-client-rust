@@ -118,7 +118,7 @@ A sample example snippet is shown below.
 import pravega_client
 manager = pravega_client.StreamManager("127.0.0.1:9090")
 // lets assume the Pravega scope and stream are already created.
-reader_group=manager.create_reader_group("rg1", "scope", "stream")
+reader_group = manager.create_reader_group("rg1", "scope", "stream")
 reader=reader_group.create_reader("reader_id");
 slice=await reader.get_segment_slice_async()
 for event in slice:
