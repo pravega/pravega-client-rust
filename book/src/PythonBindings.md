@@ -1,9 +1,8 @@
 # Python Bindings
 
-Pravega Native client uses [PyO3](https://pyo3.rs) to generate Python bindings. 
+The below section describes the Python APIs of the Rust based Pravega Native client.
 
 # Python API tutorial
-
 
 * ## StreamManager
 
@@ -69,9 +68,9 @@ e="eventData"
 // Convert the event object to a byte array.
 e_bytes=e.encode("utf-8")                                       
 // write into Pravega stream without specifying the routing key.    
-writer.write_event_bytes("e1")                                    
+writer.write_event_bytes(e_bytes)                                    
 // write into Pravega stream by specifying the routing key.       
-writer.write_event_bytes("e2", "key1")    
+writer.write_event_bytes(e_bytes, "key1")    
 ```
 
 * ## TransactionWriter
