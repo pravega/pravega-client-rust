@@ -403,7 +403,7 @@ impl PrefetchingAsyncSegmentReader {
 
         let mut need_to_read = buf.len();
         let mut copy_offset = 0;
-        while let Some(mut cmd) = self.buffer.pop_back() {
+        while let Some(mut cmd) = self.buffer.pop_front() {
             self.end_of_segment = cmd.end_of_segment;
             let read_size = cmp::min(need_to_read, cmd.data.len());
             buf[copy_offset..copy_offset + read_size].copy_from_slice(cmd.data.drain(..read_size).as_slice());
@@ -411,7 +411,7 @@ impl PrefetchingAsyncSegmentReader {
             need_to_read -= read_size;
             copy_offset += read_size;
             if !cmd.data.is_empty() {
-                self.buffer.push_back(cmd);
+                self.buffer.push_front(cmd);
                 break;
             }
         }
@@ -446,7 +446,7 @@ impl PrefetchingAsyncSegmentReader {
         }
     }
 
-    // issue the read in the background
+    // issues the read in the background
     async fn read_async(
         reader: Arc<Box<dyn AsyncSegmentReader>>,
         sender: oneshot::Sender<Result<SegmentReadCommand, ReaderError>>,
@@ -473,7 +473,7 @@ impl PrefetchingAsyncSegmentReader {
                 Err(e) => warn!("failed to receive reply from background read: {}", e),
                 Ok(res) => match res {
                     Ok(cmd) => {
-                        self.buffer.push_front(cmd);
+                        self.buffer.push_back(cmd);
                     }
                     Err(e) => return Err(e),
                 },
@@ -486,7 +486,7 @@ impl PrefetchingAsyncSegmentReader {
             match receiver.await {
                 Ok(res) => match res {
                     Ok(cmd) => {
-                        self.buffer.push_front(cmd);
+                        self.buffer.push_back(cmd);
                     }
                     Err(e) => return Err(e),
                 },
