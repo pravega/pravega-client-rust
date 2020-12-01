@@ -84,7 +84,7 @@ Prior to committing a transaction, the events written to it cannot be read or ot
 ```python  
 import pravega_client                                         
 manager = pravega_client.StreamManager("127.0.0.1:9090")        
-w1=stream_manager.create_transaction_writer(scope,"testTxn", 1)
+w1 = stream_manager.create_transaction_writer(scope,"testTxn", 1)
 # Begin a Transaction
 txn1 = w1.begin_txn()
 txn1.write_event("test event1")
