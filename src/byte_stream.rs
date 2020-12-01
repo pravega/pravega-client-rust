@@ -23,7 +23,6 @@ use std::convert::TryInto;
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom, Write};
 use tokio::runtime::Handle;
 use tokio::sync::oneshot;
-use tokio::sync::oneshot::error::TryRecvError;
 use tokio::time::{timeout, Duration};
 use tracing::debug;
 use tracing::info_span;
@@ -60,14 +59,8 @@ impl Write for ByteStreamWriter {
         let bytes_to_write = std::cmp::min(buf.len(), EventStreamWriter::MAX_EVENT_SIZE);
         let oneshot_receiver = self.runtime_handle.block_on(async {
             let payload = buf[0..bytes_to_write].to_vec();
-            let mut oneshot_receiver = self.write_internal(self.sender.clone(), payload).await;
-            match oneshot_receiver.try_recv() {
-                // The channel is currently empty
-                Err(TryRecvError::Empty) => Ok(oneshot_receiver),
-                Err(e) => Err(Error::new(ErrorKind::Other, format!("oneshot error {:?}", e))),
-                _ => Ok(oneshot_receiver),
-            }
-        })?;
+            self.write_internal(self.sender.clone(), payload).await
+        });
 
         debug!(
             "writing payload of size {} based on offset {}",
