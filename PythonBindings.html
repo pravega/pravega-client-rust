@@ -159,7 +159,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#python-bindings" id="python-bindings">Python Bindings</a></h1>
-<p>Pravega Native client uses <a href="https://pyo3.rs">PyO3</a> to generate Python bindings. </p>
+<p>The below section describes the Python APIs of the Rust based Pravega Native client.</p>
 <h1><a class="header" href="#python-api-tutorial" id="python-api-tutorial">Python API tutorial</a></h1>
 <ul>
 <li>
@@ -216,9 +216,9 @@ e=&quot;eventData&quot;
 // Convert the event object to a byte array.
 e_bytes=e.encode(&quot;utf-8&quot;)                                       
 // write into Pravega stream without specifying the routing key.    
-writer.write_event_bytes(&quot;e1&quot;)                                    
+writer.write_event_bytes(e_bytes)                                    
 // write into Pravega stream by specifying the routing key.       
-writer.write_event_bytes(&quot;e2&quot;, &quot;key1&quot;)    
+writer.write_event_bytes(e_bytes, &quot;key1&quot;)    
 </code></pre>
 <ul>
 <li>
