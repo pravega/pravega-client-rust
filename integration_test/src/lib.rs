@@ -71,17 +71,17 @@ mod test {
     fn integration_test() {
         trace::init();
         // metric::metric_init(PROMETHEUS_SCRAPE_PORT.parse::<SocketAddr>().unwrap());
-        let span = info_span!("integration test", auth = false, tls = false);
-        span.in_scope(|| {
-            info!("Running integration test");
-            let config = PravegaStandaloneServiceConfig::new(false, false, false);
-            run_tests(config);
-        });
-
         let span = info_span!("integration test", auth = true, tls = true);
         span.in_scope(|| {
             info!("Running integration test");
             let config = PravegaStandaloneServiceConfig::new(false, true, true);
+            run_tests(config);
+        });
+
+        let span = info_span!("integration test", auth = false, tls = false);
+        span.in_scope(|| {
+            info!("Running integration test");
+            let config = PravegaStandaloneServiceConfig::new(false, false, false);
             run_tests(config);
         });
 

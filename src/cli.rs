@@ -11,6 +11,7 @@ use pravega_client_rust::raw_client::*;
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfigBuilder};
 use pravega_rust_client_shared::PravegaNodeUri;
+use pravega_wire_protocol::commands::Command as WireCmd;
 use pravega_wire_protocol::commands::*;
 use pravega_wire_protocol::connection_factory::{
     ConnectionFactory, ConnectionFactoryConfig, SegmentConnectionManager,
@@ -417,7 +418,7 @@ async fn main() {
                 writer_id,
                 event_number,
                 expected_offset,
-                event: data_event,
+                data: data_event.write_fields().unwrap(),
                 request_id: id,
             });
             let reply = raw_client

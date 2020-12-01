@@ -129,7 +129,7 @@ impl Reactor {
                 let segment = ScopedSegment::from(&*cmd.segment);
                 if let Some(inflight) = selector.refresh_segment_event_writers_upon_sealed(&segment).await {
                     selector.resend(inflight).await;
-                    selector.remove_segment_event_writer(&segment);
+                    selector.remove_segment_writer(&segment);
                     Ok(())
                 } else {
                     Err("Stream is sealed")
@@ -144,7 +144,7 @@ impl Reactor {
                 let segment = ScopedSegment::from(&*cmd.segment);
                 if let Some(inflight) = selector.refresh_segment_event_writers_upon_sealed(&segment).await {
                     selector.resend(inflight).await;
-                    selector.remove_segment_event_writer(&segment);
+                    selector.remove_segment_writer(&segment);
                     Ok(())
                 } else {
                     Err("Stream is sealed")
@@ -161,6 +161,13 @@ impl Reactor {
                 Ok(())
             }
 
+            Replies::ConditionalCheckFailed(cmd) => {
+                warn!("conditional check failed {:?}", cmd);
+                if writer.id.0 == cmd.writer_id {
+                    writer.fail_events_upon_conditional_check_failure(cmd.event_number);
+                }
+                Ok(())
+            }
             _ => {
                 error!(
                     "receive unexpected reply {:?}, closing stream reactor",
@@ -248,7 +255,7 @@ pub(crate) mod test {
         size: usize,
     ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
-        let event = PendingEvent::new(Some("routing_key".into()), vec![1; size], oneshot_sender)
+        let event = PendingEvent::new(Some("routing_key".into()), vec![1; size], None, oneshot_sender)
             .expect("create pending event");
         sender.send((Incoming::AppendEvent(event), size)).await.unwrap();
         oneshot_receiver

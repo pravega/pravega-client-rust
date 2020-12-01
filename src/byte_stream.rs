@@ -23,8 +23,8 @@ use std::convert::TryInto;
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom, Write};
 use tokio::runtime::Handle;
 use tokio::sync::oneshot;
-use tokio::sync::oneshot::error::TryRecvError;
 use tokio::time::{timeout, Duration};
+use tracing::debug;
 use tracing::info_span;
 use tracing_futures::Instrument;
 use uuid::Uuid;
@@ -46,6 +46,7 @@ pub struct ByteStreamWriter {
     metadata_client: SegmentMetadataClient,
     runtime_handle: Handle,
     event_handle: Option<EventHandle>,
+    write_offset: i64,
 }
 
 /// ByteStreamWriter implements Write trait in standard library.
@@ -56,24 +57,17 @@ impl Write for ByteStreamWriter {
     /// by the server.
     fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
         let bytes_to_write = std::cmp::min(buf.len(), EventStreamWriter::MAX_EVENT_SIZE);
-        let oneshot_receiver = self.runtime_handle.block_on(async {
-            let payload = buf[0..bytes_to_write].to_vec();
-            let mut oneshot_receiver = ByteStreamWriter::write_internal(self.sender.clone(), payload).await;
-            match oneshot_receiver.try_recv() {
-                // The channel is currently empty
-                Err(TryRecvError::Empty) => Ok(Some(oneshot_receiver)),
-                Err(e) => Err(Error::new(ErrorKind::Other, format!("oneshot error {:?}", e))),
-                Ok(res) => {
-                    if let Err(e) = res {
-                        Err(Error::new(ErrorKind::Other, format!("{:?}", e)))
-                    } else {
-                        Ok(None)
-                    }
-                }
-            }
-        })?;
+        let payload = buf[0..bytes_to_write].to_vec();
+        let oneshot_receiver = self
+            .runtime_handle
+            .block_on(self.write_internal(self.sender.clone(), payload));
 
-        self.event_handle = oneshot_receiver;
+        debug!(
+            "writing payload of size {} based on offset {}",
+            bytes_to_write, self.write_offset
+        );
+        self.write_offset += bytes_to_write as i64;
+        self.event_handle = Some(oneshot_receiver);
         Ok(bytes_to_write)
     }
 
@@ -94,20 +88,16 @@ impl ByteStreamWriter {
         let metadata_client = handle.block_on(factory.create_segment_metadata_client(segment.clone()));
         let writer_id = WriterId(get_random_u128());
         let stream = ScopedStream::from(&segment);
-        // get the current segments and create corresponding event segment writers
-        let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
-        // tokio::spawn is tied to the factory runtime.
-        handle.enter(|| {
-            tokio::spawn(
-                Reactor::run(stream, sender.clone(), receiver, factory.clone(), None).instrument(span),
-            )
-        });
+        let span = info_span!("Reactor", byte_stream_writer = %writer_id);
+        // spawn is tied to the factory runtime.
+        handle.spawn(Reactor::run(stream, sender.clone(), receiver, factory, None).instrument(span));
         ByteStreamWriter {
             writer_id,
             sender,
             metadata_client,
             runtime_handle: handle,
             event_handle: None,
+            write_offset: 0,
         }
     }
 
@@ -131,13 +121,28 @@ impl ByteStreamWriter {
             .map_err(|e| Error::new(ErrorKind::Other, format!("segment truncation error: {:?}", e)))
     }
 
+    /// Tracks the current write position for this writer.
+    pub fn current_write_offset(&mut self) -> i64 {
+        self.write_offset
+    }
+
+    /// Seek to the tail of the segment.
+    pub fn seek_to_tail(&mut self) {
+        let segment_info = self
+            .runtime_handle
+            .block_on(self.metadata_client.get_segment_info())
+            .expect("failed to get segment info");
+        self.write_offset = segment_info.write_offset;
+    }
+
     async fn write_internal(
+        &self,
         sender: ChannelSender<Incoming>,
         event: Vec<u8>,
     ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         let size = event.len();
         let (tx, rx) = oneshot::channel();
-        if let Some(pending_event) = PendingEvent::without_header(None, event, tx) {
+        if let Some(pending_event) = PendingEvent::without_header(None, event, Some(self.write_offset), tx) {
             let append_event = Incoming::AppendEvent(pending_event);
             if let Err(_e) = sender.send((append_event, size)).await {
                 let (tx_error, rx_error) = oneshot::channel();
@@ -155,11 +160,7 @@ impl ByteStreamWriter {
             .await
             .map_err(|e| Error::new(ErrorKind::Other, format!("oneshot error {:?}", e)))?;
 
-        if let Err(e) = result {
-            Err(Error::new(ErrorKind::Other, format!("{:?}", e)))
-        } else {
-            Ok(())
-        }
+        result.map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
     }
 }
 
