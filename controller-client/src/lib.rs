@@ -515,7 +515,16 @@ impl ControllerClientImpl {
     pub async fn reset(&self) {
         let ch = get_channel(&self.config).await;
         let mut x = self.channel.write().unwrap();
-        *x = ControllerServiceClient::new(ch);
+        if self.config.is_auth_enabled {
+            let token = self.config.credentials.get_request_metadata();
+            let token = MetadataValue::from_str(&token).expect("convert to metadata value");
+            *x = ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
+                req.metadata_mut().insert(AUTHORIZATION, token.clone());
+                Ok(req)
+            });
+        } else {
+            *x = ControllerServiceClient::new(ch);
+        }
     }
 
     ///
