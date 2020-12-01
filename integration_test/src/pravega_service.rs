@@ -97,7 +97,7 @@ impl PravegaService for PravegaStandaloneService {
             PATH, config
         );
         let pravega = Command::new(PATH)
-            .stdout()
+            .stdout(Stdio::inherit())
             .spawn()
             .expect("failed to start pravega standalone");
         info!("child pid: {}", pravega.id());
