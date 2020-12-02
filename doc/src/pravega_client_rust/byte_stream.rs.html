@@ -410,6 +410,7 @@
 <span id="409">409</span>
 <span id="410">410</span>
 <span id="411">411</span>
+<span id="412">412</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -436,8 +437,8 @@
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">io</span>::{<span class="ident">Error</span>, <span class="ident">ErrorKind</span>, <span class="ident">Read</span>, <span class="ident">Seek</span>, <span class="ident">SeekFrom</span>, <span class="ident">Write</span>};
 <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">runtime</span>::<span class="ident">Handle</span>;
 <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">sync</span>::<span class="ident">oneshot</span>;
-<span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">sync</span>::<span class="ident">oneshot</span>::<span class="ident">error</span>::<span class="ident">TryRecvError</span>;
 <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">time</span>::{<span class="ident">timeout</span>, <span class="ident">Duration</span>};
+<span class="kw">use</span> <span class="ident">tracing</span>::<span class="ident">debug</span>;
 <span class="kw">use</span> <span class="ident">tracing</span>::<span class="ident">info_span</span>;
 <span class="kw">use</span> <span class="ident">tracing_futures</span>::<span class="ident">Instrument</span>;
 <span class="kw">use</span> <span class="ident">uuid</span>::<span class="ident">Uuid</span>;
@@ -459,6 +460,7 @@
     <span class="ident">metadata_client</span>: <span class="ident">SegmentMetadataClient</span>,
     <span class="ident">runtime_handle</span>: <span class="ident">Handle</span>,
     <span class="ident">event_handle</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">EventHandle</span><span class="op">&gt;</span>,
+    <span class="ident">write_offset</span>: <span class="ident">i64</span>,
 }
 
 <span class="doccomment">/// ByteStreamWriter implements Write trait in standard library.</span>
@@ -469,24 +471,17 @@
     <span class="doccomment">/// by the server.</span>
     <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">bytes_to_write</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">cmp</span>::<span class="ident">min</span>(<span class="ident">buf</span>.<span class="ident">len</span>(), <span class="ident">EventStreamWriter</span>::<span class="ident">MAX_EVENT_SIZE</span>);
-        <span class="kw">let</span> <span class="ident">oneshot_receiver</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">runtime_handle</span>.<span class="ident">block_on</span>(<span class="kw">async</span> {
-            <span class="kw">let</span> <span class="ident">payload</span> <span class="op">=</span> <span class="ident">buf</span>[<span class="number">0</span>..<span class="ident">bytes_to_write</span>].<span class="ident">to_vec</span>();
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">oneshot_receiver</span> <span class="op">=</span> <span class="ident">ByteStreamWriter</span>::<span class="ident">write_internal</span>(<span class="self">self</span>.<span class="ident">sender</span>.<span class="ident">clone</span>(), <span class="ident">payload</span>).<span class="kw">await</span>;
-            <span class="kw">match</span> <span class="ident">oneshot_receiver</span>.<span class="ident">try_recv</span>() {
-                <span class="comment">// The channel is currently empty</span>
-                <span class="prelude-val">Err</span>(<span class="ident">TryRecvError</span>::<span class="ident">Empty</span>) <span class="op">=&gt;</span> <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="ident">oneshot_receiver</span>)),
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">Error</span>::<span class="ident">new</span>(<span class="ident">ErrorKind</span>::<span class="ident">Other</span>, <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;oneshot error {:?}&quot;</span>, <span class="ident">e</span>))),
-                <span class="prelude-val">Ok</span>(<span class="ident">res</span>) <span class="op">=&gt;</span> {
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">res</span> {
-                        <span class="prelude-val">Err</span>(<span class="ident">Error</span>::<span class="ident">new</span>(<span class="ident">ErrorKind</span>::<span class="ident">Other</span>, <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">e</span>)))
-                    } <span class="kw">else</span> {
-                        <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
-                    }
-                }
-            }
-        })<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">payload</span> <span class="op">=</span> <span class="ident">buf</span>[<span class="number">0</span>..<span class="ident">bytes_to_write</span>].<span class="ident">to_vec</span>();
+        <span class="kw">let</span> <span class="ident">oneshot_receiver</span> <span class="op">=</span> <span class="self">self</span>
+            .<span class="ident">runtime_handle</span>
+            .<span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">write_internal</span>(<span class="self">self</span>.<span class="ident">sender</span>.<span class="ident">clone</span>(), <span class="ident">payload</span>));
 
-        <span class="self">self</span>.<span class="ident">event_handle</span> <span class="op">=</span> <span class="ident">oneshot_receiver</span>;
+        <span class="macro">debug</span><span class="macro">!</span>(
+            <span class="string">&quot;writing payload of size {} based on offset {}&quot;</span>,
+            <span class="ident">bytes_to_write</span>, <span class="self">self</span>.<span class="ident">write_offset</span>
+        );
+        <span class="self">self</span>.<span class="ident">write_offset</span> <span class="op">+=</span> <span class="ident">bytes_to_write</span> <span class="kw">as</span> <span class="ident">i64</span>;
+        <span class="self">self</span>.<span class="ident">event_handle</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">oneshot_receiver</span>);
         <span class="prelude-val">Ok</span>(<span class="ident">bytes_to_write</span>)
     }
 
@@ -507,20 +502,16 @@
         <span class="kw">let</span> <span class="ident">metadata_client</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">block_on</span>(<span class="ident">factory</span>.<span class="ident">create_segment_metadata_client</span>(<span class="ident">segment</span>.<span class="ident">clone</span>()));
         <span class="kw">let</span> <span class="ident">writer_id</span> <span class="op">=</span> <span class="ident">WriterId</span>(<span class="ident">get_random_u128</span>());
         <span class="kw">let</span> <span class="ident">stream</span> <span class="op">=</span> <span class="ident">ScopedStream</span>::<span class="ident">from</span>(<span class="kw-2">&amp;</span><span class="ident">segment</span>);
-        <span class="comment">// get the current segments and create corresponding event segment writers</span>
-        <span class="kw">let</span> <span class="ident">span</span> <span class="op">=</span> <span class="macro">info_span</span><span class="macro">!</span>(<span class="string">&quot;StreamReactor&quot;</span>, <span class="ident">event_stream_writer</span> <span class="op">=</span> <span class="op">%</span><span class="ident">writer_id</span>);
-        <span class="comment">// tokio::spawn is tied to the factory runtime.</span>
-        <span class="ident">handle</span>.<span class="ident">enter</span>(<span class="op">||</span> {
-            <span class="ident">tokio</span>::<span class="ident">spawn</span>(
-                <span class="ident">Reactor</span>::<span class="ident">run</span>(<span class="ident">stream</span>, <span class="ident">sender</span>.<span class="ident">clone</span>(), <span class="ident">receiver</span>, <span class="ident">factory</span>.<span class="ident">clone</span>(), <span class="prelude-val">None</span>).<span class="ident">instrument</span>(<span class="ident">span</span>),
-            )
-        });
+        <span class="kw">let</span> <span class="ident">span</span> <span class="op">=</span> <span class="macro">info_span</span><span class="macro">!</span>(<span class="string">&quot;Reactor&quot;</span>, <span class="ident">byte_stream_writer</span> <span class="op">=</span> <span class="op">%</span><span class="ident">writer_id</span>);
+        <span class="comment">// spawn is tied to the factory runtime.</span>
+        <span class="ident">handle</span>.<span class="ident">spawn</span>(<span class="ident">Reactor</span>::<span class="ident">run</span>(<span class="ident">stream</span>, <span class="ident">sender</span>.<span class="ident">clone</span>(), <span class="ident">receiver</span>, <span class="ident">factory</span>, <span class="prelude-val">None</span>).<span class="ident">instrument</span>(<span class="ident">span</span>));
         <span class="ident">ByteStreamWriter</span> {
             <span class="ident">writer_id</span>,
             <span class="ident">sender</span>,
             <span class="ident">metadata_client</span>,
             <span class="ident">runtime_handle</span>: <span class="ident">handle</span>,
             <span class="ident">event_handle</span>: <span class="prelude-val">None</span>,
+            <span class="ident">write_offset</span>: <span class="number">0</span>,
         }
     }
 
@@ -544,13 +535,28 @@
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">Error</span>::<span class="ident">new</span>(<span class="ident">ErrorKind</span>::<span class="ident">Other</span>, <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;segment truncation error: {:?}&quot;</span>, <span class="ident">e</span>)))
     }
 
+    <span class="doccomment">/// Tracks the current write position for this writer.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">current_write_offset</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">i64</span> {
+        <span class="self">self</span>.<span class="ident">write_offset</span>
+    }
+
+    <span class="doccomment">/// Seek to the tail of the segment.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">seek_to_tail</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
+        <span class="kw">let</span> <span class="ident">segment_info</span> <span class="op">=</span> <span class="self">self</span>
+            .<span class="ident">runtime_handle</span>
+            .<span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">metadata_client</span>.<span class="ident">get_segment_info</span>())
+            .<span class="ident">expect</span>(<span class="string">&quot;failed to get segment info&quot;</span>);
+        <span class="self">self</span>.<span class="ident">write_offset</span> <span class="op">=</span> <span class="ident">segment_info</span>.<span class="ident">write_offset</span>;
+    }
+
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">write_internal</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">sender</span>: <span class="ident">ChannelSender</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
         <span class="ident">event</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
     ) <span class="op">-&gt;</span> <span class="ident">oneshot</span>::<span class="ident">Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;&gt;</span> {
         <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">event</span>.<span class="ident">len</span>();
         <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">oneshot</span>::<span class="ident">channel</span>();
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">pending_event</span>) <span class="op">=</span> <span class="ident">PendingEvent</span>::<span class="ident">without_header</span>(<span class="prelude-val">None</span>, <span class="ident">event</span>, <span class="ident">tx</span>) {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">pending_event</span>) <span class="op">=</span> <span class="ident">PendingEvent</span>::<span class="ident">without_header</span>(<span class="prelude-val">None</span>, <span class="ident">event</span>, <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="ident">write_offset</span>), <span class="ident">tx</span>) {
             <span class="kw">let</span> <span class="ident">append_event</span> <span class="op">=</span> <span class="ident">Incoming</span>::<span class="ident">AppendEvent</span>(<span class="ident">pending_event</span>);
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">_e</span>) <span class="op">=</span> <span class="ident">sender</span>.<span class="ident">send</span>((<span class="ident">append_event</span>, <span class="ident">size</span>)).<span class="kw">await</span> {
                 <span class="kw">let</span> (<span class="ident">tx_error</span>, <span class="ident">rx_error</span>) <span class="op">=</span> <span class="ident">oneshot</span>::<span class="ident">channel</span>();
@@ -568,11 +574,7 @@
             .<span class="kw">await</span>
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">Error</span>::<span class="ident">new</span>(<span class="ident">ErrorKind</span>::<span class="ident">Other</span>, <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;oneshot error {:?}&quot;</span>, <span class="ident">e</span>)))<span class="question-mark">?</span>;
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">result</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">Error</span>::<span class="ident">new</span>(<span class="ident">ErrorKind</span>::<span class="ident">Other</span>, <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">e</span>)))
-        } <span class="kw">else</span> {
-            <span class="prelude-val">Ok</span>(())
-        }
+        <span class="ident">result</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">Error</span>::<span class="ident">new</span>(<span class="ident">ErrorKind</span>::<span class="ident">Other</span>, <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">e</span>)))
     }
 }
 

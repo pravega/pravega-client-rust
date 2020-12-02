@@ -136,6 +136,9 @@
 <span id="135">135</span>
 <span id="136">136</span>
 <span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -215,6 +218,9 @@
 
     <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Reactor is closed due to: {:?}&quot;</span>, <span class="ident">msg</span>))]</span>
     <span class="ident">ReactorClosed</span> { <span class="ident">msg</span>: <span class="ident">String</span> },
+
+    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Conditional append has failed&quot;</span>))]</span>
+    <span class="ident">ConditionalCheckFailed</span> {},
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Snafu</span>)]</span>

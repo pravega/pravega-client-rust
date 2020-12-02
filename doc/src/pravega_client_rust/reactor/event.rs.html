@@ -105,6 +105,11 @@
 <span id="104">104</span>
 <span id="105">105</span>
 <span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -150,6 +155,7 @@
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">PendingEvent</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">routing_key</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">conditional_offset</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">oneshot_sender</span>: <span class="ident">oneshot</span>::<span class="ident">Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;&gt;</span>,
 }
 
@@ -158,6 +164,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">new</span>(
         <span class="ident">routing_key</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
         <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+        <span class="ident">conditional_offset</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>,
         <span class="ident">oneshot_sender</span>: <span class="ident">oneshot</span>::<span class="ident">Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;&gt;</span>,
     ) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="ident">data</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="ident">PendingEvent</span>::<span class="ident">MAX_WRITE_SIZE</span> {
@@ -177,6 +184,7 @@
             <span class="prelude-val">Some</span>(<span class="ident">PendingEvent</span> {
                 <span class="ident">routing_key</span>,
                 <span class="ident">data</span>,
+                <span class="ident">conditional_offset</span>,
                 <span class="ident">oneshot_sender</span>,
             })
         }
@@ -185,11 +193,12 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">with_header</span>(
         <span class="ident">routing_key</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
         <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+        <span class="ident">conditional_offset</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>,
         <span class="ident">oneshot_sender</span>: <span class="ident">oneshot</span>::<span class="ident">Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;&gt;</span>,
     ) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PendingEvent</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">cmd</span> <span class="op">=</span> <span class="ident">EventCommand</span> { <span class="ident">data</span> };
         <span class="kw">match</span> <span class="ident">cmd</span>.<span class="ident">write_fields</span>() {
-            <span class="prelude-val">Ok</span>(<span class="ident">data</span>) <span class="op">=&gt;</span> <span class="ident">PendingEvent</span>::<span class="ident">new</span>(<span class="ident">routing_key</span>, <span class="ident">data</span>, <span class="ident">oneshot_sender</span>),
+            <span class="prelude-val">Ok</span>(<span class="ident">data</span>) <span class="op">=&gt;</span> <span class="ident">PendingEvent</span>::<span class="ident">new</span>(<span class="ident">routing_key</span>, <span class="ident">data</span>, <span class="ident">conditional_offset</span>, <span class="ident">oneshot_sender</span>),
             <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=&gt;</span> {
                 <span class="macro">warn</span><span class="macro">!</span>(<span class="string">&quot;failed to serialize event to event command, sending this error back to caller&quot;</span>);
                 <span class="ident">oneshot_sender</span>
@@ -203,9 +212,10 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">without_header</span>(
         <span class="ident">routing_key</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
         <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+        <span class="ident">conditional_offset</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>,
         <span class="ident">oneshot_sender</span>: <span class="ident">oneshot</span>::<span class="ident">Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;&gt;</span>,
     ) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PendingEvent</span><span class="op">&gt;</span> {
-        <span class="ident">PendingEvent</span>::<span class="ident">new</span>(<span class="ident">routing_key</span>, <span class="ident">data</span>, <span class="ident">oneshot_sender</span>)
+        <span class="ident">PendingEvent</span>::<span class="ident">new</span>(<span class="ident">routing_key</span>, <span class="ident">data</span>, <span class="ident">conditional_offset</span>, <span class="ident">oneshot_sender</span>)
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">is_empty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {

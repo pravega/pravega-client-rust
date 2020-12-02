@@ -120,8 +120,6 @@
 <span id="119">119</span>
 <span id="120">120</span>
 <span id="121">121</span>
-<span id="122">122</span>
-<span id="123">123</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -187,9 +185,7 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">static</span> <span class="ident">REQUEST_ID_GENERATOR</span>: <span class="ident">AtomicI64</span> <span class="op">=</span> <span class="ident">AtomicI64</span>::<span class="ident">new</span>(<span class="number">0</span>);
 
-<span class="doccomment">///</span>
 <span class="doccomment">/// Function used to generate request ids for all the modules.</span>
-<span class="doccomment">///</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_request_id</span>() <span class="op">-&gt;</span> <span class="ident">i64</span> {
     <span class="ident">REQUEST_ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="op">+</span> <span class="number">1</span>
 }
