@@ -1,4 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `src/client_factory.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>client_factory.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../pravega_client_rust/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `src/client_factory.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>client_factory.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../pravega_client_rust/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
                 <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
@@ -244,21 +246,21 @@
 
 <span class="kw">struct</span> <span class="ident">ClientFactoryInternal</span> {
     <span class="ident">connection_pool</span>: <span class="ident">ConnectionPool</span><span class="op">&lt;</span><span class="ident">SegmentConnectionManager</span><span class="op">&gt;</span>,
-    <span class="ident">controller_client</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ControllerClient</span><span class="op">&gt;</span>,
+    <span class="ident">controller_client</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">dyn</span> <span class="ident">ControllerClient</span><span class="op">&gt;</span>,
     <span class="ident">config</span>: <span class="ident">ClientConfig</span>,
     <span class="ident">runtime</span>: <span class="ident">Runtime</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">ClientFactory</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">config</span>: <span class="ident">ClientConfig</span>) <span class="op">-&gt;</span> <span class="ident">ClientFactory</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">config</span>: <span class="ident">ClientConfig</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ClientFactory</span> {
         <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">tokio</span>::<span class="ident">runtime</span>::<span class="ident">Runtime</span>::<span class="ident">new</span>().<span class="ident">expect</span>(<span class="string">&quot;create runtime&quot;</span>);
         <span class="kw">let</span> <span class="ident">cf</span> <span class="op">=</span> <span class="ident">ConnectionFactory</span>::<span class="ident">create</span>(<span class="ident">ConnectionFactoryConfig</span>::<span class="ident">from</span>(<span class="kw-2">&amp;</span><span class="ident">config</span>));
         <span class="kw">let</span> <span class="ident">pool</span> <span class="op">=</span> <span class="ident">ConnectionPool</span>::<span class="ident">new</span>(<span class="ident">SegmentConnectionManager</span>::<span class="ident">new</span>(<span class="ident">cf</span>, <span class="ident">config</span>.<span class="ident">max_connections_in_pool</span>));
         <span class="kw">let</span> <span class="ident">controller</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">config</span>.<span class="ident">mock</span> {
-            <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">MockController</span>::<span class="ident">new</span>(<span class="ident">config</span>.<span class="ident">controller_uri</span>.<span class="ident">clone</span>())) <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ControllerClient</span><span class="op">&gt;</span>
+            <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">MockController</span>::<span class="ident">new</span>(<span class="ident">config</span>.<span class="ident">controller_uri</span>.<span class="ident">clone</span>())) <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">dyn</span> <span class="ident">ControllerClient</span><span class="op">&gt;</span>
         } <span class="kw">else</span> {
             <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">ControllerClientImpl</span>::<span class="ident">new</span>(<span class="ident">config</span>.<span class="ident">clone</span>(), <span class="ident">rt</span>.<span class="ident">handle</span>().<span class="ident">clone</span>()))
-                <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ControllerClient</span><span class="op">&gt;</span>
+                <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">dyn</span> <span class="ident">ControllerClient</span><span class="op">&gt;</span>
         };
         <span class="ident">ClientFactory</span>(<span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">ClientFactoryInternal</span> {
             <span class="ident">connection_pool</span>: <span class="ident">pool</span>,
@@ -271,137 +273,137 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// Get the Runtime handle.</span>
     <span class="doccomment">///</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_runtime_handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Handle</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_runtime_handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Handle</span> {
         <span class="self">self</span>.<span class="number">0</span>.<span class="ident">get_runtime_handle</span>()
     }
 
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_async_event_reader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">segment</span>: <span class="ident">ScopedSegment</span>) <span class="op">-&gt;</span> <span class="ident">AsyncSegmentReaderImpl</span> {
+    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_async_event_reader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">segment</span>: <span class="ident">ScopedSegment</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">AsyncSegmentReaderImpl</span> {
         <span class="ident">AsyncSegmentReaderImpl</span>::<span class="ident">init</span>(
             <span class="ident">segment</span>.<span class="ident">clone</span>(),
             <span class="self">self</span>.<span class="ident">clone</span>(),
             <span class="self">self</span>.<span class="number">0</span>
                 .<span class="ident">create_delegation_token_provider</span>(<span class="ident">ScopedStream</span>::<span class="ident">from</span>(<span class="kw-2">&amp;</span><span class="ident">segment</span>))
-                .<span class="kw">await</span>,
+                .<span class="ident">await</span>,
         )
-        .<span class="kw">await</span>
+        .<span class="ident">await</span>
     }
 
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_table_map</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="ident">String</span>) <span class="op">-&gt;</span> <span class="ident">TableMap</span> {
+    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_table_map</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TableMap</span> {
         <span class="ident">TableMap</span>::<span class="ident">new</span>(<span class="ident">name</span>, <span class="self">self</span>.<span class="ident">clone</span>())
-            .<span class="kw">await</span>
+            .<span class="ident">await</span>
             .<span class="ident">expect</span>(<span class="string">&quot;Failed to create Table map&quot;</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_table_synchronizer</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="ident">String</span>) <span class="op">-&gt;</span> <span class="ident">TableSynchronizer</span> {
-        <span class="ident">TableSynchronizer</span>::<span class="ident">new</span>(<span class="ident">name</span>, <span class="self">self</span>.<span class="ident">clone</span>()).<span class="kw">await</span>
+    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_table_synchronizer</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TableSynchronizer</span> {
+        <span class="ident">TableSynchronizer</span>::<span class="ident">new</span>(<span class="ident">name</span>, <span class="self">self</span>.<span class="ident">clone</span>()).<span class="ident">await</span>
     }
 
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_raw_client</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">segment</span>: <span class="kw-2">&amp;</span><span class="ident">ScopedSegment</span>) <span class="op">-&gt;</span> <span class="ident">RawClientImpl</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_raw_client</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">segment</span>: <span class="kw-2">&amp;</span><span class="ident">ScopedSegment</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">RawClientImpl</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">endpoint</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="number">0</span>
             .<span class="ident">controller_client</span>
             .<span class="ident">get_endpoint_for_segment</span>(<span class="ident">segment</span>)
-            .<span class="kw">await</span>
+            .<span class="ident">await</span>
             .<span class="ident">expect</span>(<span class="string">&quot;get endpoint for segment&quot;</span>);
         <span class="self">self</span>.<span class="number">0</span>.<span class="ident">create_raw_client</span>(<span class="ident">endpoint</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create_raw_client_for_endpoint</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">endpoint</span>: <span class="ident">PravegaNodeUri</span>) <span class="op">-&gt;</span> <span class="ident">RawClientImpl</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create_raw_client_for_endpoint</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">endpoint</span>: <span class="ident">PravegaNodeUri</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">RawClientImpl</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="number">0</span>.<span class="ident">create_raw_client</span>(<span class="ident">endpoint</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create_event_stream_writer</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">stream</span>: <span class="ident">ScopedStream</span>) <span class="op">-&gt;</span> <span class="ident">EventStreamWriter</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create_event_stream_writer</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">stream</span>: <span class="ident">ScopedStream</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">EventStreamWriter</span> {
         <span class="ident">EventStreamWriter</span>::<span class="ident">new</span>(<span class="ident">stream</span>, <span class="self">self</span>.<span class="ident">clone</span>())
     }
 
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_reader_group</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">reader_group_name</span>: <span class="ident">String</span>, <span class="ident">stream</span>: <span class="ident">ScopedStream</span>) <span class="op">-&gt;</span> <span class="ident">ReaderGroup</span> {
+    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_reader_group</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">reader_group_name</span>: <span class="ident">String</span>, <span class="ident">stream</span>: <span class="ident">ScopedStream</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ReaderGroup</span> {
         <span class="macro">info</span><span class="macro">!</span>(
             <span class="string">&quot;Creating reader group {:?} to read data from stream {:?}&quot;</span>,
             <span class="ident">reader_group_name</span>, <span class="ident">stream</span>
         );
         <span class="kw">let</span> <span class="ident">rg_config</span> <span class="op">=</span> <span class="ident">ReaderGroupConfigBuilder</span>::<span class="ident">default</span>().<span class="ident">add_stream</span>(<span class="ident">stream</span>).<span class="ident">build</span>();
-        <span class="ident">ReaderGroup</span>::<span class="ident">create</span>(<span class="ident">reader_group_name</span>, <span class="ident">rg_config</span>, <span class="self">self</span>.<span class="ident">clone</span>()).<span class="kw">await</span>
+        <span class="ident">ReaderGroup</span>::<span class="ident">create</span>(<span class="ident">reader_group_name</span>, <span class="ident">rg_config</span>, <span class="self">self</span>.<span class="ident">clone</span>()).<span class="ident">await</span>
     }
 
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_reader_group_config</span>(
+    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_reader_group_config</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">reader_group_name</span>: <span class="ident">String</span>,
         <span class="ident">rg_config</span>: <span class="ident">ReaderGroupConfig</span>,
-    ) <span class="op">-&gt;</span> <span class="ident">ReaderGroup</span> {
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ReaderGroup</span> {
         <span class="macro">info</span><span class="macro">!</span>(<span class="string">&quot;Creating reader group {:?} &quot;</span>, <span class="ident">reader_group_name</span>);
-        <span class="ident">ReaderGroup</span>::<span class="ident">create</span>(<span class="ident">reader_group_name</span>, <span class="ident">rg_config</span>, <span class="self">self</span>.<span class="ident">clone</span>()).<span class="kw">await</span>
+        <span class="ident">ReaderGroup</span>::<span class="ident">create</span>(<span class="ident">reader_group_name</span>, <span class="ident">rg_config</span>, <span class="self">self</span>.<span class="ident">clone</span>()).<span class="ident">await</span>
     }
 
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_transactional_event_stream_writer</span>(
+    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_transactional_event_stream_writer</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">stream</span>: <span class="ident">ScopedStream</span>,
         <span class="ident">writer_id</span>: <span class="ident">WriterId</span>,
-    ) <span class="op">-&gt;</span> <span class="ident">TransactionalEventStreamWriter</span> {
-        <span class="ident">TransactionalEventStreamWriter</span>::<span class="ident">new</span>(<span class="ident">stream</span>, <span class="ident">writer_id</span>, <span class="self">self</span>.<span class="ident">clone</span>()).<span class="kw">await</span>
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TransactionalEventStreamWriter</span> {
+        <span class="ident">TransactionalEventStreamWriter</span>::<span class="ident">new</span>(<span class="ident">stream</span>, <span class="ident">writer_id</span>, <span class="self">self</span>.<span class="ident">clone</span>()).<span class="ident">await</span>
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create_byte_stream_writer</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">segment</span>: <span class="ident">ScopedSegment</span>) <span class="op">-&gt;</span> <span class="ident">ByteStreamWriter</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create_byte_stream_writer</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">segment</span>: <span class="ident">ScopedSegment</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ByteStreamWriter</span> {
         <span class="ident">ByteStreamWriter</span>::<span class="ident">new</span>(<span class="ident">segment</span>, <span class="self">self</span>.<span class="ident">clone</span>())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create_byte_stream_reader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">segment</span>: <span class="ident">ScopedSegment</span>) <span class="op">-&gt;</span> <span class="ident">ByteStreamReader</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create_byte_stream_reader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">segment</span>: <span class="ident">ScopedSegment</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ByteStreamReader</span> {
         <span class="ident">ByteStreamReader</span>::<span class="ident">new</span>(<span class="ident">segment</span>, <span class="self">self</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_delegation_token_provider</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">stream</span>: <span class="ident">ScopedStream</span>) <span class="op">-&gt;</span> <span class="ident">DelegationTokenProvider</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">create_delegation_token_provider</span>(<span class="ident">stream</span>).<span class="kw">await</span>
+    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_delegation_token_provider</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">stream</span>: <span class="ident">ScopedStream</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">DelegationTokenProvider</span> {
+        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">create_delegation_token_provider</span>(<span class="ident">stream</span>).<span class="ident">await</span>
     }
 
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_segment_metadata_client</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">segment</span>: <span class="ident">ScopedSegment</span>) <span class="op">-&gt;</span> <span class="ident">SegmentMetadataClient</span> {
-        <span class="ident">SegmentMetadataClient</span>::<span class="ident">new</span>(<span class="ident">segment</span>.<span class="ident">clone</span>(), <span class="self">self</span>.<span class="ident">clone</span>()).<span class="kw">await</span>
+    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_segment_metadata_client</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">segment</span>: <span class="ident">ScopedSegment</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">SegmentMetadataClient</span> {
+        <span class="ident">SegmentMetadataClient</span>::<span class="ident">new</span>(<span class="ident">segment</span>.<span class="ident">clone</span>(), <span class="self">self</span>.<span class="ident">clone</span>()).<span class="ident">await</span>
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_controller_client</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">ControllerClient</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_controller_client</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">dyn</span> <span class="ident">ControllerClient</span> {
         <span class="self">self</span>.<span class="number">0</span>.<span class="ident">get_controller_client</span>()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_config</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="ident">ClientConfig</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_config</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">ClientConfig</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>.<span class="ident">config</span>
     }
 }
 
 <span class="kw">impl</span> <span class="ident">ClientFactoryInternal</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">create_raw_client</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">endpoint</span>: <span class="ident">PravegaNodeUri</span>) <span class="op">-&gt;</span> <span class="ident">RawClientImpl</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">create_raw_client</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">endpoint</span>: <span class="ident">PravegaNodeUri</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">RawClientImpl</span> {
         <span class="ident">RawClientImpl</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">connection_pool</span>, <span class="ident">endpoint</span>)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_delegation_token_provider</span>(
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_delegation_token_provider</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">stream</span>: <span class="ident">ScopedStream</span>,
-    ) <span class="op">-&gt;</span> <span class="ident">DelegationTokenProvider</span> {
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">DelegationTokenProvider</span> {
         <span class="kw">let</span> <span class="ident">token_provider</span> <span class="op">=</span> <span class="ident">DelegationTokenProvider</span>::<span class="ident">new</span>(<span class="ident">stream</span>);
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">is_auth_enabled</span> {
             <span class="ident">token_provider</span>
         } <span class="kw">else</span> {
             <span class="kw">let</span> <span class="ident">empty_token</span> <span class="op">=</span> <span class="ident">DelegationToken</span>::<span class="ident">new</span>(<span class="string">&quot;&quot;</span>.<span class="ident">to_string</span>(), <span class="prelude-val">None</span>);
-            <span class="ident">token_provider</span>.<span class="ident">populate</span>(<span class="ident">empty_token</span>).<span class="kw">await</span>;
+            <span class="ident">token_provider</span>.<span class="ident">populate</span>(<span class="ident">empty_token</span>).<span class="ident">await</span>;
             <span class="ident">token_provider</span>
         }
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_connection_pool</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="ident">ConnectionPool</span><span class="op">&lt;</span><span class="ident">SegmentConnectionManager</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_connection_pool</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">ConnectionPool</span><span class="op">&lt;</span><span class="ident">SegmentConnectionManager</span><span class="op">&gt;</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">connection_pool</span>
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_controller_client</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">ControllerClient</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_controller_client</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">dyn</span> <span class="ident">ControllerClient</span> {
         <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">controller_client</span>
     }
 
     <span class="doccomment">///</span>
     <span class="doccomment">/// Get the Runtime handle. The Handle is internally reference counted and can be cloned.</span>
     <span class="doccomment">///</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_runtime_handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Handle</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_runtime_handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Handle</span> {
         <span class="self">self</span>.<span class="ident">runtime</span>.<span class="ident">handle</span>().<span class="ident">clone</span>()
     }
 }
 
 <span class="kw">impl</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">ClientFactoryInternal</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
         <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;ClientFactoryInternal&quot;</span>)
             .<span class="ident">field</span>(<span class="string">&quot;connection pool&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">connection_pool</span>)
             .<span class="ident">field</span>(<span class="string">&quot;client config,&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">config</span>)

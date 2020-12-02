@@ -1,4 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `src/reactor/segment_writer.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>segment_writer.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="../../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../pravega_client_rust/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `src/reactor/segment_writer.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>segment_writer.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../pravega_client_rust/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
                 <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
@@ -812,7 +814,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">connection</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ClientConnectionWriteHalf</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Closes listener task before setting up new connection.</span>
-    <span class="ident">connection_listener_handle</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">oneshot</span>::<span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;&gt;</span>,
+    <span class="ident">connection_listener_handle</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">oneshot</span>::<span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Events that are sent but unacknowledged.</span>
     <span class="ident">inflight</span>: <span class="ident">VecDeque</span><span class="op">&lt;</span><span class="ident">Append</span><span class="op">&gt;</span>,
@@ -844,7 +846,7 @@
         <span class="ident">sender</span>: <span class="ident">ChannelSender</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
         <span class="ident">retry_policy</span>: <span class="ident">RetryWithBackoff</span>,
         <span class="ident">delegation_token_provider</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">DelegationTokenProvider</span><span class="op">&gt;</span>,
-    ) <span class="op">-&gt;</span> <span class="self">Self</span> {
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="ident">SegmentWriter</span> {
             <span class="ident">id</span>: <span class="ident">WriterId</span>::<span class="ident">from</span>(<span class="ident">get_random_u128</span>()),
             <span class="ident">connection</span>: <span class="prelude-val">None</span>,
@@ -862,13 +864,13 @@
     <span class="doccomment">/// Sends a SetupAppend wirecommand to segmentstore. Upon completing setup, it</span>
     <span class="doccomment">/// spins up a listener task that listens to the reply from segmentstore and sends that reply</span>
     <span class="doccomment">/// to the reactor for processing.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">setup_connection</span>(
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">setup_connection</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">factory</span>: <span class="kw-2">&amp;</span><span class="ident">ClientFactory</span>,
-    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;</span> {
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">span</span> <span class="op">=</span> <span class="macro">info_span</span><span class="macro">!</span>(<span class="string">&quot;setup connection&quot;</span>, <span class="ident">segment_writer_id</span><span class="op">=</span> <span class="op">%</span><span class="self">self</span>.<span class="ident">id</span>, <span class="ident">segment</span><span class="op">=</span> <span class="op">%</span><span class="self">self</span>.<span class="ident">segment</span>, <span class="ident">host</span> <span class="op">=</span> <span class="ident">field</span>::<span class="ident">Empty</span>);
         <span class="comment">// span.enter doesn&#39;t work for async code https://docs.rs/tracing/0.1.17/tracing/span/struct.Span.html#in-asynchronous-code</span>
-        <span class="kw">async</span> {
+        <span class="ident">async</span> {
             <span class="macro">info</span><span class="macro">!</span>(<span class="string">&quot;setting up connection for segment writer&quot;</span>);
             <span class="comment">// close current listener task by dropping the sender, receiver will automatically closes</span>
             <span class="kw">let</span> (<span class="ident">oneshot_tx</span>, <span class="ident">oneshot_rx</span>) <span class="op">=</span> <span class="ident">oneshot</span>::<span class="ident">channel</span>();
@@ -878,10 +880,10 @@
             <span class="kw">let</span> <span class="ident">uri</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">factory</span>
                 .<span class="ident">get_controller_client</span>()
                 .<span class="ident">get_endpoint_for_segment</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">segment</span>) <span class="comment">// retries are internal to the controller client.</span>
-                .<span class="kw">await</span>
+                .<span class="ident">await</span>
             {
-                <span class="prelude-val">Ok</span>(<span class="ident">uri</span>) <span class="op">=&gt;</span> <span class="ident">uri</span>,
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SegmentWriterError</span>::<span class="ident">RetryControllerWriting</span> { <span class="ident">err</span>: <span class="ident">e</span> }),
+                <span class="prelude-val">Ok</span>(<span class="ident">uri</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">uri</span>,
+                <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SegmentWriterError</span>::<span class="ident">RetryControllerWriting</span> { <span class="ident">err</span>: <span class="ident">e</span> }),
             };
             <span class="ident">trace</span>::<span class="ident">current_span</span>().<span class="ident">record</span>(<span class="string">&quot;host&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">field</span>::<span class="ident">debug</span>(<span class="kw-2">&amp;</span><span class="ident">uri</span>));
 
@@ -892,28 +894,28 @@
                 <span class="ident">delegation_token</span>: <span class="self">self</span>
                     .<span class="ident">delegation_token_provider</span>
                     .<span class="ident">retrieve_token</span>(<span class="ident">factory</span>.<span class="ident">get_controller_client</span>())
-                    .<span class="kw">await</span>,
+                    .<span class="ident">await</span>,
             });
 
             <span class="kw">let</span> <span class="ident">raw_client</span> <span class="op">=</span> <span class="ident">factory</span>.<span class="ident">create_raw_client_for_endpoint</span>(<span class="ident">uri</span>);
-            <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">retry_async</span>(<span class="self">self</span>.<span class="ident">retry_policy</span>, <span class="op">||</span> <span class="kw">async</span> {
+            <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">retry_async</span>(<span class="self">self</span>.<span class="ident">retry_policy</span>, <span class="op">|</span><span class="op">|</span> <span class="ident">async</span> {
                 <span class="macro">debug</span><span class="macro">!</span>(
                     <span class="string">&quot;setting up append for writer:{:?}/segment:{:?}&quot;</span>,
                     <span class="self">self</span>.<span class="ident">id</span>, <span class="self">self</span>.<span class="ident">segment</span>
                 );
-                <span class="kw">match</span> <span class="ident">raw_client</span>.<span class="ident">send_setup_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="kw">await</span> {
-                    <span class="prelude-val">Ok</span>((<span class="ident">reply</span>, <span class="ident">connection</span>)) <span class="op">=&gt;</span> <span class="ident">RetryResult</span>::<span class="ident">Success</span>((<span class="ident">reply</span>, <span class="ident">connection</span>)),
-                    <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=&gt;</span> {
+                <span class="kw">match</span> <span class="ident">raw_client</span>.<span class="ident">send_setup_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="ident">await</span> {
+                    <span class="prelude-val">Ok</span>((<span class="ident">reply</span>, <span class="ident">connection</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult</span>::<span class="ident">Success</span>((<span class="ident">reply</span>, <span class="ident">connection</span>)),
+                    <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="macro">warn</span><span class="macro">!</span>(<span class="string">&quot;failed to setup append using rawclient due to {:?}&quot;</span>, <span class="ident">e</span>);
                         <span class="ident">RetryResult</span>::<span class="ident">Retry</span>(<span class="ident">e</span>)
                     }
                 }
             })
-            .<span class="kw">await</span>;
+            .<span class="ident">await</span>;
 
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">connection</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">result</span> {
-                <span class="prelude-val">Ok</span>((<span class="ident">reply</span>, <span class="ident">connection</span>)) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="ident">reply</span> {
-                    <span class="ident">Replies</span>::<span class="ident">AppendSetup</span>(<span class="ident">cmd</span>) <span class="op">=&gt;</span> {
+                <span class="prelude-val">Ok</span>((<span class="ident">reply</span>, <span class="ident">connection</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">reply</span> {
+                    <span class="ident">Replies</span>::<span class="ident">AppendSetup</span>(<span class="ident">cmd</span>) <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="macro">debug</span><span class="macro">!</span>(
                             <span class="string">&quot;append setup completed for writer:{:?}/segment:{:?}&quot;</span>,
                             <span class="self">self</span>.<span class="ident">id</span>, <span class="self">self</span>.<span class="ident">segment</span>
@@ -921,7 +923,7 @@
                         <span class="self">self</span>.<span class="ident">ack</span>(<span class="ident">cmd</span>.<span class="ident">last_event_number</span>);
                         <span class="ident">connection</span>
                     }
-                    <span class="kw">_</span> <span class="op">=&gt;</span> {
+                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="macro">warn</span><span class="macro">!</span>(<span class="string">&quot;append setup failed due to {:?}&quot;</span>, <span class="ident">reply</span>);
                         <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SegmentWriterError</span>::<span class="ident">WrongReply</span> {
                             <span class="ident">expected</span>: <span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;AppendSetup&quot;</span>),
@@ -929,7 +931,7 @@
                         });
                     }
                 },
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SegmentWriterError</span>::<span class="ident">RetryRawClient</span> { <span class="ident">err</span>: <span class="ident">e</span> }),
+                <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SegmentWriterError</span>::<span class="ident">RetryRawClient</span> { <span class="ident">err</span>: <span class="ident">e</span> }),
             };
             <span class="kw">let</span> (<span class="ident">r</span>, <span class="ident">w</span>) <span class="op">=</span> <span class="ident">connection</span>.<span class="ident">split</span>();
             <span class="self">self</span>.<span class="ident">connection</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">w</span>);
@@ -940,7 +942,7 @@
             <span class="prelude-val">Ok</span>(())
         }
         .<span class="ident">instrument</span>(<span class="ident">span</span>)
-        .<span class="kw">await</span>
+        .<span class="ident">await</span>
     }
 
     <span class="kw">fn</span> <span class="ident">spawn_listener_task</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">r</span>: <span class="ident">ClientConnectionReadHalf</span>, <span class="kw-2">mut</span> <span class="ident">oneshot_rx</span>: <span class="ident">oneshot</span>::<span class="ident">Receiver</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span>) {
@@ -949,24 +951,24 @@
         <span class="kw">let</span> <span class="ident">listener_id</span> <span class="op">=</span> <span class="ident">r</span>.<span class="ident">get_id</span>();
         <span class="kw">let</span> <span class="ident">writer_id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">id</span>;
 
-        <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="kw">async</span> <span class="kw">move</span> {
+        <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">async</span> <span class="kw">move</span> {
             <span class="kw">loop</span> {
                 <span class="macro">select</span><span class="macro">!</span> {
-                    <span class="kw">_</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">oneshot_rx</span> <span class="op">=&gt;</span> {
+                    <span class="kw">_</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">oneshot_rx</span> <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;shut down connection listener {:?}&quot;</span>, <span class="ident">listener_id</span>);
                         <span class="kw">break</span>;
                     }
-                    <span class="ident">result</span> <span class="op">=</span> <span class="ident">r</span>.<span class="ident">read</span>() <span class="op">=&gt;</span> {
+                    <span class="ident">result</span> <span class="op">=</span> <span class="ident">r</span>.<span class="ident">read</span>() <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">result</span> {
-                            <span class="prelude-val">Ok</span>(<span class="ident">reply</span>) <span class="op">=&gt;</span> <span class="ident">reply</span>,
-                            <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=&gt;</span> {
+                            <span class="prelude-val">Ok</span>(<span class="ident">reply</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">reply</span>,
+                            <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
                                 <span class="macro">warn</span><span class="macro">!</span>(<span class="string">&quot;connection failed to read data back from segmentstore due to {:?}, closing listener task {:?}&quot;</span>, <span class="ident">e</span>, <span class="ident">listener_id</span>);
                                 <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">sender</span>
                                     .<span class="ident">send</span>((<span class="ident">Incoming</span>::<span class="ident">Reconnect</span>(<span class="ident">WriterInfo</span> {
                                         <span class="ident">segment</span>: <span class="ident">segment</span>.<span class="ident">clone</span>(),
                                         <span class="ident">connection_id</span>: <span class="ident">r</span>.<span class="ident">get_id</span>(),
                                         <span class="ident">writer_id</span>,
-                                    }), <span class="number">0</span>)).<span class="kw">await</span>;
+                                    }), <span class="number">0</span>)).<span class="ident">await</span>;
                                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">result</span> {
                                     <span class="macro">error</span><span class="macro">!</span>(<span class="string">&quot;failed to send connectionFailure signal to reactor {:?}&quot;</span>, <span class="ident">e</span>);
                                 }
@@ -978,7 +980,7 @@
                                 <span class="ident">segment</span>: <span class="ident">segment</span>.<span class="ident">clone</span>(),
                                 <span class="ident">reply</span>,
                             }), <span class="number">0</span>))
-                            .<span class="kw">await</span>;
+                            .<span class="ident">await</span>;
 
                         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">res</span> {
                             <span class="macro">error</span><span class="macro">!</span>(<span class="string">&quot;connection read data from segmentstore but failed to send reply back to reactor due to {:?}&quot;</span>,<span class="ident">e</span>);
@@ -993,18 +995,18 @@
 
     <span class="doccomment">/// Adds the event to the pending list</span>
     <span class="doccomment">/// then writes the pending list if the inflight list is empty.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">write</span>(
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">write</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">event</span>: <span class="ident">PendingEvent</span>,
         <span class="ident">cap_guard</span>: <span class="ident">CapacityGuard</span>,
-    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;</span> {
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">add_pending</span>(<span class="ident">event</span>, <span class="ident">cap_guard</span>);
-        <span class="self">self</span>.<span class="ident">write_pending_events</span>().<span class="kw">await</span>
+        <span class="self">self</span>.<span class="ident">write_pending_events</span>().<span class="ident">await</span>
     }
 
     <span class="doccomment">/// Adds the event to the pending list</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">add_pending</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">event</span>: <span class="ident">PendingEvent</span>, <span class="ident">cap_guard</span>: <span class="ident">CapacityGuard</span>) {
-        <span class="self">self</span>.<span class="ident">event_num</span> <span class="op">+=</span> <span class="number">1</span>;
+        <span class="self">self</span>.<span class="ident">event_num</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
         <span class="self">self</span>.<span class="ident">pending</span>.<span class="ident">push_back</span>(<span class="ident">Append</span> {
             <span class="ident">event_id</span>: <span class="self">self</span>.<span class="ident">event_num</span>,
             <span class="ident">event</span>,
@@ -1014,8 +1016,8 @@
 
     <span class="doccomment">/// Writes the pending events to the server. It will grab at most MAX_WRITE_SIZE of data</span>
     <span class="doccomment">/// from the pending list and send them to the server. Those events will be moved to inflight list waiting to be acked.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">write_pending_events</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">inflight</span>.<span class="ident">is_empty</span>() <span class="op">||</span> <span class="self">self</span>.<span class="ident">pending</span>.<span class="ident">is_empty</span>() {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">write_pending_events</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;</span> {
+        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">inflight</span>.<span class="ident">is_empty</span>() <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">pending</span>.<span class="ident">is_empty</span>() {
             <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
         }
 
@@ -1028,31 +1030,31 @@
 
         <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">append</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">pending</span>.<span class="ident">pop_front</span>() {
             <span class="macro">assert</span><span class="macro">!</span>(
-                <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">data</span>.<span class="ident">len</span>() <span class="op">&lt;=</span> <span class="ident">SegmentWriter</span>::<span class="ident">MAX_WRITE_SIZE</span> <span class="kw">as</span> <span class="ident">usize</span>,
+                <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">data</span>.<span class="ident">len</span>() <span class="op">&lt;</span><span class="op">=</span> <span class="ident">SegmentWriter</span>::<span class="ident">MAX_WRITE_SIZE</span> <span class="kw">as</span> <span class="ident">usize</span>,
                 <span class="string">&quot;event size {} must be under {}&quot;</span>,
                 <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">data</span>.<span class="ident">len</span>(),
                 <span class="ident">SegmentWriter</span>::<span class="ident">MAX_WRITE_SIZE</span>
             );
-            <span class="kw">if</span> <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">data</span>.<span class="ident">len</span>() <span class="op">+</span> <span class="ident">to_send</span>.<span class="ident">len</span>() <span class="op">&lt;=</span> <span class="ident">SegmentWriter</span>::<span class="ident">MAX_WRITE_SIZE</span> <span class="kw">as</span> <span class="ident">usize</span>
+            <span class="kw">if</span> <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">data</span>.<span class="ident">len</span>() <span class="op">+</span> <span class="ident">to_send</span>.<span class="ident">len</span>() <span class="op">&lt;</span><span class="op">=</span> <span class="ident">SegmentWriter</span>::<span class="ident">MAX_WRITE_SIZE</span> <span class="kw">as</span> <span class="ident">usize</span>
                 <span class="op">&amp;&amp;</span> <span class="ident">event_count</span> <span class="op">&lt;</span> <span class="ident">SegmentWriter</span>::<span class="ident">MAX_EVENTS</span> <span class="kw">as</span> <span class="ident">usize</span>
-                <span class="op">&amp;&amp;</span> <span class="ident">conditional</span> <span class="op">==</span> <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">conditional_offset</span>.<span class="ident">is_some</span>()
+                <span class="op">&amp;&amp;</span> <span class="ident">conditional</span> <span class="op">=</span><span class="op">=</span> <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">conditional_offset</span>.<span class="ident">is_some</span>()
             {
                 <span class="kw">if</span> <span class="ident">conditional</span> {
                     <span class="kw">let</span> <span class="ident">event_offset</span> <span class="op">=</span> <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">conditional_offset</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>().<span class="ident">to_owned</span>();
-                    <span class="kw">if</span> <span class="ident">offset</span> <span class="op">==</span> <span class="op">-</span><span class="number">1</span> {
+                    <span class="kw">if</span> <span class="ident">offset</span> <span class="op">=</span><span class="op">=</span> <span class="op">-</span><span class="number">1</span> {
                         <span class="comment">// first conditional append</span>
                         <span class="ident">offset</span> <span class="op">=</span> <span class="ident">event_offset</span> <span class="op">+</span> <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">data</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i64</span>;
-                    } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">offset</span> <span class="op">!=</span> <span class="ident">event_offset</span> {
+                    } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">offset</span> <span class="op">!</span><span class="op">=</span> <span class="ident">event_offset</span> {
                         <span class="comment">// next conditional append does not depend on the previous one to succeed,</span>
                         <span class="comment">// do not send them in one event.</span>
                         <span class="self">self</span>.<span class="ident">pending</span>.<span class="ident">push_front</span>(<span class="ident">append</span>);
                         <span class="kw">break</span>;
                     } <span class="kw">else</span> {
-                        <span class="ident">offset</span> <span class="op">+=</span> <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">data</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i64</span>;
+                        <span class="ident">offset</span> <span class="op">+</span><span class="op">=</span> <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">data</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i64</span>;
                     }
                 }
-                <span class="ident">event_count</span> <span class="op">+=</span> <span class="number">1</span>;
-                <span class="ident">total_size</span> <span class="op">+=</span> <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">data</span>.<span class="ident">len</span>();
+                <span class="ident">event_count</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+                <span class="ident">total_size</span> <span class="op">+</span><span class="op">=</span> <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">data</span>.<span class="ident">len</span>();
                 <span class="ident">to_send</span>.<span class="ident">extend</span>(<span class="kw-2">&amp;</span><span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">data</span>);
                 <span class="self">self</span>.<span class="ident">inflight</span>.<span class="ident">push_back</span>(<span class="ident">append</span>);
             } <span class="kw">else</span> {
@@ -1091,13 +1093,13 @@
         };
 
         <span class="kw">let</span> <span class="ident">writer</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">connection</span>.<span class="ident">as_mut</span>().<span class="ident">expect</span>(<span class="string">&quot;must have connection&quot;</span>);
-        <span class="ident">writer</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="kw">await</span>.<span class="ident">context</span>(<span class="ident">SegmentWriting</span> {})<span class="question-mark">?</span>;
+        <span class="ident">writer</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="ident">await</span>.<span class="ident">context</span>(<span class="ident">SegmentWriting</span> {})<span class="question-mark">?</span>;
 
-        <span class="macro">update</span><span class="macro">!</span>(<span class="ident">ClientMetrics</span>::<span class="ident">ClientAppendBlockSize</span>, <span class="ident">total_size</span> <span class="kw">as</span> <span class="ident">u64</span>, <span class="string">&quot;Segment Writer Id&quot;</span> <span class="op">=&gt;</span> <span class="self">self</span>.<span class="ident">id</span>.<span class="ident">to_string</span>());
+        <span class="macro">update</span><span class="macro">!</span>(<span class="ident">ClientMetrics</span>::<span class="ident">ClientAppendBlockSize</span>, <span class="ident">total_size</span> <span class="kw">as</span> <span class="ident">u64</span>, <span class="string">&quot;Segment Writer Id&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">id</span>.<span class="ident">to_string</span>());
         <span class="macro">update</span><span class="macro">!</span>(
             <span class="ident">ClientMetrics</span>::<span class="ident">ClientOutstandingAppendCount</span>,
             <span class="self">self</span>.<span class="ident">pending</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>,
-            <span class="string">&quot;Segment Writer Id&quot;</span> <span class="op">=&gt;</span> <span class="self">self</span>.<span class="ident">id</span>.<span class="ident">to_string</span>()
+            <span class="string">&quot;Segment Writer Id&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">id</span>.<span class="ident">to_string</span>()
         );
         <span class="prelude-val">Ok</span>(())
     }
@@ -1131,7 +1133,7 @@
             }
 
             <span class="comment">// ack up to event id</span>
-            <span class="kw">if</span> <span class="ident">acked</span>.<span class="ident">event_id</span> <span class="op">==</span> <span class="ident">event_id</span> {
+            <span class="kw">if</span> <span class="ident">acked</span>.<span class="ident">event_id</span> <span class="op">=</span><span class="op">=</span> <span class="ident">event_id</span> {
                 <span class="kw">break</span>;
             }
         }
@@ -1139,7 +1141,7 @@
 
     <span class="doccomment">/// Gets the unacked events. Notice that it will pass the ownership</span>
     <span class="doccomment">/// of the unacked events to the caller, which means this method can only be called once.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_unacked_events</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Append</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_unacked_events</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Append</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
         <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">append</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">inflight</span>.<span class="ident">pop_front</span>() {
             <span class="ident">ret</span>.<span class="ident">push</span>(<span class="ident">append</span>);
@@ -1158,7 +1160,7 @@
     <span class="doccomment">/// 3. writes pending data to the server</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// If error occurs during any one of the steps above, redo the reconnect from step 1.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">reconnect</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">factory</span>: <span class="kw-2">&amp;</span><span class="ident">ClientFactory</span>) {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">reconnect</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">factory</span>: <span class="kw-2">&amp;</span><span class="ident">ClientFactory</span>) {
         <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Reconnecting segment writer {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">id</span>);
         <span class="kw">let</span> <span class="ident">connection_id</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">write_half</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">connection</span> {
             <span class="ident">write_half</span>.<span class="ident">get_id</span>()
@@ -1167,7 +1169,7 @@
         };
 
         <span class="comment">// setup the connection</span>
-        <span class="kw">let</span> <span class="ident">setup_res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">setup_connection</span>(<span class="ident">factory</span>).<span class="kw">await</span>;
+        <span class="kw">let</span> <span class="ident">setup_res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">setup_connection</span>(<span class="ident">factory</span>).<span class="ident">await</span>;
         <span class="kw">if</span> <span class="ident">setup_res</span>.<span class="ident">is_err</span>() {
             <span class="self">self</span>.<span class="ident">sender</span>
                 .<span class="ident">send</span>((
@@ -1178,7 +1180,7 @@
                     }),
                     <span class="number">0</span>,
                 ))
-                .<span class="kw">await</span>
+                .<span class="ident">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;send reconnect signal to reactor&quot;</span>);
             <span class="kw">return</span>;
         }
@@ -1189,7 +1191,7 @@
         }
 
         <span class="comment">// flush any pending events</span>
-        <span class="kw">let</span> <span class="ident">flush_res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">write_pending_events</span>().<span class="kw">await</span>;
+        <span class="kw">let</span> <span class="ident">flush_res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">write_pending_events</span>().<span class="ident">await</span>;
         <span class="kw">if</span> <span class="ident">flush_res</span>.<span class="ident">is_err</span>() {
             <span class="self">self</span>.<span class="ident">sender</span>
                 .<span class="ident">send</span>((
@@ -1200,7 +1202,7 @@
                     }),
                     <span class="number">0</span>,
                 ))
-                .<span class="kw">await</span>
+                .<span class="ident">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;send reconnect signal to reactor&quot;</span>);
         }
     }
@@ -1214,7 +1216,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fail_events_upon_conditional_check_failure</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">event_id</span>: <span class="ident">i64</span>) {
         <span class="comment">// remove failed append from inflight list</span>
         <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">append</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">inflight</span>.<span class="ident">pop_back</span>() {
-            <span class="kw">if</span> <span class="ident">append</span>.<span class="ident">event_id</span> <span class="op">&gt;=</span> <span class="ident">event_id</span> {
+            <span class="kw">if</span> <span class="ident">append</span>.<span class="ident">event_id</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">event_id</span> {
                 <span class="kw">let</span> <span class="ident">_res</span> <span class="op">=</span> <span class="ident">append</span>
                     .<span class="ident">event</span>
                     .<span class="ident">oneshot_sender</span>
@@ -1236,15 +1238,15 @@
 }
 
 <span class="kw">impl</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">SegmentWriter</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
         <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;SegmentWriter&quot;</span>)
             .<span class="ident">field</span>(<span class="string">&quot;segment writer id&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">id</span>)
             .<span class="ident">field</span>(<span class="string">&quot;segment&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">segment</span>)
             .<span class="ident">field</span>(
                 <span class="string">&quot;connection&quot;</span>,
                 <span class="kw-2">&amp;</span><span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">connection</span> {
-                    <span class="prelude-val">Some</span>(<span class="ident">w</span>) <span class="op">=&gt;</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;WritingClientConnection is {:?}&quot;</span>, <span class="ident">w</span>),
-                    <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="string">&quot;doesn&#39;t have connection&quot;</span>.<span class="ident">to_owned</span>(),
+                    <span class="prelude-val">Some</span>(<span class="ident">w</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;WritingClientConnection is {:?}&quot;</span>, <span class="ident">w</span>),
+                    <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;doesn&#39;t have connection&quot;</span>.<span class="ident">to_owned</span>(),
                 },
             )
             .<span class="ident">field</span>(
@@ -1274,7 +1276,7 @@
     <span class="kw">use</span> <span class="ident">pravega_rust_client_config</span>::<span class="ident">ClientConfigBuilder</span>;
     <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">sync</span>::<span class="ident">oneshot</span>;
 
-    <span class="kw">type</span> <span class="ident">EventHandle</span> <span class="op">=</span> <span class="ident">oneshot</span>::<span class="ident">Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;&gt;</span>;
+    <span class="kw">type</span> <span class="ident">EventHandle</span> <span class="op">=</span> <span class="ident">oneshot</span>::<span class="ident">Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_segment_writer_happy_write</span>() {
@@ -1289,9 +1291,9 @@
         <span class="comment">// write data using mock connection</span>
         <span class="kw">let</span> (<span class="ident">event</span>, <span class="ident">guard</span>, <span class="ident">event_handle1</span>) <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">create_event</span>(<span class="number">512</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">sender</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="prelude-val">None</span>));
         <span class="kw">let</span> (<span class="ident">reply</span>, <span class="ident">cap_guard</span>) <span class="op">=</span> <span class="ident">rt</span>
-            .<span class="ident">block_on</span>(<span class="kw">async</span> {
-                <span class="ident">segment_writer</span>.<span class="ident">write</span>(<span class="ident">event</span>, <span class="ident">guard</span>).<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;write data&quot;</span>);
-                <span class="kw">return</span> <span class="ident">receiver</span>.<span class="ident">recv</span>().<span class="kw">await</span>;
+            .<span class="ident">block_on</span>(<span class="ident">async</span> {
+                <span class="ident">segment_writer</span>.<span class="ident">write</span>(<span class="ident">event</span>, <span class="ident">guard</span>).<span class="ident">await</span>.<span class="ident">expect</span>(<span class="string">&quot;write data&quot;</span>);
+                <span class="kw">return</span> <span class="ident">receiver</span>.<span class="ident">recv</span>().<span class="ident">await</span>;
             })
             .<span class="ident">expect</span>(<span class="string">&quot;receive DataAppend from segment writer&quot;</span>);
 
@@ -1339,9 +1341,9 @@
         <span class="comment">// write data using mock connection to a sealed segment</span>
         <span class="kw">let</span> (<span class="ident">event</span>, <span class="ident">guard</span>, <span class="ident">_event_handle</span>) <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">create_event</span>(<span class="number">512</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">sender</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="prelude-val">None</span>));
         <span class="kw">let</span> (<span class="ident">reply</span>, <span class="ident">cap_guard</span>) <span class="op">=</span> <span class="ident">rt</span>
-            .<span class="ident">block_on</span>(<span class="kw">async</span> {
-                <span class="ident">segment_writer</span>.<span class="ident">write</span>(<span class="ident">event</span>, <span class="ident">guard</span>).<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;write data&quot;</span>);
-                <span class="ident">receiver</span>.<span class="ident">recv</span>().<span class="kw">await</span>
+            .<span class="ident">block_on</span>(<span class="ident">async</span> {
+                <span class="ident">segment_writer</span>.<span class="ident">write</span>(<span class="ident">event</span>, <span class="ident">guard</span>).<span class="ident">await</span>.<span class="ident">expect</span>(<span class="string">&quot;write data&quot;</span>);
+                <span class="ident">receiver</span>.<span class="ident">recv</span>().<span class="ident">await</span>
             })
             .<span class="ident">expect</span>(<span class="string">&quot;receive DataAppend from segment writer&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">cap_guard</span>.<span class="ident">size</span>, <span class="number">0</span>);
@@ -1463,7 +1465,7 @@
     <span class="comment">// helper function section</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">create_segment_writer</span>(
         <span class="ident">mock</span>: <span class="ident">MockType</span>,
-    ) <span class="op">-&gt;</span> (
+    ) <span class="op">-</span><span class="op">&gt;</span> (
         <span class="ident">SegmentWriter</span>,
         <span class="ident">ChannelSender</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
         <span class="ident">ChannelReceiver</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
@@ -1492,18 +1494,18 @@
         )
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_event</span>(
+    <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_event</span>(
         <span class="ident">size</span>: <span class="ident">usize</span>,
         <span class="ident">sender</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">ChannelSender</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
         <span class="ident">receiver</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">ChannelReceiver</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
         <span class="ident">offset</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>,
-    ) <span class="op">-&gt;</span> (<span class="ident">PendingEvent</span>, <span class="ident">CapacityGuard</span>, <span class="ident">EventHandle</span>) {
+    ) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">PendingEvent</span>, <span class="ident">CapacityGuard</span>, <span class="ident">EventHandle</span>) {
         <span class="kw">let</span> (<span class="ident">oneshot_sender</span>, <span class="ident">oneshot_receiver</span>) <span class="op">=</span> <span class="ident">tokio</span>::<span class="ident">sync</span>::<span class="ident">oneshot</span>::<span class="ident">channel</span>();
         <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">PendingEvent</span>::<span class="ident">new</span>(<span class="prelude-val">Some</span>(<span class="string">&quot;routing_key&quot;</span>.<span class="ident">into</span>()), <span class="macro">vec</span><span class="macro">!</span>[<span class="number">1</span>; <span class="ident">size</span>], <span class="ident">offset</span>, <span class="ident">oneshot_sender</span>)
             .<span class="ident">expect</span>(<span class="string">&quot;create pending event&quot;</span>);
-        <span class="ident">sender</span>.<span class="ident">send</span>((<span class="ident">Incoming</span>::<span class="ident">AppendEvent</span>(<span class="ident">event</span>), <span class="ident">size</span>)).<span class="kw">await</span>.<span class="ident">unwrap</span>();
+        <span class="ident">sender</span>.<span class="ident">send</span>((<span class="ident">Incoming</span>::<span class="ident">AppendEvent</span>(<span class="ident">event</span>), <span class="ident">size</span>)).<span class="ident">await</span>.<span class="ident">unwrap</span>();
         <span class="kw">loop</span> {
-            <span class="kw">let</span> (<span class="ident">event</span>, <span class="ident">guard</span>) <span class="op">=</span> <span class="ident">receiver</span>.<span class="ident">recv</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>();
+            <span class="kw">let</span> (<span class="ident">event</span>, <span class="ident">guard</span>) <span class="op">=</span> <span class="ident">receiver</span>.<span class="ident">recv</span>().<span class="ident">await</span>.<span class="ident">unwrap</span>();
             <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Incoming</span>::<span class="ident">AppendEvent</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">event</span> {
                 <span class="kw">return</span> (<span class="ident">e</span>, <span class="ident">guard</span>, <span class="ident">oneshot_receiver</span>);
             }

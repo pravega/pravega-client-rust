@@ -1,4 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `src/cli.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>cli.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../server_cli/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `src/cli.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>cli.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../server_cli/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
                 <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
@@ -1116,7 +1118,7 @@
 }
 
 <span class="attribute">#[<span class="ident">tokio</span>::<span class="ident">main</span>]</span>
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">main</span>() {
+<span class="ident">async</span> <span class="kw">fn</span> <span class="ident">main</span>() {
     <span class="kw">let</span> <span class="ident">opt</span> <span class="op">=</span> <span class="ident">Opt</span>::<span class="ident">from_args</span>();
     <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">ClientConfigBuilder</span>::<span class="ident">default</span>()
         .<span class="ident">connection_type</span>(<span class="ident">ConnectionType</span>::<span class="ident">Tokio</span>)
@@ -1131,12 +1133,12 @@
         <span class="ident">Command</span>::<span class="ident">Hello</span> {
             <span class="ident">high_version</span>,
             <span class="ident">low_version</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">Hello</span>(<span class="ident">HelloCommand</span> {
                 <span class="ident">high_version</span>,
                 <span class="ident">low_version</span>,
             });
-            <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;send hello&quot;</span>);
+            <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="ident">await</span>.<span class="ident">expect</span>(<span class="string">&quot;send hello&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
         <span class="ident">Command</span>::<span class="ident">CreateSegment</span> {
@@ -1144,7 +1146,7 @@
             <span class="ident">target_rate</span>,
             <span class="ident">scale_type</span>,
             <span class="ident">delegation_token</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">CreateSegment</span>(<span class="ident">CreateSegmentCommand</span> {
                 <span class="ident">request_id</span>: <span class="ident">id</span>,
@@ -1155,7 +1157,7 @@
             });
             <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>)
-                .<span class="kw">await</span>
+                .<span class="ident">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;send create segment&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
@@ -1163,7 +1165,7 @@
             <span class="ident">segment</span>,
             <span class="ident">writer_id</span>,
             <span class="ident">delegation_token</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="comment">// we must do setupAppend before the ConditionalAppend.</span>
             <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">SetupAppend</span>(<span class="ident">SetupAppendCommand</span> {
@@ -1172,7 +1174,7 @@
                 <span class="ident">segment</span>,
                 <span class="ident">delegation_token</span>,
             });
-            <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;setupAppend&quot;</span>);
+            <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="ident">await</span>.<span class="ident">expect</span>(<span class="string">&quot;setupAppend&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>)
         }
         <span class="ident">Command</span>::<span class="ident">ConditionalAppend</span> {
@@ -1182,7 +1184,7 @@
             <span class="ident">expected_offset</span>,
             <span class="ident">event</span>,
             <span class="ident">delegation_token</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="comment">// we must do setupAppend before the ConditionalAppend.</span>
             <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">SetupAppend</span>(<span class="ident">SetupAppendCommand</span> {
@@ -1191,7 +1193,7 @@
                 <span class="ident">segment</span>,
                 <span class="ident">delegation_token</span>,
             });
-            <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;setupAppend&quot;</span>);
+            <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="ident">await</span>.<span class="ident">expect</span>(<span class="string">&quot;setupAppend&quot;</span>);
 
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">event</span>.<span class="ident">into_bytes</span>();
@@ -1205,7 +1207,7 @@
             });
             <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>)
-                .<span class="kw">await</span>
+                .<span class="ident">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;Conditional append&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
@@ -1214,7 +1216,7 @@
             <span class="ident">offset</span>,
             <span class="ident">suggested_length</span>,
             <span class="ident">delegation_token</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">ReadSegment</span>(<span class="ident">ReadSegmentCommand</span> {
                 <span class="ident">segment</span>,
@@ -1223,14 +1225,14 @@
                 <span class="ident">delegation_token</span>,
                 <span class="ident">request_id</span>: <span class="ident">id</span>,
             });
-            <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;read segment&quot;</span>);
+            <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="ident">await</span>.<span class="ident">expect</span>(<span class="string">&quot;read segment&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
         <span class="ident">Command</span>::<span class="ident">GetSegmentAttribute</span> {
             <span class="ident">segment</span>,
             <span class="ident">attribute_id</span>,
             <span class="ident">delegation_token</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">GetSegmentAttribute</span>(<span class="ident">GetSegmentAttributeCommand</span> {
                 <span class="ident">request_id</span>: <span class="ident">id</span>,
@@ -1240,7 +1242,7 @@
             });
             <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>)
-                .<span class="kw">await</span>
+                .<span class="ident">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;get segment attribute&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
@@ -1250,7 +1252,7 @@
             <span class="ident">new_value</span>,
             <span class="ident">expected_value</span>,
             <span class="ident">delegation_token</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">UpdateSegmentAttribute</span>(<span class="ident">UpdateSegmentAttributeCommand</span> {
                 <span class="ident">request_id</span>: <span class="ident">id</span>,
@@ -1262,14 +1264,14 @@
             });
             <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>)
-                .<span class="kw">await</span>
+                .<span class="ident">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;update segment attribute&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
         <span class="ident">Command</span>::<span class="ident">GetStreamSegmentInfo</span> {
             <span class="ident">segment</span>,
             <span class="ident">delegation_token</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">GetStreamSegmentInfo</span>(<span class="ident">GetStreamSegmentInfoCommand</span> {
                 <span class="ident">request_id</span>: <span class="ident">id</span>,
@@ -1278,14 +1280,14 @@
             });
             <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>)
-                .<span class="kw">await</span>
+                .<span class="ident">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;get stream segment info&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
         <span class="ident">Command</span>::<span class="ident">CreateTableSegment</span> {
             <span class="ident">segment</span>,
             <span class="ident">delegation_token</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">CreateTableSegment</span>(<span class="ident">CreateTableSegmentCommand</span> {
                 <span class="ident">request_id</span>: <span class="ident">id</span>,
@@ -1294,7 +1296,7 @@
             });
             <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>)
-                .<span class="kw">await</span>
+                .<span class="ident">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;create table segment&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
@@ -1303,7 +1305,7 @@
             <span class="ident">target_rate</span>,
             <span class="ident">scale_type</span>,
             <span class="ident">delegation_token</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">UpdateSegmentPolicy</span>(<span class="ident">UpdateSegmentPolicyCommand</span> {
                 <span class="ident">request_id</span>: <span class="ident">id</span>,
@@ -1314,7 +1316,7 @@
             });
             <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>)
-                .<span class="kw">await</span>
+                .<span class="ident">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;update segment policy&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
@@ -1322,7 +1324,7 @@
             <span class="ident">source</span>,
             <span class="ident">target</span>,
             <span class="ident">delegation_token</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">MergeSegments</span>(<span class="ident">MergeSegmentsCommand</span> {
                 <span class="ident">request_id</span>: <span class="ident">id</span>,
@@ -1330,14 +1332,14 @@
                 <span class="ident">source</span>,
                 <span class="ident">delegation_token</span>,
             });
-            <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;merge segment&quot;</span>);
+            <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="ident">await</span>.<span class="ident">expect</span>(<span class="string">&quot;merge segment&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
         <span class="ident">Command</span>::<span class="ident">MergeTableSegments</span> {
             <span class="ident">source</span>,
             <span class="ident">target</span>,
             <span class="ident">delegation_token</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">MergeTableSegments</span>(<span class="ident">MergeTableSegmentsCommand</span> {
                 <span class="ident">request_id</span>: <span class="ident">id</span>,
@@ -1347,27 +1349,27 @@
             });
             <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>)
-                .<span class="kw">await</span>
+                .<span class="ident">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;merge table segment&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
         <span class="ident">Command</span>::<span class="ident">SealSegment</span> {
             <span class="ident">segment</span>,
             <span class="ident">delegation_token</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">SealSegment</span>(<span class="ident">SealSegmentCommand</span> {
                 <span class="ident">request_id</span>: <span class="ident">id</span>,
                 <span class="ident">segment</span>,
                 <span class="ident">delegation_token</span>,
             });
-            <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;seal segment&quot;</span>);
+            <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="ident">await</span>.<span class="ident">expect</span>(<span class="string">&quot;seal segment&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
         <span class="ident">Command</span>::<span class="ident">SealTableSegment</span> {
             <span class="ident">segment</span>,
             <span class="ident">delegation_token</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">SealTableSegment</span>(<span class="ident">SealTableSegmentCommand</span> {
                 <span class="ident">request_id</span>: <span class="ident">id</span>,
@@ -1376,7 +1378,7 @@
             });
             <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>)
-                .<span class="kw">await</span>
+                .<span class="ident">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;seal table segment&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
@@ -1384,7 +1386,7 @@
             <span class="ident">segment</span>,
             <span class="ident">truncation_offset</span>,
             <span class="ident">delegation_token</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">TruncateSegment</span>(<span class="ident">TruncateSegmentCommand</span> {
                 <span class="ident">request_id</span>: <span class="ident">id</span>,
@@ -1392,27 +1394,27 @@
                 <span class="ident">truncation_offset</span>,
                 <span class="ident">delegation_token</span>,
             });
-            <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;truncate segment&quot;</span>);
+            <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="ident">await</span>.<span class="ident">expect</span>(<span class="string">&quot;truncate segment&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
         <span class="ident">Command</span>::<span class="ident">DeleteSegment</span> {
             <span class="ident">segment</span>,
             <span class="ident">delegation_token</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">DeleteSegment</span>(<span class="ident">DeleteSegmentCommand</span> {
                 <span class="ident">request_id</span>: <span class="ident">id</span>,
                 <span class="ident">segment</span>,
                 <span class="ident">delegation_token</span>,
             });
-            <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;delete segment&quot;</span>);
+            <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="ident">await</span>.<span class="ident">expect</span>(<span class="string">&quot;delete segment&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
         <span class="ident">Command</span>::<span class="ident">DeleteTableSegment</span> {
             <span class="ident">segment</span>,
             <span class="ident">must_be_empty</span>,
             <span class="ident">delegation_token</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">DeleteTableSegment</span>(<span class="ident">DeleteTableSegmentCommand</span> {
                 <span class="ident">request_id</span>: <span class="ident">id</span>,
@@ -1422,7 +1424,7 @@
             });
             <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>)
-                .<span class="kw">await</span>
+                .<span class="ident">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;delete table segment&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
@@ -1433,7 +1435,7 @@
             <span class="ident">value</span>,
             <span class="ident">delegation_token</span>,
             <span class="ident">table_segment_offset</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">entries</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
             <span class="ident">entries</span>.<span class="ident">push</span>((
@@ -1450,7 +1452,7 @@
             });
             <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>)
-                .<span class="kw">await</span>
+                .<span class="ident">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;update table entries&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
@@ -1460,7 +1462,7 @@
             <span class="ident">keys_version</span>,
             <span class="ident">delegation_token</span>,
             <span class="ident">table_segment_offset</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">keys</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
             <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">table_keys</span>.<span class="ident">len</span>();
@@ -1478,7 +1480,7 @@
             });
             <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>)
-                .<span class="kw">await</span>
+                .<span class="ident">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;remove table keys&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
@@ -1487,7 +1489,7 @@
             <span class="ident">table_keys</span>,
             <span class="ident">keys_version</span>,
             <span class="ident">delegation_token</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">keys</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
             <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">table_keys</span>.<span class="ident">len</span>();
@@ -1502,7 +1504,7 @@
                 <span class="ident">keys</span>,
                 <span class="ident">delegation_token</span>,
             });
-            <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;read table&quot;</span>);
+            <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="ident">await</span>.<span class="ident">expect</span>(<span class="string">&quot;read table&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
         <span class="ident">Command</span>::<span class="ident">ReadTableKeys</span> {
@@ -1510,7 +1512,7 @@
             <span class="ident">delegation_token</span>,
             <span class="ident">suggested_key_count</span>,
             <span class="ident">continuation_token</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="ident">token</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">continuation_token</span>.<span class="ident">is_empty</span>() {
                 <span class="ident">Vec</span>::<span class="ident">new</span>()
@@ -1527,7 +1529,7 @@
                 <span class="ident">suggested_key_count</span>,
                 <span class="ident">continuation_token</span>: <span class="ident">token</span>,
             });
-            <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;read table keys&quot;</span>);
+            <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="ident">await</span>.<span class="ident">expect</span>(<span class="string">&quot;read table keys&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
         <span class="ident">Command</span>::<span class="ident">ReadTableEntries</span> {
@@ -1535,7 +1537,7 @@
             <span class="ident">delegation_token</span>,
             <span class="ident">suggested_entry_count</span>,
             <span class="ident">continuation_token</span>,
-        } <span class="op">=&gt;</span> {
+        } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
             <span class="kw">let</span> <span class="ident">token</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">continuation_token</span>.<span class="ident">is_empty</span>() {
                 <span class="ident">Vec</span>::<span class="ident">new</span>()
@@ -1554,7 +1556,7 @@
             });
             <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>)
-                .<span class="kw">await</span>
+                .<span class="ident">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;read table entries&quot;</span>);
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">reply</span>);
         }
