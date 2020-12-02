@@ -1,10 +1,9 @@
-name: github pages
+name: documentation
 
 on:
   push:
     branches:
       - master
-      - mdbook
 
 jobs:
   deploy:
