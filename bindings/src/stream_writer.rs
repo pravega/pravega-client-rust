@@ -88,9 +88,9 @@ impl StreamWriter {
     /// // Convert the event object to a byte array.
     /// e_bytes=e.encode("utf-8")
     /// // write into Pravega stream without specifying the routing key.
-    /// writer.write_event_bytes("e1")
+    /// writer.write_event_bytes(e_bytes)
     /// // write into Pravega stream by specifying the routing key.
-    /// writer.write_event_bytes("e2", "key1")
+    /// writer.write_event_bytes(e_bytes, "key1")
     /// ```
     ///
     #[text_signature = "($self, event, routing_key=None)"]

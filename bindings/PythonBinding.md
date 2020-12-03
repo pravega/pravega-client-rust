@@ -1,9 +1,7 @@
-#Steps to generate language bindings for Pravega
-
-## Steps to generate and publish Pravega Python bindings.
+## Steps to generate language bindings for Pravega:
 
 *Pre-requisites*
-- Python 3.7 and up.
+- Python 3.8 and up.
 
 1. Ensure `cargo build` works fine.
 2. There are two ways of running generating bindings. This describes the steps where maturin is manually installed.
