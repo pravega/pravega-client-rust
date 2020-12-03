@@ -48,7 +48,8 @@ impl MockServer {
     }
 
     pub async fn run(mut self) {
-        let data_chunk: [u8; 1024] = [0xAAu8; 1024];
+        // 100K data chunk
+        let data_chunk: [u8; 100 * 1024] = [0xAAu8; 100 * 1024];
         let event_data: Vec<u8> = Requests::Event(EventCommand {
             data: data_chunk.to_vec(),
         })
@@ -138,12 +139,13 @@ impl MockServer {
                         .await
                         .expect("Write segment read reply to client");
                 }
+                // Send a mock response for table entry updates.
                 Requests::UpdateTableEntries(cmd) => {
                     let new_versions: Vec<i64> = cmd
                         .table_entries
                         .entries
                         .iter()
-                        .map(|(k, v)| k.key_version + 1)
+                        .map(|(k, _v)| k.key_version + 1)
                         .collect();
                     let reply = Replies::TableEntriesUpdated(TableEntriesUpdatedCommand {
                         request_id: 0,
@@ -156,12 +158,12 @@ impl MockServer {
                         .await
                         .expect("Error while sending TableEntriesUpdate");
                 }
-
+                // This ensures the local state of the reader group state is treated as the latest.
                 Requests::ReadTableEntriesDelta(cmd) => {
                     let reply = Replies::TableEntriesDeltaRead(TableEntriesDeltaReadCommand {
                         request_id: cmd.request_id,
                         segment: cmd.segment,
-                        entries: TableEntries { entries: vec![] },
+                        entries: TableEntries { entries: vec![] }, // no new updates.
                         should_clear: false,
                         reached_end: false,
                         last_position: cmd.from_position,
@@ -181,19 +183,7 @@ impl MockServer {
     }
 }
 
-#[inline]
-fn fibonacci(n: u64) -> u64 {
-    match n {
-        0 => 1,
-        1 => 1,
-        n => fibonacci(n - 1) + fibonacci(n - 2),
-    }
-}
-
-pub fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("read 1KB", |b| b.iter(|| fibonacci(20)));
-}
-
+// Read a segment slice and consume events from the slice.
 async fn run_reader(reader: &mut EventReader) {
     if let Some(mut slice) = reader.acquire_segment().await {
         while let Some(e) = slice.next() {
@@ -204,8 +194,6 @@ async fn run_reader(reader: &mut EventReader) {
     }
 }
 
-// This benchmark test uses a mock server that replies ok to any requests instantly. It involves
-// kernel latency.
 // This benchmark test uses a mock server that replies ok to any requests instantly. It involves
 // kernel latency.
 fn read_mock_server(c: &mut Criterion) {
@@ -220,7 +208,7 @@ fn read_mock_server(c: &mut Criterion) {
     let mut reader = rt.block_on(setup_reader(config));
 
     info!("start reader with mock server performance testing");
-    c.bench_function("read 1KB mock server", |b| {
+    c.bench_function("read 100KB mock server", |b| {
         b.iter(|| {
             rt.block_on(run_reader(&mut reader));
         });
