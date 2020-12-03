@@ -141,6 +141,10 @@
 <span id="138">138</span>
 <span id="139">139</span>
 <span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -162,6 +166,7 @@
 <span class="kw">use</span> <span class="ident">serde_cbor</span>::<span class="ident">Error</span> <span class="kw">as</span> <span class="ident">CborError</span>;
 <span class="kw">use</span> <span class="ident">snafu</span>::<span class="ident">Snafu</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Debug</span>;
+<span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">time</span>::<span class="ident">Elapsed</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Snafu</span>)]</span>
 <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">visibility</span> <span class="op">=</span> <span class="string">&quot;pub&quot;</span>)]</span>
@@ -180,6 +185,9 @@
 
     <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Reply incompatible wirecommand version: low {}, high {}&quot;</span>, <span class="ident">low</span>, <span class="ident">high</span>))]</span>
     <span class="ident">IncompatibleVersion</span> { <span class="ident">low</span>: <span class="ident">i32</span>, <span class="ident">high</span>: <span class="ident">i32</span> },
+
+    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Request has timed out: {}&quot;</span>, <span class="ident">source</span>))]</span>
+    <span class="ident">RequestTimeout</span> { <span class="ident">source</span>: <span class="ident">Elapsed</span> },
 }
 
 <span class="kw">impl</span> <span class="ident">RawClientError</span> {
