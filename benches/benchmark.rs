@@ -316,8 +316,8 @@ async fn set_up(config: ClientConfig) -> EventStreamWriter {
 }
 
 async fn setup_reader(config: ClientConfig) -> EventReader {
-    let scope_name: Scope = Scope::from("testWriterPerf".to_string());
-    let stream_name = Stream::from("testWriterPerf".to_string());
+    let scope_name: Scope = Scope::from("testReaderPerf".to_string());
+    let stream_name = Stream::from("testReaderPerf".to_string());
     let client_factory = ClientFactory::new(config.clone());
     let controller_client = client_factory.get_controller_client();
     create_scope_stream(controller_client, &scope_name, &stream_name, 1).await;
