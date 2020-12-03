@@ -6,7 +6,7 @@ The below section describes the Python APIs of the Rust based Pravega Native cli
 
 * ## StreamManager
 
-A StreamManger is used to create a Scopes, Streams, writers and Readers. It can also be used to perform
+A StreamManger is used to create a Scopes, Streams, Writers and Readers. It can also be used to perform
 operations on the stream which include sealing a stream and deleting streams among others.
 
 A StreamManager can be created by using a Controller URI. The below example snippet 
@@ -27,7 +27,7 @@ manager=pravega_client.StreamManager("127.0.0.1:9090")
 // Create a writer against an already created Pravega scope and Stream.
 writer=manager.create_writer("scope", "stream")
 ```
-A transactional Writer can be created using the StreamManager. The below example snippet should a sample pattern.
+A transactional Writer can be created using the StreamManager. The below example snippet shows a sample pattern.
 
 ```python
  import pravega_client
@@ -53,7 +53,7 @@ The user can optionally specify the routing key. The StreamWriter can also write
 with/without a routing key.
 
 Note that the implementation provides retry logic to handle connection failures and service host failures. Internal 
-retries will not violate the exactly once semantic so it is better to rely on them than to wrap this with custom retry logic.
+retries will not violate the exactly once semantic, so it is better to rely on them than to wrap this with custom retry logic.
 
 ```python
 import pravega_client

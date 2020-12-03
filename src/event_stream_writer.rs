@@ -20,8 +20,41 @@ use crate::reactor::event::{Incoming, PendingEvent};
 use tracing::info_span;
 use tracing_futures::Instrument;
 
-/// EventStreamWriter contains a writer id and a mpsc sender which is used to send Event
-/// to the StreamWriter
+/// Writes events exactly once to a given stream with backpressure.
+///
+/// EventStreamWriter spawns a `Reactor` that runs in the background for processing incoming events.
+/// The `write` method sends the event to the `Reactor` asynchronously and returns a `tokio::oneshot::Receiver`
+/// that contains the result of the write to the caller.
+///
+/// # Examples
+///
+/// ```no_run
+/// use pravega_rust_client_config::ClientConfigBuilder;
+/// use pravega_client_rust::client_factory::ClientFactory;
+/// use pravega_rust_client_shared::ScopedStream;
+///
+/// #[tokio::main]
+/// async fn main() {
+///     // assuming Pravega controller is running at endpoint `localhost:9090`
+///     let config = ClientConfigBuilder::default()
+///         .controller_uri("localhost:9090")
+///         .build()
+///         .expect("creating config");
+///
+///     let client_factory = ClientFactory::new(config);
+///
+///     // assuming scope:myscope and stream:mystream has been created before.
+///     let stream = ScopedStream::from("myscope/mystream");
+///
+///     let mut event_stream_writer = client_factory.create_event_stream_writer(stream);
+///
+///     let payload = "hello world".to_string().into_bytes();
+///     let result = event_stream_writer.write_event(payload).await;
+///
+///     assert!(result.await.is_ok())
+/// }
+/// ```
+///
 pub struct EventStreamWriter {
     writer_id: WriterId,
     sender: ChannelSender<Incoming>,
@@ -45,6 +78,9 @@ impl EventStreamWriter {
         }
     }
 
+    /// Writes an event without routing key.
+    ///
+    /// A random routing key will be generated in this case.
     pub async fn write_event(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         let size = event.len();
         let (tx, rx) = oneshot::channel();
@@ -56,6 +92,7 @@ impl EventStreamWriter {
         }
     }
 
+    /// Writes an event with a routing key.
     pub async fn write_event_by_routing_key(
         &mut self,
         routing_key: String,

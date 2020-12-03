@@ -1,3 +1,42 @@
 # Quick Start
 
-TBD
+This chapter demonstrates how to use Pravega Rust client to communicate to a minimal Pravega server.
+
+## Running a minimal Pravega server
+Navigate to the [Pravega Release](https://github.com/pravega/pravega/releases) page and download
+a Pravega release. Note that `ByteStreamClient` requires Pravega 0.9.0+.
+
+For example in a Linux environment, after downloading and decompressing `pravega-0.9.0.tgz`, we can start 
+a minimal Pravega server by calling
+```
+./pravega-0.9.0/bin/pravega-standalone
+```
+
+It spins up a Pravega standalone server that listens to `localhost:9090` by default.
+
+## Writing a simple application
+
+### Prerequisites
+Make sure you have Rust installed first, check out the [official website](https://www.rust-lang.org/tools/install) of how to
+install Rust.
+
+Note that you may need to add Rust to `PATH`.
+
+### Creating a new project
+
+Create a new Rust project called `my_app`
+```
+cargo new my_app --bin
+```
+
+in the `Cargo.toml` file, add the following as dependencies
+```
+[dependencies]
+pravega_rust_client = "0.1"
+pravega-rust-client-config = "0.1"
+pravega_rust_client_shared = "0.1"
+tokio = "0.2"
+```
+
+### A simple app that write and read event
+Check out the [event write and read example](../../examples/event_write_and_read.rs).

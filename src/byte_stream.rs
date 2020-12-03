@@ -40,6 +40,34 @@ type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 /// As such, any bytes written by this API can ONLY be read using ByteStreamReader.
 /// Similarly, unless some sort of framing is added it is probably an error to have multiple
 /// ByteStreamWriters write to the same segment as this will result in interleaved data.
+///
+/// # Examples
+/// ```no_run
+/// use pravega_rust_client_config::ClientConfigBuilder;
+/// use pravega_client_rust::client_factory::ClientFactory;
+/// use pravega_rust_client_shared::ScopedSegment;
+///
+/// #[tokio::main]
+/// async fn main() {
+///     // assuming Pravega controller is running at endpoint `localhost:9090`
+///     let config = ClientConfigBuilder::default()
+///         .controller_uri("localhost:9090")
+///         .build()
+///         .expect("creating config");
+///
+///     let client_factory = ClientFactory::new(config);
+///
+///     // assuming scope:myscope and stream:mystream has been created before.
+///     let stream = ScopedStream::from("myscope/mystream");
+///
+///     let mut event_stream_writer = client_factory.create_event_stream_writer(stream);
+///
+///     let payload = "hello world".to_string().into_bytes();
+///     let result = event_stream_writer.write_event(payload).await;
+///
+///     assert!(result.await.is_ok())
+/// }
+/// ```
 pub struct ByteStreamWriter {
     writer_id: WriterId,
     sender: ChannelSender<Incoming>,
