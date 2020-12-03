@@ -259,9 +259,9 @@ impl TableSynchronizer {
     /// This will update the local_map to latest version.
     pub async fn remove(
         &mut self,
-        deletes_generateor: impl FnMut(&mut Table) -> Result<Option<String>, SynchronizerError>,
+        deletes_generator: impl FnMut(&mut Table) -> Result<Option<String>, SynchronizerError>,
     ) -> Result<Option<String>, SynchronizerError> {
-        conditionally_remove(deletes_generateor, self, MAX_RETRIES).await
+        conditionally_remove(deletes_generator, self, MAX_RETRIES).await
     }
 }
 
