@@ -20,7 +20,10 @@ use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
 use pravega_rust_client_config::{ClientConfig, ClientConfigBuilder};
 use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::{LENGTH_FIELD_LENGTH, LENGTH_FIELD_OFFSET};
-use pravega_wire_protocol::commands::{AppendSetupCommand, DataAppendedCommand, SegmentReadCommand};
+use pravega_wire_protocol::commands::{
+    AppendSetupCommand, DataAppendedCommand, EventCommand, SegmentCreatedCommand, SegmentReadCommand,
+    TableEntries, TableEntriesDeltaReadCommand, TableEntriesUpdatedCommand,
+};
 use pravega_wire_protocol::wire_commands::{Decode, Encode, Replies, Requests};
 use std::io::Cursor;
 use std::net::SocketAddr;
@@ -194,7 +197,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 async fn run_reader(reader: &mut EventReader) {
     if let Some(mut slice) = reader.acquire_segment().await {
         while let Some(e) = slice.next() {
-            println!("{:?}", e);
+            println!("Read Event at off set {:?}", e.offset_in_segment);
         }
     } else {
         assert!(false, "No slice acquired");
@@ -205,7 +208,7 @@ async fn run_reader(reader: &mut EventReader) {
 // kernel latency.
 // This benchmark test uses a mock server that replies ok to any requests instantly. It involves
 // kernel latency.
-fn read_mock_server() {
+fn read_mock_server(c: &mut Criterion) {
     let mut rt = tokio::runtime::Runtime::new().unwrap();
     let mock_server = rt.block_on(MockServer::new());
     let config = ClientConfigBuilder::default()
