@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Developer Corner - Pravega Native Client</title>
+        <title>Event Writer - Pravega Native Client</title>
         
         
 
@@ -17,23 +17,23 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
-        <link rel="icon" href="favicon.svg">
-        <link rel="shortcut icon" href="favicon.png">
-        <link rel="stylesheet" href="css/variables.css">
-        <link rel="stylesheet" href="css/general.css">
-        <link rel="stylesheet" href="css/chrome.css">
-        <link rel="stylesheet" href="css/print.css" media="print">
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
 
         <!-- Fonts -->
-        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
         
-        <link rel="stylesheet" href="fonts/fonts.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
         
 
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" href="highlight.css">
-        <link rel="stylesheet" href="tomorrow-night.css">
-        <link rel="stylesheet" href="ayu-highlight.css">
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
 
         <!-- Custom theme stylesheets -->
         
@@ -46,7 +46,7 @@
     <body>
         <!-- Provide site root to javascript -->
         <script type="text/javascript">
-            var path_to_root = "";
+            var path_to_root = "../";
             var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
 
@@ -92,7 +92,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="eventReader.html"><strong aria-hidden="true">3.</strong> Event Reader</a></li><li class="chapter-item expanded "><a href="eventWriter.html"><strong aria-hidden="true">4.</strong> Event Writer</a></li><li class="chapter-item expanded "><a href="PythonBindings.html"><strong aria-hidden="true">5.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="byteStreamClient.html"><strong aria-hidden="true">6.</strong> Byte Stream Client</a></li><li class="chapter-item expanded "><a href="contribution.html" class="active"><strong aria-hidden="true">7.</strong> Developer Corner</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="../quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="../RUST/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../RUST/eventReader.html"><strong aria-hidden="true">3.1.</strong> Event Reader</a></li><li class="chapter-item expanded "><a href="../RUST/eventWriter.html" class="active"><strong aria-hidden="true">3.2.</strong> Event Writer</a></li><li class="chapter-item expanded "><a href="../RUST/byteStreamClient.html"><strong aria-hidden="true">3.3.</strong> Byte Stream Client</a></li><li class="chapter-item expanded "><a href="../RUST/contribution.html"><strong aria-hidden="true">3.4.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="../Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../Python/PythonBindings.html"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="../Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -127,7 +127,7 @@
                     <h1 class="menu-title">Pravega Native Client</h1>
 
                     <div class="right-buttons">
-                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
                         
@@ -158,57 +158,23 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#developercorner" id="developercorner">DeveloperCorner</a></h1>
-<h1><a class="header" href="#python-bindings" id="python-bindings">Python Bindings</a></h1>
-<h2><a class="header" href="#steps-to-generate-language-bindings-for-pravega" id="steps-to-generate-language-bindings-for-pravega">Steps to generate language bindings for Pravega:</a></h2>
-<p><em>Pre-requisites</em></p>
-<ul>
-<li>Python 3.8 and up.</li>
-</ul>
-<ol>
-<li>Ensure <code>cargo build</code> works fine.</li>
-<li>There are two ways of running generating bindings. This describes the steps where maturin is manually installed.
-<ul>
-<li>Manually install <a href="https://github.com/PyO3/maturin">maturin</a> via <code>pip install maturin</code></li>
-<li><code>maturin build --release --no-sdist --strip</code> This command auto detects the python interpreter and uses it. To
-specify a specific interpreter using <code>--interpreter</code> option.</li>
-<li><code>maturin sdist</code> to generate the source distribution. </li>
-</ul>
-</li>
-<li>Steps to generate bindings using a docker approach.
-<ul>
-<li><code>docker run --rm -v --release --no-sdist --strip</code></li>
-</ul>
-</li>
-<li>After the bindings are generated by either 2 or 3 the next step is publish the artifacts.
-<ul>
-<li>The artifacts can be published via <a href="https://github.com/pypa/twine">twine</a>
-<ul>
-<li><code>pip install twine</code></li>
-<li><code>twine upload -r testpypi target/*</code> this command uploads the artifacts to test.pypi</li>
-<li><code>twine upload target/*</code> this command uploads the artifacts to pypi.</li>
-</ul>
-</li>
-<li>The artifacts can be published via <a href="https://github.com/PyO3/maturin">maturin</a>
-<ul>
-<li><code>maturin publish -b pyo3 -p XXX -u YYY -r https://test.pypi.org/legacy/</code> this publishes the bindings to test.pypi</li>
-<li><code>maturin publish -b pyo3 -p XXX -u YYY</code> This publishes the bindings to pypi.</li>
-</ul>
-</li>
-</ul>
-</li>
-</ol>
+                        <h1><a class="header" href="#event-writer" id="event-writer">Event Writer</a></h1>
+<p>For more details please refer <a href="./doc/pravega_client_rust/event_stream_writer/struct.EventStreamWriter.html">API docs</a></p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="byteStreamClient.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../RUST/eventReader.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
+                        
+                            <a rel="next" href="../RUST/byteStreamClient.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
                         
 
                         <div style="clear: both"></div>
@@ -218,11 +184,15 @@ specify a specific interpreter using <code>--interpreter</code> option.</li>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="byteStreamClient.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../RUST/eventReader.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
+                
+                    <a rel="next" href="../RUST/byteStreamClient.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
                 
             </nav>
 
@@ -245,22 +215,22 @@ specify a specific interpreter using <code>--interpreter</code> option.</li>
         
 
         
-        <script src="ace.js" type="text/javascript" charset="utf-8"></script>
-        <script src="editor.js" type="text/javascript" charset="utf-8"></script>
-        <script src="mode-rust.js" type="text/javascript" charset="utf-8"></script>
-        <script src="theme-dawn.js" type="text/javascript" charset="utf-8"></script>
-        <script src="theme-tomorrow_night.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../ace.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../editor.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mode-rust.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../theme-dawn.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../theme-tomorrow_night.js" type="text/javascript" charset="utf-8"></script>
         
 
         
-        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
         
 
-        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
-        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
 
         <!-- Custom JS scripts -->
         

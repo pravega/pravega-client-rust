@@ -3,10 +3,8 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title></title>
+        <title>Event Reader - Pravega Native Client</title>
         
-        
-        <base href="/book/">
         
 
 
@@ -19,23 +17,23 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
-        <link rel="icon" href="favicon.svg">
-        <link rel="shortcut icon" href="favicon.png">
-        <link rel="stylesheet" href="css/variables.css">
-        <link rel="stylesheet" href="css/general.css">
-        <link rel="stylesheet" href="css/chrome.css">
-        <link rel="stylesheet" href="css/print.css" media="print">
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
 
         <!-- Fonts -->
-        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
         
-        <link rel="stylesheet" href="fonts/fonts.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
         
 
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" href="highlight.css">
-        <link rel="stylesheet" href="tomorrow-night.css">
-        <link rel="stylesheet" href="ayu-highlight.css">
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
 
         <!-- Custom theme stylesheets -->
         
@@ -48,7 +46,7 @@
     <body>
         <!-- Provide site root to javascript -->
         <script type="text/javascript">
-            var path_to_root = "";
+            var path_to_root = "../";
             var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
 
@@ -94,7 +92,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="RUST/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="RUST/eventReader.html"><strong aria-hidden="true">3.1.</strong> Event Reader</a></li><li class="chapter-item expanded "><a href="RUST/eventWriter.html"><strong aria-hidden="true">3.2.</strong> Event Writer</a></li><li class="chapter-item expanded "><a href="RUST/byteStreamClient.html"><strong aria-hidden="true">3.3.</strong> Byte Stream Client</a></li><li class="chapter-item expanded "><a href="RUST/contribution.html"><strong aria-hidden="true">3.4.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="Python/PythonBindings.html"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="../quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="../RUST/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../RUST/eventReader.html" class="active"><strong aria-hidden="true">3.1.</strong> Event Reader</a></li><li class="chapter-item expanded "><a href="../RUST/eventWriter.html"><strong aria-hidden="true">3.2.</strong> Event Writer</a></li><li class="chapter-item expanded "><a href="../RUST/byteStreamClient.html"><strong aria-hidden="true">3.3.</strong> Byte Stream Client</a></li><li class="chapter-item expanded "><a href="../RUST/contribution.html"><strong aria-hidden="true">3.4.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="../Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../Python/PythonBindings.html"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="../Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -129,7 +127,7 @@
                     <h1 class="menu-title">Pravega Native Client</h1>
 
                     <div class="right-buttons">
-                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
                         
@@ -160,15 +158,23 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#document-not-found-404" id="document-not-found-404">Document not found (404)</a></h1>
-<p>This URL is invalid, sorry. Please use the navigation bar or search to continue.</p>
+                        <h1><a class="header" href="#event-reader" id="event-reader">Event Reader</a></h1>
+<p>For more details please refer <a href="./doc/pravega_client_rust/event_reader/struct.EventReader.html">API docs</a></p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
+                            <a rel="prev" href="../RUST/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
 
+                        
+                            <a rel="next" href="../RUST/eventWriter.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
                         
 
                         <div style="clear: both"></div>
@@ -178,7 +184,15 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
+                    <a rel="prev" href="../RUST/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
 
+                
+                    <a rel="next" href="../RUST/eventWriter.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
                 
             </nav>
 
@@ -201,22 +215,22 @@
         
 
         
-        <script src="ace.js" type="text/javascript" charset="utf-8"></script>
-        <script src="editor.js" type="text/javascript" charset="utf-8"></script>
-        <script src="mode-rust.js" type="text/javascript" charset="utf-8"></script>
-        <script src="theme-dawn.js" type="text/javascript" charset="utf-8"></script>
-        <script src="theme-tomorrow_night.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../ace.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../editor.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mode-rust.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../theme-dawn.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../theme-tomorrow_night.js" type="text/javascript" charset="utf-8"></script>
         
 
         
-        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
         
 
-        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
-        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
 
         <!-- Custom JS scripts -->
         
