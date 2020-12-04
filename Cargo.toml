@@ -52,7 +52,6 @@ metrics = "0.13.0-alpha.4"
 metrics-exporter-prometheus = "0.1.0-alpha.4"
 enum-iterator = "0.6.0"
 cfg-if = "1.0.0"
-byteorder = "1.3"
 
 [dev-dependencies]
 pravega-rust-client-integration-test = { path = "./integration_test"}
