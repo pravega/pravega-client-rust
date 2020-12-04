@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - python-api-doc
 
 jobs:
   deploy:
