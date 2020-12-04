@@ -1,0 +1,354 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head><title>Python: module pravega_client</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+</head><body bgcolor="#f0f0f8">
+
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="heading">
+<tr bgcolor="#7799ee">
+<td valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong>pravega_client</strong></big></big></font></td
+><td align=right valign=bottom
+><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/home/osboxes/sandeep/code/shrids/pravega-client-rust/bindings/t3/lib/python3.8/site-packages/pravega_client.cpython-38-x86_64-linux-gnu.so">/home/osboxes/sandeep/code/shrids/pravega-client-rust/bindings/t3/lib/python3.8/site-packages/pravega_client.cpython-38-x86_64-linux-gnu.so</a></font></td></tr></table>
+    <p><tt>A&nbsp;Python&nbsp;module&nbsp;implemented&nbsp;in&nbsp;Rust.</tt></p>
+<p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ee77aa">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Classes</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#ee77aa"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><dl>
+<dt><font face="helvetica, arial"><a href="builtins.html#Exception">builtins.Exception</a>(<a href="builtins.html#BaseException">builtins.BaseException</a>)
+</font></dt><dd>
+<dl>
+<dt><font face="helvetica, arial"><a href="pravega_client.html#TxnFailedException">TxnFailedException</a>
+</font></dt></dl>
+</dd>
+<dt><font face="helvetica, arial"><a href="builtins.html#object">builtins.object</a>
+</font></dt><dd>
+<dl>
+<dt><font face="helvetica, arial">builtins.StreamManager
+</font></dt><dt><font face="helvetica, arial">builtins.StreamReader
+</font></dt><dt><font face="helvetica, arial">builtins.StreamReaderGroup
+</font></dt><dt><font face="helvetica, arial">builtins.StreamTransaction
+</font></dt><dt><font face="helvetica, arial">builtins.StreamTxnWriter
+</font></dt><dt><font face="helvetica, arial">builtins.StreamWriter
+</font></dt></dl>
+</dd>
+</dl>
+ <p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><a name="StreamManager">class <strong>StreamManager</strong></a>(<a href="builtins.html#object">object</a>)</font></td></tr>
+    
+<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
+<td colspan=2><tt><a href="#StreamManager">StreamManager</a>(controller_uri)<br>
+&nbsp;<br>
+Create&nbsp;a&nbsp;<a href="#StreamManager">StreamManager</a>&nbsp;by&nbsp;providing&nbsp;a&nbsp;controller&nbsp;uri.<br>
+```<br>
+import&nbsp;pravega_client;<br>
+manager=pravega_client.<a href="#StreamManager">StreamManager</a>("127.0.0.1:9090")<br>
+//&nbsp;this&nbsp;manager&nbsp;can&nbsp;be&nbsp;used&nbsp;to&nbsp;create&nbsp;scopes,&nbsp;streams,&nbsp;writers&nbsp;and&nbsp;readers&nbsp;against&nbsp;Pravega.<br>
+manager.<a href="#StreamManager-create_scope">create_scope</a>("scope")<br>
+```<br>&nbsp;</tt></td></tr>
+<tr><td>&nbsp;</td>
+<td width="100%">Methods defined here:<br>
+<dl><dt><a name="StreamManager-__repr__"><strong>__repr__</strong></a>(self, /)</dt><dd><tt>Return&nbsp;repr(self).</tt></dd></dl>
+
+<dl><dt><a name="StreamManager-create_reader_group"><strong>create_reader_group</strong></a>(self, /, reader_group_name, scope_name, stream_name)</dt><dd><tt>Create&nbsp;a&nbsp;ReaderGroup&nbsp;for&nbsp;a&nbsp;given&nbsp;Stream.<br>
+&nbsp;<br>
+```<br>
+import&nbsp;pravega_client;<br>
+manager=pravega_client.<a href="#StreamManager">StreamManager</a>("127.0.0.1:9090")<br>
+//&nbsp;Create&nbsp;a&nbsp;ReaderGroup&nbsp;against&nbsp;an&nbsp;already&nbsp;created&nbsp;Pravega&nbsp;scope&nbsp;and&nbsp;Stream.<br>
+reader_group=manager.<a href="#StreamManager-create_reader_group">create_reader_group</a>("rg1",&nbsp;"scope",&nbsp;"stream")<br>
+```</tt></dd></dl>
+
+<dl><dt><a name="StreamManager-create_scope"><strong>create_scope</strong></a>(self, /, scope_name)</dt><dd><tt>Create&nbsp;a&nbsp;Scope&nbsp;in&nbsp;Pravega.</tt></dd></dl>
+
+<dl><dt><a name="StreamManager-create_stream"><strong>create_stream</strong></a>(self, /, scope_name, stream_name, initial_segments)</dt><dd><tt>Create&nbsp;a&nbsp;Stream&nbsp;in&nbsp;Pravega.</tt></dd></dl>
+
+<dl><dt><a name="StreamManager-create_transaction_writer"><strong>create_transaction_writer</strong></a>(self, /, scope_name, stream_name, writer_id)</dt><dd><tt>Create&nbsp;a&nbsp;Transactional&nbsp;Writer&nbsp;for&nbsp;a&nbsp;given&nbsp;Stream.<br>
+&nbsp;<br>
+```<br>
+import&nbsp;pravega_client;<br>
+manager=pravega_client.<a href="#StreamManager">StreamManager</a>("127.0.0.1:9090")<br>
+//&nbsp;Create&nbsp;a&nbsp;transactional&nbsp;writer&nbsp;against&nbsp;an&nbsp;already&nbsp;created&nbsp;Pravega&nbsp;scope&nbsp;and&nbsp;Stream.<br>
+writer=manager.<a href="#StreamManager-create_transaction_writer">create_transaction_writer</a>("scope",&nbsp;"stream",&nbsp;"123")<br>
+```</tt></dd></dl>
+
+<dl><dt><a name="StreamManager-create_writer"><strong>create_writer</strong></a>(self, /, scope_name, stream_name)</dt><dd><tt>Create&nbsp;a&nbsp;Writer&nbsp;for&nbsp;a&nbsp;given&nbsp;Stream.<br>
+&nbsp;<br>
+```<br>
+import&nbsp;pravega_client;<br>
+manager=pravega_client.<a href="#StreamManager">StreamManager</a>("127.0.0.1:9090")<br>
+//&nbsp;Create&nbsp;a&nbsp;writer&nbsp;against&nbsp;an&nbsp;already&nbsp;created&nbsp;Pravega&nbsp;scope&nbsp;and&nbsp;Stream.<br>
+writer=manager.<a href="#StreamManager-create_writer">create_writer</a>("scope",&nbsp;"stream")<br>
+```</tt></dd></dl>
+
+<dl><dt><a name="StreamManager-delete_scope"><strong>delete_scope</strong></a>(self, /, scope_name)</dt><dd><tt>Delete&nbsp;a&nbsp;Scope&nbsp;in&nbsp;Pravega.</tt></dd></dl>
+
+<dl><dt><a name="StreamManager-delete_stream"><strong>delete_stream</strong></a>(self, /, scope_name, stream_name)</dt><dd><tt>Delete&nbsp;a&nbsp;Stream&nbsp;in&nbsp;Pravega.</tt></dd></dl>
+
+<dl><dt><a name="StreamManager-seal_stream"><strong>seal_stream</strong></a>(self, /, scope_name, stream_name)</dt><dd><tt>Create&nbsp;a&nbsp;Stream&nbsp;in&nbsp;Pravega.</tt></dd></dl>
+
+<dl><dt><a name="StreamManager-to_str"><strong>to_str</strong></a>(...)</dt><dd><tt>Returns&nbsp;the&nbsp;facet&nbsp;string&nbsp;representation.</tt></dd></dl>
+
+<hr>
+Static methods defined here:<br>
+<dl><dt><a name="StreamManager-__new__"><strong>__new__</strong></a>(*args, **kwargs)<font color="#909090"><font face="helvetica, arial"> from <a href="builtins.html#type">builtins.type</a></font></font></dt><dd><tt>Create&nbsp;and&nbsp;return&nbsp;a&nbsp;new&nbsp;<a href="builtins.html#object">object</a>.&nbsp;&nbsp;See&nbsp;help(type)&nbsp;for&nbsp;accurate&nbsp;signature.</tt></dd></dl>
+
+</td></tr></table> <p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><a name="StreamReader">class <strong>StreamReader</strong></a>(<a href="builtins.html#object">object</a>)</font></td></tr>
+    
+<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
+<td colspan=2><tt>This&nbsp;represents&nbsp;a&nbsp;Stream&nbsp;reader&nbsp;for&nbsp;a&nbsp;given&nbsp;Stream.<br>
+Note:&nbsp;A&nbsp;python&nbsp;<a href="builtins.html#object">object</a>&nbsp;of&nbsp;<a href="#StreamReader">StreamReader</a>&nbsp;cannot&nbsp;be&nbsp;created&nbsp;directly&nbsp;without&nbsp;using&nbsp;the&nbsp;<a href="#StreamManager">StreamManager</a>.<br>&nbsp;</tt></td></tr>
+<tr><td>&nbsp;</td>
+<td width="100%">Methods defined here:<br>
+<dl><dt><a name="StreamReader-__repr__"><strong>__repr__</strong></a>(self, /)</dt><dd><tt>Return&nbsp;repr(self).</tt></dd></dl>
+
+<dl><dt><a name="StreamReader-get_segment_slice_async"><strong>get_segment_slice_async</strong></a>(...)</dt><dd><tt>This&nbsp;method&nbsp;returns&nbsp;a&nbsp;Python&nbsp;Future&nbsp;which&nbsp;completes&nbsp;when&nbsp;a&nbsp;segment&nbsp;slice&nbsp;is&nbsp;acquired&nbsp;for&nbsp;consumption.<br>
+A&nbsp;segment&nbsp;slice&nbsp;is&nbsp;data&nbsp;chunk&nbsp;received&nbsp;from&nbsp;a&nbsp;segment&nbsp;of&nbsp;a&nbsp;Pravega&nbsp;stream.&nbsp;It&nbsp;can&nbsp;contain&nbsp;one<br>
+or&nbsp;more&nbsp;events&nbsp;and&nbsp;the&nbsp;user&nbsp;can&nbsp;iterate&nbsp;over&nbsp;the&nbsp;segment&nbsp;slice&nbsp;to&nbsp;read&nbsp;the&nbsp;events.<br>
+If&nbsp;there&nbsp;are&nbsp;multiple&nbsp;segments&nbsp;in&nbsp;the&nbsp;stream&nbsp;then&nbsp;this&nbsp;API&nbsp;can&nbsp;return&nbsp;a&nbsp;segment&nbsp;slice&nbsp;of&nbsp;any<br>
+segments&nbsp;in&nbsp;the&nbsp;stream.&nbsp;The&nbsp;reader&nbsp;ensures&nbsp;that&nbsp;events&nbsp;returned&nbsp;by&nbsp;the&nbsp;stream&nbsp;are&nbsp;in&nbsp;order.<br>
+&nbsp;<br>
+```<br>
+import&nbsp;pravega_client;<br>
+manager=pravega_client.<a href="#StreamManager">StreamManager</a>("127.0.0.1:9090")<br>
+//&nbsp;lets&nbsp;assume&nbsp;the&nbsp;Pravega&nbsp;scope&nbsp;and&nbsp;stream&nbsp;are&nbsp;already&nbsp;created.<br>
+reader=manager.create_reader("scope",&nbsp;"stream");<br>
+slice=await&nbsp;reader.<a href="#StreamReader-get_segment_slice_async">get_segment_slice_async</a>()<br>
+for&nbsp;event&nbsp;in&nbsp;slice:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;print(event.data())<br>
+```</tt></dd></dl>
+
+<dl><dt><a name="StreamReader-reader_offline"><strong>reader_offline</strong></a>(self, /)</dt><dd><tt>Set&nbsp;the&nbsp;reader&nbsp;offline.</tt></dd></dl>
+
+<dl><dt><a name="StreamReader-release_segment"><strong>release_segment</strong></a>(self, /, slice)</dt><dd><tt>Release&nbsp;the&nbsp;segment&nbsp;back.</tt></dd></dl>
+
+<dl><dt><a name="StreamReader-to_str"><strong>to_str</strong></a>(...)</dt><dd><tt>Returns&nbsp;the&nbsp;facet&nbsp;string&nbsp;representation.</tt></dd></dl>
+
+</td></tr></table> <p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><a name="StreamReaderGroup">class <strong>StreamReaderGroup</strong></a>(<a href="builtins.html#object">object</a>)</font></td></tr>
+    
+<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
+<td colspan=2><tt>This&nbsp;represents&nbsp;a&nbsp;Stream&nbsp;reader&nbsp;for&nbsp;a&nbsp;given&nbsp;Stream.<br>
+Note:&nbsp;A&nbsp;python&nbsp;<a href="builtins.html#object">object</a>&nbsp;of&nbsp;<a href="#StreamReader">StreamReader</a>&nbsp;cannot&nbsp;be&nbsp;created&nbsp;directly&nbsp;without&nbsp;using&nbsp;the&nbsp;<a href="#StreamManager">StreamManager</a>.<br>&nbsp;</tt></td></tr>
+<tr><td>&nbsp;</td>
+<td width="100%">Methods defined here:<br>
+<dl><dt><a name="StreamReaderGroup-__repr__"><strong>__repr__</strong></a>(self, /)</dt><dd><tt>Return&nbsp;repr(self).</tt></dd></dl>
+
+<dl><dt><a name="StreamReaderGroup-create_reader"><strong>create_reader</strong></a>(...)</dt><dd><tt>This&nbsp;method&nbsp;returns&nbsp;a&nbsp;Python&nbsp;Future&nbsp;which&nbsp;completes&nbsp;when&nbsp;a&nbsp;segment&nbsp;slice&nbsp;is&nbsp;acquired&nbsp;for&nbsp;consumption.<br>
+A&nbsp;segment&nbsp;slice&nbsp;is&nbsp;data&nbsp;chunk&nbsp;received&nbsp;from&nbsp;a&nbsp;segment&nbsp;of&nbsp;a&nbsp;Pravega&nbsp;stream.&nbsp;It&nbsp;can&nbsp;contain&nbsp;one<br>
+or&nbsp;more&nbsp;events&nbsp;and&nbsp;the&nbsp;user&nbsp;can&nbsp;iterate&nbsp;over&nbsp;the&nbsp;segment&nbsp;slice&nbsp;to&nbsp;read&nbsp;the&nbsp;events.<br>
+If&nbsp;there&nbsp;are&nbsp;multiple&nbsp;segments&nbsp;in&nbsp;the&nbsp;stream&nbsp;then&nbsp;this&nbsp;API&nbsp;can&nbsp;return&nbsp;a&nbsp;segment&nbsp;slice&nbsp;of&nbsp;any<br>
+segments&nbsp;in&nbsp;the&nbsp;stream.&nbsp;The&nbsp;reader&nbsp;ensures&nbsp;that&nbsp;events&nbsp;returned&nbsp;by&nbsp;the&nbsp;stream&nbsp;are&nbsp;in&nbsp;order.<br>
+&nbsp;<br>
+```<br>
+import&nbsp;pravega_client;<br>
+manager=pravega_client.<a href="#StreamManager">StreamManager</a>("127.0.0.1:9090")<br>
+//&nbsp;lets&nbsp;assume&nbsp;the&nbsp;Pravega&nbsp;scope&nbsp;and&nbsp;stream&nbsp;are&nbsp;already&nbsp;created.<br>
+reader_group=manager.create_reader_group("rg1",&nbsp;"scope",&nbsp;"stream")<br>
+reader=reader_group.<a href="#StreamReaderGroup-create_reader">create_reader</a>("reader_id");<br>
+slice=await&nbsp;reader.get_segment_slice_async()<br>
+for&nbsp;event&nbsp;in&nbsp;slice:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;print(event.data())<br>
+```</tt></dd></dl>
+
+<dl><dt><a name="StreamReaderGroup-to_str"><strong>to_str</strong></a>(...)</dt><dd><tt>Returns&nbsp;the&nbsp;facet&nbsp;string&nbsp;representation.</tt></dd></dl>
+
+</td></tr></table> <p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><a name="StreamTransaction">class <strong>StreamTransaction</strong></a>(<a href="builtins.html#object">object</a>)</font></td></tr>
+    
+<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
+<td colspan=2><tt>This&nbsp;represents&nbsp;a&nbsp;transaction&nbsp;on&nbsp;a&nbsp;given&nbsp;Stream.<br>
+Note:&nbsp;A&nbsp;python&nbsp;<a href="builtins.html#object">object</a>&nbsp;of&nbsp;<a href="#StreamTransaction">StreamTransaction</a>&nbsp;cannot&nbsp;be&nbsp;created&nbsp;directly&nbsp;without&nbsp;using&nbsp;the&nbsp;<a href="#StreamTxnWriter">StreamTxnWriter</a>.<br>&nbsp;</tt></td></tr>
+<tr><td>&nbsp;</td>
+<td width="100%">Methods defined here:<br>
+<dl><dt><a name="StreamTransaction-__repr__"><strong>__repr__</strong></a>(self, /)</dt><dd><tt>Return&nbsp;repr(self).</tt></dd></dl>
+
+<dl><dt><a name="StreamTransaction-abort"><strong>abort</strong></a>(self, /)</dt><dd><tt>Abort&nbsp;the&nbsp;Transaction.<br>
+Drops&nbsp;the&nbsp;transaction,&nbsp;causing&nbsp;all&nbsp;events&nbsp;written&nbsp;to&nbsp;it&nbsp;to&nbsp;be&nbsp;deleted.</tt></dd></dl>
+
+<dl><dt><a name="StreamTransaction-commit"><strong>commit</strong></a>(self, /)</dt><dd><tt>Commit&nbsp;the&nbsp;Transaction.<br>
+This&nbsp;Causes&nbsp;all&nbsp;messages&nbsp;previously&nbsp;written&nbsp;to&nbsp;the&nbsp;transaction&nbsp;to&nbsp;go&nbsp;into&nbsp;the&nbsp;stream&nbsp;contiguously.</tt></dd></dl>
+
+<dl><dt><a name="StreamTransaction-commit_timestamp"><strong>commit_timestamp</strong></a>(self, /, timestamp_as_u64)</dt><dd><tt>Commit&nbsp;the&nbsp;Transaction&nbsp;and&nbsp;the&nbsp;associated&nbsp;timestamp.<br>
+This&nbsp;Causes&nbsp;all&nbsp;messages&nbsp;previously&nbsp;written&nbsp;to&nbsp;the&nbsp;transaction&nbsp;to&nbsp;go&nbsp;into&nbsp;the&nbsp;stream&nbsp;contiguously.</tt></dd></dl>
+
+<dl><dt><a name="StreamTransaction-get_txn_id"><strong>get_txn_id</strong></a>(self, /)</dt><dd><tt>Get&nbsp;the&nbsp;transaction&nbsp;id.</tt></dd></dl>
+
+<dl><dt><a name="StreamTransaction-is_open"><strong>is_open</strong></a>(self, /)</dt><dd><tt>Check&nbsp;if&nbsp;the&nbsp;transaction&nbsp;is&nbsp;an&nbsp;OPEN&nbsp;state.</tt></dd></dl>
+
+<dl><dt><a name="StreamTransaction-to_str"><strong>to_str</strong></a>(...)</dt><dd><tt>Returns&nbsp;the&nbsp;facet&nbsp;string&nbsp;representation.</tt></dd></dl>
+
+<dl><dt><a name="StreamTransaction-write_event"><strong>write_event</strong></a>(self, /, event, routing_key=None)</dt><dd><tt>Write&nbsp;an&nbsp;event&nbsp;of&nbsp;type&nbsp;String&nbsp;into&nbsp;to&nbsp;the&nbsp;Transaction.&nbsp;The&nbsp;operation&nbsp;blocks&nbsp;until&nbsp;the&nbsp;write&nbsp;operations&nbsp;is&nbsp;completed.</tt></dd></dl>
+
+<dl><dt><a name="StreamTransaction-write_event_bytes"><strong>write_event_bytes</strong></a>(self, /, event, routing_key=None)</dt><dd><tt>Write&nbsp;an&nbsp;event&nbsp;in&nbsp;bytes&nbsp;to&nbsp;a&nbsp;Pravega&nbsp;Transaction&nbsp;that&nbsp;is&nbsp;created&nbsp;by&nbsp;<a href="#StreamTxnWriter">StreamTxnWriter</a>#begin_txn.<br>
+The&nbsp;operation&nbsp;blocks&nbsp;until&nbsp;the&nbsp;write&nbsp;operations&nbsp;is&nbsp;completed.<br>
+&nbsp;<br>
+Note:&nbsp;Python&nbsp;can&nbsp;also&nbsp;be&nbsp;used&nbsp;to&nbsp;convert&nbsp;a&nbsp;given&nbsp;<a href="builtins.html#object">object</a>&nbsp;into&nbsp;bytes.<br>
+&nbsp;<br>
+E.g:<br>
+&gt;&gt;&gt;&nbsp;e="test"<br>
+&gt;&gt;&gt;&nbsp;b=e.encode("utf-8")&nbsp;//&nbsp;Python&nbsp;api&nbsp;to&nbsp;convert&nbsp;an&nbsp;<a href="builtins.html#object">object</a>&nbsp;to&nbsp;byte&nbsp;array.<br>
+&gt;&gt;&gt;&nbsp;w1.<a href="#StreamTransaction-write_event_bytes">write_event_bytes</a>(b)</tt></dd></dl>
+
+</td></tr></table> <p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><a name="StreamTxnWriter">class <strong>StreamTxnWriter</strong></a>(<a href="builtins.html#object">object</a>)</font></td></tr>
+    
+<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
+<td colspan=2><tt>This&nbsp;represents&nbsp;a&nbsp;Transaction&nbsp;writer&nbsp;for&nbsp;a&nbsp;given&nbsp;Stream.<br>
+Note:&nbsp;A&nbsp;python&nbsp;<a href="builtins.html#object">object</a>&nbsp;of&nbsp;<a href="#StreamTxnWriter">StreamTxnWriter</a>&nbsp;cannot&nbsp;be&nbsp;created&nbsp;directly&nbsp;without&nbsp;using&nbsp;the&nbsp;<a href="#StreamManager">StreamManager</a>.<br>&nbsp;</tt></td></tr>
+<tr><td>&nbsp;</td>
+<td width="100%">Methods defined here:<br>
+<dl><dt><a name="StreamTxnWriter-__repr__"><strong>__repr__</strong></a>(self, /)</dt><dd><tt>Return&nbsp;repr(self).</tt></dd></dl>
+
+<dl><dt><a name="StreamTxnWriter-begin_txn"><strong>begin_txn</strong></a>(self, /)</dt><dd><tt>Create&nbsp;a&nbsp;new&nbsp;transaction.<br>
+This&nbsp;returns&nbsp;a&nbsp;<a href="#StreamTransaction">StreamTransaction</a>&nbsp;which&nbsp;can&nbsp;be&nbsp;perform&nbsp;writes&nbsp;on&nbsp;the&nbsp;created&nbsp;transaction.&nbsp;It<br>
+can&nbsp;also&nbsp;be&nbsp;used&nbsp;to&nbsp;perform&nbsp;commit()&nbsp;and&nbsp;abort()&nbsp;operations&nbsp;on&nbsp;the&nbsp;created&nbsp;transaction.</tt></dd></dl>
+
+<dl><dt><a name="StreamTxnWriter-get_txn"><strong>get_txn</strong></a>(self, /, txn_id)</dt><dd><tt>Get&nbsp;a&nbsp;<a href="#StreamTransaction">StreamTransaction</a>&nbsp;for&nbsp;a&nbsp;given&nbsp;transaction&nbsp;id.</tt></dd></dl>
+
+<dl><dt><a name="StreamTxnWriter-to_str"><strong>to_str</strong></a>(...)</dt><dd><tt>Returns&nbsp;the&nbsp;facet&nbsp;string&nbsp;representation.</tt></dd></dl>
+
+</td></tr></table> <p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><a name="StreamWriter">class <strong>StreamWriter</strong></a>(<a href="builtins.html#object">object</a>)</font></td></tr>
+    
+<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
+<td colspan=2><tt>This&nbsp;represents&nbsp;a&nbsp;Stream&nbsp;writer&nbsp;for&nbsp;a&nbsp;given&nbsp;Stream.<br>
+Note:&nbsp;A&nbsp;python&nbsp;<a href="builtins.html#object">object</a>&nbsp;of&nbsp;<a href="#StreamWriter">StreamWriter</a>&nbsp;cannot&nbsp;be&nbsp;created&nbsp;directly&nbsp;without&nbsp;using&nbsp;the&nbsp;<a href="#StreamManager">StreamManager</a>.<br>&nbsp;</tt></td></tr>
+<tr><td>&nbsp;</td>
+<td width="100%">Methods defined here:<br>
+<dl><dt><a name="StreamWriter-__repr__"><strong>__repr__</strong></a>(self, /)</dt><dd><tt>Return&nbsp;repr(self).</tt></dd></dl>
+
+<dl><dt><a name="StreamWriter-to_str"><strong>to_str</strong></a>(...)</dt><dd><tt>Returns&nbsp;the&nbsp;facet&nbsp;string&nbsp;representation.</tt></dd></dl>
+
+<dl><dt><a name="StreamWriter-write_event"><strong>write_event</strong></a>(self, /, event, routing_key=None)</dt><dd><tt>Write&nbsp;an&nbsp;event&nbsp;into&nbsp;the&nbsp;Pravega&nbsp;Stream.&nbsp;The&nbsp;events&nbsp;that&nbsp;are&nbsp;written&nbsp;will&nbsp;appear<br>
+in&nbsp;the&nbsp;Stream&nbsp;exactly&nbsp;once.&nbsp;The&nbsp;event&nbsp;of&nbsp;type&nbsp;String&nbsp;is&nbsp;converted&nbsp;into&nbsp;bytes&nbsp;with&nbsp;`UTF-8`&nbsp;encoding.<br>
+The&nbsp;user&nbsp;can&nbsp;optionally&nbsp;specify&nbsp;the&nbsp;routing&nbsp;key.<br>
+&nbsp;<br>
+Note&nbsp;that&nbsp;the&nbsp;implementation&nbsp;provides&nbsp;retry&nbsp;logic&nbsp;to&nbsp;handle&nbsp;connection&nbsp;failures&nbsp;and&nbsp;service&nbsp;host<br>
+failures.&nbsp;Internal&nbsp;retries&nbsp;will&nbsp;not&nbsp;violate&nbsp;the&nbsp;exactly&nbsp;once&nbsp;semantic&nbsp;so&nbsp;it&nbsp;is&nbsp;better&nbsp;to&nbsp;rely&nbsp;on&nbsp;them<br>
+than&nbsp;to&nbsp;wrap&nbsp;this&nbsp;with&nbsp;custom&nbsp;retry&nbsp;logic.<br>
+&nbsp;<br>
+```<br>
+import&nbsp;pravega_client;<br>
+manager=pravega_client.<a href="#StreamManager">StreamManager</a>("127.0.0.1:9090")<br>
+//&nbsp;lets&nbsp;assume&nbsp;the&nbsp;Pravega&nbsp;scope&nbsp;and&nbsp;stream&nbsp;are&nbsp;already&nbsp;created.<br>
+writer=manager.create_writer("scope",&nbsp;"stream")<br>
+//&nbsp;write&nbsp;into&nbsp;Pravega&nbsp;stream&nbsp;without&nbsp;specifying&nbsp;the&nbsp;routing&nbsp;key.<br>
+writer.<a href="#StreamWriter-write_event">write_event</a>("e1")<br>
+//&nbsp;write&nbsp;into&nbsp;Pravega&nbsp;stream&nbsp;by&nbsp;specifying&nbsp;the&nbsp;routing&nbsp;key.<br>
+writer.<a href="#StreamWriter-write_event">write_event</a>("e2",&nbsp;"key1")<br>
+```</tt></dd></dl>
+
+<dl><dt><a name="StreamWriter-write_event_bytes"><strong>write_event_bytes</strong></a>(self, /, event, routing_key=None)</dt><dd><tt>Write&nbsp;a&nbsp;byte&nbsp;array&nbsp;into&nbsp;the&nbsp;Pravega&nbsp;Stream.&nbsp;This&nbsp;is&nbsp;similar&nbsp;to&nbsp;`<a href="#StreamWriter-write_event">write_event</a>(...)`&nbsp;api&nbsp;except<br>
+that&nbsp;the&nbsp;the&nbsp;event&nbsp;to&nbsp;be&nbsp;written&nbsp;is&nbsp;a&nbsp;byte&nbsp;array.&nbsp;The&nbsp;user&nbsp;can&nbsp;optionally&nbsp;specify&nbsp;the<br>
+&nbsp;routing&nbsp;key.<br>
+&nbsp;<br>
+```<br>
+import&nbsp;pravega_client;<br>
+manager=pravega_client.<a href="#StreamManager">StreamManager</a>("127.0.0.1:9090")<br>
+//&nbsp;lets&nbsp;assume&nbsp;the&nbsp;Pravega&nbsp;scope&nbsp;and&nbsp;stream&nbsp;are&nbsp;already&nbsp;created.<br>
+writer=manager.create_writer("scope",&nbsp;"stream")<br>
+&nbsp;<br>
+e="eventData"<br>
+//&nbsp;Convert&nbsp;the&nbsp;event&nbsp;<a href="builtins.html#object">object</a>&nbsp;to&nbsp;a&nbsp;byte&nbsp;array.<br>
+e_bytes=e.encode("utf-8")<br>
+//&nbsp;write&nbsp;into&nbsp;Pravega&nbsp;stream&nbsp;without&nbsp;specifying&nbsp;the&nbsp;routing&nbsp;key.<br>
+writer.<a href="#StreamWriter-write_event_bytes">write_event_bytes</a>(e_bytes)<br>
+//&nbsp;write&nbsp;into&nbsp;Pravega&nbsp;stream&nbsp;by&nbsp;specifying&nbsp;the&nbsp;routing&nbsp;key.<br>
+writer.<a href="#StreamWriter-write_event_bytes">write_event_bytes</a>(e_bytes,&nbsp;"key1")<br>
+```</tt></dd></dl>
+
+</td></tr></table> <p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><a name="TxnFailedException">class <strong>TxnFailedException</strong></a>(<a href="builtins.html#Exception">builtins.Exception</a>)</font></td></tr>
+    
+<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
+<td colspan=2><tt>Common&nbsp;base&nbsp;class&nbsp;for&nbsp;all&nbsp;non-exit&nbsp;exceptions.<br>&nbsp;</tt></td></tr>
+<tr><td>&nbsp;</td>
+<td width="100%"><dl><dt>Method resolution order:</dt>
+<dd><a href="pravega_client.html#TxnFailedException">TxnFailedException</a></dd>
+<dd><a href="builtins.html#Exception">builtins.Exception</a></dd>
+<dd><a href="builtins.html#BaseException">builtins.BaseException</a></dd>
+<dd><a href="builtins.html#object">builtins.object</a></dd>
+</dl>
+<hr>
+Data descriptors defined here:<br>
+<dl><dt><strong>__weakref__</strong></dt>
+<dd><tt>list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+<hr>
+Methods inherited from <a href="builtins.html#Exception">builtins.Exception</a>:<br>
+<dl><dt><a name="TxnFailedException-__init__"><strong>__init__</strong></a>(self, /, *args, **kwargs)</dt><dd><tt>Initialize&nbsp;self.&nbsp;&nbsp;See&nbsp;help(type(self))&nbsp;for&nbsp;accurate&nbsp;signature.</tt></dd></dl>
+
+<hr>
+Static methods inherited from <a href="builtins.html#Exception">builtins.Exception</a>:<br>
+<dl><dt><a name="TxnFailedException-__new__"><strong>__new__</strong></a>(*args, **kwargs)<font color="#909090"><font face="helvetica, arial"> from <a href="builtins.html#type">builtins.type</a></font></font></dt><dd><tt>Create&nbsp;and&nbsp;return&nbsp;a&nbsp;new&nbsp;<a href="builtins.html#object">object</a>.&nbsp;&nbsp;See&nbsp;help(type)&nbsp;for&nbsp;accurate&nbsp;signature.</tt></dd></dl>
+
+<hr>
+Methods inherited from <a href="builtins.html#BaseException">builtins.BaseException</a>:<br>
+<dl><dt><a name="TxnFailedException-__delattr__"><strong>__delattr__</strong></a>(self, name, /)</dt><dd><tt>Implement&nbsp;delattr(self,&nbsp;name).</tt></dd></dl>
+
+<dl><dt><a name="TxnFailedException-__getattribute__"><strong>__getattribute__</strong></a>(self, name, /)</dt><dd><tt>Return&nbsp;getattr(self,&nbsp;name).</tt></dd></dl>
+
+<dl><dt><a name="TxnFailedException-__reduce__"><strong>__reduce__</strong></a>(...)</dt><dd><tt>Helper&nbsp;for&nbsp;pickle.</tt></dd></dl>
+
+<dl><dt><a name="TxnFailedException-__repr__"><strong>__repr__</strong></a>(self, /)</dt><dd><tt>Return&nbsp;repr(self).</tt></dd></dl>
+
+<dl><dt><a name="TxnFailedException-__setattr__"><strong>__setattr__</strong></a>(self, name, value, /)</dt><dd><tt>Implement&nbsp;setattr(self,&nbsp;name,&nbsp;value).</tt></dd></dl>
+
+<dl><dt><a name="TxnFailedException-__setstate__"><strong>__setstate__</strong></a>(...)</dt></dl>
+
+<dl><dt><a name="TxnFailedException-__str__"><strong>__str__</strong></a>(self, /)</dt><dd><tt>Return&nbsp;str(self).</tt></dd></dl>
+
+<dl><dt><a name="TxnFailedException-with_traceback"><strong>with_traceback</strong></a>(...)</dt><dd><tt><a href="builtins.html#Exception">Exception</a>.<a href="#TxnFailedException-with_traceback">with_traceback</a>(tb)&nbsp;--<br>
+set&nbsp;self.<strong>__traceback__</strong>&nbsp;to&nbsp;tb&nbsp;and&nbsp;return&nbsp;self.</tt></dd></dl>
+
+<hr>
+Data descriptors inherited from <a href="builtins.html#BaseException">builtins.BaseException</a>:<br>
+<dl><dt><strong>__cause__</strong></dt>
+<dd><tt>exception&nbsp;cause</tt></dd>
+</dl>
+<dl><dt><strong>__context__</strong></dt>
+<dd><tt>exception&nbsp;context</tt></dd>
+</dl>
+<dl><dt><strong>__dict__</strong></dt>
+</dl>
+<dl><dt><strong>__suppress_context__</strong></dt>
+</dl>
+<dl><dt><strong>__traceback__</strong></dt>
+</dl>
+<dl><dt><strong>args</strong></dt>
+</dl>
+</td></tr></table></td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#55aa55">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Data</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#55aa55"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><strong>__all__</strong> = ['__doc__', 'StreamManager', 'StreamWriter', 'StreamTxnWriter', 'StreamTransaction', 'StreamReader', 'StreamReaderGroup', 'TxnFailedException']</td></tr></table>
+</body></html>

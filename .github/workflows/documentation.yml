@@ -27,6 +27,11 @@ jobs:
           cp -r target/doc book/book/doc
           echo "<meta http-equiv=refresh content=0;url=pravega_client_rust/index.html>" > book/book/doc/index.html
 
+      - name: Copy the python binding API docs
+        run: |
+          mkdir -p book/book/python
+          cp bindings/pravega_client.html book/book/python
+
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:

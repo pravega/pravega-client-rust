@@ -6,4 +6,4 @@ Pravega is an open source distributed storage service implementing Streams. It o
 
 To learn more about Pravega, visit http://pravega.io
 
-Caution: This is a brand new python library. Please expect some build issues on platforms not covered by CI testing.
+{{#include ../book/src/PythonBindings.md}}
