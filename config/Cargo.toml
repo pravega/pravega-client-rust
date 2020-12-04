@@ -16,6 +16,6 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 [dependencies]
 pravega-rust-client-shared = { path = "../shared"}
 pravega-rust-client-retry = {path= "../retry"}
-derive_builder = "0.9.0"
+derive_builder = "0.9"
 getset = "0.0.9"
-base64 = "0.12.3"
+base64 = "0.12"

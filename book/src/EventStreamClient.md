@@ -1,6 +1,7 @@
 # Event Stream Client
 
 ## Event Stream Writer
+
 An EventStreamWriter can be used to write events into the Pravega Stream.
 
 The concept of Event is nothing but some serialized bytes with an added 8 bytes header.
