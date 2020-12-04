@@ -22,7 +22,7 @@ use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::{LENGTH_FIELD_LENGTH, LENGTH_FIELD_OFFSET};
 use pravega_wire_protocol::commands::{
     AppendSetupCommand, DataAppendedCommand, EventCommand, SegmentCreatedCommand, SegmentReadCommand,
-    TableEntries, TableEntriesDeltaReadCommand, TableEntriesUpdatedCommand,
+    TableEntries, TableEntriesDeltaReadCommand, TableEntriesUpdatedCommand, TYPE_PLUS_LENGTH_SIZE,
 };
 use pravega_wire_protocol::wire_commands::{Decode, Encode, Replies, Requests};
 use std::io::Cursor;
@@ -34,6 +34,7 @@ use tracing::info;
 
 static EVENT_NUM: usize = 10000;
 static EVENT_SIZE: usize = 100;
+const READ_EVENT_SIZE_BYTES: usize = 100 * 1024; //100 KB event.
 
 struct MockServer {
     address: SocketAddr,
@@ -49,7 +50,7 @@ impl MockServer {
 
     pub async fn run(mut self) {
         // 100K data chunk
-        let data_chunk: [u8; 100 * 1024] = [0xAAu8; 100 * 1024];
+        let data_chunk: [u8; READ_EVENT_SIZE_BYTES] = [0xAAu8; READ_EVENT_SIZE_BYTES];
         let event_data: Vec<u8> = Requests::Event(EventCommand {
             data: data_chunk.to_vec(),
         })
@@ -184,10 +185,24 @@ impl MockServer {
 }
 
 // Read a segment slice and consume events from the slice.
-async fn run_reader(reader: &mut EventReader) {
+async fn run_reader(reader: &mut EventReader, last_offset: &mut i64) {
     if let Some(mut slice) = reader.acquire_segment().await {
         while let Some(e) = slice.next() {
-            println!("Read Event at off set {:?}", e.offset_in_segment);
+            // validate offset in the segment.
+            if *last_offset == -1i64 {
+                assert_eq!(0, e.offset_in_segment);
+            } else {
+                assert_eq!(
+                    READ_EVENT_SIZE_BYTES + 2 * TYPE_PLUS_LENGTH_SIZE as usize,
+                    (e.offset_in_segment - *last_offset) as usize
+                );
+            }
+            // validate the event read length
+            assert_eq!(
+                READ_EVENT_SIZE_BYTES + TYPE_PLUS_LENGTH_SIZE as usize,
+                e.value.len()
+            );
+            *last_offset = e.offset_in_segment;
         }
     } else {
         assert!(false, "No slice acquired");
@@ -208,12 +223,13 @@ fn read_mock_server(c: &mut Criterion) {
     let mut reader = rt.block_on(setup_reader(config));
 
     info!("start reader with mock server performance testing");
+    let mut last_offset: i64 = -1;
     c.bench_function("read 100KB mock server", |b| {
         b.iter(|| {
-            rt.block_on(run_reader(&mut reader));
+            rt.block_on(run_reader(&mut reader, &mut last_offset));
         });
     });
-    info!("mock server performance testing finished");
+    println!("reader performance testing finished");
 }
 // This benchmark test uses a mock server that replies ok to any requests instantly. It involves
 // kernel latency.
