@@ -29,7 +29,7 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::net::SocketAddr;
 use tokio::runtime::{Handle, Runtime};
-use tracing::info;
+use tracing::{error, info};
 
 pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     // spin up Pravega standalone
@@ -60,10 +60,27 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     let mut writer = client_factory.create_byte_stream_writer(scoped_segment.clone());
     let mut reader = client_factory.create_byte_stream_reader(scoped_segment);
 
-    test_write_and_read(&mut writer, &mut reader);
+    test_simple_write_and_read(&mut writer, &mut reader);
     test_seek(&mut reader);
     test_truncation(&mut writer, &mut reader, &mut rt);
     test_seal(&mut writer, &mut reader, &mut rt);
+
+    let scope_name = Scope::from("testScopeByteStreamPrefetch".to_owned());
+    let stream_name = Stream::from("testStreamByteStreamPrefetch".to_owned());
+    handle.block_on(utils::create_scope_stream(
+        client_factory.get_controller_client(),
+        &scope_name,
+        &stream_name,
+        1,
+    ));
+    let scoped_segment = ScopedSegment {
+        scope: scope_name,
+        stream: stream_name,
+        segment: Segment::from(0),
+    };
+    let mut writer = client_factory.create_byte_stream_writer(scoped_segment.clone());
+    let mut reader = client_factory.create_byte_stream_reader(scoped_segment);
+    test_write_and_read_with_workload(&mut writer, &mut reader);
 
     let scope_name = Scope::from("testScopeByteStreamConditionalAppend".to_owned());
     let stream_name = Stream::from("testStreamByteStreamConditionalAppend".to_owned());
@@ -81,11 +98,10 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     test_multiple_writers_conditional_append(&client_factory, segment);
 }
 
-fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader) {
+fn test_simple_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader) {
     info!("test byte stream write and read");
     let payload1 = vec![1; 4];
     let payload2 = vec![2; 4];
-    let expected = [&payload1[..], &payload2[..]].concat();
 
     let size1 = writer.write(&payload1).expect("write payload1 to byte stream");
     assert_eq!(size1, 4);
@@ -97,10 +113,16 @@ fn test_write_and_read(writer: &mut ByteStreamWriter, reader: &mut ByteStreamRea
     assert_eq!(size2, 4);
     writer.flush().expect("flush byte stream writer");
 
-    let mut buf: Vec<u8> = vec![0; 8];
-    let bytes = reader.read(&mut buf).expect("read from byte stream");
-    assert_eq!(bytes, 8);
-    assert_eq!(buf, expected);
+    let mut buf: Vec<u8> = vec![0; 4];
+    // Note: prefetching issues a read when reader was initialized and that read returned
+    // with result of 4 when the first write is flushed.
+    let bytes1 = reader.read(&mut buf).expect("read from byte stream");
+    assert_eq!(bytes1, 4);
+    assert_eq!(buf, payload1);
+
+    let bytes2 = reader.read(&mut buf).expect("read from byte stream");
+    assert_eq!(bytes2, 4);
+    assert_eq!(buf, payload2);
 
     info!("test byte stream write and read passed");
 }
@@ -151,6 +173,7 @@ fn test_truncation(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader,
     let size = reader.read(&mut buf).expect("read from byte stream");
     assert_eq!(size, 4);
     assert_eq!(buf, vec![2; 4]);
+
     info!("test byte stream truncate passed");
 }
 
@@ -171,7 +194,33 @@ fn test_seal(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader, rt: &
     let size = reader.read(&mut buf).expect("read from byte stream");
     assert_eq!(size, 0);
     assert_eq!(buf, vec![0; 8]);
+
     info!("test byte stream seal passed");
+}
+
+fn test_write_and_read_with_workload(writer: &mut ByteStreamWriter, reader: &mut ByteStreamReader) {
+    info!("test write and read with workload");
+    for _i in 0..10 {
+        for _j in 0..1000 {
+            let buf = vec![1; 1024];
+            let size = writer.write(&buf).expect("write to byte stream");
+            assert_eq!(size, 1024)
+        }
+        writer.flush().expect("flush data");
+    }
+
+    let mut read = 0;
+    loop {
+        let mut buf = vec![0; 1024];
+        let size = reader.read(&mut buf).expect("read from byte stream");
+        read += size;
+        if read == 1024 * 1000 * 10 {
+            break;
+        }
+    }
+    assert_eq!(reader.available(), 0);
+
+    info!("test write and read with workload passed");
 }
 
 fn test_multiple_writers_conditional_append(factory: &ClientFactory, segment: ScopedSegment) {
