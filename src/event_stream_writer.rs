@@ -24,7 +24,16 @@ use tracing_futures::Instrument;
 ///
 /// EventStreamWriter spawns a `Reactor` that runs in the background for processing incoming events.
 /// The `write` method sends the event to the `Reactor` asynchronously and returns a `tokio::oneshot::Receiver`
-/// that contains the result of the write to the caller.
+/// that contains the result of the write to the caller. The maximum size of the serialized event
+/// supported is [`size`], writing size larger than that will returns an error.
+///
+/// [`size`]: EventStreamWriter::MAX_EVENT_SIZE
+///
+/// # Note
+///
+/// The EventStreamWriter implementation provides retry logic to handle connection failures and service host
+/// failures. Internal retries will not violate the exactly once semantic so it is better to rely on them
+/// than to wrap this with custom retry logic.
 ///
 /// # Examples
 ///
@@ -35,7 +44,7 @@ use tracing_futures::Instrument;
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     // assuming Pravega controller is running at endpoint `localhost:9090`
+///     // assuming Pravega controller is listening at endpoint `localhost:9090`
 ///     let config = ClientConfigBuilder::default()
 ///         .controller_uri("localhost:9090")
 ///         .build()

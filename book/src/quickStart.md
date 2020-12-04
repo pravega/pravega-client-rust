@@ -14,7 +14,7 @@ a minimal Pravega server by calling
 
 It spins up a Pravega standalone server that listens to `localhost:9090` by default.
 
-## Writing a simple application
+## Build a simple application
 
 ### Prerequisites
 Make sure you have Rust installed first, check out the [official website](https://www.rust-lang.org/tools/install) of how to
@@ -32,11 +32,11 @@ cargo new my_app --bin
 in the `Cargo.toml` file, add the following as dependencies
 ```
 [dependencies]
-pravega_rust_client = "0.1"
+pravega-rust-client = "0.1"
 pravega-rust-client-config = "0.1"
-pravega_rust_client_shared = "0.1"
+pravega-rust-client-shared = "0.1"
 tokio = "0.2"
 ```
 
-### A simple app that write and read event
+### A simple app that writes and reads events
 Check out the [event write and read example](../../examples/event_write_and_read.rs).

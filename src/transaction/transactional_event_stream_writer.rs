@@ -22,11 +22,12 @@ use tracing::{info, info_span};
 use tracing_futures::Instrument;
 
 /// A writer that writes Events to an Event stream transactionally. Events that are written to the
-/// transaction can be committed atomically, which means that reader cannot see any writes prior to committing.
+/// transaction can be committed atomically, which means that reader cannot see any writes prior to committing
+/// and will not see any writes if the transaction is aborted.
+///
 /// # Example
 ///
 /// ```no_run
-/// use std::net::SocketAddr;
 /// use tokio;
 /// use pravega_rust_client_shared::{Timestamp, ScopedStream, Scope, Stream, WriterId, PravegaNodeUri};
 /// use pravega_client_rust::client_factory::ClientFactory;
@@ -34,8 +35,8 @@ use tracing_futures::Instrument;
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     let scope_name = Scope::from("testScope".to_owned());
-///     let stream_name = Stream::from("testStream".to_owned());
+///     let scope_name = Scope::from("txnScope".to_owned());
+///     let stream_name = Stream::from("txnStream".to_owned());
 ///     let scoped_stream = ScopedStream {
 ///          scope: scope_name.clone(),
 ///          stream: stream_name.clone(),

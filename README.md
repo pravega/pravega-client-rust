@@ -5,6 +5,7 @@
 
 This is a native Rust client for [Pravega](https://www.pravega.io/). 
 
+Note: Pravega 0.9.0+ is supported.
 
 ## Status
 

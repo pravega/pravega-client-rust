@@ -35,17 +35,31 @@ type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 
 /// Allows for writing raw bytes directly to a segment.
 ///
-/// This class does not frame, attach headers, or otherwise modify the bytes written to it in any
-/// way. So unlike EventStreamWriter the data written cannot be split apart when read.
-/// As such, any bytes written by this API can ONLY be read using ByteStreamReader.
-/// Similarly, unless some sort of framing is added it is probably an error to have multiple
-/// ByteStreamWriters write to the same segment as this will result in interleaved data.
+/// ByteStreamWriter does not frame, attach headers, or otherwise modify the bytes written to it in any
+/// way. So unlike [`EventStreamWriter`] the data written cannot be split apart when read.
+/// As such, any bytes written by this API can ONLY be read using [`ByteStreamReader`].
+///
+/// Similarly, multiple ByteStreamWriters write to the same segment as this will result in interleaved data,
+/// which is not desirable in most cases. ByteStreamWriter uses Conditional Append to make sure that writers
+/// are aware of the content in the segment. If interleaved data exist, [`flush`] will return an error and
+/// let user to decide whether to continue to write or not.
+///
+/// [`EventStreamWriter`]: crate::event_stream_writer::EventStreamWriter
+/// [`ByteStreamReader`]: ByteStreamReader
+/// [`flush`]: ByteStreamWriter::flush
+///
+/// # Note
+///
+/// The ByteStreamWriter implementation provides retry logic to handle connection failures and service host
+/// failures. Internal retries will not violate the exactly once semantic so it is better to rely on them
+/// than to wrap this with custom retry logic.
 ///
 /// # Examples
 /// ```no_run
 /// use pravega_rust_client_config::ClientConfigBuilder;
 /// use pravega_client_rust::client_factory::ClientFactory;
 /// use pravega_rust_client_shared::ScopedSegment;
+/// use std::io::Write;
 ///
 /// #[tokio::main]
 /// async fn main() {
@@ -57,13 +71,13 @@ type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 ///
 ///     let client_factory = ClientFactory::new(config);
 ///
-///     // assuming scope:myscope and stream:mystream has been created before.
-///     let stream = ScopedStream::from("myscope/mystream");
+///     // assuming scope:myscope, stream:mystream and segment 0 do exist.
+///     let segment = ScopedSegment::from("myscope/mystream/0");
 ///
-///     let mut event_stream_writer = client_factory.create_event_stream_writer(stream);
+///     let mut byte_stream_writer = client_factory.create_byte_stream_writer(segment);
 ///
 ///     let payload = "hello world".to_string().into_bytes();
-///     let result = event_stream_writer.write_event(payload).await;
+///     let result = byte_stream_writer.write(&payload).await;
 ///
 ///     assert!(result.await.is_ok())
 /// }
@@ -241,6 +255,8 @@ impl ByteStreamReader {
         }
     }
 
+    /// Fetches the current readable head of the segment.
+    /// The readable head is not always 0 for a segment since it could be truncated.
     pub fn current_head(&self) -> std::io::Result<u64> {
         self.runtime_handle
             .block_on(self.metadata_client.fetch_current_starting_head())
@@ -248,6 +264,7 @@ impl ByteStreamReader {
             .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
     }
 
+    /// The current read offset of the segment.
     pub fn current_offset(&self) -> i64 {
         self.offset
     }

@@ -16,7 +16,7 @@ use pravega_rust_client_shared::{
 
 #[tokio::main]
 async fn main() {
-    // Assuming Pravega standalone is listening at localhost:9090
+    // assuming Pravega standalone is listening at localhost:9090
     let config = ClientConfigBuilder::default()
         .controller_uri("localhost:9090")
         .build()
