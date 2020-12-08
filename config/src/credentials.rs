@@ -83,7 +83,7 @@ impl Credentials {
 #[derive(Serialize, Deserialize)]
 struct KeyCloakJson {
     realm: String,
-    #[serde(rename(deserialize = "bearer-only"))]
+    #[serde(rename(deserialize = "auth-server-url"))]
     auth_server_url: String,
     resource: String,
     credentials: Credential,
