@@ -34,13 +34,13 @@ jobs:
 
       - name: Generate Pravega Python API documentation.
         run: |
-          pip install maturin virtualenv pydocs
+          pip install maturin virtualenv pdoc3
           virtualenv venv
           source venv/bin/activate
           maturin develop -m bindings/Cargo.toml
-          pydoc -w pravega_client
+          pdoc --html pravega_client
           mkdir -p book/book/python
-          cp pravega_client.html book/book/python
+          cp html/pravega_client.html book/book/python
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3

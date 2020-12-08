@@ -24,3 +24,4 @@ pravega-*.tgz
 *.log
 __pycache__/
 book/book
+html/
