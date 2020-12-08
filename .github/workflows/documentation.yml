@@ -35,6 +35,8 @@ jobs:
       - name: Generate Pravega Python API documentation.
         run: |
           pip install maturin virtualenv pydocs
+          virtualenv venv
+          source venv/bin/activate
           maturin develop -m bindings/Cargo.toml
           pydoc -w pravega_client
           mkdir -p book/book/python
