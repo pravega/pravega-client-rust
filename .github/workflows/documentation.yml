@@ -12,11 +12,16 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Set up Python and install maturin virtualenv and pydocs
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      -run : pip install maturin virtualenv pydocs
+
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v1
         with:
           mdbook-version: '0.4.1'
-          # mdbook-version: 'latest'
 
       # This generates the book inside ./book/book
       - run: mdbook build book
@@ -28,10 +33,12 @@ jobs:
           cp -r target/doc book/book/doc
           echo "<meta http-equiv=refresh content=0;url=pravega_client_rust/index.html>" > book/book/doc/index.html
 
-      - name: Copy the python binding API docs
+      - name: Generate Pravega Python API documentation.
         run: |
+          maturin develop -m bindings/Cargo.toml
+          pydoc -w pravega_client
           mkdir -p book/book/python
-          cp bindings/pravega_client.html book/book/python
+          cp pravega_client.html book/book/python
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
