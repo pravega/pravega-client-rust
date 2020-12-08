@@ -7,12 +7,12 @@ on:
       - python-api-doc
 
 jobs:
-  deploy:
+  generate_documentation:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
 
-      - name: Set up Python and install maturin virtualenv and pydocs
+      - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: 3.8

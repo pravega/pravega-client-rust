@@ -134,7 +134,7 @@ impl StreamWriter {
         }
     }
 
-    /// Returns the facet string representation.
+    /// Returns the string representation.
     fn to_str(&self) -> String {
         format!("Stream: {:?} ", self.stream)
     }

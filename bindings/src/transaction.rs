@@ -185,7 +185,7 @@ impl StreamTransaction {
         }
     }
 
-    /// Returns the facet string representation.
+    /// Returns the string representation.
     fn to_str(&self) -> String {
         format!(
             "Txn id: {:?} , {:?}",
