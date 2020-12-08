@@ -113,7 +113,7 @@ writer=manager.create_writer(&quot;scope&quot;, &quot;stream&quot;)
 <span>def <span class="ident">to_str</span></span>(<span>...)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns the facet string representation.</p></div>
+<div class="desc"><p>Returns the string representation.</p></div>
 </dd>
 </dl>
 </dd>
@@ -159,7 +159,7 @@ for event in slice:
 <span>def <span class="ident">to_str</span></span>(<span>...)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns the facet string representation.</p></div>
+<div class="desc"><p>Returns the string representation.</p></div>
 </dd>
 </dl>
 </dd>
@@ -194,7 +194,7 @@ for event in slice:
 <span>def <span class="ident">to_str</span></span>(<span>...)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns the facet string representation.</p></div>
+<div class="desc"><p>Returns the string representation.</p></div>
 </dd>
 </dl>
 </dd>
@@ -243,7 +243,7 @@ This Causes all messages previously written to the transaction to go into the st
 <span>def <span class="ident">to_str</span></span>(<span>...)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns the facet string representation.</p></div>
+<div class="desc"><p>Returns the string representation.</p></div>
 </dd>
 <dt id="pravega_client.StreamTransaction.write_event"><code class="name flex">
 <span>def <span class="ident">write_event</span></span>(<span>self, /, event, routing_key=None)</span>
@@ -292,7 +292,7 @@ can also be used to perform commit() and abort() operations on the created trans
 <span>def <span class="ident">to_str</span></span>(<span>...)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns the facet string representation.</p></div>
+<div class="desc"><p>Returns the string representation.</p></div>
 </dd>
 </dl>
 </dd>
@@ -308,7 +308,7 @@ Note: A python object of StreamWriter cannot be created directly without using t
 <span>def <span class="ident">to_str</span></span>(<span>...)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns the facet string representation.</p></div>
+<div class="desc"><p>Returns the string representation.</p></div>
 </dd>
 <dt id="pravega_client.StreamWriter.write_event"><code class="name flex">
 <span>def <span class="ident">write_event</span></span>(<span>self, /, event, routing_key=None)</span>
@@ -358,7 +358,7 @@ writer.write_event_bytes(e_bytes, &quot;key1&quot;)
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Common base class for all non-exit exceptions.</p></div>
+<div class="desc"><p>This exception indicates a transaction has failed.Usually because the transaction timed out or someone called transaction.abort()</p></div>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>builtins.Exception</li>
