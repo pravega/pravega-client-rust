@@ -473,6 +473,9 @@ impl PrefetchingAsyncSegmentReader {
                 Err(e) => warn!("failed to receive reply from background read: {}", e),
                 Ok(res) => match res {
                     Ok(cmd) => {
+                        if !cmd.end_of_segment && cmd.data.is_empty() {
+                            return Ok(());
+                        }
                         self.buffer.push_back(cmd);
                     }
                     Err(e) => return Err(e),

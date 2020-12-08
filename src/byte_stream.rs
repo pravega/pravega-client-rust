@@ -103,10 +103,6 @@ impl Write for ByteStreamWriter {
             .runtime_handle
             .block_on(self.write_internal(self.sender.clone(), payload));
 
-        debug!(
-            "writing payload of size {} based on offset {}",
-            bytes_to_write, self.write_offset
-        );
         self.write_offset += bytes_to_write as i64;
         self.event_handle = Some(oneshot_receiver);
         Ok(bytes_to_write)
@@ -348,11 +344,8 @@ mod test {
 
         // read 200 bytes from beginning
         let mut buf = vec![0; 200];
-        let mut size = 0;
-        while size != 200 {
-            let read = reader.read(&mut buf).expect("read");
-            size += read;
-        }
+        let read = reader.read(&mut buf).expect("read");
+        assert_eq!(read, 200);
         assert_eq!(buf, vec![1; 200]);
 
         // seek to head
