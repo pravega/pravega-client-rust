@@ -32,8 +32,6 @@ use derive_builder::*;
 use getset::{CopyGetters, Getters};
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_shared::PravegaNodeUri;
-use std::collections::HashMap;
-use std::env;
 use std::time::Duration;
 
 pub const MOCK_CONTROLLER_URI: (&str, u16) = ("localhost", 9090);
