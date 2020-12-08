@@ -75,9 +75,8 @@ type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 ///     let mut byte_stream_writer = client_factory.create_byte_stream_writer(segment);
 ///
 ///     let payload = "hello world".to_string().into_bytes();
-///     let result = byte_stream_writer.write(&payload);
-///
-///     assert!(result.await.is_ok())
+///     byte_stream_writer.write(&payload).expect("write");
+///     byte_stream_writer.flush().expect("flush");
 /// }
 /// ```
 pub struct ByteStreamWriter {
