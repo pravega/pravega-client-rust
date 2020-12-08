@@ -32,6 +32,9 @@ use derive_builder::*;
 use getset::{CopyGetters, Getters};
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_shared::PravegaNodeUri;
+use std::collections::HashMap;
+use std::env;
+use std::time::Duration;
 
 pub const MOCK_CONTROLLER_URI: (&str, u16) = ("localhost", 9090);
 
@@ -79,6 +82,14 @@ pub struct ClientConfig {
     #[get_copy = "pub"]
     #[builder(default = "false")]
     pub is_auth_enabled: bool,
+
+    #[get_copy = "pub"]
+    #[builder(default = "1024 * 1024")]
+    pub reader_wrapper_buffer_size: usize,
+
+    #[get_copy = "pub"]
+    #[builder(default = "self.default_timeout()")]
+    pub request_timeout: Duration,
 }
 
 impl ClientConfigBuilder {
@@ -88,6 +99,10 @@ impl ClientConfigBuilder {
 
     fn default_credentials(&self) -> Credentials {
         Credentials::basic("admin".into(), "1111_aaaa".into())
+    }
+
+    fn default_timeout(&self) -> Duration {
+        Duration::from_secs(3600)
     }
 }
 

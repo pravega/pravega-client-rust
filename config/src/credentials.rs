@@ -84,16 +84,8 @@ impl Credentials {
 struct KeyCloakJson {
     realm: String,
     #[serde(rename(deserialize = "bearer-only"))]
-    bearer_only: bool,
-    #[serde(rename(deserialize = "auth-server-url"))]
     auth_server_url: String,
-    #[serde(rename(deserialize = "ssl-required"))]
-    ssl_required: String,
     resource: String,
-    #[serde(rename(deserialize = "confidential-port"))]
-    confidential_port: i32,
-    #[serde(rename(deserialize = "public-client"))]
-    public_client: bool,
     credentials: Credential,
 }
 
@@ -174,19 +166,11 @@ mod test {
 
     #[test]
     fn test_json_deserialize() {
-        let json_string = r#"{"realm":"nautilus","auth-server-url":"http://keycloak.jarviscb.nautilus-lab-ns.com/auth","ssl-required":"NONE","bearer-only":false,"public-client":false,"resource":"pravega-controller","confidential-port":0,"credentials":{"secret":"123456"}}"#;
+        let json_string = r#"{"realm":"nautilus","auth-server-url":"http://localhost","ssl-required":"NONE","bearer-only":false,"public-client":false,"resource":"pravega-controller","confidential-port":0,"credentials":{"secret":"123456"}}"#;
         let v: KeyCloakJson = serde_json::from_str(json_string).unwrap();
         assert_eq!(v.realm, "nautilus");
-        assert_eq!(
-            v.auth_server_url,
-            "http://keycloak.jarviscb.nautilus-lab-ns.com/auth"
-        );
-        assert_eq!(v.ssl_required, "NONE");
-        assert!(!v.bearer_only);
-        assert!(!v.public_client);
+        assert_eq!(v.auth_server_url, "http://localhost");
         assert_eq!(v.resource, "pravega-controller");
-        assert_eq!(v.confidential_port, 0);
-        assert_eq!(v.confidential_port, 0);
         assert_eq!(v.credentials.secret, "123456");
     }
 }
