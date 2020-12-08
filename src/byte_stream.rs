@@ -23,7 +23,6 @@ use std::io::{Error, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::oneshot;
-use tracing::debug;
 use tracing::info_span;
 use tracing_futures::Instrument;
 use uuid::Uuid;
@@ -76,7 +75,7 @@ type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 ///     let mut byte_stream_writer = client_factory.create_byte_stream_writer(segment);
 ///
 ///     let payload = "hello world".to_string().into_bytes();
-///     let result = byte_stream_writer.write(&payload).await;
+///     let result = byte_stream_writer.write(&payload);
 ///
 ///     assert!(result.await.is_ok())
 /// }
