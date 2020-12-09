@@ -221,7 +221,7 @@ fn read_mock_server(c: &mut Criterion) {
         .expect("creating config");
     rt.spawn(async { MockServer::run(mock_server).await });
     let mut reader = rt.block_on(setup_reader(config));
-
+    let _ = tracing_subscriber::fmt::try_init();
     info!("start reader with mock server performance testing");
     let mut last_offset: i64 = -1;
     c.bench_function("read 100KB mock server", |b| {
@@ -243,7 +243,7 @@ fn mock_server(c: &mut Criterion) {
         .expect("creating config");
     let mut writer = rt.block_on(set_up(config));
     rt.spawn(async { MockServer::run(mock_server).await });
-
+    let _ = tracing_subscriber::fmt::try_init();
     info!("start mock server performance testing");
     c.bench_function("mock server", |b| {
         b.iter(|| {
@@ -265,7 +265,7 @@ fn mock_server_no_block(c: &mut Criterion) {
         .expect("creating config");
     let mut writer = rt.block_on(set_up(config));
     rt.spawn(async { MockServer::run(mock_server).await });
-
+    let _ = tracing_subscriber::fmt::try_init();
     info!("start mock server(no block) performance testing");
     c.bench_function("mock server(no block)", |b| {
         b.iter(|| {
@@ -286,7 +286,7 @@ fn mock_connection(c: &mut Criterion) {
         .build()
         .expect("creating config");
     let mut writer = rt.block_on(set_up(config));
-
+    let _ = tracing_subscriber::fmt::try_init();
     info!("start mock connection performance testing");
     c.bench_function("mock connection", |b| {
         b.iter(|| {
@@ -307,7 +307,7 @@ fn mock_connection_no_block(c: &mut Criterion) {
         .build()
         .expect("creating config");
     let mut writer = rt.block_on(set_up(config));
-
+    let _ = tracing_subscriber::fmt::try_init();
     info!("start mock connection(no block) performance testing");
     c.bench_function("mock connection(no block)", |b| {
         b.iter(|| {
