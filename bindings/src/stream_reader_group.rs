@@ -74,7 +74,7 @@ impl StreamReaderGroup {
         Ok(stream_reader)
     }
 
-    /// Returns the facet string representation.
+    /// Returns the string representation.
     fn to_str(&self) -> String {
         format!(
             "Stream: {:?} , ReaderGroup: {:?}",

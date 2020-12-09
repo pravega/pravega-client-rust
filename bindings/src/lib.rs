@@ -32,17 +32,15 @@ cfg_if! {
         use pyo3::create_exception;
         use pyo3::exceptions::Exception;
 
-        /*
-         *  This exception indicates a transaction has failed. Usually because the
-         *   transaction timed out or someone called transaction.abort()
-         */
+        const TXNFAILED_EXCEPTION_DOCSTRING: &str = "This exception indicates a transaction has failed.\
+        Usually because the transaction timed out or someone called transaction.abort()";
         create_exception!(pravega_client, TxnFailedException, Exception);
     }
 }
 
 #[cfg(feature = "python_binding")]
 #[pymodule]
-/// A Python module implemented in Rust.
+/// A Python module for Pravega implemented in Rust.
 fn pravega_client(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<StreamManager>()?;
     m.add_class::<StreamWriter>()?;
@@ -50,6 +48,8 @@ fn pravega_client(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<StreamTransaction>()?;
     m.add_class::<StreamReader>()?;
     m.add_class::<StreamReaderGroup>()?;
-    m.add("TxnFailedException", py.get_type::<TxnFailedException>())?;
+    let txn_exception = py.get_type::<TxnFailedException>();
+    txn_exception.setattr("__doc__", TXNFAILED_EXCEPTION_DOCSTRING)?;
+    m.add("TxnFailedException", txn_exception)?;
     Ok(())
 }

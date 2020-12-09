@@ -107,7 +107,7 @@ impl StreamReader {
         Ok(())
     }
 
-    /// Returns the facet string representation.
+    /// Returns the string representation.
     fn to_str(&self) -> String {
         format!("Stream: {:?} ", self.stream)
     }
@@ -172,7 +172,7 @@ impl EventData {
     fn data(&self) -> &[u8] {
         self.value.as_slice()
     }
-    /// Returns the facet string representation.
+    /// Returns the string representation.
     fn to_str(&self) -> String {
         format!("offset {:?} data :{:?}", self.offset_in_segment, self.value)
     }
