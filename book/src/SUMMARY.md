@@ -2,8 +2,11 @@
 
 - [Introduction](./index.md)
 - [QuickStart](./quickStart.md)
-- [Python Bindings](./PythonBindings.md)
-- [Event Stream Client](EventStreamClient.md)
-- [Byte Stream Client](ByteStreamClient.md)
-- [Developer Corner](./contribution.md)
-
+- [Rust Client](./RUST/Readme.md)
+    - [Event Stream Client](RUST/EventStreamClient.md)
+    - [Byte Stream Client](RUST/ByteStreamClient.md)
+    - [Transaction](RUST/Transaction.md)
+    - [Developer Corner](RUST/contribution.md)
+- [Python Client](./Python/Readme.md)
+    - [Python Bindings](Python/PythonBindings.md)
+    - [Developer Corner](Python/contribution.md)

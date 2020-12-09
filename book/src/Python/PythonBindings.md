@@ -1,8 +1,7 @@
 # Python Bindings
 
-The below section describes the Python APIs of the Rust based Pravega Native client.
-
-# Python API tutorial
+The below section provides a Pravega Python API tutorial for the Rust based Pravega Native client. This tutorial is a 
+companion to [Pravega Python API](../python/pravega_client.html)
 
 * ## StreamManager
 
