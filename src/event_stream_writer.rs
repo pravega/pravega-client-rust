@@ -9,8 +9,8 @@
 //
 
 use crate::reactor::reactors::Reactor;
-use pravega_rust_client_channel::{create_channel, ChannelSender};
-use pravega_rust_client_shared::*;
+use pravega_client_channel::{create_channel, ChannelSender};
+use pravega_client_shared::*;
 use tokio::sync::oneshot;
 
 use crate::client_factory::ClientFactory;
@@ -38,9 +38,9 @@ use tracing_futures::Instrument;
 /// # Examples
 ///
 /// ```no_run
-/// use pravega_rust_client_config::ClientConfigBuilder;
-/// use pravega_client_rust::client_factory::ClientFactory;
-/// use pravega_rust_client_shared::ScopedStream;
+/// use pravega_client_config::ClientConfigBuilder;
+/// use pravega_client::client_factory::ClientFactory;
+/// use pravega_client_shared::ScopedStream;
 ///
 /// #[tokio::main]
 /// async fn main() {

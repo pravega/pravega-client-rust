@@ -7,9 +7,9 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
+use pravega_client_config::ClientConfigBuilder;
+use pravega_client_shared::*;
 use pravega_controller_client::*;
-use pravega_rust_client_config::ClientConfigBuilder;
-use pravega_rust_client_shared::*;
 use structopt::StructOpt;
 use tokio::runtime::Runtime;
 

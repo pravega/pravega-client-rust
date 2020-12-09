@@ -10,7 +10,7 @@
 use super::PravegaNodeUri;
 use crate::controller::*;
 use ordered_float::OrderedFloat;
-use pravega_rust_client_shared::*;
+use pravega_client_shared::*;
 use std::collections::{BTreeMap, HashMap};
 
 impl From<NodeUri> for PravegaNodeUri {
@@ -117,7 +117,7 @@ impl Into<StreamConfig> for StreamConfiguration {
     }
 }
 
-impl Into<crate::controller::StreamCut> for pravega_rust_client_shared::StreamCut {
+impl Into<crate::controller::StreamCut> for pravega_client_shared::StreamCut {
     fn into(self) -> crate::controller::StreamCut {
         crate::controller::StreamCut {
             stream_info: Some(self.scoped_stream.into()),
@@ -126,8 +126,8 @@ impl Into<crate::controller::StreamCut> for pravega_rust_client_shared::StreamCu
     }
 }
 
-impl<'a> From<&'a pravega_rust_client_shared::StreamCut> for crate::controller::StreamCut {
-    fn from(value: &'a pravega_rust_client_shared::StreamCut) -> crate::controller::StreamCut {
+impl<'a> From<&'a pravega_client_shared::StreamCut> for crate::controller::StreamCut {
+    fn from(value: &'a pravega_client_shared::StreamCut) -> crate::controller::StreamCut {
         crate::controller::StreamCut {
             stream_info: Some(StreamInfo::from(&value.scoped_stream)),
             cut: value.segment_offset_map.to_owned(),

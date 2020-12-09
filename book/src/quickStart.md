@@ -32,9 +32,9 @@ cargo new my_app --bin
 in the `Cargo.toml` file, add the following as dependencies
 ```
 [dependencies]
-pravega-rust-client = "0.1"
-pravega-rust-client-config = "0.1"
-pravega-rust-client-shared = "0.1"
+pravega-client = "0.1"
+pravega-client-config = "0.1"
+pravega-client-shared = "0.1"
 tokio = "0.2"
 ```
 

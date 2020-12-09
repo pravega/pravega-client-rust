@@ -9,9 +9,9 @@
 //
 
 use crate::pravega_service::PravegaStandaloneServiceConfig;
-use pravega_client_rust::client_factory::ClientFactory;
-use pravega_client_rust::table_synchronizer::{deserialize_from, Key, TableSynchronizer};
-use pravega_rust_client_config::{ClientConfig, ClientConfigBuilder, MOCK_CONTROLLER_URI};
+use pravega_client::client_factory::ClientFactory;
+use pravega_client::table_synchronizer::{deserialize_from, Key, TableSynchronizer};
+use pravega_client_config::{ClientConfig, ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_wire_protocol::commands::TableKey;
 use serde::{Deserialize, Serialize};
 use tracing::info;

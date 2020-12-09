@@ -1,5 +1,5 @@
 [package]
-name = "pravega-rust-client-auth"
+name = "pravega-client-auth"
 version = "0.1.0"
 edition = "2018"
 categories = ["Network programming"]
@@ -14,7 +14,7 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pravega-rust-client-shared = { path = "../shared"}
+pravega-client-shared = { path = "../shared"}
 pravega-controller-client = { path = "../controller-client"}
 async-trait = "0.1"
 tokio = { version = "0.2", features = ["full"] }

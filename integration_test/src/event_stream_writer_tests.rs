@@ -10,15 +10,15 @@
 
 use crate::pravega_service::PravegaStandaloneServiceConfig;
 use crate::utils;
-use pravega_client_rust::client_factory::ClientFactory;
-use pravega_client_rust::error::SegmentWriterError;
-use pravega_client_rust::event_stream_writer::EventStreamWriter;
-use pravega_client_rust::raw_client::RawClient;
-use pravega_client_rust::segment_reader::AsyncSegmentReader;
+use pravega_client::client_factory::ClientFactory;
+use pravega_client::error::SegmentWriterError;
+use pravega_client::event_stream_writer::EventStreamWriter;
+use pravega_client::raw_client::RawClient;
+use pravega_client::segment_reader::AsyncSegmentReader;
+use pravega_client_config::{connection_type::ConnectionType, ClientConfigBuilder, MOCK_CONTROLLER_URI};
+use pravega_client_shared::*;
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
-use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfigBuilder, MOCK_CONTROLLER_URI};
-use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{
     Command, EventCommand, GetStreamSegmentInfoCommand, SealSegmentCommand,

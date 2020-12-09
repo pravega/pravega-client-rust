@@ -12,8 +12,8 @@ use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::transaction::pinger::{Pinger, PingerHandle};
 use crate::transaction::{Transaction, TransactionInfo};
-use pravega_rust_client_auth::DelegationTokenProvider;
-use pravega_rust_client_shared::{ScopedStream, StreamSegments, TransactionStatus, TxId, WriterId};
+use pravega_client_auth::DelegationTokenProvider;
+use pravega_client_shared::{ScopedStream, StreamSegments, TransactionStatus, TxId, WriterId};
 use snafu::ResultExt;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -29,9 +29,9 @@ use tracing_futures::Instrument;
 ///
 /// ```no_run
 /// use tokio;
-/// use pravega_rust_client_shared::{Timestamp, ScopedStream, Scope, Stream, WriterId, PravegaNodeUri};
-/// use pravega_client_rust::client_factory::ClientFactory;
-/// use pravega_rust_client_config::ClientConfigBuilder;
+/// use pravega_client_shared::{Timestamp, ScopedStream, Scope, Stream, WriterId, PravegaNodeUri};
+/// use pravega_client::client_factory::ClientFactory;
+/// use pravega_client_config::ClientConfigBuilder;
 ///
 /// #[tokio::main]
 /// async fn main() {
@@ -161,9 +161,9 @@ impl TransactionalEventStreamWriter {
 pub(crate) mod test {
     use super::*;
     use crate::create_stream;
-    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
-    use pravega_rust_client_config::ClientConfigBuilder;
-    use pravega_rust_client_shared::{PravegaNodeUri, ScopedSegment};
+    use pravega_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_client_config::ClientConfigBuilder;
+    use pravega_client_shared::{PravegaNodeUri, ScopedSegment};
     use tokio::runtime::Runtime;
 
     #[test]

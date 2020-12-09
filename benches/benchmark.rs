@@ -12,11 +12,11 @@ use criterion::{criterion_group, criterion_main, Criterion};
 
 use byteorder::BigEndian;
 use log::info;
-use pravega_client_rust::client_factory::ClientFactory;
-use pravega_client_rust::error::SegmentWriterError;
-use pravega_client_rust::event_stream_writer::EventStreamWriter;
+use pravega_client::client_factory::ClientFactory;
+use pravega_client::error::SegmentWriterError;
+use pravega_client::event_stream_writer::EventStreamWriter;
+use pravega_client_shared::*;
 use pravega_controller_client::ControllerClient;
-use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
 use pravega_wire_protocol::client_connection::{LENGTH_FIELD_LENGTH, LENGTH_FIELD_OFFSET};
 use pravega_wire_protocol::commands::{AppendSetupCommand, DataAppendedCommand};

@@ -9,7 +9,7 @@
 //
 use crate::error::*;
 use crate::stream::stream_cut::StreamCutVersioned;
-use pravega_rust_client_shared::ScopedStream;
+use pravega_client_shared::ScopedStream;
 use serde::{Deserialize, Serialize};
 use serde_cbor::from_slice;
 use serde_cbor::to_vec;
@@ -199,7 +199,7 @@ impl ReaderGroupConfigV1 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pravega_rust_client_shared::{Scope, Stream};
+    use pravega_client_shared::{Scope, Stream};
 
     #[test]
     fn test_reader_group_config_serde() {

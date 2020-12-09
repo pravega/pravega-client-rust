@@ -870,9 +870,9 @@ mod test {
     use super::*;
     use crate::table_synchronizer::{deserialize_from, Table};
     use crate::table_synchronizer::{serialize, Value};
-    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
-    use pravega_rust_client_config::ClientConfigBuilder;
-    use pravega_rust_client_shared::PravegaNodeUri;
+    use pravega_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_client_config::ClientConfigBuilder;
+    use pravega_client_shared::PravegaNodeUri;
     use std::collections::HashMap;
     use tokio::runtime::Runtime;
 

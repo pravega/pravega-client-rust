@@ -14,11 +14,11 @@ use crate::get_request_id;
 use crate::raw_client::RawClient;
 use async_stream::try_stream;
 use futures::stream::Stream;
-use pravega_rust_client_auth::DelegationTokenProvider;
-use pravega_rust_client_retry::retry_async::retry_async;
-use pravega_rust_client_retry::retry_result::RetryResult;
-use pravega_rust_client_shared::{PravegaNodeUri, Stream as PravegaStream};
-use pravega_rust_client_shared::{Scope, ScopedSegment, ScopedStream, Segment};
+use pravega_client_auth::DelegationTokenProvider;
+use pravega_client_retry::retry_async::retry_async;
+use pravega_client_retry::retry_result::RetryResult;
+use pravega_client_shared::{PravegaNodeUri, Stream as PravegaStream};
+use pravega_client_shared::{Scope, ScopedSegment, ScopedStream, Segment};
 use pravega_wire_protocol::commands::{
     CreateTableSegmentCommand, ReadTableCommand, ReadTableEntriesCommand, ReadTableEntriesDeltaCommand,
     ReadTableKeysCommand, RemoveTableKeysCommand, TableEntries, TableKey, TableValue,
@@ -900,9 +900,9 @@ impl TableMap {
 #[cfg(test)]
 mod test {
     use super::*;
-    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
-    use pravega_rust_client_config::ClientConfigBuilder;
-    use pravega_rust_client_shared::PravegaNodeUri;
+    use pravega_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_client_config::ClientConfigBuilder;
+    use pravega_client_shared::PravegaNodeUri;
     use tokio::runtime::Runtime;
 
     #[test]

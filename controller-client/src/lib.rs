@@ -43,13 +43,13 @@ use controller::{
 };
 use im::{HashMap as ImHashMap, OrdMap};
 use ordered_float::OrderedFloat;
-use pravega_rust_client_config::credentials::AUTHORIZATION;
-use pravega_rust_client_config::ClientConfig;
-use pravega_rust_client_retry::retry_async::retry_async;
-use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
-use pravega_rust_client_retry::retry_result::{RetryError, RetryResult, Retryable};
-use pravega_rust_client_retry::wrap_with_async_retry;
-use pravega_rust_client_shared::*;
+use pravega_client_config::credentials::AUTHORIZATION;
+use pravega_client_config::ClientConfig;
+use pravega_client_retry::retry_async::retry_async;
+use pravega_client_retry::retry_policy::RetryWithBackoff;
+use pravega_client_retry::retry_result::{RetryError, RetryResult, Retryable};
+use pravega_client_retry::wrap_with_async_retry;
+use pravega_client_shared::*;
 use snafu::Snafu;
 use std::convert::{From, Into};
 use std::str::FromStr;
@@ -1209,8 +1209,8 @@ mod test {
     use tonic::{transport::Server, Request, Response, Status};
 
     use controller::controller_service_server::{ControllerService, ControllerServiceServer};
-    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
-    use pravega_rust_client_config::ClientConfigBuilder;
+    use pravega_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_client_config::ClientConfigBuilder;
     use std::collections::HashMap;
     use tokio::runtime::Runtime;
 

@@ -153,9 +153,9 @@ mod tests {
     use crate::commands::HelloCommand;
     use crate::connection_factory::{ConnectionFactory, ConnectionFactoryConfig, SegmentConnectionManager};
     use crate::wire_commands::Replies;
+    use pravega_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_client_shared::PravegaNodeUri;
     use pravega_connection_pool::connection_pool::ConnectionPool;
-    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
-    use pravega_rust_client_shared::PravegaNodeUri;
     use tokio::runtime::Runtime;
 
     #[test]

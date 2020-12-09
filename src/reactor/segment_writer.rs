@@ -14,10 +14,10 @@ use snafu::ResultExt;
 use std::collections::VecDeque;
 use tracing::{debug, error, field, info, info_span, trace, warn};
 
-use pravega_rust_client_retry::retry_async::retry_async;
-use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
-use pravega_rust_client_retry::retry_result::RetryResult;
-use pravega_rust_client_shared::*;
+use pravega_client_retry::retry_async::retry_async;
+use pravega_client_retry::retry_policy::RetryWithBackoff;
+use pravega_client_retry::retry_result::RetryResult;
+use pravega_client_shared::*;
 use pravega_wire_protocol::client_connection::*;
 use pravega_wire_protocol::commands::{
     AppendBlockEndCommand, ConditionalBlockEndCommand, SetupAppendCommand,
@@ -29,8 +29,8 @@ use crate::error::*;
 use crate::metric::ClientMetrics;
 use crate::raw_client::RawClient;
 use crate::reactor::event::{Incoming, PendingEvent, ServerReply, WriterInfo};
-use pravega_rust_client_auth::DelegationTokenProvider;
-use pravega_rust_client_channel::{CapacityGuard, ChannelSender};
+use pravega_client_auth::DelegationTokenProvider;
+use pravega_client_channel::{CapacityGuard, ChannelSender};
 use std::fmt;
 use std::sync::Arc;
 use tokio::select;
@@ -505,9 +505,9 @@ pub(crate) struct Append {
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
-    use pravega_rust_client_channel::{create_channel, ChannelReceiver};
-    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
-    use pravega_rust_client_config::ClientConfigBuilder;
+    use pravega_client_channel::{create_channel, ChannelReceiver};
+    use pravega_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_client_config::ClientConfigBuilder;
     use tokio::sync::oneshot;
 
     type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;

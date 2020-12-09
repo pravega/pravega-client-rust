@@ -16,8 +16,8 @@ use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::reactors::Reactor;
 use crate::segment_metadata::SegmentMetadataClient;
 use crate::segment_reader::PrefetchingAsyncSegmentReader;
-use pravega_rust_client_channel::{create_channel, ChannelSender};
-use pravega_rust_client_shared::{ScopedSegment, ScopedStream, WriterId};
+use pravega_client_channel::{create_channel, ChannelSender};
+use pravega_client_shared::{ScopedSegment, ScopedStream, WriterId};
 use std::convert::TryInto;
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::sync::Arc;
@@ -54,9 +54,9 @@ type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 ///
 /// # Examples
 /// ```no_run
-/// use pravega_rust_client_config::ClientConfigBuilder;
-/// use pravega_client_rust::client_factory::ClientFactory;
-/// use pravega_rust_client_shared::ScopedSegment;
+/// use pravega_client_config::ClientConfigBuilder;
+/// use pravega_client::client_factory::ClientFactory;
+/// use pravega_client_shared::ScopedSegment;
 /// use std::io::Write;
 ///
 /// #[tokio::main]
@@ -325,9 +325,9 @@ impl Drop for ByteStreamWriter {
 mod test {
     use super::*;
     use crate::create_stream;
-    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
-    use pravega_rust_client_config::ClientConfigBuilder;
-    use pravega_rust_client_shared::PravegaNodeUri;
+    use pravega_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_client_config::ClientConfigBuilder;
+    use pravega_client_shared::PravegaNodeUri;
     use tokio::runtime::Runtime;
 
     #[test]

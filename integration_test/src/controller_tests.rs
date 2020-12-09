@@ -9,10 +9,10 @@
 //
 
 use crate::pravega_service::PravegaStandaloneServiceConfig;
-use pravega_client_rust::client_factory::ClientFactory;
+use pravega_client::client_factory::ClientFactory;
+use pravega_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
+use pravega_client_shared::*;
 use pravega_controller_client::ControllerClient;
-use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
-use pravega_rust_client_shared::*;
 use std::sync::Arc;
 use tracing::info;
 

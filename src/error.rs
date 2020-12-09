@@ -9,10 +9,10 @@
 //
 
 use crate::tablemap::TableError;
+use pravega_client_retry::retry_result::RetryError;
+use pravega_client_shared::{TransactionStatus, TxId};
 use pravega_connection_pool::connection_pool::ConnectionPoolError;
 use pravega_controller_client::ControllerError;
-use pravega_rust_client_retry::retry_result::RetryError;
-use pravega_rust_client_shared::{TransactionStatus, TxId};
 use pravega_wire_protocol::error::*;
 use pravega_wire_protocol::wire_commands::Replies;
 use serde_cbor::Error as CborError;

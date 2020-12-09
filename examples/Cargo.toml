@@ -14,9 +14,9 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dev-dependencies]
-pravega-client-rust = { path = "../" }
-pravega-rust-client-config = { path = "../config"}
-pravega-rust-client-shared = { path = "../shared"}
+pravega-client = { path = "../" }
+pravega-client-config = { path = "../config"}
+pravega-client-shared = { path = "../shared"}
 tokio = "0.2"
 
 [[example]]

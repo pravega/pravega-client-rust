@@ -28,7 +28,7 @@
 
 use crate::client_factory::ClientFactory;
 use pcg_rand::Pcg32;
-use pravega_rust_client_shared::{
+use pravega_client_shared::{
     Retention, RetentionType, ScaleType, Scaling, Scope, ScopedStream, Stream, StreamConfiguration,
 };
 use rand::{Rng, SeedableRng};

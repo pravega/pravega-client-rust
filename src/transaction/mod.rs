@@ -16,10 +16,8 @@ use crate::error::*;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::reactors::Reactor;
 use crate::transaction::pinger::PingerHandle;
-use pravega_rust_client_channel::{create_channel, ChannelSender};
-use pravega_rust_client_shared::{
-    ScopedStream, StreamSegments, Timestamp, TransactionStatus, TxId, WriterId,
-};
+use pravega_client_channel::{create_channel, ChannelSender};
+use pravega_client_shared::{ScopedStream, StreamSegments, Timestamp, TransactionStatus, TxId, WriterId};
 use snafu::ResultExt;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;

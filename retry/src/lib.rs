@@ -12,9 +12,9 @@
 //! It is designed to have a declarative interface for ease of use.
 //! It can be used as follows:
 //! ```
-//! # use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
-//! # use pravega_rust_client_retry::retry_result::RetryResult;
-//! # use pravega_rust_client_retry::retry_sync::retry_sync;
+//! # use pravega_client_retry::retry_policy::RetryWithBackoff;
+//! # use pravega_client_retry::retry_result::RetryResult;
+//! # use pravega_client_retry::retry_sync::retry_sync;
 //! let retry_policy = RetryWithBackoff::default().max_tries(1);
 //! let mut collection = vec![1, 2].into_iter();
 //! let value = retry_sync(retry_policy, || match collection.next() {

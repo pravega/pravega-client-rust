@@ -14,7 +14,7 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pravega-rust-client-shared = { path = "../shared"}
+pravega-client-shared = { path = "../shared"}
 async-trait = "0.1"
 uuid = {version = "0.8", features = ["v4"]}
 snafu = "0.6"

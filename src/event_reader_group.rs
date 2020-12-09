@@ -12,7 +12,7 @@ use crate::client_factory::ClientFactory;
 use crate::event_reader::EventReader;
 use crate::reader_group::reader_group_state::Offset;
 use crate::reader_group_config::ReaderGroupConfig;
-use pravega_rust_client_shared::{Reader, ScopedSegment, ScopedStream};
+use pravega_client_shared::{Reader, ScopedSegment, ScopedStream};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -35,9 +35,9 @@ cfg_if::cfg_if! {
 /// An example usage pattern is as follows
 ///
 /// ```no_run
-/// use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
-/// use pravega_client_rust::client_factory::ClientFactory;
-/// use pravega_rust_client_shared::{ScopedStream, Scope, Stream};
+/// use pravega_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
+/// use pravega_client::client_factory::ClientFactory;
+/// use pravega_client_shared::{ScopedStream, Scope, Stream};
 ///
 /// #[tokio::main]
 /// async fn main() {
@@ -160,8 +160,8 @@ mod tests {
     use crate::error::SynchronizerError::SyncUpdateError;
     use crate::reader_group::reader_group_state::ReaderGroupStateError;
     use crate::reader_group_config::ReaderGroupConfigBuilder;
-    use pravega_rust_client_config::ClientConfigBuilder;
-    use pravega_rust_client_config::MOCK_CONTROLLER_URI;
+    use pravega_client_config::ClientConfigBuilder;
+    use pravega_client_config::MOCK_CONTROLLER_URI;
 
     // test to validate creation of an already existing reader.
     #[test]

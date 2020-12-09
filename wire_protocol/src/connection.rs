@@ -10,7 +10,7 @@
 
 use crate::error::*;
 use async_trait::async_trait;
-use pravega_rust_client_shared::PravegaNodeUri;
+use pravega_client_shared::PravegaNodeUri;
 use snafu::ResultExt;
 use std::fmt;
 use std::fmt::{Debug, Formatter};

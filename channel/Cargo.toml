@@ -1,5 +1,5 @@
 [package]
-name = "pravega-rust-client-channel"
+name = "pravega-client-channel"
 version = "0.1.0"
 edition = "2018"
 categories = ["Network programming"]

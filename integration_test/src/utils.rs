@@ -8,9 +8,9 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use pravega_client_rust::client_factory::ClientFactory;
+use pravega_client::client_factory::ClientFactory;
+use pravega_client_shared::*;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
-use pravega_rust_client_shared::*;
 use std::sync::Arc;
 
 /// helper function

@@ -8,9 +8,9 @@
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
 
-use pravega_client_rust::client_factory::ClientFactory;
-use pravega_rust_client_config::ClientConfigBuilder;
-use pravega_rust_client_shared::{
+use pravega_client::client_factory::ClientFactory;
+use pravega_client_config::ClientConfigBuilder;
+use pravega_client_shared::{
     Retention, RetentionType, ScaleType, Scaling, Scope, ScopedStream, Stream, StreamConfiguration,
 };
 
