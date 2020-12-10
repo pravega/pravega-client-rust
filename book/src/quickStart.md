@@ -1,8 +1,8 @@
 # Quick Start
 
-This chapter demonstrates how to use Pravega Rust client to communicate to a minimal Pravega server.
+This chapter demonstrates how to use Pravega Rust client to communicate to a standalone Pravega server.
 
-## Running a minimal Pravega server
+## Running a standalone Pravega server
 Navigate to the [Pravega Release](https://github.com/pravega/pravega/releases) page and download
 a Pravega release. Note that `ByteStreamClient` requires Pravega 0.9.0+.
 
