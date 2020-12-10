@@ -43,8 +43,8 @@ jobs:
         with:
           name: pravega-standalone-log
           path: pravega.log
-      - name: Install maturin and tox
-        run: pip install maturin virtualenv tox
-      - name: Test with tox
-        run: tox -c bindings/tox.ini
+#      - name: Install maturin and tox
+#        run: pip install maturin virtualenv tox
+#      - name: Test with tox
+#        run: tox -c bindings/tox.ini
 
