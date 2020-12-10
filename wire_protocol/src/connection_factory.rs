@@ -40,8 +40,8 @@ pub trait ConnectionFactory: Send + Sync {
     ///
     /// ```no_run
     /// use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryConfig};
-    /// use pravega_rust_client_shared::PravegaNodeUri;
-    /// use pravega_rust_client_config::connection_type::ConnectionType;
+    /// use pravega_client_shared::PravegaNodeUri;
+    /// use pravega_client_config::connection_type::ConnectionType;
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
@@ -296,7 +296,7 @@ mod tests {
     use super::*;
     use crate::wire_commands::{Decode, Encode};
     use log::info;
-    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_client_config::connection_type::{ConnectionType, MockType};
     use tokio::runtime::Runtime;
 
     #[test]

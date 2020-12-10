@@ -19,4 +19,4 @@ Please choose from the chapters on the left to jump to individual topics, or con
 
 ## License
 
-Pravega RUST client, all the source code, is released under the [Apache License v2.0](https://www.apache.org/licenses/LICENSE-2.0).
+Pravega Rust client, all the source code, is released under the [Apache License v2.0](https://www.apache.org/licenses/LICENSE-2.0).

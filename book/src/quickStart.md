@@ -20,8 +20,6 @@ It spins up a Pravega standalone server that listens to `localhost:9090` by defa
 Make sure you have Rust installed first, check out the [official website](https://www.rust-lang.org/tools/install) of how to
 install Rust.
 
-Note that you may need to add Rust to `PATH`.
-
 ### Creating a new project
 
 Create a new Rust project called `my_app`
