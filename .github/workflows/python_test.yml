@@ -14,23 +14,14 @@ name: pythontest
 
 jobs:
   test_tox:
-    name: python${{ matrix.python-version }}-${{ matrix.platform.python-architecture }} ${{ matrix.platform.os }}
-    runs-on: ${{ matrix.platform.os }}
-    timeout-minutes: 15
-    strategy:
-      matrix:
-        python-version: [3.8] # This list needs to be kept in sync with maturin_build_wheel.py.
-        platform: [
-        { os: "ubuntu-latest",  python-architecture: "x64", rust-target: "x86_64-unknown-linux-gnu" },
-        ]
-      fail-fast: false
+    name: run-tox
+    runs-on: ubuntu-18.04
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
         with:
           java-version: '8.0.232' # The JDK version to make available on the path.
-          java-package: jdk # (jre, jdk, or jdk+fx) - defaults to jdk
-          architecture: x64 # (x64 or x86) - defaults to x64
       - name: Download and Run Pravega standalone
         run: |
           wget https://github.com/pravega/pravega/releases/download/v0.8.0/pravega-0.8.0.tgz
@@ -40,16 +31,13 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: ${{ matrix.python-version }}
-          architecture: ${{ matrix.platform.python-architecture }}
-      - name: Set up Rust
+          python-version: 3.8
+      - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          target: ${{ matrix.platform.rust-target }}
           override: true
           components: rustfmt, clippy
-      - run: rustup set default-host ${{ matrix.platform.rust-target }}
       - name: Install maturin and tox
         run: pip install maturin virtualenv tox
       - name: Test with tox
