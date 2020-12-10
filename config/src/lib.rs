@@ -133,6 +133,7 @@ impl ClientConfigBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::encode;
     use std::net::Ipv4Addr;
 
     #[test]
@@ -180,7 +181,8 @@ mod tests {
             .build()
             .unwrap();
 
-        assert_eq!(config.credentials.method(), "Basic".to_owned());
-        assert_eq!(config.credentials.token(), "hello:12345".to_owned());
+        let token = encode("hello:12345");
+        assert_eq!(config.credentials.method, "Basic".to_owned());
+        assert_eq!(config.credentials.token, token);
     }
 }
