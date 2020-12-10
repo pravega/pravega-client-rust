@@ -12,6 +12,7 @@ use reqwest::header::{HeaderMap, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufReader, Read};
+use tokio::runtime::Runtime;
 
 pub const URL_TOKEN: &str = "/realms/{realm-name}/protocol/openid-connect/token";
 pub const BASIC: &str = "Basic";
@@ -41,7 +42,9 @@ impl Credentials {
         }
     }
 
-    pub async fn keycloak(path: &str) -> Self {
+    pub fn keycloak(path: &str) -> Self {
+        let mut rt = Runtime::new().expect("create tokio runtime");
+
         // read keycloak json
         let file = File::open(path).expect("open keycloak.json");
         let mut buf_reader = BufReader::new(file);
@@ -52,23 +55,23 @@ impl Credentials {
         let key_cloak_json: KeyCloakJson = serde_json::from_slice(&buffer).expect("decode slice to struct");
 
         // first POST request for access token
-        let access_token = obtain_access_token(
-            &key_cloak_json.auth_server_url,
-            &key_cloak_json.realm,
-            &key_cloak_json.resource,
-            &key_cloak_json.credentials.secret,
-        )
-        .await
-        .expect("obtain access token");
+        let access_token = rt
+            .block_on(obtain_access_token(
+                &key_cloak_json.auth_server_url,
+                &key_cloak_json.realm,
+                &key_cloak_json.resource,
+                &key_cloak_json.credentials.secret,
+            ))
+            .expect("obtain access token");
 
         // second POST request for rpt
-        let rpt = authorize(
-            &key_cloak_json.auth_server_url,
-            &key_cloak_json.realm,
-            &access_token,
-        )
-        .await
-        .expect("get rpt");
+        let rpt = rt
+            .block_on(authorize(
+                &key_cloak_json.auth_server_url,
+                &key_cloak_json.realm,
+                &access_token,
+            ))
+            .expect("get rpt");
         Credentials {
             method: BEARER.to_owned(),
             token: rpt,

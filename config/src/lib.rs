@@ -32,9 +32,16 @@ use derive_builder::*;
 use getset::{CopyGetters, Getters};
 use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
 use pravega_rust_client_shared::PravegaNodeUri;
+use std::collections::HashMap;
+use std::env;
 use std::time::Duration;
 
 pub const MOCK_CONTROLLER_URI: (&str, u16) = ("localhost", 9090);
+const AUTH_METHOD: &str = "method";
+const AUTH_USERNAME: &str = "username";
+const AUTH_PASSWORD: &str = "password";
+const AUTH_KEYCLOAK_PATH: &str = "keycloak";
+const AUTH_PROPS_PREFIX_ENV: &str = "pravega_client_auth_";
 
 #[derive(Builder, Debug, Getters, CopyGetters, Clone)]
 #[builder(setter(into))]
@@ -74,7 +81,7 @@ pub struct ClientConfig {
     #[builder(default = "false")]
     pub is_tls_enabled: bool,
 
-    #[builder(default = "self.default_credentials()")]
+    #[builder(default = "self.extract_credentials()")]
     pub credentials: Credentials,
 
     #[get_copy = "pub"]
@@ -95,8 +102,27 @@ impl ClientConfigBuilder {
         "./ca-cert.crt".to_owned()
     }
 
-    fn default_credentials(&self) -> Credentials {
-        Credentials::basic("admin".into(), "1111_aaaa".into())
+    fn extract_credentials(&self) -> Credentials {
+        let ret_val = env::vars()
+            .filter(|(k, _v)| k.starts_with(AUTH_PROPS_PREFIX_ENV))
+            .map(|(k, v)| {
+                let k = &k[AUTH_PROPS_PREFIX_ENV.len()..];
+                (k.to_owned(), v)
+            })
+            .collect::<HashMap<String, String>>();
+        if ret_val.contains_key(AUTH_METHOD) {
+            let method = ret_val.get(AUTH_METHOD).expect("get auth method").to_owned();
+            if method == credentials::BASIC {
+                let username = ret_val.get(AUTH_USERNAME).expect("get auth username").to_owned();
+                let password = ret_val.get(AUTH_PASSWORD).expect("get auth password").to_owned();
+                return Credentials::basic(username, password);
+            }
+            if method == credentials::BEARER {
+                let path = ret_val.get(AUTH_KEYCLOAK_PATH).expect("get keycloak json file");
+                return Credentials::keycloak(path);
+            }
+        }
+        Credentials::basic("".into(), "".into())
     }
 
     fn default_timeout(&self) -> Duration {
@@ -140,5 +166,21 @@ mod tests {
         assert_eq!(config.max_controller_connections(), 3u32);
         assert_eq!(config.connection_type(), ConnectionType::Tokio);
         assert_eq!(config.retry_policy(), RetryWithBackoff::default());
+    }
+
+    #[test]
+    fn test_extract_credentials() {
+        // retrieve from env
+        env::set_var("pravega_client_auth_method", "Basic");
+        env::set_var("pravega_client_auth_username", "hello");
+        env::set_var("pravega_client_auth_password", "12345");
+
+        let config = ClientConfigBuilder::default()
+            .controller_uri("127.0.0.2:9091".to_string())
+            .build()
+            .unwrap();
+
+        assert_eq!(config.credentials.method(), "Basic".to_owned());
+        assert_eq!(config.credentials.token(), "hello:12345".to_owned());
     }
 }
