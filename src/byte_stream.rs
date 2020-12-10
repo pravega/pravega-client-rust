@@ -48,9 +48,11 @@ type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 ///
 /// # Note
 ///
-/// The ByteStreamWriter implementation provides retry logic to handle connection failures and service host
+/// The ByteStreamWriter implementation provides [`retry`] logic to handle connection failures and service host
 /// failures. Internal retries will not violate the exactly once semantic so it is better to rely on them
 /// than to wrap this with custom retry logic.
+///
+/// [`retry`]: pravega_client_retry
 ///
 /// # Examples
 /// ```no_run

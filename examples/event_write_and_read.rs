@@ -27,7 +27,10 @@ async fn main() {
 
     // create a scope
     let scope = Scope::from("my_scope".to_owned());
-    controller_client.create_scope(&scope).await.unwrap();
+    controller_client
+        .create_scope(&scope)
+        .await
+        .expect("create scope");
 
     // create a stream containing only one segment
     let stream = Stream::from("my_stream".to_owned());
@@ -47,7 +50,10 @@ async fn main() {
             retention_param: 0,
         },
     };
-    controller_client.create_stream(&stream_config).await.unwrap();
+    controller_client
+        .create_stream(&stream_config)
+        .await
+        .expect("create stream");
 
     // create event stream writer
     let stream = ScopedStream::from("my_scope/my_stream");
@@ -63,7 +69,8 @@ async fn main() {
     let mut reader = rg.create_reader("r1".to_string()).await;
 
     // read from segment
-    let mut slice = reader.acquire_segment().await.unwrap();
-    let read_event = slice.next().unwrap();
-    assert_eq!(b"hello world", read_event.value.as_slice());
+    let mut slice = reader.acquire_segment().await.expect("acquire segment");
+    let read_event = slice.next();
+    assert!(read_event.is_some(), "event slice should have event to read");
+    assert_eq!(b"hello world", read_event.unwrap().value.as_slice());
 }
