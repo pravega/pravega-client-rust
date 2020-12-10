@@ -8,11 +8,10 @@ on:
   pull_request:
     branches:
       - master
+      - enable-tox
 
 name: pythontest
-defaults:
-  run:
-    working-directory: ./bindings
+
 jobs:
   test_tox:
     name: python${{ matrix.python-version }}-${{ matrix.platform.python-architecture }} ${{ matrix.platform.os }}
@@ -53,4 +52,4 @@ jobs:
       - name: Install maturin and tox
         run: pip install maturin virtualenv tox
       - name: Test with tox
-        run: tox -e py
+        run: tox -c bindings/tox.ini
