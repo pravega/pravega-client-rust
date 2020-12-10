@@ -27,8 +27,6 @@ use tracing::info_span;
 use tracing_futures::Instrument;
 use uuid::Uuid;
 
-const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
-
 type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 
 /// Allows for writing raw bytes directly to a segment.
@@ -40,7 +38,7 @@ type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 /// Similarly, multiple ByteStreamWriters write to the same segment as this will result in interleaved data,
 /// which is not desirable in most cases. ByteStreamWriter uses Conditional Append to make sure that writers
 /// are aware of the content in the segment. If another process writes data to the segment after this one began writing,
-/// all subsequent writes from this writer will not be written and [`flush`] will fail. This prevents data from being accidentally interleaved. 
+/// all subsequent writes from this writer will not be written and [`flush`] will fail. This prevents data from being accidentally interleaved.
 ///
 /// [`EventStreamWriter`]: crate::event_stream_writer::EventStreamWriter
 /// [`ByteStreamReader`]: ByteStreamReader
@@ -96,6 +94,16 @@ impl Write for ByteStreamWriter {
     /// Writes the given data to the server. It doesn't mean the data is persisted on the server side
     /// when this method returns Ok, user should call flush to ensure all data has been acknowledged
     /// by the server.
+    ///
+    /// Write has a backpressure mechanism. Internally, it uses [`Channel`] to send event to
+    /// [`Reactor`] for processing. [`Channel`] can has a limited [`capacity`], when its capacity
+    /// is reached, any further write will be blocked until enough space has been freed in the [`Channel`].
+    ///
+    ///
+    /// [`channel`]: pravega_client_channel
+    /// [`Reactor`]: crate::reactor
+    /// [`capacity`]: ByteStreamWriter::CHANNEL_CAPACITY
+    ///
     fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
         let bytes_to_write = std::cmp::min(buf.len(), EventStreamWriter::MAX_EVENT_SIZE);
         let payload = buf[0..bytes_to_write].to_vec();
@@ -119,9 +127,12 @@ impl Write for ByteStreamWriter {
 }
 
 impl ByteStreamWriter {
+    // maximum 16 MB total size of events could be held in memory
+    const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
+
     pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
         let handle = factory.get_runtime_handle();
-        let (sender, receiver) = create_channel(CHANNEL_CAPACITY);
+        let (sender, receiver) = create_channel(Self::CHANNEL_CAPACITY);
         let metadata_client = handle.block_on(factory.create_segment_metadata_client(segment.clone()));
         let writer_id = WriterId(get_random_u128());
         let stream = ScopedStream::from(&segment);

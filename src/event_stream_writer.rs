@@ -20,7 +20,7 @@ use crate::reactor::event::{Incoming, PendingEvent};
 use tracing::info_span;
 use tracing_futures::Instrument;
 
-/// Writes events exactly once to a given stream with backpressure.
+/// Writes events exactly once to a given stream.
 ///
 /// EventStreamWriter spawns a `Reactor` that runs in the background for processing incoming events.
 /// The `write` method sends the event to the `Reactor` asynchronously and returns a `tokio::oneshot::Receiver`
@@ -73,7 +73,7 @@ pub struct EventStreamWriter {
 
 impl EventStreamWriter {
     pub const MAX_EVENT_SIZE: usize = 8 * 1024 * 1024;
-    // maximum 16 MB total size of events could be in memory
+    // maximum 16 MB total size of events could be held in memory
     const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
     pub(crate) fn new(stream: ScopedStream, factory: ClientFactory) -> Self {
@@ -92,6 +92,16 @@ impl EventStreamWriter {
     /// Writes an event without routing key.
     ///
     /// A random routing key will be generated in this case.
+    ///
+    /// Write has a backpressure mechanism. Internally, it uses [`Channel`] to send event to
+    /// [`Reactor`] for processing. [`Channel`] can has a limited [`capacity`], when its capacity
+    /// is reached, any further write will be blocked until enough space has been freed in the [`Channel`].
+    ///
+    ///
+    /// [`channel`]: pravega_client_channel
+    /// [`Reactor`]: crate::reactor
+    /// [`capacity`]: EventStreamWriter::CHANNEL_CAPACITY
+    ///
     pub async fn write_event(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
         let size = event.len();
         let (tx, rx) = oneshot::channel();
@@ -104,6 +114,16 @@ impl EventStreamWriter {
     }
 
     /// Writes an event with a routing key.
+    ///
+    /// Write has a backpressure mechanism. Internally, it uses [`Channel`] to send event to
+    /// [`Reactor`] for processing. [`Channel`] can has a limited [`capacity`], when its capacity
+    /// is reached, any further write will be blocked until enough space has been freed in the [`Channel`].
+    ///
+    ///
+    /// [`channel`]: pravega_client_channel
+    /// [`Reactor`]: crate::reactor
+    /// [`capacity`]: EventStreamWriter::CHANNEL_CAPACITY
+    ///
     pub async fn write_event_by_routing_key(
         &mut self,
         routing_key: String,
