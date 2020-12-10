@@ -39,8 +39,8 @@ type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 ///
 /// Similarly, multiple ByteStreamWriters write to the same segment as this will result in interleaved data,
 /// which is not desirable in most cases. ByteStreamWriter uses Conditional Append to make sure that writers
-/// are aware of the content in the segment. If interleaved data exist, [`flush`] will return an error and
-/// let user to decide whether to continue to write or not.
+/// are aware of the content in the segment. If another process writes data to the segment after this one began writing,
+/// all subsequent writes from this writer will not be written and [`flush`] will fail. This prevents data from being accidentally interleaved. 
 ///
 /// [`EventStreamWriter`]: crate::event_stream_writer::EventStreamWriter
 /// [`ByteStreamReader`]: ByteStreamReader
