@@ -94,12 +94,11 @@ impl EventStreamWriter {
     /// A random routing key will be generated in this case.
     ///
     /// Write has a backpressure mechanism. Internally, it uses [`Channel`] to send event to
-    /// [`Reactor`] for processing. [`Channel`] can has a limited [`capacity`], when its capacity
+    /// Reactor for processing. [`Channel`] can has a limited [`capacity`], when its capacity
     /// is reached, any further write will be blocked until enough space has been freed in the [`Channel`].
     ///
     ///
     /// [`channel`]: pravega_client_channel
-    /// [`Reactor`]: crate::reactor
     /// [`capacity`]: EventStreamWriter::CHANNEL_CAPACITY
     ///
     pub async fn write_event(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
@@ -116,12 +115,11 @@ impl EventStreamWriter {
     /// Writes an event with a routing key.
     ///
     /// Write has a backpressure mechanism. Internally, it uses [`Channel`] to send event to
-    /// [`Reactor`] for processing. [`Channel`] can has a limited [`capacity`], when its capacity
+    /// Reactor for processing. [`Channel`] can has a limited [`capacity`], when its capacity
     /// is reached, any further write will be blocked until enough space has been freed in the [`Channel`].
     ///
     ///
     /// [`channel`]: pravega_client_channel
-    /// [`Reactor`]: crate::reactor
     /// [`capacity`]: EventStreamWriter::CHANNEL_CAPACITY
     ///
     pub async fn write_event_by_routing_key(

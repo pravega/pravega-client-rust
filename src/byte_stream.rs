@@ -96,12 +96,11 @@ impl Write for ByteStreamWriter {
     /// by the server.
     ///
     /// Write has a backpressure mechanism. Internally, it uses [`Channel`] to send event to
-    /// [`Reactor`] for processing. [`Channel`] can has a limited [`capacity`], when its capacity
+    /// Reactor for processing. [`Channel`] can has a limited [`capacity`], when its capacity
     /// is reached, any further write will be blocked until enough space has been freed in the [`Channel`].
     ///
     ///
     /// [`channel`]: pravega_client_channel
-    /// [`Reactor`]: crate::reactor
     /// [`capacity`]: ByteStreamWriter::CHANNEL_CAPACITY
     ///
     fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {

@@ -114,12 +114,11 @@ impl Transaction {
     /// writer to write the data to segmentstore server.
     ///
     /// This method has a backpressure mechanism. Internally, it uses [`Channel`] to send event to
-    /// [`Reactor`] for processing. [`Channel`] can has a limited [`capacity`], when its capacity
+    /// Reactor for processing. [`Channel`] can has a limited [`capacity`], when its capacity
     /// is reached, any further write will be blocked until enough space has been freed in the [`Channel`].
     ///
     ///
     /// [`channel`]: pravega_client_channel
-    /// [`Reactor`]: crate::reactor
     /// [`capacity`]: Transaction::CHANNEL_CAPACITY
     ///
     pub async fn write_event(
