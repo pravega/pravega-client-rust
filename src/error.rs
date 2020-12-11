@@ -18,6 +18,7 @@ use pravega_wire_protocol::wire_commands::Replies;
 use serde_cbor::Error as CborError;
 use snafu::Snafu;
 use std::fmt::Debug;
+use tokio::time::Elapsed;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
@@ -36,6 +37,9 @@ pub enum RawClientError {
 
     #[snafu(display("Reply incompatible wirecommand version: low {}, high {}", low, high))]
     IncompatibleVersion { low: i32, high: i32 },
+
+    #[snafu(display("Request has timed out: {}", source))]
+    RequestTimeout { source: Elapsed },
 }
 
 impl RawClientError {
@@ -76,6 +80,9 @@ pub enum SegmentWriterError {
 
     #[snafu(display("Reactor is closed due to: {:?}", msg))]
     ReactorClosed { msg: String },
+
+    #[snafu(display("Conditional append has failed"))]
+    ConditionalCheckFailed {},
 }
 
 #[derive(Debug, Snafu)]

@@ -262,16 +262,13 @@ impl ControllerClient for MockController {
         })
     }
 
-    async fn get_head_segments(&self, _stream: &ScopedStream) -> ResultRetry<ImHashMap<Segment, i64>> {
-        Err(RetryError {
-            error: ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: "get head segments".into(),
-                error_msg: "unsupported operation.".into(),
-            },
-            total_delay: Duration::from_millis(1),
-            tries: 0,
-        })
+    async fn get_head_segments(&self, stream: &ScopedStream) -> ResultRetry<ImHashMap<Segment, i64>> {
+        let segments_in_stream: Vec<ScopedSegment> =
+            get_segments_for_stream(stream, &self.created_streams.read().await)?;
+        Ok(segments_in_stream
+            .iter()
+            .map(|t| (t.segment.clone(), 0i64))
+            .collect())
     }
 
     async fn create_transaction(

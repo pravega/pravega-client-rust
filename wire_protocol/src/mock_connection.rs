@@ -10,11 +10,11 @@
 
 extern crate byteorder;
 use crate::commands::{
-    AppendSetupCommand, DataAppendedCommand, SegmentAlreadyExistsCommand, SegmentCreatedCommand,
-    SegmentIsSealedCommand, SegmentIsTruncatedCommand, SegmentReadCommand, SegmentSealedCommand,
-    SegmentTruncatedCommand, StreamSegmentInfoCommand, TableEntries, TableEntriesDeltaReadCommand,
-    TableEntriesUpdatedCommand, TableKey, TableKeyBadVersionCommand, TableKeyDoesNotExistCommand,
-    TableKeysRemovedCommand, TableReadCommand, TableValue, WrongHostCommand,
+    AppendSetupCommand, ConditionalCheckFailedCommand, DataAppendedCommand, SegmentAlreadyExistsCommand,
+    SegmentCreatedCommand, SegmentIsSealedCommand, SegmentIsTruncatedCommand, SegmentReadCommand,
+    SegmentSealedCommand, SegmentTruncatedCommand, StreamSegmentInfoCommand, TableEntries,
+    TableEntriesDeltaReadCommand, TableEntriesUpdatedCommand, TableKey, TableKeyBadVersionCommand,
+    TableKeyDoesNotExistCommand, TableKeysRemovedCommand, TableReadCommand, TableValue, WrongHostCommand,
 };
 use crate::connection::{Connection, ConnectionReadHalf, ConnectionWriteHalf};
 use crate::error::*;
@@ -492,6 +492,39 @@ async fn send_happy(
                 last_position: to_position as i64,
             });
             sender.send(reply).expect("send reply");
+        }
+        Requests::ConditionalBlockEnd(cmd) => {
+            let segment = writers.get(&cmd.writer_id).expect("writer hasn't been set up");
+            let segment_info = segments.get_mut(segment).expect("segment is not created");
+            if segment_info.is_sealed {
+                let reply = Replies::SegmentIsSealed(SegmentIsSealedCommand {
+                    request_id: cmd.request_id,
+                    segment: segment.to_string(),
+                    server_stack_trace: "".to_string(),
+                    offset: 0,
+                });
+                sender.send(reply).expect("send reply");
+                return Ok(());
+            }
+
+            if segment_info.write_offset != cmd.expected_offset {
+                let reply = Replies::ConditionalCheckFailed(ConditionalCheckFailedCommand {
+                    writer_id: cmd.writer_id,
+                    event_number: cmd.event_number,
+                    request_id: cmd.request_id,
+                });
+                sender.send(reply).expect("send reply");
+                return Ok(());
+            }
+            let reply = Replies::DataAppended(DataAppendedCommand {
+                writer_id: cmd.writer_id,
+                event_number: cmd.event_number,
+                previous_event_number: 0,
+                request_id: cmd.request_id,
+                current_segment_write_offset: 0,
+            });
+            sender.send(reply).expect("send reply");
+            segment_info.write_offset += cmd.data.len() as i64;
         }
         _ => {
             panic!("unsupported request {:?}", request);

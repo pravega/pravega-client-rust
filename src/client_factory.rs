@@ -139,7 +139,7 @@ impl ClientFactory {
     }
 
     pub fn create_byte_stream_reader(&self, segment: ScopedSegment) -> ByteStreamReader {
-        ByteStreamReader::new(segment, self)
+        ByteStreamReader::new(segment, self, self.get_config().reader_wrapper_buffer_size())
     }
 
     pub async fn create_delegation_token_provider(&self, stream: ScopedStream) -> DelegationTokenProvider {
@@ -161,7 +161,7 @@ impl ClientFactory {
 
 impl ClientFactoryInternal {
     pub(crate) fn create_raw_client(&self, endpoint: PravegaNodeUri) -> RawClientImpl {
-        RawClientImpl::new(&self.connection_pool, endpoint)
+        RawClientImpl::new(&self.connection_pool, endpoint, self.config.request_timeout)
     }
 
     pub(crate) async fn create_delegation_token_provider(
