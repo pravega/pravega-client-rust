@@ -781,7 +781,6 @@
 <span id="778">778</span>
 <span id="779">779</span>
 <span id="780">780</span>
-<span id="781">781</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">/*
  * Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
@@ -796,7 +795,6 @@
 <span class="kw">use</span> <span class="ident">pravega_connection_pool</span>::<span class="ident">connection_pool</span>::<span class="ident">ConnectionPool</span>;
 <span class="kw">use</span> <span class="ident">pravega_rust_client_config</span>::{<span class="ident">connection_type</span>::<span class="ident">ConnectionType</span>, <span class="ident">ClientConfigBuilder</span>};
 <span class="kw">use</span> <span class="ident">pravega_rust_client_shared</span>::<span class="ident">PravegaNodeUri</span>;
-<span class="kw">use</span> <span class="ident">pravega_wire_protocol</span>::<span class="ident">commands</span>::<span class="ident">Command</span> <span class="kw">as</span> <span class="ident">WireCmd</span>;
 <span class="kw">use</span> <span class="ident">pravega_wire_protocol</span>::<span class="ident">commands</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">pravega_wire_protocol</span>::<span class="ident">connection_factory</span>::{
     <span class="ident">ConnectionFactory</span>, <span class="ident">ConnectionFactoryConfig</span>, <span class="ident">SegmentConnectionManager</span>,
@@ -1204,7 +1202,7 @@
                 <span class="ident">writer_id</span>,
                 <span class="ident">event_number</span>,
                 <span class="ident">expected_offset</span>,
-                <span class="ident">data</span>: <span class="ident">data_event</span>.<span class="ident">write_fields</span>().<span class="ident">unwrap</span>(),
+                <span class="ident">event</span>: <span class="ident">data_event</span>,
                 <span class="ident">request_id</span>: <span class="ident">id</span>,
             });
             <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">raw_client</span>
