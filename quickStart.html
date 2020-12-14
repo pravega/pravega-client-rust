@@ -92,7 +92,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="quickStart.html" class="active"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="RUST/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="RUST/eventReader.html"><strong aria-hidden="true">3.1.</strong> Event Reader</a></li><li class="chapter-item expanded "><a href="RUST/eventWriter.html"><strong aria-hidden="true">3.2.</strong> Event Writer</a></li><li class="chapter-item expanded "><a href="RUST/byteStreamClient.html"><strong aria-hidden="true">3.3.</strong> Byte Stream Client</a></li><li class="chapter-item expanded "><a href="RUST/contribution.html"><strong aria-hidden="true">3.4.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="Python/PythonBindings.html"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="quickStart.html" class="active"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="RUST/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="RUST/EventStreamClient.html"><strong aria-hidden="true">3.1.</strong> Event Stream Client</a></li><li class="chapter-item expanded "><a href="RUST/ByteStreamClient.html"><strong aria-hidden="true">3.2.</strong> Byte Stream Client</a></li><li class="chapter-item expanded "><a href="RUST/Transaction.html"><strong aria-hidden="true">3.3.</strong> Transaction</a></li><li class="chapter-item expanded "><a href="RUST/contribution.html"><strong aria-hidden="true">3.4.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="Python/PythonBindings.html"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -159,7 +159,32 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#quick-start" id="quick-start">Quick Start</a></h1>
-<p>TBD</p>
+<p>This chapter demonstrates how to use Pravega Rust client to communicate to a standalone Pravega server.</p>
+<h2><a class="header" href="#running-a-standalone-pravega-server" id="running-a-standalone-pravega-server">Running a standalone Pravega server</a></h2>
+<p>Navigate to the <a href="https://github.com/pravega/pravega/releases">Pravega Release</a> page and download
+a Pravega release. Note that <code>ByteStreamClient</code> requires Pravega 0.9.0+.</p>
+<p>For example in a Linux environment, after downloading and decompressing <code>pravega-0.9.0.tgz</code>, we can start 
+a minimal Pravega server by calling</p>
+<pre><code>./pravega-0.9.0/bin/pravega-standalone
+</code></pre>
+<p>It spins up a Pravega standalone server that listens to <code>localhost:9090</code> by default.</p>
+<h2><a class="header" href="#build-a-simple-application" id="build-a-simple-application">Build a simple application</a></h2>
+<h3><a class="header" href="#prerequisites" id="prerequisites">Prerequisites</a></h3>
+<p>Make sure you have Rust installed first, check out the <a href="https://www.rust-lang.org/tools/install">official website</a> of how to
+install Rust.</p>
+<h3><a class="header" href="#creating-a-new-project" id="creating-a-new-project">Creating a new project</a></h3>
+<p>Create a new Rust project called <code>my_app</code></p>
+<pre><code>cargo new my_app --bin
+</code></pre>
+<p>in the <code>Cargo.toml</code> file, add the following as dependencies</p>
+<pre><code>[dependencies]
+pravega-client = &quot;0.1&quot;
+pravega-client-config = &quot;0.1&quot;
+pravega-client-shared = &quot;0.1&quot;
+tokio = &quot;0.2&quot;
+</code></pre>
+<h3><a class="header" href="#a-simple-app-that-writes-and-reads-events" id="a-simple-app-that-writes-and-reads-events">A simple app that writes and reads events</a></h3>
+<p>Check out the <a href="../../examples/event_write_and_read.rs">event write and read example</a>.</p>
 
                     </main>
 

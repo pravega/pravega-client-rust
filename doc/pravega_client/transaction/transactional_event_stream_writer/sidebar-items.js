@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["TransactionalEventStreamWriter","A writer that writes Events to an Event stream transactionally. Events that are written to the transaction can be committed atomically, which means that reader cannot see any writes prior to committing and will not see any writes if the transaction is aborted."]]});

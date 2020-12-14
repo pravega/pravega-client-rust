@@ -92,7 +92,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="../index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="../quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="../RUST/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../RUST/eventReader.html"><strong aria-hidden="true">3.1.</strong> Event Reader</a></li><li class="chapter-item expanded "><a href="../RUST/eventWriter.html"><strong aria-hidden="true">3.2.</strong> Event Writer</a></li><li class="chapter-item expanded "><a href="../RUST/byteStreamClient.html"><strong aria-hidden="true">3.3.</strong> Byte Stream Client</a></li><li class="chapter-item expanded "><a href="../RUST/contribution.html"><strong aria-hidden="true">3.4.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="../Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../Python/PythonBindings.html" class="active"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="../Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="../quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="../RUST/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../RUST/EventStreamClient.html"><strong aria-hidden="true">3.1.</strong> Event Stream Client</a></li><li class="chapter-item expanded "><a href="../RUST/ByteStreamClient.html"><strong aria-hidden="true">3.2.</strong> Byte Stream Client</a></li><li class="chapter-item expanded "><a href="../RUST/Transaction.html"><strong aria-hidden="true">3.3.</strong> Transaction</a></li><li class="chapter-item expanded "><a href="../RUST/contribution.html"><strong aria-hidden="true">3.4.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="../Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../Python/PythonBindings.html" class="active"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="../Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -166,7 +166,7 @@ companion to <a href="../python/pravega_client.html">Pravega Python API</a></p>
 <h2><a class="header" href="#streammanager" id="streammanager">StreamManager</a></h2>
 </li>
 </ul>
-<p>A StreamManger is used to create a Scopes, Streams, writers and Readers. It can also be used to perform
+<p>A StreamManger is used to create a Scopes, Streams, Writers and Readers. It can also be used to perform
 operations on the stream which include sealing a stream and deleting streams among others.</p>
 <p>A StreamManager can be created by using a Controller URI. The below example snippet </p>
 <pre><code class="language-python">import pravega_client
@@ -181,7 +181,7 @@ manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
 // Create a writer against an already created Pravega scope and Stream.
 writer=manager.create_writer(&quot;scope&quot;, &quot;stream&quot;)
 </code></pre>
-<p>A transactional Writer can be created using the StreamManager. The below example snippet should a sample pattern.</p>
+<p>A transactional Writer can be created using the StreamManager. The below example snippet shows a sample pattern.</p>
 <pre><code class="language-python"> import pravega_client
  manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
  // Create a transactional writer against an already created Pravega scope and Stream.
@@ -203,7 +203,7 @@ that are written will appear in the Stream exactly once. The event of type Strin
 The user can optionally specify the routing key. The StreamWriter can also write a byte array into the Pravega Stream 
 with/without a routing key.</p>
 <p>Note that the implementation provides retry logic to handle connection failures and service host failures. Internal 
-retries will not violate the exactly once semantic so it is better to rely on them than to wrap this with custom retry logic.</p>
+retries will not violate the exactly once semantic, so it is better to rely on them than to wrap this with custom retry logic.</p>
 <pre><code class="language-python">import pravega_client
 manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
 // lets assume the Pravega scope and stream are already created.

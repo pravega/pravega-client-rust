@@ -1,3 +1,3 @@
 (function() {var implementors = {};
-implementors["pravega_client_rust"] = [{"text":"impl Iterator for SegmentSlice","synthetic":false,"types":[]}];
+implementors["pravega_client"] = [{"text":"impl Iterator for SegmentSlice","synthetic":false,"types":[]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

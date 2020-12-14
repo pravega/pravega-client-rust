@@ -791,10 +791,10 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */</span>
-<span class="kw">use</span> <span class="ident">pravega_client_rust</span>::<span class="ident">raw_client</span>::<span class="kw-2">*</span>;
+<span class="kw">use</span> <span class="ident">pravega_client</span>::<span class="ident">raw_client</span>::<span class="kw-2">*</span>;
+<span class="kw">use</span> <span class="ident">pravega_client_config</span>::{<span class="ident">connection_type</span>::<span class="ident">ConnectionType</span>, <span class="ident">ClientConfigBuilder</span>};
+<span class="kw">use</span> <span class="ident">pravega_client_shared</span>::<span class="ident">PravegaNodeUri</span>;
 <span class="kw">use</span> <span class="ident">pravega_connection_pool</span>::<span class="ident">connection_pool</span>::<span class="ident">ConnectionPool</span>;
-<span class="kw">use</span> <span class="ident">pravega_rust_client_config</span>::{<span class="ident">connection_type</span>::<span class="ident">ConnectionType</span>, <span class="ident">ClientConfigBuilder</span>};
-<span class="kw">use</span> <span class="ident">pravega_rust_client_shared</span>::<span class="ident">PravegaNodeUri</span>;
 <span class="kw">use</span> <span class="ident">pravega_wire_protocol</span>::<span class="ident">commands</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">pravega_wire_protocol</span>::<span class="ident">connection_factory</span>::{
     <span class="ident">ConnectionFactory</span>, <span class="ident">ConnectionFactoryConfig</span>, <span class="ident">SegmentConnectionManager</span>,

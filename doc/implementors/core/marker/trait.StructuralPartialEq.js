@@ -1,3 +1,3 @@
 (function() {var implementors = {};
-implementors["pravega_client_rust"] = [{"text":"impl StructuralPartialEq for ClientMetrics","synthetic":false,"types":[]},{"text":"impl StructuralPartialEq for Offset","synthetic":false,"types":[]},{"text":"impl StructuralPartialEq for ReaderGroupConfig","synthetic":false,"types":[]},{"text":"impl StructuralPartialEq for Value","synthetic":false,"types":[]}];
+implementors["pravega_client"] = [{"text":"impl StructuralPartialEq for ClientMetrics","synthetic":false,"types":[]},{"text":"impl StructuralPartialEq for Offset","synthetic":false,"types":[]},{"text":"impl StructuralPartialEq for ReaderGroupConfig","synthetic":false,"types":[]},{"text":"impl StructuralPartialEq for Value","synthetic":false,"types":[]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

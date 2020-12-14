@@ -94,7 +94,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="RUST/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="RUST/eventReader.html"><strong aria-hidden="true">3.1.</strong> Event Reader</a></li><li class="chapter-item expanded "><a href="RUST/eventWriter.html"><strong aria-hidden="true">3.2.</strong> Event Writer</a></li><li class="chapter-item expanded "><a href="RUST/byteStreamClient.html"><strong aria-hidden="true">3.3.</strong> Byte Stream Client</a></li><li class="chapter-item expanded "><a href="RUST/contribution.html"><strong aria-hidden="true">3.4.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="Python/PythonBindings.html"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="RUST/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="RUST/EventStreamClient.html"><strong aria-hidden="true">3.1.</strong> Event Stream Client</a></li><li class="chapter-item expanded "><a href="RUST/ByteStreamClient.html"><strong aria-hidden="true">3.2.</strong> Byte Stream Client</a></li><li class="chapter-item expanded "><a href="RUST/Transaction.html"><strong aria-hidden="true">3.3.</strong> Transaction</a></li><li class="chapter-item expanded "><a href="RUST/contribution.html"><strong aria-hidden="true">3.4.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="Python/PythonBindings.html"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -166,7 +166,7 @@
 Client. At the moment this repository supports Python bindings to Pravega.</p>
 <p>This book contains examples and documentation to explain all of Pravega Rust client's use cases in detail and the Python
 language bindigs.</p>
-<p>Please choose from the chapters on the left to jump to individual topics, or continue below to start with Pravega RUST Clients's README.</p>
+<p>Please choose from the chapters on the left to jump to individual topics, or continue below to start with Pravega Rust Clients's README.</p>
 <ul>
 <li>
 <p>User Guide: <a href="https://pravega.github.io/pravega-client-rust/">stable</a> | <a href="./index.html">master</a></p>
@@ -182,6 +182,7 @@ language bindigs.</p>
 <a href="https://codecov.io/gh/pravega/pravega-client-rust"><img src="https://codecov.io/gh/pravega/pravega-client-rust/branch/master/graph/badge.svg?token=XEjqMkINCV" alt="codecov" /></a></p>
 <h1><a class="header" href="#rust-client-for-pravega" id="rust-client-for-pravega">Rust client for Pravega</a></h1>
 <p>This is a native Rust client for <a href="https://www.pravega.io/">Pravega</a>. </p>
+<p>Note: Pravega 0.9.0+ is required.</p>
 <h2><a class="header" href="#status" id="status">Status</a></h2>
 <p>The client is not yet feature complete and is currently under active development. It is not ready for production use, but is far enough along that it can be used for experimentation.</p>
 <p>Up to date status can be seen on <a href="https://github.com/pravega/pravega-client-rust/wiki/Design-plan">the wiki</a>.</p>
@@ -191,23 +192,71 @@ language bindigs.</p>
 <h2><a class="header" href="#approach" id="approach">Approach</a></h2>
 <p>The approach is to write a common native implementation of the internals of the client in Rust. Then use a C ABI to provide an interface for other languages to link against.</p>
 <p>Finally for each supported language the low level API is translated into a high level API that is idiomatic for the language.</p>
+<h2><a class="header" href="#book" id="book">Book</a></h2>
+<p>Check out the Pravega Rust client <a href="https://pravega.github.io/pravega-client-rust/">book</a> for more details.</p>
 <h2><a class="header" href="#license" id="license">License</a></h2>
-<p>Pravega RUST client, all the source code, is released under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License v2.0</a>.</p>
+<p>Pravega Rust client, all the source code, is released under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License v2.0</a>.</p>
 <h1><a class="header" href="#quick-start" id="quick-start">Quick Start</a></h1>
-<p>TBD</p>
+<p>This chapter demonstrates how to use Pravega Rust client to communicate to a standalone Pravega server.</p>
+<h2><a class="header" href="#running-a-standalone-pravega-server" id="running-a-standalone-pravega-server">Running a standalone Pravega server</a></h2>
+<p>Navigate to the <a href="https://github.com/pravega/pravega/releases">Pravega Release</a> page and download
+a Pravega release. Note that <code>ByteStreamClient</code> requires Pravega 0.9.0+.</p>
+<p>For example in a Linux environment, after downloading and decompressing <code>pravega-0.9.0.tgz</code>, we can start 
+a minimal Pravega server by calling</p>
+<pre><code>./pravega-0.9.0/bin/pravega-standalone
+</code></pre>
+<p>It spins up a Pravega standalone server that listens to <code>localhost:9090</code> by default.</p>
+<h2><a class="header" href="#build-a-simple-application" id="build-a-simple-application">Build a simple application</a></h2>
+<h3><a class="header" href="#prerequisites" id="prerequisites">Prerequisites</a></h3>
+<p>Make sure you have Rust installed first, check out the <a href="https://www.rust-lang.org/tools/install">official website</a> of how to
+install Rust.</p>
+<h3><a class="header" href="#creating-a-new-project" id="creating-a-new-project">Creating a new project</a></h3>
+<p>Create a new Rust project called <code>my_app</code></p>
+<pre><code>cargo new my_app --bin
+</code></pre>
+<p>in the <code>Cargo.toml</code> file, add the following as dependencies</p>
+<pre><code>[dependencies]
+pravega-client = &quot;0.1&quot;
+pravega-client-config = &quot;0.1&quot;
+pravega-client-shared = &quot;0.1&quot;
+tokio = &quot;0.2&quot;
+</code></pre>
+<h3><a class="header" href="#a-simple-app-that-writes-and-reads-events" id="a-simple-app-that-writes-and-reads-events">A simple app that writes and reads events</a></h3>
+<p>Check out the <a href="../../examples/event_write_and_read.rs">event write and read example</a>.</p>
 <h1><a class="header" href="#rust-client" id="rust-client">Rust Client</a></h1>
 <p>This section describes the Rust client APIs to interact with Pravega. </p>
 <ul>
-<li>Event Writer APIs</li>
-<li>Event Reader APIs</li>
-<li>Byte Stream Client APIs</li>
+<li>Event Stream APIs</li>
+<li>Byte Stream APIS</li>
+<li>Transaction APIs</li>
 </ul>
-<h1><a class="header" href="#event-reader" id="event-reader">Event Reader</a></h1>
-<p>For more details please refer <a href="RUST/./doc/pravega_client_rust/event_reader/struct.EventReader.html">API docs</a></p>
-<h1><a class="header" href="#event-writer" id="event-writer">Event Writer</a></h1>
-<p>For more details please refer <a href="RUST/./doc/pravega_client_rust/event_stream_writer/struct.EventStreamWriter.html">API docs</a></p>
+<h1><a class="header" href="#event-stream-client" id="event-stream-client">Event Stream Client</a></h1>
+<h2><a class="header" href="#event-stream-writer" id="event-stream-writer">Event Stream Writer</a></h2>
+<p>An EventStreamWriter can be used to write events into the Pravega Stream.</p>
+<p>An Event is a discrete item that can be read and processed independently.
+Events are written atomically and will appear in the Stream exactly once. 
+An optional routing key can be specified by the user. Events with the same routing key are guaranteed to be read back in the order they were written. While events with different routing keys may be read and processed in parallel. </p>
+<p><a href="RUST/./doc/pravega_client_rust/event_stream_writer/struct.EventStreamWriter.html">API docs</a>.</p>
+<h2><a class="header" href="#event-stream-reader" id="event-stream-reader">Event Stream Reader</a></h2>
+<p>An EventStreamReader can be used to read events from the Pravega Stream.</p>
+<p>Every EventStreamReader belongs to a ReaderGroup.
+All the EventStreamReaders within a ReaderGroup work together to from a Stream. This allows 
+maximum read performance without duplicate reads. EventStreamReaders internally coordinate with each other
+within a ReaderGroup using a so called TableSynchronizer.</p>
+<p>For the details how TableSynchronizer works please check related blog <a href="https://blog.pravega.io/2019/02/15/exploring-state-synchronizer/">state synchronizer</a>.</p>
+<p><a href="RUST/./doc/pravega_client_rust/event_reader/struct.EventReader.html">API docs</a></p>
 <h1><a class="header" href="#byte-stream-client" id="byte-stream-client">Byte Stream Client</a></h1>
-<p>For more details please refer <a href="RUST/./doc/pravega_client_rust/byte_stream/index.html">API docs</a></p>
+<p>Unlike EventStreamWriter, ByteStreamWriter writes raw bytes into Pravega Stream
+without adding any headers or encoding. This means that the data stored in the Stream is a continuous
+stream of bytes. Because of that, data written by ByteStreamWriter can only be read by
+ByteStreamReader. </p>
+<p>The Byte Stream Client is useful in cases where a raw stream of bytes is desirable. For example in video streaming.</p>
+<p>For more details please refer <a href="RUST/./doc/pravega_client_rust/byte_stream/index.html">API docs</a>.</p>
+<h1><a class="header" href="#transaction" id="transaction">Transaction</a></h1>
+<p>Transactions provides a mechanism for writing many events atomically.
+A Transaction is unbounded in size but is bounded in time. If it has not been committed within a time window
+specified  at the time of its creation it will be automatically aborted.</p>
+<p>For more details please refer <a href="RUST/./doc/pravega_client_rust/transaction/transactional_event_stream_writer/index.html">API docs</a>.</p>
 <h1><a class="header" href="#developer-corner" id="developer-corner">Developer Corner</a></h1>
 <h1><a class="header" href="#python-client" id="python-client">Python Client</a></h1>
 <p>This section describes </p>
@@ -223,7 +272,7 @@ companion to <a href="Python/../python/pravega_client.html">Pravega Python API</
 <h2><a class="header" href="#streammanager" id="streammanager">StreamManager</a></h2>
 </li>
 </ul>
-<p>A StreamManger is used to create a Scopes, Streams, writers and Readers. It can also be used to perform
+<p>A StreamManger is used to create a Scopes, Streams, Writers and Readers. It can also be used to perform
 operations on the stream which include sealing a stream and deleting streams among others.</p>
 <p>A StreamManager can be created by using a Controller URI. The below example snippet </p>
 <pre><code class="language-python">import pravega_client
@@ -238,7 +287,7 @@ manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
 // Create a writer against an already created Pravega scope and Stream.
 writer=manager.create_writer(&quot;scope&quot;, &quot;stream&quot;)
 </code></pre>
-<p>A transactional Writer can be created using the StreamManager. The below example snippet should a sample pattern.</p>
+<p>A transactional Writer can be created using the StreamManager. The below example snippet shows a sample pattern.</p>
 <pre><code class="language-python"> import pravega_client
  manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
  // Create a transactional writer against an already created Pravega scope and Stream.
@@ -260,7 +309,7 @@ that are written will appear in the Stream exactly once. The event of type Strin
 The user can optionally specify the routing key. The StreamWriter can also write a byte array into the Pravega Stream 
 with/without a routing key.</p>
 <p>Note that the implementation provides retry logic to handle connection failures and service host failures. Internal 
-retries will not violate the exactly once semantic so it is better to rely on them than to wrap this with custom retry logic.</p>
+retries will not violate the exactly once semantic, so it is better to rely on them than to wrap this with custom retry logic.</p>
 <pre><code class="language-python">import pravega_client
 manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
 // lets assume the Pravega scope and stream are already created.

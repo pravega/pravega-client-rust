@@ -92,7 +92,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="index.html" class="active"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="RUST/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="RUST/eventReader.html"><strong aria-hidden="true">3.1.</strong> Event Reader</a></li><li class="chapter-item expanded "><a href="RUST/eventWriter.html"><strong aria-hidden="true">3.2.</strong> Event Writer</a></li><li class="chapter-item expanded "><a href="RUST/byteStreamClient.html"><strong aria-hidden="true">3.3.</strong> Byte Stream Client</a></li><li class="chapter-item expanded "><a href="RUST/contribution.html"><strong aria-hidden="true">3.4.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="Python/PythonBindings.html"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="index.html" class="active"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="RUST/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="RUST/EventStreamClient.html"><strong aria-hidden="true">3.1.</strong> Event Stream Client</a></li><li class="chapter-item expanded "><a href="RUST/ByteStreamClient.html"><strong aria-hidden="true">3.2.</strong> Byte Stream Client</a></li><li class="chapter-item expanded "><a href="RUST/Transaction.html"><strong aria-hidden="true">3.3.</strong> Transaction</a></li><li class="chapter-item expanded "><a href="RUST/contribution.html"><strong aria-hidden="true">3.4.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="Python/PythonBindings.html"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -164,7 +164,7 @@
 Client. At the moment this repository supports Python bindings to Pravega.</p>
 <p>This book contains examples and documentation to explain all of Pravega Rust client's use cases in detail and the Python
 language bindigs.</p>
-<p>Please choose from the chapters on the left to jump to individual topics, or continue below to start with Pravega RUST Clients's README.</p>
+<p>Please choose from the chapters on the left to jump to individual topics, or continue below to start with Pravega Rust Clients's README.</p>
 <ul>
 <li>
 <p>User Guide: <a href="https://pravega.github.io/pravega-client-rust/">stable</a> | <a href="./index.html">master</a></p>
@@ -180,6 +180,7 @@ language bindigs.</p>
 <a href="https://codecov.io/gh/pravega/pravega-client-rust"><img src="https://codecov.io/gh/pravega/pravega-client-rust/branch/master/graph/badge.svg?token=XEjqMkINCV" alt="codecov" /></a></p>
 <h1><a class="header" href="#rust-client-for-pravega" id="rust-client-for-pravega">Rust client for Pravega</a></h1>
 <p>This is a native Rust client for <a href="https://www.pravega.io/">Pravega</a>. </p>
+<p>Note: Pravega 0.9.0+ is required.</p>
 <h2><a class="header" href="#status" id="status">Status</a></h2>
 <p>The client is not yet feature complete and is currently under active development. It is not ready for production use, but is far enough along that it can be used for experimentation.</p>
 <p>Up to date status can be seen on <a href="https://github.com/pravega/pravega-client-rust/wiki/Design-plan">the wiki</a>.</p>
@@ -189,8 +190,10 @@ language bindigs.</p>
 <h2><a class="header" href="#approach" id="approach">Approach</a></h2>
 <p>The approach is to write a common native implementation of the internals of the client in Rust. Then use a C ABI to provide an interface for other languages to link against.</p>
 <p>Finally for each supported language the low level API is translated into a high level API that is idiomatic for the language.</p>
+<h2><a class="header" href="#book" id="book">Book</a></h2>
+<p>Check out the Pravega Rust client <a href="https://pravega.github.io/pravega-client-rust/">book</a> for more details.</p>
 <h2><a class="header" href="#license" id="license">License</a></h2>
-<p>Pravega RUST client, all the source code, is released under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License v2.0</a>.</p>
+<p>Pravega Rust client, all the source code, is released under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License v2.0</a>.</p>
 
                     </main>
 
