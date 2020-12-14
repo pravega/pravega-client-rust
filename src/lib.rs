@@ -62,9 +62,7 @@ thread_local! {
 
 pub(crate) static REQUEST_ID_GENERATOR: AtomicI64 = AtomicI64::new(0);
 
-///
 /// Function used to generate request ids for all the modules.
-///
 pub(crate) fn get_request_id() -> i64 {
     REQUEST_ID_GENERATOR.fetch_add(1, Ordering::SeqCst) + 1
 }
@@ -92,7 +90,7 @@ async fn create_stream(factory: &ClientFactory, scope: &str, stream: &str) {
     factory
         .get_controller_client()
         .create_scope(&Scope {
-            name: "scope".to_string(),
+            name: scope.to_string(),
         })
         .await
         .unwrap();

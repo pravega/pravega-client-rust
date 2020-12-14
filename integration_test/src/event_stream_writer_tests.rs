@@ -319,7 +319,7 @@ async fn test_write_correctness_while_scaling(writer: &mut EventStreamWriter, fa
     while i < count {
         let expect_string = format!("event{}", i);
         let length = (expect_string.len() + 8) as i32;
-        if i % 2 == 0 {
+        if i % 2 != 0 {
             let reply = reader1
                 .read(offset1, length)
                 .await

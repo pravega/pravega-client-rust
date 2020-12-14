@@ -11,12 +11,11 @@
 use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::transaction::pinger::{Pinger, PingerHandle};
-use crate::transaction::transactional_event_segment_writer::TransactionalEventSegmentWriter;
 use crate::transaction::{Transaction, TransactionInfo};
 use pravega_rust_client_auth::DelegationTokenProvider;
 use pravega_rust_client_shared::{ScopedStream, StreamSegments, TransactionStatus, TxId, WriterId};
 use snafu::ResultExt;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{info, info_span};
@@ -106,26 +105,15 @@ impl TransactionalEventStreamWriter {
             .context(TxnStreamControllerError {})?;
         info!("Transaction {} created", txn_segments.tx_id);
         let txn_id = txn_segments.tx_id;
-        let mut transactions = HashMap::new();
-        for s in txn_segments.stream_segments.get_segments() {
-            let mut txn_segment = s.clone();
-            txn_segment.segment.tx_id = Some(txn_id);
-            let mut writer = TransactionalEventSegmentWriter::new(
-                txn_segment,
-                self.factory.get_config().retry_policy,
-                self.delegation_token_provider.clone(),
-            );
-            writer.initialize(&self.factory).await;
-            transactions.insert(s, writer);
-        }
         self.pinger_handle.add(txn_id).await?;
         Ok(Transaction::new(
             TransactionInfo::new(txn_id, self.writer_id, self.stream.clone(), false),
-            transactions,
             txn_segments.stream_segments,
             self.pinger_handle.clone(),
             self.factory.clone(),
-        ))
+            false,
+        )
+        .await)
     }
 
     /// This method returns the Transaction based on the given transaction id.
@@ -143,13 +131,13 @@ impl TransactionalEventStreamWriter {
         if status != TransactionStatus::Open {
             return Ok(Transaction::new(
                 TransactionInfo::new(txn_id, self.writer_id, self.stream.clone(), true),
-                HashMap::new(),
                 StreamSegments::new(BTreeMap::new()),
                 self.pinger_handle.clone(),
                 self.factory.clone(),
-            ));
+                true,
+            )
+            .await);
         }
-        let mut transactions = HashMap::new();
         let segments = self
             .factory
             .get_controller_client()
@@ -157,21 +145,14 @@ impl TransactionalEventStreamWriter {
             .await
             .map_err(|e| e.error)
             .context(TxnStreamControllerError {})?;
-        for s in segments.get_segments() {
-            let writer = TransactionalEventSegmentWriter::new(
-                s.clone(),
-                self.factory.get_config().retry_policy,
-                self.delegation_token_provider.clone(),
-            );
-            transactions.insert(s, writer);
-        }
         Ok(Transaction::new(
             TransactionInfo::new(txn_id, self.writer_id, self.stream.clone(), true),
-            transactions,
             segments,
             self.pinger_handle.clone(),
             self.factory.clone(),
-        ))
+            false,
+        )
+        .await)
     }
 }
 

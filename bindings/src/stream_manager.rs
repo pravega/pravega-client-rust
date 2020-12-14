@@ -12,6 +12,7 @@ cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use crate::stream_writer_transactional::StreamTxnWriter;
         use crate::stream_writer::StreamWriter;
+        use crate::stream_reader_group::StreamReaderGroup;
         use pravega_client_rust::client_factory::ClientFactory;
         use pravega_rust_client_shared::*;
         use pravega_rust_client_config::{ClientConfig, ClientConfigBuilder};
@@ -243,7 +244,37 @@ impl StreamManager {
         Ok(txn_stream_writer)
     }
 
-    /// Returns the facet string representation.
+    ///
+    /// Create a ReaderGroup for a given Stream.
+    ///
+    /// ```
+    /// import pravega_client;
+    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
+    /// // Create a ReaderGroup against an already created Pravega scope and Stream.
+    /// reader_group=manager.create_reader_group("rg1", "scope", "stream")
+    /// ```
+    ///
+    #[text_signature = "($self, reader_group_name, scope_name, stream_name)"]
+    pub fn create_reader_group(
+        &self,
+        reader_group_name: &str,
+        scope_name: &str,
+        stream_name: &str,
+    ) -> PyResult<StreamReaderGroup> {
+        let scoped_stream = ScopedStream {
+            scope: Scope::from(scope_name.to_string()),
+            stream: Stream::from(stream_name.to_string()),
+        };
+        let handle = self.cf.get_runtime_handle();
+        let rg = handle.block_on(
+            self.cf
+                .create_reader_group(reader_group_name.to_string(), scoped_stream.clone()),
+        );
+        let reader_group = StreamReaderGroup::new(rg, self.cf.get_runtime_handle(), scoped_stream);
+        Ok(reader_group)
+    }
+
+    /// Returns the string representation.
     fn to_str(&self) -> String {
         format!(
             "Controller ip: {:?} ClientConfig: {:?}",

@@ -18,8 +18,7 @@ use pravega_wire_protocol::wire_commands::Replies;
 use serde_cbor::Error as CborError;
 use snafu::Snafu;
 use std::fmt::Debug;
-use tokio::sync::mpsc::error::TryRecvError;
-use tokio::sync::oneshot;
+use tokio::time::Elapsed;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
@@ -38,6 +37,9 @@ pub enum RawClientError {
 
     #[snafu(display("Reply incompatible wirecommand version: low {}, high {}", low, high))]
     IncompatibleVersion { low: i32, high: i32 },
+
+    #[snafu(display("Request has timed out: {}", source))]
+    RequestTimeout { source: Elapsed },
 }
 
 impl RawClientError {
@@ -78,6 +80,9 @@ pub enum SegmentWriterError {
 
     #[snafu(display("Reactor is closed due to: {:?}", msg))]
     ReactorClosed { msg: String },
+
+    #[snafu(display("Conditional append has failed"))]
+    ConditionalCheckFailed {},
 }
 
 #[derive(Debug, Snafu)]
@@ -92,30 +97,9 @@ pub enum TransactionalEventStreamWriterError {
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
-pub enum TransactionalEventSegmentWriterError {
-    #[snafu(display("Mpsc failed with error {:?}", source))]
-    MpscError { source: TryRecvError },
-
-    #[snafu(display("Mpsc closed with sender dropped"))]
-    MpscSenderDropped {},
-
-    #[snafu(display("Oneshot failed with error {:?}", source))]
-    OneshotError { source: oneshot::error::TryRecvError },
-
-    #[snafu(display("EventSegmentWriter failed due to {:?}", source))]
-    WriterError { source: SegmentWriterError },
-
-    #[snafu(display("Unexpected reply from segmentstore {:?}", error))]
-    UnexpectedReply { error: Replies },
-}
-
-#[derive(Debug, Snafu)]
-#[snafu(visibility = "pub")]
 pub enum TransactionError {
-    #[snafu(display("Transactional segment writer failed due to {:?}", source))]
-    TxnSegmentWriterError {
-        source: TransactionalEventSegmentWriterError,
-    },
+    #[snafu(display("Transactional failed to write due to {:?}", error_msg))]
+    TxnSegmentWriterError { error_msg: String },
 
     #[snafu(display("Transactional stream writer failed due to {:?}", source))]
     TxnStreamWriterError {

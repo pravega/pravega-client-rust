@@ -9,8 +9,8 @@
 //
 
 use crate::reactor::reactors::Reactor;
+use pravega_rust_client_channel::{create_channel, ChannelSender};
 use pravega_rust_client_shared::*;
-use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::oneshot;
 
 use crate::client_factory::ClientFactory;
@@ -24,20 +24,21 @@ use tracing_futures::Instrument;
 /// to the StreamWriter
 pub struct EventStreamWriter {
     writer_id: WriterId,
-    sender: Sender<Incoming>,
+    sender: ChannelSender<Incoming>,
 }
 
 impl EventStreamWriter {
     pub const MAX_EVENT_SIZE: usize = 8 * 1024 * 1024;
-    const CHANNEL_CAPACITY: usize = 100;
+    // maximum 16 MB total size of events could be in memory
+    const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
     pub(crate) fn new(stream: ScopedStream, factory: ClientFactory) -> Self {
-        let (tx, rx) = channel(EventStreamWriter::CHANNEL_CAPACITY);
         let handle = factory.get_runtime_handle();
+        let (tx, rx) = create_channel(Self::CHANNEL_CAPACITY);
         let writer_id = WriterId::from(get_random_u128());
-        let span = info_span!("StreamReactor", event_stream_writer = %writer_id);
-        // tokio::spawn is tied to the factory runtime.
-        handle.enter(|| tokio::spawn(Reactor::run(stream, tx.clone(), rx, factory.clone()).instrument(span)));
+        let span = info_span!("Reactor", event_stream_writer = %writer_id);
+        // spawn is tied to the factory runtime.
+        handle.spawn(Reactor::run(stream, tx.clone(), rx, factory, None).instrument(span));
         EventStreamWriter {
             writer_id,
             sender: tx,
@@ -45,10 +46,11 @@ impl EventStreamWriter {
     }
 
     pub async fn write_event(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
+        let size = event.len();
         let (tx, rx) = oneshot::channel();
-        if let Some(pending_event) = PendingEvent::with_header(None, event, tx) {
+        if let Some(pending_event) = PendingEvent::with_header(None, event, None, tx) {
             let append_event = Incoming::AppendEvent(pending_event);
-            self.writer_event_internal(append_event, rx).await
+            self.writer_event_internal(append_event, size, rx).await
         } else {
             rx
         }
@@ -59,10 +61,11 @@ impl EventStreamWriter {
         routing_key: String,
         event: Vec<u8>,
     ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
+        let size = event.len();
         let (tx, rx) = oneshot::channel();
-        if let Some(pending_event) = PendingEvent::with_header(Some(routing_key), event, tx) {
+        if let Some(pending_event) = PendingEvent::with_header(Some(routing_key), event, None, tx) {
             let append_event = Incoming::AppendEvent(pending_event);
-            self.writer_event_internal(append_event, rx).await
+            self.writer_event_internal(append_event, size, rx).await
         } else {
             rx
         }
@@ -71,9 +74,10 @@ impl EventStreamWriter {
     async fn writer_event_internal(
         &mut self,
         append_event: Incoming,
+        size: usize,
         rx: oneshot::Receiver<Result<(), SegmentWriterError>>,
     ) -> oneshot::Receiver<Result<(), SegmentWriterError>> {
-        if let Err(_e) = self.sender.send(append_event).await {
+        if let Err(_e) = self.sender.send((append_event, size)).await {
             let (tx_error, rx_error) = oneshot::channel();
             tx_error
                 .send(Err(SegmentWriterError::SendToProcessor {}))
@@ -82,6 +86,12 @@ impl EventStreamWriter {
         } else {
             rx
         }
+    }
+}
+
+impl Drop for EventStreamWriter {
+    fn drop(&mut self) {
+        let _res = self.sender.send((Incoming::Close(), 0));
     }
 }
 
@@ -99,7 +109,7 @@ mod tests {
         let data = vec![];
         let routing_key = None;
 
-        let event = PendingEvent::without_header(routing_key, data, tx).expect("create pending event");
+        let event = PendingEvent::without_header(routing_key, data, None, tx).expect("create pending event");
         assert!(event.is_empty());
 
         // test with illegal event size
@@ -107,7 +117,7 @@ mod tests {
         let data = vec![0; (PendingEvent::MAX_WRITE_SIZE + 1) as usize];
         let routing_key = None;
 
-        let event = PendingEvent::without_header(routing_key, data, tx);
+        let event = PendingEvent::without_header(routing_key, data, None, tx);
         assert!(event.is_none());
 
         let mut rt = Runtime::new().expect("get runtime");

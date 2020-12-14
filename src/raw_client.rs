@@ -17,7 +17,7 @@ use pravega_wire_protocol::connection_factory::SegmentConnectionManager;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use snafu::ResultExt;
 use std::fmt;
-use tracing::{span, Level};
+use tokio::time::{timeout, Duration};
 
 /// RawClient is on top of the ClientConnection. It provides methods that take
 /// Request enums and return Reply enums asynchronously. It has logic to process some of the replies from
@@ -41,6 +41,7 @@ pub trait RawClient<'a>: Send + Sync {
 pub struct RawClientImpl<'a> {
     pool: &'a ConnectionPool<SegmentConnectionManager>,
     endpoint: PravegaNodeUri,
+    timeout: Duration,
 }
 
 impl<'a> fmt::Debug for RawClientImpl<'a> {
@@ -53,8 +54,13 @@ impl<'a> RawClientImpl<'a> {
     pub fn new(
         pool: &'a ConnectionPool<SegmentConnectionManager>,
         endpoint: PravegaNodeUri,
+        timeout: Duration,
     ) -> RawClientImpl<'a> {
-        RawClientImpl { pool, endpoint }
+        RawClientImpl {
+            pool,
+            endpoint,
+            timeout,
+        }
     }
 }
 
@@ -69,7 +75,11 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
             .context(GetConnectionFromPool {})?;
         let mut client_connection = ClientConnectionImpl::new(connection);
         client_connection.write(request).await.context(WriteRequest {})?;
-        let reply = client_connection.read().await.context(ReadReply {})?;
+        let read_future = client_connection.read();
+        let result = timeout(self.timeout, read_future)
+            .await
+            .context(RequestTimeout {})?;
+        let reply = result.context(ReadReply {})?;
         check_auth_token_expired(&reply)?;
         Ok(reply)
     }
@@ -78,8 +88,6 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
         &self,
         request: &Requests,
     ) -> Result<(Replies, Box<dyn ClientConnection + 'a>), RawClientError> {
-        let span = span!(Level::DEBUG, "send_setup_request");
-        let _guard = span.enter();
         let connection = self
             .pool
             .get_connection(self.endpoint.clone())
@@ -87,7 +95,11 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
             .context(GetConnectionFromPool {})?;
         let mut client_connection = ClientConnectionImpl::new(connection);
         client_connection.write(request).await.context(WriteRequest {})?;
-        let reply = client_connection.read().await.context(ReadReply {})?;
+        let read_future = client_connection.read();
+        let result = timeout(self.timeout, read_future)
+            .await
+            .context(RequestTimeout {})?;
+        let reply = result.context(ReadReply {})?;
         check_auth_token_expired(&reply)?;
         Ok((reply, Box::new(client_connection) as Box<dyn ClientConnection>))
     }
@@ -179,7 +191,11 @@ mod tests {
         let mut common = Common::new();
         let mut server = Server::new();
 
-        let raw_client = RawClientImpl::new(&common.pool, PravegaNodeUri::from(server.address));
+        let raw_client = RawClientImpl::new(
+            &common.pool,
+            PravegaNodeUri::from(server.address),
+            Duration::from_secs(3600),
+        );
         let h = thread::spawn(move || {
             server.send_hello();
         });

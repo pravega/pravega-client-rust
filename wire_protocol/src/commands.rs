@@ -23,7 +23,7 @@ use std::i64;
 use std::io::Cursor;
 use std::io::{Read, Write};
 
-pub const WIRE_VERSION: i32 = 10;
+pub const WIRE_VERSION: i32 = 11;
 pub const OLDEST_COMPATIBLE_VERSION: i32 = 5;
 pub const TYPE_SIZE: u32 = 4;
 pub const TYPE_PLUS_LENGTH_SIZE: u32 = 8;
@@ -484,6 +484,7 @@ impl Command for PartialEventCommand {
  */
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct EventCommand {
+    #[serde(with = "serde_bytes")]
     pub data: Vec<u8>,
 }
 
@@ -549,6 +550,7 @@ impl Request for SetupAppendCommand {
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct AppendBlockCommand {
     pub writer_id: u128,
+    #[serde(with = "serde_bytes")]
     pub data: Vec<u8>,
 }
 
@@ -578,6 +580,7 @@ impl Command for AppendBlockCommand {
 pub struct AppendBlockEndCommand {
     pub writer_id: u128,
     pub size_of_whole_events: i32,
+    #[serde(with = "serde_bytes")]
     pub data: Vec<u8>,
     pub num_event: i32,
     pub last_event_number: i64,
@@ -2157,6 +2160,7 @@ impl fmt::Display for TableKeyBadVersionCommand {
 #[derive(Serialize, Deserialize, Debug, Clone, Eq)]
 pub struct TableKey {
     pub payload: i32,
+    #[serde(with = "serde_bytes")]
     pub data: Vec<u8>,
     pub key_version: i64,
 }
@@ -2193,6 +2197,7 @@ impl PartialEq for TableKey {
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct TableValue {
     pub payload: i32,
+    #[serde(with = "serde_bytes")]
     pub data: Vec<u8>,
 }
 
@@ -2295,6 +2300,43 @@ impl Command for TableEntriesDeltaReadCommand {
 }
 
 impl Reply for TableEntriesDeltaReadCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 60.ConditionalAppendRawBytes Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct ConditionalBlockEndCommand {
+    pub writer_id: u128,
+    pub event_number: i64,
+    pub expected_offset: i64,
+    #[serde(with = "serde_bytes")]
+    pub data: Vec<u8>,
+    pub request_id: i64,
+}
+
+impl Command for ConditionalBlockEndCommand {
+    const TYPE_CODE: i32 = 89;
+
+    fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
+        let encoded = CONFIG.serialize(&self).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(encoded)
+    }
+
+    fn read_from(input: &[u8]) -> Result<Self, CommandError> {
+        let decoded: ConditionalBlockEndCommand = CONFIG.deserialize(&input[..]).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(decoded)
+    }
+}
+
+impl Request for ConditionalBlockEndCommand {
     fn get_request_id(&self) -> i64 {
         self.request_id
     }

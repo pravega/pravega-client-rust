@@ -11,18 +11,18 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::get_random_f64;
-use tokio::sync::mpsc::Sender;
+use pravega_rust_client_channel::ChannelSender;
 use tracing::{debug, warn};
 
-use pravega_rust_client_config::ClientConfig;
 use pravega_rust_client_shared::*;
 
 use crate::client_factory::ClientFactory;
-use crate::reactor::event::{Incoming, PendingEvent};
-use crate::reactor::segment_writer::SegmentWriter;
+use crate::reactor::event::Incoming;
+use crate::reactor::segment_writer::{Append, SegmentWriter};
 use pravega_rust_client_auth::DelegationTokenProvider;
 use std::sync::Arc;
 
+/// Maintains mapping from segments to segment writers.
 pub(crate) struct SegmentSelector {
     /// The stream of this SegmentSelector.
     pub(crate) stream: ScopedStream,
@@ -34,10 +34,7 @@ pub(crate) struct SegmentSelector {
     pub(crate) current_segments: StreamSegments,
 
     /// The sender that sends reply back to Reactor.
-    pub(crate) sender: Sender<Incoming>,
-
-    /// Client config that contains the retry policy.
-    pub(crate) config: ClientConfig,
+    pub(crate) sender: ChannelSender<Incoming>,
 
     /// Access the controller and connection pool.
     pub(crate) factory: ClientFactory,
@@ -47,34 +44,35 @@ pub(crate) struct SegmentSelector {
 }
 
 impl SegmentSelector {
-    pub(crate) fn new(
+    pub(crate) async fn new(
         stream: ScopedStream,
-        sender: Sender<Incoming>,
-        config: ClientConfig,
+        sender: ChannelSender<Incoming>,
         factory: ClientFactory,
-        delegation_token_provider: Arc<DelegationTokenProvider>,
     ) -> Self {
+        let delegation_token_provider = factory.create_delegation_token_provider(stream.clone()).await;
         SegmentSelector {
             stream,
             writers: HashMap::new(),
             current_segments: StreamSegments::new(BTreeMap::new()),
             sender,
-            config,
             factory,
-            delegation_token_provider,
+            delegation_token_provider: Arc::new(delegation_token_provider),
         }
     }
 
-    /// Gets all the segments in the stream from controller and creates corresponding
-    /// segment writers. Initializes segment writers by setting up connections so that segment
+    /// Initializes segment writers by setting up connections so that segment
     /// writers are ready to use after initialization.
-    pub(crate) async fn initialize(&mut self) {
-        self.current_segments = self
-            .factory
-            .get_controller_client()
-            .get_current_segments(&self.stream)
-            .await
-            .expect("retry failed");
+    pub(crate) async fn initialize(&mut self, stream_segments: Option<StreamSegments>) {
+        if let Some(ss) = stream_segments {
+            self.current_segments = ss;
+        } else {
+            self.current_segments = self
+                .factory
+                .get_controller_client()
+                .get_current_segments(&self.stream)
+                .await
+                .expect("retry failed");
+        }
         self.create_missing_writers().await;
     }
 
@@ -102,7 +100,7 @@ impl SegmentSelector {
     pub(crate) async fn refresh_segment_event_writers_upon_sealed(
         &mut self,
         sealed_segment: &ScopedSegment,
-    ) -> Option<Vec<PendingEvent>> {
+    ) -> Option<Vec<Append>> {
         let stream_segments_with_predecessors = self
             .factory
             .get_controller_client()
@@ -126,7 +124,7 @@ impl SegmentSelector {
         &mut self,
         successors: StreamSegmentsWithPredecessors,
         sealed_segment: &ScopedSegment,
-    ) -> Vec<PendingEvent> {
+    ) -> Vec<Append> {
         self.current_segments = self
             .current_segments
             .apply_replacement_range(&sealed_segment.segment, &successors)
@@ -146,7 +144,7 @@ impl SegmentSelector {
                 let mut writer = SegmentWriter::new(
                     scoped_segment.clone(),
                     self.sender.clone(),
-                    self.config.retry_policy,
+                    self.factory.get_config().retry_policy,
                     self.delegation_token_provider.clone(),
                 );
 
@@ -164,11 +162,12 @@ impl SegmentSelector {
     }
 
     /// Resends a list of events.
-    pub(crate) async fn resend(&mut self, to_resend: Vec<PendingEvent>) {
-        for event in to_resend {
-            let segment = self.get_segment_for_event(&event.routing_key);
+    pub(crate) async fn resend(&mut self, to_resend: Vec<Append>) {
+        for append in to_resend {
+            let segment = self.get_segment_for_event(&append.event.routing_key);
             let segment_writer = self.writers.get_mut(&segment).expect("must have writer");
-            if let Err(e) = segment_writer.write(event).await {
+            segment_writer.add_pending(append.event, append.cap_guard);
+            if let Err(e) = segment_writer.write_pending_events().await {
                 warn!(
                     "failed to resend an event due to: {:?}, reconnecting the event segment writer",
                     e
@@ -179,7 +178,7 @@ impl SegmentSelector {
     }
 
     /// Removes segment writer from the internal map.
-    pub(crate) fn remove_segment_event_writer(&mut self, segment: &ScopedSegment) -> Option<SegmentWriter> {
+    pub(crate) fn remove_segment_writer(&mut self, segment: &ScopedSegment) -> Option<SegmentWriter> {
         self.writers.remove(segment)
     }
 }
@@ -189,17 +188,16 @@ pub(crate) mod test {
     use super::*;
     use im::HashMap as ImHashMap;
     use ordered_float::OrderedFloat;
+    use pravega_rust_client_channel::{create_channel, ChannelReceiver};
     use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
     use pravega_rust_client_config::ClientConfigBuilder;
     use tokio::runtime::Runtime;
-    use tokio::sync::mpsc;
-    use tokio::sync::mpsc::Receiver;
 
     #[test]
     fn test_segment_selector() {
         let mut rt = Runtime::new().unwrap();
-        let (mut selector, _receiver, _factory) = rt.block_on(create_segment_selector(MockType::Happy));
-        rt.block_on(selector.initialize());
+        let (mut selector, _sender, _receiver, _factory) =
+            rt.block_on(create_segment_selector(MockType::Happy));
         assert_eq!(selector.writers.len(), 2);
 
         // update successors for sealed segment
@@ -236,7 +234,12 @@ pub(crate) mod test {
     // helper function section
     pub(crate) async fn create_segment_selector(
         mock: MockType,
-    ) -> (SegmentSelector, Receiver<Incoming>, ClientFactory) {
+    ) -> (
+        SegmentSelector,
+        ChannelSender<Incoming>,
+        ChannelReceiver<Incoming>,
+        ClientFactory,
+    ) {
         let stream = ScopedStream::from("testScope/testStream");
         let config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(mock))
@@ -269,18 +272,14 @@ pub(crate) mod test {
             })
             .await
             .unwrap();
-        let (sender, receiver) = mpsc::channel(10);
-        let delegation_token_provider = DelegationTokenProvider::new(stream.clone());
-        (
-            SegmentSelector::new(
-                stream,
-                sender,
-                factory.get_config().to_owned(),
-                factory.clone(),
-                Arc::new(delegation_token_provider),
-            ),
-            receiver,
-            factory,
-        )
+        let (sender, receiver) = create_channel(1024);
+        let mut selector = SegmentSelector::new(stream.clone(), sender.clone(), factory.clone()).await;
+        let stream_segments = factory
+            .get_controller_client()
+            .get_current_segments(&stream)
+            .await
+            .unwrap();
+        selector.initialize(Some(stream_segments)).await;
+        (selector, sender, receiver, factory)
     }
 }
