@@ -19,7 +19,7 @@ cfg_if! {
         use pravega_rust_client_shared::TxId;
         use pravega_rust_client_shared::ScopedStream;
         use tokio::runtime::Handle;
-        use log::debug;
+        use tracing::debug;
     }
 }
 

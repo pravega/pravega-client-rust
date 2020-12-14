@@ -18,7 +18,7 @@ cfg_if! {
         use pyo3::PyResult;
         use pyo3::PyObjectProtocol;
         use tokio::runtime::Handle;
-        use log::trace;
+        use tracing::trace;
         use std::time::Duration;
         use tokio::time::timeout;
         use tokio::sync::oneshot::error::RecvError;
