@@ -10,7 +10,7 @@
 use tokio::sync::oneshot;
 use tracing::warn;
 
-use pravega_rust_client_shared::*;
+use pravega_client_shared::*;
 use pravega_wire_protocol::commands::{Command, EventCommand};
 use pravega_wire_protocol::wire_commands::Replies;
 

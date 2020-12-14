@@ -1,10 +1,20 @@
+/*
+ * Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ */
+
 //! Retry is a crate for retrying something that can fail with exponential backoff.
 //! It is designed to have a declarative interface for ease of use.
 //! It can be used as follows:
 //! ```
-//! # use pravega_rust_client_retry::retry_policy::RetryWithBackoff;
-//! # use pravega_rust_client_retry::retry_result::RetryResult;
-//! # use pravega_rust_client_retry::retry_sync::retry_sync;
+//! # use pravega_client_retry::retry_policy::RetryWithBackoff;
+//! # use pravega_client_retry::retry_result::RetryResult;
+//! # use pravega_client_retry::retry_sync::retry_sync;
 //! let retry_policy = RetryWithBackoff::default().max_tries(1);
 //! let mut collection = vec![1, 2].into_iter();
 //! let value = retry_sync(retry_policy, || match collection.next() {

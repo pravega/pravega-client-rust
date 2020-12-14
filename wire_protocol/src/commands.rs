@@ -820,6 +820,7 @@ pub struct SegmentReadCommand {
     pub offset: i64,
     pub at_tail: bool,
     pub end_of_segment: bool,
+    #[serde(with = "serde_bytes")]
     pub data: Vec<u8>,
     pub request_id: i64,
 }

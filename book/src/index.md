@@ -7,7 +7,7 @@ Client. At the moment this repository supports Python bindings to Pravega.
 This book contains examples and documentation to explain all of Pravega Rust client's use cases in detail and the Python
 language bindigs.
 
-Please choose from the chapters on the left to jump to individual topics, or continue below to start with Pravega RUST Clients's README.
+Please choose from the chapters on the left to jump to individual topics, or continue below to start with Pravega Rust Clients's README.
 
 * User Guide: [stable](https://pravega.github.io/pravega-client-rust/) | [master](./index.html)
 
@@ -19,4 +19,4 @@ Please choose from the chapters on the left to jump to individual topics, or con
 
 ## License
 
-Pravega RUST client, all the source code, is released under the [Apache License v2.0](https://www.apache.org/licenses/LICENSE-2.0).
+Pravega Rust client, all the source code, is released under the [Apache License v2.0](https://www.apache.org/licenses/LICENSE-2.0).

@@ -5,6 +5,7 @@
 
 This is a native Rust client for [Pravega](https://www.pravega.io/). 
 
+Note: Pravega 0.9.0+ is required.
 
 ## Status
 
@@ -24,3 +25,6 @@ The approach is to write a common native implementation of the internals of the 
 
 Finally for each supported language the low level API is translated into a high level API that is idiomatic for the language.
 
+## Book
+
+Check out the Pravega Rust client [book](https://pravega.github.io/pravega-client-rust/) for more details.

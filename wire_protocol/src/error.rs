@@ -10,8 +10,8 @@
 
 use crate::wire_commands::Replies;
 use bincode2::Error as BincodeError;
-use pravega_rust_client_config::connection_type::ConnectionType;
-use pravega_rust_client_shared::PravegaNodeUri;
+use pravega_client_config::connection_type::ConnectionType;
+use pravega_client_shared::PravegaNodeUri;
 use snafu::{Backtrace, Snafu};
 use std::io::Error as IoError;
 

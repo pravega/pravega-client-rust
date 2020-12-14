@@ -14,7 +14,7 @@ use crate::reader_group_config::ReaderGroupConfigVersioned;
 use crate::table_synchronizer::{deserialize_from, Table, TableSynchronizer, Value};
 #[cfg(test)]
 use mockall::automock;
-use pravega_rust_client_shared::{Reader, ScopedSegment, Segment, SegmentWithRange};
+use pravega_client_shared::{Reader, ScopedSegment, Segment, SegmentWithRange};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use snafu::{ensure, OptionExt, Snafu};
@@ -637,7 +637,7 @@ mod test {
     use crate::table_synchronizer::{serialize, Value};
     use lazy_static::*;
     use ordered_float::OrderedFloat;
-    use pravega_rust_client_shared::{Scope, Segment, Stream};
+    use pravega_client_shared::{Scope, Segment, Stream};
 
     lazy_static! {
         static ref READER: Reader = Reader::from("test".to_owned());

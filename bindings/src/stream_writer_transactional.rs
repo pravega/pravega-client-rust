@@ -10,14 +10,14 @@
 
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
-        use pravega_client_rust::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
+        use pravega_client::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
         use pyo3::exceptions;
         use pyo3::prelude::*;
         use pyo3::PyResult;
         use pyo3::PyObjectProtocol;
         use crate::transaction::StreamTransaction;
-        use pravega_rust_client_shared::TxId;
-        use pravega_rust_client_shared::ScopedStream;
+        use pravega_client_shared::TxId;
+        use pravega_client_shared::ScopedStream;
         use tokio::runtime::Handle;
         use log::debug;
     }

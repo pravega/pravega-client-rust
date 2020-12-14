@@ -10,7 +10,7 @@
 
 use crate::client_factory::ClientFactory;
 use crate::error::*;
-use pravega_rust_client_shared::{PingStatus, ScopedStream, TxId};
+use pravega_client_shared::{PingStatus, ScopedStream, TxId};
 use std::collections::HashSet;
 use std::time::Duration;
 use tokio::sync::mpsc::error::TryRecvError;

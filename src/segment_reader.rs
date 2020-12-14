@@ -9,8 +9,8 @@
 //
 
 use async_trait::async_trait;
-use pravega_rust_client_auth::DelegationTokenProvider;
-use pravega_rust_client_shared::{PravegaNodeUri, ScopedSegment};
+use pravega_client_auth::DelegationTokenProvider;
+use pravega_client_shared::{PravegaNodeUri, ScopedSegment};
 use pravega_wire_protocol::commands::{ReadSegmentCommand, SegmentReadCommand};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use snafu::Snafu;
@@ -20,9 +20,9 @@ use crate::client_factory::ClientFactory;
 use crate::error::RawClientError;
 use crate::get_request_id;
 use crate::raw_client::RawClient;
-use pravega_rust_client_retry::retry_async::retry_async;
-use pravega_rust_client_retry::retry_result::RetryResult;
-use pravega_rust_client_retry::retry_result::Retryable;
+use pravega_client_retry::retry_async::retry_async;
+use pravega_client_retry::retry_result::RetryResult;
+use pravega_client_retry::retry_result::Retryable;
 use std::cmp;
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -473,6 +473,9 @@ impl PrefetchingAsyncSegmentReader {
                 Err(e) => warn!("failed to receive reply from background read: {}", e),
                 Ok(res) => match res {
                     Ok(cmd) => {
+                        if !cmd.end_of_segment && cmd.data.is_empty() {
+                            return Ok(());
+                        }
                         self.buffer.push_back(cmd);
                     }
                     Err(e) => return Err(e),
@@ -507,7 +510,7 @@ mod tests {
     use mockall::*;
     use tokio::time::delay_for;
 
-    use pravega_rust_client_shared::*;
+    use pravega_client_shared::*;
     use pravega_wire_protocol::client_connection::ClientConnection;
     use pravega_wire_protocol::commands::{
         Command, EventCommand, NoSuchSegmentCommand, SegmentIsSealedCommand, SegmentIsTruncatedCommand,
@@ -515,7 +518,7 @@ mod tests {
 
     use super::*;
     use crate::client_factory::ClientFactory;
-    use pravega_rust_client_config::ClientConfigBuilder;
+    use pravega_client_config::ClientConfigBuilder;
     use tokio::runtime::Runtime;
 
     // Setup mock.
@@ -544,7 +547,7 @@ mod tests {
     #[test]
     fn test_read_happy_path() {
         let config = ClientConfigBuilder::default()
-            .controller_uri(pravega_rust_client_config::MOCK_CONTROLLER_URI)
+            .controller_uri(pravega_client_config::MOCK_CONTROLLER_URI)
             .is_auth_enabled(false)
             .mock(true)
             .build()
