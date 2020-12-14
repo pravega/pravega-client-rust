@@ -115,7 +115,7 @@ impl Transaction {
     ///
     /// This method has a backpressure mechanism. Internally, it uses [`Channel`] to send event to
     /// Reactor for processing. [`Channel`] can has a limited [`capacity`], when its capacity
-    /// is reached, any further write will be blocked until enough space has been freed in the [`Channel`].
+    /// is reached, any further write will not be acceptedgit  until enough space has been freed in the [`Channel`].
     ///
     ///
     /// [`channel`]: pravega_client_channel
