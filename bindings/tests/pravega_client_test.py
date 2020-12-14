@@ -11,8 +11,8 @@
 import unittest
 import secrets
 import string
-import pravega_client;
-from pravega_client import TxnFailedException;
+import pravega_client
+from pravega_client import TxnFailedException
 
 class PravegaTest(unittest.TestCase):
 
