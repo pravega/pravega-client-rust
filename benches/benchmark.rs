@@ -11,25 +11,30 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use byteorder::BigEndian;
-use log::info;
 use pravega_client_rust::client_factory::ClientFactory;
 use pravega_client_rust::error::SegmentWriterError;
+use pravega_client_rust::event_reader::EventReader;
 use pravega_client_rust::event_stream_writer::EventStreamWriter;
 use pravega_controller_client::ControllerClient;
+use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
+use pravega_rust_client_config::{ClientConfig, ClientConfigBuilder};
 use pravega_rust_client_shared::*;
-use pravega_wire_protocol::client_config::{ClientConfig, ClientConfigBuilder};
 use pravega_wire_protocol::client_connection::{LENGTH_FIELD_LENGTH, LENGTH_FIELD_OFFSET};
-use pravega_wire_protocol::commands::{AppendSetupCommand, DataAppendedCommand};
-use pravega_wire_protocol::connection_factory::ConnectionType;
+use pravega_wire_protocol::commands::{
+    AppendSetupCommand, DataAppendedCommand, EventCommand, SegmentCreatedCommand, SegmentReadCommand,
+    TableEntries, TableEntriesDeltaReadCommand, TableEntriesUpdatedCommand, TYPE_PLUS_LENGTH_SIZE,
+};
 use pravega_wire_protocol::wire_commands::{Decode, Encode, Replies, Requests};
 use std::io::Cursor;
 use std::net::SocketAddr;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
+use tracing::info;
 
 static EVENT_NUM: usize = 10000;
 static EVENT_SIZE: usize = 100;
+const READ_EVENT_SIZE_BYTES: usize = 100 * 1024; //100 KB event.
 
 struct MockServer {
     address: SocketAddr,
@@ -44,6 +49,13 @@ impl MockServer {
     }
 
     pub async fn run(mut self) {
+        // 100K data chunk
+        let data_chunk: [u8; READ_EVENT_SIZE_BYTES] = [0xAAu8; READ_EVENT_SIZE_BYTES];
+        let event_data: Vec<u8> = Requests::Event(EventCommand {
+            data: data_chunk.to_vec(),
+        })
+        .write_fields()
+        .expect("Encoding event");
         let (mut stream, _addr) = self.listener.accept().await.expect("get incoming stream");
         loop {
             let mut header: Vec<u8> = vec![0; LENGTH_FIELD_OFFSET as usize + LENGTH_FIELD_LENGTH as usize];
@@ -64,6 +76,18 @@ impl MockServer {
             match request {
                 Requests::Hello(cmd) => {
                     let reply = Replies::Hello(cmd).write_fields().expect("encode reply");
+                    stream
+                        .write_all(&reply)
+                        .await
+                        .expect("write reply back to client");
+                }
+                Requests::CreateTableSegment(cmd) => {
+                    let reply = Replies::SegmentCreated(SegmentCreatedCommand {
+                        request_id: cmd.request_id,
+                        segment: cmd.segment,
+                    })
+                    .write_fields()
+                    .expect("encode reply");
                     stream
                         .write_all(&reply)
                         .await
@@ -98,6 +122,60 @@ impl MockServer {
                         .await
                         .expect("write reply back to client");
                 }
+
+                Requests::ReadSegment(cmd) => {
+                    let reply = Replies::SegmentRead(SegmentReadCommand {
+                        segment: cmd.segment,
+                        offset: cmd.offset,
+                        at_tail: false,
+                        end_of_segment: false,
+                        data: event_data.clone(),
+                        request_id: cmd.request_id,
+                    })
+                    .write_fields()
+                    .expect("error while encoding segment read ");
+
+                    stream
+                        .write_all(&reply)
+                        .await
+                        .expect("Write segment read reply to client");
+                }
+                // Send a mock response for table entry updates.
+                Requests::UpdateTableEntries(cmd) => {
+                    let new_versions: Vec<i64> = cmd
+                        .table_entries
+                        .entries
+                        .iter()
+                        .map(|(k, _v)| k.key_version + 1)
+                        .collect();
+                    let reply = Replies::TableEntriesUpdated(TableEntriesUpdatedCommand {
+                        request_id: 0,
+                        updated_versions: new_versions,
+                    })
+                    .write_fields()
+                    .expect("error while encoding TableEntriesUpdated");
+                    stream
+                        .write_all(&reply)
+                        .await
+                        .expect("Error while sending TableEntriesUpdate");
+                }
+                // This ensures the local state of the reader group state is treated as the latest.
+                Requests::ReadTableEntriesDelta(cmd) => {
+                    let reply = Replies::TableEntriesDeltaRead(TableEntriesDeltaReadCommand {
+                        request_id: cmd.request_id,
+                        segment: cmd.segment,
+                        entries: TableEntries { entries: vec![] }, // no new updates.
+                        should_clear: false,
+                        reached_end: false,
+                        last_position: cmd.from_position,
+                    })
+                    .write_fields()
+                    .expect("Error while encoding TableEntriesDeltaRead");
+                    stream
+                        .write_all(&reply)
+                        .await
+                        .expect("Error while sending DeltaRead");
+                }
                 _ => {
                     panic!("unsupported request {:?}", request);
                 }
@@ -106,6 +184,53 @@ impl MockServer {
     }
 }
 
+// Read a segment slice and consume events from the slice.
+async fn run_reader(reader: &mut EventReader, last_offset: &mut i64) {
+    if let Some(mut slice) = reader.acquire_segment().await {
+        while let Some(e) = slice.next() {
+            // validate offset in the segment.
+            if *last_offset == -1i64 {
+                assert_eq!(0, e.offset_in_segment);
+            } else {
+                assert_eq!(
+                    READ_EVENT_SIZE_BYTES + 2 * TYPE_PLUS_LENGTH_SIZE as usize,
+                    (e.offset_in_segment - *last_offset) as usize
+                );
+            }
+            // validate the event read length
+            assert_eq!(
+                READ_EVENT_SIZE_BYTES + TYPE_PLUS_LENGTH_SIZE as usize,
+                e.value.len()
+            );
+            *last_offset = e.offset_in_segment;
+        }
+    } else {
+        assert!(false, "No slice acquired");
+    }
+}
+
+// This benchmark test uses a mock server that replies ok to any requests instantly. It involves
+// kernel latency.
+fn read_mock_server(c: &mut Criterion) {
+    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let mock_server = rt.block_on(MockServer::new());
+    let config = ClientConfigBuilder::default()
+        .controller_uri(mock_server.address)
+        .mock(true)
+        .build()
+        .expect("creating config");
+    rt.spawn(async { MockServer::run(mock_server).await });
+    let mut reader = rt.block_on(setup_reader(config));
+    let _ = tracing_subscriber::fmt::try_init();
+    info!("start reader with mock server performance testing");
+    let mut last_offset: i64 = -1;
+    c.bench_function("read 100KB mock server", |b| {
+        b.iter(|| {
+            rt.block_on(run_reader(&mut reader, &mut last_offset));
+        });
+    });
+    println!("reader performance testing finished");
+}
 // This benchmark test uses a mock server that replies ok to any requests instantly. It involves
 // kernel latency.
 fn mock_server(c: &mut Criterion) {
@@ -118,7 +243,7 @@ fn mock_server(c: &mut Criterion) {
         .expect("creating config");
     let mut writer = rt.block_on(set_up(config));
     rt.spawn(async { MockServer::run(mock_server).await });
-
+    let _ = tracing_subscriber::fmt::try_init();
     info!("start mock server performance testing");
     c.bench_function("mock server", |b| {
         b.iter(|| {
@@ -140,7 +265,7 @@ fn mock_server_no_block(c: &mut Criterion) {
         .expect("creating config");
     let mut writer = rt.block_on(set_up(config));
     rt.spawn(async { MockServer::run(mock_server).await });
-
+    let _ = tracing_subscriber::fmt::try_init();
     info!("start mock server(no block) performance testing");
     c.bench_function("mock server(no block)", |b| {
         b.iter(|| {
@@ -157,11 +282,11 @@ fn mock_connection(c: &mut Criterion) {
     let config = ClientConfigBuilder::default()
         .controller_uri("127.0.0.1:9090".parse::<SocketAddr>().unwrap())
         .mock(true)
-        .connection_type(ConnectionType::Mock)
+        .connection_type(ConnectionType::Mock(MockType::Happy))
         .build()
         .expect("creating config");
     let mut writer = rt.block_on(set_up(config));
-
+    let _ = tracing_subscriber::fmt::try_init();
     info!("start mock connection performance testing");
     c.bench_function("mock connection", |b| {
         b.iter(|| {
@@ -178,11 +303,11 @@ fn mock_connection_no_block(c: &mut Criterion) {
     let config = ClientConfigBuilder::default()
         .controller_uri("127.0.0.1:9090".parse::<SocketAddr>().unwrap())
         .mock(true)
-        .connection_type(ConnectionType::Mock)
+        .connection_type(ConnectionType::Mock(MockType::Happy))
         .build()
         .expect("creating config");
     let mut writer = rt.block_on(set_up(config));
-
+    let _ = tracing_subscriber::fmt::try_init();
     info!("start mock connection(no block) performance testing");
     c.bench_function("mock connection(no block)", |b| {
         b.iter(|| {
@@ -194,8 +319,8 @@ fn mock_connection_no_block(c: &mut Criterion) {
 
 // helper functions
 async fn set_up(config: ClientConfig) -> EventStreamWriter {
-    let scope_name = Scope::new("testWriterPerf".into());
-    let stream_name = Stream::new("testWriterPerf".into());
+    let scope_name: Scope = Scope::from("testWriterPerf".to_string());
+    let stream_name = Stream::from("testWriterPerf".to_string());
     let client_factory = ClientFactory::new(config.clone());
     let controller_client = client_factory.get_controller_client();
     create_scope_stream(controller_client, &scope_name, &stream_name, 1).await;
@@ -204,6 +329,24 @@ async fn set_up(config: ClientConfig) -> EventStreamWriter {
         stream: stream_name.clone(),
     };
     client_factory.create_event_stream_writer(scoped_stream)
+}
+
+async fn setup_reader(config: ClientConfig) -> EventReader {
+    let scope_name: Scope = Scope::from("testReaderPerf".to_string());
+    let stream_name = Stream::from("testReaderPerf".to_string());
+    let client_factory = ClientFactory::new(config.clone());
+    let controller_client = client_factory.get_controller_client();
+    create_scope_stream(controller_client, &scope_name, &stream_name, 1).await;
+    let scoped_stream = ScopedStream {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+    };
+    let reader_group = client_factory
+        .create_reader_group("rg1".to_string(), scoped_stream)
+        .await;
+
+    let reader = reader_group.create_reader("r1".to_string()).await;
+    reader
 }
 
 async fn create_scope_stream(
@@ -270,5 +413,9 @@ criterion_group! {
     config = Criterion::default().sample_size(10);
     targets = mock_server,mock_server_no_block,mock_connection,mock_connection_no_block
 }
-
-criterion_main!(performance);
+criterion_group! {
+    name = reader_performance;
+    config = Criterion::default().sample_size(10);
+    targets = read_mock_server
+}
+criterion_main!(performance, reader_performance);

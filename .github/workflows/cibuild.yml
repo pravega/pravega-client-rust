@@ -100,7 +100,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: -p pravega-rust-client-channel -p pravega-controller-client -p pravega-rust-client-integration-test -p pravega-rust-client-retry -p pravega-rust-client-shared -p pravega-wire-protocol -p pravega-client-rust -p pravega-rust-client-auth -p pravega-rust-client-config
+          args: -p pravega-client-channel -p pravega-controller-client -p pravega-client-integration-test -p pravega-client-retry -p pravega-client-shared -p pravega-wire-protocol -p pravega-client -p pravega-client-auth -p pravega-client-config
       - name: Run code cov
         run: |
           chmod +x ./.github/workflows/codecov/codecov.sh

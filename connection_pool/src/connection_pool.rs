@@ -10,7 +10,7 @@
 
 use async_trait::async_trait;
 use dashmap::DashMap;
-use pravega_rust_client_shared::PravegaNodeUri;
+use pravega_client_shared::PravegaNodeUri;
 use snafu::Snafu;
 use std::fmt;
 use std::ops::{Deref, DerefMut};

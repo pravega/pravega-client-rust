@@ -8,20 +8,25 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 
-import unittest
-import pravega_client;
-import asyncio
+import pravega_client
 import random
+import asyncio
+import aiounittest
+
 
 
 # Helper method to invoke an coroutine inside a test.
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    loop = asyncio.get_event_loop()
+    loop.is_closed()
+    result = loop.run_until_complete(coro)
+    loop.close()
+    return result
 
-class PravegaReaderTest(unittest.TestCase):
-    def test_writeEventAndRead(self):
+class PravegaReaderTest(aiounittest.AsyncTestCase):
+    async def test_writeEventAndRead(self):
         suffix = str(random.randint(0, 100))
-        scope = "testRead";
+        scope = "testRead"
         stream = "testStream" + suffix
         print("Creating a Stream Manager, ensure Pravega is running")
         stream_manager = pravega_client.StreamManager("127.0.0.1:9090")
@@ -41,7 +46,7 @@ class PravegaReaderTest(unittest.TestCase):
         w1.write_event("test event")
         reader_group = stream_manager.create_reader_group("rg" + suffix, scope, stream);
         r1 = reader_group.create_reader("reader-1")
-        segment_slice = _run(self.get_segment_slice(r1))
+        segment_slice = await r1.get_segment_slice_async()
         print(segment_slice)
         # consume the segment slice for events.
         count=0
@@ -51,13 +56,12 @@ class PravegaReaderTest(unittest.TestCase):
             self.assertEqual(b'test event', event.data(), "Invalid event data")
         self.assertEqual(count, 2, "Two events are expected")
 
-
     # This test verifies data reading a Pravega stream with multiple readers.
     # It also invokes release Segment after consuming the first segment slice and marks the first
     # reader as offline. This test verifies if we are able to read all the 100 elements.
-    def test_multipleReader(self):
+    async def test_multipleReader(self):
         suffix = str(random.randint(0, 100))
-        scope = "testRead";
+        scope = "testRead"
         stream = "testMulti" + suffix
         print("Creating a Stream Manager, ensure Pravega is running")
         stream_manager = pravega_client.StreamManager("127.0.0.1:9090")
@@ -78,7 +82,7 @@ class PravegaReaderTest(unittest.TestCase):
 
         reader_group = stream_manager.create_reader_group("rg-multi" + suffix, scope, stream);
         r1 = reader_group.create_reader("r1")
-        slice1 = _run(self.get_segment_slice(r1))
+        slice1 = await r1.get_segment_slice_async()
         print(slice1)
         # consume the segment slice for events.
         count=0
@@ -92,7 +96,7 @@ class PravegaReaderTest(unittest.TestCase):
         r1.reader_offline()
 
         r2 = reader_group.create_reader("r2")
-        slice2 = _run(self.get_segment_slice(r2))
+        slice2 = await r2.get_segment_slice_async()
         for event in slice2:
             count+=1
             self.assertEqual(b'data', event.data(), "Invalid event data")
@@ -103,7 +107,7 @@ class PravegaReaderTest(unittest.TestCase):
     # This test verifies data reading a Pravega stream with multiple readers.
     # It also invokes release Segment after consuming part of the first segment slice and marks the first
     # reader as offline. This test verifies if we are able to read all the 100 elements.
-    def test_multipleReaderPartialRead(self):
+    async def test_multipleReaderPartialRead(self):
         suffix = str(random.randint(0, 100))
         scope = "testRead"
         stream = "testPartial" + suffix
@@ -124,9 +128,9 @@ class PravegaReaderTest(unittest.TestCase):
         for i in range(100):
             w1.write_event("data")
 
-        reader_group = stream_manager.create_reader_group("rg-partial" + suffix, scope, stream);
+        reader_group = stream_manager.create_reader_group("rg-partial" + suffix, scope, stream)
         r1 = reader_group.create_reader("r1")
-        slice1 = _run(self.get_segment_slice(r1))
+        slice1 = await r1.get_segment_slice_async()
         print(slice1)
         # consume the just 1 event from the first segment slice.
         count=0
@@ -141,21 +145,16 @@ class PravegaReaderTest(unittest.TestCase):
         r1.reader_offline()
 
         r2 = reader_group.create_reader("r2")
-        slice2 = _run(self.get_segment_slice(r2))
+        slice2 = await r2.get_segment_slice_async()
         for event in slice2:
             count+=1
             self.assertEqual(b'data', event.data(), "Invalid event data")
         print("Number of events read after consuming slice2 ", count)
         if count != 100:
-            slice3 = _run(self.get_segment_slice(r2))
+            slice3 = await r2.get_segment_slice_async()
             for event in slice3:
                 count+=1
                 self.assertEqual(b'data', event.data(), "Invalid event data")
             print("Number of events read after consuming slice3 ", count)
 
         self.assertEqual(count, 100, "100 events are expected")
-
-    # wrapper function to ensure we pass a co-routine to run method, since we cannot directly invoke
-    # await reader.get_segment_slice_async() inside the test.
-    async def get_segment_slice(self, reader):
-        return await reader.get_segment_slice_async()

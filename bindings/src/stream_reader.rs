@@ -10,15 +10,15 @@
 
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
-        use pravega_client_rust::event_reader::EventReader;
-        use pravega_rust_client_shared::ScopedStream;
+        use pravega_client::event_reader::EventReader;
+        use pravega_client_shared::ScopedStream;
         use pyo3::prelude::*;
         use pyo3::PyResult;
         use pyo3::PyObjectProtocol;
         use tokio::runtime::Handle;
         use log::info;
         use std::sync::Arc;
-        use pravega_client_rust::segment_slice::{Event, SegmentSlice};
+        use pravega_client::segment_slice::{Event, SegmentSlice};
         use pyo3::PyIterProtocol;
         use tokio::sync::Mutex;
     }
@@ -107,7 +107,7 @@ impl StreamReader {
         Ok(())
     }
 
-    /// Returns the facet string representation.
+    /// Returns the string representation.
     fn to_str(&self) -> String {
         format!("Stream: {:?} ", self.stream)
     }
@@ -172,7 +172,7 @@ impl EventData {
     fn data(&self) -> &[u8] {
         self.value.as_slice()
     }
-    /// Returns the facet string representation.
+    /// Returns the string representation.
     fn to_str(&self) -> String {
         format!("offset {:?} data :{:?}", self.offset_in_segment, self.value)
     }

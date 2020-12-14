@@ -63,8 +63,8 @@ fn check_standalone_status() -> bool {
 mod test {
     use super::*;
     use crate::pravega_service::PravegaStandaloneServiceConfig;
-    use pravega_client_rust::trace;
     use std::env;
+    use pravega_client::trace;
     use std::net::SocketAddr;
     use wirecommand_tests::*;
 

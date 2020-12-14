@@ -213,14 +213,14 @@ fn test_conditional_append() {
             writer_id: writer_id_number,
             event_number: 1,
             expected_offset: 0,
-            data: event.write_fields().unwrap(),
+            event,
             request_id: 1,
         }));
 
     let decoded = test_command(conditional_append_command);
     if let WireCommands::Requests(Requests::ConditionalAppend(command)) = decoded {
         let data = String::from("event-1").into_bytes();
-        assert_eq!(command.data, EventCommand { data }.write_fields().unwrap());
+        assert_eq!(command.event, EventCommand { data });
     } else {
         panic!("test failed");
     }

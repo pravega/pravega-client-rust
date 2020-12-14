@@ -1,0 +1,24 @@
+[package]
+name = "pravega-rust-client-examples"
+version = "0.1.0"
+edition = "2018"
+categories = ["Network programming"]
+keywords = ["streaming", "client", "pravega"]
+readme = "Readme.md"
+repository = "https://github.com/pravega/pravega-client-rust"
+license = "Apache-2.0"
+description = "The integration test for pravega rust client."
+authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.com>",
+    "Sandeep Shridhar <sandeep.shridhar@dell.com>"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dev-dependencies]
+pravega-client = { path = "../" }
+pravega-client-config = { path = "../config"}
+pravega-client-shared = { path = "../shared"}
+tokio = "0.2"
+
+[[example]]
+name = "event_write_and_read"
+path = "event_write_and_read.rs"

@@ -11,10 +11,10 @@
 use crate::client_factory::ClientFactory;
 use crate::get_request_id;
 use crate::raw_client::RawClient;
-use pravega_rust_client_auth::DelegationTokenProvider;
-use pravega_rust_client_retry::retry_async::retry_async;
-use pravega_rust_client_retry::retry_result::RetryResult;
-use pravega_rust_client_shared::{PravegaNodeUri, ScopedSegment, ScopedStream, SegmentInfo};
+use pravega_client_auth::DelegationTokenProvider;
+use pravega_client_retry::retry_async::retry_async;
+use pravega_client_retry::retry_result::RetryResult;
+use pravega_client_shared::{PravegaNodeUri, ScopedSegment, ScopedStream, SegmentInfo};
 use pravega_wire_protocol::commands::{
     GetStreamSegmentInfoCommand, SealSegmentCommand, TruncateSegmentCommand,
 };

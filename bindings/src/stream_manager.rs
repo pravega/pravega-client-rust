@@ -13,9 +13,9 @@ cfg_if! {
         use crate::stream_writer_transactional::StreamTxnWriter;
         use crate::stream_writer::StreamWriter;
         use crate::stream_reader_group::StreamReaderGroup;
-        use pravega_client_rust::client_factory::ClientFactory;
-        use pravega_rust_client_shared::*;
-        use pravega_rust_client_config::{ClientConfig, ClientConfigBuilder};
+        use pravega_client::client_factory::ClientFactory;
+        use pravega_client_shared::*;
+        use pravega_client_config::{ClientConfig, ClientConfigBuilder};
         use pyo3::prelude::*;
         use pyo3::PyResult;
         use pyo3::{exceptions, PyObjectProtocol};
@@ -275,7 +275,7 @@ impl StreamManager {
         Ok(reader_group)
     }
 
-    /// Returns the facet string representation.
+    /// Returns the string representation.
     fn to_str(&self) -> String {
         format!(
             "Controller ip: {:?} ClientConfig: {:?}",

@@ -10,14 +10,14 @@
 
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
-        use pravega_client_rust::transaction::Transaction;
+        use pravega_client::transaction::Transaction;
         use pyo3::exceptions;
         use pyo3::prelude::*;
         use pyo3::PyResult;
         use tokio::runtime::Handle;
         use crate::TxnFailedException;
-        use pravega_client_rust::error::TransactionError;
-        use pravega_rust_client_shared::{Timestamp, TransactionStatus, TxId};
+        use pravega_client::error::TransactionError;
+        use pravega_client_shared::{Timestamp, TransactionStatus, TxId};
         use pyo3::PyObjectProtocol;
         use log::{trace, info, warn};
         use std::time::Duration;
@@ -185,7 +185,7 @@ impl StreamTransaction {
         }
     }
 
-    /// Returns the facet string representation.
+    /// Returns the string representation.
     fn to_str(&self) -> String {
         format!(
             "Txn id: {:?} , {:?}",

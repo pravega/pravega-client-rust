@@ -15,10 +15,10 @@ use async_trait::async_trait;
 use im::HashMap as ImHashMap;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use ordered_float::OrderedFloat;
+use pravega_client_config::connection_type::{ConnectionType, MockType};
+use pravega_client_retry::retry_result::RetryError;
+use pravega_client_shared::*;
 use pravega_connection_pool::connection_pool::ConnectionPool;
-use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
-use pravega_rust_client_retry::retry_result::RetryError;
-use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{CreateSegmentCommand, DeleteSegmentCommand, MergeSegmentsCommand};
 use pravega_wire_protocol::connection_factory::{
@@ -262,16 +262,13 @@ impl ControllerClient for MockController {
         })
     }
 
-    async fn get_head_segments(&self, _stream: &ScopedStream) -> ResultRetry<ImHashMap<Segment, i64>> {
-        Err(RetryError {
-            error: ControllerError::OperationError {
-                can_retry: false, // do not retry.
-                operation: "get head segments".into(),
-                error_msg: "unsupported operation.".into(),
-            },
-            total_delay: Duration::from_millis(1),
-            tries: 0,
-        })
+    async fn get_head_segments(&self, stream: &ScopedStream) -> ResultRetry<ImHashMap<Segment, i64>> {
+        let segments_in_stream: Vec<ScopedSegment> =
+            get_segments_for_stream(stream, &self.created_streams.read().await)?;
+        Ok(segments_in_stream
+            .iter()
+            .map(|t| (t.segment.clone(), 0i64))
+            .collect())
     }
 
     async fn create_transaction(

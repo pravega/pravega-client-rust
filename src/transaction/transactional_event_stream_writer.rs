@@ -12,8 +12,8 @@ use crate::client_factory::ClientFactory;
 use crate::error::*;
 use crate::transaction::pinger::{Pinger, PingerHandle};
 use crate::transaction::{Transaction, TransactionInfo};
-use pravega_rust_client_auth::DelegationTokenProvider;
-use pravega_rust_client_shared::{ScopedStream, StreamSegments, TransactionStatus, TxId, WriterId};
+use pravega_client_auth::DelegationTokenProvider;
+use pravega_client_shared::{ScopedStream, StreamSegments, TransactionStatus, TxId, WriterId};
 use snafu::ResultExt;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -22,20 +22,21 @@ use tracing::{info, info_span};
 use tracing_futures::Instrument;
 
 /// A writer that writes Events to an Event stream transactionally. Events that are written to the
-/// transaction can be committed atomically, which means that reader cannot see any writes prior to committing.
+/// transaction can be committed atomically, which means that reader cannot see any writes prior to committing
+/// and will not see any writes if the transaction is aborted.
+///
 /// # Example
 ///
 /// ```no_run
-/// use std::net::SocketAddr;
 /// use tokio;
-/// use pravega_rust_client_shared::{Timestamp, ScopedStream, Scope, Stream, WriterId, PravegaNodeUri};
-/// use pravega_client_rust::client_factory::ClientFactory;
-/// use pravega_rust_client_config::ClientConfigBuilder;
+/// use pravega_client_shared::{Timestamp, ScopedStream, Scope, Stream, WriterId, PravegaNodeUri};
+/// use pravega_client::client_factory::ClientFactory;
+/// use pravega_client_config::ClientConfigBuilder;
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     let scope_name = Scope::from("testScope".to_owned());
-///     let stream_name = Stream::from("testStream".to_owned());
+///     let scope_name = Scope::from("txnScope".to_owned());
+///     let stream_name = Stream::from("txnStream".to_owned());
 ///     let scoped_stream = ScopedStream {
 ///          scope: scope_name.clone(),
 ///          stream: stream_name.clone(),
@@ -160,9 +161,9 @@ impl TransactionalEventStreamWriter {
 pub(crate) mod test {
     use super::*;
     use crate::create_stream;
-    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
-    use pravega_rust_client_config::ClientConfigBuilder;
-    use pravega_rust_client_shared::{PravegaNodeUri, ScopedSegment};
+    use pravega_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_client_config::ClientConfigBuilder;
+    use pravega_client_shared::{PravegaNodeUri, ScopedSegment};
     use tokio::runtime::Runtime;
 
     #[test]

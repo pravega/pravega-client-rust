@@ -11,8 +11,8 @@
 use crate::stream_reader::StreamReader;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
-        use pravega_rust_client_shared::ScopedStream;
-        use pravega_client_rust::event_reader_group::ReaderGroup;
+        use pravega_client_shared::ScopedStream;
+        use pravega_client::event_reader_group::ReaderGroup;
         use pyo3::prelude::*;
         use pyo3::PyResult;
         use pyo3::PyObjectProtocol;
@@ -74,7 +74,7 @@ impl StreamReaderGroup {
         Ok(stream_reader)
     }
 
-    /// Returns the facet string representation.
+    /// Returns the string representation.
     fn to_str(&self) -> String {
         format!(
             "Stream: {:?} , ReaderGroup: {:?}",

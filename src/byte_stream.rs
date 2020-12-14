@@ -16,29 +16,69 @@ use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::reactors::Reactor;
 use crate::segment_metadata::SegmentMetadataClient;
 use crate::segment_reader::PrefetchingAsyncSegmentReader;
-use pravega_rust_client_channel::{create_channel, ChannelSender};
-use pravega_rust_client_shared::{ScopedSegment, ScopedStream, WriterId};
+use pravega_client_channel::{create_channel, ChannelSender};
+use pravega_client_shared::{ScopedSegment, ScopedStream, WriterId};
 use std::convert::TryInto;
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::oneshot;
-use tracing::debug;
 use tracing::info_span;
 use tracing_futures::Instrument;
 use uuid::Uuid;
-
-const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
 type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 
 /// Allows for writing raw bytes directly to a segment.
 ///
-/// This class does not frame, attach headers, or otherwise modify the bytes written to it in any
-/// way. So unlike EventStreamWriter the data written cannot be split apart when read.
-/// As such, any bytes written by this API can ONLY be read using ByteStreamReader.
-/// Similarly, unless some sort of framing is added it is probably an error to have multiple
-/// ByteStreamWriters write to the same segment as this will result in interleaved data.
+/// ByteStreamWriter does not frame, attach headers, or otherwise modify the bytes written to it in any
+/// way. So unlike [`EventStreamWriter`] the data written cannot be split apart when read.
+/// As such, any bytes written by this API can ONLY be read using [`ByteStreamReader`].
+///
+/// Similarly, multiple ByteStreamWriters write to the same segment as this will result in interleaved data,
+/// which is not desirable in most cases. ByteStreamWriter uses Conditional Append to make sure that writers
+/// are aware of the content in the segment. If another process writes data to the segment after this one began writing,
+/// all subsequent writes from this writer will not be written and [`flush`] will fail. This prevents data from being accidentally interleaved.
+///
+/// [`EventStreamWriter`]: crate::event_stream_writer::EventStreamWriter
+/// [`ByteStreamReader`]: ByteStreamReader
+/// [`flush`]: ByteStreamWriter::flush
+///
+/// # Note
+///
+/// The ByteStreamWriter implementation provides [`retry`] logic to handle connection failures and service host
+/// failures. Internal retries will not violate the exactly once semantic so it is better to rely on them
+/// than to wrap this with custom retry logic.
+///
+/// [`retry`]: pravega_client_retry
+///
+/// # Examples
+/// ```no_run
+/// use pravega_client_config::ClientConfigBuilder;
+/// use pravega_client::client_factory::ClientFactory;
+/// use pravega_client_shared::ScopedSegment;
+/// use std::io::Write;
+///
+/// #[tokio::main]
+/// async fn main() {
+///     // assuming Pravega controller is running at endpoint `localhost:9090`
+///     let config = ClientConfigBuilder::default()
+///         .controller_uri("localhost:9090")
+///         .build()
+///         .expect("creating config");
+///
+///     let client_factory = ClientFactory::new(config);
+///
+///     // assuming scope:myscope, stream:mystream and segment 0 do exist.
+///     let segment = ScopedSegment::from("myscope/mystream/0");
+///
+///     let mut byte_stream_writer = client_factory.create_byte_stream_writer(segment);
+///
+///     let payload = "hello world".to_string().into_bytes();
+///     byte_stream_writer.write(&payload).expect("write");
+///     byte_stream_writer.flush().expect("flush");
+/// }
+/// ```
 pub struct ByteStreamWriter {
     writer_id: WriterId,
     sender: ChannelSender<Incoming>,
@@ -54,6 +94,15 @@ impl Write for ByteStreamWriter {
     /// Writes the given data to the server. It doesn't mean the data is persisted on the server side
     /// when this method returns Ok, user should call flush to ensure all data has been acknowledged
     /// by the server.
+    ///
+    /// Write has a backpressure mechanism. Internally, it uses [`Channel`] to send event to
+    /// Reactor for processing. [`Channel`] can has a limited [`capacity`], when its capacity
+    /// is reached, any further write will not be accepted until enough space has been freed in the [`Channel`].
+    ///
+    ///
+    /// [`channel`]: pravega_client_channel
+    /// [`capacity`]: ByteStreamWriter::CHANNEL_CAPACITY
+    ///
     fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
         let bytes_to_write = std::cmp::min(buf.len(), EventStreamWriter::MAX_EVENT_SIZE);
         let payload = buf[0..bytes_to_write].to_vec();
@@ -61,10 +110,6 @@ impl Write for ByteStreamWriter {
             .runtime_handle
             .block_on(self.write_internal(self.sender.clone(), payload));
 
-        debug!(
-            "writing payload of size {} based on offset {}",
-            bytes_to_write, self.write_offset
-        );
         self.write_offset += bytes_to_write as i64;
         self.event_handle = Some(oneshot_receiver);
         Ok(bytes_to_write)
@@ -81,9 +126,12 @@ impl Write for ByteStreamWriter {
 }
 
 impl ByteStreamWriter {
+    // maximum 16 MB total size of events could be held in memory
+    const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
+
     pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
         let handle = factory.get_runtime_handle();
-        let (sender, receiver) = create_channel(CHANNEL_CAPACITY);
+        let (sender, receiver) = create_channel(Self::CHANNEL_CAPACITY);
         let metadata_client = handle.block_on(factory.create_segment_metadata_client(segment.clone()));
         let writer_id = WriterId(get_random_u128());
         let stream = ScopedStream::from(&segment);
@@ -289,9 +337,9 @@ impl Drop for ByteStreamWriter {
 mod test {
     use super::*;
     use crate::create_stream;
-    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
-    use pravega_rust_client_config::ClientConfigBuilder;
-    use pravega_rust_client_shared::PravegaNodeUri;
+    use pravega_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_client_config::ClientConfigBuilder;
+    use pravega_client_shared::PravegaNodeUri;
     use tokio::runtime::Runtime;
 
     #[test]
@@ -306,7 +354,8 @@ mod test {
 
         // read 200 bytes from beginning
         let mut buf = vec![0; 200];
-        reader.read(&mut buf).expect("read");
+        let read = reader.read(&mut buf).expect("read");
+        assert_eq!(read, 200);
         assert_eq!(buf, vec![1; 200]);
 
         // seek to head

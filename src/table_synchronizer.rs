@@ -259,9 +259,9 @@ impl TableSynchronizer {
     /// This will update the local_map to latest version.
     pub async fn remove(
         &mut self,
-        deletes_generateor: impl FnMut(&mut Table) -> Result<Option<String>, SynchronizerError>,
+        deletes_generator: impl FnMut(&mut Table) -> Result<Option<String>, SynchronizerError>,
     ) -> Result<Option<String>, SynchronizerError> {
-        conditionally_remove(deletes_generateor, self, MAX_RETRIES).await
+        conditionally_remove(deletes_generator, self, MAX_RETRIES).await
     }
 }
 
@@ -870,9 +870,9 @@ mod test {
     use super::*;
     use crate::table_synchronizer::{deserialize_from, Table};
     use crate::table_synchronizer::{serialize, Value};
-    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
-    use pravega_rust_client_config::ClientConfigBuilder;
-    use pravega_rust_client_shared::PravegaNodeUri;
+    use pravega_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_client_config::ClientConfigBuilder;
+    use pravega_client_shared::PravegaNodeUri;
     use std::collections::HashMap;
     use tokio::runtime::Runtime;
 

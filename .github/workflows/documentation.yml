@@ -6,16 +6,20 @@ on:
       - master
 
 jobs:
-  deploy:
+  generate_documentation:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
 
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v1
         with:
           mdbook-version: '0.4.1'
-          # mdbook-version: 'latest'
 
       # This generates the book inside ./book/book
       - run: mdbook build book
@@ -26,6 +30,16 @@ jobs:
           cargo doc --no-deps
           cp -r target/doc book/book/doc
           echo "<meta http-equiv=refresh content=0;url=pravega_client_rust/index.html>" > book/book/doc/index.html
+
+      - name: Generate Pravega Python API documentation.
+        run: |
+          pip install maturin virtualenv pdoc3
+          virtualenv venv
+          source venv/bin/activate
+          maturin develop -m bindings/Cargo.toml
+          pdoc --html pravega_client
+          mkdir -p book/book/python
+          cp html/pravega_client.html book/book/python
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
