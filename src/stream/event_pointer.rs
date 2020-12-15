@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 use crate::error::*;
-use pravega_rust_client_shared::Segment;
+use pravega_client_shared::Segment;
 use serde::{Deserialize, Serialize};
 use serde_cbor::from_slice;
 use serde_cbor::to_vec;

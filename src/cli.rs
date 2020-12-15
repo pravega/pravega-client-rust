@@ -7,10 +7,10 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-use pravega_client_rust::raw_client::*;
+use pravega_client::raw_client::*;
+use pravega_client_config::{connection_type::ConnectionType, ClientConfigBuilder};
+use pravega_client_shared::PravegaNodeUri;
 use pravega_connection_pool::connection_pool::ConnectionPool;
-use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfigBuilder};
-use pravega_rust_client_shared::PravegaNodeUri;
 use pravega_wire_protocol::commands::*;
 use pravega_wire_protocol::connection_factory::{
     ConnectionFactory, ConnectionFactoryConfig, SegmentConnectionManager,

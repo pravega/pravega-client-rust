@@ -8,11 +8,11 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use pravega_client_config::ClientConfig;
+use pravega_client_shared::{DelegationToken, PravegaNodeUri, ScopedSegment, ScopedStream, WriterId};
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::mock_controller::MockController;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
-use pravega_rust_client_config::ClientConfig;
-use pravega_rust_client_shared::{DelegationToken, PravegaNodeUri, ScopedSegment, ScopedStream, WriterId};
 use pravega_wire_protocol::connection_factory::{
     ConnectionFactory, ConnectionFactoryConfig, SegmentConnectionManager,
 };
@@ -27,7 +27,7 @@ use crate::segment_reader::AsyncSegmentReaderImpl;
 use crate::table_synchronizer::TableSynchronizer;
 use crate::tablemap::TableMap;
 use crate::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
-use pravega_rust_client_auth::DelegationTokenProvider;
+use pravega_client_auth::DelegationTokenProvider;
 use std::fmt;
 use std::sync::Arc;
 use tokio::runtime::{Handle, Runtime};

@@ -16,10 +16,8 @@ use crate::error::*;
 use crate::reactor::event::{Incoming, PendingEvent};
 use crate::reactor::reactors::Reactor;
 use crate::transaction::pinger::PingerHandle;
-use pravega_rust_client_channel::{create_channel, ChannelSender};
-use pravega_rust_client_shared::{
-    ScopedStream, StreamSegments, Timestamp, TransactionStatus, TxId, WriterId,
-};
+use pravega_client_channel::{create_channel, ChannelSender};
+use pravega_client_shared::{ScopedStream, StreamSegments, Timestamp, TransactionStatus, TxId, WriterId};
 use snafu::ResultExt;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;
@@ -48,7 +46,7 @@ pub struct Transaction {
 type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;
 
 impl Transaction {
-    // maximum bytes stored in memory
+    // maximum 16 MB total size of events could be held in memory
     const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
     // Transaction should be created by transactional event stream writer, so this new method
@@ -114,6 +112,15 @@ impl Transaction {
     /// write_event accepts a vec of bytes as the input event and an optional routing key which is used
     /// to determine which segment to write to. It calls the corresponding transactional event segment
     /// writer to write the data to segmentstore server.
+    ///
+    /// This method has a backpressure mechanism. Internally, it uses [`Channel`] to send event to
+    /// Reactor for processing. [`Channel`] can has a limited [`capacity`], when its capacity
+    /// is reached, any further write will not be acceptedgit  until enough space has been freed in the [`Channel`].
+    ///
+    ///
+    /// [`channel`]: pravega_client_channel
+    /// [`capacity`]: Transaction::CHANNEL_CAPACITY
+    ///
     pub async fn write_event(
         &mut self,
         routing_key: Option<String>,

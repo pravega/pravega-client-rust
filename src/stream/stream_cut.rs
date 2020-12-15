@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 use crate::error::*;
-use pravega_rust_client_shared::{ScopedSegment, ScopedStream};
+use pravega_client_shared::{ScopedSegment, ScopedStream};
 use serde::{Deserialize, Serialize};
 use serde_cbor::from_slice;
 use serde_cbor::to_vec;
@@ -67,7 +67,7 @@ impl StreamCutV1 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pravega_rust_client_shared::{Scope, Segment, Stream};
+    use pravega_client_shared::{Scope, Segment, Stream};
 
     #[test]
     fn test_position_serde() {

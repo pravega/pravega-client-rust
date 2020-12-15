@@ -10,9 +10,9 @@
 
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
-        use pravega_client_rust::error::SegmentWriterError;
-        use pravega_client_rust::event_stream_writer::EventStreamWriter;
-        use pravega_rust_client_shared::ScopedStream;
+        use pravega_client::error::SegmentWriterError;
+        use pravega_client::event_stream_writer::EventStreamWriter;
+        use pravega_client_shared::ScopedStream;
         use pyo3::exceptions;
         use pyo3::prelude::*;
         use pyo3::PyResult;

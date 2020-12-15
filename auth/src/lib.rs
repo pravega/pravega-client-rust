@@ -26,8 +26,8 @@
 
 use base64::decode;
 use lazy_static::*;
+use pravega_client_shared::{DelegationToken, ScopedStream};
 use pravega_controller_client::ControllerClient;
-use pravega_rust_client_shared::{DelegationToken, ScopedStream};
 use regex::Regex;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -156,8 +156,8 @@ fn parse_expiration_time(jwt_body: String) -> u64 {
 #[cfg(test)]
 mod test {
     use super::*;
+    use pravega_client_shared::{PravegaNodeUri, Scope, Stream};
     use pravega_controller_client::mock_controller::MockController;
-    use pravega_rust_client_shared::{PravegaNodeUri, Scope, Stream};
     use tokio::runtime::Runtime;
 
     const JWT_TOKEN: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzdWJqZWN0IiwiYXVkIjoic2VnbWVudHN0b3JlIiwiaWF0IjoxNTY5ODM3Mzg0LCJleHAiOjE1Njk4Mzc0MzR9.wYSsKf8BirFoT2KY4dhzSFiWaUc9b4xe_jECKJWnR-k";

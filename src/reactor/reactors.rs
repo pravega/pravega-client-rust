@@ -8,10 +8,10 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use pravega_rust_client_channel::{ChannelReceiver, ChannelSender};
+use pravega_client_channel::{ChannelReceiver, ChannelSender};
 use tracing::{debug, error, info, warn};
 
-use pravega_rust_client_shared::*;
+use pravega_client_shared::*;
 use pravega_wire_protocol::wire_commands::Replies;
 
 use crate::client_factory::ClientFactory;
@@ -185,8 +185,8 @@ pub(crate) mod test {
     use crate::error::*;
     use crate::reactor::event::PendingEvent;
     use crate::reactor::segment_selector::test::create_segment_selector;
-    use pravega_rust_client_channel::ChannelSender;
-    use pravega_rust_client_config::connection_type::MockType;
+    use pravega_client_channel::ChannelSender;
+    use pravega_client_config::connection_type::MockType;
     use tokio::sync::oneshot;
 
     type EventHandle = oneshot::Receiver<Result<(), SegmentWriterError>>;

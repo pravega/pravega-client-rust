@@ -11,15 +11,15 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::get_random_f64;
-use pravega_rust_client_channel::ChannelSender;
+use pravega_client_channel::ChannelSender;
 use tracing::{debug, warn};
 
-use pravega_rust_client_shared::*;
+use pravega_client_shared::*;
 
 use crate::client_factory::ClientFactory;
 use crate::reactor::event::Incoming;
 use crate::reactor::segment_writer::{Append, SegmentWriter};
-use pravega_rust_client_auth::DelegationTokenProvider;
+use pravega_client_auth::DelegationTokenProvider;
 use std::sync::Arc;
 
 /// Maintains mapping from segments to segment writers.
@@ -188,9 +188,9 @@ pub(crate) mod test {
     use super::*;
     use im::HashMap as ImHashMap;
     use ordered_float::OrderedFloat;
-    use pravega_rust_client_channel::{create_channel, ChannelReceiver};
-    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
-    use pravega_rust_client_config::ClientConfigBuilder;
+    use pravega_client_channel::{create_channel, ChannelReceiver};
+    use pravega_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_client_config::ClientConfigBuilder;
     use tokio::runtime::Runtime;
 
     #[test]

@@ -10,8 +10,8 @@
 
 use crate::error::*;
 use async_trait::async_trait;
+use pravega_client_shared::PravegaNodeUri;
 use pravega_connection_pool::connection_pool::ConnectionPool;
-use pravega_rust_client_shared::PravegaNodeUri;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::connection_factory::SegmentConnectionManager;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
@@ -117,7 +117,7 @@ fn check_auth_token_expired(reply: &Replies) -> Result<(), RawClientError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pravega_rust_client_config::connection_type::ConnectionType;
+    use pravega_client_config::connection_type::ConnectionType;
     use pravega_wire_protocol::commands::HelloCommand;
     use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryConfig};
     use pravega_wire_protocol::wire_commands::Encode;

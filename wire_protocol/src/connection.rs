@@ -10,7 +10,7 @@
 
 use crate::error::*;
 use async_trait::async_trait;
-use pravega_rust_client_shared::PravegaNodeUri;
+use pravega_client_shared::PravegaNodeUri;
 use snafu::ResultExt;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
@@ -29,8 +29,8 @@ pub trait Connection: Send + Sync + Debug {
     ///
     /// ```no_run
     /// use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryConfig};
-    /// use pravega_rust_client_shared::PravegaNodeUri;
-    /// use pravega_rust_client_config::connection_type::ConnectionType;
+    /// use pravega_client_shared::PravegaNodeUri;
+    /// use pravega_client_config::connection_type::ConnectionType;
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
@@ -52,8 +52,8 @@ pub trait Connection: Send + Sync + Debug {
     ///
     /// ```no_run
     /// use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryConfig};
-    /// use pravega_rust_client_shared::PravegaNodeUri;
-    /// use pravega_rust_client_config::connection_type::ConnectionType;
+    /// use pravega_client_shared::PravegaNodeUri;
+    /// use pravega_client_config::connection_type::ConnectionType;
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {

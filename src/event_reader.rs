@@ -15,7 +15,7 @@ use crate::segment_reader::ReaderError;
 use crate::segment_slice::{SegmentDataBuffer, SegmentSlice, SliceMetadata};
 use bytes::BufMut;
 use im::HashMap as ImHashMap;
-use pravega_rust_client_shared::{Reader, ScopedSegment, Segment, SegmentWithRange};
+use pravega_client_shared::{Reader, ScopedSegment, Segment, SegmentWithRange};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -52,9 +52,9 @@ cfg_if::cfg_if! {
 /// An example usage pattern is as follows
 ///
 /// ```no_run
-/// use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
-/// use pravega_client_rust::client_factory::ClientFactory;
-/// use pravega_rust_client_shared::{ScopedStream, Scope, Stream};
+/// use pravega_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
+/// use pravega_client::client_factory::ClientFactory;
+/// use pravega_client_shared::{ScopedStream, Scope, Stream};
 ///
 /// #[tokio::main]
 /// async fn main() {
@@ -761,8 +761,8 @@ mod tests {
     use bytes::{BufMut, BytesMut};
     use mockall::predicate;
     use mockall::predicate::*;
-    use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
-    use pravega_rust_client_shared::{Reader, Scope, ScopedSegment, ScopedStream, Stream};
+    use pravega_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
+    use pravega_client_shared::{Reader, Scope, ScopedSegment, ScopedStream, Stream};
     use pravega_wire_protocol::commands::{Command, EventCommand};
     use std::collections::HashMap;
     use std::iter;

@@ -26,9 +26,29 @@
 )]
 #![allow(clippy::multiple_crate_versions, clippy::needless_doctest_main)]
 
+//! A Rust client for [Pravega].
+//!
+//! [Pravega] is an open source storage system implementing Streams as first-class
+//! primitive for storing/serving continuous and unbounded data. It has a number of exciting features
+//! including Exactly Once Semantics, Auto Scaling, Unlimited Retention and etc. More details
+//! at the [website].
+//!
+//! Pravega client in Rust provides a few APIs at high level:
+//! * [EventStreamWriter] and [EventStreamReader] provide a way to write and read discrete item.
+//! * [ByteStream] API provides a way to write and read raw bytes.
+//! * [Transaction] API provides a mechanism for writing many events atomically.
+//!
+//! [Pravega]: https://www.pravega.io/
+//! [website]: http://pravega.io/docs/latest/key-features/#pravega-key-features
+//! [EventStreamWriter]: crate::event_stream_writer
+//! [EventStreamReader]: crate::event_reader
+//! [ByteStream]: byte_stream
+//! [Transaction]: transaction
+//!
+//!
 use crate::client_factory::ClientFactory;
 use pcg_rand::Pcg32;
-use pravega_rust_client_shared::{
+use pravega_client_shared::{
     Retention, RetentionType, ScaleType, Scaling, Scope, ScopedStream, Stream, StreamConfiguration,
 };
 use rand::{Rng, SeedableRng};

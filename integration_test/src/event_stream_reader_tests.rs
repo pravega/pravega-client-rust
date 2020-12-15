@@ -9,14 +9,14 @@
 //
 
 use crate::pravega_service::PravegaStandaloneServiceConfig;
-use pravega_client_rust::client_factory::ClientFactory;
-use pravega_client_rust::event_reader_group::ReaderGroup;
-use pravega_controller_client::ControllerClient;
-use pravega_rust_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
-use pravega_rust_client_shared::{
+use pravega_client::client_factory::ClientFactory;
+use pravega_client::event_reader_group::ReaderGroup;
+use pravega_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
+use pravega_client_shared::{
     Retention, RetentionType, ScaleType, Scaling, Scope, ScopedSegment, ScopedStream, Segment, Stream,
     StreamConfiguration,
 };
+use pravega_controller_client::ControllerClient;
 use std::thread;
 use std::time::{Duration, Instant};
 use tokio::runtime::Handle;

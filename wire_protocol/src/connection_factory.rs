@@ -15,10 +15,10 @@ use crate::error::*;
 use crate::mock_connection::MockConnection;
 use crate::wire_commands::{Replies, Requests};
 use async_trait::async_trait;
+use pravega_client_config::connection_type::MockType;
+use pravega_client_config::{connection_type::ConnectionType, ClientConfig};
+use pravega_client_shared::{PravegaNodeUri, SegmentInfo};
 use pravega_connection_pool::connection_pool::{ConnectionPoolError, Manager};
-use pravega_rust_client_config::connection_type::MockType;
-use pravega_rust_client_config::{connection_type::ConnectionType, ClientConfig};
-use pravega_rust_client_shared::{PravegaNodeUri, SegmentInfo};
 use snafu::ResultExt;
 use std::collections::HashMap;
 use std::fmt;
@@ -40,8 +40,8 @@ pub trait ConnectionFactory: Send + Sync {
     ///
     /// ```no_run
     /// use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryConfig};
-    /// use pravega_rust_client_shared::PravegaNodeUri;
-    /// use pravega_rust_client_config::connection_type::ConnectionType;
+    /// use pravega_client_shared::PravegaNodeUri;
+    /// use pravega_client_config::connection_type::ConnectionType;
     /// use tokio::runtime::Runtime;
     ///
     /// fn main() {
@@ -296,7 +296,7 @@ mod tests {
     use super::*;
     use crate::wire_commands::{Decode, Encode};
     use log::info;
-    use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_client_config::connection_type::{ConnectionType, MockType};
     use tokio::runtime::Runtime;
 
     #[test]
