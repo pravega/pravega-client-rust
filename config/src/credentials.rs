@@ -7,18 +7,18 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
+use async_trait::async_trait;
 use base64::encode;
 use reqwest::header::{HeaderMap, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 use std::fs::File;
 use std::io::{BufReader, Read};
-use std::time::SystemTime;
-use std::sync::Mutex;
-use async_trait::async_trait;
-use std::fmt::Debug;
-use std::sync::Arc;
-use tokio::runtime::Runtime;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::time::SystemTime;
+use tokio::runtime::Runtime;
 
 pub const URL_TOKEN: &str = "/realms/{realm-name}/protocol/openid-connect/token";
 pub const BASIC: &str = "Basic";
@@ -68,7 +68,7 @@ impl Credentials {
 impl Clone for Credentials {
     fn clone(&self) -> Self {
         Credentials {
-            inner: self.inner.clone_box()
+            inner: self.inner.clone_box(),
         }
     }
 }
@@ -83,8 +83,8 @@ trait CredClone {
 }
 
 impl<T> CredClone for T
-    where
-        T: 'static + Cred + Clone,
+where
+    T: 'static + Cred + Clone,
 {
     fn clone_box(&self) -> Box<dyn Cred> {
         Box::new(self.clone())
@@ -135,21 +135,23 @@ impl KeyCloak {
         let key_cloak_json: KeyCloakJson = serde_json::from_slice(&buffer).expect("decode slice to struct");
 
         // first POST request for access token
-        let access_token = rt.block_on(obtain_access_token(
-            &key_cloak_json.auth_server_url,
-            &key_cloak_json.realm,
-            &key_cloak_json.resource,
-            &key_cloak_json.credentials.secret,
-        ))
-        .expect("obtain access token");
+        let access_token = rt
+            .block_on(obtain_access_token(
+                &key_cloak_json.auth_server_url,
+                &key_cloak_json.realm,
+                &key_cloak_json.resource,
+                &key_cloak_json.credentials.secret,
+            ))
+            .expect("obtain access token");
 
         // second POST request for rpt
-        let rpt = rt.block_on(authorize(
-            &key_cloak_json.auth_server_url,
-            &key_cloak_json.realm,
-            &access_token,
-        ))
-        .expect("get rpt");
+        let rpt = rt
+            .block_on(authorize(
+                &key_cloak_json.auth_server_url,
+                &key_cloak_json.realm,
+                &access_token,
+            ))
+            .expect("get rpt");
 
         println!("rpt token {:?}", rpt);
 
