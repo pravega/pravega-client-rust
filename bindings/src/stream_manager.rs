@@ -19,7 +19,7 @@ cfg_if! {
         use pyo3::prelude::*;
         use pyo3::PyResult;
         use pyo3::{exceptions, PyObjectProtocol};
-        use log::info;
+        use tracing::info;
     }
 }
 

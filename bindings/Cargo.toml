@@ -24,7 +24,9 @@ python_binding = ["pyo3"]
 #Run tests for bindings using command cargo test --no-default-features
 
 [dependencies]
-log = "0.4"
+tracing = "0.1.17"
+tracing-futures = "0.2.4"
+tracing-subscriber = "0.2.2"
 pravega-client = { path = "../" }
 pravega-wire-protocol = { path = "../wire_protocol"}
 pravega-controller-client = { path = "../controller-client"}

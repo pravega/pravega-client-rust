@@ -19,7 +19,7 @@ cfg_if! {
         use pravega_client::error::TransactionError;
         use pravega_client_shared::{Timestamp, TransactionStatus, TxId};
         use pyo3::PyObjectProtocol;
-        use log::{trace, info, warn};
+        use tracing::{trace, info, warn};
         use std::time::Duration;
         use tokio::time::timeout;
     }
