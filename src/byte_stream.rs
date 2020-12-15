@@ -354,7 +354,11 @@ mod test {
 
         // read 200 bytes from beginning
         let mut buf = vec![0; 200];
-        let read = reader.read(&mut buf).expect("read");
+        let mut read = 0;
+        while read != 200 {
+            let r = reader.read(&mut buf).expect("read");
+            read += r;
+        }
         assert_eq!(read, 200);
         assert_eq!(buf, vec![1; 200]);
 

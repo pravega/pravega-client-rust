@@ -118,7 +118,9 @@ impl Cred for KeyCloak {
         if self.is_expired() {
             self.refresh_rpt_token();
         }
-        format!("{} {}", self.method, *self.token.lock().expect("lock token"))
+        let s = format!("{} {}", self.method, *self.token.lock().expect("lock token"));
+        println!("returned token is {}", s);
+        s
     }
 }
 
@@ -152,8 +154,6 @@ impl KeyCloak {
                 &access_token,
             ))
             .expect("get rpt");
-
-        println!("rpt token {:?}", rpt);
 
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
