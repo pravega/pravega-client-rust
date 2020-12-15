@@ -252,12 +252,6 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_base64_compat_with_java() {
-        let cred = Credentials::basic("admin".to_owned(), "1111_aaaa".to_owned());
-        assert_eq!(cred.token, "YWRtaW46MTExMV9hYWFh");
-    }
-
-    #[test]
     fn test_json_deserialize() {
         let json_string = r#"{"realm":"nautilus","auth-server-url":"http://localhost","ssl-required":"NONE","bearer-only":false,"public-client":false,"resource":"pravega-controller","confidential-port":0,"credentials":{"secret":"123456"}}"#;
         let v: KeyCloakJson = serde_json::from_str(json_string).unwrap();

@@ -182,7 +182,9 @@ mod tests {
             .unwrap();
 
         let token = encode("hello:12345");
-        assert_eq!(config.credentials.method, "Basic".to_owned());
-        assert_eq!(config.credentials.token, token);
+        assert_eq!(
+            config.credentials.get_request_metadata(),
+            format!("{} {}", "Basic", token)
+        );
     }
 }
