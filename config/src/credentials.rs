@@ -12,7 +12,13 @@ use reqwest::header::{HeaderMap, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufReader, Read};
+use std::time::SystemTime;
+use std::sync::Mutex;
+use async_trait::async_trait;
+use std::fmt::Debug;
+use std::sync::Arc;
 use tokio::runtime::Runtime;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 pub const URL_TOKEN: &str = "/realms/{realm-name}/protocol/openid-connect/token";
 pub const BASIC: &str = "Basic";
@@ -22,31 +28,105 @@ pub const CLIENT_CREDENTIAL_GRANT_TYPE: &str = "client_credentials";
 pub const AUTHORIZATION: &str = "authorization";
 pub const AUDIENCE: &str = "pravega-controller";
 
-#[derive(Debug, Clone)]
+const REFRESH_THRESHOLD_SECONDS: u64 = 5;
+
+#[derive(Debug)]
 pub struct Credentials {
-    pub method: String,
-    pub token: String,
+    inner: Box<dyn Cred>,
 }
 
 impl Credentials {
-    pub fn new(method: String, token: String) -> Self {
-        Credentials { method, token }
-    }
-
     pub fn basic(user_name: String, password: String) -> Self {
         let decoded = format!("{}:{}", user_name, password);
         let token = encode(decoded);
-        Credentials {
+        let basic = Basic {
             method: BASIC.to_owned(),
             token,
+        };
+        Credentials {
+            inner: Box::new(basic) as Box<dyn Cred>,
         }
     }
 
     pub fn keycloak(path: &str) -> Self {
-        let mut rt = Runtime::new().expect("create tokio runtime");
+        let keycloak = KeyCloak {
+            method: BEARER.to_string(),
+            token: Arc::new(Mutex::new("".to_string())),
+            path: path.to_string(),
+            expires_at: Arc::new(AtomicU64::new(0)),
+        };
+        Credentials {
+            inner: Box::new(keycloak) as Box<dyn Cred>,
+        }
+    }
 
+    pub fn get_request_metadata(&self) -> String {
+        self.inner.get_request_metadata()
+    }
+}
+
+impl Clone for Credentials {
+    fn clone(&self) -> Self {
+        Credentials {
+            inner: self.inner.clone_box()
+        }
+    }
+}
+
+#[async_trait]
+trait Cred: Debug + CredClone + Send + Sync {
+    fn get_request_metadata(&self) -> String;
+}
+
+trait CredClone {
+    fn clone_box(&self) -> Box<dyn Cred>;
+}
+
+impl<T> CredClone for T
+    where
+        T: 'static + Cred + Clone,
+{
+    fn clone_box(&self) -> Box<dyn Cred> {
+        Box::new(self.clone())
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Basic {
+    method: String,
+    token: String,
+}
+
+#[async_trait]
+impl Cred for Basic {
+    fn get_request_metadata(&self) -> String {
+        format!("{} {}", self.method, self.token)
+    }
+}
+
+#[derive(Debug, Clone)]
+struct KeyCloak {
+    method: String,
+    token: Arc<Mutex<String>>,
+    path: String,
+    expires_at: Arc<AtomicU64>,
+}
+
+#[async_trait]
+impl Cred for KeyCloak {
+    fn get_request_metadata(&self) -> String {
+        if self.is_expired() {
+            self.refresh_rpt_token();
+        }
+        format!("{} {}", self.method, *self.token.lock().expect("lock token"))
+    }
+}
+
+impl KeyCloak {
+    fn refresh_rpt_token(&self) {
+        let mut rt = Runtime::new().expect("create tokio runtime to get rpt token");
         // read keycloak json
-        let file = File::open(path).expect("open keycloak.json");
+        let file = File::open(self.path.to_string()).expect("open keycloak.json");
         let mut buf_reader = BufReader::new(file);
         let mut buffer = Vec::new();
         buf_reader.read_to_end(&mut buffer).expect("read to the end");
@@ -55,31 +135,38 @@ impl Credentials {
         let key_cloak_json: KeyCloakJson = serde_json::from_slice(&buffer).expect("decode slice to struct");
 
         // first POST request for access token
-        let access_token = rt
-            .block_on(obtain_access_token(
-                &key_cloak_json.auth_server_url,
-                &key_cloak_json.realm,
-                &key_cloak_json.resource,
-                &key_cloak_json.credentials.secret,
-            ))
-            .expect("obtain access token");
+        let access_token = rt.block_on(obtain_access_token(
+            &key_cloak_json.auth_server_url,
+            &key_cloak_json.realm,
+            &key_cloak_json.resource,
+            &key_cloak_json.credentials.secret,
+        ))
+        .expect("obtain access token");
 
         // second POST request for rpt
-        let rpt = rt
-            .block_on(authorize(
-                &key_cloak_json.auth_server_url,
-                &key_cloak_json.realm,
-                &access_token,
-            ))
-            .expect("get rpt");
-        Credentials {
-            method: BEARER.to_owned(),
-            token: rpt,
-        }
+        let rpt = rt.block_on(authorize(
+            &key_cloak_json.auth_server_url,
+            &key_cloak_json.realm,
+            &access_token,
+        ))
+        .expect("get rpt");
+
+        println!("rpt token {:?}", rpt);
+
+        let now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("get unix time");
+        let expires_at = now.as_secs() + rpt.expires_in;
+
+        *self.token.lock().expect("lock token") = rpt.access_token;
+        self.expires_at.store(expires_at, Ordering::Relaxed);
     }
 
-    pub fn get_request_metadata(&self) -> String {
-        format!("{} {}", self.method, self.token)
+    fn is_expired(&self) -> bool {
+        let now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("get unix time");
+        now.as_secs() + REFRESH_THRESHOLD_SECONDS >= self.expires_at.load(Ordering::Relaxed)
     }
 }
 
@@ -119,7 +206,7 @@ async fn obtain_access_token(
     Ok(token.access_token)
 }
 
-async fn authorize(base_url: &str, realm: &str, token: &str) -> Result<String, reqwest::Error> {
+async fn authorize(base_url: &str, realm: &str, token: &str) -> Result<Token, reqwest::Error> {
     let url = URL_TOKEN.replace("{realm-name}", realm);
 
     let payload = serde_json::json!({
@@ -133,12 +220,13 @@ async fn authorize(base_url: &str, realm: &str, token: &str) -> Result<String, r
     let bearer = format!("{} {}", BEARER, token);
     header_map.insert(AUTHORIZATION, bearer.parse().unwrap());
     let rpt = send_http_request(&path, payload, header_map).await?;
-    Ok(rpt.access_token)
+    Ok(rpt)
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Token {
     pub access_token: String,
+    pub expires_in: u64,
 }
 
 async fn send_http_request(
