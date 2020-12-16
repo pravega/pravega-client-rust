@@ -118,9 +118,7 @@ impl Cred for KeyCloak {
         if self.is_expired() {
             self.refresh_rpt_token();
         }
-        let s = format!("{} {}", self.method, *self.token.lock().expect("lock token"));
-        println!("returned token is {}", s);
-        s
+        format!("{} {}", self.method, *self.token.lock().expect("lock token"))
     }
 }
 
