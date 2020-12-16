@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - bug_doc
 
 jobs:
   generate_documentation:
@@ -29,7 +30,7 @@ jobs:
         run: |
           cargo doc --no-deps
           cp -r target/doc book/book/doc
-          echo "<meta http-equiv=refresh content=0;url=pravega_client_rust/index.html>" > book/book/doc/index.html
+          echo "<meta http-equiv=refresh content=0;url=pravega_client/index.html>" > book/book/doc/index.html
 
       - name: Generate Pravega Python API documentation.
         run: |
