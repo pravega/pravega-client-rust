@@ -110,6 +110,8 @@ impl Reactor {
                     "data appended for writer {:?}, latest event id is: {:?}",
                     writer.id, cmd.event_number
                 );
+                // reconnection works as expected, set this flag to false.
+                writer.reconnect = false;
                 writer.ack(cmd.event_number);
                 if let Err(e) = writer.write_pending_events().await {
                     warn!(
@@ -162,9 +164,23 @@ impl Reactor {
             }
 
             Replies::ConditionalCheckFailed(cmd) => {
-                warn!("conditional check failed {:?}", cmd);
                 if writer.id.0 == cmd.writer_id {
-                    writer.fail_events_upon_conditional_check_failure(cmd.event_number);
+                    if writer.reconnect {
+                        // Note: it still could be caused by interleaved data, but the probability is low.
+                        // Right now there is no good way to tackle this issue. Only application side
+                        // can tell if this is a false alarm or not.
+                        warn!(
+                            "conditional check failed {:?}, probably a false alarm caused by reconnection",
+                            cmd
+                        );
+                        writer.ack(cmd.event_number);
+                        writer.reconnect = false;
+                    } else {
+                        // reconnection did not happen, conditional check failed must
+                        // be caused by interleaved data.
+                        warn!("conditional check failed {:?}", cmd);
+                        writer.fail_events_upon_conditional_check_failure(cmd.event_number);
+                    }
                 }
                 Ok(())
             }

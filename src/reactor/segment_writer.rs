@@ -41,38 +41,41 @@ pub(crate) struct SegmentWriter {
     /// Unique id for each EventSegmentWriter.
     pub(crate) id: WriterId,
 
-    /// The segment that this writer is writing to, it does not change for a EventSegmentWriter instance.
+    /// The segment that this writer is writing to.
     pub(crate) segment: ScopedSegment,
 
     /// Client connection that writes to the segmentstore.
     pub(crate) connection: Option<ClientConnectionWriteHalf>,
 
-    /// Closes listener task before setting up new connection.
+    // Closes listener task before setting up new connection.
     connection_listener_handle: Option<oneshot::Sender<bool>>,
 
-    /// Events that are sent but unacknowledged.
+    // Events that are sent but unacknowledged.
     inflight: VecDeque<Append>,
 
-    /// Events that are waiting to be sent.
+    // Events that are waiting to be sent.
     pending: VecDeque<Append>,
 
-    /// Incremental event id.
+    // Incremental event id.
     event_num: i64,
 
-    /// The sender that sends back reply to reactor for processing.
+    // The sender that sends back reply to reactor for processing.
     sender: ChannelSender<Incoming>,
 
-    /// The client retry policy.
+    // The client retry policy.
     retry_policy: RetryWithBackoff,
 
-    /// Delegation token provider used to authenticate client when communicating with segmentstore.
+    // Delegation token provider used to authenticate client when communicating with segmentstore.
     delegation_token_provider: Arc<DelegationTokenProvider>,
+
+    /// Whether this writer just had reconnection or not.
+    pub(crate) reconnect: bool,
 }
 
 impl SegmentWriter {
-    /// Maximum data size in one append block.
+    // Maximum data size in one append block.
     const MAX_WRITE_SIZE: i32 = 8 * 1024 * 1024 + 8;
-    /// Maximum event number in one append block.
+    // Maximum event number in one append block.
     const MAX_EVENTS: i32 = 500;
 
     pub(crate) fn new(
@@ -92,6 +95,7 @@ impl SegmentWriter {
             retry_policy,
             delegation_token_provider,
             connection_listener_handle: None,
+            reconnect: false,
         }
     }
 
@@ -438,7 +442,9 @@ impl SegmentWriter {
                 ))
                 .await
                 .expect("send reconnect signal to reactor");
+            return;
         }
+        self.reconnect = true;
     }
 
     /// Force delegation token provider to refresh.
