@@ -462,6 +462,10 @@
 <span id="459">459</span>
 <span id="460">460</span>
 <span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -819,7 +823,11 @@
 
         <span class="comment">// read 200 bytes from beginning</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="number">0</span>; <span class="number">200</span>];
-        <span class="kw">let</span> <span class="ident">read</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buf</span>).<span class="ident">expect</span>(<span class="string">&quot;read&quot;</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">read</span> <span class="op">=</span> <span class="number">0</span>;
+        <span class="kw">while</span> <span class="ident">read</span> <span class="op">!</span><span class="op">=</span> <span class="number">200</span> {
+            <span class="kw">let</span> <span class="ident">r</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buf</span>).<span class="ident">expect</span>(<span class="string">&quot;read&quot;</span>);
+            <span class="ident">read</span> <span class="op">+</span><span class="op">=</span> <span class="ident">r</span>;
+        }
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">read</span>, <span class="number">200</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">buf</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="number">1</span>; <span class="number">200</span>]);
 
