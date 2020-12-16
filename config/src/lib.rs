@@ -37,9 +37,10 @@ use std::env;
 use std::time::Duration;
 
 pub const MOCK_CONTROLLER_URI: (&str, u16) = ("localhost", 9090);
-const AUTH_PROPS_PREFIX: &str = "pravega.client.auth.";
 const AUTH_METHOD: &str = "method";
-const AUTH_TOKEN: &str = "token";
+const AUTH_USERNAME: &str = "username";
+const AUTH_PASSWORD: &str = "password";
+const AUTH_KEYCLOAK_PATH: &str = "keycloak";
 const AUTH_PROPS_PREFIX_ENV: &str = "pravega_client_auth_";
 
 #[derive(Builder, Debug, Getters, CopyGetters, Clone)]
@@ -105,18 +106,23 @@ impl ClientConfigBuilder {
         let ret_val = env::vars()
             .filter(|(k, _v)| k.starts_with(AUTH_PROPS_PREFIX_ENV))
             .map(|(k, v)| {
-                let k = k.replace("_", ".");
-                let k = &k[AUTH_PROPS_PREFIX.len()..];
+                let k = &k[AUTH_PROPS_PREFIX_ENV.len()..];
                 (k.to_owned(), v)
             })
             .collect::<HashMap<String, String>>();
         if ret_val.contains_key(AUTH_METHOD) {
             let method = ret_val.get(AUTH_METHOD).expect("get auth method").to_owned();
-            let token = ret_val.get(AUTH_TOKEN).expect("get auth token").to_owned();
-            Credentials::new(method, token)
-        } else {
-            Credentials::default("admin".into(), "1111_aaaa".into())
+            if method == credentials::BASIC {
+                let username = ret_val.get(AUTH_USERNAME).expect("get auth username").to_owned();
+                let password = ret_val.get(AUTH_PASSWORD).expect("get auth password").to_owned();
+                return Credentials::basic(username, password);
+            }
+            if method == credentials::BEARER {
+                let path = ret_val.get(AUTH_KEYCLOAK_PATH).expect("get keycloak json file");
+                return Credentials::keycloak(path);
+            }
         }
+        Credentials::basic("".into(), "".into())
     }
 
     fn default_timeout(&self) -> Duration {
@@ -127,7 +133,7 @@ impl ClientConfigBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
+    use base64::encode;
     use std::net::Ipv4Addr;
 
     #[test]
@@ -167,14 +173,18 @@ mod tests {
     fn test_extract_credentials() {
         // retrieve from env
         env::set_var("pravega_client_auth_method", "Basic");
-        env::set_var("pravega_client_auth_token", "123456");
+        env::set_var("pravega_client_auth_username", "hello");
+        env::set_var("pravega_client_auth_password", "12345");
 
         let config = ClientConfigBuilder::default()
             .controller_uri("127.0.0.2:9091".to_string())
             .build()
             .unwrap();
 
-        assert_eq!(config.credentials.get_authentication_type(), "Basic".to_owned());
-        assert_eq!(config.credentials.get_authentication_token(), "123456".to_owned());
+        let token = encode("hello:12345");
+        assert_eq!(
+            config.credentials.get_request_metadata(),
+            format!("{} {}", "Basic", token)
+        );
     }
 }

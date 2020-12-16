@@ -15,7 +15,7 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 [dependencies]
 pravega-client-shared = { path = "../shared"}
 pravega-wire-protocol = { path = "../wire_protocol"}
-pravega-connection-pool = {path= "../connection_pool"}
+pravega-connection-pool = {path= "../connection_pool" }
 pravega-client-retry = {path = "../retry"}
 pravega-client-config = { path = "../config"}
 async-trait = "0.1"

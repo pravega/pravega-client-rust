@@ -64,6 +64,7 @@ mod test {
     use super::*;
     use crate::pravega_service::PravegaStandaloneServiceConfig;
     use pravega_client::trace;
+    use std::env;
     use std::net::SocketAddr;
     use wirecommand_tests::*;
 
@@ -92,6 +93,11 @@ mod test {
     fn run_tests(config: PravegaStandaloneServiceConfig) {
         let mut pravega = PravegaStandaloneService::start(config.clone());
         wait_for_standalone_with_timeout(true, 30);
+        if config.auth {
+            env::set_var("pravega_client_auth_method", "Basic");
+            env::set_var("pravega_client_auth_username", "admin");
+            env::set_var("pravega_client_auth_password", "1111_aaaa");
+        }
         controller_tests::test_controller_apis(config.clone());
 
         tablemap_tests::test_tablemap(config.clone());
