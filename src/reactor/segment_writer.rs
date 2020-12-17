@@ -38,10 +38,10 @@ use tokio::sync::oneshot;
 use tracing_futures::Instrument;
 
 pub(crate) struct SegmentWriter {
-    /// Unique id for each EventSegmentWriter.
+    /// Unique id for each SegmentWriter.
     pub(crate) id: WriterId,
 
-    /// The segment that this writer is writing to.
+    /// The segment that this writer writes to.
     pub(crate) segment: ScopedSegment,
 
     /// Client connection that writes to the segmentstore.
@@ -68,7 +68,7 @@ pub(crate) struct SegmentWriter {
     // Delegation token provider used to authenticate client when communicating with segmentstore.
     delegation_token_provider: Arc<DelegationTokenProvider>,
 
-    /// Whether this writer just had reconnection or not.
+    /// Whether this writer just had a reconnection or not.
     pub(crate) reconnect: bool,
 }
 
