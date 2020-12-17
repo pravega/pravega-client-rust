@@ -16,7 +16,6 @@ os.chdir("./bindings")
 command = [
     "maturin",
     "build",
-    "--manylinux off",
     "--release",
     "--no-sdist",
     "--interpreter",
