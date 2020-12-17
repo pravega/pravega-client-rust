@@ -19,6 +19,7 @@ command = [
     "--release",
     "--no-sdist",
     "--interpreter",
+    "--manylinux=off",
     sys.executable,
 ]
 subprocess.run(command, check=True)
