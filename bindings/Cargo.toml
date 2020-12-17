@@ -15,7 +15,6 @@ classifier = ["Development Status :: 3 - Alpha", "License :: OSI Approved :: Apa
     "Programming Language :: Rust", "Programming Language :: Python :: 3.8", "Programming Language :: Python :: 3.9",]
 requires-python = ">= 3.8"
 project-url = ["Homepage, https://pravega.github.io/pravega-client-rust/"]
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
 name = "pravega_client"
