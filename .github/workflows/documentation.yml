@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - bug_doc
 
 jobs:
   generate_documentation:
