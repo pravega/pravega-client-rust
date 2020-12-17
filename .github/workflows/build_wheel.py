@@ -16,10 +16,10 @@ os.chdir("./bindings")
 command = [
     "maturin",
     "build",
+    "--manylinux off",
     "--release",
     "--no-sdist",
     "--interpreter",
-    "--manylinux off",
     sys.executable,
 ]
 subprocess.run(command, check=True)
