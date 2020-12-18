@@ -10,9 +10,9 @@ ROOT = Path(__file__).parent.parent.parent
 # For macOS and Windows and linux, run Maturin against the Python interpreter that's
 # been installed and configured for this CI run, i.e. the one that's running
 # this script.
-# Note the docker image konstin2/maturin:master does not work.
+    # Note the docker image konstin2/maturin:master does not work.
 
-# manylinux is set to off due to the below error
+# manylinux is set to unchecked due to the below error
 # Your library is not manylinux compliant because it links the following forbidden libraries: ["libssl.so.1.1", "libcrypto.so.1.1"]
 os.chdir("./bindings")
 command = [
@@ -21,7 +21,7 @@ command = [
     "--release",
     "--no-sdist",
     "--manylinux",
-    "off",
+    "1-unchecked",
     "--interpreter",
     sys.executable,
 ]
