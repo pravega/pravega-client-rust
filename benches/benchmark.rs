@@ -472,4 +472,8 @@ criterion_group! {
     config = Criterion::default().sample_size(10);
     targets = byte_stream_reader_mock_server
 }
-criterion_main!(event_writer_performance, event_reader_performance, byte_reader_performance);
+criterion_main!(
+    event_writer_performance,
+    event_reader_performance,
+    byte_reader_performance
+);

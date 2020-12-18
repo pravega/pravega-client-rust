@@ -361,7 +361,6 @@ pub(crate) struct PrefetchingAsyncSegmentReader {
     end_of_segment: bool,
     receiver: Option<oneshot::Receiver<Result<SegmentReadCommand, ReaderError>>>,
     handle: Handle,
-    cnt: i32,
 }
 
 // maximum number of buffered reply
@@ -383,7 +382,6 @@ impl PrefetchingAsyncSegmentReader {
             handle,
             end_of_segment: false,
             receiver: None,
-            cnt: 0,
         };
         wrapper.issue_request_if_needed();
         wrapper
@@ -451,7 +449,6 @@ impl PrefetchingAsyncSegmentReader {
 
     fn issue_request_if_needed(&mut self) {
         if !self.end_of_segment && self.receiver.is_none() {
-            self.cnt += 1;
             let (sender, receiver) = oneshot::channel();
             self.handle.spawn(PrefetchingAsyncSegmentReader::read_async(
                 self.reader.clone(),
