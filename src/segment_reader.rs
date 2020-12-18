@@ -354,12 +354,14 @@ impl AsyncSegmentReaderImpl {
 /// every read call can read from the local buffer instead of waiting for server response.
 pub(crate) struct PrefetchingAsyncSegmentReader {
     buffer: VecDeque<SegmentReadCommand>,
+    buffer_offset: usize,
     reader: Arc<Box<dyn AsyncSegmentReader>>,
     read_size: usize,
     pub(crate) offset: i64,
     end_of_segment: bool,
     receiver: Option<oneshot::Receiver<Result<SegmentReadCommand, ReaderError>>>,
     handle: Handle,
+    cnt: i32,
 }
 
 // maximum number of buffered reply
@@ -374,12 +376,14 @@ impl PrefetchingAsyncSegmentReader {
     ) -> Self {
         let mut wrapper = PrefetchingAsyncSegmentReader {
             buffer: VecDeque::with_capacity(BUFFERED_REPLY_NUMBER),
+            buffer_offset: 0,
             reader,
             read_size: buffer_size / BUFFERED_REPLY_NUMBER,
             offset,
             handle,
             end_of_segment: false,
             receiver: None,
+            cnt: 0,
         };
         wrapper.issue_request_if_needed();
         wrapper
@@ -400,18 +404,26 @@ impl PrefetchingAsyncSegmentReader {
             self.fill_buffer().await?;
             self.issue_request_if_needed();
         }
-
         let mut need_to_read = buf.len();
         let mut copy_offset = 0;
-        while let Some(mut cmd) = self.buffer.pop_front() {
+        while let Some(cmd) = self.buffer.front() {
             self.end_of_segment = cmd.end_of_segment;
-            let read_size = cmp::min(need_to_read, cmd.data.len());
-            buf[copy_offset..copy_offset + read_size].copy_from_slice(cmd.data.drain(..read_size).as_slice());
+            let read_size = cmp::min(need_to_read, cmd.data.len() - self.buffer_offset);
+            buf[copy_offset..copy_offset + read_size]
+                .copy_from_slice(&cmd.data[self.buffer_offset..self.buffer_offset + read_size]);
             self.offset += read_size as i64;
+            self.buffer_offset += read_size;
             need_to_read -= read_size;
             copy_offset += read_size;
-            if !cmd.data.is_empty() {
-                self.buffer.push_front(cmd);
+
+            if cmd.data.len() == self.buffer_offset {
+                // cmd has been read entirely
+                self.buffer.pop_front();
+                self.buffer_offset = 0;
+            }
+
+            if need_to_read == 0 {
+                //has read up to requested size
                 break;
             }
         }
@@ -427,14 +439,19 @@ impl PrefetchingAsyncSegmentReader {
     /// Returns the size of data availble in buffer
     pub(crate) fn available(&self) -> usize {
         let mut size = 0;
-        for cmd in &self.buffer {
-            size += cmd.data.len();
+        for (i, cmd) in self.buffer.iter().enumerate() {
+            if i == 0 {
+                size += cmd.data.len() - self.buffer_offset;
+            } else {
+                size += cmd.data.len();
+            }
         }
         size
     }
 
     fn issue_request_if_needed(&mut self) {
         if !self.end_of_segment && self.receiver.is_none() {
+            self.cnt += 1;
             let (sender, receiver) = oneshot::channel();
             self.handle.spawn(PrefetchingAsyncSegmentReader::read_async(
                 self.reader.clone(),
@@ -706,7 +723,7 @@ mod tests {
             .expect("read from wrapper");
         assert_eq!(read, 1024);
         assert_eq!(prefetch_reader.buffer.len(), 1);
-        assert_eq!(prefetch_reader.buffer.back().unwrap().data.len(), 1024);
+        assert_eq!(prefetch_reader.buffer_offset, 1024);
         assert_eq!(prefetch_reader.offset, 1024);
 
         // reads next 1024 bytes and finishes the first buffered reply.
@@ -716,5 +733,6 @@ mod tests {
             .expect("read from wrapper");
         assert_eq!(read, 1024);
         assert_eq!(prefetch_reader.offset, 1024 * 2);
+        assert_eq!(prefetch_reader.buffer_offset, 0);
     }
 }
