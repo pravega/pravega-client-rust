@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - "*"
-    branches:
-      - bug_doc
 
 jobs:
   wheel:
