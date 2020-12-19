@@ -155,8 +155,8 @@ impl SegmentWriter {
                 Ok((reply, connection)) => match reply {
                     Replies::AppendSetup(cmd) => {
                         debug!(
-                            "append setup completed for writer:{:?}/segment:{:?}",
-                            self.id, self.segment
+                            "append setup completed for writer:{:?}/segment:{:?} with latest event number {}",
+                            self.id, self.segment, cmd.last_event_number
                         );
                         self.ack(cmd.last_event_number);
                         connection
