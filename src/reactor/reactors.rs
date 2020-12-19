@@ -18,6 +18,8 @@ use crate::client_factory::ClientFactory;
 use crate::reactor::event::{Incoming, ServerReply};
 use crate::reactor::segment_selector::SegmentSelector;
 
+const MAX_RECONNECTION_ALLOWED_FOR_CONDITIONAL_CHECK: i32 = 3;
+
 #[derive(new)]
 pub(crate) struct Reactor {}
 
@@ -110,8 +112,8 @@ impl Reactor {
                     "data appended for writer {:?}, latest event id is: {:?}",
                     writer.id, cmd.event_number
                 );
-                // reconnection works as expected, set this flag to false.
-                writer.reconnect = false;
+                // reconnection works as expected, set reconnection to 0
+                writer.reconnection = 0;
                 writer.ack(cmd.event_number);
                 if let Err(e) = writer.write_pending_events().await {
                     warn!(
@@ -165,16 +167,16 @@ impl Reactor {
 
             Replies::ConditionalCheckFailed(cmd) => {
                 if writer.id.0 == cmd.writer_id {
-                    if writer.reconnect {
-                        // Note: it still could be caused by interleaved data, but the probability is low.
-                        // Right now there is no good way to tackle this issue. Only application side
-                        // can tell if this is a false alarm or not.
+                    if writer.reconnection > 0
+                        && writer.reconnection < MAX_RECONNECTION_ALLOWED_FOR_CONDITIONAL_CHECK
+                    {
+                        // Conditional check failed, but it could be caused by reconnection.
+                        // Reconnect again to fetch the latest event number from server.
                         warn!(
                             "conditional check failed {:?}, probably a false alarm caused by reconnection",
                             cmd
                         );
-                        writer.ack(cmd.event_number);
-                        writer.reconnect = false;
+                        writer.reconnect(factory).await;
                     } else {
                         // reconnection did not happen, conditional check failed must
                         // be caused by interleaved data.

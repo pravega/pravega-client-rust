@@ -68,8 +68,8 @@ pub(crate) struct SegmentWriter {
     // Delegation token provider used to authenticate client when communicating with segmentstore.
     delegation_token_provider: Arc<DelegationTokenProvider>,
 
-    /// Whether this writer just had a reconnection or not.
-    pub(crate) reconnect: bool,
+    /// Number of consecutive reconnections
+    pub(crate) reconnection: i32,
 }
 
 impl SegmentWriter {
@@ -95,7 +95,7 @@ impl SegmentWriter {
             retry_policy,
             delegation_token_provider,
             connection_listener_handle: None,
-            reconnect: false,
+            reconnection: 0,
         }
     }
 
@@ -444,7 +444,7 @@ impl SegmentWriter {
                 .expect("send reconnect signal to reactor");
             return;
         }
-        self.reconnect = true;
+        self.reconnection += 1;
     }
 
     /// Force delegation token provider to refresh.
