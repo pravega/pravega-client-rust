@@ -18,6 +18,8 @@ use crate::client_factory::ClientFactory;
 use crate::reactor::event::{Incoming, ServerReply};
 use crate::reactor::segment_selector::SegmentSelector;
 
+const MAX_RECONNECTION_ALLOWED_FOR_CONDITIONAL_CHECK: i32 = 3;
+
 #[derive(new)]
 pub(crate) struct Reactor {}
 
@@ -110,6 +112,8 @@ impl Reactor {
                     "data appended for writer {:?}, latest event id is: {:?}",
                     writer.id, cmd.event_number
                 );
+                // reconnection works as expected, set reconnection to 0
+                writer.reconnection = 0;
                 writer.ack(cmd.event_number);
                 if let Err(e) = writer.write_pending_events().await {
                     warn!(
@@ -162,9 +166,23 @@ impl Reactor {
             }
 
             Replies::ConditionalCheckFailed(cmd) => {
-                warn!("conditional check failed {:?}", cmd);
                 if writer.id.0 == cmd.writer_id {
-                    writer.fail_events_upon_conditional_check_failure(cmd.event_number);
+                    if writer.reconnection > 0
+                        && writer.reconnection < MAX_RECONNECTION_ALLOWED_FOR_CONDITIONAL_CHECK
+                    {
+                        // Conditional check failed, but it could be caused by reconnection.
+                        // Reconnect again to fetch the latest event number from server.
+                        warn!(
+                            "conditional check failed {:?}, probably a false alarm caused by reconnection",
+                            cmd
+                        );
+                        writer.reconnect(factory).await;
+                    } else {
+                        // reconnection did not happen, conditional check failed must
+                        // be caused by interleaved data.
+                        warn!("conditional check failed {:?}", cmd);
+                        writer.fail_events_upon_conditional_check_failure(cmd.event_number);
+                    }
                 }
                 Ok(())
             }
