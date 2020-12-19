@@ -11,14 +11,15 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use byteorder::BigEndian;
-use pravega_client_rust::client_factory::ClientFactory;
-use pravega_client_rust::error::SegmentWriterError;
-use pravega_client_rust::event_reader::EventReader;
-use pravega_client_rust::event_stream_writer::EventStreamWriter;
+use pravega_client::byte_stream::ByteStreamReader;
+use pravega_client::client_factory::ClientFactory;
+use pravega_client::error::SegmentWriterError;
+use pravega_client::event_reader::EventReader;
+use pravega_client::event_stream_writer::EventStreamWriter;
+use pravega_client_config::connection_type::{ConnectionType, MockType};
+use pravega_client_config::{ClientConfig, ClientConfigBuilder};
+use pravega_client_shared::*;
 use pravega_controller_client::ControllerClient;
-use pravega_rust_client_config::connection_type::{ConnectionType, MockType};
-use pravega_rust_client_config::{ClientConfig, ClientConfigBuilder};
-use pravega_rust_client_shared::*;
 use pravega_wire_protocol::client_connection::{LENGTH_FIELD_LENGTH, LENGTH_FIELD_OFFSET};
 use pravega_wire_protocol::commands::{
     AppendSetupCommand, DataAppendedCommand, EventCommand, SegmentCreatedCommand, SegmentReadCommand,
@@ -26,10 +27,12 @@ use pravega_wire_protocol::commands::{
 };
 use pravega_wire_protocol::wire_commands::{Decode, Encode, Replies, Requests};
 use std::io::Cursor;
+use std::io::Read;
 use std::net::SocketAddr;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
+use tokio::runtime::Runtime;
 use tracing::info;
 
 static EVENT_NUM: usize = 10000;
@@ -98,7 +101,7 @@ impl MockServer {
                         request_id: cmd.request_id,
                         segment: cmd.segment,
                         writer_id: cmd.writer_id,
-                        last_event_number: -9223372036854775808, // when there is no previous event in this segment
+                        last_event_number: i64::MIN, // when there is no previous event in this segment
                     })
                     .write_fields()
                     .expect("encode reply");
@@ -211,7 +214,7 @@ async fn run_reader(reader: &mut EventReader, last_offset: &mut i64) {
 
 // This benchmark test uses a mock server that replies ok to any requests instantly. It involves
 // kernel latency.
-fn read_mock_server(c: &mut Criterion) {
+fn event_stream_read_mock_server(c: &mut Criterion) {
     let mut rt = tokio::runtime::Runtime::new().unwrap();
     let mock_server = rt.block_on(MockServer::new());
     let config = ClientConfigBuilder::default()
@@ -220,7 +223,7 @@ fn read_mock_server(c: &mut Criterion) {
         .build()
         .expect("creating config");
     rt.spawn(async { MockServer::run(mock_server).await });
-    let mut reader = rt.block_on(setup_reader(config));
+    let mut reader = rt.block_on(set_up_event_stream_reader(config));
     let _ = tracing_subscriber::fmt::try_init();
     info!("start reader with mock server performance testing");
     let mut last_offset: i64 = -1;
@@ -233,7 +236,7 @@ fn read_mock_server(c: &mut Criterion) {
 }
 // This benchmark test uses a mock server that replies ok to any requests instantly. It involves
 // kernel latency.
-fn mock_server(c: &mut Criterion) {
+fn event_stream_writer_mock_server(c: &mut Criterion) {
     let mut rt = tokio::runtime::Runtime::new().unwrap();
     let mock_server = rt.block_on(MockServer::new());
     let config = ClientConfigBuilder::default()
@@ -241,21 +244,21 @@ fn mock_server(c: &mut Criterion) {
         .mock(true)
         .build()
         .expect("creating config");
-    let mut writer = rt.block_on(set_up(config));
+    let mut writer = rt.block_on(set_up_event_stream_writer(config));
     rt.spawn(async { MockServer::run(mock_server).await });
     let _ = tracing_subscriber::fmt::try_init();
-    info!("start mock server performance testing");
+    info!("start event stream writer mock server performance testing");
     c.bench_function("mock server", |b| {
         b.iter(|| {
             rt.block_on(run(&mut writer));
         });
     });
-    info!("mock server performance testing finished");
+    info!("event stream writer mock server performance testing finished");
 }
 
 // This benchmark test uses a mock server that replies ok to any requests instantly. It involves
 // kernel latency. It does not wait for reply.
-fn mock_server_no_block(c: &mut Criterion) {
+fn event_stream_writer_mock_server_no_block(c: &mut Criterion) {
     let mut rt = tokio::runtime::Runtime::new().unwrap();
     let mock_server = rt.block_on(MockServer::new());
     let config = ClientConfigBuilder::default()
@@ -263,21 +266,21 @@ fn mock_server_no_block(c: &mut Criterion) {
         .mock(true)
         .build()
         .expect("creating config");
-    let mut writer = rt.block_on(set_up(config));
+    let mut writer = rt.block_on(set_up_event_stream_writer(config));
     rt.spawn(async { MockServer::run(mock_server).await });
     let _ = tracing_subscriber::fmt::try_init();
-    info!("start mock server(no block) performance testing");
+    info!("start event stream writer mock server(no block) performance testing");
     c.bench_function("mock server(no block)", |b| {
         b.iter(|| {
             rt.block_on(run_no_block(&mut writer));
         });
     });
-    info!("mock server(no block) performance testing finished");
+    info!("event stream writer mock server(no block) performance testing finished");
 }
 
 // This benchmark test uses a mock connection that replies ok to any requests instantly. It does not
 // involve kernel latency.
-fn mock_connection(c: &mut Criterion) {
+fn event_stream_writer_mock_connection(c: &mut Criterion) {
     let mut rt = tokio::runtime::Runtime::new().unwrap();
     let config = ClientConfigBuilder::default()
         .controller_uri("127.0.0.1:9090".parse::<SocketAddr>().unwrap())
@@ -285,20 +288,20 @@ fn mock_connection(c: &mut Criterion) {
         .connection_type(ConnectionType::Mock(MockType::Happy))
         .build()
         .expect("creating config");
-    let mut writer = rt.block_on(set_up(config));
+    let mut writer = rt.block_on(set_up_event_stream_writer(config));
     let _ = tracing_subscriber::fmt::try_init();
-    info!("start mock connection performance testing");
+    info!("start event stream writer mock connection performance testing");
     c.bench_function("mock connection", |b| {
         b.iter(|| {
             rt.block_on(run(&mut writer));
         });
     });
-    info!("mock server connection testing finished");
+    info!("event stream writer mock server connection testing finished");
 }
 
 // This benchmark test uses a mock connection that replies ok to any requests instantly. It does not
 // involve kernel latency. It does not wait for reply.
-fn mock_connection_no_block(c: &mut Criterion) {
+fn event_stream_writer_mock_connection_no_block(c: &mut Criterion) {
     let mut rt = tokio::runtime::Runtime::new().unwrap();
     let config = ClientConfigBuilder::default()
         .controller_uri("127.0.0.1:9090".parse::<SocketAddr>().unwrap())
@@ -306,19 +309,39 @@ fn mock_connection_no_block(c: &mut Criterion) {
         .connection_type(ConnectionType::Mock(MockType::Happy))
         .build()
         .expect("creating config");
-    let mut writer = rt.block_on(set_up(config));
+    let mut writer = rt.block_on(set_up_event_stream_writer(config));
     let _ = tracing_subscriber::fmt::try_init();
-    info!("start mock connection(no block) performance testing");
+    info!("start event stream writer mock connection(no block) performance testing");
     c.bench_function("mock connection(no block)", |b| {
         b.iter(|| {
             rt.block_on(run_no_block(&mut writer));
         });
     });
-    info!("mock server connection(no block) testing finished");
+    info!("event stream writer mock connection(no block) testing finished");
+}
+
+fn byte_stream_reader_mock_server(c: &mut Criterion) {
+    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let mock_server = rt.block_on(MockServer::new());
+    let config = ClientConfigBuilder::default()
+        .controller_uri(mock_server.address)
+        .mock(true)
+        .build()
+        .expect("creating config");
+    rt.spawn(async { MockServer::run(mock_server).await });
+    let mut reader = set_up_byte_stream_reader(config, &mut rt);
+    let _ = tracing_subscriber::fmt::try_init();
+    info!("start byte stream reader mock server performance testing");
+    c.bench_function("byte_stream_reader_mock_server", |b| {
+        b.iter(|| {
+            run_byte_stream_read(&mut reader);
+        });
+    });
+    info!("byte stream reader mock server testing finished");
 }
 
 // helper functions
-async fn set_up(config: ClientConfig) -> EventStreamWriter {
+async fn set_up_event_stream_writer(config: ClientConfig) -> EventStreamWriter {
     let scope_name: Scope = Scope::from("testWriterPerf".to_string());
     let stream_name = Stream::from("testWriterPerf".to_string());
     let client_factory = ClientFactory::new(config.clone());
@@ -331,7 +354,7 @@ async fn set_up(config: ClientConfig) -> EventStreamWriter {
     client_factory.create_event_stream_writer(scoped_stream)
 }
 
-async fn setup_reader(config: ClientConfig) -> EventReader {
+async fn set_up_event_stream_reader(config: ClientConfig) -> EventReader {
     let scope_name: Scope = Scope::from("testReaderPerf".to_string());
     let stream_name = Stream::from("testReaderPerf".to_string());
     let client_factory = ClientFactory::new(config.clone());
@@ -347,6 +370,21 @@ async fn setup_reader(config: ClientConfig) -> EventReader {
 
     let reader = reader_group.create_reader("r1".to_string()).await;
     reader
+}
+
+fn set_up_byte_stream_reader(config: ClientConfig, rt: &mut Runtime) -> ByteStreamReader {
+    let scope_name: Scope = Scope::from("testByteReaderPerf".to_string());
+    let stream_name = Stream::from("testByteReaderPerf".to_string());
+    let client_factory = ClientFactory::new(config.clone());
+    let controller_client = client_factory.get_controller_client();
+    rt.block_on(create_scope_stream(
+        controller_client,
+        &scope_name,
+        &stream_name,
+        1,
+    ));
+    let scoped_segment = ScopedSegment::from("testByteReaderPerf/testByteReaderPerf/0");
+    client_factory.create_byte_stream_reader(scoped_segment)
 }
 
 async fn create_scope_stream(
@@ -408,14 +446,34 @@ async fn run_no_block(writer: &mut EventStreamWriter) {
     assert_eq!(receivers.len(), EVENT_NUM);
 }
 
+fn run_byte_stream_read(reader: &mut ByteStreamReader) {
+    for _i in 0..EVENT_NUM {
+        let mut read = 0;
+        let mut buf = vec![0; EVENT_SIZE];
+        while read != EVENT_SIZE {
+            let size = reader.read(&mut buf[read..]).expect("byte stream read");
+            read += size;
+        }
+    }
+}
+
 criterion_group! {
-    name = performance;
+    name = event_writer_performance;
     config = Criterion::default().sample_size(10);
-    targets = mock_server,mock_server_no_block,mock_connection,mock_connection_no_block
+    targets = event_stream_writer_mock_server,event_stream_writer_mock_server_no_block,event_stream_writer_mock_connection,event_stream_writer_mock_connection_no_block
 }
 criterion_group! {
-    name = reader_performance;
+    name = event_reader_performance;
     config = Criterion::default().sample_size(10);
-    targets = read_mock_server
+    targets = event_stream_read_mock_server
 }
-criterion_main!(performance, reader_performance);
+criterion_group! {
+    name = byte_reader_performance;
+    config = Criterion::default().sample_size(10);
+    targets = byte_stream_reader_mock_server
+}
+criterion_main!(
+    event_writer_performance,
+    event_reader_performance,
+    byte_reader_performance
+);
