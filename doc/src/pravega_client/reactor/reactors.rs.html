@@ -264,6 +264,24 @@
 <span id="261">261</span>
 <span id="262">262</span>
 <span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -284,6 +302,8 @@
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">client_factory</span>::<span class="ident">ClientFactory</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">reactor</span>::<span class="ident">event</span>::{<span class="ident">Incoming</span>, <span class="ident">ServerReply</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">reactor</span>::<span class="ident">segment_selector</span>::<span class="ident">SegmentSelector</span>;
+
+<span class="kw">const</span> <span class="ident">MAX_RECONNECTION_ALLOWED_FOR_CONDITIONAL_CHECK</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">3</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">new</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">Reactor</span> {}
@@ -377,6 +397,8 @@
                     <span class="string">&quot;data appended for writer {:?}, latest event id is: {:?}&quot;</span>,
                     <span class="ident">writer</span>.<span class="ident">id</span>, <span class="ident">cmd</span>.<span class="ident">event_number</span>
                 );
+                <span class="comment">// reconnection works as expected, set reconnection to 0</span>
+                <span class="ident">writer</span>.<span class="ident">reconnection</span> <span class="op">=</span> <span class="number">0</span>;
                 <span class="ident">writer</span>.<span class="ident">ack</span>(<span class="ident">cmd</span>.<span class="ident">event_number</span>);
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">writer</span>.<span class="ident">write_pending_events</span>().<span class="ident">await</span> {
                     <span class="macro">warn</span><span class="macro">!</span>(
@@ -429,9 +451,23 @@
             }
 
             <span class="ident">Replies</span>::<span class="ident">ConditionalCheckFailed</span>(<span class="ident">cmd</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">warn</span><span class="macro">!</span>(<span class="string">&quot;conditional check failed {:?}&quot;</span>, <span class="ident">cmd</span>);
                 <span class="kw">if</span> <span class="ident">writer</span>.<span class="ident">id</span>.<span class="number">0</span> <span class="op">=</span><span class="op">=</span> <span class="ident">cmd</span>.<span class="ident">writer_id</span> {
-                    <span class="ident">writer</span>.<span class="ident">fail_events_upon_conditional_check_failure</span>(<span class="ident">cmd</span>.<span class="ident">event_number</span>);
+                    <span class="kw">if</span> <span class="ident">writer</span>.<span class="ident">reconnection</span> <span class="op">&gt;</span> <span class="number">0</span>
+                        <span class="op">&amp;&amp;</span> <span class="ident">writer</span>.<span class="ident">reconnection</span> <span class="op">&lt;</span> <span class="ident">MAX_RECONNECTION_ALLOWED_FOR_CONDITIONAL_CHECK</span>
+                    {
+                        <span class="comment">// Conditional check failed, but it could be caused by reconnection.</span>
+                        <span class="comment">// Reconnect again to fetch the latest event number from server.</span>
+                        <span class="macro">warn</span><span class="macro">!</span>(
+                            <span class="string">&quot;conditional check failed {:?}, probably a false alarm caused by reconnection&quot;</span>,
+                            <span class="ident">cmd</span>
+                        );
+                        <span class="ident">writer</span>.<span class="ident">reconnect</span>(<span class="ident">factory</span>).<span class="ident">await</span>;
+                    } <span class="kw">else</span> {
+                        <span class="comment">// reconnection did not happen, conditional check failed must</span>
+                        <span class="comment">// be caused by interleaved data.</span>
+                        <span class="macro">warn</span><span class="macro">!</span>(<span class="string">&quot;conditional check failed {:?}&quot;</span>, <span class="ident">cmd</span>);
+                        <span class="ident">writer</span>.<span class="ident">fail_events_upon_conditional_check_failure</span>(<span class="ident">cmd</span>.<span class="ident">event_number</span>);
+                    }
                 }
                 <span class="prelude-val">Ok</span>(())
             }

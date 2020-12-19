@@ -763,6 +763,12 @@
 <span id="760">760</span>
 <span id="761">761</span>
 <span id="762">762</span>
+<span id="763">763</span>
+<span id="764">764</span>
+<span id="765">765</span>
+<span id="766">766</span>
+<span id="767">767</span>
+<span id="768">768</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -804,41 +810,44 @@
 <span class="kw">use</span> <span class="ident">tracing_futures</span>::<span class="ident">Instrument</span>;
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">SegmentWriter</span> {
-    <span class="doccomment">/// Unique id for each EventSegmentWriter.</span>
+    <span class="doccomment">/// Unique id for each SegmentWriter.</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">id</span>: <span class="ident">WriterId</span>,
 
-    <span class="doccomment">/// The segment that this writer is writing to, it does not change for a EventSegmentWriter instance.</span>
+    <span class="doccomment">/// The segment that this writer writes to.</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">segment</span>: <span class="ident">ScopedSegment</span>,
 
     <span class="doccomment">/// Client connection that writes to the segmentstore.</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">connection</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ClientConnectionWriteHalf</span><span class="op">&gt;</span>,
 
-    <span class="doccomment">/// Closes listener task before setting up new connection.</span>
+    <span class="comment">// Closes listener task before setting up new connection.</span>
     <span class="ident">connection_listener_handle</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">oneshot</span>::<span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 
-    <span class="doccomment">/// Events that are sent but unacknowledged.</span>
+    <span class="comment">// Events that are sent but unacknowledged.</span>
     <span class="ident">inflight</span>: <span class="ident">VecDeque</span><span class="op">&lt;</span><span class="ident">Append</span><span class="op">&gt;</span>,
 
-    <span class="doccomment">/// Events that are waiting to be sent.</span>
+    <span class="comment">// Events that are waiting to be sent.</span>
     <span class="ident">pending</span>: <span class="ident">VecDeque</span><span class="op">&lt;</span><span class="ident">Append</span><span class="op">&gt;</span>,
 
-    <span class="doccomment">/// Incremental event id.</span>
+    <span class="comment">// Incremental event id.</span>
     <span class="ident">event_num</span>: <span class="ident">i64</span>,
 
-    <span class="doccomment">/// The sender that sends back reply to reactor for processing.</span>
+    <span class="comment">// The sender that sends back reply to reactor for processing.</span>
     <span class="ident">sender</span>: <span class="ident">ChannelSender</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
 
-    <span class="doccomment">/// The client retry policy.</span>
+    <span class="comment">// The client retry policy.</span>
     <span class="ident">retry_policy</span>: <span class="ident">RetryWithBackoff</span>,
 
-    <span class="doccomment">/// Delegation token provider used to authenticate client when communicating with segmentstore.</span>
+    <span class="comment">// Delegation token provider used to authenticate client when communicating with segmentstore.</span>
     <span class="ident">delegation_token_provider</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">DelegationTokenProvider</span><span class="op">&gt;</span>,
+
+    <span class="doccomment">/// Number of consecutive reconnections</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">reconnection</span>: <span class="ident">i32</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">SegmentWriter</span> {
-    <span class="doccomment">/// Maximum data size in one append block.</span>
+    <span class="comment">// Maximum data size in one append block.</span>
     <span class="kw">const</span> <span class="ident">MAX_WRITE_SIZE</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">8</span> <span class="op">*</span> <span class="number">1024</span> <span class="op">*</span> <span class="number">1024</span> <span class="op">+</span> <span class="number">8</span>;
-    <span class="doccomment">/// Maximum event number in one append block.</span>
+    <span class="comment">// Maximum event number in one append block.</span>
     <span class="kw">const</span> <span class="ident">MAX_EVENTS</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">500</span>;
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">new</span>(
@@ -858,6 +867,7 @@
             <span class="ident">retry_policy</span>,
             <span class="ident">delegation_token_provider</span>,
             <span class="ident">connection_listener_handle</span>: <span class="prelude-val">None</span>,
+            <span class="ident">reconnection</span>: <span class="number">0</span>,
         }
     }
 
@@ -917,8 +927,8 @@
                 <span class="prelude-val">Ok</span>((<span class="ident">reply</span>, <span class="ident">connection</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">reply</span> {
                     <span class="ident">Replies</span>::<span class="ident">AppendSetup</span>(<span class="ident">cmd</span>) <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="macro">debug</span><span class="macro">!</span>(
-                            <span class="string">&quot;append setup completed for writer:{:?}/segment:{:?}&quot;</span>,
-                            <span class="self">self</span>.<span class="ident">id</span>, <span class="self">self</span>.<span class="ident">segment</span>
+                            <span class="string">&quot;append setup completed for writer:{:?}/segment:{:?} with latest event number {}&quot;</span>,
+                            <span class="self">self</span>.<span class="ident">id</span>, <span class="self">self</span>.<span class="ident">segment</span>, <span class="ident">cmd</span>.<span class="ident">last_event_number</span>
                         );
                         <span class="self">self</span>.<span class="ident">ack</span>(<span class="ident">cmd</span>.<span class="ident">last_event_number</span>);
                         <span class="ident">connection</span>
@@ -1204,7 +1214,9 @@
                 ))
                 .<span class="ident">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;send reconnect signal to reactor&quot;</span>);
+            <span class="kw">return</span>;
         }
+        <span class="self">self</span>.<span class="ident">reconnection</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
     }
 
     <span class="doccomment">/// Force delegation token provider to refresh.</span>
