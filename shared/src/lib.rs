@@ -473,8 +473,7 @@ impl StreamSegments {
         assert!(OrderedFloat(key).le(&OrderedFloat(1.0)), "Key should be <= 1.0");
         let r = self
             .key_segment_map
-            .range(&OrderedFloat(key)..)
-            .next()
+            .get_next(&OrderedFloat(key))
             .expect("No matching segment found for the given key");
         r.1.scoped_segment.to_owned()
     }

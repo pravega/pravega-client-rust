@@ -62,6 +62,7 @@ metrics = "0.13.0-alpha.4"
 metrics-exporter-prometheus = "0.1.0-alpha.4"
 enum-iterator = "0.6"
 cfg-if = "1.0.0"
+ahash = "0.6.2"
 
 [dev-dependencies]
 pravega-client-integration-test = { path = "integration_test" }

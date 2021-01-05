@@ -8,6 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use ahash::RandomState;
 use std::collections::{BTreeMap, HashMap};
 
 use crate::get_random_f64;
@@ -28,7 +29,7 @@ pub(crate) struct SegmentSelector {
     pub(crate) stream: ScopedStream,
 
     /// Maps segment to SegmentWriter.
-    pub(crate) writers: HashMap<ScopedSegment, SegmentWriter>,
+    pub(crate) writers: HashMap<ScopedSegment, SegmentWriter, RandomState>,
 
     /// The current segments in this stream.
     pub(crate) current_segments: StreamSegments,
@@ -52,7 +53,7 @@ impl SegmentSelector {
         let delegation_token_provider = factory.create_delegation_token_provider(stream.clone()).await;
         SegmentSelector {
             stream,
-            writers: HashMap::new(),
+            writers: HashMap::default(),
             current_segments: StreamSegments::new(BTreeMap::new()),
             sender,
             factory,
