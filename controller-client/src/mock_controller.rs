@@ -357,10 +357,10 @@ impl ControllerClient for MockController {
             exp: expiry_time.as_secs(),
         };
 
-        let header = Header{
+        let header = Header {
             typ: Some("JWT".to_owned()),
             alg: Algorithm::HS256,
-            .. Default::default()
+            ..Default::default()
         };
 
         let key = b"secret";
