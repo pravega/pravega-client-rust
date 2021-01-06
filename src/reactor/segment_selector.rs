@@ -16,11 +16,11 @@ use tracing::{debug, warn};
 use pravega_client_shared::*;
 
 use crate::client_factory::ClientFactory;
+use crate::get_random_f64;
 use crate::reactor::event::Incoming;
 use crate::reactor::segment_writer::{Append, SegmentWriter};
 use pravega_client_auth::DelegationTokenProvider;
 use std::sync::Arc;
-use crate::get_random_f64;
 
 /// Maintains mapping from segments to segment writers.
 pub(crate) struct SegmentSelector {
@@ -79,7 +79,9 @@ impl SegmentSelector {
     /// Gets a segment writer by providing an optional routing key. The stream at least owns one
     /// segment so this method should always has writer to return.
     pub(crate) fn get_segment_writer(&mut self, routing_key: &Option<String>) -> &mut SegmentWriter {
-        let segment = self.current_segments.get_segment_for_routing_key(routing_key, get_random_f64);
+        let segment = self
+            .current_segments
+            .get_segment_for_routing_key(routing_key, get_random_f64);
         self.writers
             .get_mut(segment)
             .expect("must have corresponding writer")
@@ -155,7 +157,9 @@ impl SegmentSelector {
     /// Resends a list of events.
     pub(crate) async fn resend(&mut self, to_resend: Vec<Append>) {
         for append in to_resend {
-            let segment = self.current_segments.get_segment_for_routing_key(&append.event.routing_key, get_random_f64);
+            let segment = self
+                .current_segments
+                .get_segment_for_routing_key(&append.event.routing_key, get_random_f64);
             let segment_writer = self.writers.get_mut(segment).expect("must have writer");
             segment_writer.add_pending(append.event, append.cap_guard);
             if let Err(e) = segment_writer.write_pending_events().await {

@@ -469,7 +469,11 @@ impl StreamSegments {
     }
 
     /// Selects a segment using a routing key.
-    pub fn get_segment_for_routing_key(&self, routing_key: &Option<String>, rand_f64: fn() -> f64) -> &ScopedSegment {
+    pub fn get_segment_for_routing_key(
+        &self,
+        routing_key: &Option<String>,
+        rand_f64: fn() -> f64,
+    ) -> &ScopedSegment {
         if let Some(key) = routing_key {
             self.get_segment_for_string(key)
         } else {
