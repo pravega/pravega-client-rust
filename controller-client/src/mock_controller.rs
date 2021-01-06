@@ -357,9 +357,11 @@ impl ControllerClient for MockController {
             exp: expiry_time.as_secs(),
         };
 
-        let mut header = Header::default();
-        header.typ = Some("JWT".to_owned());
-        header.alg = Algorithm::HS256;
+        let header = Header {
+            typ: Some("JWT".to_owned()),
+            alg: Algorithm::HS256,
+            ..Default::default()
+        };
 
         let key = b"secret";
         let token = encode(&header, &claims, &EncodingKey::from_secret(key)).expect("encode to JWT token");

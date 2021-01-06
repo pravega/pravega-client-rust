@@ -805,8 +805,8 @@ async fn test_update_table_entries(factory: &ClientFactory) {
         table_segment_offset: -1,
     });
     let mut versions = Vec::new();
-    versions.push(0 as i64);
-    versions.push(27 as i64); //  why return version is 27.
+    versions.push(0_i64);
+    versions.push(27_i64); //  why return version is 27.
     let reply = Replies::TableEntriesUpdated(TableEntriesUpdatedCommand {
         request_id: 19,
         updated_versions: versions,
