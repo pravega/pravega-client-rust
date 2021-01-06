@@ -445,13 +445,13 @@ impl StreamSegments {
     const SEED: u64 = 1741865571; // This is the hashcode of String "EventRouter" in Java client
 
     pub fn new(map_key_segment: BTreeMap<OrderedFloat<f64>, SegmentWithRange>) -> StreamSegments {
-        StreamSegments::is_valid(&map_key_segment).expect("Invalid key segment map");
+        StreamSegments::assert_valid(&map_key_segment);
         StreamSegments {
             key_segment_map: map_key_segment.into(),
         }
     }
 
-    fn is_valid(map: &BTreeMap<OrderedFloat<f64>, SegmentWithRange>) -> Result<(), String> {
+    fn assert_valid(map: &BTreeMap<OrderedFloat<f64>, SegmentWithRange>) {
         if !map.is_empty() {
             let (min_key, _min_seg) = map.iter().next().expect("Error reading min key");
             let (max_key, _max_seg) = map.iter().next_back().expect("Error read max key");
@@ -465,7 +465,6 @@ impl StreamSegments {
                 "Segments should have values only up to 1.0"
             );
         }
-        Ok(())
     }
 
     /// Selects a segment using a routing key.
