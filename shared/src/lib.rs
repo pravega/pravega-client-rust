@@ -468,7 +468,16 @@ impl StreamSegments {
         Ok(())
     }
 
-    pub fn get_segment(&self, key: f64) -> ScopedSegment {
+    /// Selects a segment using a routing key.
+    pub fn get_segment_for_routing_key(&self, routing_key: &Option<String>, rand_f64: fn() -> f64) -> &ScopedSegment {
+        if let Some(key) = routing_key {
+            self.get_segment_for_string(key)
+        } else {
+            self.get_segment(rand_f64())
+        }
+    }
+
+    pub fn get_segment(&self, key: f64) -> &ScopedSegment {
         assert!(OrderedFloat(key).ge(&OrderedFloat(0.0)), "Key should be >= 0.0");
         assert!(OrderedFloat(key).le(&OrderedFloat(1.0)), "Key should be <= 1.0");
         let r = self
@@ -476,10 +485,10 @@ impl StreamSegments {
             .range(&OrderedFloat(key)..)
             .next()
             .expect("No matching segment found for the given key");
-        r.1.scoped_segment.to_owned()
+        &r.1.scoped_segment
     }
 
-    pub fn get_segment_for_string(&self, str: &str) -> ScopedSegment {
+    pub fn get_segment_for_string(&self, str: &str) -> &ScopedSegment {
         let mut buffer_u16 = vec![0; str.len()];
 
         // convert uft-8 encoded Rust string to utf-16.
