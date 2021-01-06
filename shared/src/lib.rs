@@ -445,13 +445,13 @@ impl StreamSegments {
     const SEED: u64 = 1741865571; // This is the hashcode of String "EventRouter" in Java client
 
     pub fn new(map_key_segment: BTreeMap<OrderedFloat<f64>, SegmentWithRange>) -> StreamSegments {
-        StreamSegments::is_valid(&map_key_segment).expect("Invalid key segment map");
+        StreamSegments::assert_valid(&map_key_segment);
         StreamSegments {
             key_segment_map: map_key_segment.into(),
         }
     }
 
-    fn is_valid(map: &BTreeMap<OrderedFloat<f64>, SegmentWithRange>) -> Result<(), String> {
+    fn assert_valid(map: &BTreeMap<OrderedFloat<f64>, SegmentWithRange>) {
         if !map.is_empty() {
             let (min_key, _min_seg) = map.iter().next().expect("Error reading min key");
             let (max_key, _max_seg) = map.iter().next_back().expect("Error read max key");
@@ -465,20 +465,32 @@ impl StreamSegments {
                 "Segments should have values only up to 1.0"
             );
         }
-        Ok(())
     }
 
-    pub fn get_segment(&self, key: f64) -> ScopedSegment {
+    /// Selects a segment using a routing key.
+    pub fn get_segment_for_routing_key(
+        &self,
+        routing_key: &Option<String>,
+        rand_f64: fn() -> f64,
+    ) -> &ScopedSegment {
+        if let Some(key) = routing_key {
+            self.get_segment_for_string(key)
+        } else {
+            self.get_segment(rand_f64())
+        }
+    }
+
+    pub fn get_segment(&self, key: f64) -> &ScopedSegment {
         assert!(OrderedFloat(key).ge(&OrderedFloat(0.0)), "Key should be >= 0.0");
         assert!(OrderedFloat(key).le(&OrderedFloat(1.0)), "Key should be <= 1.0");
         let r = self
             .key_segment_map
             .get_next(&OrderedFloat(key))
             .expect("No matching segment found for the given key");
-        r.1.scoped_segment.to_owned()
+        &r.1.scoped_segment
     }
 
-    pub fn get_segment_for_string(&self, str: &str) -> ScopedSegment {
+    pub fn get_segment_for_string(&self, str: &str) -> &ScopedSegment {
         let mut buffer_u16 = vec![0; str.len()];
 
         // convert uft-8 encoded Rust string to utf-16.

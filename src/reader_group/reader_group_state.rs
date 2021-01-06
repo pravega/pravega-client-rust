@@ -20,7 +20,6 @@ use snafu::ResultExt;
 use snafu::{ensure, OptionExt, Snafu};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
-use std::iter::FromIterator;
 use tracing::{debug, info, warn};
 
 const ASSUMED_LAG_MILLIS: u64 = 30000;
@@ -519,7 +518,7 @@ impl ReaderGroupState {
         // add missing successors to future_segments
         for (segment, list) in successors_mapped_to_their_predecessors {
             if !future_segments.contains_key(&segment.scoped_segment) {
-                let required_to_complete = HashSet::from_iter(list.clone().into_iter());
+                let required_to_complete: HashSet<_> = list.clone().into_iter().collect();
                 table.insert(
                     FUTURE.to_owned(),
                     segment.scoped_segment.to_string(),
