@@ -25,3 +25,4 @@ pravega-*.tgz
 __pycache__/
 book/book
 html/
+bindings/.tox/

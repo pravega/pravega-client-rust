@@ -54,6 +54,7 @@ pub(crate) struct StreamManager {
 #[pymethods]
 impl StreamManager {
     #[new]
+    #[args(auth_enabled = "false", tls_enabled = "false")]
     fn new(controller_uri: &str, auth_enabled: bool, tls_enabled: bool) -> Self {
         let config = ClientConfigBuilder::default()
             .controller_uri(controller_uri)
