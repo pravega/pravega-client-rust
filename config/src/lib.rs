@@ -44,6 +44,8 @@ const AUTH_TOKEN: &str = "token";
 const AUTH_KEYCLOAK_PATH: &str = "keycloak";
 const AUTH_PROPS_PREFIX_ENV: &str = "pravega_client_auth_";
 
+const TLS_CERT_PATH: &str = "pravega_client_tls_cert_path";
+
 #[derive(Builder, Debug, Getters, CopyGetters, Clone)]
 #[builder(setter(into))]
 pub struct ClientConfig {
@@ -75,7 +77,7 @@ pub struct ClientConfig {
     #[builder(default = "false")]
     pub mock: bool,
 
-    #[builder(default = "self.default_trustcert()")]
+    #[builder(default = "self.extract_trustcert()")]
     pub trustcert: String,
 
     #[get_copy = "pub"]
@@ -99,7 +101,14 @@ pub struct ClientConfig {
 }
 
 impl ClientConfigBuilder {
-    fn default_trustcert(&self) -> String {
+    fn extract_trustcert(&self) -> String {
+        let ret_val = env::vars()
+            .filter(|(k, _v)| k.starts_with(TLS_CERT_PATH))
+            .collect::<HashMap<String, String>>();
+        if ret_val.contains_key(TLS_CERT_PATH) {
+            let cert_path = ret_val.get(TLS_CERT_PATH).expect("get tls cert path").to_owned();
+            return cert_path;
+        }
         "./ca-cert.crt".to_owned()
     }
 
@@ -175,6 +184,19 @@ mod tests {
 
     #[test]
     fn test_extract_credentials() {
+        // test empty env
+        let config = ClientConfigBuilder::default()
+            .controller_uri("127.0.0.2:9091".to_string())
+            .build()
+            .unwrap();
+
+        let token = encode(":");
+
+        assert_eq!(
+            config.credentials.get_request_metadata(),
+            format!("{} {}", "Basic", token)
+        );
+
         // retrieve from env
         env::set_var("pravega_client_auth_method", "Basic");
         env::set_var("pravega_client_auth_username", "hello");
@@ -201,5 +223,23 @@ mod tests {
             config.credentials.get_request_metadata(),
             format!("{} {}", "Basic", "ABCDE")
         )
+    }
+
+    #[test]
+    fn test_extract_tls_cert_path() {
+        // test default
+        let config = ClientConfigBuilder::default()
+            .controller_uri("127.0.0.2:9091".to_string())
+            .build()
+            .unwrap();
+        assert_eq!(config.trustcert, "./ca-cert.crt");
+
+        // test with env var set
+        env::set_var("pravega_client_tls_cert_path", "/");
+        let config = ClientConfigBuilder::default()
+            .controller_uri("127.0.0.2:9091".to_string())
+            .build()
+            .unwrap();
+        assert_eq!(config.trustcert, "/");
     }
 }
