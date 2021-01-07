@@ -40,6 +40,7 @@ pub const MOCK_CONTROLLER_URI: (&str, u16) = ("localhost", 9090);
 const AUTH_METHOD: &str = "method";
 const AUTH_USERNAME: &str = "username";
 const AUTH_PASSWORD: &str = "password";
+const AUTH_TOKEN: &str = "token";
 const AUTH_KEYCLOAK_PATH: &str = "keycloak";
 const AUTH_PROPS_PREFIX_ENV: &str = "pravega_client_auth_";
 
@@ -113,6 +114,9 @@ impl ClientConfigBuilder {
         if ret_val.contains_key(AUTH_METHOD) {
             let method = ret_val.get(AUTH_METHOD).expect("get auth method").to_owned();
             if method == credentials::BASIC {
+                if let Some(token) = ret_val.get(AUTH_TOKEN) {
+                    return Credentials::basic_with_token(token.to_string());
+                }
                 let username = ret_val.get(AUTH_USERNAME).expect("get auth username").to_owned();
                 let password = ret_val.get(AUTH_PASSWORD).expect("get auth password").to_owned();
                 return Credentials::basic(username, password);
@@ -186,5 +190,16 @@ mod tests {
             config.credentials.get_request_metadata(),
             format!("{} {}", "Basic", token)
         );
+
+        // retrieve from env with priority
+        env::set_var("pravega_client_auth_token", "ABCDE");
+        let config = ClientConfigBuilder::default()
+            .controller_uri("127.0.0.2:9091".to_string())
+            .build()
+            .unwrap();
+        assert_eq!(
+            config.credentials.get_request_metadata(),
+            format!("{} {}", "Basic", "ABCDE")
+        )
     }
 }

@@ -48,6 +48,16 @@ impl Credentials {
         }
     }
 
+    pub fn basic_with_token(token: String) -> Self {
+        let basic = Basic {
+            method: BASIC.to_owned(),
+            token,
+        };
+        Credentials {
+            inner: Box::new(basic) as Box<dyn Cred>,
+        }
+    }
+
     pub fn keycloak(path: &str) -> Self {
         let keycloak = KeyCloak {
             method: BEARER.to_string(),

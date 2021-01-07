@@ -542,7 +542,7 @@ impl StreamSegments {
                             result.insert(min(new_segment.max_key, *key), new_segment.clone());
                         }
                         Some(lower_bound_value) => {
-                            if new_segment.max_key.ge(&lower_bound_value.0) {
+                            if new_segment.max_key.ge(lower_bound_value.0) {
                                 result.insert(min(new_segment.max_key, *key), new_segment.clone());
                             }
                         }
