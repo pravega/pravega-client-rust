@@ -491,12 +491,11 @@ pub struct EventCommand {
 impl Command for EventCommand {
     const TYPE_CODE: i32 = 0;
     fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
-        let mut res = Vec::new();
+        let mut res = Vec::with_capacity(self.data.len() + 4);
         res.extend_from_slice(&EventCommand::TYPE_CODE.to_be_bytes());
-        let encoded = CONFIG.serialize(&self).context(InvalidData {
+        CONFIG.serialize_into(&mut res, &self).context(InvalidData {
             command_type: Self::TYPE_CODE,
         })?;
-        res.extend(encoded);
         Ok(res)
     }
 

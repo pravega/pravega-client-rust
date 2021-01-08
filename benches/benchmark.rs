@@ -423,7 +423,7 @@ async fn create_scope_stream(
 
 // run sends request to server and wait for the reply
 async fn run(writer: &mut EventStreamWriter) {
-    let mut receivers = vec![];
+    let mut receivers = Vec::with_capacity(EVENT_NUM);
     for _i in 0..EVENT_NUM {
         let rx = writer.write_event(vec![0; EVENT_SIZE]).await;
         receivers.push(rx);
@@ -438,7 +438,7 @@ async fn run(writer: &mut EventStreamWriter) {
 
 // run no block sends request to server and does not wait for the reply
 async fn run_no_block(writer: &mut EventStreamWriter) {
-    let mut receivers = vec![];
+    let mut receivers = Vec::with_capacity(EVENT_NUM);
     for _i in 0..EVENT_NUM {
         let rx = writer.write_event(vec![0; EVENT_SIZE]).await;
         receivers.push(rx);

@@ -28,7 +28,7 @@ ordered-float = "1.0"
 uuid = {version = "0.8", features = ["v4"]}
 clap = {version = "2.33", optional = true}
 structopt = {version = "0.3", optional = true}
-im = "14.3"
+im = "15"
 tracing = "0.1"
 jsonwebtoken = "7"
 serde = {version = "1.0", features = ["derive"] }

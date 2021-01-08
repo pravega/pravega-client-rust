@@ -485,8 +485,7 @@ impl StreamSegments {
         assert!(OrderedFloat(key).le(&OrderedFloat(1.0)), "Key should be <= 1.0");
         let r = self
             .key_segment_map
-            .range(&OrderedFloat(key)..)
-            .next()
+            .get_next(&OrderedFloat(key))
             .expect("No matching segment found for the given key");
         &r.1.scoped_segment
     }
@@ -543,7 +542,7 @@ impl StreamSegments {
                             result.insert(min(new_segment.max_key, *key), new_segment.clone());
                         }
                         Some(lower_bound_value) => {
-                            if new_segment.max_key.ge(&lower_bound_value.0) {
+                            if new_segment.max_key.ge(lower_bound_value.0) {
                                 result.insert(min(new_segment.max_key, *key), new_segment.clone());
                             }
                         }

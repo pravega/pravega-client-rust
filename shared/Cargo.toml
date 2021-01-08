@@ -19,7 +19,7 @@ shrinkwraprs = "0.3"
 derive-new = "0.5"
 ordered-float = { version= "1.0.2", features = ["serde"]}
 uuid = "0.8"
-im = "14.3"
+im = "15"
 serde = { version = "1.0", features = ["derive"] }
 murmurhash3 = "0.0.5"
 encoding_rs = "0.8"

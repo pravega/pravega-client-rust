@@ -34,7 +34,7 @@ cfg_if! {
 ///
 #[cfg(feature = "python_binding")]
 #[pyclass]
-#[text_signature = "(controller_uri)"]
+#[text_signature = "(controller_uri, auth_enabled, tls_enabled)"]
 pub(crate) struct StreamManager {
     controller_ip: String,
     cf: ClientFactory,
@@ -54,9 +54,12 @@ pub(crate) struct StreamManager {
 #[pymethods]
 impl StreamManager {
     #[new]
-    fn new(controller_uri: &str) -> Self {
+    #[args(auth_enabled = "false", tls_enabled = "false")]
+    fn new(controller_uri: &str, auth_enabled: bool, tls_enabled: bool) -> Self {
         let config = ClientConfigBuilder::default()
             .controller_uri(controller_uri)
+            .is_auth_enabled(auth_enabled)
+            .is_tls_enabled(tls_enabled)
             .build()
             .expect("creating config");
         let client_factory = ClientFactory::new(config.clone());
