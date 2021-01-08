@@ -281,6 +281,7 @@
 <span id="278">278</span>
 <span id="279">279</span>
 <span id="280">280</span>
+<span id="281">281</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -292,6 +293,7 @@
 <span class="comment">// http://www.apache.org/licenses/LICENSE-2.0</span>
 <span class="comment">//</span>
 
+<span class="kw">use</span> <span class="ident">ahash</span>::<span class="ident">RandomState</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">HashMap</span>};
 
 <span class="kw">use</span> <span class="ident">pravega_client_channel</span>::<span class="ident">ChannelSender</span>;
@@ -312,7 +314,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">stream</span>: <span class="ident">ScopedStream</span>,
 
     <span class="doccomment">/// Maps segment to SegmentWriter.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">writers</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">SegmentWriter</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">writers</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">SegmentWriter</span>, <span class="ident">RandomState</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// The current segments in this stream.</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">current_segments</span>: <span class="ident">StreamSegments</span>,
@@ -336,7 +338,7 @@
         <span class="kw">let</span> <span class="ident">delegation_token_provider</span> <span class="op">=</span> <span class="ident">factory</span>.<span class="ident">create_delegation_token_provider</span>(<span class="ident">stream</span>.<span class="ident">clone</span>()).<span class="ident">await</span>;
         <span class="ident">SegmentSelector</span> {
             <span class="ident">stream</span>,
-            <span class="ident">writers</span>: <span class="ident">HashMap</span>::<span class="ident">new</span>(),
+            <span class="ident">writers</span>: <span class="ident">HashMap</span>::<span class="ident">default</span>(),
             <span class="ident">current_segments</span>: <span class="ident">StreamSegments</span>::<span class="ident">new</span>(<span class="ident">BTreeMap</span>::<span class="ident">new</span>()),
             <span class="ident">sender</span>,
             <span class="ident">factory</span>,
