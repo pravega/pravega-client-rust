@@ -20,7 +20,7 @@ class PravegaTest(unittest.TestCase):
         scope = ''.join(secrets.choice(string.ascii_lowercase + string.digits)
                       for i in range(10))
         print("Creating a Stream Manager, ensure Pravega is running")
-        stream_manager=pravega_client.StreamManager("127.0.0.1:9090", True, True)
+        stream_manager=pravega_client.StreamManager("127.0.0.1:9090", False, False)
 
         print("Creating a scope")
         scope_result=stream_manager.create_scope(scope)
