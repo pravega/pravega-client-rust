@@ -9,7 +9,7 @@
 //
 
 use pravega_client_config::ClientConfig;
-use pravega_client_shared::{DelegationToken, PravegaNodeUri, ScopedSegment, ScopedStream, WriterId};
+use pravega_client_shared::{DelegationToken, PravegaNodeUri, Scope, ScopedSegment, ScopedStream, WriterId};
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::mock_controller::MockController;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
@@ -80,14 +80,14 @@ impl ClientFactory {
         .await
     }
 
-    pub async fn create_table_map(&self, name: String) -> TableMap {
-        TableMap::new(name, self.clone())
+    pub async fn create_table_map(&self, scope: Scope, name: String) -> TableMap {
+        TableMap::new(scope, name, self.clone())
             .await
             .expect("Failed to create Table map")
     }
 
-    pub async fn create_table_synchronizer(&self, name: String) -> TableSynchronizer {
-        TableSynchronizer::new(name, self.clone()).await
+    pub async fn create_table_synchronizer(&self, scope: Scope, name: String) -> TableSynchronizer {
+        TableSynchronizer::new(scope, name, self.clone()).await
     }
 
     pub async fn create_raw_client(&self, segment: &ScopedSegment) -> RawClientImpl<'_> {
@@ -113,17 +113,19 @@ impl ClientFactory {
             "Creating reader group {:?} to read data from stream {:?}",
             reader_group_name, stream
         );
+        let scope = stream.scope.clone();
         let rg_config = ReaderGroupConfigBuilder::default().add_stream(stream).build();
-        ReaderGroup::create(reader_group_name, rg_config, self.clone()).await
+        ReaderGroup::create(scope, reader_group_name, rg_config, self.clone()).await
     }
 
-    pub async fn create_reader_group_config(
+    pub async fn create_reader_group_with_config(
         &self,
+        scope: Scope,
         reader_group_name: String,
         rg_config: ReaderGroupConfig,
     ) -> ReaderGroup {
         info!("Creating reader group {:?} ", reader_group_name);
-        ReaderGroup::create(reader_group_name, rg_config, self.clone()).await
+        ReaderGroup::create(scope, reader_group_name, rg_config, self.clone()).await
     }
 
     pub async fn create_transactional_event_stream_writer(

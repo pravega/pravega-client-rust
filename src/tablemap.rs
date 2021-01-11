@@ -62,10 +62,10 @@ pub enum TableError {
 }
 impl TableMap {
     /// create a table map
-    pub async fn new(name: String, factory: ClientFactory) -> Result<TableMap, TableError> {
+    pub async fn new(scope: Scope, name: String, factory: ClientFactory) -> Result<TableMap, TableError> {
         let segment = ScopedSegment {
-            scope: Scope::from("_tables".to_owned()),
-            stream: PravegaStream::from(name),
+            scope: Scope::from(scope),
+            stream: PravegaStream::from(format!("_table_{}", name)),
             segment: Segment::from(0),
         };
         let endpoint = factory
@@ -1009,6 +1009,9 @@ mod test {
             .build()
             .unwrap();
         let factory = ClientFactory::new(config);
-        rt.block_on(factory.create_table_map("tablemap".to_string()))
+        let scope = Scope {
+            name: "tablemapScope".to_string(),
+        };
+        rt.block_on(factory.create_table_map(scope, "tablemap".to_string()))
     }
 }

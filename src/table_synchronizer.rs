@@ -13,6 +13,7 @@ use crate::error::*;
 use crate::tablemap::{TableError, TableMap, Version};
 use futures::pin_mut;
 use futures::stream::StreamExt;
+use pravega_client_shared::Scope;
 use pravega_wire_protocol::commands::TableKey;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -67,8 +68,8 @@ const MAX_RETRIES: i32 = 10;
 const DELAY_MILLIS: u64 = 1000;
 
 impl TableSynchronizer {
-    pub async fn new(name: String, factory: ClientFactory) -> TableSynchronizer {
-        let table_map = TableMap::new(name.clone(), factory)
+    pub async fn new(scope: Scope, name: String, factory: ClientFactory) -> TableSynchronizer {
+        let table_map = TableMap::new(scope, name.clone(), factory)
             .await
             .expect("create table map");
         TableSynchronizer {
@@ -1022,7 +1023,10 @@ mod test {
             .build()
             .unwrap();
         let factory = ClientFactory::new(config);
-        let mut sync = rt.block_on(factory.create_table_synchronizer("sync".to_string()));
+        let scope = Scope {
+            name: "tableSyncScope".to_string(),
+        };
+        let mut sync = rt.block_on(factory.create_table_synchronizer(scope, "sync".to_string()));
         rt.block_on(sync.insert(|table| {
             table.insert(
                 "outer_key".to_owned(),
