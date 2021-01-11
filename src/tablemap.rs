@@ -74,15 +74,6 @@ impl TableMap {
             .create_delegation_token_provider(ScopedStream::from(&segment))
             .await;
 
-        // let table_map = TableMap {
-        //     name: segment.to_string(),
-        //     endpoint: endpoint.clone(),
-        //     factory: factory.clone(),
-        //     delegation_token_provider: factory
-        //         .create_delegation_token_provider(ScopedStream::from(&segment))
-        //         .await,
-        // };
-
         let op = "Create table segment";
         retry_async(factory.get_config().retry_policy, || async {
             let req = Requests::CreateTableSegment(CreateTableSegmentCommand {
