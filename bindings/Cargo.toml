@@ -1,6 +1,6 @@
 [package]
 name = "pravega"
-version = "0.0.1-alpha-3"
+version = "0.0.1-alpha-4"
 edition = "2018"
 categories = ["Network programming"]
 keywords = ["streaming", "client", "pravega"]
@@ -11,7 +11,7 @@ description = "Pravega client"
 authors = ["Pravega Community"]
 
 [package.metadata.maturin]
-classifier = ["Development Status :: 3 - Alpha", "License :: OSI Approved :: Apache Software License",
+classifier = ["Development Status :: 4 - Alpha", "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Rust", "Programming Language :: Python :: 3.8", "Programming Language :: Python :: 3.9",]
 requires-python = ">= 3.8"
 project-url = ["Homepage, https://pravega.github.io/pravega-client-rust/"]
