@@ -68,43 +68,47 @@ impl TableMap {
             stream: PravegaStream::from(format!("_table_{}", name)),
             segment: Segment::from(0),
         };
-        let endpoint = factory
-            .get_controller_client()
-            .get_endpoint_for_segment(&segment)
-            .await
-            .expect("get endpoint for segment");
-        debug!("EndPoint is {}", endpoint.to_string());
+        info!("creating table map on {:?}", segment);
 
-        let table_map = TableMap {
-            name: segment.to_string(),
-            endpoint: endpoint.clone(),
-            factory: factory.clone(),
-            delegation_token_provider: factory
-                .create_delegation_token_provider(ScopedStream::from(&segment))
-                .await,
-        };
+        let delegation_token_provider = factory
+            .create_delegation_token_provider(ScopedStream::from(&segment))
+            .await;
+
+        // let table_map = TableMap {
+        //     name: segment.to_string(),
+        //     endpoint: endpoint.clone(),
+        //     factory: factory.clone(),
+        //     delegation_token_provider: factory
+        //         .create_delegation_token_provider(ScopedStream::from(&segment))
+        //         .await,
+        // };
 
         let op = "Create table segment";
         retry_async(factory.get_config().retry_policy, || async {
             let req = Requests::CreateTableSegment(CreateTableSegmentCommand {
                 request_id: get_request_id(),
-                segment: table_map.name.clone(),
-                delegation_token: table_map
-                    .delegation_token_provider
+                segment: segment.to_string(),
+                delegation_token: delegation_token_provider
                     .retrieve_token(factory.get_controller_client())
                     .await,
             });
 
-            let result = table_map
-                .factory
+            let endpoint = factory
+                .get_controller_client()
+                .get_endpoint_for_segment(&segment)
+                .await
+                .expect("get endpoint for segment");
+            debug!("endpoint is {}", endpoint.to_string());
+
+            let result = factory
                 .create_raw_client_for_endpoint(endpoint.clone())
                 .send_request(&req)
                 .await;
             match result {
-                Ok(reply) => RetryResult::Success(reply),
+                Ok(reply) => RetryResult::Success((reply, endpoint)),
                 Err(e) => {
                     if e.is_token_expired() {
-                        table_map.delegation_token_provider.signal_token_expiry();
+                        delegation_token_provider.signal_token_expiry();
                         info!("auth token needs to refresh");
                     }
                     RetryResult::Retry(e)
@@ -117,9 +121,15 @@ impl TableMap {
             operation: op.to_string(),
             source: e.error,
         })
-        .and_then(|r| match r {
+        .and_then(|(r, endpoint)| match r {
             Replies::SegmentCreated(..) | Replies::SegmentAlreadyExists(..) => {
-                info!("Table segment {} created", table_map.name);
+                info!("Table segment {:?} created", segment);
+                let table_map = TableMap {
+                    name: segment.to_string(),
+                    endpoint,
+                    factory,
+                    delegation_token_provider,
+                };
                 Ok(table_map)
             }
             _ => Err(TableError::OperationError {
