@@ -64,7 +64,7 @@ impl TableMap {
     /// create a table map
     pub async fn new(scope: Scope, name: String, factory: ClientFactory) -> Result<TableMap, TableError> {
         let segment = ScopedSegment {
-            scope: Scope::from(scope),
+            scope,
             stream: PravegaStream::from(format!("_table_{}", name)),
             segment: Segment::from(0),
         };
