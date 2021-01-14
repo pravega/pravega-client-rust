@@ -63,12 +63,13 @@ cfg_if::cfg_if! {
 ///         .build()
 ///         .expect("creating config");
 ///     let client_factory = ClientFactory::new(config);
+///     let scope = Scope::from("scope".to_string());
 ///     let stream = ScopedStream {
-///         scope: Scope::from("scope".to_string()),
+///         scope: scope.clone(),
 ///         stream: Stream::from("stream".to_string()),
 ///     };
 ///     // Create a reader group to read data from the Pravega stream.
-///     let rg = client_factory.create_reader_group("rg".to_string(), stream).await;
+///     let rg = client_factory.create_reader_group(scope, "rg".to_string(), stream).await;
 ///     // Create a reader under the reader group. The segments of the stream are assigned among the
 ///     // readers which are part of the reader group.
 ///     let mut reader1 = rg.create_reader("r1".to_string()).await;

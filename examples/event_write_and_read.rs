@@ -65,7 +65,9 @@ async fn main() {
     assert!(result.await.is_ok());
 
     // create event stream reader
-    let rg = client_factory.create_reader_group("rg".to_string(), stream).await;
+    let rg = client_factory
+        .create_reader_group(scope, "rg".to_string(), stream)
+        .await;
     let mut reader = rg.create_reader("r1".to_string()).await;
 
     // read from segment
