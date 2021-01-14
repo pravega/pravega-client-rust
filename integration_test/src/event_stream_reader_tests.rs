@@ -496,7 +496,7 @@ async fn write_events(
     };
     let mut writer = client_factory.create_event_stream_writer(scoped_stream);
     for _x in 0..num_events {
-        let rx = writer.write_event(vec![1; 100000]).await;
+        let rx = writer.write_event(String::from("aaa").into_bytes()).await;
         rx.await.expect("Failed to write Event").unwrap();
     }
 }
@@ -515,21 +515,21 @@ async fn write_events_before_and_after_scale(
         num_events,
     )
     .await;
-    // let scoped_stream = ScopedStream {
-    //     scope: scope_name.clone(),
-    //     stream: stream_name.clone(),
-    // };
-    // let new_range = [(0.0, 0.5), (0.5, 1.0)];
-    // let to_seal_segments: Vec<Segment> = vec![Segment::from(0)];
-    // let controller = client_factory.get_controller_client();
-    // let scale_result = controller
-    //     .scale_stream(&scoped_stream, to_seal_segments.as_slice(), &new_range)
-    //     .await;
-    // assert!(scale_result.is_ok(), "Stream scaling should complete");
-    // let current_segments_result = controller.get_current_segments(&scoped_stream).await;
-    // assert_eq!(2, current_segments_result.unwrap().key_segment_map.len());
-    // // write events post stream scaling.
-    // write_events(scope_name, stream_name, client_factory, num_events).await;
+    let scoped_stream = ScopedStream {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+    };
+    let new_range = [(0.0, 0.5), (0.5, 1.0)];
+    let to_seal_segments: Vec<Segment> = vec![Segment::from(0)];
+    let controller = client_factory.get_controller_client();
+    let scale_result = controller
+        .scale_stream(&scoped_stream, to_seal_segments.as_slice(), &new_range)
+        .await;
+    assert!(scale_result.is_ok(), "Stream scaling should complete");
+    let current_segments_result = controller.get_current_segments(&scoped_stream).await;
+    assert_eq!(2, current_segments_result.unwrap().key_segment_map.len());
+    // write events post stream scaling.
+    write_events(scope_name, stream_name, client_factory, num_events).await;
 }
 
 // helper method to create scope and stream.

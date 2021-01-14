@@ -33,6 +33,8 @@ use tracing::{debug, info};
 
 pub type Version = i64;
 
+const KVTABLE_SUFFIX: &str = "_kvtable";
+
 pub struct TableMap {
     /// name of the map
     name: String,
@@ -65,7 +67,7 @@ impl TableMap {
     pub async fn new(scope: Scope, name: String, factory: ClientFactory) -> Result<TableMap, TableError> {
         let segment = ScopedSegment {
             scope,
-            stream: PravegaStream::from(format!("_table_{}", name)),
+            stream: PravegaStream::from(format!("{}{}", name, KVTABLE_SUFFIX)),
             segment: Segment::from(0),
         };
         info!("creating table map on {:?}", segment);
