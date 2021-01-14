@@ -158,3 +158,35 @@ class PravegaReaderTest(aiounittest.AsyncTestCase):
             print("Number of events read after consuming slice3 ", count)
 
         self.assertEqual(count, 100, "100 events are expected")
+
+    # This test verifies reading large events from a Pravega stream
+    async def test_largeEvents(self):
+        suffix = str(random.randint(0, 100))
+        scope = "testRead"
+        stream = "testLargeEvent" + suffix
+        print("Creating a Stream Manager, ensure Pravega is running")
+        stream_manager = pravega_client.StreamManager("127.0.0.1:9090")
+
+        print("Creating a scope")
+        scope_result = stream_manager.create_scope(scope)
+        print(scope_result)
+        print("Creating a stream ", stream)
+        stream_result = stream_manager.create_stream(scope, stream, 1)
+        print(stream_result)
+
+        print("Creating a writer for Stream")
+        w1 = stream_manager.create_writer(scope, stream)
+
+        print("Write events")
+        for x in range(0, 1000):
+            payload = str(x) * 100000
+            w1.write_event(payload)
+        reader_group = stream_manager.create_reader_group("rg" + suffix, scope, stream);
+        r1 = reader_group.create_reader("reader-1")
+        # consume the segment slice for events.
+        count = 0
+        while count != 1000:
+            segment_slice = await r1.get_segment_slice_async()
+            for event in segment_slice:
+                count += 1
+            r1.release_segment(segment_slice)

@@ -57,7 +57,7 @@ pub struct SliceMetadata {
 ///
 /// Read Buffer size
 ///
-const READ_BUFFER_SIZE: i32 = 2048; // 128K bytes
+const READ_BUFFER_SIZE: i32 = 8 * 1024 * 1024; // max size for a single Event
 
 ///
 /// Structure to track the offset and byte array.
@@ -156,7 +156,7 @@ impl SliceMetadata {
     /// Method to verify if the Segment has pending events that can be read.
     ///
     pub fn has_events(&self) -> bool {
-        self.segment_data.value.len() > TYPE_PLUS_LENGTH_SIZE as usize
+        !self.partial_data_present && self.segment_data.value.len() > TYPE_PLUS_LENGTH_SIZE as usize
     }
 }
 
