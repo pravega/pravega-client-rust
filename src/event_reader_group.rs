@@ -46,7 +46,7 @@ cfg_if::cfg_if! {
 ///         .build()
 ///         .expect("creating config");
 ///     let client_factory = ClientFactory::new(config);
-///     let scope = scope: Scope::from("scope".to_string());
+///     let scope = Scope::from("scope".to_string());
 ///     let stream = ScopedStream {
 ///         scope: scope.clone(),
 ///         stream: Stream::from("stream".to_string()),
