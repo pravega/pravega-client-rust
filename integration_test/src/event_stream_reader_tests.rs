@@ -464,7 +464,11 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
     let mut events_read = 0;
     if let Some(mut slice) = h.block_on(reader1.acquire_segment()) {
         if let Some(event) = slice.next() {
-            assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+            assert_eq!(
+                vec![1; EVENT_SIZE],
+                event.value.as_slice(),
+                "Corrupted event read"
+            );
             events_read += 1;
             // this should trigger a release.
             reader1.release_segment(slice);
@@ -477,7 +481,11 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
     if let Some(mut slice) = h.block_on(reader2.acquire_segment()) {
         if let Some(event) = slice.next() {
             // validate that reader 2 acquired a segment.
-            assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+            assert_eq!(
+                vec![1; EVENT_SIZE],
+                event.value.as_slice(),
+                "Corrupted event read"
+            );
             events_read += 1;
             reader2.release_segment(slice);
         } else {
@@ -548,7 +556,11 @@ fn test_reader_offline(client_factory: &ClientFactory) {
     // A drop of segment slice does the same .
     if let Some(mut slice) = h.block_on(reader1.acquire_segment()) {
         if let Some(event) = slice.next() {
-            assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+            assert_eq!(
+                vec![1; EVENT_SIZE],
+                event.value.as_slice(),
+                "Corrupted event read"
+            );
             // wait for release timeout.
             thread::sleep(Duration::from_secs(10));
             reader1.release_segment(slice);
