@@ -72,7 +72,8 @@ fn test_read_large_events(client_factory: &ClientFactory, rt: &Handle) {
         stream: stream_name,
     };
 
-    let rg: ReaderGroup = rt.block_on(client_factory.create_reader_group("rg-large-event".to_string(), stream));
+    let rg: ReaderGroup =
+        rt.block_on(client_factory.create_reader_group("rg-large-event".to_string(), stream));
     let mut reader = rt.block_on(rg.create_reader("r1".to_string()));
 
     let mut event_count = 0;
