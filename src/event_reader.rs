@@ -27,7 +27,7 @@ use tracing::{debug, error, info, warn};
 pub type ReaderErrorWithOffset = (ReaderError, i64);
 pub type SegmentReadResult = Result<SegmentDataBuffer, ReaderErrorWithOffset>;
 
-const REBALANCE_INTERVAL: Duration = Duration::from_secs(1);
+const REBALANCE_INTERVAL: Duration = Duration::from_secs(10);
 
 cfg_if::cfg_if! {
     if #[cfg(test)] {
@@ -1093,19 +1093,16 @@ mod tests {
         assert_eq!(event.offset_in_segment, 0); // first event.
 
         // release the segment slice.
-        cf.get_runtime_handle()
-            .block_on(reader.release_segment(slice))
-            .unwrap();
+        cf.get_runtime_handle().block_on(reader.release_segment(slice));
 
         // acquire the next segment
         let slice = cf
             .get_runtime_handle()
             .block_on(reader.acquire_segment())
             .unwrap();
+
         //Do not read, simply return it back.
-        cf.get_runtime_handle()
-            .block_on(reader.release_segment(slice))
-            .unwrap();
+        cf.get_runtime_handle().block_on(reader.release_segment(slice));
 
         // Try acquiring the segment again.
         let mut slice = cf
@@ -1183,7 +1180,8 @@ mod tests {
         assert_eq!(event.offset_in_segment, 9); // second event.
 
         // release the segment slice.
-        reader.release_segment_at(slice, 0);
+        cf.get_runtime_handle()
+            .block_on(reader.release_segment_at(slice, 0));
 
         // simulate a segment read at offset 0.
         let (_stop_tx, stop_rx) = oneshot::channel();
