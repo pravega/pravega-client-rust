@@ -27,7 +27,7 @@ use tracing::{debug, error, info, warn};
 pub type ReaderErrorWithOffset = (ReaderError, i64);
 pub type SegmentReadResult = Result<SegmentDataBuffer, ReaderErrorWithOffset>;
 
-const REBALANCE_INTERVAL: Duration = Duration::from_secs(10);
+const REBALANCE_INTERVAL: Duration = Duration::from_secs(1);
 
 cfg_if::cfg_if! {
     if #[cfg(test)] {
@@ -83,7 +83,7 @@ cfg_if::cfg_if! {
 ///         if let Some(event) = segment_slice.next() {
 ///             println!("Event read is {:?}", event);
 ///             // release the segment slice back to the reader.
-///             reader1.release_segment(segment_slice);
+///             reader1.release_segment(segment_slice).await;
 ///         }
 ///     }
 /// }
@@ -347,7 +347,7 @@ impl EventReader {
     ///
     /// Release a partially read segment slice back to event reader.
     ///
-    pub fn release_segment(&mut self, mut slice: SegmentSlice) {
+    pub async fn release_segment(&mut self, mut slice: SegmentSlice) {
         info!(
             "releasing segment slice {} from reader {}",
             slice.meta.scoped_segment, self.id
@@ -360,9 +360,7 @@ impl EventReader {
         if self.meta.last_segment_release.elapsed() > REBALANCE_INTERVAL {
             debug!("try to rebalance segments across readers");
             let read_offset = slice.meta.read_offset;
-            self.factory
-                .get_runtime_handle()
-                .block_on(self.release_segment_from_reader(slice, read_offset));
+            self.release_segment_from_reader(slice, read_offset).await;
             self.meta.last_segment_release = Instant::now();
         } else {
             //send an indication to the waiting rx that slice has been returned.
@@ -382,7 +380,7 @@ impl EventReader {
     ///
     /// Release a segment back to the reader and also indicate the offset upto which the segment slice is consumed.
     ///
-    pub fn release_segment_at(&mut self, slice: SegmentSlice, offset: i64) {
+    pub async fn release_segment_at(&mut self, slice: SegmentSlice, offset: i64) {
         info!(
             "releasing segment slice {} at offset {}",
             slice.meta.scoped_segment, offset
@@ -428,7 +426,7 @@ impl EventReader {
             self.meta.add_slices(slice_meta);
             self.meta.slices_dished_out.remove(&segment);
         } else {
-            self.release_segment(slice);
+            self.release_segment(slice).await;
         }
     }
 
@@ -513,6 +511,7 @@ impl EventReader {
         info!("acquiring segment for reader {}", self.id);
         // Check if newer segments should be acquired.
         if self.meta.last_segment_acquire.elapsed() > REBALANCE_INTERVAL {
+            info!("need to rebalance segments across readers");
             // Assign newer segments to this reader if available.
             if let Some(new_segments) = self.assign_segments_to_reader().await {
                 // fetch current segments.
@@ -535,6 +534,7 @@ impl EventReader {
         }
         // Check if any of the segments already has event data and return it.
         if let Some(segment_with_data) = self.meta.get_segment_id_with_data() {
+            info!("segment {} has data ready to read", segment_with_data);
             let slice_meta = self.meta.slices.remove(&segment_with_data).unwrap();
             let segment = ScopedSegment::from(slice_meta.scoped_segment.as_str());
             // Create an one-shot channel to receive SegmentSlice return.
@@ -557,6 +557,7 @@ impl EventReader {
                 // received segment data
                 Ok(data) => {
                     let segment = ScopedSegment::from(data.segment.clone().as_str());
+                    info!("new data fetched from server for segment {:?}", segment);
                     if let Some(mut slice_meta) = self.meta.remove_segment(segment.clone()).await {
                         if data.offset_in_segment
                             != slice_meta.read_offset + slice_meta.segment_data.value.len() as i64
@@ -1092,7 +1093,9 @@ mod tests {
         assert_eq!(event.offset_in_segment, 0); // first event.
 
         // release the segment slice.
-        reader.release_segment(slice);
+        cf.get_runtime_handle()
+            .block_on(reader.release_segment(slice))
+            .unwrap();
 
         // acquire the next segment
         let slice = cf
@@ -1100,7 +1103,9 @@ mod tests {
             .block_on(reader.acquire_segment())
             .unwrap();
         //Do not read, simply return it back.
-        reader.release_segment(slice);
+        cf.get_runtime_handle()
+            .block_on(reader.release_segment(slice))
+            .unwrap();
 
         // Try acquiring the segment again.
         let mut slice = cf

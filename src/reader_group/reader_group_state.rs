@@ -285,7 +285,7 @@ impl ReaderGroupState {
         }
         let num_of_segments = num_assigned_segments + self.sync.get_inner_map(UNASSIGNED).len();
         debug!(
-            " Number of segments {:?} num of readers {:?}",
+            " number of segments {:?}, number of readers {:?} in reader group state",
             num_of_segments, num_of_readers
         );
         let num_segments_per_reader = num_of_segments / num_of_readers;

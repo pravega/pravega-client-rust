@@ -19,7 +19,7 @@ use pravega_client_shared::{
 use pravega_controller_client::ControllerClient;
 use std::thread;
 use std::time::{Duration, Instant};
-use tokio::runtime::{Handle, Runtime};
+use tokio::runtime::Handle;
 use tracing::{debug, error, info, warn};
 
 pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
@@ -33,6 +33,7 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
     let client_factory = ClientFactory::new(config);
 
     let handle = client_factory.get_runtime_handle();
+    test_read_large_events(&client_factory, &handle);
     handle.block_on(test_read_api(&client_factory));
     handle.block_on(test_stream_scaling(&client_factory));
     handle.block_on(test_release_segment(&client_factory));
@@ -42,11 +43,11 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
     test_segment_rebalance(&client_factory);
 }
 
-fn test_read_large_events(client_factory: &ClientFactory, rt: &mut Runtime) {
+fn test_read_large_events(client_factory: &ClientFactory, rt: &Handle) {
     let scope_name = Scope::from("testReaderScaling".to_owned());
     let stream_name = Stream::from("testReadLargeEvents".to_owned());
 
-    const NUM_EVENTS: usize = 100000; // 100 KB
+    const NUM_EVENTS: usize = 1000; // 100 KB
     const EVENT_SIZE: usize = 1000;
 
     let new_stream = rt.block_on(create_scope_stream(
@@ -58,7 +59,7 @@ fn test_read_large_events(client_factory: &ClientFactory, rt: &mut Runtime) {
     // write events only if the stream is created. This is useful if we are running the reader tests
     // multiple times.
     if new_stream {
-        rt.block_on(write_events_before_and_after_scale(
+        rt.block_on(write_events(
             scope_name.clone(),
             stream_name.clone(),
             &client_factory,
@@ -77,17 +78,16 @@ fn test_read_large_events(client_factory: &ClientFactory, rt: &mut Runtime) {
     let mut event_count = 0;
     while event_count < NUM_EVENTS {
         if let Some(mut slice) = rt.block_on(reader.acquire_segment()) {
-            if let Some(event) = slice.next() {
+            while let Some(event) = slice.next() {
                 assert_eq!(
                     vec![1; EVENT_SIZE],
                     event.value.as_slice(),
                     "Corrupted event read"
                 );
                 event_count += 1;
-            } else {
-                // get another slice
-                break;
+                info!("read count {}", event_count);
             }
+            rt.block_on(reader.release_segment(slice));
         }
     }
     assert_eq!(event_count, NUM_EVENTS);
@@ -135,7 +135,7 @@ async fn test_release_segment(client_factory: &ClientFactory) {
         if let Some(mut slice) = reader.acquire_segment().await {
             loop {
                 if !release_invoked && event_count == 5 {
-                    reader.release_segment(slice);
+                    reader.release_segment(slice).await;
                     release_invoked = true;
                     break;
                 } else if let Some(event) = slice.next() {
@@ -202,7 +202,7 @@ async fn test_release_segment_at(client_factory: &ClientFactory) {
         if let Some(mut slice) = reader.acquire_segment().await {
             loop {
                 if !release_invoked && event_count == 5 {
-                    reader.release_segment_at(slice, 0); // release segment @ the beginning, so that the reader reads all the data.
+                    reader.release_segment_at(slice, 0).await; // release segment @ the beginning, so that the reader reads all the data.
                     release_invoked = true;
                     break;
                 } else if let Some(event) = slice.next() {
@@ -398,7 +398,7 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
             );
             // wait for release timeout.
             thread::sleep(Duration::from_secs(20));
-            reader1.release_segment(slice);
+            h.block_on(reader1.release_segment(slice));
         } else {
             panic!("A valid slice is expected");
         }
@@ -411,7 +411,7 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
                 event.value.as_slice(),
                 "Corrupted event read"
             );
-            reader2.release_segment(slice);
+            h.block_on(reader2.release_segment(slice));
         } else {
             panic!("A valid slice is expected for reader2");
         }
@@ -471,7 +471,7 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
             );
             events_read += 1;
             // this should trigger a release.
-            reader1.release_segment(slice);
+            h.block_on(reader1.release_segment(slice));
         } else {
             panic!("A valid slice is expected");
         }
@@ -487,7 +487,7 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
                 "Corrupted event read"
             );
             events_read += 1;
-            reader2.release_segment(slice);
+            h.block_on(reader2.release_segment(slice));
         } else {
             panic!("A valid slice is expected for reader2");
         }
@@ -563,7 +563,7 @@ fn test_reader_offline(client_factory: &ClientFactory) {
             );
             // wait for release timeout.
             thread::sleep(Duration::from_secs(10));
-            reader1.release_segment(slice);
+            h.block_on(reader1.release_segment(slice));
         } else {
             panic!("A valid slice is expected");
         }
