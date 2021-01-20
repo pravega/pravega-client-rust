@@ -265,15 +265,17 @@ impl StreamManager {
         scope_name: &str,
         stream_name: &str,
     ) -> PyResult<StreamReaderGroup> {
+        let scope = Scope::from(scope_name.to_string());
         let scoped_stream = ScopedStream {
-            scope: Scope::from(scope_name.to_string()),
+            scope: scope.clone(),
             stream: Stream::from(stream_name.to_string()),
         };
         let handle = self.cf.get_runtime_handle();
-        let rg = handle.block_on(
-            self.cf
-                .create_reader_group(reader_group_name.to_string(), scoped_stream.clone()),
-        );
+        let rg = handle.block_on(self.cf.create_reader_group(
+            scope,
+            reader_group_name.to_string(),
+            scoped_stream.clone(),
+        ));
         let reader_group = StreamReaderGroup::new(rg, self.cf.get_runtime_handle(), scoped_stream);
         Ok(reader_group)
     }

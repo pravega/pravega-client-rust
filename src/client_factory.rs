@@ -108,7 +108,12 @@ impl ClientFactory {
         EventStreamWriter::new(stream, self.clone())
     }
 
-    pub async fn create_reader_group(&self, reader_group_name: String, stream: ScopedStream) -> ReaderGroup {
+    pub async fn create_reader_group(
+        &self,
+        scope: Scope,
+        reader_group_name: String,
+        stream: ScopedStream,
+    ) -> ReaderGroup {
         info!(
             "Creating reader group {:?} to read data from stream {:?}",
             reader_group_name, stream
