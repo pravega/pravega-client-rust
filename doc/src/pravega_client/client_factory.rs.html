@@ -205,6 +205,12 @@
 <span id="202">202</span>
 <span id="203">203</span>
 <span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -217,7 +223,7 @@
 <span class="comment">//</span>
 
 <span class="kw">use</span> <span class="ident">pravega_client_config</span>::<span class="ident">ClientConfig</span>;
-<span class="kw">use</span> <span class="ident">pravega_client_shared</span>::{<span class="ident">DelegationToken</span>, <span class="ident">PravegaNodeUri</span>, <span class="ident">ScopedSegment</span>, <span class="ident">ScopedStream</span>, <span class="ident">WriterId</span>};
+<span class="kw">use</span> <span class="ident">pravega_client_shared</span>::{<span class="ident">DelegationToken</span>, <span class="ident">PravegaNodeUri</span>, <span class="ident">Scope</span>, <span class="ident">ScopedSegment</span>, <span class="ident">ScopedStream</span>, <span class="ident">WriterId</span>};
 <span class="kw">use</span> <span class="ident">pravega_connection_pool</span>::<span class="ident">connection_pool</span>::<span class="ident">ConnectionPool</span>;
 <span class="kw">use</span> <span class="ident">pravega_controller_client</span>::<span class="ident">mock_controller</span>::<span class="ident">MockController</span>;
 <span class="kw">use</span> <span class="ident">pravega_controller_client</span>::{<span class="ident">ControllerClient</span>, <span class="ident">ControllerClientImpl</span>};
@@ -288,14 +294,14 @@
         .<span class="ident">await</span>
     }
 
-    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_table_map</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TableMap</span> {
-        <span class="ident">TableMap</span>::<span class="ident">new</span>(<span class="ident">name</span>, <span class="self">self</span>.<span class="ident">clone</span>())
+    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_table_map</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">scope</span>: <span class="ident">Scope</span>, <span class="ident">name</span>: <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TableMap</span> {
+        <span class="ident">TableMap</span>::<span class="ident">new</span>(<span class="ident">scope</span>, <span class="ident">name</span>, <span class="self">self</span>.<span class="ident">clone</span>())
             .<span class="ident">await</span>
             .<span class="ident">expect</span>(<span class="string">&quot;Failed to create Table map&quot;</span>)
     }
 
-    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_table_synchronizer</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TableSynchronizer</span> {
-        <span class="ident">TableSynchronizer</span>::<span class="ident">new</span>(<span class="ident">name</span>, <span class="self">self</span>.<span class="ident">clone</span>()).<span class="ident">await</span>
+    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_table_synchronizer</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">scope</span>: <span class="ident">Scope</span>, <span class="ident">name</span>: <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TableSynchronizer</span> {
+        <span class="ident">TableSynchronizer</span>::<span class="ident">new</span>(<span class="ident">scope</span>, <span class="ident">name</span>, <span class="self">self</span>.<span class="ident">clone</span>()).<span class="ident">await</span>
     }
 
     <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_raw_client</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">segment</span>: <span class="kw-2">&amp;</span><span class="ident">ScopedSegment</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">RawClientImpl</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
@@ -316,22 +322,28 @@
         <span class="ident">EventStreamWriter</span>::<span class="ident">new</span>(<span class="ident">stream</span>, <span class="self">self</span>.<span class="ident">clone</span>())
     }
 
-    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_reader_group</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">reader_group_name</span>: <span class="ident">String</span>, <span class="ident">stream</span>: <span class="ident">ScopedStream</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ReaderGroup</span> {
+    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_reader_group</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">scope</span>: <span class="ident">Scope</span>,
+        <span class="ident">reader_group_name</span>: <span class="ident">String</span>,
+        <span class="ident">stream</span>: <span class="ident">ScopedStream</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ReaderGroup</span> {
         <span class="macro">info</span><span class="macro">!</span>(
             <span class="string">&quot;Creating reader group {:?} to read data from stream {:?}&quot;</span>,
             <span class="ident">reader_group_name</span>, <span class="ident">stream</span>
         );
         <span class="kw">let</span> <span class="ident">rg_config</span> <span class="op">=</span> <span class="ident">ReaderGroupConfigBuilder</span>::<span class="ident">default</span>().<span class="ident">add_stream</span>(<span class="ident">stream</span>).<span class="ident">build</span>();
-        <span class="ident">ReaderGroup</span>::<span class="ident">create</span>(<span class="ident">reader_group_name</span>, <span class="ident">rg_config</span>, <span class="self">self</span>.<span class="ident">clone</span>()).<span class="ident">await</span>
+        <span class="ident">ReaderGroup</span>::<span class="ident">create</span>(<span class="ident">scope</span>, <span class="ident">reader_group_name</span>, <span class="ident">rg_config</span>, <span class="self">self</span>.<span class="ident">clone</span>()).<span class="ident">await</span>
     }
 
-    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_reader_group_config</span>(
+    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_reader_group_with_config</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">scope</span>: <span class="ident">Scope</span>,
         <span class="ident">reader_group_name</span>: <span class="ident">String</span>,
         <span class="ident">rg_config</span>: <span class="ident">ReaderGroupConfig</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ReaderGroup</span> {
         <span class="macro">info</span><span class="macro">!</span>(<span class="string">&quot;Creating reader group {:?} &quot;</span>, <span class="ident">reader_group_name</span>);
-        <span class="ident">ReaderGroup</span>::<span class="ident">create</span>(<span class="ident">reader_group_name</span>, <span class="ident">rg_config</span>, <span class="self">self</span>.<span class="ident">clone</span>()).<span class="ident">await</span>
+        <span class="ident">ReaderGroup</span>::<span class="ident">create</span>(<span class="ident">scope</span>, <span class="ident">reader_group_name</span>, <span class="ident">rg_config</span>, <span class="self">self</span>.<span class="ident">clone</span>()).<span class="ident">await</span>
     }
 
     <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">create_transactional_event_stream_writer</span>(

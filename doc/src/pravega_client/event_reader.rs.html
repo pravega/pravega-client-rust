@@ -1386,6 +1386,7 @@
 <span id="1383">1383</span>
 <span id="1384">1384</span>
 <span id="1385">1385</span>
+<span id="1386">1386</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -1452,12 +1453,13 @@
 <span class="doccomment">///         .build()</span>
 <span class="doccomment">///         .expect(&quot;creating config&quot;);</span>
 <span class="doccomment">///     let client_factory = ClientFactory::new(config);</span>
+<span class="doccomment">///     let scope = Scope::from(&quot;scope&quot;.to_string());</span>
 <span class="doccomment">///     let stream = ScopedStream {</span>
-<span class="doccomment">///         scope: Scope::from(&quot;scope&quot;.to_string()),</span>
+<span class="doccomment">///         scope: scope.clone(),</span>
 <span class="doccomment">///         stream: Stream::from(&quot;stream&quot;.to_string()),</span>
 <span class="doccomment">///     };</span>
 <span class="doccomment">///     // Create a reader group to read data from the Pravega stream.</span>
-<span class="doccomment">///     let rg = client_factory.create_reader_group(&quot;rg&quot;.to_string(), stream).await;</span>
+<span class="doccomment">///     let rg = client_factory.create_reader_group(scope, &quot;rg&quot;.to_string(), stream).await;</span>
 <span class="doccomment">///     // Create a reader under the reader group. The segments of the stream are assigned among the</span>
 <span class="doccomment">///     // readers which are part of the reader group.</span>
 <span class="doccomment">///     let mut reader1 = rg.create_reader(&quot;r1&quot;.to_string()).await;</span>

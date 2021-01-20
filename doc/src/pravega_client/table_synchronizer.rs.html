@@ -1048,6 +1048,10 @@
 <span id="1045">1045</span>
 <span id="1046">1046</span>
 <span id="1047">1047</span>
+<span id="1048">1048</span>
+<span id="1049">1049</span>
+<span id="1050">1050</span>
+<span id="1051">1051</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -1064,6 +1068,7 @@
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">tablemap</span>::{<span class="ident">TableError</span>, <span class="ident">TableMap</span>, <span class="ident">Version</span>};
 <span class="kw">use</span> <span class="ident">futures</span>::<span class="ident">pin_mut</span>;
 <span class="kw">use</span> <span class="ident">futures</span>::<span class="ident">stream</span>::<span class="ident">StreamExt</span>;
+<span class="kw">use</span> <span class="ident">pravega_client_shared</span>::<span class="ident">Scope</span>;
 <span class="kw">use</span> <span class="ident">pravega_wire_protocol</span>::<span class="ident">commands</span>::<span class="ident">TableKey</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::<span class="ident">de</span>::<span class="ident">DeserializeOwned</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
@@ -1118,8 +1123,8 @@
 <span class="kw">const</span> <span class="ident">DELAY_MILLIS</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">1000</span>;
 
 <span class="kw">impl</span> <span class="ident">TableSynchronizer</span> {
-    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">name</span>: <span class="ident">String</span>, <span class="ident">factory</span>: <span class="ident">ClientFactory</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TableSynchronizer</span> {
-        <span class="kw">let</span> <span class="ident">table_map</span> <span class="op">=</span> <span class="ident">TableMap</span>::<span class="ident">new</span>(<span class="ident">name</span>.<span class="ident">clone</span>(), <span class="ident">factory</span>)
+    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">scope</span>: <span class="ident">Scope</span>, <span class="ident">name</span>: <span class="ident">String</span>, <span class="ident">factory</span>: <span class="ident">ClientFactory</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TableSynchronizer</span> {
+        <span class="kw">let</span> <span class="ident">table_map</span> <span class="op">=</span> <span class="ident">TableMap</span>::<span class="ident">new</span>(<span class="ident">scope</span>, <span class="ident">name</span>.<span class="ident">clone</span>(), <span class="ident">factory</span>)
             .<span class="ident">await</span>
             .<span class="ident">expect</span>(<span class="string">&quot;create table map&quot;</span>);
         <span class="ident">TableSynchronizer</span> {
@@ -2073,7 +2078,10 @@
             .<span class="ident">build</span>()
             .<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">factory</span> <span class="op">=</span> <span class="ident">ClientFactory</span>::<span class="ident">new</span>(<span class="ident">config</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">sync</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">factory</span>.<span class="ident">create_table_synchronizer</span>(<span class="string">&quot;sync&quot;</span>.<span class="ident">to_string</span>()));
+        <span class="kw">let</span> <span class="ident">scope</span> <span class="op">=</span> <span class="ident">Scope</span> {
+            <span class="ident">name</span>: <span class="string">&quot;tableSyncScope&quot;</span>.<span class="ident">to_string</span>(),
+        };
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">sync</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">factory</span>.<span class="ident">create_table_synchronizer</span>(<span class="ident">scope</span>, <span class="string">&quot;sync&quot;</span>.<span class="ident">to_string</span>()));
         <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">sync</span>.<span class="ident">insert</span>(<span class="op">|</span><span class="ident">table</span><span class="op">|</span> {
             <span class="ident">table</span>.<span class="ident">insert</span>(
                 <span class="string">&quot;outer_key&quot;</span>.<span class="ident">to_owned</span>(),
