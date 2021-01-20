@@ -12,7 +12,7 @@ use crate::client_factory::ClientFactory;
 use crate::event_reader::EventReader;
 use crate::reader_group::reader_group_state::Offset;
 use crate::reader_group_config::ReaderGroupConfig;
-use pravega_client_shared::{Reader, ScopedSegment, ScopedStream};
+use pravega_client_shared::{Reader, Scope, ScopedSegment, ScopedStream};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -46,12 +46,13 @@ cfg_if::cfg_if! {
 ///         .build()
 ///         .expect("creating config");
 ///     let client_factory = ClientFactory::new(config);
+///     let scope = Scope::from("scope".to_string());
 ///     let stream = ScopedStream {
-///         scope: Scope::from("scope".to_string()),
+///         scope: scope.clone(),
 ///         stream: Stream::from("stream".to_string()),
 ///     };
 ///     // Create a reader group to read data from the Pravega stream.
-///     let rg = client_factory.create_reader_group("rg".to_string(), stream).await;
+///     let rg = client_factory.create_reader_group(scope, "rg".to_string(), stream).await;
 ///     // Create a reader under the reader group.
 ///     let mut reader1 = rg.create_reader("r1".to_string()).await;
 ///     let mut reader2 = rg.create_reader("r2".to_string()).await;
@@ -71,6 +72,7 @@ impl ReaderGroup {
     cfg_if::cfg_if! {
         if #[cfg(test)] {
             async fn create_rg_state(
+            _scope: Scope,
             _name: String,
             _rg_config: ReaderGroupConfig,
             _client_factory: &ClientFactory,
@@ -80,12 +82,13 @@ impl ReaderGroup {
         }
         } else {
             async fn create_rg_state (
+        scope: Scope,
         name: String,
         rg_config: ReaderGroupConfig,
         client_factory: &ClientFactory,
         init_segments: HashMap<ScopedSegment, Offset>,
     ) -> ReaderGroupState {
-        ReaderGroupState::new(name, client_factory, rg_config.config, init_segments).await
+        ReaderGroupState::new(scope, name, client_factory, rg_config.config, init_segments).await
     }
         }
     }
@@ -96,6 +99,7 @@ impl ReaderGroup {
     /// existing reader group.
     ///
     pub async fn create(
+        scope: Scope,
         name: String,
         rg_config: ReaderGroupConfig,
         client_factory: ClientFactory,
@@ -119,9 +123,14 @@ impl ReaderGroup {
                 )
             }));
         }
-        let rg_state =
-            ReaderGroup::create_rg_state(name.clone(), rg_config.clone(), &client_factory, init_segments)
-                .await;
+        let rg_state = ReaderGroup::create_rg_state(
+            scope,
+            name.clone(),
+            rg_config.clone(),
+            &client_factory,
+            init_segments,
+        )
+        .await;
         ReaderGroup {
             name: name.clone(),
             config: rg_config.clone(),

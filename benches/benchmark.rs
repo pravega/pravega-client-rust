@@ -365,7 +365,7 @@ async fn set_up_event_stream_reader(config: ClientConfig) -> EventReader {
         stream: stream_name.clone(),
     };
     let reader_group = client_factory
-        .create_reader_group("rg1".to_string(), scoped_stream)
+        .create_reader_group(scope_name, "rg1".to_string(), scoped_stream)
         .await;
 
     let reader = reader_group.create_reader("r1".to_string()).await;

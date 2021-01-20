@@ -20,6 +20,7 @@ use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnec
 use tracing::info;
 
 use crate::pravega_service::PravegaStandaloneServiceConfig;
+use pravega_client_shared::Scope;
 use pravega_wire_protocol::commands::TableKey;
 
 pub fn test_tablemap(config: PravegaStandaloneServiceConfig) {
@@ -39,7 +40,10 @@ pub fn test_tablemap(config: PravegaStandaloneServiceConfig) {
 }
 
 async fn test_single_key_operations(client_factory: &ClientFactory) {
-    let map = client_factory.create_table_map("t1".into()).await;
+    let scope = Scope {
+        name: "tablemapScope".to_string(),
+    };
+    let map = client_factory.create_table_map(scope, "t1".into()).await;
     let k: String = "key".into();
     let v: String = "val".into();
     let r = map.insert(&k, &v, -1).await;
@@ -135,7 +139,10 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
 }
 
 async fn test_multiple_key_operations(client_factory: &ClientFactory) {
-    let map = client_factory.create_table_map("t2".into()).await;
+    let scope = Scope {
+        name: "tablemapScope".to_string(),
+    };
+    let map = client_factory.create_table_map(scope, "t2".into()).await;
     let k1: String = "k1".into();
     let k2: String = "k2".into();
     let k3: String = "k3".into();
@@ -206,7 +213,10 @@ async fn test_multiple_key_operations(client_factory: &ClientFactory) {
 }
 
 async fn test_multiple_key_remove_operations(client_factory: &ClientFactory) {
-    let map = client_factory.create_table_map("t4".into()).await;
+    let scope = Scope {
+        name: "tablemapScope".to_string(),
+    };
+    let map = client_factory.create_table_map(scope, "t4".into()).await;
     let k1: String = "k1".into();
     let k2: String = "k2".into();
     let k3: String = "k3".into();
@@ -259,7 +269,10 @@ async fn test_multiple_key_remove_operations(client_factory: &ClientFactory) {
 }
 
 async fn test_iterators(client_factory: &ClientFactory) {
-    let map = client_factory.create_table_map("stream_test".into()).await;
+    let scope = Scope {
+        name: "tablemapScope".to_string(),
+    };
+    let map = client_factory.create_table_map(scope, "stream_test".into()).await;
     let k1: String = "k1".into();
     let k2: String = "k2".into();
     let k3: String = "k3".into();

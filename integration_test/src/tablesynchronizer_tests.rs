@@ -12,6 +12,7 @@ use crate::pravega_service::PravegaStandaloneServiceConfig;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client::table_synchronizer::{deserialize_from, Key, TableSynchronizer};
 use pravega_client_config::{ClientConfig, ClientConfigBuilder, MOCK_CONTROLLER_URI};
+use pravega_client_shared::Scope;
 use pravega_wire_protocol::commands::TableKey;
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -35,12 +36,15 @@ pub fn test_tablesynchronizer(config: PravegaStandaloneServiceConfig) {
 
 async fn test_insert(client_factory: &ClientFactory) {
     info!("test insert");
+    let scope = Scope {
+        name: "syncScope".to_string(),
+    };
     let mut synchronizer: TableSynchronizer = client_factory
-        .create_table_synchronizer("synchronizer".to_owned())
+        .create_table_synchronizer(scope.clone(), "synchronizer".to_owned())
         .await;
 
     let mut synchronizer2: TableSynchronizer = client_factory
-        .create_table_synchronizer("synchronizer".to_owned())
+        .create_table_synchronizer(scope.clone(), "synchronizer".to_owned())
         .await;
 
     let result = synchronizer
@@ -77,7 +81,7 @@ async fn test_insert(client_factory: &ClientFactory) {
 
     //check if fetchUpdates work correctly.
     let mut synchronizer2: TableSynchronizer = client_factory
-        .create_table_synchronizer("synchronizer".to_owned())
+        .create_table_synchronizer(scope.clone(), "synchronizer".to_owned())
         .await;
     let entries_num = synchronizer2.fetch_updates().await.expect("fetch updates");
     assert_eq!(entries_num, 2);
@@ -88,8 +92,11 @@ async fn test_insert(client_factory: &ClientFactory) {
 
 async fn test_remove(client_factory: &ClientFactory) {
     info!("test remove");
+    let scope = Scope {
+        name: "syncScope".to_string(),
+    };
     let mut synchronizer: TableSynchronizer = client_factory
-        .create_table_synchronizer("synchronizer1".to_owned())
+        .create_table_synchronizer(scope.clone(), "synchronizer1".to_owned())
         .await;
     let result = synchronizer
         .insert(|table| {
@@ -121,7 +128,7 @@ async fn test_remove(client_factory: &ClientFactory) {
 
     //check if fetchUpdates work correctly.
     let mut synchronizer2: TableSynchronizer = client_factory
-        .create_table_synchronizer("synchronizer1".to_owned())
+        .create_table_synchronizer(scope.clone(), "synchronizer1".to_owned())
         .await;
     let result = synchronizer2.fetch_updates().await;
     assert!(result.is_ok());
@@ -132,12 +139,15 @@ async fn test_remove(client_factory: &ClientFactory) {
 
 async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory) {
     info!("test insert with two table synchronizers");
+    let scope = Scope {
+        name: "syncScope".to_string(),
+    };
     let mut synchronizer: TableSynchronizer = client_factory
-        .create_table_synchronizer("synchronizer".to_owned())
+        .create_table_synchronizer(scope.clone(), "synchronizer".to_owned())
         .await;
 
     let mut synchronizer2: TableSynchronizer = client_factory
-        .create_table_synchronizer("synchronizer".to_owned())
+        .create_table_synchronizer(scope.clone(), "synchronizer".to_owned())
         .await;
     synchronizer.fetch_updates().await.expect("fetch updates");
     synchronizer2.fetch_updates().await.expect("fetch updates");
@@ -200,12 +210,15 @@ async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory
 
 async fn test_remove_with_two_table_synchronizers(client_factory: &ClientFactory) {
     info!("test remove with two table synchronizers");
+    let scope = Scope {
+        name: "syncScope".to_string(),
+    };
     let mut synchronizer: TableSynchronizer = client_factory
-        .create_table_synchronizer("synchronizer".to_owned())
+        .create_table_synchronizer(scope.clone(), "synchronizer".to_owned())
         .await;
 
     let mut synchronizer2: TableSynchronizer = client_factory
-        .create_table_synchronizer("synchronizer".to_owned())
+        .create_table_synchronizer(scope.clone(), "synchronizer".to_owned())
         .await;
     synchronizer.fetch_updates().await.expect("fetch updates");
     synchronizer2.fetch_updates().await.expect("fetch updates");
@@ -247,6 +260,9 @@ async fn test_remove_with_two_table_synchronizers(client_factory: &ClientFactory
 
 async fn test_insert_and_get_with_customize_struct(client_factory: &ClientFactory) {
     info!("test insert and get with customize struct");
+    let scope = Scope {
+        name: "syncScope".to_string(),
+    };
     #[derive(Serialize, Deserialize, Debug, Clone)]
     struct Test1 {
         name: String,
@@ -258,7 +274,7 @@ async fn test_insert_and_get_with_customize_struct(client_factory: &ClientFactor
     }
 
     let mut synchronizer: TableSynchronizer = client_factory
-        .create_table_synchronizer("synchronizer2".to_owned())
+        .create_table_synchronizer(scope.clone(), "synchronizer2".to_owned())
         .await;
 
     let result = synchronizer
@@ -284,7 +300,7 @@ async fn test_insert_and_get_with_customize_struct(client_factory: &ClientFactor
     assert!(result.is_ok());
 
     let mut synchronizer2: TableSynchronizer = client_factory
-        .create_table_synchronizer("synchronizer2".to_owned())
+        .create_table_synchronizer(scope.clone(), "synchronizer2".to_owned())
         .await;
 
     synchronizer2.fetch_updates().await.expect("fetch updates");
@@ -303,8 +319,11 @@ async fn test_insert_and_get_with_customize_struct(client_factory: &ClientFactor
 
 async fn test_fetching_updates_delta(client_factory: &ClientFactory) {
     info!("test fetching updates delta");
+    let scope = Scope {
+        name: "syncScope".to_string(),
+    };
     let mut synchronizer: TableSynchronizer = client_factory
-        .create_table_synchronizer("fetch_updates".to_owned())
+        .create_table_synchronizer(scope.clone(), "fetch_updates".to_owned())
         .await;
 
     let result = synchronizer

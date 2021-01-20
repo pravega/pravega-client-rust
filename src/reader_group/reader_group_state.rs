@@ -14,7 +14,7 @@ use crate::reader_group_config::ReaderGroupConfigVersioned;
 use crate::table_synchronizer::{deserialize_from, Table, TableSynchronizer, Value};
 #[cfg(test)]
 use mockall::automock;
-use pravega_client_shared::{Reader, ScopedSegment, Segment, SegmentWithRange};
+use pravega_client_shared::{Reader, Scope, ScopedSegment, Segment, SegmentWithRange};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use snafu::{ensure, OptionExt, Snafu};
@@ -69,13 +69,14 @@ pub struct ReaderGroupState {
 #[cfg_attr(test, automock)]
 impl ReaderGroupState {
     pub(crate) async fn new(
+        scope: Scope,
         reader_group_name: String,
         client_factory: &ClientFactory,
         config: ReaderGroupConfigVersioned,
         segments_to_offsets: HashMap<ScopedSegment, Offset>,
     ) -> ReaderGroupState {
         let mut sync = client_factory
-            .create_table_synchronizer(reader_group_name.clone())
+            .create_table_synchronizer(scope, reader_group_name.clone())
             .await;
         sync.insert(move |table| {
             if table.is_empty() {
