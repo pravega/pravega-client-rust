@@ -47,7 +47,7 @@ fn test_read_large_events(client_factory: &ClientFactory, rt: &Handle) {
     let scope_name = Scope::from("testReaderScaling".to_owned());
     let stream_name = Stream::from("testReadLargeEvents".to_owned());
 
-    const NUM_EVENTS: usize = 1000; // 100 KB
+    const NUM_EVENTS: usize = 1000;
     const EVENT_SIZE: usize = 1000;
 
     let new_stream = rt.block_on(create_scope_stream(
