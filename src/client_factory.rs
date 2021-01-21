@@ -118,7 +118,6 @@ impl ClientFactory {
             "Creating reader group {:?} to read data from stream {:?}",
             reader_group_name, stream
         );
-        let scope = stream.scope.clone();
         let rg_config = ReaderGroupConfigBuilder::default().add_stream(stream).build();
         ReaderGroup::create(scope, reader_group_name, rg_config, self.clone()).await
     }
