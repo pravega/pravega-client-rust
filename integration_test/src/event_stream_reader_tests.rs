@@ -33,6 +33,7 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
     let client_factory = ClientFactory::new(config);
 
     let handle = client_factory.get_runtime_handle();
+    test_read_large_events(&client_factory, &handle);
     handle.block_on(test_read_api(&client_factory));
     handle.block_on(test_stream_scaling(&client_factory));
     handle.block_on(test_release_segment(&client_factory));
@@ -42,11 +43,63 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
     test_segment_rebalance(&client_factory);
 }
 
+fn test_read_large_events(client_factory: &ClientFactory, rt: &Handle) {
+    let scope_name = Scope::from("testReaderScaling".to_owned());
+    let stream_name = Stream::from("testReadLargeEvents".to_owned());
+
+    const NUM_EVENTS: usize = 1000;
+    const EVENT_SIZE: usize = 1000;
+
+    let new_stream = rt.block_on(create_scope_stream(
+        client_factory.get_controller_client(),
+        &scope_name,
+        &stream_name,
+        1,
+    ));
+    // write events only if the stream is created. This is useful if we are running the reader tests
+    // multiple times.
+    if new_stream {
+        rt.block_on(write_events(
+            scope_name.clone(),
+            stream_name.clone(),
+            &client_factory,
+            NUM_EVENTS,
+            EVENT_SIZE,
+        ))
+    }
+    let stream = ScopedStream {
+        scope: scope_name.clone(),
+        stream: stream_name,
+    };
+
+    let rg: ReaderGroup =
+        rt.block_on(client_factory.create_reader_group(scope_name, "rg-large-event".to_string(), stream));
+    let mut reader = rt.block_on(rg.create_reader("r1".to_string()));
+
+    let mut event_count = 0;
+    while event_count < NUM_EVENTS {
+        if let Some(mut slice) = rt.block_on(reader.acquire_segment()) {
+            while let Some(event) = slice.next() {
+                assert_eq!(
+                    vec![1; EVENT_SIZE],
+                    event.value.as_slice(),
+                    "Corrupted event read"
+                );
+                event_count += 1;
+                info!("read count {}", event_count);
+            }
+            rt.block_on(reader.release_segment(slice));
+        }
+    }
+    assert_eq!(event_count, NUM_EVENTS);
+}
+
 async fn test_release_segment(client_factory: &ClientFactory) {
     let scope_name = Scope::from("testReaderScaling".to_owned());
     let stream_name = Stream::from("testReaderRelease1".to_owned());
 
     const NUM_EVENTS: usize = 10;
+    const EVENT_SIZE: usize = 10;
 
     let new_stream = create_scope_stream(
         client_factory.get_controller_client(),
@@ -63,6 +116,7 @@ async fn test_release_segment(client_factory: &ClientFactory) {
             stream_name.clone(),
             &client_factory,
             NUM_EVENTS,
+            EVENT_SIZE,
         )
         .await;
     }
@@ -82,11 +136,15 @@ async fn test_release_segment(client_factory: &ClientFactory) {
         if let Some(mut slice) = reader.acquire_segment().await {
             loop {
                 if !release_invoked && event_count == 5 {
-                    reader.release_segment(slice);
+                    reader.release_segment(slice).await;
                     release_invoked = true;
                     break;
                 } else if let Some(event) = slice.next() {
-                    assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+                    assert_eq!(
+                        vec![1; EVENT_SIZE],
+                        event.value.as_slice(),
+                        "Corrupted event read"
+                    );
                     event_count += 1;
                 } else {
                     info!(
@@ -106,7 +164,7 @@ async fn test_release_segment_at(client_factory: &ClientFactory) {
     let stream_name = Stream::from("testReaderReleaseat".to_owned());
 
     const NUM_EVENTS: usize = 10;
-    // write 100 events.
+    const EVENT_SIZE: usize = 10;
 
     let new_stream = create_scope_stream(
         client_factory.get_controller_client(),
@@ -122,6 +180,7 @@ async fn test_release_segment_at(client_factory: &ClientFactory) {
             stream_name.clone(),
             &client_factory,
             NUM_EVENTS,
+            EVENT_SIZE,
         )
         .await;
     }
@@ -144,11 +203,15 @@ async fn test_release_segment_at(client_factory: &ClientFactory) {
         if let Some(mut slice) = reader.acquire_segment().await {
             loop {
                 if !release_invoked && event_count == 5 {
-                    reader.release_segment_at(slice, 0); // release segment @ the beginning, so that the reader reads all the data.
+                    reader.release_segment_at(slice, 0).await; // release segment @ the beginning, so that the reader reads all the data.
                     release_invoked = true;
                     break;
                 } else if let Some(event) = slice.next() {
-                    assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+                    assert_eq!(
+                        vec![1; EVENT_SIZE],
+                        event.value.as_slice(),
+                        "Corrupted event read"
+                    );
                     event_count += 1;
                 } else {
                     info!(
@@ -168,7 +231,7 @@ async fn test_stream_scaling(client_factory: &ClientFactory) {
     let stream_name = Stream::from("testReaderStream".to_owned());
 
     const NUM_EVENTS: usize = 10;
-    // write 100 events.
+    const EVENT_SIZE: usize = 10;
 
     let new_stream = create_scope_stream(
         client_factory.get_controller_client(),
@@ -184,6 +247,7 @@ async fn test_stream_scaling(client_factory: &ClientFactory) {
             stream_name.clone(),
             &client_factory,
             NUM_EVENTS,
+            EVENT_SIZE,
         )
         .await;
     }
@@ -205,7 +269,11 @@ async fn test_stream_scaling(client_factory: &ClientFactory) {
         if let Some(mut slice) = reader.acquire_segment().await {
             loop {
                 if let Some(event) = slice.next() {
-                    assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+                    assert_eq!(
+                        vec![1; EVENT_SIZE],
+                        event.value.as_slice(),
+                        "Corrupted event read"
+                    );
                     event_count += 1;
                 } else {
                     info!(
@@ -228,6 +296,7 @@ async fn test_read_api(client_factory: &ClientFactory) {
     let stream_name = Stream::from("testReaderStream".to_owned());
 
     const NUM_EVENTS: usize = 10;
+    const EVNET_SIZE: usize = 10;
 
     let new_stream = create_scope_stream(
         client_factory.get_controller_client(),
@@ -244,6 +313,7 @@ async fn test_read_api(client_factory: &ClientFactory) {
             stream_name.clone(),
             &client_factory,
             NUM_EVENTS,
+            EVNET_SIZE,
         )
         .await;
     }
@@ -259,7 +329,11 @@ async fn test_read_api(client_factory: &ClientFactory) {
     while let Some(mut slice) = reader.acquire_segment().await {
         loop {
             if let Some(event) = slice.next() {
-                assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+                assert_eq!(
+                    vec![1; EVNET_SIZE],
+                    event.value.as_slice(),
+                    "Corrupted event read"
+                );
                 event_count += 1;
             } else {
                 println!(
@@ -285,9 +359,10 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
     };
-    h.block_on(async {
-        const NUM_EVENTS: usize = 50;
+    const NUM_EVENTS: usize = 50;
+    const EVENT_SIZE: usize = 10;
 
+    h.block_on(async {
         let new_stream = create_scope_stream(
             client_factory.get_controller_client(),
             &scope_name,
@@ -303,6 +378,7 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
                 stream_name.clone(),
                 client_factory,
                 NUM_EVENTS,
+                EVENT_SIZE,
             )
             .await;
         }
@@ -316,10 +392,14 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
 
     if let Some(mut slice) = h.block_on(reader1.acquire_segment()) {
         if let Some(event) = slice.next() {
-            assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+            assert_eq!(
+                vec![1; EVENT_SIZE],
+                event.value.as_slice(),
+                "Corrupted event read"
+            );
             // wait for release timeout.
             thread::sleep(Duration::from_secs(20));
-            reader1.release_segment(slice);
+            h.block_on(reader1.release_segment(slice));
         } else {
             panic!("A valid slice is expected");
         }
@@ -327,8 +407,12 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
 
     if let Some(mut slice) = h.block_on(reader2.acquire_segment()) {
         if let Some(event) = slice.next() {
-            assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
-            reader2.release_segment(slice);
+            assert_eq!(
+                vec![1; EVENT_SIZE],
+                event.value.as_slice(),
+                "Corrupted event read"
+            );
+            h.block_on(reader2.release_segment(slice));
         } else {
             panic!("A valid slice is expected for reader2");
         }
@@ -344,6 +428,8 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
         stream: stream_name.clone(),
     };
     const NUM_EVENTS: usize = 50;
+    const EVENT_SIZE: usize = 10;
+
     h.block_on(async {
         let new_stream = create_scope_stream(
             client_factory.get_controller_client(),
@@ -360,6 +446,7 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
                 stream_name.clone(),
                 client_factory,
                 NUM_EVENTS,
+                EVENT_SIZE,
             )
             .await;
         }
@@ -379,10 +466,14 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
     let mut events_read = 0;
     if let Some(mut slice) = h.block_on(reader1.acquire_segment()) {
         if let Some(event) = slice.next() {
-            assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+            assert_eq!(
+                vec![1; EVENT_SIZE],
+                event.value.as_slice(),
+                "Corrupted event read"
+            );
             events_read += 1;
             // this should trigger a release.
-            reader1.release_segment(slice);
+            h.block_on(reader1.release_segment(slice));
         } else {
             panic!("A valid slice is expected");
         }
@@ -392,9 +483,13 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
     if let Some(mut slice) = h.block_on(reader2.acquire_segment()) {
         if let Some(event) = slice.next() {
             // validate that reader 2 acquired a segment.
-            assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+            assert_eq!(
+                vec![1; EVENT_SIZE],
+                event.value.as_slice(),
+                "Corrupted event read"
+            );
             events_read += 1;
-            reader2.release_segment(slice);
+            h.block_on(reader2.release_segment(slice));
         } else {
             panic!("A valid slice is expected for reader2");
         }
@@ -407,7 +502,11 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
     while let Some(slice) = h.block_on(reader1.acquire_segment()) {
         // read all events in the slice.
         for event in slice {
-            assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+            assert_eq!(
+                vec![1; EVENT_SIZE],
+                event.value.as_slice(),
+                "Corrupted event read"
+            );
             events_read += 1;
         }
         if events_read == NUM_EVENTS {
@@ -427,6 +526,8 @@ fn test_reader_offline(client_factory: &ClientFactory) {
         stream: stream_name.clone(),
     };
     const NUM_EVENTS: usize = 10;
+    const EVENT_SIZE: usize = 10;
+
     h.block_on(async {
         let new_stream = create_scope_stream(
             client_factory.get_controller_client(),
@@ -443,6 +544,7 @@ fn test_reader_offline(client_factory: &ClientFactory) {
                 stream_name.clone(),
                 client_factory,
                 NUM_EVENTS,
+                EVENT_SIZE,
             )
             .await;
         }
@@ -456,10 +558,14 @@ fn test_reader_offline(client_factory: &ClientFactory) {
     // A drop of segment slice does the same .
     if let Some(mut slice) = h.block_on(reader1.acquire_segment()) {
         if let Some(event) = slice.next() {
-            assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+            assert_eq!(
+                vec![1; EVENT_SIZE],
+                event.value.as_slice(),
+                "Corrupted event read"
+            );
             // wait for release timeout.
             thread::sleep(Duration::from_secs(10));
-            reader1.release_segment(slice);
+            h.block_on(reader1.release_segment(slice));
         } else {
             panic!("A valid slice is expected");
         }
@@ -473,7 +579,11 @@ fn test_reader_offline(client_factory: &ClientFactory) {
     while let Some(slice) = h.block_on(reader2.acquire_segment()) {
         // read from a Segment slice.
         for event in slice {
-            assert_eq!(b"aaa", event.value.as_slice(), "Corrupted event read");
+            assert_eq!(
+                vec![1; EVENT_SIZE],
+                event.value.as_slice(),
+                "Corrupted event read"
+            );
             events_read += 1;
         }
         if events_read == NUM_EVENTS {
@@ -489,6 +599,7 @@ async fn write_events(
     stream_name: Stream,
     client_factory: &ClientFactory,
     num_events: usize,
+    event_size: usize,
 ) {
     let scoped_stream = ScopedStream {
         scope: scope_name,
@@ -496,7 +607,7 @@ async fn write_events(
     };
     let mut writer = client_factory.create_event_stream_writer(scoped_stream);
     for _x in 0..num_events {
-        let rx = writer.write_event(String::from("aaa").into_bytes()).await;
+        let rx = writer.write_event(vec![1; event_size]).await;
         rx.await.expect("Failed to write Event").unwrap();
     }
 }
@@ -507,12 +618,14 @@ async fn write_events_before_and_after_scale(
     stream_name: Stream,
     client_factory: &ClientFactory,
     num_events: usize,
+    event_size: usize,
 ) {
     write_events(
         scope_name.clone(),
         stream_name.clone(),
         client_factory,
         num_events,
+        event_size,
     )
     .await;
     let scoped_stream = ScopedStream {
@@ -529,7 +642,7 @@ async fn write_events_before_and_after_scale(
     let current_segments_result = controller.get_current_segments(&scoped_stream).await;
     assert_eq!(2, current_segments_result.unwrap().key_segment_map.len());
     // write events post stream scaling.
-    write_events(scope_name, stream_name, client_factory, num_events).await;
+    write_events(scope_name, stream_name, client_factory, num_events, event_size).await;
 }
 
 // helper method to create scope and stream.

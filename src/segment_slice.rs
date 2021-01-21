@@ -57,7 +57,7 @@ pub struct SliceMetadata {
 ///
 /// Read Buffer size
 ///
-const READ_BUFFER_SIZE: i32 = 2048; // 128K bytes
+const READ_BUFFER_SIZE: i32 = 8 * 1024 * 1024; // max size for a single Event
 
 ///
 /// Structure to track the offset and byte array.
@@ -156,7 +156,7 @@ impl SliceMetadata {
     /// Method to verify if the Segment has pending events that can be read.
     ///
     pub fn has_events(&self) -> bool {
-        self.segment_data.value.len() > TYPE_PLUS_LENGTH_SIZE as usize
+        !self.partial_data_present && self.segment_data.value.len() > TYPE_PLUS_LENGTH_SIZE as usize
     }
 }
 
@@ -232,7 +232,6 @@ impl SegmentSlice {
             let read = segment_reader.read(offset, READ_BUFFER_SIZE).await;
             match read {
                 Ok(reply) => {
-                    debug!("Read Response from Segment store {:?}", reply);
                     let len = reply.data.len();
                     if len == 0 && reply.end_of_segment {
                         info!("Reached end of segment {:?} during read ", segment.clone());
@@ -310,11 +309,7 @@ impl SegmentSlice {
                 // all the data of the event is already present.
                 let t = self.meta.segment_data.split_to(bytes_to_read);
                 event_data.value.put(t.value);
-                info!(
-                    "Event data is {:?} with length {}",
-                    event_data,
-                    event_data.value.len()
-                );
+                info!("extract event data with length {}", event_data.value.len());
                 //Convert to Event and send it.
                 let event = Event {
                     offset_in_segment: event_data.offset_in_segment,
@@ -324,8 +319,7 @@ impl SegmentSlice {
             } else {
                 // complete data for a given event is not present in the buffer.
                 debug!(
-                    "Partial Event read: Current data read {:?} data_read {} to_read {}",
-                    event_data,
+                    "partial event read: data read length {}, target read length {}",
                     event_data.value.len(),
                     event_data.value.capacity()
                 );

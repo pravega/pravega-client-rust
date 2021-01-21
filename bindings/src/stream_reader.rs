@@ -149,7 +149,7 @@ impl StreamReader {
 
     // Helper method for to release segment
     async fn release_segment_async(&self, slice: SegmentSlice) {
-        self.reader.lock().await.release_segment(slice);
+        self.reader.lock().await.release_segment(slice).await;
     }
 }
 
