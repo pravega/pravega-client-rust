@@ -695,12 +695,6 @@
 <span id="692">692</span>
 <span id="693">693</span>
 <span id="694">694</span>
-<span id="695">695</span>
-<span id="696">696</span>
-<span id="697">697</span>
-<span id="698">698</span>
-<span id="699">699</span>
-<span id="700">700</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -761,7 +755,7 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// Read Buffer size</span>
 <span class="doccomment">///</span>
-<span class="kw">const</span> <span class="ident">READ_BUFFER_SIZE</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">2048</span>; <span class="comment">// 128K bytes</span>
+<span class="kw">const</span> <span class="ident">READ_BUFFER_SIZE</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">8</span> <span class="op">*</span> <span class="number">1024</span> <span class="op">*</span> <span class="number">1024</span>; <span class="comment">// max size for a single Event</span>
 
 <span class="doccomment">///</span>
 <span class="doccomment">/// Structure to track the offset and byte array.</span>
@@ -860,7 +854,7 @@
     <span class="doccomment">/// Method to verify if the Segment has pending events that can be read.</span>
     <span class="doccomment">///</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">has_events</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">segment_data</span>.<span class="ident">value</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="ident">TYPE_PLUS_LENGTH_SIZE</span> <span class="kw">as</span> <span class="ident">usize</span>
+        <span class="op">!</span><span class="self">self</span>.<span class="ident">partial_data_present</span> <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">segment_data</span>.<span class="ident">value</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="ident">TYPE_PLUS_LENGTH_SIZE</span> <span class="kw">as</span> <span class="ident">usize</span>
     }
 }
 
@@ -936,7 +930,6 @@
             <span class="kw">let</span> <span class="ident">read</span> <span class="op">=</span> <span class="ident">segment_reader</span>.<span class="ident">read</span>(<span class="ident">offset</span>, <span class="ident">READ_BUFFER_SIZE</span>).<span class="ident">await</span>;
             <span class="kw">match</span> <span class="ident">read</span> {
                 <span class="prelude-val">Ok</span>(<span class="ident">reply</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Read Response from Segment store {:?}&quot;</span>, <span class="ident">reply</span>);
                     <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="ident">reply</span>.<span class="ident">data</span>.<span class="ident">len</span>();
                     <span class="kw">if</span> <span class="ident">len</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> <span class="op">&amp;&amp;</span> <span class="ident">reply</span>.<span class="ident">end_of_segment</span> {
                         <span class="macro">info</span><span class="macro">!</span>(<span class="string">&quot;Reached end of segment {:?} during read &quot;</span>, <span class="ident">segment</span>.<span class="ident">clone</span>());
@@ -1014,11 +1007,7 @@
                 <span class="comment">// all the data of the event is already present.</span>
                 <span class="kw">let</span> <span class="ident">t</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">meta</span>.<span class="ident">segment_data</span>.<span class="ident">split_to</span>(<span class="ident">bytes_to_read</span>);
                 <span class="ident">event_data</span>.<span class="ident">value</span>.<span class="ident">put</span>(<span class="ident">t</span>.<span class="ident">value</span>);
-                <span class="macro">info</span><span class="macro">!</span>(
-                    <span class="string">&quot;Event data is {:?} with length {}&quot;</span>,
-                    <span class="ident">event_data</span>,
-                    <span class="ident">event_data</span>.<span class="ident">value</span>.<span class="ident">len</span>()
-                );
+                <span class="macro">info</span><span class="macro">!</span>(<span class="string">&quot;extract event data with length {}&quot;</span>, <span class="ident">event_data</span>.<span class="ident">value</span>.<span class="ident">len</span>());
                 <span class="comment">//Convert to Event and send it.</span>
                 <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">Event</span> {
                     <span class="ident">offset_in_segment</span>: <span class="ident">event_data</span>.<span class="ident">offset_in_segment</span>,
@@ -1028,8 +1017,7 @@
             } <span class="kw">else</span> {
                 <span class="comment">// complete data for a given event is not present in the buffer.</span>
                 <span class="macro">debug</span><span class="macro">!</span>(
-                    <span class="string">&quot;Partial Event read: Current data read {:?} data_read {} to_read {}&quot;</span>,
-                    <span class="ident">event_data</span>,
+                    <span class="string">&quot;partial event read: data read length {}, target read length {}&quot;</span>,
                     <span class="ident">event_data</span>.<span class="ident">value</span>.<span class="ident">len</span>(),
                     <span class="ident">event_data</span>.<span class="ident">value</span>.<span class="ident">capacity</span>()
                 );
