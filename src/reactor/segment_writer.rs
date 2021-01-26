@@ -521,7 +521,7 @@ pub(crate) mod test {
     #[test]
     fn test_segment_writer_happy_write() {
         // set up segment writer
-        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().unwrap();
         let (mut segment_writer, mut sender, mut receiver, factory) = create_segment_writer(MockType::Happy);
 
         // test set up connection
@@ -570,7 +570,7 @@ pub(crate) mod test {
     #[test]
     fn test_segment_writer_reply_error() {
         // set up segment writer
-        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().unwrap();
         let (mut segment_writer, mut sender, mut receiver, factory) =
             create_segment_writer(MockType::SegmentIsSealed);
 
@@ -602,7 +602,7 @@ pub(crate) mod test {
 
     #[test]
     fn test_segment_writer_mixed_writes() {
-        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().unwrap();
         let (mut segment_writer, mut sender, mut receiver, factory) = create_segment_writer(MockType::Happy);
         // test set up connection
         let result = rt.block_on(segment_writer.setup_connection(&factory));
@@ -656,7 +656,7 @@ pub(crate) mod test {
 
     #[test]
     fn test_segment_writer_conditional_append_failure() {
-        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().unwrap();
         let (mut segment_writer, mut sender, mut receiver, factory) = create_segment_writer(MockType::Happy);
         // test set up connection
         let result = rt.block_on(segment_writer.setup_connection(&factory));

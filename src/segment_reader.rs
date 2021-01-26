@@ -522,7 +522,7 @@ mod tests {
 
     use mockall::predicate::*;
     use mockall::*;
-    use tokio::time::delay_for;
+    use tokio::time::sleep;
 
     use pravega_client_shared::*;
     use pravega_wire_protocol::client_connection::ClientConnection;
@@ -546,7 +546,7 @@ mod tests {
     #[async_trait]
     impl RawClient<'static> for MockRawClientImpl {
         async fn send_request(&self, request: &Requests) -> Result<Replies, RawClientError> {
-            delay_for(Duration::from_nanos(1)).await;
+            sleep(Duration::from_nanos(1)).await;
             self.send_request(request)
         }
 
@@ -567,7 +567,7 @@ mod tests {
             .build()
             .expect("creating config");
         let factory = ClientFactory::new(config);
-        let runtime = factory.get_runtime_handle();
+        let runtime = factory.get_runtime();
 
         let scope_name = Scope::from("examples".to_owned());
         let stream_name = Stream::from("someStream".to_owned());
@@ -704,7 +704,6 @@ mod tests {
     fn test_prefetch_async_segment_reader() {
         let mock = MockSegmentReader {};
         let runtime = Runtime::new().unwrap();
-        let handle = runtime.handle();
         let mut prefetch_reader = PrefetchingAsyncSegmentReader::new(
             runtime.handle().clone(),
             Arc::new(Box::new(mock)),
@@ -715,7 +714,7 @@ mod tests {
         // one buffered reply should contains 1024 * 2 size of data,
         // first read should read half of the buffered reply
         let mut buf = vec![0; 1024];
-        let read = handle
+        let read = runtime
             .block_on(prefetch_reader.read(&mut buf))
             .expect("read from wrapper");
         assert_eq!(read, 1024);
@@ -725,7 +724,7 @@ mod tests {
 
         // reads next 1024 bytes and finishes the first buffered reply.
         let mut buf = vec![0; 1024];
-        let read = handle
+        let read = runtime
             .block_on(prefetch_reader.read(&mut buf))
             .expect("read from wrapper");
         assert_eq!(read, 1024);

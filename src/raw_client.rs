@@ -188,7 +188,7 @@ mod tests {
     #[test]
     #[should_panic] // since connection verify will panic
     fn test_hello() {
-        let mut common = Common::new();
+        let common = Common::new();
         let mut server = Server::new();
 
         let raw_client = RawClientImpl::new(

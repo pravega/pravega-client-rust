@@ -26,7 +26,7 @@ use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::slice::Iter;
 use std::time::Duration;
-use tokio::time::delay_for;
+use tokio::time::sleep;
 use tracing::debug;
 
 /// Provides a map that is synchronized across different processes.
@@ -707,7 +707,7 @@ async fn conditionally_write(
                 debug!("Error message is {}", e);
                 if retry > 0 {
                     retry -= 1;
-                    delay_for(Duration::from_millis(DELAY_MILLIS)).await;
+                    sleep(Duration::from_millis(DELAY_MILLIS)).await;
                 } else {
                     return Err(SynchronizerError::SyncTableError {
                         operation: "insert conditionally_all".to_owned(),
@@ -777,7 +777,7 @@ async fn conditionally_remove(
                 debug!("Error message is {}", e);
                 if retry > 0 {
                     retry -= 1;
-                    delay_for(Duration::from_millis(DELAY_MILLIS)).await;
+                    sleep(Duration::from_millis(DELAY_MILLIS)).await;
                 } else {
                     return Err(SynchronizerError::SyncTableError {
                         operation: "remove conditionally_all".to_owned(),
@@ -1015,7 +1015,7 @@ mod test {
 
     #[test]
     fn test_integration_with_table_map() {
-        let mut rt = Runtime::new().unwrap();
+        let rt = Runtime::new().unwrap();
         let config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(MockType::Happy))
             .mock(true)

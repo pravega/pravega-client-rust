@@ -11,10 +11,10 @@
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client::transaction::Transaction;
+        use pravega_client::client_factory::ClientFactory;
         use pyo3::exceptions;
         use pyo3::prelude::*;
         use pyo3::PyResult;
-        use tokio::runtime::Handle;
         use crate::TxnFailedException;
         use pravega_client::error::TransactionError;
         use pravega_client_shared::{Timestamp, TransactionStatus, TxId};
@@ -37,7 +37,7 @@ const TIMEOUT_IN_SECONDS: u64 = 120;
 #[derive(new)]
 pub(crate) struct StreamTransaction {
     txn: Transaction,
-    handle: Handle,
+    factory: ClientFactory,
 }
 
 #[cfg(feature = "python_binding")]
@@ -59,7 +59,7 @@ impl StreamTransaction {
     #[text_signature = "($self)"]
     pub fn is_open(&self) -> PyResult<bool> {
         let result: Result<TransactionStatus, TransactionError> =
-            self.handle.block_on(self.txn.check_status());
+            self.factory.get_runtime().block_on(self.txn.check_status());
 
         match result {
             Ok(TransactionStatus::Open) => Ok(true),
@@ -97,8 +97,10 @@ impl StreamTransaction {
         );
         let key: Option<String> = routing_key.map(|k| k.into());
         // to_vec creates an owned copy of the python byte array object.
-        let result: Result<(), TransactionError> =
-            self.handle.block_on(self.txn.write_event(key, event.to_vec()));
+        let result: Result<(), TransactionError> = self
+            .factory
+            .get_runtime()
+            .block_on(self.txn.write_event(key, event.to_vec()));
 
         match result {
             Ok(_t) => Ok(()),
@@ -131,10 +133,10 @@ impl StreamTransaction {
     pub fn commit_timestamp(&mut self, timestamp: u64) -> PyResult<()> {
         info!("Committing the transaction {:?}", self.txn.get_txn_id());
         let commit_fut = self.txn.commit(Timestamp::from(timestamp));
-        let timeout_fut = self
-            .handle
-            .enter(|| timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), commit_fut));
-        let result_commit: Result<Result<(), TransactionError>, _> = self.handle.block_on(timeout_fut);
+        let _guard = self.factory.get_runtime().enter();
+        let timeout_fut = timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), commit_fut);
+        let result_commit: Result<Result<(), TransactionError>, _> =
+            self.factory.get_runtime().block_on(timeout_fut);
 
         match result_commit {
             Ok(t) => match t {
@@ -162,10 +164,10 @@ impl StreamTransaction {
     pub fn abort(&mut self) -> PyResult<()> {
         info!("Aborting the transaction {}", self.txn.get_txn_id());
         let abort_fut = self.txn.abort();
-        let timeout_fut = self
-            .handle
-            .enter(|| timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), abort_fut));
-        let result_abort: Result<Result<(), TransactionError>, _> = self.handle.block_on(timeout_fut);
+        let _guard = self.factory.get_runtime().enter();
+        let timeout_fut = timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), abort_fut);
+        let result_abort: Result<Result<(), TransactionError>, _> =
+            self.factory.get_runtime().block_on(timeout_fut);
 
         match result_abort {
             Ok(t) => match t {

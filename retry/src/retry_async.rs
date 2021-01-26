@@ -13,7 +13,7 @@ use super::retry_result::RetryError;
 use super::retry_result::RetryResult;
 use std::future::Future;
 use std::time::Duration;
-use tokio::time::delay_for;
+use tokio::time::sleep;
 
 /// Retry the given operation asynchronously until it succeeds,
 /// or until the given Duration iterator ends.
@@ -44,7 +44,7 @@ where
             RetryResult::Success(value) => return Ok(value),
             RetryResult::Retry(error) => {
                 if let Some(delay) = iterator.next() {
-                    delay_for(delay).await;
+                    sleep(delay).await;
                     current_try += 1;
                     total_delay += delay;
                 } else {

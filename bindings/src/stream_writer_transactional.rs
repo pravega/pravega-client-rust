@@ -11,6 +11,7 @@
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
+        use pravega_client::client_factory::ClientFactory;
         use pyo3::exceptions;
         use pyo3::prelude::*;
         use pyo3::PyResult;
@@ -18,7 +19,6 @@ cfg_if! {
         use crate::transaction::StreamTransaction;
         use pravega_client_shared::TxId;
         use pravega_client_shared::ScopedStream;
-        use tokio::runtime::Handle;
         use tracing::debug;
     }
 }
@@ -32,7 +32,7 @@ cfg_if! {
 #[derive(new)]
 pub(crate) struct StreamTxnWriter {
     writer: TransactionalEventStreamWriter,
-    handle: Handle,
+    factory: ClientFactory,
     stream: ScopedStream,
 }
 
@@ -46,9 +46,9 @@ impl StreamTxnWriter {
     ///
     #[text_signature = "($self)"]
     pub fn begin_txn(&mut self) -> PyResult<StreamTransaction> {
-        let result = self.handle.block_on(self.writer.begin());
+        let result = self.factory.get_runtime().block_on(self.writer.begin());
         match result {
-            Ok(txn) => Ok(StreamTransaction::new(txn, self.handle.clone())),
+            Ok(txn) => Ok(StreamTransaction::new(txn, self.factory.clone())),
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
         }
     }
@@ -59,10 +59,13 @@ impl StreamTxnWriter {
     #[text_signature = "($self, txn_id)"]
     pub fn get_txn(&mut self, txn_id: u128) -> PyResult<StreamTransaction> {
         debug!("Writing a single event for a given routing key");
-        let result = self.handle.block_on(self.writer.get_txn(TxId(txn_id)));
+        let result = self
+            .factory
+            .get_runtime()
+            .block_on(self.writer.get_txn(TxId(txn_id)));
 
         match result {
-            Ok(txn) => Ok(StreamTransaction::new(txn, self.handle.clone())),
+            Ok(txn) => Ok(StreamTransaction::new(txn, self.factory.clone())),
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
         }
     }

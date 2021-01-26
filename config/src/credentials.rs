@@ -134,7 +134,7 @@ impl Cred for KeyCloak {
 
 impl KeyCloak {
     fn refresh_rpt_token(&self) {
-        let mut rt = Runtime::new().expect("create tokio runtime to get rpt token");
+        let rt = Runtime::new().expect("create tokio runtime to get rpt token");
         // read keycloak json
         let file = File::open(self.path.to_string()).expect("open keycloak.json");
         let mut buf_reader = BufReader::new(file);

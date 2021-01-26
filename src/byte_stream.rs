@@ -21,7 +21,6 @@ use pravega_client_shared::{ScopedSegment, ScopedStream, WriterId};
 use std::convert::TryInto;
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::sync::Arc;
-use tokio::runtime::Handle;
 use tokio::sync::oneshot;
 use tracing::info_span;
 use tracing_futures::Instrument;
@@ -83,7 +82,7 @@ pub struct ByteStreamWriter {
     writer_id: WriterId,
     sender: ChannelSender<Incoming>,
     metadata_client: SegmentMetadataClient,
-    runtime_handle: Handle,
+    factory: ClientFactory,
     event_handle: Option<EventHandle>,
     write_offset: i64,
 }
@@ -107,7 +106,8 @@ impl Write for ByteStreamWriter {
         let bytes_to_write = std::cmp::min(buf.len(), EventStreamWriter::MAX_EVENT_SIZE);
         let payload = buf[0..bytes_to_write].to_vec();
         let oneshot_receiver = self
-            .runtime_handle
+            .factory
+            .get_runtime()
             .block_on(self.write_internal(self.sender.clone(), payload));
 
         self.write_offset += bytes_to_write as i64;
@@ -118,7 +118,9 @@ impl Write for ByteStreamWriter {
     /// This is a blocking call that will wait for data to be persisted on the server side.
     fn flush(&mut self) -> Result<(), Error> {
         if let Some(event_handle) = self.event_handle.take() {
-            self.runtime_handle.block_on(self.flush_internal(event_handle))
+            self.factory
+                .get_runtime()
+                .block_on(self.flush_internal(event_handle))
         } else {
             Ok(())
         }
@@ -130,19 +132,19 @@ impl ByteStreamWriter {
     const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
     pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
-        let handle = factory.get_runtime_handle();
+        let rt = factory.get_runtime();
         let (sender, receiver) = create_channel(Self::CHANNEL_CAPACITY);
-        let metadata_client = handle.block_on(factory.create_segment_metadata_client(segment.clone()));
+        let metadata_client = rt.block_on(factory.create_segment_metadata_client(segment.clone()));
         let writer_id = WriterId(get_random_u128());
         let stream = ScopedStream::from(&segment);
         let span = info_span!("Reactor", byte_stream_writer = %writer_id);
         // spawn is tied to the factory runtime.
-        handle.spawn(Reactor::run(stream, sender.clone(), receiver, factory, None).instrument(span));
+        rt.spawn(Reactor::run(stream, sender.clone(), receiver, factory.clone(), None).instrument(span));
         ByteStreamWriter {
             writer_id,
             sender,
             metadata_client,
-            runtime_handle: handle,
+            factory,
             event_handle: None,
             write_offset: 0,
         }
@@ -176,7 +178,8 @@ impl ByteStreamWriter {
     /// Seek to the tail of the segment.
     pub fn seek_to_tail(&mut self) {
         let segment_info = self
-            .runtime_handle
+            .factory
+            .get_runtime()
             .block_on(self.metadata_client.get_segment_info())
             .expect("failed to get segment info");
         self.write_offset = segment_info.write_offset;
@@ -217,41 +220,46 @@ pub struct ByteStreamReader {
     reader: Option<PrefetchingAsyncSegmentReader>,
     reader_buffer_size: usize,
     metadata_client: SegmentMetadataClient,
-    runtime_handle: Handle,
+    factory: ClientFactory,
 }
 
 impl Read for ByteStreamReader {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
         let result = self
-            .runtime_handle
+            .factory
+            .get_runtime()
             .block_on(self.reader.as_mut().unwrap().read(buf));
         result.map_err(|e| Error::new(ErrorKind::Other, format!("Error: {:?}", e)))
     }
 }
 
 impl ByteStreamReader {
-    pub(crate) fn new(segment: ScopedSegment, factory: &ClientFactory, buffer_size: usize) -> Self {
-        let handle = factory.get_runtime_handle();
-        let async_reader = handle.block_on(factory.create_async_event_reader(segment.clone()));
+    pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory, buffer_size: usize) -> Self {
+        let async_reader = factory
+            .get_runtime()
+            .block_on(factory.create_async_event_reader(segment.clone()));
         let async_reader_wrapper = PrefetchingAsyncSegmentReader::new(
-            handle.clone(),
+            factory.get_runtime().handle().clone(),
             Arc::new(Box::new(async_reader)),
             0,
             buffer_size,
         );
-        let metadata_client = handle.block_on(factory.create_segment_metadata_client(segment));
+        let metadata_client = factory
+            .get_runtime()
+            .block_on(factory.create_segment_metadata_client(segment));
         ByteStreamReader {
             reader_id: Uuid::new_v4(),
             reader: Some(async_reader_wrapper),
             reader_buffer_size: buffer_size,
             metadata_client,
-            runtime_handle: handle,
+            factory,
         }
     }
 
     /// Returns the head of current readable data in the segment.
     pub fn current_head(&self) -> std::io::Result<u64> {
-        self.runtime_handle
+        self.factory
+            .get_runtime()
             .block_on(self.metadata_client.fetch_current_starting_head())
             .map(|i| i as u64)
             .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
@@ -270,7 +278,7 @@ impl ByteStreamReader {
     fn recreate_reader_wrapper(&mut self, offset: i64) {
         let internal_reader = self.reader.take().unwrap().extract_reader();
         let new_reader_wrapper = PrefetchingAsyncSegmentReader::new(
-            self.runtime_handle.clone(),
+            self.factory.get_runtime().handle().clone(),
             internal_reader,
             offset,
             self.reader_buffer_size,
@@ -309,7 +317,8 @@ impl Seek for ByteStreamReader {
             }
             SeekFrom::End(offset) => {
                 let tail = self
-                    .runtime_handle
+                    .factory
+                    .get_runtime()
                     .block_on(self.metadata_client.fetch_current_segment_length())
                     .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))?;
                 if tail + offset < 0 {
@@ -344,8 +353,8 @@ mod test {
 
     #[test]
     fn test_byte_stream_seek() {
-        let mut rt = Runtime::new().unwrap();
-        let (mut writer, mut reader) = create_reader_and_writer(&mut rt);
+        let rt = Runtime::new().unwrap();
+        let (mut writer, mut reader) = create_reader_and_writer(&rt);
 
         // write 200 bytes
         let payload = vec![1; 200];
@@ -399,8 +408,8 @@ mod test {
 
     #[test]
     fn test_byte_stream_truncate() {
-        let mut rt = Runtime::new().unwrap();
-        let (mut writer, mut reader) = create_reader_and_writer(&mut rt);
+        let rt = Runtime::new().unwrap();
+        let (mut writer, mut reader) = create_reader_and_writer(&rt);
 
         // write 200 bytes
         let payload = vec![1; 200];
@@ -425,8 +434,8 @@ mod test {
 
     #[test]
     fn test_byte_stream_seal() {
-        let mut rt = Runtime::new().unwrap();
-        let (mut writer, mut reader) = create_reader_and_writer(&mut rt);
+        let rt = Runtime::new().unwrap();
+        let (mut writer, mut reader) = create_reader_and_writer(&rt);
 
         // write 200 bytes
         let payload = vec![1; 200];
@@ -448,7 +457,7 @@ mod test {
         assert!(write_result.is_err() || flush_result.is_err());
     }
 
-    fn create_reader_and_writer(runtime: &mut Runtime) -> (ByteStreamWriter, ByteStreamReader) {
+    fn create_reader_and_writer(runtime: &Runtime) -> (ByteStreamWriter, ByteStreamReader) {
         let config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(MockType::Happy))
             .mock(true)

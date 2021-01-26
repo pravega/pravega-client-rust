@@ -18,7 +18,7 @@ use pravega_wire_protocol::wire_commands::Replies;
 use serde_cbor::Error as CborError;
 use snafu::Snafu;
 use std::fmt::Debug;
-use tokio::time::Elapsed;
+use tokio::time::error::Elapsed;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
@@ -38,7 +38,7 @@ pub enum RawClientError {
     #[snafu(display("Reply incompatible wirecommand version: low {}, high {}", low, high))]
     IncompatibleVersion { low: i32, high: i32 },
 
-    #[snafu(display("Request has timed out: {}", source))]
+    #[snafu(display("Request has timed out: {:?}", source))]
     RequestTimeout { source: Elapsed },
 }
 

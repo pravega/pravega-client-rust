@@ -30,7 +30,7 @@ use crate::transaction::transactional_event_stream_writer::TransactionalEventStr
 use pravega_client_auth::DelegationTokenProvider;
 use std::fmt;
 use std::sync::Arc;
-use tokio::runtime::{Handle, Runtime};
+use tokio::runtime::Runtime;
 use tracing::info;
 
 #[derive(Clone)]
@@ -51,8 +51,7 @@ impl ClientFactory {
         let controller = if config.mock {
             Box::new(MockController::new(config.controller_uri.clone())) as Box<dyn ControllerClient>
         } else {
-            Box::new(ControllerClientImpl::new(config.clone(), rt.handle().clone()))
-                as Box<dyn ControllerClient>
+            Box::new(ControllerClientImpl::new(config.clone(), &rt)) as Box<dyn ControllerClient>
         };
         ClientFactory(Arc::new(ClientFactoryInternal {
             connection_pool: pool,
@@ -65,8 +64,8 @@ impl ClientFactory {
     ///
     /// Get the Runtime handle.
     ///
-    pub fn get_runtime_handle(&self) -> Handle {
-        self.0.get_runtime_handle()
+    pub fn get_runtime(&self) -> &Runtime {
+        self.0.get_runtime()
     }
 
     pub async fn create_async_event_reader(&self, segment: ScopedSegment) -> AsyncSegmentReaderImpl {
@@ -145,7 +144,11 @@ impl ClientFactory {
     }
 
     pub fn create_byte_stream_reader(&self, segment: ScopedSegment) -> ByteStreamReader {
-        ByteStreamReader::new(segment, self, self.get_config().reader_wrapper_buffer_size())
+        ByteStreamReader::new(
+            segment,
+            self.clone(),
+            self.get_config().reader_wrapper_buffer_size(),
+        )
     }
 
     pub async fn create_delegation_token_provider(&self, stream: ScopedStream) -> DelegationTokenProvider {
@@ -193,10 +196,10 @@ impl ClientFactoryInternal {
     }
 
     ///
-    /// Get the Runtime handle. The Handle is internally reference counted and can be cloned.
+    /// borrow the Runtime.
     ///
-    pub(crate) fn get_runtime_handle(&self) -> Handle {
-        self.runtime.handle().clone()
+    pub(crate) fn get_runtime(&self) -> &Runtime {
+        &self.runtime
     }
 }
 

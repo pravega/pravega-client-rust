@@ -54,7 +54,7 @@ use snafu::Snafu;
 use std::convert::{From, Into};
 use std::str::FromStr;
 use std::sync::RwLock;
-use tokio::runtime::Handle;
+use tokio::runtime::Runtime;
 use tonic::codegen::http::uri::InvalidUri;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Uri};
 use tonic::{metadata::MetadataValue, Code, Request, Status};
@@ -488,9 +488,9 @@ impl ControllerClientImpl {
     /// The requests will be load balanced across multiple connections and every connection supports
     /// multiplexing of requests.
     ///
-    pub fn new(config: ClientConfig, h: Handle) -> Self {
+    pub fn new(config: ClientConfig, rt: &Runtime) -> Self {
         // actual connection is established lazily.
-        let ch = h.block_on(get_channel(&config));
+        let ch = rt.block_on(get_channel(&config));
         let client = if config.is_auth_enabled {
             let token = config.credentials.get_request_metadata();
             let token = MetadataValue::from_str(&token).expect("convert to metadata value");
@@ -1224,7 +1224,7 @@ mod test {
             .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
             .build()
             .unwrap();
-        let controller = ControllerClientImpl::new(config.clone(), rt.handle().clone());
+        let controller = ControllerClientImpl::new(config.clone(), &rt);
         let scope = Scope {
             name: "scope".to_string(),
         };
