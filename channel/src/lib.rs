@@ -121,7 +121,7 @@ mod tests {
 
     #[test]
     fn test_wrapper() {
-        let mut runtime = Runtime::new().unwrap();
+        let runtime = Runtime::new().unwrap();
         runtime.block_on(test_simple_test());
         runtime.block_on(test_send_order());
         runtime.block_on(test_sender_block());
@@ -153,7 +153,7 @@ mod tests {
 
         let tx1 = tx.clone();
         tokio::spawn(async move {
-            tokio::time::delay_for(tokio::time::Duration::from_secs(1)).await;
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
             if let Err(_) = tx1.send((1, 4)).await {
                 println!("receiver dropped");
             }
@@ -257,7 +257,7 @@ mod tests {
                 return;
             }
         });
-        tokio::time::delay_for(time::Duration::from_secs(1)).await;
+        tokio::time::sleep(time::Duration::from_secs(1)).await;
         let result = tx.send((2, 4)).await;
         assert!(result.is_err());
     }
