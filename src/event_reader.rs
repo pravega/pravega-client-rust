@@ -511,118 +511,119 @@ impl EventReader {
     ///
     pub async fn acquire_segment(&mut self) -> Option<SegmentSlice> {
         info!("acquiring segment for reader {}", self.id);
-        // Check if newer segments should be acquired.
-        if self.meta.last_segment_acquire.elapsed() > REBALANCE_INTERVAL {
-            info!("need to rebalance segments across readers");
-            // Assign newer segments to this reader if available.
-            if let Some(new_segments) = self.assign_segments_to_reader().await {
-                // fetch current segments.
-                let current_segments = self
-                    .rg_state
-                    .lock()
-                    .await
-                    .get_segments_for_reader(&self.id)
-                    .await
-                    .expect("Read segments");
-                let new_segments: HashSet<(ScopedSegment, Offset)> = current_segments
-                    .into_iter()
-                    .filter(|(seg, _off)| new_segments.contains(seg))
-                    .collect();
-                debug!("segments which can be read next are {:?}", new_segments);
-                // Initiate segment reads to the newer segments.
-                self.initiate_segment_reads(new_segments);
-                self.meta.last_segment_acquire = Instant::now();
-            }
-        }
-        // Check if any of the segments already has event data and return it.
-        if let Some(segment_with_data) = self.meta.get_segment_id_with_data() {
-            info!("segment {} has data ready to read", segment_with_data);
-            let slice_meta = self.meta.slices.remove(&segment_with_data).unwrap();
-            let segment = ScopedSegment::from(slice_meta.scoped_segment.as_str());
-            // Create an one-shot channel to receive SegmentSlice return.
-            let (slice_return_tx, slice_return_rx) = oneshot::channel();
-            self.meta.add_slice_release_receiver(segment, slice_return_rx);
-
-            info!(
-                "segment slice for {:?} is ready for consumption by reader {}",
-                slice_meta.scoped_segment, self.id,
-            );
-            self.meta
-                .slices_dished_out
-                .insert(segment_with_data, slice_meta.read_offset);
-            Some(SegmentSlice {
-                meta: slice_meta,
-                slice_return_tx: Some(slice_return_tx),
-            })
-        } else if let Ok(read_result) = self.rx.try_recv() {
-            match read_result {
-                // received segment data
-                Ok(data) => {
-                    let segment = ScopedSegment::from(data.segment.clone().as_str());
-                    info!("new data fetched from server for segment {:?}", segment);
-                    if let Some(mut slice_meta) = self.meta.remove_segment(segment.clone()).await {
-                        if data.offset_in_segment
-                            != slice_meta.read_offset + slice_meta.segment_data.value.len() as i64
-                        {
-                            info!("Data from an invalid offset {:?} observed. Expected offset {:?}. Ignoring this data", data.offset_in_segment, slice_meta.read_offset);
-                            None
-                        } else {
-                            // add received data to Segment slice.
-                            EventReader::add_data_to_segment_slice(data, &mut slice_meta);
-
-                            // Create an one-shot channel to receive SegmentSlice return.
-                            let (slice_return_tx, slice_return_rx) = oneshot::channel();
-                            self.meta
-                                .add_slice_release_receiver(segment.clone(), slice_return_rx);
-                            self.meta
-                                .slices_dished_out
-                                .insert(segment.clone(), slice_meta.read_offset);
-
-                            info!(
-                                "segment slice for {:?} is ready for consumption by reader {}",
-                                slice_meta.scoped_segment, self.id,
-                            );
-
-                            Some(SegmentSlice {
-                                meta: slice_meta,
-                                slice_return_tx: Some(slice_return_tx),
-                            })
-                        }
-                    } else {
-                        //None is sent if the the segment is released from the reader.
-                        debug!("ignore the received data since None was returned");
-                        None
-                    }
-                }
-                Err((e, offset)) => {
-                    let segment = ScopedSegment::from(e.get_segment().as_str());
-                    debug!(
-                        "Reader Error observed {:?} on segment {:?} at offset {:?} ",
-                        e, segment, offset
-                    );
-                    // Remove the slice from the reader meta and fetch successors.
-                    if let Some(slice_meta) = self.meta.remove_segment(segment.clone()).await {
-                        if slice_meta.read_offset != offset {
-                            info!("Error at an invalid offset {:?} observed. Expected offset {:?}. Ignoring this data", offset, slice_meta.start_offset);
-                            self.meta.add_slices(slice_meta);
-                            self.meta.slices_dished_out.remove(&segment);
-                        } else {
-                            info!("Segment slice {:?} has received error {:?}", slice_meta, e);
-                            self.fetch_successors(e).await;
-                        }
-                    }
-                    debug!("segment Slice meta {:?}", self.meta.slices);
-                    None
+        loop {
+            // Check if newer segments should be acquired.
+            if self.meta.last_segment_acquire.elapsed() > REBALANCE_INTERVAL {
+                info!("need to rebalance segments across readers");
+                // Assign newer segments to this reader if available.
+                if let Some(new_segments) = self.assign_segments_to_reader().await {
+                    // fetch current segments.
+                    let current_segments = self
+                        .rg_state
+                        .lock()
+                        .await
+                        .get_segments_for_reader(&self.id)
+                        .await
+                        .expect("Read segments");
+                    let new_segments: HashSet<(ScopedSegment, Offset)> = current_segments
+                        .into_iter()
+                        .filter(|(seg, _off)| new_segments.contains(seg))
+                        .collect();
+                    debug!("segments which can be read next are {:?}", new_segments);
+                    // Initiate segment reads to the newer segments.
+                    self.initiate_segment_reads(new_segments);
+                    self.meta.last_segment_acquire = Instant::now();
                 }
             }
-        } else {
-            info!(
-                "reader {} owns {} slices but none is ready to read",
-                self.id,
-                self.meta.slices.len()
-            );
-            delay_for(Duration::from_millis(100)).await;
-            None
+            // Check if any of the segments already has event data and return it.
+            if let Some(segment_with_data) = self.meta.get_segment_id_with_data() {
+                info!("segment {} has data ready to read", segment_with_data);
+                let slice_meta = self.meta.slices.remove(&segment_with_data).unwrap();
+                let segment = ScopedSegment::from(slice_meta.scoped_segment.as_str());
+                // Create an one-shot channel to receive SegmentSlice return.
+                let (slice_return_tx, slice_return_rx) = oneshot::channel();
+                self.meta.add_slice_release_receiver(segment, slice_return_rx);
+
+                info!(
+                    "segment slice for {:?} is ready for consumption by reader {}",
+                    slice_meta.scoped_segment, self.id,
+                );
+                self.meta
+                    .slices_dished_out
+                    .insert(segment_with_data, slice_meta.read_offset);
+                return Some(SegmentSlice {
+                    meta: slice_meta,
+                    slice_return_tx: Some(slice_return_tx),
+                });
+            } else if let Ok(read_result) = self.rx.try_recv() {
+                match read_result {
+                    // received segment data
+                    Ok(data) => {
+                        let segment = ScopedSegment::from(data.segment.clone().as_str());
+                        info!("new data fetched from server for segment {:?}", segment);
+                        if let Some(mut slice_meta) = self.meta.remove_segment(segment.clone()).await {
+                            if data.offset_in_segment
+                                != slice_meta.read_offset + slice_meta.segment_data.value.len() as i64
+                            {
+                                info!("Data from an invalid offset {:?} observed. Expected offset {:?}. Ignoring this data", data.offset_in_segment, slice_meta.read_offset);
+                                return None;
+                            } else {
+                                // add received data to Segment slice.
+                                EventReader::add_data_to_segment_slice(data, &mut slice_meta);
+
+                                // Create an one-shot channel to receive SegmentSlice return.
+                                let (slice_return_tx, slice_return_rx) = oneshot::channel();
+                                self.meta
+                                    .add_slice_release_receiver(segment.clone(), slice_return_rx);
+                                self.meta
+                                    .slices_dished_out
+                                    .insert(segment.clone(), slice_meta.read_offset);
+
+                                info!(
+                                    "segment slice for {:?} is ready for consumption by reader {}",
+                                    slice_meta.scoped_segment, self.id,
+                                );
+
+                                return Some(SegmentSlice {
+                                    meta: slice_meta,
+                                    slice_return_tx: Some(slice_return_tx),
+                                });
+                            }
+                        } else {
+                            //None is sent if the the segment is released from the reader.
+                            debug!("ignore the received data since None was returned");
+                            return None;
+                        }
+                    }
+                    Err((e, offset)) => {
+                        let segment = ScopedSegment::from(e.get_segment().as_str());
+                        debug!(
+                            "Reader Error observed {:?} on segment {:?} at offset {:?} ",
+                            e, segment, offset
+                        );
+                        // Remove the slice from the reader meta and fetch successors.
+                        if let Some(slice_meta) = self.meta.remove_segment(segment.clone()).await {
+                            if slice_meta.read_offset != offset {
+                                info!("Error at an invalid offset {:?} observed. Expected offset {:?}. Ignoring this data", offset, slice_meta.start_offset);
+                                self.meta.add_slices(slice_meta);
+                                self.meta.slices_dished_out.remove(&segment);
+                            } else {
+                                info!("Segment slice {:?} has received error {:?}", slice_meta, e);
+                                self.fetch_successors(e).await;
+                            }
+                        }
+                        debug!("segment Slice meta {:?}", self.meta.slices);
+                        return None;
+                    }
+                }
+            } else {
+                info!(
+                    "reader {} owns {} slices but none is ready to read",
+                    self.id,
+                    self.meta.slices.len()
+                );
+                delay_for(Duration::from_millis(100)).await;
+            }
         }
     }
 
