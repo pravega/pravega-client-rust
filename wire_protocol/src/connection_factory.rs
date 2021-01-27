@@ -302,7 +302,7 @@ mod tests {
     #[test]
     fn test_mock_connection() {
         info!("test mock connection factory");
-        let mut rt = Runtime::new().unwrap();
+        let rt = Runtime::new().unwrap();
         let config = ConnectionFactoryConfig::new(ConnectionType::Mock(MockType::Happy));
         let connection_factory = ConnectionFactory::create(config);
         let connection_future =
@@ -334,7 +334,7 @@ mod tests {
     #[should_panic]
     fn test_tokio_connection() {
         info!("test tokio connection factory");
-        let mut rt = Runtime::new().unwrap();
+        let rt = Runtime::new().unwrap();
         let config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
         let connection_factory = ConnectionFactory::create(config);
         let connection_future =

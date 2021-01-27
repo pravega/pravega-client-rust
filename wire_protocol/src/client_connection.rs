@@ -160,7 +160,7 @@ mod tests {
 
     #[test]
     fn client_connection_write_and_read() {
-        let mut rt = Runtime::new().expect("create tokio Runtime");
+        let rt = Runtime::new().expect("create tokio Runtime");
         let config = ConnectionFactoryConfig::new(ConnectionType::Mock(MockType::Happy));
         let connection_factory = ConnectionFactory::create(config);
         let manager = SegmentConnectionManager::new(connection_factory, 1);

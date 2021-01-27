@@ -645,7 +645,7 @@ mod test {
     #[test]
     fn test_simple_write_and_read() {
         info!("mock client connection test");
-        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().unwrap();
         let mut mock_connection = MockConnection::new(
             PravegaNodeUri::from("127.1.1.1:9090"),
             Arc::new(Mutex::new(HashMap::new())),
