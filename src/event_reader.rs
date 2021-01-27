@@ -22,6 +22,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::oneshot;
 use tokio::sync::{mpsc, Mutex};
+use tokio::time::delay_for;
 use tracing::{debug, error, info, warn};
 
 pub type ReaderErrorWithOffset = (ReaderError, i64);
@@ -553,7 +554,7 @@ impl EventReader {
                 meta: slice_meta,
                 slice_return_tx: Some(slice_return_tx),
             })
-        } else if let Some(read_result) = self.rx.recv().await {
+        } else if let Ok(read_result) = self.rx.try_recv() {
             match read_result {
                 // received segment data
                 Ok(data) => {
@@ -615,7 +616,12 @@ impl EventReader {
                 }
             }
         } else {
-            info!("All Segment slices have completed reading from the stream, fetch it from the state synchronizer.");
+            info!(
+                "reader {} owns {} slices but none is ready to read",
+                self.id,
+                self.meta.slices.len()
+            );
+            delay_for(Duration::from_millis(100)).await;
             None
         }
     }

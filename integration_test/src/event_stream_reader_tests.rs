@@ -17,9 +17,12 @@ use pravega_client_shared::{
     StreamConfiguration,
 };
 use pravega_controller_client::ControllerClient;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 use tokio::runtime::Handle;
+use tokio::time::delay_for;
 use tracing::{debug, error, info, warn};
 
 pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
@@ -34,6 +37,7 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
 
     let handle = client_factory.get_runtime_handle();
     test_read_large_events(&client_factory, &handle);
+    test_multi_reader_multi_segments_tail_read(&client_factory, &handle);
     handle.block_on(test_read_api(&client_factory));
     handle.block_on(test_stream_scaling(&client_factory));
     handle.block_on(test_release_segment(&client_factory));
@@ -62,7 +66,7 @@ fn test_read_large_events(client_factory: &ClientFactory, rt: &Handle) {
         rt.block_on(write_events(
             scope_name.clone(),
             stream_name.clone(),
-            &client_factory,
+            client_factory.clone(),
             NUM_EVENTS,
             EVENT_SIZE,
         ))
@@ -94,6 +98,90 @@ fn test_read_large_events(client_factory: &ClientFactory, rt: &Handle) {
     assert_eq!(event_count, NUM_EVENTS);
 }
 
+fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactory, rt: &Handle) {
+    let scope_name = Scope::from("testMultiReaderMultiSegmentsTailRead".to_owned());
+    let stream_name = Stream::from("testMultiReaderMultiSegmentsTailRead".to_owned());
+
+    const NUM_EVENTS: usize = 10000;
+    const EVENT_SIZE: usize = 1024;
+
+    let new_stream = rt.block_on(create_scope_stream(
+        client_factory.get_controller_client(),
+        &scope_name,
+        &stream_name,
+        2,
+    ));
+    // write events only if the stream is created. This is useful if we are running the reader tests
+    // multiple times.
+    let factory = client_factory.clone();
+    let scope_name_clone = scope_name.clone();
+    let stream_name_clone = stream_name.clone();
+    if new_stream {
+        rt.spawn(async {
+            write_events(
+                scope_name_clone,
+                stream_name_clone,
+                factory,
+                NUM_EVENTS,
+                EVENT_SIZE,
+            )
+            .await
+        });
+    }
+    let stream = ScopedStream {
+        scope: scope_name.clone(),
+        stream: stream_name,
+    };
+
+    let rg: ReaderGroup = rt.block_on(client_factory.create_reader_group(
+        scope_name,
+        "rg-single-reader-multi-segments".to_string(),
+        stream,
+    ));
+    let mut reader1 = rt.block_on(rg.create_reader("r1".to_string()));
+    let mut reader2 = rt.block_on(rg.create_reader("r2".to_string()));
+    let read_count = Arc::new(AtomicUsize::new(0));
+    let read_count1 = read_count.clone();
+    let read_count2 = read_count.clone();
+    let handle1 = rt.spawn(async move {
+        while read_count1.load(Ordering::Relaxed) < NUM_EVENTS {
+            if let Some(mut slice) = reader1.acquire_segment().await {
+                info!("acquire segment for reader r1, {:?}", slice);
+                while let Some(event) = slice.next() {
+                    assert_eq!(
+                        vec![1; EVENT_SIZE],
+                        event.value.as_slice(),
+                        "Corrupted event read"
+                    );
+                    let prev = read_count1.fetch_add(1, Ordering::SeqCst);
+                    info!("read count {}", prev + 1);
+                }
+                reader1.release_segment(slice).await;
+            }
+        }
+    });
+    let handle2 = rt.spawn(async move {
+        while read_count2.load(Ordering::Relaxed) < NUM_EVENTS {
+            if let Some(mut slice) = reader2.acquire_segment().await {
+                info!("acquire segment for reader r2 {:?}", slice);
+                while let Some(event) = slice.next() {
+                    assert_eq!(
+                        vec![1; EVENT_SIZE],
+                        event.value.as_slice(),
+                        "Corrupted event read"
+                    );
+                    let prev = read_count2.fetch_add(1, Ordering::SeqCst);
+                    info!("read count {}", prev + 1);
+                }
+                reader2.release_segment(slice).await;
+            }
+        }
+    });
+    rt.block_on(handle1).expect("wait for reader1");
+    rt.block_on(handle2).expect("wait for reader2");
+    assert_eq!(read_count.load(Ordering::Relaxed), NUM_EVENTS);
+}
+
 async fn test_release_segment(client_factory: &ClientFactory) {
     let scope_name = Scope::from("testReaderScaling".to_owned());
     let stream_name = Stream::from("testReaderRelease1".to_owned());
@@ -114,7 +202,7 @@ async fn test_release_segment(client_factory: &ClientFactory) {
         write_events_before_and_after_scale(
             scope_name.clone(),
             stream_name.clone(),
-            &client_factory,
+            client_factory.clone(),
             NUM_EVENTS,
             EVENT_SIZE,
         )
@@ -178,7 +266,7 @@ async fn test_release_segment_at(client_factory: &ClientFactory) {
         write_events_before_and_after_scale(
             scope_name.clone(),
             stream_name.clone(),
-            &client_factory,
+            client_factory.clone(),
             NUM_EVENTS,
             EVENT_SIZE,
         )
@@ -245,7 +333,7 @@ async fn test_stream_scaling(client_factory: &ClientFactory) {
         write_events_before_and_after_scale(
             scope_name.clone(),
             stream_name.clone(),
-            &client_factory,
+            client_factory.clone(),
             NUM_EVENTS,
             EVENT_SIZE,
         )
@@ -311,7 +399,7 @@ async fn test_read_api(client_factory: &ClientFactory) {
         write_events(
             scope_name.clone(),
             stream_name.clone(),
-            &client_factory,
+            client_factory.clone(),
             NUM_EVENTS,
             EVNET_SIZE,
         )
@@ -376,7 +464,7 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
             write_events(
                 scope_name.clone(),
                 stream_name.clone(),
-                client_factory,
+                client_factory.clone(),
                 NUM_EVENTS,
                 EVENT_SIZE,
             )
@@ -444,7 +532,7 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
             write_events(
                 scope_name.clone(),
                 stream_name.clone(),
-                client_factory,
+                client_factory.clone(),
                 NUM_EVENTS,
                 EVENT_SIZE,
             )
@@ -542,7 +630,7 @@ fn test_reader_offline(client_factory: &ClientFactory) {
             write_events(
                 scope_name.clone(),
                 stream_name.clone(),
-                client_factory,
+                client_factory.clone(),
                 NUM_EVENTS,
                 EVENT_SIZE,
             )
@@ -597,7 +685,7 @@ fn test_reader_offline(client_factory: &ClientFactory) {
 async fn write_events(
     scope_name: Scope,
     stream_name: Stream,
-    client_factory: &ClientFactory,
+    client_factory: ClientFactory,
     num_events: usize,
     event_size: usize,
 ) {
@@ -606,9 +694,10 @@ async fn write_events(
         stream: stream_name,
     };
     let mut writer = client_factory.create_event_stream_writer(scoped_stream);
-    for _x in 0..num_events {
+    for x in 0..num_events {
         let rx = writer.write_event(vec![1; event_size]).await;
         rx.await.expect("Failed to write Event").unwrap();
+        info!("write count {}", x);
     }
 }
 
@@ -616,14 +705,14 @@ async fn write_events(
 async fn write_events_before_and_after_scale(
     scope_name: Scope,
     stream_name: Stream,
-    client_factory: &ClientFactory,
+    client_factory: ClientFactory,
     num_events: usize,
     event_size: usize,
 ) {
     write_events(
         scope_name.clone(),
         stream_name.clone(),
-        client_factory,
+        client_factory.clone(),
         num_events,
         event_size,
     )
