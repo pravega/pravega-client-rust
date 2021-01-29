@@ -102,7 +102,7 @@ fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactory, rt
     let scope_name = Scope::from("testMultiReaderMultiSegmentsTailRead".to_owned());
     let stream_name = Stream::from("testMultiReaderMultiSegmentsTailRead".to_owned());
 
-    const NUM_EVENTS: usize = 10000;
+    const NUM_EVENTS: usize = 2000;
     const EVENT_SIZE: usize = 1024;
 
     let new_stream = rt.block_on(create_scope_stream(
