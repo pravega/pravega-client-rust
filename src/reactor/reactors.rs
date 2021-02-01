@@ -211,7 +211,7 @@ pub(crate) mod test {
 
     #[test]
     fn test_reactor_happy_run() {
-        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().unwrap();
         let (mut selector, mut sender, mut receiver, factory) =
             rt.block_on(create_segment_selector(MockType::Happy));
         assert_eq!(selector.writers.len(), 2);
@@ -231,7 +231,7 @@ pub(crate) mod test {
 
     #[test]
     fn test_reactor_wrong_host() {
-        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().unwrap();
         let (mut selector, mut sender, mut receiver, factory) =
             rt.block_on(create_segment_selector(MockType::WrongHost));
         assert_eq!(selector.writers.len(), 2);
@@ -250,7 +250,7 @@ pub(crate) mod test {
 
     #[test]
     fn test_reactor_stream_is_sealed() {
-        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().unwrap();
         let (mut selector, mut sender, mut receiver, factory) =
             rt.block_on(create_segment_selector(MockType::SegmentIsSealed));
         assert_eq!(selector.writers.len(), 2);

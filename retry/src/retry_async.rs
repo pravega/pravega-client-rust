@@ -13,7 +13,7 @@ use super::retry_result::RetryError;
 use super::retry_result::RetryResult;
 use std::future::Future;
 use std::time::Duration;
-use tokio::time::delay_for;
+use tokio::time::sleep;
 
 /// Retry the given operation asynchronously until it succeeds,
 /// or until the given Duration iterator ends.
@@ -44,7 +44,7 @@ where
             RetryResult::Success(value) => return Ok(value),
             RetryResult::Retry(error) => {
                 if let Some(delay) = iterator.next() {
-                    delay_for(delay).await;
+                    sleep(delay).await;
                     current_try += 1;
                     total_delay += delay;
                 } else {
@@ -77,7 +77,7 @@ mod tests {
 
     #[test]
     fn attempts_just_once() {
-        let mut runtime = Runtime::new().unwrap();
+        let runtime = Runtime::new().unwrap();
         let retry_policy = RetryWithBackoff::default().max_tries(1);
         let future = retry_async(retry_policy, || async {
             let previous = 1;
@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn attempts_until_max_retries_exceeded() {
-        let mut runtime = Runtime::new().unwrap();
+        let runtime = Runtime::new().unwrap();
         let retry_policy = RetryWithBackoff::default().max_tries(3);
         let future = retry_async(retry_policy, || async {
             let previous = 3;
@@ -124,7 +124,7 @@ mod tests {
 
     #[test]
     fn attempts_until_success() {
-        let mut runtime = Runtime::new().unwrap();
+        let runtime = Runtime::new().unwrap();
         let retry_policy = RetryWithBackoff::default().max_tries(3);
         let mut counter = 0;
 

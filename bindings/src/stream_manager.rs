@@ -76,7 +76,7 @@ impl StreamManager {
     ///
     #[text_signature = "($self, scope_name)"]
     pub fn create_scope(&self, scope_name: &str) -> PyResult<bool> {
-        let handle = self.cf.get_runtime_handle();
+        let handle = self.cf.get_runtime();
 
         info!("creating scope {:?}", scope_name);
 
@@ -96,7 +96,7 @@ impl StreamManager {
     ///
     #[text_signature = "($self, scope_name)"]
     pub fn delete_scope(&self, scope_name: &str) -> PyResult<bool> {
-        let handle = self.cf.get_runtime_handle();
+        let handle = self.cf.get_runtime();
         info!("Delete scope {:?}", scope_name);
 
         let controller = self.cf.get_controller_client();
@@ -120,7 +120,7 @@ impl StreamManager {
         stream_name: &str,
         initial_segments: i32,
     ) -> PyResult<bool> {
-        let handle = self.cf.get_runtime_handle();
+        let handle = self.cf.get_runtime();
         info!(
             "creating stream {:?} under scope {:?} with segment count {:?}",
             stream_name, scope_name, initial_segments
@@ -156,7 +156,7 @@ impl StreamManager {
     ///
     #[text_signature = "($self, scope_name, stream_name)"]
     pub fn seal_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
-        let handle = self.cf.get_runtime_handle();
+        let handle = self.cf.get_runtime();
         info!("Sealing stream {:?} under scope {:?} ", stream_name, scope_name);
         let scoped_stream = ScopedStream {
             scope: Scope::from(scope_name.to_string()),
@@ -178,7 +178,7 @@ impl StreamManager {
     ///
     #[text_signature = "($self, scope_name, stream_name)"]
     pub fn delete_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
-        let handle = self.cf.get_runtime_handle();
+        let handle = self.cf.get_runtime();
         info!("Deleting stream {:?} under scope {:?} ", stream_name, scope_name);
         let scoped_stream = ScopedStream {
             scope: Scope::from(scope_name.to_string()),
@@ -212,7 +212,7 @@ impl StreamManager {
         };
         let stream_writer = StreamWriter::new(
             self.cf.create_event_stream_writer(scoped_stream.clone()),
-            self.cf.get_runtime_handle(),
+            self.cf.clone(),
             scoped_stream,
         );
         Ok(stream_writer)
@@ -239,12 +239,12 @@ impl StreamManager {
             scope: Scope::from(scope_name.to_owned()),
             stream: Stream::from(stream_name.to_owned()),
         };
-        let handle = self.cf.get_runtime_handle();
+        let handle = self.cf.get_runtime();
         let txn_writer = handle.block_on(
             self.cf
                 .create_transactional_event_stream_writer(scoped_stream.clone(), WriterId(writer_id)),
         );
-        let txn_stream_writer = StreamTxnWriter::new(txn_writer, self.cf.get_runtime_handle(), scoped_stream);
+        let txn_stream_writer = StreamTxnWriter::new(txn_writer, self.cf.clone(), scoped_stream);
         Ok(txn_stream_writer)
     }
 
@@ -270,13 +270,13 @@ impl StreamManager {
             scope: scope.clone(),
             stream: Stream::from(stream_name.to_string()),
         };
-        let handle = self.cf.get_runtime_handle();
+        let handle = self.cf.get_runtime();
         let rg = handle.block_on(self.cf.create_reader_group(
             scope,
             reader_group_name.to_string(),
             scoped_stream.clone(),
         ));
-        let reader_group = StreamReaderGroup::new(rg, self.cf.get_runtime_handle(), scoped_stream);
+        let reader_group = StreamReaderGroup::new(rg, self.cf.clone(), scoped_stream);
         Ok(reader_group)
     }
 

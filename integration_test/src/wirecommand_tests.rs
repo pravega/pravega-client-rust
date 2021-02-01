@@ -49,7 +49,7 @@ pub fn wirecommand_test_wrapper() {
         .build()
         .expect("build client config");
     let cf = ClientFactory::new(config);
-    let h = cf.get_runtime_handle();
+    let h = cf.get_runtime();
     h.block_on(wirecommand_tests(&cf));
 }
 

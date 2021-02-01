@@ -39,7 +39,7 @@ pub fn test_event_stream_writer(config: PravegaStandaloneServiceConfig) {
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
-    let handle = client_factory.get_runtime_handle();
+    let handle = client_factory.get_runtime();
     handle.block_on(utils::create_scope_stream(
         client_factory.get_controller_client(),
         &scope_name,

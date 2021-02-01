@@ -77,12 +77,13 @@ impl EventStreamWriter {
     const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
     pub(crate) fn new(stream: ScopedStream, factory: ClientFactory) -> Self {
-        let handle = factory.get_runtime_handle();
         let (tx, rx) = create_channel(Self::CHANNEL_CAPACITY);
         let writer_id = WriterId::from(get_random_u128());
         let span = info_span!("Reactor", event_stream_writer = %writer_id);
         // spawn is tied to the factory runtime.
-        handle.spawn(Reactor::run(stream, tx.clone(), rx, factory, None).instrument(span));
+        factory
+            .get_runtime()
+            .spawn(Reactor::run(stream, tx.clone(), rx, factory.clone(), None).instrument(span));
         EventStreamWriter {
             writer_id,
             sender: tx,
@@ -186,7 +187,7 @@ mod tests {
         let event = PendingEvent::without_header(routing_key, data, None, tx);
         assert!(event.is_none());
 
-        let mut rt = Runtime::new().expect("get runtime");
+        let rt = Runtime::new().expect("get runtime");
         let reply = rt.block_on(rx).expect("get reply");
         assert!(reply.is_err());
     }

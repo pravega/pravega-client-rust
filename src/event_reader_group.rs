@@ -201,7 +201,7 @@ mod tests {
             client_factory: client_factory.clone(),
         };
         client_factory
-            .get_runtime_handle()
+            .get_runtime()
             .block_on(rg.create_reader("r1".to_string()));
     }
 }

@@ -288,15 +288,14 @@ impl EventReader {
         slice_meta_map.iter().for_each(|(segment, meta)| {
             let (tx_stop, rx_stop) = oneshot::channel();
             stop_reading_map.insert(segment.clone(), tx_stop);
-            factory.get_runtime_handle().enter(|| {
-                tokio::spawn(SegmentSlice::get_segment_data(
-                    segment.clone(),
-                    meta.start_offset,
-                    tx.clone(),
-                    rx_stop,
-                    factory.clone(),
-                ))
-            });
+            factory.get_runtime().enter();
+            tokio::spawn(SegmentSlice::get_segment_data(
+                segment.clone(),
+                meta.start_offset,
+                tx.clone(),
+                rx_stop,
+                factory.clone(),
+            ));
         });
 
         // initialize the event reader.
@@ -414,15 +413,13 @@ impl EventReader {
 
             // reinitialize the segment data reactor.
             let (tx_drop_fetch, rx_drop_fetch) = oneshot::channel();
-            self.factory
-                .get_runtime_handle()
-                .spawn(SegmentSlice::get_segment_data(
-                    segment.clone(),
-                    slice_meta.read_offset, // start reading from the offset provided.
-                    self.tx.clone(),
-                    rx_drop_fetch,
-                    self.factory.clone(),
-                ));
+            self.factory.get_runtime().spawn(SegmentSlice::get_segment_data(
+                segment.clone(),
+                slice_meta.read_offset, // start reading from the offset provided.
+                self.tx.clone(),
+                rx_drop_fetch,
+                self.factory.clone(),
+            ));
             self.meta.add_stop_reading_tx(segment.clone(), tx_drop_fetch);
             self.meta.add_slices(slice_meta);
             self.meta.slices_dished_out.remove(&segment);
@@ -784,7 +781,7 @@ mod tests {
     use tokio::sync::oneshot;
     use tokio::sync::oneshot::error::TryRecvError;
     use tokio::sync::{mpsc, Mutex};
-    use tokio::time::{delay_for, Duration};
+    use tokio::time::{sleep, Duration};
     use tracing::Level;
 
     /*
@@ -803,15 +800,14 @@ mod tests {
         );
 
         // simulate data being received from Segment store.
-        cf.get_runtime_handle().enter(|| {
-            tokio::spawn(generate_variable_size_events(
-                tx.clone(),
-                10,
-                NUM_EVENTS,
-                0,
-                false,
-            ));
-        });
+        let _guard = cf.get_runtime().enter();
+        tokio::spawn(generate_variable_size_events(
+            tx.clone(),
+            10,
+            NUM_EVENTS,
+            0,
+            false,
+        ));
 
         // simulate initialization of a Reader
         let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
@@ -834,7 +830,7 @@ mod tests {
         let mut event_size = 0;
 
         // Attempt to acquire a segment.
-        while let Some(mut slice) = cf.get_runtime_handle().block_on(reader.acquire_segment()) {
+        while let Some(mut slice) = cf.get_runtime().block_on(reader.acquire_segment()) {
             loop {
                 if let Some(event) = slice.next() {
                     println!("Read event {:?}", event);
@@ -870,15 +866,14 @@ mod tests {
         );
 
         // simulate data being received from Segment store.
-        cf.get_runtime_handle().enter(|| {
-            tokio::spawn(generate_variable_size_events(
-                tx.clone(),
-                1024,
-                NUM_EVENTS,
-                0,
-                false,
-            ));
-        });
+        let _guard = cf.get_runtime().enter();
+        tokio::spawn(generate_variable_size_events(
+            tx.clone(),
+            1024,
+            NUM_EVENTS,
+            0,
+            false,
+        ));
 
         // simulate initialization of a Reader
         let init_segments = vec![create_segment_slice(0)];
@@ -906,15 +901,13 @@ mod tests {
             .return_once(move |_| res);
 
         // simulate data being received from Segment store.
-        cf.get_runtime_handle().enter(|| {
-            tokio::spawn(generate_variable_size_events(
-                tx.clone(),
-                1024,
-                NUM_EVENTS,
-                1,
-                false,
-            ));
-        });
+        tokio::spawn(generate_variable_size_events(
+            tx.clone(),
+            1024,
+            NUM_EVENTS,
+            1,
+            false,
+        ));
 
         let before_time = Instant::now() - Duration::from_secs(15);
         // create a new Event Reader with the segment slice data.
@@ -932,7 +925,7 @@ mod tests {
         let mut event_count = 0;
 
         // Attempt to acquire a segment.
-        while let Some(mut slice) = cf.get_runtime_handle().block_on(reader.acquire_segment()) {
+        while let Some(mut slice) = cf.get_runtime().block_on(reader.acquire_segment()) {
             loop {
                 if let Some(event) = slice.next() {
                     println!("Read event {:?}", event);
@@ -970,25 +963,22 @@ mod tests {
         );
 
         // simulate data being received from Segment store. 2 async tasks pumping in data.
-        cf.get_runtime_handle().enter(|| {
-            tokio::spawn(generate_variable_size_events(
-                tx.clone(),
-                100,
-                NUM_EVENTS,
-                0,
-                false,
-            ));
-        });
-        cf.get_runtime_handle().enter(|| {
-            //simulate a delay with data received by this segment.
-            tokio::spawn(generate_variable_size_events(
-                tx.clone(),
-                100,
-                NUM_EVENTS,
-                1,
-                true,
-            ));
-        });
+        let _guard = cf.get_runtime().enter();
+        tokio::spawn(generate_variable_size_events(
+            tx.clone(),
+            100,
+            NUM_EVENTS,
+            0,
+            false,
+        ));
+        //simulate a delay with data received by this segment.
+        tokio::spawn(generate_variable_size_events(
+            tx.clone(),
+            100,
+            NUM_EVENTS,
+            1,
+            true,
+        ));
 
         // simulate initialization of a Reader
         let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
@@ -1011,7 +1001,7 @@ mod tests {
 
         let mut total_events_read = 0;
         // Attempt to acquire a segment.
-        while let Some(mut slice) = cf.get_runtime_handle().block_on(reader.acquire_segment()) {
+        while let Some(mut slice) = cf.get_runtime().block_on(reader.acquire_segment()) {
             let segment = slice.meta.scoped_segment.clone();
             println!("Received Segment Slice {:?}", segment);
             let mut event_count = 0;
@@ -1052,15 +1042,14 @@ mod tests {
         );
 
         // simulate data being received from Segment store.
-        cf.get_runtime_handle().enter(|| {
-            tokio::spawn(generate_variable_size_events(
-                tx.clone(),
-                10,
-                NUM_EVENTS,
-                0,
-                false,
-            ));
-        });
+        let _guard = cf.get_runtime().enter();
+        tokio::spawn(generate_variable_size_events(
+            tx.clone(),
+            10,
+            NUM_EVENTS,
+            0,
+            false,
+        ));
 
         // simulate initialization of a Reader
         let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
@@ -1082,10 +1071,7 @@ mod tests {
         );
 
         // acquire a segment
-        let mut slice = cf
-            .get_runtime_handle()
-            .block_on(reader.acquire_segment())
-            .unwrap();
+        let mut slice = cf.get_runtime().block_on(reader.acquire_segment()).unwrap();
 
         // read an event.
         let event = slice.next().unwrap();
@@ -1094,22 +1080,16 @@ mod tests {
         assert_eq!(event.offset_in_segment, 0); // first event.
 
         // release the segment slice.
-        cf.get_runtime_handle().block_on(reader.release_segment(slice));
+        cf.get_runtime().block_on(reader.release_segment(slice));
 
         // acquire the next segment
-        let slice = cf
-            .get_runtime_handle()
-            .block_on(reader.acquire_segment())
-            .unwrap();
+        let slice = cf.get_runtime().block_on(reader.acquire_segment()).unwrap();
 
         //Do not read, simply return it back.
-        cf.get_runtime_handle().block_on(reader.release_segment(slice));
+        cf.get_runtime().block_on(reader.release_segment(slice));
 
         // Try acquiring the segment again.
-        let mut slice = cf
-            .get_runtime_handle()
-            .block_on(reader.acquire_segment())
-            .unwrap();
+        let mut slice = cf.get_runtime().block_on(reader.acquire_segment()).unwrap();
         // Verify a partial event being present. This implies
         let event = slice.next().unwrap();
         assert_eq!(event.value.len(), 2);
@@ -1131,16 +1111,15 @@ mod tests {
         );
 
         // simulate data being received from Segment store.
-        cf.get_runtime_handle().enter(|| {
-            tokio::spawn(generate_constant_size_events(
-                tx.clone(),
-                20,
-                NUM_EVENTS,
-                0,
-                false,
-                stop_rx,
-            ));
-        });
+        let _guard = cf.get_runtime().enter();
+        tokio::spawn(generate_constant_size_events(
+            tx.clone(),
+            20,
+            NUM_EVENTS,
+            0,
+            false,
+            stop_rx,
+        ));
         let mut stop_reading_map: HashMap<ScopedSegment, oneshot::Sender<()>> = HashMap::new();
         stop_reading_map.insert(ScopedSegment::from("scope/test/0.#epoch.0"), stop_tx);
 
@@ -1162,10 +1141,7 @@ mod tests {
         );
 
         // acquire a segment
-        let mut slice = cf
-            .get_runtime_handle()
-            .block_on(reader.acquire_segment())
-            .unwrap();
+        let mut slice = cf.get_runtime().block_on(reader.acquire_segment()).unwrap();
 
         // read an event.
         let event = slice.next().unwrap();
@@ -1181,27 +1157,21 @@ mod tests {
         assert_eq!(event.offset_in_segment, 9); // second event.
 
         // release the segment slice.
-        cf.get_runtime_handle()
-            .block_on(reader.release_segment_at(slice, 0));
+        cf.get_runtime().block_on(reader.release_segment_at(slice, 0));
 
         // simulate a segment read at offset 0.
         let (_stop_tx, stop_rx) = oneshot::channel();
-        cf.get_runtime_handle().enter(|| {
-            tokio::spawn(generate_constant_size_events(
-                tx.clone(),
-                20,
-                NUM_EVENTS,
-                0,
-                false,
-                stop_rx,
-            ));
-        });
+        tokio::spawn(generate_constant_size_events(
+            tx.clone(),
+            20,
+            NUM_EVENTS,
+            0,
+            false,
+            stop_rx,
+        ));
 
         // acquire the next segment
-        let mut slice = cf
-            .get_runtime_handle()
-            .block_on(reader.acquire_segment())
-            .unwrap();
+        let mut slice = cf.get_runtime().block_on(reader.acquire_segment()).unwrap();
         // Verify a partial event being present. This implies
         let event = slice.next().unwrap();
         assert_eq!(event.value.len(), 1);
@@ -1255,7 +1225,7 @@ mod tests {
 
     // Generate events to simulate Pravega SegmentReadCommand.
     async fn generate_constant_size_events(
-        mut tx: Sender<SegmentReadResult>,
+        tx: Sender<SegmentReadResult>,
         buf_size: usize,
         num_events: usize,
         segment_id: usize,
@@ -1278,7 +1248,7 @@ mod tests {
                     let free_space = buf.capacity() - buf.len();
                     if free_space == 0 {
                         if should_delay {
-                            delay_for(Duration::from_millis(100)).await;
+                            sleep(Duration::from_millis(100)).await;
                         }
                         tx.send(Ok(SegmentDataBuffer {
                             segment: ScopedSegment::from(segment_name.as_str()).to_string(),
@@ -1309,7 +1279,7 @@ mod tests {
 
     // Generate events to simulate Pravega SegmentReadCommand.
     async fn generate_variable_size_events(
-        mut tx: Sender<SegmentReadResult>,
+        tx: Sender<SegmentReadResult>,
         buf_size: usize,
         num_events: usize,
         segment_id: usize,
@@ -1329,7 +1299,7 @@ mod tests {
                     let free_space = buf.capacity() - buf.len();
                     if free_space == 0 {
                         if should_delay {
-                            delay_for(Duration::from_millis(100)).await;
+                            sleep(Duration::from_millis(100)).await;
                         }
                         tx.send(Ok(SegmentDataBuffer {
                             segment: ScopedSegment::from(segment_name.as_str()).to_string(),

@@ -214,7 +214,7 @@ impl SegmentSlice {
     pub(crate) async fn get_segment_data(
         segment: ScopedSegment,
         start_offset: i64,
-        mut tx: Sender<SegmentReadResult>,
+        tx: Sender<SegmentReadResult>,
         mut drop_fetch: oneshot::Receiver<()>,
         factory: ClientFactory,
     ) {
@@ -518,7 +518,7 @@ mod tests {
 
     // Generate events to simulate Pravega SegmentReadCommand.
     async fn generate_variable_size_events(
-        mut tx: Sender<SegmentDataBuffer>,
+        tx: Sender<SegmentDataBuffer>,
         buf_size: usize,
         num_events: usize,
     ) {
@@ -574,7 +574,7 @@ mod tests {
     }
 
     // Custom multiple size events.
-    async fn generate_multiple_constant_size_events(mut tx: Sender<SegmentDataBuffer>) {
+    async fn generate_multiple_constant_size_events(tx: Sender<SegmentDataBuffer>) {
         let mut buf = BytesMut::with_capacity(10);
         let segment = ScopedSegment::from("test/test/123").to_string();
 
@@ -671,7 +671,7 @@ mod tests {
     ///
     /// This is a test function to generate single events of varying sizes
     ///
-    async fn generate_multiple_variable_sized_events(mut tx: Sender<SegmentDataBuffer>) {
+    async fn generate_multiple_variable_sized_events(tx: Sender<SegmentDataBuffer>) {
         for i in 1..11 {
             let mut buf = BytesMut::with_capacity(32);
             buf.put_i32(i); // length.

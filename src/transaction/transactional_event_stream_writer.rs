@@ -80,9 +80,10 @@ impl TransactionalEventStreamWriter {
         );
         let delegation_token_provider =
             Arc::new(factory.create_delegation_token_provider(stream.clone()).await);
-        let runtime_handle = factory.get_runtime_handle();
+        let runtime_handle = factory.get_runtime();
         let span = info_span!("Pinger", transactional_event_stream_writer = %writer_id);
-        runtime_handle.enter(|| tokio::spawn(async move { pinger.start_ping().instrument(span).await }));
+        runtime_handle.enter();
+        tokio::spawn(async move { pinger.start_ping().instrument(span).await });
         TransactionalEventStreamWriter {
             stream,
             writer_id,
@@ -168,7 +169,7 @@ pub(crate) mod test {
 
     #[test]
     fn test_txn_stream_writer() {
-        let mut rt = Runtime::new().unwrap();
+        let rt = Runtime::new().unwrap();
         let mut txn_stream_writer = rt.block_on(create_txn_stream_writer());
         let transaction = rt.block_on(txn_stream_writer.begin()).expect("open transaction");
         let fetched_transaction = rt

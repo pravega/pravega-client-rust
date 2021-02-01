@@ -19,7 +19,7 @@ use pravega_client_shared::{
 use pravega_controller_client::ControllerClient;
 use std::thread;
 use std::time::{Duration, Instant};
-use tokio::runtime::Handle;
+use tokio::runtime::Runtime;
 use tracing::{debug, error, info, warn};
 
 pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
@@ -32,18 +32,18 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
 
-    let handle = client_factory.get_runtime_handle();
-    test_read_large_events(&client_factory, &handle);
-    handle.block_on(test_read_api(&client_factory));
-    handle.block_on(test_stream_scaling(&client_factory));
-    handle.block_on(test_release_segment(&client_factory));
-    handle.block_on(test_release_segment_at(&client_factory));
+    let runtime = client_factory.get_runtime();
+    test_read_large_events(&client_factory, &runtime);
+    runtime.block_on(test_read_api(&client_factory));
+    runtime.block_on(test_stream_scaling(&client_factory));
+    runtime.block_on(test_release_segment(&client_factory));
+    runtime.block_on(test_release_segment_at(&client_factory));
     test_multiple_readers(&client_factory);
     test_reader_offline(&client_factory);
     test_segment_rebalance(&client_factory);
 }
 
-fn test_read_large_events(client_factory: &ClientFactory, rt: &Handle) {
+fn test_read_large_events(client_factory: &ClientFactory, rt: &Runtime) {
     let scope_name = Scope::from("testReaderScaling".to_owned());
     let stream_name = Stream::from("testReadLargeEvents".to_owned());
 
@@ -352,7 +352,7 @@ async fn test_read_api(client_factory: &ClientFactory) {
 }
 
 fn test_multiple_readers(client_factory: &ClientFactory) {
-    let h = client_factory.get_runtime_handle();
+    let h = client_factory.get_runtime();
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testMultiReader".to_owned());
     let str = ScopedStream {
@@ -420,7 +420,7 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
 }
 
 fn test_segment_rebalance(client_factory: &ClientFactory) {
-    let h = client_factory.get_runtime_handle();
+    let h = client_factory.get_runtime();
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testsegrebalance".to_owned());
     let str = ScopedStream {
@@ -518,7 +518,7 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
 }
 
 fn test_reader_offline(client_factory: &ClientFactory) {
-    let h = client_factory.get_runtime_handle();
+    let h = client_factory.get_runtime();
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testReaderOffline".to_owned());
     let str = ScopedStream {
