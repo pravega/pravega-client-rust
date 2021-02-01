@@ -19,10 +19,10 @@ pravega-connection-pool = {path= "../connection_pool" }
 pravega-client-retry = {path = "../retry"}
 pravega-client-config = { path = "../config"}
 async-trait = "0.1"
-prost = "0.6"
+prost = "0.7"
 snafu = "0.6"
-tokio = { version = "0.2", features = ["full"] }
-tonic = { version = "0.3", features = ["tls"] }
+tokio = { version = "1.1", features = ["full"] }
+tonic = { version = "0.4", features = ["tls"] }
 derive_more = "0.99.9"
 ordered-float = "1.0"
 uuid = {version = "0.8", features = ["v4"]}

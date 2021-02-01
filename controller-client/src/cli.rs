@@ -67,14 +67,14 @@ struct Opt {
 
 fn main() {
     let opt = Opt::from_args();
-    let mut rt = Runtime::new().unwrap();
+    let rt = Runtime::new().unwrap();
     let controller_addr = opt.controller_uri;
     let config = ClientConfigBuilder::default()
         .controller_uri(PravegaNodeUri::from(controller_addr))
         .build()
         .expect("creating config");
     // create a controller client.
-    let controller_client = ControllerClientImpl::new(config, rt.handle().clone());
+    let controller_client = ControllerClientImpl::new(config, &rt);
     match opt.cmd {
         Command::CreateScope { scope_name } => {
             let scope_result = rt.block_on(controller_client.create_scope(&Scope::from(scope_name)));

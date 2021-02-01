@@ -13,11 +13,11 @@ cfg_if! {
         use pravega_client::error::SegmentWriterError;
         use pravega_client::event_stream_writer::EventStreamWriter;
         use pravega_client_shared::ScopedStream;
+        use pravega_client::client_factory::ClientFactory;
         use pyo3::exceptions;
         use pyo3::prelude::*;
         use pyo3::PyResult;
         use pyo3::PyObjectProtocol;
-        use tokio::runtime::Handle;
         use tracing::trace;
         use std::time::Duration;
         use tokio::time::timeout;
@@ -34,7 +34,7 @@ cfg_if! {
 #[derive(new)]
 pub(crate) struct StreamWriter {
     writer: EventStreamWriter,
-    handle: Handle,
+    factory: ClientFactory,
     stream: ScopedStream,
 }
 
@@ -100,20 +100,23 @@ impl StreamWriter {
         let write_future: tokio::sync::oneshot::Receiver<Result<(), SegmentWriterError>> = match routing_key {
             Option::None => {
                 trace!("Writing a single event with no routing key");
-                self.handle.block_on(self.writer.write_event(event.to_vec()))
+                self.factory
+                    .get_runtime()
+                    .block_on(self.writer.write_event(event.to_vec()))
             }
             Option::Some(key) => {
                 trace!("Writing a single event for a given routing key {:?}", key);
-                self.handle
+                self.factory
+                    .get_runtime()
                     .block_on(self.writer.write_event_by_routing_key(key.into(), event.to_vec()))
             }
         };
 
-        let timeout_fut = self
-            .handle
-            .enter(|| timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), write_future));
+        let _guard = self.factory.get_runtime().enter();
+        let timeout_fut = timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), write_future);
+
         let result: Result<Result<Result<(), SegmentWriterError>, RecvError>, _> =
-            self.handle.block_on(timeout_fut);
+            self.factory.get_runtime().block_on(timeout_fut);
         match result {
             Ok(t) => match t {
                 Ok(t1) => match t1 {

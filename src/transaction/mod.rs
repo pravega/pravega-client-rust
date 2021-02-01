@@ -68,23 +68,22 @@ impl Transaction {
                 event_handles: vec![],
             };
         }
-        let rt_handle = factory.get_runtime_handle();
+        let rt_handle = factory.get_runtime();
         let writer_id = info.writer_id;
         let txn_id = info.txn_id;
         let span = info_span!("StreamReactor", txn_id = %txn_id, event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
-        rt_handle.enter(|| {
-            tokio::spawn(
-                Reactor::run(
-                    info.stream.clone(),
-                    tx.clone(),
-                    rx,
-                    factory.clone(),
-                    Some(stream_segments),
-                )
-                .instrument(span),
+        rt_handle.enter();
+        tokio::spawn(
+            Reactor::run(
+                info.stream.clone(),
+                tx.clone(),
+                rx,
+                factory.clone(),
+                Some(stream_segments),
             )
-        });
+            .instrument(span),
+        );
         Transaction {
             info,
             sender: tx,
@@ -283,7 +282,7 @@ mod test {
 
     #[test]
     fn test_txn_commit() {
-        let mut rt = Runtime::new().unwrap();
+        let rt = Runtime::new().unwrap();
         let mut txn_stream_writer = rt.block_on(create_txn_stream_writer());
         let mut txn = rt
             .block_on(txn_stream_writer.begin())
@@ -301,7 +300,7 @@ mod test {
 
     #[test]
     fn test_txn_abort() {
-        let mut rt = Runtime::new().unwrap();
+        let rt = Runtime::new().unwrap();
         let mut txn_stream_writer = rt.block_on(create_txn_stream_writer());
         let mut txn = rt
             .block_on(txn_stream_writer.begin())
@@ -319,7 +318,7 @@ mod test {
 
     #[test]
     fn test_txn_write_event() {
-        let mut rt = Runtime::new().unwrap();
+        let rt = Runtime::new().unwrap();
         let mut txn_stream_writer = rt.block_on(create_txn_stream_writer());
         let mut txn = rt
             .block_on(txn_stream_writer.begin())

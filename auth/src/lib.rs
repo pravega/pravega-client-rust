@@ -182,7 +182,7 @@ mod test {
 
     #[test]
     fn test_retrieve_token() {
-        let mut rt = Runtime::new().unwrap();
+        let rt = Runtime::new().unwrap();
         let mock_controller = MockController::new(PravegaNodeUri::from("127.0.0.1:9090"));
         let stream = ScopedStream {
             scope: Scope {

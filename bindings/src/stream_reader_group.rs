@@ -13,10 +13,10 @@ cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client_shared::ScopedStream;
         use pravega_client::event_reader_group::ReaderGroup;
+        use pravega_client::client_factory::ClientFactory;
         use pyo3::prelude::*;
         use pyo3::PyResult;
         use pyo3::PyObjectProtocol;
-        use tokio::runtime::Handle;
         use tracing::info;
         use std::sync::Arc;
         use tokio::sync::Mutex;
@@ -32,7 +32,7 @@ cfg_if! {
 #[derive(new)]
 pub(crate) struct StreamReaderGroup {
     reader_group: ReaderGroup,
-    handle: Handle,
+    factory: ClientFactory,
     stream: ScopedStream,
 }
 
@@ -64,11 +64,12 @@ impl StreamReaderGroup {
             self.reader_group.get_name()
         );
         let reader = self
-            .handle
+            .factory
+            .get_runtime()
             .block_on(self.reader_group.create_reader(reader_name.to_string()));
         let stream_reader = StreamReader::new(
             Arc::new(Mutex::new(reader)),
-            self.handle.clone(),
+            self.factory.clone(),
             self.stream.clone(),
         );
         Ok(stream_reader)

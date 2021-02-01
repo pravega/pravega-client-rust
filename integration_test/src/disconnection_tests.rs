@@ -90,8 +90,7 @@ fn test_retry_while_start_pravega() {
     let cf = ClientFactory::new(config);
     let controller_client = cf.get_controller_client();
 
-    cf.get_runtime_handle()
-        .block_on(create_scope_stream(controller_client));
+    cf.get_runtime().block_on(create_scope_stream(controller_client));
 }
 
 async fn create_scope_stream(controller_client: &dyn ControllerClient) {
@@ -161,7 +160,7 @@ fn test_retry_with_unexpected_reply() {
         },
     };
     let endpoint = cf
-        .get_runtime_handle()
+        .get_runtime()
         .block_on(controller_client.get_endpoint_for_segment(&segment_name))
         .expect("get endpoint for segment");
 
@@ -169,24 +168,22 @@ fn test_retry_with_unexpected_reply() {
     let manager = SegmentConnectionManager::new(connection_factory, 1);
     let pool = ConnectionPool::new(manager);
     let raw_client = RawClientImpl::new(&pool, endpoint, Duration::from_secs(3600));
-    let result = cf
-        .get_runtime_handle()
-        .block_on(retry_async(retry_policy, || async {
-            let request = Requests::SealSegment(SealSegmentCommand {
-                segment: segment_name.to_string(),
-                request_id: 0,
-                delegation_token: String::from(""),
-            });
-            let reply = raw_client.send_request(&request).await;
-            match reply {
-                Ok(r) => match r {
-                    Replies::SegmentSealed(_) => RetryResult::Success(r),
-                    Replies::NoSuchSegment(_) => RetryResult::Retry("No Such Segment"),
-                    _ => RetryResult::Fail("Wrong reply type"),
-                },
-                Err(_error) => RetryResult::Retry("Connection Refused"),
-            }
-        }));
+    let result = cf.get_runtime().block_on(retry_async(retry_policy, || async {
+        let request = Requests::SealSegment(SealSegmentCommand {
+            segment: segment_name.to_string(),
+            request_id: 0,
+            delegation_token: String::from(""),
+        });
+        let reply = raw_client.send_request(&request).await;
+        match reply {
+            Ok(r) => match r {
+                Replies::SegmentSealed(_) => RetryResult::Success(r),
+                Replies::NoSuchSegment(_) => RetryResult::Retry("No Such Segment"),
+                _ => RetryResult::Fail("Wrong reply type"),
+            },
+            Err(_error) => RetryResult::Retry("Connection Refused"),
+        }
+    }));
     if let Err(e) = result {
         assert_eq!(e.error, "No Such Segment");
     } else {

@@ -191,7 +191,7 @@ pub(crate) mod test {
 
     #[test]
     fn test_segment_selector() {
-        let mut rt = Runtime::new().unwrap();
+        let rt = Runtime::new().unwrap();
         let (mut selector, _sender, _receiver, _factory) =
             rt.block_on(create_segment_selector(MockType::Happy));
         assert_eq!(selector.writers.len(), 2);

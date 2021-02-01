@@ -10,12 +10,12 @@
 
 use crate::client_factory::ClientFactory;
 use crate::error::*;
+use futures::FutureExt;
 use pravega_client_shared::{PingStatus, ScopedStream, TxId};
 use std::collections::HashSet;
 use std::time::Duration;
-use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio::time::delay_for;
+use tokio::time::sleep;
 use tracing::{debug, error, info};
 
 #[derive(Debug)]
@@ -104,22 +104,21 @@ impl Pinger {
 
         loop {
             // try receive any incoming events
-            match self.receiver.try_recv() {
-                Ok(event) => match event {
-                    PingerEvent::Add(id) => {
-                        txn_list.insert(id);
+            if let Some(option) = self.receiver.recv().now_or_never() {
+                if let Some(event) = option {
+                    match event {
+                        PingerEvent::Add(id) => {
+                            txn_list.insert(id);
+                        }
+                        PingerEvent::Remove(id) => {
+                            txn_list.remove(&id);
+                        }
+                        PingerEvent::Terminate => {
+                            return;
+                        }
                     }
-                    PingerEvent::Remove(id) => {
-                        txn_list.remove(&id);
-                    }
-                    PingerEvent::Terminate => {
-                        return;
-                    }
-                },
-                Err(e) => {
-                    if e != TryRecvError::Empty {
-                        error!("pinger exit with error: {:?}", e);
-                    }
+                } else {
+                    panic!("pinger sender gone");
                 }
             }
 
@@ -155,7 +154,7 @@ impl Pinger {
             info!("sending transaction pings complete.");
 
             // delay for transaction lease milliseconds.
-            delay_for(Duration::from_millis(self.txn_lease_millis)).await;
+            sleep(Duration::from_millis(self.txn_lease_millis)).await;
         }
     }
 
