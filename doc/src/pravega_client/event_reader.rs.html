@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `src/event_reader.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>event_reader.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/event_reader.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>event_reader.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../pravega_client/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../pravega_client/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
                 <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
 <span id="2">   2</span>
 <span id="3">   3</span>
@@ -1371,36 +1371,6 @@
 <span id="1368">1368</span>
 <span id="1369">1369</span>
 <span id="1370">1370</span>
-<span id="1371">1371</span>
-<span id="1372">1372</span>
-<span id="1373">1373</span>
-<span id="1374">1374</span>
-<span id="1375">1375</span>
-<span id="1376">1376</span>
-<span id="1377">1377</span>
-<span id="1378">1378</span>
-<span id="1379">1379</span>
-<span id="1380">1380</span>
-<span id="1381">1381</span>
-<span id="1382">1382</span>
-<span id="1383">1383</span>
-<span id="1384">1384</span>
-<span id="1385">1385</span>
-<span id="1386">1386</span>
-<span id="1387">1387</span>
-<span id="1388">1388</span>
-<span id="1389">1389</span>
-<span id="1390">1390</span>
-<span id="1391">1391</span>
-<span id="1392">1392</span>
-<span id="1393">1393</span>
-<span id="1394">1394</span>
-<span id="1395">1395</span>
-<span id="1396">1396</span>
-<span id="1397">1397</span>
-<span id="1398">1398</span>
-<span id="1399">1399</span>
-<span id="1400">1400</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -1692,15 +1662,14 @@
         <span class="ident">slice_meta_map</span>.<span class="ident">iter</span>().<span class="ident">for_each</span>(<span class="op">|</span>(<span class="ident">segment</span>, <span class="ident">meta</span>)<span class="op">|</span> {
             <span class="kw">let</span> (<span class="ident">tx_stop</span>, <span class="ident">rx_stop</span>) <span class="op">=</span> <span class="ident">oneshot</span>::<span class="ident">channel</span>();
             <span class="ident">stop_reading_map</span>.<span class="ident">insert</span>(<span class="ident">segment</span>.<span class="ident">clone</span>(), <span class="ident">tx_stop</span>);
-            <span class="ident">factory</span>.<span class="ident">get_runtime_handle</span>().<span class="ident">enter</span>(<span class="op">|</span><span class="op">|</span> {
-                <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">SegmentSlice</span>::<span class="ident">get_segment_data</span>(
-                    <span class="ident">segment</span>.<span class="ident">clone</span>(),
-                    <span class="ident">meta</span>.<span class="ident">start_offset</span>,
-                    <span class="ident">tx</span>.<span class="ident">clone</span>(),
-                    <span class="ident">rx_stop</span>,
-                    <span class="ident">factory</span>.<span class="ident">clone</span>(),
-                ))
-            });
+            <span class="ident">factory</span>.<span class="ident">get_runtime</span>().<span class="ident">enter</span>();
+            <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">SegmentSlice</span>::<span class="ident">get_segment_data</span>(
+                <span class="ident">segment</span>.<span class="ident">clone</span>(),
+                <span class="ident">meta</span>.<span class="ident">start_offset</span>,
+                <span class="ident">tx</span>.<span class="ident">clone</span>(),
+                <span class="ident">rx_stop</span>,
+                <span class="ident">factory</span>.<span class="ident">clone</span>(),
+            ));
         });
 
         <span class="comment">// initialize the event reader.</span>
@@ -1818,15 +1787,13 @@
 
             <span class="comment">// reinitialize the segment data reactor.</span>
             <span class="kw">let</span> (<span class="ident">tx_drop_fetch</span>, <span class="ident">rx_drop_fetch</span>) <span class="op">=</span> <span class="ident">oneshot</span>::<span class="ident">channel</span>();
-            <span class="self">self</span>.<span class="ident">factory</span>
-                .<span class="ident">get_runtime_handle</span>()
-                .<span class="ident">spawn</span>(<span class="ident">SegmentSlice</span>::<span class="ident">get_segment_data</span>(
-                    <span class="ident">segment</span>.<span class="ident">clone</span>(),
-                    <span class="ident">slice_meta</span>.<span class="ident">read_offset</span>, <span class="comment">// start reading from the offset provided.</span>
-                    <span class="self">self</span>.<span class="ident">tx</span>.<span class="ident">clone</span>(),
-                    <span class="ident">rx_drop_fetch</span>,
-                    <span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">clone</span>(),
-                ));
+            <span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">get_runtime</span>().<span class="ident">spawn</span>(<span class="ident">SegmentSlice</span>::<span class="ident">get_segment_data</span>(
+                <span class="ident">segment</span>.<span class="ident">clone</span>(),
+                <span class="ident">slice_meta</span>.<span class="ident">read_offset</span>, <span class="comment">// start reading from the offset provided.</span>
+                <span class="self">self</span>.<span class="ident">tx</span>.<span class="ident">clone</span>(),
+                <span class="ident">rx_drop_fetch</span>,
+                <span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">clone</span>(),
+            ));
             <span class="self">self</span>.<span class="ident">meta</span>.<span class="ident">add_stop_reading_tx</span>(<span class="ident">segment</span>.<span class="ident">clone</span>(), <span class="ident">tx_drop_fetch</span>);
             <span class="self">self</span>.<span class="ident">meta</span>.<span class="ident">add_slices</span>(<span class="ident">slice_meta</span>);
             <span class="self">self</span>.<span class="ident">meta</span>.<span class="ident">slices_dished_out</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">segment</span>);
@@ -2188,7 +2155,7 @@
     <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">sync</span>::<span class="ident">oneshot</span>;
     <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">sync</span>::<span class="ident">oneshot</span>::<span class="ident">error</span>::<span class="ident">TryRecvError</span>;
     <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">sync</span>::{<span class="ident">mpsc</span>, <span class="ident">Mutex</span>};
-    <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">time</span>::{<span class="ident">delay_for</span>, <span class="ident">Duration</span>};
+    <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">time</span>::{<span class="ident">sleep</span>, <span class="ident">Duration</span>};
     <span class="kw">use</span> <span class="ident">tracing</span>::<span class="ident">Level</span>;
 
     <span class="comment">/*
@@ -2207,15 +2174,14 @@
         );
 
         <span class="comment">// simulate data being received from Segment store.</span>
-        <span class="ident">cf</span>.<span class="ident">get_runtime_handle</span>().<span class="ident">enter</span>(<span class="op">|</span><span class="op">|</span> {
-            <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">generate_variable_size_events</span>(
-                <span class="ident">tx</span>.<span class="ident">clone</span>(),
-                <span class="number">10</span>,
-                <span class="ident">NUM_EVENTS</span>,
-                <span class="number">0</span>,
-                <span class="bool-val">false</span>,
-            ));
-        });
+        <span class="kw">let</span> <span class="ident">_guard</span> <span class="op">=</span> <span class="ident">cf</span>.<span class="ident">get_runtime</span>().<span class="ident">enter</span>();
+        <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">generate_variable_size_events</span>(
+            <span class="ident">tx</span>.<span class="ident">clone</span>(),
+            <span class="number">10</span>,
+            <span class="ident">NUM_EVENTS</span>,
+            <span class="number">0</span>,
+            <span class="bool-val">false</span>,
+        ));
 
         <span class="comment">// simulate initialization of a Reader</span>
         <span class="kw">let</span> <span class="ident">init_segments</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">create_segment_slice</span>(<span class="number">0</span>), <span class="ident">create_segment_slice</span>(<span class="number">1</span>)];
@@ -2238,7 +2204,7 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">event_size</span> <span class="op">=</span> <span class="number">0</span>;
 
         <span class="comment">// Attempt to acquire a segment.</span>
-        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">mut</span> <span class="ident">slice</span>) <span class="op">=</span> <span class="ident">cf</span>.<span class="ident">get_runtime_handle</span>().<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">acquire_segment</span>()) {
+        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">mut</span> <span class="ident">slice</span>) <span class="op">=</span> <span class="ident">cf</span>.<span class="ident">get_runtime</span>().<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">acquire_segment</span>()) {
             <span class="kw">loop</span> {
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">event</span>) <span class="op">=</span> <span class="ident">slice</span>.<span class="ident">next</span>() {
                     <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Read event {:?}&quot;</span>, <span class="ident">event</span>);
@@ -2274,15 +2240,14 @@
         );
 
         <span class="comment">// simulate data being received from Segment store.</span>
-        <span class="ident">cf</span>.<span class="ident">get_runtime_handle</span>().<span class="ident">enter</span>(<span class="op">|</span><span class="op">|</span> {
-            <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">generate_variable_size_events</span>(
-                <span class="ident">tx</span>.<span class="ident">clone</span>(),
-                <span class="number">1024</span>,
-                <span class="ident">NUM_EVENTS</span>,
-                <span class="number">0</span>,
-                <span class="bool-val">false</span>,
-            ));
-        });
+        <span class="kw">let</span> <span class="ident">_guard</span> <span class="op">=</span> <span class="ident">cf</span>.<span class="ident">get_runtime</span>().<span class="ident">enter</span>();
+        <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">generate_variable_size_events</span>(
+            <span class="ident">tx</span>.<span class="ident">clone</span>(),
+            <span class="number">1024</span>,
+            <span class="ident">NUM_EVENTS</span>,
+            <span class="number">0</span>,
+            <span class="bool-val">false</span>,
+        ));
 
         <span class="comment">// simulate initialization of a Reader</span>
         <span class="kw">let</span> <span class="ident">init_segments</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">create_segment_slice</span>(<span class="number">0</span>)];
@@ -2310,15 +2275,13 @@
             .<span class="ident">return_once</span>(<span class="kw">move</span> <span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">res</span>);
 
         <span class="comment">// simulate data being received from Segment store.</span>
-        <span class="ident">cf</span>.<span class="ident">get_runtime_handle</span>().<span class="ident">enter</span>(<span class="op">|</span><span class="op">|</span> {
-            <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">generate_variable_size_events</span>(
-                <span class="ident">tx</span>.<span class="ident">clone</span>(),
-                <span class="number">1024</span>,
-                <span class="ident">NUM_EVENTS</span>,
-                <span class="number">1</span>,
-                <span class="bool-val">false</span>,
-            ));
-        });
+        <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">generate_variable_size_events</span>(
+            <span class="ident">tx</span>.<span class="ident">clone</span>(),
+            <span class="number">1024</span>,
+            <span class="ident">NUM_EVENTS</span>,
+            <span class="number">1</span>,
+            <span class="bool-val">false</span>,
+        ));
 
         <span class="kw">let</span> <span class="ident">before_time</span> <span class="op">=</span> <span class="ident">Instant</span>::<span class="ident">now</span>() <span class="op">-</span> <span class="ident">Duration</span>::<span class="ident">from_secs</span>(<span class="number">15</span>);
         <span class="comment">// create a new Event Reader with the segment slice data.</span>
@@ -2336,7 +2299,7 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">event_count</span> <span class="op">=</span> <span class="number">0</span>;
 
         <span class="comment">// Attempt to acquire a segment.</span>
-        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">mut</span> <span class="ident">slice</span>) <span class="op">=</span> <span class="ident">cf</span>.<span class="ident">get_runtime_handle</span>().<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">acquire_segment</span>()) {
+        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">mut</span> <span class="ident">slice</span>) <span class="op">=</span> <span class="ident">cf</span>.<span class="ident">get_runtime</span>().<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">acquire_segment</span>()) {
             <span class="kw">loop</span> {
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">event</span>) <span class="op">=</span> <span class="ident">slice</span>.<span class="ident">next</span>() {
                     <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Read event {:?}&quot;</span>, <span class="ident">event</span>);
@@ -2374,25 +2337,22 @@
         );
 
         <span class="comment">// simulate data being received from Segment store. 2 async tasks pumping in data.</span>
-        <span class="ident">cf</span>.<span class="ident">get_runtime_handle</span>().<span class="ident">enter</span>(<span class="op">|</span><span class="op">|</span> {
-            <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">generate_variable_size_events</span>(
-                <span class="ident">tx</span>.<span class="ident">clone</span>(),
-                <span class="number">100</span>,
-                <span class="ident">NUM_EVENTS</span>,
-                <span class="number">0</span>,
-                <span class="bool-val">false</span>,
-            ));
-        });
-        <span class="ident">cf</span>.<span class="ident">get_runtime_handle</span>().<span class="ident">enter</span>(<span class="op">|</span><span class="op">|</span> {
-            <span class="comment">//simulate a delay with data received by this segment.</span>
-            <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">generate_variable_size_events</span>(
-                <span class="ident">tx</span>.<span class="ident">clone</span>(),
-                <span class="number">100</span>,
-                <span class="ident">NUM_EVENTS</span>,
-                <span class="number">1</span>,
-                <span class="bool-val">true</span>,
-            ));
-        });
+        <span class="kw">let</span> <span class="ident">_guard</span> <span class="op">=</span> <span class="ident">cf</span>.<span class="ident">get_runtime</span>().<span class="ident">enter</span>();
+        <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">generate_variable_size_events</span>(
+            <span class="ident">tx</span>.<span class="ident">clone</span>(),
+            <span class="number">100</span>,
+            <span class="ident">NUM_EVENTS</span>,
+            <span class="number">0</span>,
+            <span class="bool-val">false</span>,
+        ));
+        <span class="comment">//simulate a delay with data received by this segment.</span>
+        <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">generate_variable_size_events</span>(
+            <span class="ident">tx</span>.<span class="ident">clone</span>(),
+            <span class="number">100</span>,
+            <span class="ident">NUM_EVENTS</span>,
+            <span class="number">1</span>,
+            <span class="bool-val">true</span>,
+        ));
 
         <span class="comment">// simulate initialization of a Reader</span>
         <span class="kw">let</span> <span class="ident">init_segments</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">create_segment_slice</span>(<span class="number">0</span>), <span class="ident">create_segment_slice</span>(<span class="number">1</span>)];
@@ -2415,7 +2375,7 @@
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">total_events_read</span> <span class="op">=</span> <span class="number">0</span>;
         <span class="comment">// Attempt to acquire a segment.</span>
-        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">mut</span> <span class="ident">slice</span>) <span class="op">=</span> <span class="ident">cf</span>.<span class="ident">get_runtime_handle</span>().<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">acquire_segment</span>()) {
+        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">mut</span> <span class="ident">slice</span>) <span class="op">=</span> <span class="ident">cf</span>.<span class="ident">get_runtime</span>().<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">acquire_segment</span>()) {
             <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="ident">slice</span>.<span class="ident">meta</span>.<span class="ident">scoped_segment</span>.<span class="ident">clone</span>();
             <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Received Segment Slice {:?}&quot;</span>, <span class="ident">segment</span>);
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">event_count</span> <span class="op">=</span> <span class="number">0</span>;
@@ -2456,15 +2416,14 @@
         );
 
         <span class="comment">// simulate data being received from Segment store.</span>
-        <span class="ident">cf</span>.<span class="ident">get_runtime_handle</span>().<span class="ident">enter</span>(<span class="op">|</span><span class="op">|</span> {
-            <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">generate_variable_size_events</span>(
-                <span class="ident">tx</span>.<span class="ident">clone</span>(),
-                <span class="number">10</span>,
-                <span class="ident">NUM_EVENTS</span>,
-                <span class="number">0</span>,
-                <span class="bool-val">false</span>,
-            ));
-        });
+        <span class="kw">let</span> <span class="ident">_guard</span> <span class="op">=</span> <span class="ident">cf</span>.<span class="ident">get_runtime</span>().<span class="ident">enter</span>();
+        <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">generate_variable_size_events</span>(
+            <span class="ident">tx</span>.<span class="ident">clone</span>(),
+            <span class="number">10</span>,
+            <span class="ident">NUM_EVENTS</span>,
+            <span class="number">0</span>,
+            <span class="bool-val">false</span>,
+        ));
 
         <span class="comment">// simulate initialization of a Reader</span>
         <span class="kw">let</span> <span class="ident">init_segments</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">create_segment_slice</span>(<span class="number">0</span>), <span class="ident">create_segment_slice</span>(<span class="number">1</span>)];
@@ -2486,10 +2445,7 @@
         );
 
         <span class="comment">// acquire a segment</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">slice</span> <span class="op">=</span> <span class="ident">cf</span>
-            .<span class="ident">get_runtime_handle</span>()
-            .<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">acquire_segment</span>())
-            .<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">slice</span> <span class="op">=</span> <span class="ident">cf</span>.<span class="ident">get_runtime</span>().<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">acquire_segment</span>()).<span class="ident">unwrap</span>();
 
         <span class="comment">// read an event.</span>
         <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">slice</span>.<span class="ident">next</span>().<span class="ident">unwrap</span>();
@@ -2498,22 +2454,16 @@
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">event</span>.<span class="ident">offset_in_segment</span>, <span class="number">0</span>); <span class="comment">// first event.</span>
 
         <span class="comment">// release the segment slice.</span>
-        <span class="ident">cf</span>.<span class="ident">get_runtime_handle</span>().<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">release_segment</span>(<span class="ident">slice</span>));
+        <span class="ident">cf</span>.<span class="ident">get_runtime</span>().<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">release_segment</span>(<span class="ident">slice</span>));
 
         <span class="comment">// acquire the next segment</span>
-        <span class="kw">let</span> <span class="ident">slice</span> <span class="op">=</span> <span class="ident">cf</span>
-            .<span class="ident">get_runtime_handle</span>()
-            .<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">acquire_segment</span>())
-            .<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">slice</span> <span class="op">=</span> <span class="ident">cf</span>.<span class="ident">get_runtime</span>().<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">acquire_segment</span>()).<span class="ident">unwrap</span>();
 
         <span class="comment">//Do not read, simply return it back.</span>
-        <span class="ident">cf</span>.<span class="ident">get_runtime_handle</span>().<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">release_segment</span>(<span class="ident">slice</span>));
+        <span class="ident">cf</span>.<span class="ident">get_runtime</span>().<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">release_segment</span>(<span class="ident">slice</span>));
 
         <span class="comment">// Try acquiring the segment again.</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">slice</span> <span class="op">=</span> <span class="ident">cf</span>
-            .<span class="ident">get_runtime_handle</span>()
-            .<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">acquire_segment</span>())
-            .<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">slice</span> <span class="op">=</span> <span class="ident">cf</span>.<span class="ident">get_runtime</span>().<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">acquire_segment</span>()).<span class="ident">unwrap</span>();
         <span class="comment">// Verify a partial event being present. This implies</span>
         <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">slice</span>.<span class="ident">next</span>().<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">event</span>.<span class="ident">value</span>.<span class="ident">len</span>(), <span class="number">2</span>);
@@ -2535,16 +2485,15 @@
         );
 
         <span class="comment">// simulate data being received from Segment store.</span>
-        <span class="ident">cf</span>.<span class="ident">get_runtime_handle</span>().<span class="ident">enter</span>(<span class="op">|</span><span class="op">|</span> {
-            <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">generate_constant_size_events</span>(
-                <span class="ident">tx</span>.<span class="ident">clone</span>(),
-                <span class="number">20</span>,
-                <span class="ident">NUM_EVENTS</span>,
-                <span class="number">0</span>,
-                <span class="bool-val">false</span>,
-                <span class="ident">stop_rx</span>,
-            ));
-        });
+        <span class="kw">let</span> <span class="ident">_guard</span> <span class="op">=</span> <span class="ident">cf</span>.<span class="ident">get_runtime</span>().<span class="ident">enter</span>();
+        <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">generate_constant_size_events</span>(
+            <span class="ident">tx</span>.<span class="ident">clone</span>(),
+            <span class="number">20</span>,
+            <span class="ident">NUM_EVENTS</span>,
+            <span class="number">0</span>,
+            <span class="bool-val">false</span>,
+            <span class="ident">stop_rx</span>,
+        ));
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stop_reading_map</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">oneshot</span>::<span class="ident">Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
         <span class="ident">stop_reading_map</span>.<span class="ident">insert</span>(<span class="ident">ScopedSegment</span>::<span class="ident">from</span>(<span class="string">&quot;scope/test/0.#epoch.0&quot;</span>), <span class="ident">stop_tx</span>);
 
@@ -2566,10 +2515,7 @@
         );
 
         <span class="comment">// acquire a segment</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">slice</span> <span class="op">=</span> <span class="ident">cf</span>
-            .<span class="ident">get_runtime_handle</span>()
-            .<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">acquire_segment</span>())
-            .<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">slice</span> <span class="op">=</span> <span class="ident">cf</span>.<span class="ident">get_runtime</span>().<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">acquire_segment</span>()).<span class="ident">unwrap</span>();
 
         <span class="comment">// read an event.</span>
         <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">slice</span>.<span class="ident">next</span>().<span class="ident">unwrap</span>();
@@ -2585,27 +2531,21 @@
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">event</span>.<span class="ident">offset_in_segment</span>, <span class="number">9</span>); <span class="comment">// second event.</span>
 
         <span class="comment">// release the segment slice.</span>
-        <span class="ident">cf</span>.<span class="ident">get_runtime_handle</span>()
-            .<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">release_segment_at</span>(<span class="ident">slice</span>, <span class="number">0</span>));
+        <span class="ident">cf</span>.<span class="ident">get_runtime</span>().<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">release_segment_at</span>(<span class="ident">slice</span>, <span class="number">0</span>));
 
         <span class="comment">// simulate a segment read at offset 0.</span>
         <span class="kw">let</span> (<span class="ident">_stop_tx</span>, <span class="ident">stop_rx</span>) <span class="op">=</span> <span class="ident">oneshot</span>::<span class="ident">channel</span>();
-        <span class="ident">cf</span>.<span class="ident">get_runtime_handle</span>().<span class="ident">enter</span>(<span class="op">|</span><span class="op">|</span> {
-            <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">generate_constant_size_events</span>(
-                <span class="ident">tx</span>.<span class="ident">clone</span>(),
-                <span class="number">20</span>,
-                <span class="ident">NUM_EVENTS</span>,
-                <span class="number">0</span>,
-                <span class="bool-val">false</span>,
-                <span class="ident">stop_rx</span>,
-            ));
-        });
+        <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">generate_constant_size_events</span>(
+            <span class="ident">tx</span>.<span class="ident">clone</span>(),
+            <span class="number">20</span>,
+            <span class="ident">NUM_EVENTS</span>,
+            <span class="number">0</span>,
+            <span class="bool-val">false</span>,
+            <span class="ident">stop_rx</span>,
+        ));
 
         <span class="comment">// acquire the next segment</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">slice</span> <span class="op">=</span> <span class="ident">cf</span>
-            .<span class="ident">get_runtime_handle</span>()
-            .<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">acquire_segment</span>())
-            .<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">slice</span> <span class="op">=</span> <span class="ident">cf</span>.<span class="ident">get_runtime</span>().<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">acquire_segment</span>()).<span class="ident">unwrap</span>();
         <span class="comment">// Verify a partial event being present. This implies</span>
         <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">slice</span>.<span class="ident">next</span>().<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">event</span>.<span class="ident">value</span>.<span class="ident">len</span>(), <span class="number">1</span>);
@@ -2659,7 +2599,7 @@
 
     <span class="comment">// Generate events to simulate Pravega SegmentReadCommand.</span>
     <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">generate_constant_size_events</span>(
-        <span class="kw-2">mut</span> <span class="ident">tx</span>: <span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">SegmentReadResult</span><span class="op">&gt;</span>,
+        <span class="ident">tx</span>: <span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">SegmentReadResult</span><span class="op">&gt;</span>,
         <span class="ident">buf_size</span>: <span class="ident">usize</span>,
         <span class="ident">num_events</span>: <span class="ident">usize</span>,
         <span class="ident">segment_id</span>: <span class="ident">usize</span>,
@@ -2682,7 +2622,7 @@
                     <span class="kw">let</span> <span class="ident">free_space</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">capacity</span>() <span class="op">-</span> <span class="ident">buf</span>.<span class="ident">len</span>();
                     <span class="kw">if</span> <span class="ident">free_space</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
                         <span class="kw">if</span> <span class="ident">should_delay</span> {
-                            <span class="ident">delay_for</span>(<span class="ident">Duration</span>::<span class="ident">from_millis</span>(<span class="number">100</span>)).<span class="ident">await</span>;
+                            <span class="ident">sleep</span>(<span class="ident">Duration</span>::<span class="ident">from_millis</span>(<span class="number">100</span>)).<span class="ident">await</span>;
                         }
                         <span class="ident">tx</span>.<span class="ident">send</span>(<span class="prelude-val">Ok</span>(<span class="ident">SegmentDataBuffer</span> {
                             <span class="ident">segment</span>: <span class="ident">ScopedSegment</span>::<span class="ident">from</span>(<span class="ident">segment_name</span>.<span class="ident">as_str</span>()).<span class="ident">to_string</span>(),
@@ -2713,7 +2653,7 @@
 
     <span class="comment">// Generate events to simulate Pravega SegmentReadCommand.</span>
     <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">generate_variable_size_events</span>(
-        <span class="kw-2">mut</span> <span class="ident">tx</span>: <span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">SegmentReadResult</span><span class="op">&gt;</span>,
+        <span class="ident">tx</span>: <span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">SegmentReadResult</span><span class="op">&gt;</span>,
         <span class="ident">buf_size</span>: <span class="ident">usize</span>,
         <span class="ident">num_events</span>: <span class="ident">usize</span>,
         <span class="ident">segment_id</span>: <span class="ident">usize</span>,
@@ -2733,7 +2673,7 @@
                     <span class="kw">let</span> <span class="ident">free_space</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">capacity</span>() <span class="op">-</span> <span class="ident">buf</span>.<span class="ident">len</span>();
                     <span class="kw">if</span> <span class="ident">free_space</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
                         <span class="kw">if</span> <span class="ident">should_delay</span> {
-                            <span class="ident">delay_for</span>(<span class="ident">Duration</span>::<span class="ident">from_millis</span>(<span class="number">100</span>)).<span class="ident">await</span>;
+                            <span class="ident">sleep</span>(<span class="ident">Duration</span>::<span class="ident">from_millis</span>(<span class="number">100</span>)).<span class="ident">await</span>;
                         }
                         <span class="ident">tx</span>.<span class="ident">send</span>(<span class="prelude-val">Ok</span>(<span class="ident">SegmentDataBuffer</span> {
                             <span class="ident">segment</span>: <span class="ident">ScopedSegment</span>::<span class="ident">from</span>(<span class="ident">segment_name</span>.<span class="ident">as_str</span>()).<span class="ident">to_string</span>(),
