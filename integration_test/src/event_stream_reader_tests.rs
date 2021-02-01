@@ -21,7 +21,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
-use tokio::time::delay_for;
 use tokio::runtime::Runtime;
 use tracing::{debug, error, info, warn};
 
@@ -38,10 +37,10 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
     let runtime = client_factory.get_runtime();
     test_read_large_events(&client_factory, &runtime);
     test_multi_reader_multi_segments_tail_read(&client_factory, &runtime);
-    handle.block_on(test_read_api(&client_factory));
-    handle.block_on(test_stream_scaling(&client_factory));
-    handle.block_on(test_release_segment(&client_factory));
-    handle.block_on(test_release_segment_at(&client_factory));
+    runtime.block_on(test_read_api(&client_factory));
+    runtime.block_on(test_stream_scaling(&client_factory));
+    runtime.block_on(test_release_segment(&client_factory));
+    runtime.block_on(test_release_segment_at(&client_factory));
     test_multiple_readers(&client_factory);
     test_reader_offline(&client_factory);
     test_segment_rebalance(&client_factory);
@@ -98,7 +97,7 @@ fn test_read_large_events(client_factory: &ClientFactory, rt: &Runtime) {
     assert_eq!(event_count, NUM_EVENTS);
 }
 
-fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactory, rt: &Handle) {
+fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactory, rt: &Runtime) {
     let scope_name = Scope::from("testMultiReaderMultiSegmentsTailRead".to_owned());
     let stream_name = Stream::from("testMultiReaderMultiSegmentsTailRead".to_owned());
 
