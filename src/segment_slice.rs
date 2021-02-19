@@ -13,6 +13,7 @@ use crate::event_reader::SegmentReadResult;
 use crate::segment_reader::AsyncSegmentReader;
 use crate::segment_reader::ReaderError::SegmentSealed;
 use bytes::{Buf, BufMut, BytesMut};
+use core::fmt;
 use pravega_client_retry::retry_result::Retryable;
 use pravega_client_shared::ScopedSegment;
 use pravega_wire_protocol::commands::{Command, EventCommand, TYPE_PLUS_LENGTH_SIZE};
@@ -40,10 +41,16 @@ pub struct SegmentSlice {
     pub(crate) slice_return_tx: Option<oneshot::Sender<Option<SliceMetadata>>>,
 }
 
+impl fmt::Debug for SegmentSlice {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SegmentSlice").field("meta", &self.meta).finish()
+    }
+}
+
 ///
 /// This holds the SegmentSlice metadata. This meta is persisted by the EventReader.
 ///
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct SliceMetadata {
     pub start_offset: i64,
     pub scoped_segment: String,
@@ -52,6 +59,19 @@ pub struct SliceMetadata {
     pub end_offset: i64,
     pub(crate) segment_data: SegmentDataBuffer,
     pub partial_data_present: bool,
+}
+
+impl fmt::Debug for SliceMetadata {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SliceMetadata")
+            .field("start_offset", &self.start_offset)
+            .field("scoped_segment", &self.scoped_segment)
+            .field("last_event_offset", &self.last_event_offset)
+            .field("read_offset", &self.read_offset)
+            .field("end_offset", &self.end_offset)
+            .field("partial_data_present", &self.partial_data_present)
+            .finish()
+    }
 }
 
 ///
