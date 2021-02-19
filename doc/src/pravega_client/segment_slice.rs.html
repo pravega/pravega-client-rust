@@ -695,6 +695,26 @@
 <span id="692">692</span>
 <span id="693">693</span>
 <span id="694">694</span>
+<span id="695">695</span>
+<span id="696">696</span>
+<span id="697">697</span>
+<span id="698">698</span>
+<span id="699">699</span>
+<span id="700">700</span>
+<span id="701">701</span>
+<span id="702">702</span>
+<span id="703">703</span>
+<span id="704">704</span>
+<span id="705">705</span>
+<span id="706">706</span>
+<span id="707">707</span>
+<span id="708">708</span>
+<span id="709">709</span>
+<span id="710">710</span>
+<span id="711">711</span>
+<span id="712">712</span>
+<span id="713">713</span>
+<span id="714">714</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -711,6 +731,7 @@
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment_reader</span>::<span class="ident">AsyncSegmentReader</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment_reader</span>::<span class="ident">ReaderError</span>::<span class="ident">SegmentSealed</span>;
 <span class="kw">use</span> <span class="ident">bytes</span>::{<span class="ident">Buf</span>, <span class="ident">BufMut</span>, <span class="ident">BytesMut</span>};
+<span class="kw">use</span> <span class="ident">core</span>::<span class="ident">fmt</span>;
 <span class="kw">use</span> <span class="ident">pravega_client_retry</span>::<span class="ident">retry_result</span>::<span class="ident">Retryable</span>;
 <span class="kw">use</span> <span class="ident">pravega_client_shared</span>::<span class="ident">ScopedSegment</span>;
 <span class="kw">use</span> <span class="ident">pravega_wire_protocol</span>::<span class="ident">commands</span>::{<span class="ident">Command</span>, <span class="ident">EventCommand</span>, <span class="ident">TYPE_PLUS_LENGTH_SIZE</span>};
@@ -738,10 +759,16 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">slice_return_tx</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">oneshot</span>::<span class="ident">Sender</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">SliceMetadata</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
 
+<span class="kw">impl</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">SegmentSlice</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;SegmentSlice&quot;</span>).<span class="ident">field</span>(<span class="string">&quot;meta&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">meta</span>).<span class="ident">finish</span>()
+    }
+}
+
 <span class="doccomment">///</span>
 <span class="doccomment">/// This holds the SegmentSlice metadata. This meta is persisted by the EventReader.</span>
 <span class="doccomment">///</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SliceMetadata</span> {
     <span class="kw">pub</span> <span class="ident">start_offset</span>: <span class="ident">i64</span>,
     <span class="kw">pub</span> <span class="ident">scoped_segment</span>: <span class="ident">String</span>,
@@ -750,6 +777,19 @@
     <span class="kw">pub</span> <span class="ident">end_offset</span>: <span class="ident">i64</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">segment_data</span>: <span class="ident">SegmentDataBuffer</span>,
     <span class="kw">pub</span> <span class="ident">partial_data_present</span>: <span class="ident">bool</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">SliceMetadata</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;SliceMetadata&quot;</span>)
+            .<span class="ident">field</span>(<span class="string">&quot;start_offset&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">start_offset</span>)
+            .<span class="ident">field</span>(<span class="string">&quot;scoped_segment&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">scoped_segment</span>)
+            .<span class="ident">field</span>(<span class="string">&quot;last_event_offset&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">last_event_offset</span>)
+            .<span class="ident">field</span>(<span class="string">&quot;read_offset&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">read_offset</span>)
+            .<span class="ident">field</span>(<span class="string">&quot;end_offset&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">end_offset</span>)
+            .<span class="ident">field</span>(<span class="string">&quot;partial_data_present&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">partial_data_present</span>)
+            .<span class="ident">finish</span>()
+    }
 }
 
 <span class="doccomment">///</span>
