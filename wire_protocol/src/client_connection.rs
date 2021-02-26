@@ -31,6 +31,7 @@ pub trait ClientConnection: Send + Sync {
     async fn write(&mut self, request: &Requests) -> Result<(), ClientConnectionError>;
     fn split(&mut self) -> (ClientConnectionReadHalf, ClientConnectionWriteHalf);
     fn get_uuid(&self) -> Uuid;
+    fn invalidate(&mut self);
 }
 
 pub struct ClientConnectionImpl<'a> {
@@ -113,6 +114,10 @@ impl ClientConnection for ClientConnectionImpl<'_> {
 
     fn get_uuid(&self) -> Uuid {
         self.connection.get_uuid()
+    }
+
+    fn invalidate(&mut self) {
+        self.connection.invalidate();
     }
 }
 

@@ -18,6 +18,7 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use snafu::ResultExt;
 use std::fmt;
 use tokio::time::{timeout, Duration};
+use tracing::error;
 
 /// RawClient is on top of the ClientConnection. It provides methods that take
 /// Request enums and return Reply enums asynchronously. It has logic to process some of the replies from
@@ -42,6 +43,7 @@ pub struct RawClientImpl<'a> {
     pool: &'a ConnectionPool<SegmentConnectionManager>,
     endpoint: PravegaNodeUri,
     timeout: Duration,
+    recycle_connection: bool,
 }
 
 impl<'a> fmt::Debug for RawClientImpl<'a> {
@@ -55,11 +57,13 @@ impl<'a> RawClientImpl<'a> {
         pool: &'a ConnectionPool<SegmentConnectionManager>,
         endpoint: PravegaNodeUri,
         timeout: Duration,
+        recycle_connection: bool,
     ) -> RawClientImpl<'a> {
         RawClientImpl {
             pool,
             endpoint,
             timeout,
+            recycle_connection,
         }
     }
 }
@@ -74,6 +78,9 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
             .await
             .context(GetConnectionFromPool {})?;
         let mut client_connection = ClientConnectionImpl::new(connection);
+        if self.recycle_connection {
+            client_connection.invalidate();
+        }
         client_connection.write(request).await.context(WriteRequest {})?;
         let read_future = client_connection.read();
         let result = timeout(self.timeout, read_future)

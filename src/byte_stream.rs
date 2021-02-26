@@ -235,9 +235,10 @@ impl Read for ByteStreamReader {
 
 impl ByteStreamReader {
     pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory, buffer_size: usize) -> Self {
-        let async_reader = factory
+        let mut async_reader = factory
             .get_runtime()
             .block_on(factory.create_async_event_reader(segment.clone()));
+        async_reader.recycle_connection = false;
         let async_reader_wrapper = PrefetchingAsyncSegmentReader::new(
             factory.get_runtime().handle().clone(),
             Arc::new(Box::new(async_reader)),

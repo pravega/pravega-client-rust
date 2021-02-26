@@ -29,7 +29,7 @@ use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::oneshot::error::TryRecvError;
 use tokio::sync::{oneshot, Mutex};
-use tracing::warn;
+use tracing::{debug, warn};
 
 #[derive(Debug, Snafu)]
 pub enum ReaderError {
@@ -209,15 +209,22 @@ pub struct AsyncSegmentReaderImpl {
     endpoint: Mutex<PravegaNodeUri>,
     factory: ClientFactory,
     delegation_token_provider: DelegationTokenProvider,
+    pub recycle_connection: bool,
 }
 
 #[async_trait]
 impl AsyncSegmentReader for AsyncSegmentReaderImpl {
     async fn read(&self, offset: i64, length: i32) -> StdResult<SegmentReadCommand, ReaderError> {
         retry_async(self.factory.get_config().retry_policy, || async {
-            let raw_client = self
-                .factory
-                .create_raw_client_for_endpoint(self.endpoint.lock().await.clone());
+            let raw_client = if self.recycle_connection {
+                self.factory
+                    .create_raw_client_for_endpoint(self.endpoint.lock().await.clone())
+            } else {
+                self.factory
+                    .create_raw_client_for_endpoint_without_recycling_connection(
+                        self.endpoint.lock().await.clone(),
+                    )
+            };
             match self.read_inner(offset, length, &raw_client).await {
                 Ok(cmd) => RetryResult::Success(cmd),
                 Err(e) => {
@@ -249,6 +256,7 @@ impl AsyncSegmentReaderImpl {
         segment: ScopedSegment,
         factory: ClientFactory,
         delegation_token_provider: DelegationTokenProvider,
+        recycle_connection: bool,
     ) -> AsyncSegmentReaderImpl {
         let endpoint = factory
             .get_controller_client()
@@ -261,6 +269,7 @@ impl AsyncSegmentReaderImpl {
             endpoint: Mutex::new(endpoint),
             factory: factory.clone(),
             delegation_token_provider,
+            recycle_connection,
         }
     }
 
@@ -361,6 +370,7 @@ pub(crate) struct PrefetchingAsyncSegmentReader {
     end_of_segment: bool,
     receiver: Option<oneshot::Receiver<Result<SegmentReadCommand, ReaderError>>>,
     handle: Handle,
+    bg_job_handle: Option<oneshot::Sender<bool>>,
 }
 
 // maximum number of buffered reply
@@ -382,6 +392,7 @@ impl PrefetchingAsyncSegmentReader {
             handle,
             end_of_segment: false,
             receiver: None,
+            bg_job_handle: None,
         };
         wrapper.issue_request_if_needed();
         wrapper
@@ -434,7 +445,7 @@ impl PrefetchingAsyncSegmentReader {
         self.reader
     }
 
-    /// Returns the size of data availble in buffer
+    /// Returns the size of data available in buffer
     pub(crate) fn available(&self) -> usize {
         let mut size = 0;
         for (i, cmd) in self.buffer.iter().enumerate() {
@@ -450,13 +461,16 @@ impl PrefetchingAsyncSegmentReader {
     fn issue_request_if_needed(&mut self) {
         if !self.end_of_segment && self.receiver.is_none() {
             let (sender, receiver) = oneshot::channel();
+            let (bg_sender, bg_receiver) = oneshot::channel();
             self.handle.spawn(PrefetchingAsyncSegmentReader::read_async(
                 self.reader.clone(),
                 sender,
+                bg_receiver,
                 self.offset + self.available() as i64,
                 self.read_size as i32,
             ));
             self.receiver = Some(receiver);
+            self.bg_job_handle = Some(bg_sender);
         }
     }
 
@@ -464,14 +478,21 @@ impl PrefetchingAsyncSegmentReader {
     async fn read_async(
         reader: Arc<Box<dyn AsyncSegmentReader>>,
         sender: oneshot::Sender<Result<SegmentReadCommand, ReaderError>>,
+        shutdown: oneshot::Receiver<bool>,
         offset: i64,
         length: i32,
     ) {
-        let result = reader.read(offset, length).await;
-        sender
-            .send(result)
-            .map_err(|e| warn!("failed to send reply back: {:?}", e))
-            .expect("send reply back");
+        tokio::select! {
+            result = reader.read(offset, length) => {
+                sender
+                .send(result)
+                .map_err(|e| warn!("failed to send reply back: {:?}", e))
+                .expect("send reply back");
+            }
+            _ = shutdown => {
+                debug!("shut down background async read");
+            }
+        }
     }
 
     fn fill_buffer_if_available(&mut self) -> Result<(), ReaderError> {
