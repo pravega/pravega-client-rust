@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/tablemap.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>tablemap.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../pravega_client/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../pravega_client/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
                 <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
 <span id="2">   2</span>
 <span id="3">   3</span>
@@ -1088,7 +1088,7 @@
 }
 <span class="kw">impl</span> <span class="ident">TableMap</span> {
     <span class="doccomment">/// create a table map</span>
-    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">scope</span>: <span class="ident">Scope</span>, <span class="ident">name</span>: <span class="ident">String</span>, <span class="ident">factory</span>: <span class="ident">ClientFactory</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TableMap</span>, <span class="ident">TableError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">scope</span>: <span class="ident">Scope</span>, <span class="ident">name</span>: <span class="ident">String</span>, <span class="ident">factory</span>: <span class="ident">ClientFactory</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TableMap</span>, <span class="ident">TableError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="ident">ScopedSegment</span> {
             <span class="ident">scope</span>,
             <span class="ident">stream</span>: <span class="ident">PravegaStream</span>::<span class="ident">from</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}{}&quot;</span>, <span class="ident">name</span>, <span class="ident">KVTABLE_SUFFIX</span>)),
@@ -1098,29 +1098,29 @@
 
         <span class="kw">let</span> <span class="ident">delegation_token_provider</span> <span class="op">=</span> <span class="ident">factory</span>
             .<span class="ident">create_delegation_token_provider</span>(<span class="ident">ScopedStream</span>::<span class="ident">from</span>(<span class="kw-2">&amp;</span><span class="ident">segment</span>))
-            .<span class="ident">await</span>;
+            .<span class="kw">await</span>;
 
         <span class="kw">let</span> <span class="ident">op</span> <span class="op">=</span> <span class="string">&quot;Create table segment&quot;</span>;
-        <span class="ident">retry_async</span>(<span class="ident">factory</span>.<span class="ident">get_config</span>().<span class="ident">retry_policy</span>, <span class="op">|</span><span class="op">|</span> <span class="ident">async</span> {
+        <span class="ident">retry_async</span>(<span class="ident">factory</span>.<span class="ident">get_config</span>().<span class="ident">retry_policy</span>, <span class="op">|</span><span class="op">|</span> <span class="kw">async</span> {
             <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">CreateTableSegment</span>(<span class="ident">CreateTableSegmentCommand</span> {
                 <span class="ident">request_id</span>: <span class="ident">get_request_id</span>(),
                 <span class="ident">segment</span>: <span class="ident">segment</span>.<span class="ident">to_string</span>(),
                 <span class="ident">delegation_token</span>: <span class="ident">delegation_token_provider</span>
                     .<span class="ident">retrieve_token</span>(<span class="ident">factory</span>.<span class="ident">get_controller_client</span>())
-                    .<span class="ident">await</span>,
+                    .<span class="kw">await</span>,
             });
 
             <span class="kw">let</span> <span class="ident">endpoint</span> <span class="op">=</span> <span class="ident">factory</span>
                 .<span class="ident">get_controller_client</span>()
                 .<span class="ident">get_endpoint_for_segment</span>(<span class="kw-2">&amp;</span><span class="ident">segment</span>)
-                .<span class="ident">await</span>
+                .<span class="kw">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;get endpoint for segment&quot;</span>);
             <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;endpoint is {}&quot;</span>, <span class="ident">endpoint</span>.<span class="ident">to_string</span>());
 
             <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">factory</span>
                 .<span class="ident">create_raw_client_for_endpoint</span>(<span class="ident">endpoint</span>.<span class="ident">clone</span>())
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">req</span>)
-                .<span class="ident">await</span>;
+                .<span class="kw">await</span>;
             <span class="kw">match</span> <span class="ident">result</span> {
                 <span class="prelude-val">Ok</span>(<span class="ident">reply</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult</span>::<span class="ident">Success</span>((<span class="ident">reply</span>, <span class="ident">endpoint</span>)),
                 <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
@@ -1132,7 +1132,7 @@
                 }
             }
         })
-        .<span class="ident">await</span>
+        .<span class="kw">await</span>
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">TableError</span>::<span class="ident">ConnectionError</span> {
             <span class="ident">can_retry</span>: <span class="bool-val">true</span>,
             <span class="ident">operation</span>: <span class="ident">op</span>.<span class="ident">to_string</span>(),
@@ -1162,13 +1162,13 @@
     <span class="doccomment">/// If the map does not have the key [`None`] is returned. The version number of the Value is</span>
     <span class="doccomment">/// returned by the API.</span>
     <span class="doccomment">///</span>
-    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">get</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">k</span>: <span class="kw-2">&amp;</span><span class="ident">K</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="ident">V</span>, <span class="ident">Version</span>)<span class="op">&gt;</span>, <span class="ident">TableError</span><span class="op">&gt;</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">k</span>: <span class="kw-2">&amp;</span><span class="ident">K</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="ident">V</span>, <span class="ident">Version</span>)<span class="op">&gt;</span>, <span class="ident">TableError</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">K</span>: <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">serde</span>::<span class="ident">de</span>::<span class="ident">DeserializeOwned</span>,
         <span class="ident">V</span>: <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">serde</span>::<span class="ident">de</span>::<span class="ident">DeserializeOwned</span>,
     {
         <span class="kw">let</span> <span class="ident">key</span> <span class="op">=</span> <span class="ident">to_vec</span>(<span class="ident">k</span>).<span class="ident">expect</span>(<span class="string">&quot;error during serialization.&quot;</span>);
-        <span class="kw">let</span> <span class="ident">read_result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_raw_values</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">key</span>]).<span class="ident">await</span>;
+        <span class="kw">let</span> <span class="ident">read_result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_raw_values</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">key</span>]).<span class="kw">await</span>;
         <span class="ident">read_result</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> {
             <span class="kw">let</span> (<span class="ident">l</span>, <span class="ident">version</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">v</span>[<span class="number">0</span>];
             <span class="kw">if</span> <span class="ident">l</span>.<span class="ident">is_empty</span>() {
@@ -1184,14 +1184,14 @@
     <span class="doccomment">/// Unconditionally inserts a new or update an existing entry for the given key.</span>
     <span class="doccomment">/// Once the update is performed the newer version is returned.</span>
     <span class="doccomment">///</span>
-    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">insert</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">k</span>: <span class="kw-2">&amp;</span><span class="ident">K</span>, <span class="ident">v</span>: <span class="kw-2">&amp;</span><span class="ident">V</span>, <span class="ident">offset</span>: <span class="ident">i64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Version</span>, <span class="ident">TableError</span><span class="op">&gt;</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">insert</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">k</span>: <span class="kw-2">&amp;</span><span class="ident">K</span>, <span class="ident">v</span>: <span class="kw-2">&amp;</span><span class="ident">V</span>, <span class="ident">offset</span>: <span class="ident">i64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Version</span>, <span class="ident">TableError</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">K</span>: <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">serde</span>::<span class="ident">de</span>::<span class="ident">DeserializeOwned</span>,
         <span class="ident">V</span>: <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">serde</span>::<span class="ident">de</span>::<span class="ident">DeserializeOwned</span>,
     {
         <span class="comment">// use KEY_NO_VERSION to ensure unconditional update.</span>
         <span class="self">self</span>.<span class="ident">insert_conditionally</span>(<span class="ident">k</span>, <span class="ident">v</span>, <span class="ident">TableKey</span>::<span class="ident">KEY_NO_VERSION</span>, <span class="ident">offset</span>)
-            .<span class="ident">await</span>
+            .<span class="kw">await</span>
     }
 
     <span class="doccomment">///</span>
@@ -1202,7 +1202,7 @@
     <span class="doccomment">/// Once the update is done the newer version is returned.</span>
     <span class="doccomment">/// TableError::BadKeyVersion is returned in case of an incorrect key version.</span>
     <span class="doccomment">///</span>
-    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">insert_conditionally</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>(
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">insert_conditionally</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">k</span>: <span class="kw-2">&amp;</span><span class="ident">K</span>,
         <span class="ident">v</span>: <span class="kw-2">&amp;</span><span class="ident">V</span>,
@@ -1216,27 +1216,27 @@
         <span class="kw">let</span> <span class="ident">key</span> <span class="op">=</span> <span class="ident">to_vec</span>(<span class="ident">k</span>).<span class="ident">expect</span>(<span class="string">&quot;error during serialization.&quot;</span>);
         <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">to_vec</span>(<span class="ident">v</span>).<span class="ident">expect</span>(<span class="string">&quot;error during serialization.&quot;</span>);
         <span class="self">self</span>.<span class="ident">insert_raw_values</span>(<span class="macro">vec</span><span class="macro">!</span>[(<span class="ident">key</span>, <span class="ident">val</span>, <span class="ident">key_version</span>)], <span class="ident">offset</span>)
-            .<span class="ident">await</span>
+            .<span class="kw">await</span>
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">versions</span><span class="op">|</span> <span class="ident">versions</span>[<span class="number">0</span>])
     }
 
     <span class="doccomment">///</span>
     <span class="doccomment">/// Unconditionally remove a key from the Tablemap. If the key does not exist an Ok(()) is returned.</span>
     <span class="doccomment">///</span>
-    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">remove</span><span class="op">&lt;</span><span class="ident">K</span>: <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">serde</span>::<span class="ident">de</span>::<span class="ident">DeserializeOwned</span><span class="op">&gt;</span>(
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">remove</span><span class="op">&lt;</span><span class="ident">K</span>: <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">serde</span>::<span class="ident">de</span>::<span class="ident">DeserializeOwned</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">k</span>: <span class="kw-2">&amp;</span><span class="ident">K</span>,
         <span class="ident">offset</span>: <span class="ident">i64</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TableError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">remove_conditionally</span>(<span class="ident">k</span>, <span class="ident">TableKey</span>::<span class="ident">KEY_NO_VERSION</span>, <span class="ident">offset</span>)
-            .<span class="ident">await</span>
+            .<span class="kw">await</span>
     }
 
     <span class="doccomment">///</span>
     <span class="doccomment">/// Conditionally remove a key from the Tablemap if it matches the provided key version.</span>
     <span class="doccomment">/// TableError::BadKeyVersion is returned incase the version does not exist.</span>
     <span class="doccomment">///</span>
-    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">remove_conditionally</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span>(
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">remove_conditionally</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">k</span>: <span class="kw-2">&amp;</span><span class="ident">K</span>,
         <span class="ident">key_version</span>: <span class="ident">Version</span>,
@@ -1246,7 +1246,7 @@
         <span class="ident">K</span>: <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">serde</span>::<span class="ident">de</span>::<span class="ident">DeserializeOwned</span>,
     {
         <span class="kw">let</span> <span class="ident">key</span> <span class="op">=</span> <span class="ident">to_vec</span>(<span class="ident">k</span>).<span class="ident">expect</span>(<span class="string">&quot;error during serialization.&quot;</span>);
-        <span class="self">self</span>.<span class="ident">remove_raw_values</span>(<span class="macro">vec</span><span class="macro">!</span>[(<span class="ident">key</span>, <span class="ident">key_version</span>)], <span class="ident">offset</span>).<span class="ident">await</span>
+        <span class="self">self</span>.<span class="ident">remove_raw_values</span>(<span class="macro">vec</span><span class="macro">!</span>[(<span class="ident">key</span>, <span class="ident">key_version</span>)], <span class="ident">offset</span>).<span class="kw">await</span>
     }
 
     <span class="doccomment">///</span>
@@ -1254,7 +1254,7 @@
     <span class="doccomment">/// key a `None` is returned for the corresponding key. The version number of the Value is also</span>
     <span class="doccomment">/// returned by the API</span>
     <span class="doccomment">///</span>
-    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">get_all</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">keys</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">K</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="ident">V</span>, <span class="ident">Version</span>)<span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">TableError</span><span class="op">&gt;</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_all</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">keys</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">K</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="ident">V</span>, <span class="ident">Version</span>)<span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">TableError</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">K</span>: <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">serde</span>::<span class="ident">de</span>::<span class="ident">DeserializeOwned</span>,
         <span class="ident">V</span>: <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">serde</span>::<span class="ident">de</span>::<span class="ident">DeserializeOwned</span>,
@@ -1264,7 +1264,7 @@
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">k</span><span class="op">|</span> <span class="ident">to_vec</span>(<span class="kw-2">*</span><span class="ident">k</span>).<span class="ident">expect</span>(<span class="string">&quot;error during serialization.&quot;</span>))
             .<span class="ident">collect</span>();
 
-        <span class="kw">let</span> <span class="ident">read_result</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Version</span>)<span class="op">&gt;</span>, <span class="ident">TableError</span><span class="op">&gt;</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_raw_values</span>(<span class="ident">keys_raw</span>).<span class="ident">await</span>;
+        <span class="kw">let</span> <span class="ident">read_result</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Version</span>)<span class="op">&gt;</span>, <span class="ident">TableError</span><span class="op">&gt;</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_raw_values</span>(<span class="ident">keys_raw</span>).<span class="kw">await</span>;
         <span class="ident">read_result</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> {
             <span class="ident">v</span>.<span class="ident">iter</span>()
                 .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">data</span>, <span class="ident">version</span>)<span class="op">|</span> {
@@ -1283,7 +1283,7 @@
     <span class="doccomment">/// Unconditionally inserts a new or updates an existing entry for the given keys.</span>
     <span class="doccomment">/// Once the update is performed the newer versions are returned.</span>
     <span class="doccomment">///</span>
-    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">insert_all</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">kvps</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="ident">K</span>, <span class="kw-2">&amp;</span><span class="ident">V</span>)<span class="op">&gt;</span>, <span class="ident">offset</span>: <span class="ident">i64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Version</span><span class="op">&gt;</span>, <span class="ident">TableError</span><span class="op">&gt;</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">insert_all</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">kvps</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="ident">K</span>, <span class="kw-2">&amp;</span><span class="ident">V</span>)<span class="op">&gt;</span>, <span class="ident">offset</span>: <span class="ident">i64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Version</span><span class="op">&gt;</span>, <span class="ident">TableError</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">K</span>: <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">serde</span>::<span class="ident">de</span>::<span class="ident">DeserializeOwned</span>,
         <span class="ident">V</span>: <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">serde</span>::<span class="ident">de</span>::<span class="ident">DeserializeOwned</span>,
@@ -1298,7 +1298,7 @@
                 )
             })
             .<span class="ident">collect</span>();
-        <span class="self">self</span>.<span class="ident">insert_raw_values</span>(<span class="ident">r</span>, <span class="ident">offset</span>).<span class="ident">await</span>
+        <span class="self">self</span>.<span class="ident">insert_raw_values</span>(<span class="ident">r</span>, <span class="ident">offset</span>).<span class="kw">await</span>
     }
 
     <span class="doccomment">///</span>
@@ -1310,7 +1310,7 @@
     <span class="doccomment">/// Once the update is done the newer version is returned.</span>
     <span class="doccomment">/// TableError::BadKeyVersion is returned in case of an incorrect key version.</span>
     <span class="doccomment">///</span>
-    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">insert_conditionally_all</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>(
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">insert_conditionally_all</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">kvps</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="ident">K</span>, <span class="kw-2">&amp;</span><span class="ident">V</span>, <span class="ident">Version</span>)<span class="op">&gt;</span>,
         <span class="ident">offset</span>: <span class="ident">i64</span>,
@@ -1329,25 +1329,25 @@
                 )
             })
             .<span class="ident">collect</span>();
-        <span class="self">self</span>.<span class="ident">insert_raw_values</span>(<span class="ident">r</span>, <span class="ident">offset</span>).<span class="ident">await</span>
+        <span class="self">self</span>.<span class="ident">insert_raw_values</span>(<span class="ident">r</span>, <span class="ident">offset</span>).<span class="kw">await</span>
     }
 
     <span class="doccomment">///</span>
     <span class="doccomment">/// Unconditionally remove the provided keys from the table map.</span>
     <span class="doccomment">///</span>
-    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">remove_all</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">keys</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">K</span><span class="op">&gt;</span>, <span class="ident">offset</span>: <span class="ident">i64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TableError</span><span class="op">&gt;</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">remove_all</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">keys</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">K</span><span class="op">&gt;</span>, <span class="ident">offset</span>: <span class="ident">i64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TableError</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">K</span>: <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">serde</span>::<span class="ident">de</span>::<span class="ident">DeserializeOwned</span>,
     {
         <span class="kw">let</span> <span class="ident">r</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="ident">K</span>, <span class="ident">Version</span>)<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">keys</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">k</span><span class="op">|</span> (<span class="kw-2">*</span><span class="ident">k</span>, <span class="ident">TableKey</span>::<span class="ident">KEY_NO_VERSION</span>)).<span class="ident">collect</span>();
-        <span class="self">self</span>.<span class="ident">remove_conditionally_all</span>(<span class="ident">r</span>, <span class="ident">offset</span>).<span class="ident">await</span>
+        <span class="self">self</span>.<span class="ident">remove_conditionally_all</span>(<span class="ident">r</span>, <span class="ident">offset</span>).<span class="kw">await</span>
     }
 
     <span class="doccomment">///</span>
     <span class="doccomment">/// Conditionally remove keys after checking the key version. In-case of a failure none of the keys</span>
     <span class="doccomment">/// are removed.</span>
     <span class="doccomment">///</span>
-    <span class="kw">pub</span> <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">remove_conditionally_all</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span>(
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">remove_conditionally_all</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">keys</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="ident">K</span>, <span class="ident">Version</span>)<span class="op">&gt;</span>,
         <span class="ident">offset</span>: <span class="ident">i64</span>,
@@ -1359,7 +1359,7 @@
             .<span class="ident">iter</span>()
             .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">k</span>, <span class="ident">v</span>)<span class="op">|</span> (<span class="ident">to_vec</span>(<span class="ident">k</span>).<span class="ident">expect</span>(<span class="string">&quot;error during serialization.&quot;</span>), <span class="kw-2">*</span><span class="ident">v</span>))
             .<span class="ident">collect</span>();
-        <span class="self">self</span>.<span class="ident">remove_raw_values</span>(<span class="ident">r</span>, <span class="ident">offset</span>).<span class="ident">await</span>
+        <span class="self">self</span>.<span class="ident">remove_raw_values</span>(<span class="ident">r</span>, <span class="ident">offset</span>).<span class="kw">await</span>
     }
 
     <span class="doccomment">///</span>
@@ -1375,7 +1375,7 @@
         <span class="macro">try_stream</span><span class="macro">!</span> {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">token</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
             <span class="kw">loop</span> {
-                <span class="kw">let</span> <span class="ident">res</span>: (<span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Version</span>)<span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">read_keys_raw</span>(<span class="ident">max_keys_at_once</span>, <span class="kw-2">&amp;</span><span class="ident">token</span>).<span class="ident">await</span><span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">res</span>: (<span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Version</span>)<span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">read_keys_raw</span>(<span class="ident">max_keys_at_once</span>, <span class="kw-2">&amp;</span><span class="ident">token</span>).<span class="kw">await</span><span class="question-mark">?</span>;
                 <span class="kw">let</span> (<span class="ident">keys</span>, <span class="ident">t</span>) <span class="op">=</span> <span class="ident">res</span>;
                 <span class="kw">if</span> <span class="ident">keys</span>.<span class="ident">is_empty</span>() {
                     <span class="kw">break</span>;
@@ -1405,7 +1405,7 @@
         <span class="macro">try_stream</span><span class="macro">!</span> {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">token</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
             <span class="kw">loop</span> {
-                <span class="kw">let</span> <span class="ident">res</span>: (<span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,<span class="ident">Version</span>)<span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>)  <span class="op">=</span> <span class="self">self</span>.<span class="ident">read_entries_raw</span>(<span class="ident">max_entries_at_once</span>, <span class="kw-2">&amp;</span><span class="ident">token</span>).<span class="ident">await</span><span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">res</span>: (<span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,<span class="ident">Version</span>)<span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>)  <span class="op">=</span> <span class="self">self</span>.<span class="ident">read_entries_raw</span>(<span class="ident">max_entries_at_once</span>, <span class="kw-2">&amp;</span><span class="ident">token</span>).<span class="kw">await</span><span class="question-mark">?</span>;
                 <span class="kw">let</span> (<span class="ident">entries</span>, <span class="ident">t</span>) <span class="op">=</span> <span class="ident">res</span>;
                 <span class="kw">if</span> <span class="ident">entries</span>.<span class="ident">is_empty</span>() {
                     <span class="kw">break</span>;
@@ -1436,7 +1436,7 @@
     {
         <span class="macro">try_stream</span><span class="macro">!</span> {
             <span class="kw">loop</span> {
-                <span class="kw">let</span> <span class="ident">res</span>: (<span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,<span class="ident">Version</span>)<span class="op">&gt;</span>, <span class="ident">i64</span>)  <span class="op">=</span> <span class="self">self</span>.<span class="ident">read_entries_raw_delta</span>(<span class="ident">max_entries_at_once</span>, <span class="ident">from_position</span>).<span class="ident">await</span><span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">res</span>: (<span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,<span class="ident">Version</span>)<span class="op">&gt;</span>, <span class="ident">i64</span>)  <span class="op">=</span> <span class="self">self</span>.<span class="ident">read_entries_raw_delta</span>(<span class="ident">max_entries_at_once</span>, <span class="ident">from_position</span>).<span class="kw">await</span><span class="question-mark">?</span>;
                 <span class="kw">let</span> (<span class="ident">entries</span>, <span class="ident">last_position</span>) <span class="op">=</span> <span class="ident">res</span>;
                 <span class="kw">if</span> <span class="ident">entries</span>.<span class="ident">is_empty</span>() {
                     <span class="kw">break</span>;
@@ -1458,7 +1458,7 @@
     <span class="doccomment">/// fetch the next set of keys.An empty Vector as the continuation token will result in the keys</span>
     <span class="doccomment">/// being fetched from the beginning.</span>
     <span class="doccomment">///</span>
-    <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">get_keys</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span>(
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_keys</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">max_keys_at_once</span>: <span class="ident">i32</span>,
         <span class="ident">token</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
@@ -1466,7 +1466,7 @@
     <span class="kw">where</span>
         <span class="ident">K</span>: <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">serde</span>::<span class="ident">de</span>::<span class="ident">DeserializeOwned</span>,
     {
-        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">read_keys_raw</span>(<span class="ident">max_keys_at_once</span>, <span class="ident">token</span>).<span class="ident">await</span>;
+        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">read_keys_raw</span>(<span class="ident">max_keys_at_once</span>, <span class="ident">token</span>).<span class="kw">await</span>;
         <span class="ident">res</span>.<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">keys</span>, <span class="ident">token</span>)<span class="op">|</span> {
             <span class="kw">let</span> <span class="ident">keys_de</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">K</span>, <span class="ident">Version</span>)<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">keys</span>
                 .<span class="ident">iter</span>()
@@ -1485,7 +1485,7 @@
     <span class="doccomment">/// fetch the next set of entries. An empty Vector as the continuation token will result in the keys</span>
     <span class="doccomment">/// being fetched from the beginning.</span>
     <span class="doccomment">///</span>
-    <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">get_entries</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>(
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_entries</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">max_entries_at_once</span>: <span class="ident">i32</span>,
         <span class="ident">token</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
@@ -1494,7 +1494,7 @@
         <span class="ident">K</span>: <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">serde</span>::<span class="ident">de</span>::<span class="ident">DeserializeOwned</span>,
         <span class="ident">V</span>: <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">serde</span>::<span class="ident">de</span>::<span class="ident">DeserializeOwned</span>,
     {
-        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">read_entries_raw</span>(<span class="ident">max_entries_at_once</span>, <span class="ident">token</span>).<span class="ident">await</span>;
+        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">read_entries_raw</span>(<span class="ident">max_entries_at_once</span>, <span class="ident">token</span>).<span class="kw">await</span>;
         <span class="ident">res</span>.<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">entries</span>, <span class="ident">token</span>)<span class="op">|</span> {
             <span class="kw">let</span> <span class="ident">entries_de</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">K</span>, <span class="ident">V</span>, <span class="ident">Version</span>)<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">entries</span>
                 .<span class="ident">iter</span>()
@@ -1511,7 +1511,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// Get a list of entries in the table map from a given position.</span>
     <span class="doccomment">///</span>
-    <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">get_entries_delta</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>(
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_entries_delta</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">max_entries_at_once</span>: <span class="ident">i32</span>,
         <span class="ident">from_position</span>: <span class="ident">i64</span>,
@@ -1522,7 +1522,7 @@
     {
         <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">read_entries_raw_delta</span>(<span class="ident">max_entries_at_once</span>, <span class="ident">from_position</span>)
-            .<span class="ident">await</span>;
+            .<span class="kw">await</span>;
         <span class="ident">res</span>.<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">entries</span>, <span class="ident">token</span>)<span class="op">|</span> {
             <span class="kw">let</span> <span class="ident">entries_de</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">K</span>, <span class="ident">V</span>, <span class="ident">Version</span>)<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">entries</span>
                 .<span class="ident">iter</span>()
@@ -1540,14 +1540,14 @@
     <span class="doccomment">/// Insert key value pairs without serialization.</span>
     <span class="doccomment">/// The function returns the newer version number post the insert operation.</span>
     <span class="doccomment">///</span>
-    <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">insert_raw_values</span>(
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">insert_raw_values</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">kvps</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Version</span>)<span class="op">&gt;</span>,
         <span class="ident">offset</span>: <span class="ident">i64</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Version</span><span class="op">&gt;</span>, <span class="ident">TableError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">op</span> <span class="op">=</span> <span class="string">&quot;Insert into tablemap&quot;</span>;
 
-        <span class="ident">retry_async</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">get_config</span>().<span class="ident">retry_policy</span>, <span class="op">|</span><span class="op">|</span> <span class="ident">async</span> {
+        <span class="ident">retry_async</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">get_config</span>().<span class="ident">retry_policy</span>, <span class="op">|</span><span class="op">|</span> <span class="kw">async</span> {
             <span class="kw">let</span> <span class="ident">entries</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">TableKey</span>, <span class="ident">TableValue</span>)<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">kvps</span>
                 .<span class="ident">iter</span>()
                 .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">k</span>, <span class="ident">v</span>, <span class="ident">ver</span>)<span class="op">|</span> {
@@ -1564,7 +1564,7 @@
                 <span class="ident">delegation_token</span>: <span class="self">self</span>
                     .<span class="ident">delegation_token_provider</span>
                     .<span class="ident">retrieve_token</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">get_controller_client</span>())
-                    .<span class="ident">await</span>,
+                    .<span class="kw">await</span>,
                 <span class="ident">table_entries</span>: <span class="ident">te</span>,
                 <span class="ident">table_segment_offset</span>: <span class="ident">offset</span>,
             });
@@ -1572,7 +1572,7 @@
                 .<span class="ident">factory</span>
                 .<span class="ident">create_raw_client_for_endpoint</span>(<span class="self">self</span>.<span class="ident">endpoint</span>.<span class="ident">clone</span>())
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">req</span>)
-                .<span class="ident">await</span>;
+                .<span class="kw">await</span>;
             <span class="kw">match</span> <span class="ident">result</span> {
                 <span class="prelude-val">Ok</span>(<span class="ident">reply</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult</span>::<span class="ident">Success</span>(<span class="ident">reply</span>),
                 <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
@@ -1584,7 +1584,7 @@
                 }
             }
         })
-        .<span class="ident">await</span>
+        .<span class="kw">await</span>
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">TableError</span>::<span class="ident">ConnectionError</span> {
             <span class="ident">can_retry</span>: <span class="bool-val">true</span>,
             <span class="ident">operation</span>: <span class="ident">op</span>.<span class="ident">into</span>(),
@@ -1608,10 +1608,10 @@
     <span class="doccomment">/// Get raw bytes for a given Key. If no value is present then None is returned.</span>
     <span class="doccomment">/// The read result and the corresponding version is returned as a tuple.</span>
     <span class="doccomment">///</span>
-    <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">get_raw_values</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">keys</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Version</span>)<span class="op">&gt;</span>, <span class="ident">TableError</span><span class="op">&gt;</span> {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_raw_values</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">keys</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Version</span>)<span class="op">&gt;</span>, <span class="ident">TableError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">op</span> <span class="op">=</span> <span class="string">&quot;Read from tablemap&quot;</span>;
 
-        <span class="ident">retry_async</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">get_config</span>().<span class="ident">retry_policy</span>, <span class="op">|</span><span class="op">|</span> <span class="ident">async</span> {
+        <span class="ident">retry_async</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">get_config</span>().<span class="ident">retry_policy</span>, <span class="op">|</span><span class="op">|</span> <span class="kw">async</span> {
             <span class="kw">let</span> <span class="ident">table_keys</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">TableKey</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">keys</span>
                 .<span class="ident">iter</span>()
                 .<span class="ident">map</span>(<span class="op">|</span><span class="ident">k</span><span class="op">|</span> <span class="ident">TableKey</span>::<span class="ident">new</span>(<span class="ident">k</span>.<span class="ident">clone</span>(), <span class="ident">TableKey</span>::<span class="ident">KEY_NO_VERSION</span>))
@@ -1623,14 +1623,14 @@
                 <span class="ident">delegation_token</span>: <span class="self">self</span>
                     .<span class="ident">delegation_token_provider</span>
                     .<span class="ident">retrieve_token</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">get_controller_client</span>())
-                    .<span class="ident">await</span>,
+                    .<span class="kw">await</span>,
                 <span class="ident">keys</span>: <span class="ident">table_keys</span>,
             });
             <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>
                 .<span class="ident">factory</span>
                 .<span class="ident">create_raw_client_for_endpoint</span>(<span class="self">self</span>.<span class="ident">endpoint</span>.<span class="ident">clone</span>())
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">req</span>)
-                .<span class="ident">await</span>;
+                .<span class="kw">await</span>;
             <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Read Response {:?}&quot;</span>, <span class="ident">result</span>);
             <span class="kw">match</span> <span class="ident">result</span> {
                 <span class="prelude-val">Ok</span>(<span class="ident">reply</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult</span>::<span class="ident">Success</span>(<span class="ident">reply</span>),
@@ -1643,7 +1643,7 @@
                 }
             }
         })
-        .<span class="ident">await</span>
+        .<span class="kw">await</span>
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">TableError</span>::<span class="ident">ConnectionError</span> {
             <span class="ident">can_retry</span>: <span class="bool-val">true</span>,
             <span class="ident">operation</span>: <span class="ident">op</span>.<span class="ident">into</span>(),
@@ -1673,10 +1673,10 @@
     <span class="doccomment">/// Remove a list of keys where the key, represented in raw bytes, and version of the corresponding</span>
     <span class="doccomment">/// keys is specified.</span>
     <span class="doccomment">///</span>
-    <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">remove_raw_values</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">keys</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Version</span>)<span class="op">&gt;</span>, <span class="ident">offset</span>: <span class="ident">i64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TableError</span><span class="op">&gt;</span> {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">remove_raw_values</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">keys</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Version</span>)<span class="op">&gt;</span>, <span class="ident">offset</span>: <span class="ident">i64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TableError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">op</span> <span class="op">=</span> <span class="string">&quot;Remove keys from tablemap&quot;</span>;
 
-        <span class="ident">retry_async</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">get_config</span>().<span class="ident">retry_policy</span>, <span class="op">|</span><span class="op">|</span> <span class="ident">async</span> {
+        <span class="ident">retry_async</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">get_config</span>().<span class="ident">retry_policy</span>, <span class="op">|</span><span class="op">|</span> <span class="kw">async</span> {
             <span class="kw">let</span> <span class="ident">tks</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">TableKey</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">keys</span>
                 .<span class="ident">iter</span>()
                 .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">k</span>, <span class="ident">ver</span>)<span class="op">|</span> <span class="ident">TableKey</span>::<span class="ident">new</span>(<span class="ident">k</span>.<span class="ident">clone</span>(), <span class="kw-2">*</span><span class="ident">ver</span>))
@@ -1688,7 +1688,7 @@
                 <span class="ident">delegation_token</span>: <span class="self">self</span>
                     .<span class="ident">delegation_token_provider</span>
                     .<span class="ident">retrieve_token</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">get_controller_client</span>())
-                    .<span class="ident">await</span>,
+                    .<span class="kw">await</span>,
                 <span class="ident">keys</span>: <span class="ident">tks</span>,
                 <span class="ident">table_segment_offset</span>: <span class="ident">offset</span>,
             });
@@ -1696,7 +1696,7 @@
                 .<span class="ident">factory</span>
                 .<span class="ident">create_raw_client_for_endpoint</span>(<span class="self">self</span>.<span class="ident">endpoint</span>.<span class="ident">clone</span>())
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">req</span>)
-                .<span class="ident">await</span>;
+                .<span class="kw">await</span>;
             <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Reply for RemoveTableKeys request {:?}&quot;</span>, <span class="ident">result</span>);
             <span class="kw">match</span> <span class="ident">result</span> {
                 <span class="prelude-val">Ok</span>(<span class="ident">reply</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult</span>::<span class="ident">Success</span>(<span class="ident">reply</span>),
@@ -1709,7 +1709,7 @@
                 }
             }
         })
-        .<span class="ident">await</span>
+        .<span class="kw">await</span>
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">TableError</span>::<span class="ident">ConnectionError</span> {
             <span class="ident">can_retry</span>: <span class="bool-val">true</span>,
             <span class="ident">operation</span>: <span class="ident">op</span>.<span class="ident">into</span>(),
@@ -1735,21 +1735,21 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// Read the raw keys from the table map. It returns a list of keys and its versions with a continuation token.</span>
     <span class="doccomment">///</span>
-    <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">read_keys_raw</span>(
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">read_keys_raw</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">max_keys_at_once</span>: <span class="ident">i32</span>,
         <span class="ident">token</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Version</span>)<span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>), <span class="ident">TableError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">op</span> <span class="op">=</span> <span class="string">&quot;Read keys&quot;</span>;
 
-        <span class="ident">retry_async</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">get_config</span>().<span class="ident">retry_policy</span>, <span class="op">|</span><span class="op">|</span> <span class="ident">async</span> {
+        <span class="ident">retry_async</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">get_config</span>().<span class="ident">retry_policy</span>, <span class="op">|</span><span class="op">|</span> <span class="kw">async</span> {
             <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">ReadTableKeys</span>(<span class="ident">ReadTableKeysCommand</span> {
                 <span class="ident">request_id</span>: <span class="ident">get_request_id</span>(),
                 <span class="ident">segment</span>: <span class="self">self</span>.<span class="ident">name</span>.<span class="ident">clone</span>(),
                 <span class="ident">delegation_token</span>: <span class="self">self</span>
                     .<span class="ident">delegation_token_provider</span>
                     .<span class="ident">retrieve_token</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">get_controller_client</span>())
-                    .<span class="ident">await</span>,
+                    .<span class="kw">await</span>,
                 <span class="ident">suggested_key_count</span>: <span class="ident">max_keys_at_once</span>,
                 <span class="ident">continuation_token</span>: <span class="ident">token</span>.<span class="ident">to_vec</span>(),
             });
@@ -1757,7 +1757,7 @@
                 .<span class="ident">factory</span>
                 .<span class="ident">create_raw_client_for_endpoint</span>(<span class="self">self</span>.<span class="ident">endpoint</span>.<span class="ident">clone</span>())
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">req</span>)
-                .<span class="ident">await</span>;
+                .<span class="kw">await</span>;
             <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Reply for read tableKeys request {:?}&quot;</span>, <span class="ident">result</span>);
             <span class="kw">match</span> <span class="ident">result</span> {
                 <span class="prelude-val">Ok</span>(<span class="ident">reply</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult</span>::<span class="ident">Success</span>(<span class="ident">reply</span>),
@@ -1770,7 +1770,7 @@
                 }
             }
         })
-        .<span class="ident">await</span>
+        .<span class="kw">await</span>
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">TableError</span>::<span class="ident">ConnectionError</span> {
             <span class="ident">can_retry</span>: <span class="bool-val">true</span>,
             <span class="ident">operation</span>: <span class="ident">op</span>.<span class="ident">into</span>(),
@@ -1793,21 +1793,21 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// Read the raw entries from the table map. It returns a list of key-values and its versions with a continuation token.</span>
     <span class="doccomment">///</span>
-    <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">read_entries_raw</span>(
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">read_entries_raw</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">max_entries_at_once</span>: <span class="ident">i32</span>,
         <span class="ident">token</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Version</span>)<span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>), <span class="ident">TableError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">op</span> <span class="op">=</span> <span class="string">&quot;Read entries&quot;</span>;
 
-        <span class="ident">retry_async</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">get_config</span>().<span class="ident">retry_policy</span>, <span class="op">|</span><span class="op">|</span> <span class="ident">async</span> {
+        <span class="ident">retry_async</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">get_config</span>().<span class="ident">retry_policy</span>, <span class="op">|</span><span class="op">|</span> <span class="kw">async</span> {
             <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">ReadTableEntries</span>(<span class="ident">ReadTableEntriesCommand</span> {
                 <span class="ident">request_id</span>: <span class="ident">get_request_id</span>(),
                 <span class="ident">segment</span>: <span class="self">self</span>.<span class="ident">name</span>.<span class="ident">clone</span>(),
                 <span class="ident">delegation_token</span>: <span class="self">self</span>
                     .<span class="ident">delegation_token_provider</span>
                     .<span class="ident">retrieve_token</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">get_controller_client</span>())
-                    .<span class="ident">await</span>,
+                    .<span class="kw">await</span>,
                 <span class="ident">suggested_entry_count</span>: <span class="ident">max_entries_at_once</span>,
                 <span class="ident">continuation_token</span>: <span class="ident">token</span>.<span class="ident">to_vec</span>(),
             });
@@ -1815,7 +1815,7 @@
                 .<span class="ident">factory</span>
                 .<span class="ident">create_raw_client_for_endpoint</span>(<span class="self">self</span>.<span class="ident">endpoint</span>.<span class="ident">clone</span>())
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">req</span>)
-                .<span class="ident">await</span>;
+                .<span class="kw">await</span>;
             <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Reply for read tableEntries request {:?}&quot;</span>, <span class="ident">result</span>);
 
             <span class="kw">match</span> <span class="ident">result</span> {
@@ -1829,7 +1829,7 @@
                 }
             }
         })
-        .<span class="ident">await</span>
+        .<span class="kw">await</span>
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">TableError</span>::<span class="ident">ConnectionError</span> {
             <span class="ident">can_retry</span>: <span class="bool-val">true</span>,
             <span class="ident">operation</span>: <span class="ident">op</span>.<span class="ident">into</span>(),
@@ -1860,21 +1860,21 @@
     <span class="doccomment">/// Read the raw entries from the table map from a given position.</span>
     <span class="doccomment">/// It returns a list of key-values and its versions with a latest position.</span>
     <span class="doccomment">///</span>
-    <span class="ident">async</span> <span class="kw">fn</span> <span class="ident">read_entries_raw_delta</span>(
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">read_entries_raw_delta</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">max_entries_at_once</span>: <span class="ident">i32</span>,
         <span class="ident">from_position</span>: <span class="ident">i64</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Version</span>)<span class="op">&gt;</span>, <span class="ident">i64</span>), <span class="ident">TableError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">op</span> <span class="op">=</span> <span class="string">&quot;Read entries delta&quot;</span>;
 
-        <span class="ident">retry_async</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">get_config</span>().<span class="ident">retry_policy</span>, <span class="op">|</span><span class="op">|</span> <span class="ident">async</span> {
+        <span class="ident">retry_async</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">get_config</span>().<span class="ident">retry_policy</span>, <span class="op">|</span><span class="op">|</span> <span class="kw">async</span> {
             <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">ReadTableEntriesDelta</span>(<span class="ident">ReadTableEntriesDeltaCommand</span> {
                 <span class="ident">request_id</span>: <span class="ident">get_request_id</span>(),
                 <span class="ident">segment</span>: <span class="self">self</span>.<span class="ident">name</span>.<span class="ident">clone</span>(),
                 <span class="ident">delegation_token</span>: <span class="self">self</span>
                     .<span class="ident">delegation_token_provider</span>
                     .<span class="ident">retrieve_token</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">get_controller_client</span>())
-                    .<span class="ident">await</span>,
+                    .<span class="kw">await</span>,
                 <span class="ident">from_position</span>,
                 <span class="ident">suggested_entry_count</span>: <span class="ident">max_entries_at_once</span>,
             });
@@ -1882,7 +1882,7 @@
                 .<span class="ident">factory</span>
                 .<span class="ident">create_raw_client_for_endpoint</span>(<span class="self">self</span>.<span class="ident">endpoint</span>.<span class="ident">clone</span>())
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">req</span>)
-                .<span class="ident">await</span>;
+                .<span class="kw">await</span>;
             <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Reply for read tableEntriesDelta request {:?}&quot;</span>, <span class="ident">result</span>);
 
             <span class="kw">match</span> <span class="ident">result</span> {
@@ -1896,7 +1896,7 @@
                 }
             }
         })
-        .<span class="ident">await</span>
+        .<span class="kw">await</span>
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">TableError</span>::<span class="ident">ConnectionError</span> {
             <span class="ident">can_retry</span>: <span class="bool-val">true</span>,
             <span class="ident">operation</span>: <span class="ident">op</span>.<span class="ident">into</span>(),
