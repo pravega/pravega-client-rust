@@ -1,10 +1,19 @@
 [package]
 name = "pravega-client"
+# When releasing to crates.io:
+# - Remove path dependencies
+# - Update doc url
+#   - Cargo.toml
+#   - README.md
+# - Update CHANGELOG.md.
+# - Create git tag.
 version = "0.1.0"
 edition = "2018"
 categories = ["Network programming"]
 keywords = ["streaming", "client", "pravega"]
 readme = "README.md"
+documentation = "https://docs.rs/pravega-client/0.1.0/"
+homepage = "https://www.pravega.io/"
 repository = "https://github.com/pravega/pravega-client-rust"
 license = "Apache-2.0"
 description = "A Rust client for Pravega. (Pravega.io)"
