@@ -9,8 +9,6 @@ Note: Pravega 0.9.0+ is required.
 
 ## Status
 
-The client is not yet feature complete and is currently under active development. It is not ready for production use, but is far enough along that it can be used for experimentation.
-
 Up to date status can be seen on [the wiki](https://github.com/pravega/pravega-client-rust/wiki/Design-plan).
 
 ## Goals
