@@ -38,14 +38,14 @@ members = [
 ]
 
 [dependencies]
-pravega-client-shared = "0.1"
-pravega-controller-client = "0.1"
-pravega-wire-protocol = "0.1"
-pravega-client-retry = "0.1"
-pravega-connection-pool = "0.1"
-pravega-client-channel = "0.1"
-pravega-client-auth = "0.1"
-pravega-client-config = "0.1"
+pravega-client-shared = { path = "./shared"}
+pravega-controller-client = { path = "./controller-client"}
+pravega-wire-protocol = { path = "./wire_protocol"}
+pravega-client-retry = {path = "./retry"}
+pravega-connection-pool = {path = "connection_pool" }
+pravega-client-channel = {path = "./channel"}
+pravega-client-auth = {path = "./auth"}
+pravega-client-config = {path = "./config"}
 async-trait = "0.1"
 futures = "0.3"
 snafu = "0.6"
