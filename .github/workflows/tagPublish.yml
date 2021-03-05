@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - "*"
-    branches:
-      - issue-maturin-issue
 
 jobs:
   wheel:
