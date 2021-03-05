@@ -14,8 +14,8 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pravega-client-shared = { path = "../shared"}
-pravega-controller-client = { path = "../controller-client"}
+pravega-client-shared = "0.1"
+pravega-controller-client = "0.1"
 async-trait = "0.1"
 tokio = { version = "1.1", features = ["full"] }
 base64 = "0.12"
