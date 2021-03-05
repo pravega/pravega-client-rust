@@ -1,3 +1,3 @@
 # wire protocol
 
-Wire protocol for Pravega client
+Wire protocol for Pravega client.
