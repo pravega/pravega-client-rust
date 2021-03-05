@@ -13,11 +13,11 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
            "Sandeep Shridhar <sandeep.shridhar@dell.com>", "Wenxiao Zhang <wenxiao.zhang@dell.com>"]
 
 [dependencies]
-pravega-client-shared = { path = "../shared"}
-pravega-wire-protocol = { path = "../wire_protocol"}
-pravega-connection-pool = {path= "../connection_pool" }
-pravega-client-retry = {path = "../retry"}
-pravega-client-config = { path = "../config"}
+pravega-client-shared = "0.1"
+pravega-wire-protocol = "0.1"
+pravega-connection-pool = "0.1"
+pravega-client-retry = "0.1"
+pravega-client-config = "0.1"
 async-trait = "0.1"
 prost = "0.7"
 snafu = "0.6"
