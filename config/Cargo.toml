@@ -14,8 +14,8 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pravega-client-shared = { path = "../shared"}
-pravega-client-retry = {path= "../retry"}
+pravega-client-shared = "0.1"
+pravega-client-retry = "0.1"
 derive_builder = "0.9"
 getset = "0.0.9"
 serde_json = "1.0"
