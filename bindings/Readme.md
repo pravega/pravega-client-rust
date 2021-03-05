@@ -14,7 +14,7 @@ visit https://pravega.github.io/pravega-client-rust/Python/PythonBindings.html
 
 ## Usage
 
-You can install it using pip.
+The client library can be installed using pip.
 ```shell
 pip install pravega
 ```
