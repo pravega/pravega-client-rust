@@ -2,9 +2,9 @@
 name = "pravega-client-retry"
 version = "0.1.0"
 edition = "2018"
-categories = ["Network programming"]
+categories = ["network-programming"]
 keywords = ["streaming", "client", "pravega"]
-readme = "Readme.md"
+readme = "README.md"
 repository = "https://github.com/pravega/pravega-client-rust"
 license = "Apache-2.0"
 description = "An internal library used by the Rust client for Pravega."
