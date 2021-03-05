@@ -1,4 +1,4 @@
-## Steps to generate language bindings for Pravega:
+## Steps to generate python bindings for Pravega:
 
 *Pre-requisites*
 - Python 3.8 and up.

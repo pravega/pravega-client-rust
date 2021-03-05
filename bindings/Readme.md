@@ -14,14 +14,8 @@ visit https://pravega.github.io/pravega-client-rust/Python/PythonBindings.html
 
 ## Usage
 
-You can either download binaries from the [latest release](https://github.com/pravega/pravega-client-rust/releases/latest) or install it with pip:
-
+You can install it using pip.
 ```shell
-pip install -i https://test.pypi.org/simple/ pravega
-
-or
-
 pip install pravega
 ```
-
-
+The users can also choose to generate the bindings using the commands specified at [PythonBinding](./PythonBinding.md) .
