@@ -14,12 +14,12 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 [dependencies]
 tracing = "0.1"
 pravega-client = { path = "../" }
-pravega-wire-protocol = { path = "../wire_protocol"}
-pravega-controller-client = { path = "../controller-client"}
-pravega-client-shared = { path = "../shared"}
-pravega-client-retry = {path = "../retry"}
-pravega-connection-pool = {path= "../connection_pool" }
-pravega-client-config = {path = "../config"}
+pravega-wire-protocol = "0.1"
+pravega-controller-client = "0.1"
+pravega-client-shared = "0.1"
+pravega-client-retry = "0.1"
+pravega-connection-pool = "0.1"
+pravega-client-config = "0.1"
 tokio = { version = "1.1", features = ["full"] }
 lazy_static = "1.4"
 uuid = {version = "0.8", features = ["v4"]}
