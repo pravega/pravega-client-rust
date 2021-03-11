@@ -47,7 +47,7 @@ fn remove_suffix(value: &mut String, suffix: &str) {
 /// Downloads and unpacks a prebuilt binary. Only works for certain platforms.
 fn install_prebuilt() {
     let url = format!(
-        "https://github.com/Tristan1900/pravega/releases/download/{}/pravega-{}.tgz",
+        "https://github.com/pravega/pravega/releases/download/{}/pravega-{}.tgz",
         TAG, VERSION
     );
     let short_file_name = url.split('/').last().unwrap();
