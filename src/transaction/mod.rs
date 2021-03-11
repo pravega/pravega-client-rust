@@ -270,7 +270,7 @@ impl Transaction {
 
 impl Drop for Transaction {
     fn drop(&mut self) {
-        let res = self.sender.send_without_bp(Incoming::Close());
+        let _res = self.sender.send_without_bp(Incoming::Close());
     }
 }
 
