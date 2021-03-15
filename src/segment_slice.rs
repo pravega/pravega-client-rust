@@ -253,6 +253,7 @@ impl SegmentSlice {
             match read {
                 Ok(reply) => {
                     let len = reply.data.len();
+                    debug!("read data length of {}",);
                     if len == 0 && reply.end_of_segment {
                         info!("Reached end of segment {:?} during read ", segment.clone());
                         let data = SegmentSealed {
