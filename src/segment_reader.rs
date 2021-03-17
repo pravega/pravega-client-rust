@@ -440,11 +440,6 @@ impl PrefetchingAsyncSegmentReader {
         Ok(buf.len() - need_to_read)
     }
 
-    /// Returns the underlying reader and drops the prefetching reader.
-    pub(crate) fn extract_reader(self) -> Arc<Box<dyn AsyncSegmentReader>> {
-        self.reader
-    }
-
     /// Returns the size of data available in buffer
     pub(crate) fn available(&self) -> usize {
         let mut size = 0;

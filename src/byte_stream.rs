@@ -277,10 +277,13 @@ impl ByteStreamReader {
     }
 
     fn recreate_reader_wrapper(&mut self, offset: i64) {
-        let internal_reader = self.reader.take().unwrap().extract_reader();
+        let async_reader = self
+            .factory
+            .get_runtime()
+            .block_on(self.factory.create_async_event_reader(segment.clone()));
         let new_reader_wrapper = PrefetchingAsyncSegmentReader::new(
             self.factory.get_runtime().handle().clone(),
-            internal_reader,
+            Arc::new(Box::new(async_reader)),
             offset,
             self.reader_buffer_size,
         );
