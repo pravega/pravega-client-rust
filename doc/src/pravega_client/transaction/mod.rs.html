@@ -608,7 +608,7 @@
 
 <span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">Transaction</span> {
     <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
-        <span class="kw">let</span> <span class="ident">_res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">sender</span>.<span class="ident">send</span>((<span class="ident">Incoming</span>::<span class="ident">Close</span>(), <span class="number">0</span>));
+        <span class="kw">let</span> <span class="ident">_res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">sender</span>.<span class="ident">send_without_bp</span>(<span class="ident">Incoming</span>::<span class="ident">Close</span>());
     }
 }
 
