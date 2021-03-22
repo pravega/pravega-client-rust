@@ -34,7 +34,7 @@ pub enum SegmentMetadataClientError {
 
 /// A client for looking at and editing the metadata related to a specific segment.
 pub struct SegmentMetadataClient {
-    pub(crate) segment: ScopedSegment,
+    segment: ScopedSegment,
     factory: ClientFactory,
     delegation_token_provider: DelegationTokenProvider,
     endpoint: Mutex<PravegaNodeUri>,

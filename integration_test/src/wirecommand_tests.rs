@@ -168,7 +168,6 @@ async fn test_hello(factory: &ClientFactory) {
         &*CONNECTION_POOL,
         endpoint,
         factory.get_config().request_timeout(),
-        true,
     );
     raw_client
         .send_request(&request)
@@ -236,7 +235,6 @@ async fn test_setup_append(factory: &ClientFactory) {
         &*CONNECTION_POOL,
         endpoint,
         factory.get_config().request_timeout(),
-        true,
     );
     raw_client
         .send_request(&request)
@@ -287,7 +285,6 @@ async fn test_create_segment(factory: &ClientFactory) {
         &*CONNECTION_POOL,
         endpoint,
         factory.get_config().request_timeout(),
-        true,
     );
 
     let request1 = Requests::CreateSegment(CreateSegmentCommand {
@@ -343,7 +340,6 @@ async fn test_seal_segment(factory: &ClientFactory) {
         &*CONNECTION_POOL,
         endpoint,
         factory.get_config().request_timeout(),
-        true,
     );
 
     let request = Requests::SealSegment(SealSegmentCommand {
@@ -382,7 +378,6 @@ async fn test_update_and_get_segment_attribute(factory: &ClientFactory) {
         &*CONNECTION_POOL,
         endpoint,
         factory.get_config().request_timeout(),
-        true,
     );
 
     let sname = segment_name.to_string();
@@ -448,7 +443,6 @@ async fn test_get_stream_segment_info(factory: &ClientFactory) {
         &*CONNECTION_POOL,
         endpoint,
         factory.get_config().request_timeout(),
-        true,
     );
 
     let sname = segment_name.to_string();
@@ -487,7 +481,6 @@ async fn test_delete_segment(factory: &ClientFactory) {
         &*CONNECTION_POOL,
         endpoint,
         factory.get_config().request_timeout(),
-        true,
     );
 
     let request = Requests::DeleteSegment(DeleteSegmentCommand {
@@ -524,7 +517,6 @@ async fn test_conditional_append_and_read_segment(factory: &ClientFactory) {
         &*CONNECTION_POOL,
         endpoint,
         factory.get_config().request_timeout(),
-        true,
     );
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
@@ -612,7 +604,6 @@ async fn test_update_segment_policy(factory: &ClientFactory) {
         &*CONNECTION_POOL,
         endpoint,
         factory.get_config().request_timeout(),
-        true,
     );
 
     let request = Requests::UpdateSegmentPolicy(UpdateSegmentPolicyCommand {
@@ -652,7 +643,6 @@ async fn test_merge_segment(factory: &ClientFactory) {
         &*CONNECTION_POOL,
         endpoint,
         factory.get_config().request_timeout(),
-        true,
     );
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
@@ -745,7 +735,6 @@ async fn test_truncate_segment(factory: &ClientFactory) {
         &*CONNECTION_POOL,
         endpoint,
         factory.get_config().request_timeout(),
-        true,
     );
 
     // truncate the first event1.
@@ -785,7 +774,6 @@ async fn test_update_table_entries(factory: &ClientFactory) {
         &*CONNECTION_POOL,
         endpoint,
         factory.get_config().request_timeout(),
-        true,
     );
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
@@ -897,7 +885,6 @@ async fn test_read_table_key(factory: &ClientFactory) {
         &*CONNECTION_POOL,
         endpoint,
         factory.get_config().request_timeout(),
-        true,
     );
 
     let request = Requests::ReadTableKeys(ReadTableKeysCommand {
@@ -941,7 +928,6 @@ async fn test_read_table(factory: &ClientFactory) {
         &*CONNECTION_POOL,
         endpoint,
         factory.get_config().request_timeout(),
-        true,
     );
 
     let mut keys = Vec::new();
@@ -997,7 +983,6 @@ async fn test_read_table_entries(factory: &ClientFactory) {
         &*CONNECTION_POOL,
         endpoint,
         factory.get_config().request_timeout(),
-        true,
     );
 
     let request = Requests::ReadTableEntries(ReadTableEntriesCommand {

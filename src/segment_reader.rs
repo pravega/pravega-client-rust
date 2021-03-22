@@ -209,22 +209,15 @@ pub struct AsyncSegmentReaderImpl {
     endpoint: Mutex<PravegaNodeUri>,
     factory: ClientFactory,
     delegation_token_provider: DelegationTokenProvider,
-    pub recycle_connection: bool,
 }
 
 #[async_trait]
 impl AsyncSegmentReader for AsyncSegmentReaderImpl {
     async fn read(&self, offset: i64, length: i32) -> StdResult<SegmentReadCommand, ReaderError> {
         retry_async(self.factory.get_config().retry_policy, || async {
-            let raw_client = if self.recycle_connection {
-                self.factory
-                    .create_raw_client_for_endpoint(self.endpoint.lock().await.clone())
-            } else {
-                self.factory
-                    .create_raw_client_for_endpoint_without_recycling_connection(
-                        self.endpoint.lock().await.clone(),
-                    )
-            };
+            let raw_client = self
+                .factory
+                .create_raw_client_for_endpoint(self.endpoint.lock().await.clone());
             match self.read_inner(offset, length, &raw_client).await {
                 Ok(cmd) => RetryResult::Success(cmd),
                 Err(e) => {
@@ -256,7 +249,6 @@ impl AsyncSegmentReaderImpl {
         segment: ScopedSegment,
         factory: ClientFactory,
         delegation_token_provider: DelegationTokenProvider,
-        recycle_connection: bool,
     ) -> AsyncSegmentReaderImpl {
         let endpoint = factory
             .get_controller_client()
@@ -269,7 +261,6 @@ impl AsyncSegmentReaderImpl {
             endpoint: Mutex::new(endpoint),
             factory: factory.clone(),
             delegation_token_provider,
-            recycle_connection,
         }
     }
 
@@ -438,6 +429,11 @@ impl PrefetchingAsyncSegmentReader {
         }
 
         Ok(buf.len() - need_to_read)
+    }
+
+    /// Returns the underlying reader and drops the prefetching reader.
+    pub(crate) fn extract_reader(self) -> Arc<Box<dyn AsyncSegmentReader>> {
+        self.reader
     }
 
     /// Returns the size of data available in buffer

@@ -13,9 +13,10 @@ use async_trait::async_trait;
 use pravega_client_shared::PravegaNodeUri;
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
+use pravega_wire_protocol::commands::{Reply, Request};
 use pravega_wire_protocol::connection_factory::SegmentConnectionManager;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
-use snafu::ResultExt;
+use snafu::{ensure, ResultExt};
 use std::fmt;
 use tokio::time::{timeout, Duration};
 
@@ -42,7 +43,6 @@ pub struct RawClientImpl<'a> {
     pool: &'a ConnectionPool<SegmentConnectionManager>,
     endpoint: PravegaNodeUri,
     timeout: Duration,
-    recycle_connection: bool,
 }
 
 impl<'a> fmt::Debug for RawClientImpl<'a> {
@@ -56,13 +56,11 @@ impl<'a> RawClientImpl<'a> {
         pool: &'a ConnectionPool<SegmentConnectionManager>,
         endpoint: PravegaNodeUri,
         timeout: Duration,
-        recycle_connection: bool,
     ) -> RawClientImpl<'a> {
         RawClientImpl {
             pool,
             endpoint,
             timeout,
-            recycle_connection,
         }
     }
 }
@@ -77,15 +75,19 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
             .await
             .context(GetConnectionFromPool {})?;
         let mut client_connection = ClientConnectionImpl::new(connection);
-        if self.recycle_connection {
-            client_connection.invalidate();
-        }
         client_connection.write(request).await.context(WriteRequest {})?;
         let read_future = client_connection.read();
         let result = timeout(self.timeout, read_future)
             .await
             .context(RequestTimeout {})?;
         let reply = result.context(ReadReply {})?;
+        ensure!(
+            reply.get_request_id() == request.get_request_id(),
+            WrongReplyId {
+                reply_id: reply.get_request_id(),
+                request_id: request.get_request_id(),
+            }
+        );
         check_auth_token_expired(&reply)?;
         Ok(reply)
     }
@@ -106,6 +108,13 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
             .await
             .context(RequestTimeout {})?;
         let reply = result.context(ReadReply {})?;
+        ensure!(
+            reply.get_request_id() == request.get_request_id(),
+            WrongReplyId {
+                reply_id: reply.get_request_id(),
+                request_id: request.get_request_id(),
+            }
+        );
         check_auth_token_expired(&reply)?;
         Ok((reply, Box::new(client_connection) as Box<dyn ClientConnection>))
     }

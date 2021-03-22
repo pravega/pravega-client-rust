@@ -75,7 +75,6 @@ impl ClientFactory {
             self.0
                 .create_delegation_token_provider(ScopedStream::from(&segment))
                 .await,
-            true,
         )
         .await
     }
@@ -97,18 +96,11 @@ impl ClientFactory {
             .get_endpoint_for_segment(segment)
             .await
             .expect("get endpoint for segment");
-        self.0.create_raw_client(endpoint, true)
+        self.0.create_raw_client(endpoint)
     }
 
     pub fn create_raw_client_for_endpoint(&self, endpoint: PravegaNodeUri) -> RawClientImpl<'_> {
-        self.0.create_raw_client(endpoint, true)
-    }
-
-    pub fn create_raw_client_for_endpoint_without_recycling_connection(
-        &self,
-        endpoint: PravegaNodeUri,
-    ) -> RawClientImpl<'_> {
-        self.0.create_raw_client(endpoint, false)
+        self.0.create_raw_client(endpoint)
     }
 
     pub fn create_event_stream_writer(&self, stream: ScopedStream) -> EventStreamWriter {
@@ -177,17 +169,8 @@ impl ClientFactory {
 }
 
 impl ClientFactoryInternal {
-    pub(crate) fn create_raw_client(
-        &self,
-        endpoint: PravegaNodeUri,
-        recycle_connection: bool,
-    ) -> RawClientImpl {
-        RawClientImpl::new(
-            &self.connection_pool,
-            endpoint,
-            self.config.request_timeout,
-            recycle_connection,
-        )
+    pub(crate) fn create_raw_client(&self, endpoint: PravegaNodeUri) -> RawClientImpl {
+        RawClientImpl::new(&self.connection_pool, endpoint, self.config.request_timeout)
     }
 
     pub(crate) async fn create_delegation_token_provider(

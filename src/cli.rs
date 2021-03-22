@@ -344,12 +344,7 @@ async fn main() {
     let manager = SegmentConnectionManager::new(cf, config.max_connections_in_pool);
     let pool = ConnectionPool::new(manager);
     let endpoint = opt.server_uri;
-    let raw_client = RawClientImpl::new(
-        &pool,
-        PravegaNodeUri::from(endpoint),
-        Duration::from_secs(3600),
-        true,
-    );
+    let raw_client = RawClientImpl::new(&pool, PravegaNodeUri::from(endpoint), Duration::from_secs(3600));
     match opt.cmd {
         Command::Hello {
             high_version,

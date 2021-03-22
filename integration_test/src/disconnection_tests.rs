@@ -61,7 +61,7 @@ async fn test_retry_with_no_connection() {
     let manager = SegmentConnectionManager::new(cf, 1);
     let pool = ConnectionPool::new(manager);
 
-    let raw_client = RawClientImpl::new(&pool, endpoint, Duration::from_secs(3600), true);
+    let raw_client = RawClientImpl::new(&pool, endpoint, Duration::from_secs(3600));
 
     let result = retry_async(retry_policy, || async {
         let request = Requests::Hello(HelloCommand {
@@ -167,7 +167,7 @@ fn test_retry_with_unexpected_reply() {
     let connection_factory = ConnectionFactory::create(ConnectionFactoryConfig::from(&config));
     let manager = SegmentConnectionManager::new(connection_factory, 1);
     let pool = ConnectionPool::new(manager);
-    let raw_client = RawClientImpl::new(&pool, endpoint, Duration::from_secs(3600), true);
+    let raw_client = RawClientImpl::new(&pool, endpoint, Duration::from_secs(3600));
     let result = cf.get_runtime().block_on(retry_async(retry_policy, || async {
         let request = Requests::SealSegment(SealSegmentCommand {
             segment: segment_name.to_string(),
