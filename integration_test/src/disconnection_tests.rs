@@ -36,7 +36,7 @@ use tokio::runtime::Runtime;
 use tracing::info;
 
 pub fn disconnection_test_wrapper() {
-    let mut rt = tokio::runtime::Runtime::new().expect("create runtime");
+    let rt = tokio::runtime::Runtime::new().expect("create runtime");
     rt.block_on(test_retry_with_no_connection());
     rt.shutdown_timeout(Duration::from_millis(100));
 
@@ -48,7 +48,7 @@ pub fn disconnection_test_wrapper() {
     pravega.stop().unwrap();
     wait_for_standalone_with_timeout(false, 10);
 
-    let mut rt = tokio::runtime::Runtime::new().expect("create runtime");
+    let rt = tokio::runtime::Runtime::new().expect("create runtime");
     rt.block_on(test_with_mock_server());
 }
 

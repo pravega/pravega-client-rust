@@ -139,7 +139,7 @@ impl ClientConfigBuilder {
     }
 
     fn default_timeout(&self) -> Duration {
-        Duration::from_secs(3600)
+        Duration::from_secs(30)
     }
 }
 

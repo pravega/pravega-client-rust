@@ -1216,7 +1216,7 @@ mod test {
 
     #[test]
     fn test_controller_client() {
-        let mut rt = Runtime::new().unwrap();
+        let rt = Runtime::new().unwrap();
         rt.spawn(run_server());
 
         let config = ClientConfigBuilder::default()

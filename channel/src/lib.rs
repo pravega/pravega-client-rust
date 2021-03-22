@@ -47,6 +47,11 @@ impl<T> ChannelSender<T> {
         Ok(())
     }
 
+    pub fn send_without_bp(&self, message: T) -> Result<(), SendError<(T, usize)>> {
+        self.sender.send((message, 0))?;
+        Ok(())
+    }
+
     pub fn remain(&self) -> usize {
         self.semaphore.permits()
     }

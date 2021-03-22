@@ -2,7 +2,7 @@
 name = "pravega-rust-client-examples"
 version = "0.1.0"
 edition = "2018"
-categories = ["Network programming"]
+categories = ["network-programming"]
 keywords = ["streaming", "client", "pravega"]
 readme = "Readme.md"
 repository = "https://github.com/pravega/pravega-client-rust"
@@ -14,9 +14,9 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dev-dependencies]
-pravega-client = { path = "../" }
-pravega-client-config = { path = "../config"}
-pravega-client-shared = { path = "../shared"}
+pravega-client = { path = "../", version = "0.1"}
+pravega-client-config = { path = "../config", version = "0.1"}
+pravega-client-shared = { path = "../shared", version = "0.1"}
 tokio = "1.1"
 
 [[example]]
