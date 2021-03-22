@@ -1,20 +1,20 @@
 [package]
 name = "pravega"
-version = "0.0.1-alpha-4"
+version = "0.1.0"
 edition = "2018"
-categories = ["Network programming"]
+categories = ["network-programming"]
 keywords = ["streaming", "client", "pravega"]
-readme = "Readme.md"
+readme = "README.md"
 repository = "https://github.com/pravega/pravega-client-rust"
 license = "Apache-2.0"
 description = "Pravega client"
 authors = ["Pravega Community"]
 
 [package.metadata.maturin]
-classifier = ["Development Status :: 4 - Alpha", "License :: OSI Approved :: Apache Software License",
+classifier = ["Development Status :: 5 - Production/Stable", "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Rust", "Programming Language :: Python :: 3.8", "Programming Language :: Python :: 3.9",]
 requires-python = ">= 3.8"
-project-url = {"Homepage"= "https://pravega.github.io/pravega-client-rust/"}
+project-url = ["Homepage, https://pravega.github.io/pravega-client-rust/"]
 
 [lib]
 name = "pravega_client"
@@ -31,12 +31,12 @@ python_binding = ["pyo3"]
 tracing = "0.1.17"
 tracing-futures = "0.2.4"
 tracing-subscriber = "0.2.2"
-pravega-client = { path = "../" }
-pravega-wire-protocol = { path = "../wire_protocol"}
-pravega-controller-client = { path = "../controller-client"}
+pravega-client = { path = "../"}
 pravega-client-shared = { path = "../shared"}
-pravega-client-retry = {path = "../retry"}
-pravega-connection-pool = {path= "../connection_pool" }
+pravega-controller-client = { path = "../controller-client"}
+pravega-wire-protocol = { path = "../wire_protocol"}
+pravega-client-retry = {path = "../retry", version = "0.1"}
+pravega-connection-pool = {path = "../connection_pool"}
 pravega-client-config = {path = "../config"}
 tokio = { version = "1.1", features = ["full"] }
 lazy_static = "1.4.0"

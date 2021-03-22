@@ -226,12 +226,13 @@ impl AsyncSegmentReader for AsyncSegmentReaderImpl {
                         let endpoint = controller
                             .get_endpoint_for_segment(&self.segment)
                             .await
-                            .expect("get endpoint for async semgnet reader");
+                            .expect("get endpoint for async segment reader");
                         let mut guard = self.endpoint.lock().await;
                         *guard = endpoint;
                         if e.refresh_token() {
                             self.delegation_token_provider.signal_token_expiry();
                         }
+                        debug!("retry due to {:?}", e);
                         RetryResult::Retry(e)
                     } else {
                         RetryResult::Fail(e)

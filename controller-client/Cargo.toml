@@ -3,9 +3,9 @@ name = "pravega-controller-client"
 version = "0.1.0"
 edition = "2018"
 build = "build.rs"
-categories = ["Network programming"]
+categories = ["network-programming"]
 keywords = ["streaming", "client", "pravega"]
-readme = "Readme.md"
+readme = "README.md"
 repository = "https://github.com/pravega/pravega-client-rust"
 license = "Apache-2.0"
 description = "An internal library used by the Rust client for Pravega to talk to the Pravega controller."
@@ -13,11 +13,11 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
            "Sandeep Shridhar <sandeep.shridhar@dell.com>", "Wenxiao Zhang <wenxiao.zhang@dell.com>"]
 
 [dependencies]
-pravega-client-shared = { path = "../shared"}
-pravega-wire-protocol = { path = "../wire_protocol"}
-pravega-connection-pool = {path= "../connection_pool" }
-pravega-client-retry = {path = "../retry"}
-pravega-client-config = { path = "../config"}
+pravega-client-shared = { path = "../shared", version = "0.1"}
+pravega-wire-protocol = { path = "../wire_protocol", version = "0.1"}
+pravega-client-retry = {path = "../retry", version = "0.1"}
+pravega-connection-pool = {path = "../connection_pool", version = "0.1" }
+pravega-client-config = {path = "../config", version = "0.1"}
 async-trait = "0.1"
 prost = "0.7"
 snafu = "0.6"
@@ -32,7 +32,6 @@ im = "15"
 tracing = "0.1"
 jsonwebtoken = "7"
 serde = {version = "1.0", features = ["derive"] }
-h2 = "0.2"
 
 [build-dependencies]
 tonic-build = "0.3"

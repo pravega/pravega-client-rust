@@ -33,7 +33,7 @@ jobs:
 
       - name: Generate Pravega Python API documentation.
         run: |
-          pip install maturin virtualenv pdoc3
+          pip install 'maturin==0.8.3' virtualenv pdoc3
           virtualenv venv
           source venv/bin/activate
           maturin develop -m bindings/Cargo.toml

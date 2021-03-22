@@ -338,7 +338,7 @@ impl Seek for ByteStreamReader {
 
 impl Drop for ByteStreamWriter {
     fn drop(&mut self) {
-        let _res = self.sender.send((Incoming::Close(), 0));
+        let _res = self.sender.send_without_bp(Incoming::Close());
     }
 }
 
