@@ -210,7 +210,6 @@ mod tests {
             &common.pool,
             PravegaNodeUri::from(server.address),
             Duration::from_secs(3600),
-            true,
         );
         let h = thread::spawn(move || {
             server.send_hello();
