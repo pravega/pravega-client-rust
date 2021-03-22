@@ -102,8 +102,9 @@ impl TableMap {
                 Err(e) => {
                     if e.is_token_expired() {
                         delegation_token_provider.signal_token_expiry();
-                        info!("auth token needs to refresh");
+                        debug!("auth token needs to refresh");
                     }
+                    debug!("retry on error {:?}", e);
                     RetryResult::Retry(e)
                 }
             }
