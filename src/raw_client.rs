@@ -81,6 +81,9 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
             .await
             .context(RequestTimeout {})?;
         let reply = result.context(ReadReply {})?;
+        if reply.get_request_id() != request.get_request_id() {
+            client_connection.connection.invalidate();
+        }
         ensure!(
             reply.get_request_id() == request.get_request_id(),
             WrongReplyId {
@@ -108,6 +111,9 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
             .await
             .context(RequestTimeout {})?;
         let reply = result.context(ReadReply {})?;
+        if reply.get_request_id() != request.get_request_id() {
+            client_connection.connection.invalidate();
+        }
         ensure!(
             reply.get_request_id() == request.get_request_id(),
             WrongReplyId {

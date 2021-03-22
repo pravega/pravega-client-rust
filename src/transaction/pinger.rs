@@ -76,6 +76,12 @@ impl PingerHandle {
     }
 }
 
+impl Drop for PingerHandle {
+    fn drop(&mut self) {
+        let _res = self.0.blocking_send(PingerEvent::Terminate);
+    }
+}
+
 impl Pinger {
     pub(crate) fn new(
         stream: ScopedStream,
