@@ -448,7 +448,7 @@ async fn send_happy(
                 table.remove(&k).expect("remove key");
             }
             let reply = Replies::TableKeysRemoved(TableKeysRemovedCommand {
-                request_id: 0,
+                request_id: cmd.request_id,
                 segment,
             });
             sender.send(reply).expect("send reply");

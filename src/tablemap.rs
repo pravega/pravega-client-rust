@@ -680,8 +680,9 @@ impl TableMap {
                 Err(e) => {
                     if e.is_token_expired() {
                         self.delegation_token_provider.signal_token_expiry();
-                        info!("auth token needs to refresh");
+                        debug!("auth token needs to refresh");
                     }
+                    debug!("retry on error {:?}", e);
                     RetryResult::Retry(e)
                 }
             }
@@ -947,18 +948,15 @@ mod test {
             .block_on(table_map.insert_conditionally(&"key".to_string(), &"value".to_string(), -1, -1))
             .expect("unconditionally insert into table map");
         assert_eq!(version, 0);
-
         // conditionally insert existing key
         let version = rt
             .block_on(table_map.insert_conditionally(&"key".to_string(), &"value".to_string(), 0, -1))
             .expect("conditionally insert into table map");
         assert_eq!(version, 1);
-
         // conditionally insert key with wrong version
         let result =
             rt.block_on(table_map.insert_conditionally(&"key".to_string(), &"value".to_string(), 0, -1));
         assert!(result.is_err());
-
         // conditionally remove key
         let result = rt.block_on(table_map.remove_conditionally(&"key".to_string(), 1, -1));
         assert!(result.is_ok());
