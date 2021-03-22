@@ -289,7 +289,7 @@ impl EventReader {
         slice_meta_map.iter().for_each(|(segment, meta)| {
             let (tx_stop, rx_stop) = oneshot::channel();
             stop_reading_map.insert(segment.clone(), tx_stop);
-            factory.get_runtime().enter();
+            let _guard = factory.get_runtime().enter();
             tokio::spawn(SegmentSlice::get_segment_data(
                 segment.clone(),
                 meta.start_offset,
