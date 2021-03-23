@@ -78,7 +78,7 @@ impl PingerHandle {
 
 impl Drop for PingerHandle {
     fn drop(&mut self) {
-        let _res = self.0.blocking_send(PingerEvent::Terminate);
+        let _res = self.0.try_send(PingerEvent::Terminate);
     }
 }
 

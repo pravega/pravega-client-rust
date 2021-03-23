@@ -478,8 +478,7 @@ impl PrefetchingAsyncSegmentReader {
             result = reader.read(offset, length) => {
                 sender
                 .send(result)
-                .map_err(|e| warn!("failed to send reply back: {:?}", e))
-                .expect("send reply back");
+                .map_err(|_e| warn!("failed to send reply back"));
             }
             _ = shutdown => {
                 debug!("shut down background async read");
