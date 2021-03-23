@@ -476,7 +476,7 @@ impl PrefetchingAsyncSegmentReader {
     ) {
         tokio::select! {
             result = reader.read(offset, length) => {
-                sender
+                let _ = sender
                 .send(result)
                 .map_err(|_e| warn!("failed to send reply back"));
             }
