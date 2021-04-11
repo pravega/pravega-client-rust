@@ -34,13 +34,18 @@ use async_trait::async_trait;
 use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
     delete_scope_status, delete_stream_status, ping_txn_status, scale_request, scale_response,
-    scale_status_response, txn_state, txn_status, update_stream_status, CreateScopeStatus,
+    scale_status_response, txn_state, txn_status, update_stream_status, ContinuationToken, CreateScopeStatus,
     CreateStreamStatus, CreateTxnRequest, CreateTxnResponse, DelegationToken, DeleteScopeStatus,
     DeleteStreamStatus, GetEpochSegmentsRequest, GetSegmentsRequest, NodeUri, PingTxnRequest, PingTxnStatus,
     ScaleRequest, ScaleResponse, ScaleStatusRequest, ScaleStatusResponse, ScopeInfo, SegmentId,
-    SegmentRanges, SegmentsAtTime, StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState,
-    TxnStatus, UpdateStreamStatus,
+    SegmentRanges, SegmentsAtTime, StreamConfig, StreamInfo, StreamsInScopeRequest, StreamsInScopeResponse,
+    SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
 };
+use futures::{
+    future::{self},
+    stream, Future, Stream,
+};
+use futures::{StreamExt, TryStreamExt};
 use im::{HashMap as ImHashMap, OrdMap};
 use ordered_float::OrderedFloat;
 use pravega_client_config::credentials::AUTHORIZATION;
@@ -52,6 +57,7 @@ use pravega_client_retry::wrap_with_async_retry;
 use pravega_client_shared::*;
 use snafu::Snafu;
 use std::convert::{From, Into};
+use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::RwLock;
 use tokio::runtime::Runtime;
@@ -326,7 +332,10 @@ impl ControllerClient for ControllerClientImpl {
     }
 
     async fn list_streams(&self, scope: &Scope) -> ResultRetry<Vec<String>> {
-        unimplemented!()
+        wrap_with_async_retry!(
+            self.config.retry_policy.max_tries(MAX_RETRIES),
+            self.call_list_streamss(scope)
+        )
     }
 
     async fn delete_scope(&self, scope: &Scope) -> ResultRetry<bool> {
@@ -601,6 +610,236 @@ impl ControllerClientImpl {
             operation: operation_name.to_string(),
             error_msg: format!("{:?}", retry_error),
         })
+    }
+
+    async fn call_list_streamss(&self, scope: &Scope) -> Result<Vec<String>> {
+        use futures::stream::{self, StreamExt};
+        struct State {
+            list: Vec<String>,
+            token: ContinuationToken,
+            end_reached: bool,
+        };
+        let operation_name = "CreateScope";
+        let init_state = State {
+            list: vec![],
+            token: ContinuationToken {
+                token: "".to_string(),
+            },
+            end_reached: false,
+        };
+
+        let s = stream::unfold(init_state, |mut state| async move {
+            if !state.list.is_empty() {
+                // return from already fetched list.
+                let s = state.list.pop().unwrap();
+                println!("{}", s);
+                Some((Ok(s), state))
+            } else if !state.end_reached {
+                // fetch streams from controller.
+                let request: StreamsInScopeRequest = StreamsInScopeRequest {
+                    scope: Some(ScopeInfo::from(scope)),
+                    continuation_token: Some(state.token.clone()),
+                };
+                println!("Triggering a new request to the controller ...");
+                let op_status: StdResult<tonic::Response<StreamsInScopeResponse>, tonic::Status> =
+                    self.get_controller_client().list_streams_in_scope(request).await;
+                match op_status {
+                    Ok(streams_with_token) => {
+                        let temp = streams_with_token.into_inner();
+                        let t: Vec<StreamInfo> = temp.streams;
+                        if t.is_empty() {
+                            state.end_reached = true;
+                            None
+                        } else {
+                            // update state
+                            let r123: Vec<String> =
+                                t.iter().map(|i: &StreamInfo| i.stream.to_string()).collect();
+                            state.list.extend_from_slice(r123.as_slice());
+                            // state.list.extend(&r123);
+                            let token: Option<ContinuationToken> = temp.continuation_token;
+                            match token {
+                                None => {
+                                    println!("None returned for continuation token");
+                                }
+                                Some(ct) => {
+                                    println!("Returned token {}", ct.token);
+                                    state.token = ct
+                                }
+                            };
+                            Some((Ok(state.list.pop().unwrap()), state))
+                        }
+                    }
+                    Err(status) => {
+                        println!("Error");
+                        Some((Err(self.map_grpc_error(operation_name, status).await), state))
+                    }
+                }
+            } else {
+                None
+            }
+        });
+
+        let r1 = s.collect::<Vec<StdResult<String, ControllerError>>>().await;
+        let (numbers, mut errors): (Vec<Result<String>>, Vec<Result<String>>) =
+            r1.into_iter().partition(Result::is_ok);
+        if errors.is_empty() {
+            Ok(numbers.into_iter().map(Result::unwrap).collect())
+        } else {
+            Err(errors.pop().unwrap().expect_err("Expected Controller Error"))
+        }
+    }
+    async fn call_list_streams(&self, scope: &Scope) -> Result<Vec<String>> {
+        use futures::stream::{self, StreamExt};
+        struct State {
+            list: Vec<String>,
+            token: ContinuationToken,
+            end_reached: bool,
+        };
+
+        let operation_name = "CreateScope";
+
+        let scope_info: ScopeInfo = ScopeInfo::from(scope);
+        let empty_token: ContinuationToken = ContinuationToken {
+            token: "".to_string(),
+        };
+        let init_state = State {
+            list: vec![],
+            token: ContinuationToken {
+                token: "".to_string(),
+            },
+            end_reached: false,
+        };
+
+        let stream = stream::unfold(init_state, |mut state| async move {
+            if !state.list.is_empty() {
+                // return from already fetched list.
+                let s = state.list.pop().unwrap();
+                println!("{}", s);
+                Some((Ok(s), state))
+            } else if !state.end_reached {
+                // fetch streams from controller.
+                let request: StreamsInScopeRequest = StreamsInScopeRequest {
+                    scope: Some(ScopeInfo::from(scope)),
+                    continuation_token: Some(state.token.clone()),
+                };
+                println!("Triggering a new request to the controller ...");
+                let op_status: StdResult<tonic::Response<StreamsInScopeResponse>, tonic::Status> =
+                    self.get_controller_client().list_streams_in_scope(request).await;
+                match op_status {
+                    Ok(streams_with_token) => {
+                        let temp = streams_with_token.into_inner();
+                        let t: Vec<StreamInfo> = temp.streams;
+                        if t.is_empty() {
+                            state.end_reached = true;
+                            None
+                        } else {
+                            // update state
+                            let r123: Vec<String> =
+                                t.iter().map(|i: &StreamInfo| i.stream.to_string()).collect();
+                            state.list.extend_from_slice(r123.as_slice());
+                            // state.list.extend(&r123);
+                            let token: Option<ContinuationToken> = temp.continuation_token;
+                            match token {
+                                None => {
+                                    println!("None returned for continuation token");
+                                }
+                                Some(ct) => {
+                                    println!("Returned token {}", ct.token);
+                                    state.token = ct
+                                }
+                            };
+
+                            Some((Ok(state.list.pop().unwrap()), state))
+                        }
+                    }
+                    Err(status) => {
+                        println!("Error");
+                        Some((Err(self.map_grpc_error(operation_name, status).await), state))
+                    }
+                }
+            } else {
+                None
+            }
+        });
+        let r1 = stream.collect::<Vec<Result<String>>>().await;
+        let request: StreamsInScopeRequest = StreamsInScopeRequest {
+            scope: Some(scope_info),
+            continuation_token: Some(empty_token.clone()),
+        };
+        let op_status: StdResult<tonic::Response<StreamsInScopeResponse>, tonic::Status> =
+            self.get_controller_client().list_streams_in_scope(request).await;
+
+        let t: Result<Vec<String>> = match op_status {
+            Ok(streams_with_token) => {
+                let temp = streams_with_token.into_inner();
+                let t: Vec<StreamInfo> = temp.streams;
+                let r: Vec<String> = t.iter().map(|i| i.stream.to_string()).collect();
+                let token: Option<ContinuationToken> = temp.continuation_token;
+                match token {
+                    None => println!("None returned for continuation token"),
+                    Some(ct) => println!("Returned token {}", ct.token),
+                };
+
+                Ok(r)
+            }
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
+        };
+        t
+        // self.get_controller_client().list_streams_in_scope(tonic::Reques::new )
+
+        // let stream = stream::unfold(listStream, |state| async move {
+        //     if state.list.is_empty() {
+        //         let next_state = state + 1;
+        //         let yielded = listStream.list.pop().unwrap();
+        //         Some((yielded, next_state))
+        //     } else {
+        //         self.get_controller_client().list_stream
+        //     }
+        // });
+    }
+
+    async fn call_list_streams2(&self, scope: &Scope) -> Result<Vec<String>> {
+        let operation_name = "CreateScope";
+
+        let scope_info: ScopeInfo = ScopeInfo::from(scope);
+        let empty_token: ContinuationToken = ContinuationToken {
+            token: "".to_string(),
+        };
+
+        let request: StreamsInScopeRequest = StreamsInScopeRequest {
+            scope: Some(scope_info),
+            continuation_token: Some(empty_token),
+        };
+        let op_status: StdResult<tonic::Response<StreamsInScopeResponse>, tonic::Status> =
+            self.get_controller_client().list_streams_in_scope(request).await;
+
+        let t: Result<Vec<String>> = match op_status {
+            Ok(streams_with_token) => {
+                let temp = streams_with_token.into_inner();
+                let t: Vec<StreamInfo> = temp.streams;
+                let r: Vec<String> = t.iter().map(|i| i.stream.to_string()).collect();
+                let token: Option<ContinuationToken> = temp.continuation_token;
+                match token {
+                    None => println!("None returned for continuation token"),
+                    Some(ct) => println!("Returned token {}", ct.token),
+                };
+
+                Ok(r)
+            }
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
+        };
+        t
+        // self.get_controller_client().list_streams_in_scope(tonic::Reques::new )
+
+        // let stream = stream::unfold(listStream, |state| async move {
+        //     if state.list.is_empty() {
+        //         let next_state = state + 1;
+        //         let yielded = listStream.list.pop().unwrap();
+        //         Some((yielded, next_state))
+        //     } else {
+        //         self.get_controller_client().list_stream
+        //     }
+        // });
     }
 
     async fn call_create_scope(&self, scope: &Scope) -> Result<bool> {
