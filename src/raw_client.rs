@@ -8,6 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::error::RawClientError::WrongReplyId;
 use crate::error::*;
 use async_trait::async_trait;
 use pravega_client_shared::PravegaNodeUri;
@@ -83,14 +84,11 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
         let reply = result.context(ReadReply {})?;
         if reply.get_request_id() != request.get_request_id() {
             client_connection.connection.invalidate();
-        }
-        ensure!(
-            reply.get_request_id() == request.get_request_id(),
-            WrongReplyId {
+            return Err(WrongReplyId {
                 reply_id: reply.get_request_id(),
                 request_id: request.get_request_id(),
-            }
-        );
+            });
+        }
         check_auth_token_expired(&reply)?;
         Ok(reply)
     }
@@ -113,14 +111,11 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
         let reply = result.context(ReadReply {})?;
         if reply.get_request_id() != request.get_request_id() {
             client_connection.connection.invalidate();
-        }
-        ensure!(
-            reply.get_request_id() == request.get_request_id(),
-            WrongReplyId {
+            return Err(WrongReplyId {
                 reply_id: reply.get_request_id(),
                 request_id: request.get_request_id(),
-            }
-        );
+            });
+        }
         check_auth_token_expired(&reply)?;
         Ok((reply, Box::new(client_connection) as Box<dyn ClientConnection>))
     }
