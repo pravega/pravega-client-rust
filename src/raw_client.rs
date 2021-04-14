@@ -17,7 +17,7 @@ use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectio
 use pravega_wire_protocol::commands::{Reply, Request};
 use pravega_wire_protocol::connection_factory::SegmentConnectionManager;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
-use snafu::{ensure, ResultExt};
+use snafu::ResultExt;
 use std::fmt;
 use tokio::time::{timeout, Duration};
 

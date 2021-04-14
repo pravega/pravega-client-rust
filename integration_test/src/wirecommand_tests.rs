@@ -456,7 +456,7 @@ async fn test_get_stream_segment_info(factory: &ClientFactory) {
         .await
         .expect("fail to get reply");
     if let Replies::StreamSegmentInfo(info) = reply {
-        assert!(info.is_sealed, true);
+        assert!(info.is_sealed);
     } else {
         panic!("Wrong reply type");
     }

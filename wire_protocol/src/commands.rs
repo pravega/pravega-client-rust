@@ -502,7 +502,7 @@ impl Command for EventCommand {
     fn read_from(input: &[u8]) -> Result<Self, CommandError> {
         //read the type_code.
         let _type_code = BigEndian::read_i32(input);
-        let decoded: EventCommand = CONFIG.deserialize(input).context(InvalidData {
+        let decoded: EventCommand = CONFIG.deserialize(&input[4..]).context(InvalidData {
             command_type: Self::TYPE_CODE,
         })?;
         Ok(decoded)
