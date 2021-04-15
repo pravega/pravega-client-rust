@@ -30,11 +30,11 @@ cfg_if! {
         use crate::stream_writer_transactional::StreamTxnWriter;
         use crate::transaction::StreamTransaction;
         use pyo3::create_exception;
-        use pyo3::exceptions::Exception;
+        use pyo3::exceptions::PyException;
 
         const TXNFAILED_EXCEPTION_DOCSTRING: &str = "This exception indicates a transaction has failed.\
         Usually because the transaction timed out or someone called transaction.abort()";
-        create_exception!(pravega_client, TxnFailedException, Exception);
+        create_exception!(pravega_client, TxnFailedException, PyException);
     }
 }
 

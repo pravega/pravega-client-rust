@@ -49,7 +49,7 @@ impl StreamTxnWriter {
         let result = self.factory.get_runtime().block_on(self.writer.begin());
         match result {
             Ok(txn) => Ok(StreamTransaction::new(txn, self.factory.clone())),
-            Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
+            Err(e) => Err(exceptions::PyValueError::new_err(format!("{:?}", e))),
         }
     }
 
@@ -66,7 +66,7 @@ impl StreamTxnWriter {
 
         match result {
             Ok(txn) => Ok(StreamTransaction::new(txn, self.factory.clone())),
-            Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
+            Err(e) => Err(exceptions::PyValueError::new_err(format!("{:?}", e))),
         }
     }
 

@@ -868,7 +868,6 @@ impl ControllerClientImpl {
         let request = CreateTxnRequest {
             stream_info: Some(StreamInfo::from(stream)),
             lease: lease.as_millis() as i64,
-            scale_grace_period: 0,
         };
         let op_status: StdResult<tonic::Response<CreateTxnResponse>, tonic::Status> = self
             .get_controller_client()
@@ -941,11 +940,6 @@ impl ControllerClientImpl {
                     can_retry: false, // do not retry.
                     operation: operation_name.into(),
                     error_msg: "Ping transaction failed, Reason:MaxExecutionTimeExceeded".into(),
-                }),
-                Status::ScaleGraceTimeExceeded => Err(ControllerError::OperationError {
-                    can_retry: false, // do not retry.
-                    operation: operation_name.into(),
-                    error_msg: "Ping transaction failed, Reason:ScaleGraceTimeExceeded".into(),
                 }),
                 Status::Disconnected => Err(ControllerError::OperationError {
                     can_retry: false, // do not retry.

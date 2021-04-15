@@ -222,7 +222,11 @@ mod tests {
         assert_eq!(
             config.credentials.get_request_metadata(),
             format!("{} {}", "Basic", "ABCDE")
-        )
+        );
+        env::remove_var("pravega_client_auth_method");
+        env::remove_var("pravega_client_auth_username");
+        env::remove_var("pravega_client_auth_password");
+        env::remove_var("pravega_client_auth_token");
     }
 
     #[test]
@@ -241,5 +245,6 @@ mod tests {
             .build()
             .unwrap();
         assert_eq!(config.trustcert, "/");
+        env::remove_var("pravega_client_tls_cert_path");
     }
 }

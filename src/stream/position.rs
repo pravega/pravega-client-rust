@@ -30,7 +30,7 @@ impl PositionVersioned {
     }
 
     fn from_bytes(input: &[u8]) -> Result<PositionVersioned, SerdeError> {
-        let decoded: PositionVersioned = from_slice(&input[..]).context(Cbor {
+        let decoded: PositionVersioned = from_slice(input).context(Cbor {
             msg: "serialize PositionVersioned".to_owned(),
         })?;
         Ok(decoded)

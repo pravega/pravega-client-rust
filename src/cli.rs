@@ -653,11 +653,10 @@ async fn main() {
             table_segment_offset,
         } => {
             let id = ID_GENERATOR.fetch_add(1, Ordering::SeqCst) as i64;
-            let mut entries = Vec::new();
-            entries.push((
+            let entries = vec![(
                 TableKey::new(key.into_bytes(), key_version),
                 TableValue::new(value.into_bytes()),
-            ));
+            )];
             let table = TableEntries { entries };
             let request = Requests::UpdateTableEntries(UpdateTableEntriesCommand {
                 request_id: id,
