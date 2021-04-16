@@ -736,7 +736,6 @@ impl TableMap {
                 .create_raw_client_for_endpoint(self.endpoint.clone())
                 .send_request(&req)
                 .await;
-            debug!("Reply for read tableKeys request {:?}", result);
             match result {
                 Ok(reply) => RetryResult::Success(reply),
                 Err(e) => {
