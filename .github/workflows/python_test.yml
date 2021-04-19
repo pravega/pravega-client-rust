@@ -44,6 +44,7 @@ jobs:
         run: tox -c bindings/tox.ini
       - name: Upload Pravega standalone logs
         uses: actions/upload-artifact@v2
+        if: always()
         with:
           name: pravega-standalone-log
           path: pravega.log
