@@ -26,7 +26,7 @@ jobs:
         run: |
           wget https://github.com/Tristan1900/pravega/releases/download/ip-fix/pravega-0.10.0-ip-fix.tgz
           tar -xzvf pravega-0.10.0-ip-fix.tgz
-          pravega-0.10.0-ip-fix/bin/pravega-standalone > pravega.log 2>&1 &
+          pravega-0.10.0-2866.172245f-SNAPSHOT/bin/pravega-standalone > pravega.log 2>&1 &
           sleep 120 && echo "Started standalone"
       - name: Set up Python
         uses: actions/setup-python@v2
