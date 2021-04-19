@@ -107,7 +107,7 @@ impl TransactionalEventStreamWriter {
             .context(TxnStreamControllerError {})?;
         info!("Transaction {} created", txn_segments.tx_id);
         let txn_id = txn_segments.tx_id;
-        self.pinger_handle.add(txn_id).await?;
+        self.pinger_handle.add(txn_id)?;
         Ok(Transaction::new(
             TransactionInfo::new(txn_id, self.writer_id, self.stream.clone(), false),
             txn_segments.stream_segments,

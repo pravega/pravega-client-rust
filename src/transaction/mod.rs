@@ -206,7 +206,6 @@ impl Transaction {
         // remove this transaction from ping list
         self.handle
             .remove(self.info.txn_id)
-            .await
             .context(TxnStreamWriterError {})?;
 
         self.factory
@@ -235,7 +234,6 @@ impl Transaction {
         // remove this transaction from ping list
         self.handle
             .remove(self.info.txn_id)
-            .await
             .context(TxnStreamWriterError {})?;
 
         self.factory
