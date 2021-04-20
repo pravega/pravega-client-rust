@@ -29,7 +29,7 @@ impl EventPointerVersioned {
     }
 
     fn from_bytes(input: &[u8]) -> Result<EventPointerVersioned, SerdeError> {
-        let decoded: EventPointerVersioned = from_slice(&input[..]).context(Cbor {
+        let decoded: EventPointerVersioned = from_slice(input).context(Cbor {
             msg: "deserialize EventPointerVersioned".to_owned(),
         })?;
         Ok(decoded)

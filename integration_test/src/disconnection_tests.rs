@@ -106,7 +106,7 @@ async fn create_scope_stream(controller_client: &dyn ControllerClient) {
     })
     .await
     .expect("create scope");
-    assert!(result, true);
+    assert!(result);
 
     let stream_name = Stream::from("testStream".to_owned());
     let request = StreamConfiguration {
@@ -135,7 +135,7 @@ async fn create_scope_stream(controller_client: &dyn ControllerClient) {
     })
     .await
     .expect("create stream");
-    assert!(result, true);
+    assert!(result);
 }
 
 fn test_retry_with_unexpected_reply() {

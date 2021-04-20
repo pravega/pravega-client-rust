@@ -1040,7 +1040,7 @@ mod test {
         let value_option = sync.get("outer_key", "inner_key");
         assert!(value_option.is_some());
 
-        rt.block_on(sync.remove(|table| {
+        rt.block_on(sync.insert(|table| {
             table.insert_tombstone("outer_key".to_owned(), "inner_key".to_owned())?;
             Ok(None)
         }))

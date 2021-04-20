@@ -7,6 +7,7 @@
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
+#![allow(clippy::from_over_into)]
 
 #[macro_use]
 extern crate cfg_if;

@@ -187,11 +187,11 @@ impl Reactor {
                 Ok(())
             }
             _ => {
-                error!(
-                    "receive unexpected reply {:?}, closing stream reactor",
+                info!(
+                    "receive unexpected reply {:?}, probably because of the stale message in a reused connection",
                     server_reply.reply
                 );
-                Err("Unexpected reply")
+                Ok(())
             }
         }
     }

@@ -8,11 +8,13 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::error::RawClientError::WrongReplyId;
 use crate::error::*;
 use async_trait::async_trait;
 use pravega_client_shared::PravegaNodeUri;
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
+use pravega_wire_protocol::commands::{Reply, Request};
 use pravega_wire_protocol::connection_factory::SegmentConnectionManager;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use snafu::ResultExt;
@@ -80,6 +82,13 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
             .await
             .context(RequestTimeout {})?;
         let reply = result.context(ReadReply {})?;
+        if reply.get_request_id() != request.get_request_id() {
+            client_connection.connection.invalidate();
+            return Err(WrongReplyId {
+                reply_id: reply.get_request_id(),
+                request_id: request.get_request_id(),
+            });
+        }
         check_auth_token_expired(&reply)?;
         Ok(reply)
     }
@@ -100,6 +109,13 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
             .await
             .context(RequestTimeout {})?;
         let reply = result.context(ReadReply {})?;
+        if reply.get_request_id() != request.get_request_id() {
+            client_connection.connection.invalidate();
+            return Err(WrongReplyId {
+                reply_id: reply.get_request_id(),
+                request_id: request.get_request_id(),
+            });
+        }
         check_auth_token_expired(&reply)?;
         Ok((reply, Box::new(client_connection) as Box<dyn ClientConnection>))
     }

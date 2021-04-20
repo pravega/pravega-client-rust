@@ -30,15 +30,14 @@ impl From<TxId> for TxnId {
         }
     }
 }
-
-impl Into<SegmentId> for ScopedSegment {
-    fn into(self) -> SegmentId {
+impl From<ScopedSegment> for SegmentId {
+    fn from(segment: ScopedSegment) -> SegmentId {
         SegmentId {
             stream_info: Some(StreamInfo {
-                scope: self.scope.name,
-                stream: self.stream.name,
+                scope: segment.scope.name,
+                stream: segment.stream.name,
             }),
-            segment_id: self.segment.number,
+            segment_id: segment.segment.number,
         }
     }
 }
@@ -54,12 +53,11 @@ impl<'a> From<&'a ScopedSegment> for SegmentId {
         }
     }
 }
-
-impl Into<StreamInfo> for ScopedStream {
-    fn into(self) -> StreamInfo {
+impl From<ScopedStream> for StreamInfo {
+    fn from(stream: ScopedStream) -> StreamInfo {
         StreamInfo {
-            scope: self.scope.name,
-            stream: self.stream.name,
+            scope: stream.scope.name,
+            stream: stream.stream.name,
         }
     }
 }
@@ -98,30 +96,28 @@ impl<'a> From<&'a StreamConfiguration> for StreamConfig {
         }
     }
 }
-
-impl Into<StreamConfig> for StreamConfiguration {
-    fn into(self) -> StreamConfig {
+impl From<StreamConfiguration> for StreamConfig {
+    fn from(config: StreamConfiguration) -> StreamConfig {
         StreamConfig {
-            stream_info: Some(self.scoped_stream.into()),
+            stream_info: Some(config.scoped_stream.into()),
             scaling_policy: Some(ScalingPolicy {
-                scale_type: self.scaling.scale_type as i32,
-                target_rate: self.scaling.target_rate,
-                scale_factor: self.scaling.scale_factor,
-                min_num_segments: self.scaling.min_num_segments,
+                scale_type: config.scaling.scale_type as i32,
+                target_rate: config.scaling.target_rate,
+                scale_factor: config.scaling.scale_factor,
+                min_num_segments: config.scaling.min_num_segments,
             }),
             retention_policy: Some(RetentionPolicy {
-                retention_type: self.retention.retention_type as i32,
-                retention_param: self.retention.retention_param,
+                retention_type: config.retention.retention_type as i32,
+                retention_param: config.retention.retention_param,
             }),
         }
     }
 }
-
-impl Into<crate::controller::StreamCut> for pravega_client_shared::StreamCut {
-    fn into(self) -> crate::controller::StreamCut {
+impl From<pravega_client_shared::StreamCut> for crate::controller::StreamCut {
+    fn from(cut: pravega_client_shared::StreamCut) -> crate::controller::StreamCut {
         crate::controller::StreamCut {
-            stream_info: Some(self.scoped_stream.into()),
-            cut: self.segment_offset_map,
+            stream_info: Some(cut.scoped_stream.into()),
+            cut: cut.segment_offset_map,
         }
     }
 }

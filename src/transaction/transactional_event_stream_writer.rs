@@ -82,7 +82,7 @@ impl TransactionalEventStreamWriter {
             Arc::new(factory.create_delegation_token_provider(stream.clone()).await);
         let runtime_handle = factory.get_runtime();
         let span = info_span!("Pinger", transactional_event_stream_writer = %writer_id);
-        runtime_handle.enter();
+        let _guard = runtime_handle.enter();
         tokio::spawn(async move { pinger.start_ping().instrument(span).await });
         TransactionalEventStreamWriter {
             stream,
@@ -107,7 +107,7 @@ impl TransactionalEventStreamWriter {
             .context(TxnStreamControllerError {})?;
         info!("Transaction {} created", txn_segments.tx_id);
         let txn_id = txn_segments.tx_id;
-        self.pinger_handle.add(txn_id).await?;
+        self.pinger_handle.add(txn_id)?;
         Ok(Transaction::new(
             TransactionInfo::new(txn_id, self.writer_id, self.stream.clone(), false),
             txn_segments.stream_segments,
