@@ -40,6 +40,9 @@ pub enum RawClientError {
 
     #[snafu(display("Request has timed out: {:?}", source))]
     RequestTimeout { source: Elapsed },
+
+    #[snafu(display("Wrong reply id {:?} for request {:?}", reply_id, request_id))]
+    WrongReplyId { reply_id: i64, request_id: i64 },
 }
 
 impl RawClientError {

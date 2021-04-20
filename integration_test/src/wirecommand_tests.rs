@@ -456,7 +456,7 @@ async fn test_get_stream_segment_info(factory: &ClientFactory) {
         .await
         .expect("fail to get reply");
     if let Replies::StreamSegmentInfo(info) = reply {
-        assert!(info.is_sealed, true);
+        assert!(info.is_sealed);
     } else {
         panic!("Wrong reply type");
     }
@@ -787,15 +787,16 @@ async fn test_update_table_entries(factory: &ClientFactory) {
     raw_client.send_request(&request).await.expect("create segment");
 
     //create a table.
-    let mut entries = Vec::new();
-    entries.push((
-        TableKey::new(String::from("key1").into_bytes(), i64::min_value()),
-        TableValue::new(String::from("value1").into_bytes()),
-    ));
-    entries.push((
-        TableKey::new(String::from("key2").into_bytes(), i64::min_value()),
-        TableValue::new(String::from("value2").into_bytes()),
-    ));
+    let entries = vec![
+        (
+            TableKey::new(String::from("key1").into_bytes(), i64::min_value()),
+            TableValue::new(String::from("value1").into_bytes()),
+        ),
+        (
+            TableKey::new(String::from("key2").into_bytes(), i64::min_value()),
+            TableValue::new(String::from("value2").into_bytes()),
+        ),
+    ];
     let table = TableEntries { entries };
     let request = Requests::UpdateTableEntries(UpdateTableEntriesCommand {
         request_id: 19,
@@ -804,9 +805,7 @@ async fn test_update_table_entries(factory: &ClientFactory) {
         table_entries: table,
         table_segment_offset: -1,
     });
-    let mut versions = Vec::new();
-    versions.push(0_i64);
-    versions.push(27_i64); //  why return version is 27.
+    let versions = vec![0_i64, 27_i64];
     let reply = Replies::TableEntriesUpdated(TableEntriesUpdatedCommand {
         request_id: 19,
         updated_versions: versions,
@@ -818,11 +817,10 @@ async fn test_update_table_entries(factory: &ClientFactory) {
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 
     //test table key not exist.
-    let mut entries = Vec::new();
-    entries.push((
+    let entries = vec![(
         TableKey::new(String::from("key3").into_bytes(), 1),
         TableValue::new(String::from("value3").into_bytes()),
-    ));
+    )];
     let table = TableEntries { entries };
     let request = Requests::UpdateTableEntries(UpdateTableEntriesCommand {
         request_id: 20,
@@ -842,11 +840,10 @@ async fn test_update_table_entries(factory: &ClientFactory) {
         .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
 
     //test table key bad version.
-    let mut entries = Vec::new();
-    entries.push((
+    let entries = vec![(
         TableKey::new(String::from("key1").into_bytes(), 10),
         TableValue::new(String::from("value1").into_bytes()),
-    ));
+    )];
     let table = TableEntries { entries };
     let request = Requests::UpdateTableEntries(UpdateTableEntriesCommand {
         request_id: 21,
@@ -895,10 +892,10 @@ async fn test_read_table_key(factory: &ClientFactory) {
         continuation_token: Vec::new(),
     });
 
-    let mut keys = Vec::new();
-    keys.push(TableKey::new(String::from("key1").into_bytes(), 0));
-    keys.push(TableKey::new(String::from("key2").into_bytes(), 27));
-
+    let keys = vec![
+        TableKey::new(String::from("key1").into_bytes(), 0),
+        TableKey::new(String::from("key2").into_bytes(), 27),
+    ];
     let reply = raw_client.send_request(&request).await.expect("read table key");
 
     if let Replies::TableKeysRead(t) = reply {
@@ -930,10 +927,10 @@ async fn test_read_table(factory: &ClientFactory) {
         factory.get_config().request_timeout(),
     );
 
-    let mut keys = Vec::new();
-    keys.push(TableKey::new(String::from("key1").into_bytes(), i64::min_value()));
-    keys.push(TableKey::new(String::from("key2").into_bytes(), i64::min_value()));
-
+    let keys = vec![
+        TableKey::new(String::from("key1").into_bytes(), i64::MIN),
+        TableKey::new(String::from("key2").into_bytes(), i64::MIN),
+    ];
     let request = Requests::ReadTable(ReadTableCommand {
         request_id: 23,
         segment: segment_name.to_string(),
@@ -941,15 +938,16 @@ async fn test_read_table(factory: &ClientFactory) {
         keys,
     });
 
-    let mut entries = Vec::new();
-    entries.push((
-        TableKey::new(String::from("key1").into_bytes(), 0),
-        TableValue::new(String::from("value1").into_bytes()),
-    ));
-    entries.push((
-        TableKey::new(String::from("key2").into_bytes(), 27),
-        TableValue::new(String::from("value2").into_bytes()),
-    ));
+    let entries = vec![
+        (
+            TableKey::new(String::from("key1").into_bytes(), 0),
+            TableValue::new(String::from("value1").into_bytes()),
+        ),
+        (
+            TableKey::new(String::from("key2").into_bytes(), 27),
+            TableValue::new(String::from("value2").into_bytes()),
+        ),
+    ];
     let table = TableEntries { entries };
 
     let reply = Replies::TableRead(TableReadCommand {
@@ -958,10 +956,10 @@ async fn test_read_table(factory: &ClientFactory) {
         entries: table,
     });
 
-    raw_client
-        .send_request(&request)
-        .await
-        .map_or_else(|e| panic!("failed to get reply: {}", e), |r| assert_eq!(reply, r));
+    raw_client.send_request(&request).await.map_or_else(
+        |e| panic!("failed to get reply: {:?}", e),
+        |r| assert_eq!(reply, r),
+    );
 }
 
 async fn test_read_table_entries(factory: &ClientFactory) {
@@ -993,15 +991,16 @@ async fn test_read_table_entries(factory: &ClientFactory) {
         continuation_token: Vec::new(),
     });
 
-    let mut entries = Vec::new();
-    entries.push((
-        TableKey::new(String::from("key1").into_bytes(), 0),
-        TableValue::new(String::from("value1").into_bytes()),
-    ));
-    entries.push((
-        TableKey::new(String::from("key2").into_bytes(), 27),
-        TableValue::new(String::from("value2").into_bytes()),
-    ));
+    let entries = vec![
+        (
+            TableKey::new(String::from("key1").into_bytes(), 0),
+            TableValue::new(String::from("value1").into_bytes()),
+        ),
+        (
+            TableKey::new(String::from("key2").into_bytes(), 27),
+            TableValue::new(String::from("value2").into_bytes()),
+        ),
+    ];
     let table = TableEntries { entries };
 
     let reply = raw_client

@@ -19,7 +19,7 @@ use std::collections::HashMap;
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) enum StreamCutVersioned {
     V1(StreamCutV1),
-    UNBOUNDED,
+    Unbounded,
 }
 
 impl StreamCutVersioned {
@@ -31,7 +31,7 @@ impl StreamCutVersioned {
     }
 
     fn from_bytes(input: &[u8]) -> Result<StreamCutVersioned, SerdeError> {
-        let decoded: StreamCutVersioned = from_slice(&input[..]).context(Cbor {
+        let decoded: StreamCutVersioned = from_slice(input).context(Cbor {
             msg: "serialize StreamCutVersioned".to_owned(),
         })?;
         Ok(decoded)

@@ -117,10 +117,10 @@ message TxnStatus {
 
 message PingTxnStatus {
     enum Status {
+        reserved 3;
         OK = 0;
         LEASE_TOO_LARGE = 1;
         MAX_EXECUTION_TIME_EXCEEDED = 2;
-        SCALE_GRACE_TIME_EXCEEDED = 3 [deprecated=true];
         DISCONNECTED = 4;
         COMMITTED = 5;
         ABORTED = 6;
@@ -240,9 +240,9 @@ message TxnId {
 }
 
 message CreateTxnRequest {
+    reserved 3;
     StreamInfo streamInfo = 1;
     int64 lease = 2;
-    int64 scaleGracePeriod = 3 [deprecated=true];
 }
 
 message CreateTxnResponse {

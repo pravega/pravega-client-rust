@@ -14,7 +14,7 @@ use futures::FutureExt;
 use pravega_client_shared::{PingStatus, ScopedStream, TxId};
 use std::collections::HashSet;
 use std::time::Duration;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::time::sleep;
 use tracing::{debug, error, info};
 
@@ -33,17 +33,17 @@ pub(crate) struct Pinger {
     txn_lease_millis: u64,
     ping_interval_millis: u64,
     factory: ClientFactory,
-    receiver: Receiver<PingerEvent>,
+    receiver: UnboundedReceiver<PingerEvent>,
 }
 
 /// PingerHandle is just a wrapped channel sender which is used to communicate with the Pinger.
 /// It can be used to add or remove a transaction from Pinger's ping list.
 #[derive(Clone)]
-pub(crate) struct PingerHandle(Sender<PingerEvent>);
+pub(crate) struct PingerHandle(UnboundedSender<PingerEvent>);
 
 impl PingerHandle {
-    pub(crate) async fn add(&mut self, txn_id: TxId) -> Result<(), TransactionalEventStreamWriterError> {
-        if let Err(e) = self.0.send(PingerEvent::Add(txn_id)).await {
+    pub(crate) fn add(&mut self, txn_id: TxId) -> Result<(), TransactionalEventStreamWriterError> {
+        if let Err(e) = self.0.send(PingerEvent::Add(txn_id)) {
             error!("pinger failed to add transaction: {:?}", e);
             Err(TransactionalEventStreamWriterError::PingerError {
                 msg: format!("failed to add transaction due to: {:?}", e),
@@ -53,8 +53,8 @@ impl PingerHandle {
         }
     }
 
-    pub(crate) async fn remove(&mut self, txn_id: TxId) -> Result<(), TransactionalEventStreamWriterError> {
-        if let Err(e) = self.0.send(PingerEvent::Remove(txn_id)).await {
+    pub(crate) fn remove(&mut self, txn_id: TxId) -> Result<(), TransactionalEventStreamWriterError> {
+        if let Err(e) = self.0.send(PingerEvent::Remove(txn_id)) {
             error!("pinger failed to remove transaction: {:?}", e);
             Err(TransactionalEventStreamWriterError::PingerError {
                 msg: format!("failed to remove transaction due to: {:?}", e),
@@ -63,16 +63,11 @@ impl PingerHandle {
             Ok(())
         }
     }
+}
 
-    pub(crate) async fn shutdown(&mut self) -> Result<(), TransactionalEventStreamWriterError> {
-        if let Err(e) = self.0.send(PingerEvent::Terminate).await {
-            error!("pinger failed to shutdown: {:?}", e);
-            Err(TransactionalEventStreamWriterError::PingerError {
-                msg: format!("failed to shutdown transaction due to: {:?}", e),
-            })
-        } else {
-            Ok(())
-        }
+impl Drop for PingerHandle {
+    fn drop(&mut self) {
+        let _res = self.0.send(PingerEvent::Terminate);
     }
 }
 
@@ -82,7 +77,7 @@ impl Pinger {
         txn_lease_millis: u64,
         factory: ClientFactory,
     ) -> (Self, PingerHandle) {
-        let (tx, rx) = channel(100);
+        let (tx, rx) = unbounded_channel();
         let pinger = Pinger {
             stream,
             txn_lease_millis,

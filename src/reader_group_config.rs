@@ -95,7 +95,7 @@ impl ReaderGroupConfigBuilder {
     ///
     pub fn add_stream(&mut self, stream: ScopedStream) -> &mut Self {
         self.starting_stream_cuts
-            .insert(stream, StreamCutVersioned::UNBOUNDED);
+            .insert(stream, StreamCutVersioned::Unbounded);
         self
     }
 
@@ -133,7 +133,7 @@ impl ReaderGroupConfigVersioned {
     }
 
     fn from_bytes(input: &[u8]) -> Result<ReaderGroupConfigVersioned, SerdeError> {
-        let decoded: ReaderGroupConfigVersioned = from_slice(&input[..]).context(Cbor {
+        let decoded: ReaderGroupConfigVersioned = from_slice(input).context(Cbor {
             msg: "serialize ReaderGroupConfigVersioned".to_owned(),
         })?;
         Ok(decoded)
@@ -174,14 +174,14 @@ impl ReaderGroupConfigV1 {
             self.starting_stream_cuts.insert(stream.clone(), cut);
         } else {
             self.starting_stream_cuts
-                .insert(stream.clone(), StreamCutVersioned::UNBOUNDED);
+                .insert(stream.clone(), StreamCutVersioned::Unbounded);
         }
 
         if let Some(cut) = ending_stream_cuts {
             self.ending_stream_cuts.insert(stream, cut);
         } else {
             self.ending_stream_cuts
-                .insert(stream, StreamCutVersioned::UNBOUNDED);
+                .insert(stream, StreamCutVersioned::Unbounded);
         }
 
         self
@@ -234,7 +234,7 @@ mod tests {
             .starting_stream_cuts
             .contains_key(&ScopedStream::from("scope2/s2")));
         for val in v1.starting_stream_cuts.values() {
-            assert_eq!(&StreamCutVersioned::UNBOUNDED, val);
+            assert_eq!(&StreamCutVersioned::Unbounded, val);
         }
     }
 
@@ -251,7 +251,7 @@ mod tests {
             .starting_stream_cuts
             .contains_key(&ScopedStream::from("scope1/s1")));
         for val in v1.starting_stream_cuts.values() {
-            assert_eq!(&StreamCutVersioned::UNBOUNDED, val);
+            assert_eq!(&StreamCutVersioned::Unbounded, val);
         }
     }
 

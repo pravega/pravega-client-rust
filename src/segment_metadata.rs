@@ -199,6 +199,8 @@ impl SegmentMetadataClient {
                         RetryResult::Retry("wrong host".to_string())
                     }
                     Replies::NoSuchSegment(_cmd) => RetryResult::Fail("no such segment".to_string()),
+                    // this might caused by retry.
+                    Replies::SegmentIsSealed(_cmd) => RetryResult::Success(()),
                     _ => RetryResult::Fail("unexpected reply".to_string()),
                 },
                 Err(e) => {

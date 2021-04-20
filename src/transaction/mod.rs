@@ -73,7 +73,7 @@ impl Transaction {
         let txn_id = info.txn_id;
         let span = info_span!("StreamReactor", txn_id = %txn_id, event_stream_writer = %writer_id);
         // tokio::spawn is tied to the factory runtime.
-        rt_handle.enter();
+        let _guard = rt_handle.enter();
         tokio::spawn(
             Reactor::run(
                 info.stream.clone(),
@@ -206,7 +206,6 @@ impl Transaction {
         // remove this transaction from ping list
         self.handle
             .remove(self.info.txn_id)
-            .await
             .context(TxnStreamWriterError {})?;
 
         self.factory
@@ -235,7 +234,6 @@ impl Transaction {
         // remove this transaction from ping list
         self.handle
             .remove(self.info.txn_id)
-            .await
             .context(TxnStreamWriterError {})?;
 
         self.factory

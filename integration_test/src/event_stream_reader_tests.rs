@@ -44,6 +44,7 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
     test_multiple_readers(&client_factory);
     test_reader_offline(&client_factory);
     test_segment_rebalance(&client_factory);
+    info!("test event stream reader finished");
 }
 
 fn test_read_large_events(client_factory: &ClientFactory, rt: &Runtime) {
