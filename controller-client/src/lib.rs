@@ -131,7 +131,7 @@ pub trait ControllerClient: Send + Sync {
 
     /**
      * API to list streams under a given scope and continuation token.
-     * Use the Paginator class to simplifythis usage
+     * Use the pravega_controller_client::paginator::list_streams to paginate over all the streams.
      */
     async fn list_streams(&self, scope: &Scope, token: &String)
         -> ResultRetry<Option<(Vec<String>, String)>>;
@@ -636,7 +636,7 @@ impl ControllerClientImpl {
 
         let op_status: StdResult<tonic::Response<StreamsInScopeResponse>, tonic::Status> =
             self.get_controller_client().list_streams_in_scope(request).await;
-        let ttt: Result<Option<(Vec<String>, String)>> = match op_status {
+        match op_status {
             Ok(streams_with_token) => {
                 let result = streams_with_token.into_inner();
                 let t: Vec<StreamInfo> = result.streams;
@@ -669,86 +669,8 @@ impl ControllerClientImpl {
                 debug!("Error {} while listing streams under scope {}", status, scope);
                 Err(self.map_grpc_error(operation_name, status).await)
             }
-        };
-        ttt
+        }
     }
-
-    // async fn list_stream_paginated(
-    //     &self,
-    //     scope: &Scope,
-    // ) -> impl Stream<Item = StdResult<String, ControllerError>> {
-    //     // Struct used to track the status of state of the results.
-    //     struct State {
-    //         list: Vec<String>,
-    //         token: ContinuationToken,
-    //     };
-    //
-    //     let operation_name = "ListStreams";
-    //     // Initial state with an empty Continuation token.
-    //     let init_state = State {
-    //         list: vec![],
-    //         token: ContinuationToken {
-    //             token: "".to_string(),
-    //         },
-    //     };
-    //
-    //     let stream_result = stream::unfold(init_state, |mut state| async move {
-    //         if !state.list.is_empty() {
-    //             // Return from already fetched stream list.
-    //             Some((Ok(state.list.pop().unwrap()), state))
-    //         } else {
-    //             // The list is empty, try fetching it from the controller using the previous continuation token.
-    //             let request: StreamsInScopeRequest = StreamsInScopeRequest {
-    //                 scope: Some(ScopeInfo::from(scope)),
-    //                 continuation_token: Some(state.token.clone()),
-    //             };
-    //             debug!(
-    //                 "Triggering a request to the controller to list streams for scope {}",
-    //                 scope
-    //             );
-    //             let op_status: StdResult<tonic::Response<StreamsInScopeResponse>, tonic::Status> =
-    //                 self.get_controller_client().list_streams_in_scope(request).await;
-    //             match op_status {
-    //                 Ok(streams_with_token) => {
-    //                     let result = streams_with_token.into_inner();
-    //                     let t: Vec<StreamInfo> = result.streams;
-    //                     if t.is_empty() {
-    //                         // Empty result from the controller implies no further streams present.
-    //                         None
-    //                     } else {
-    //                         // update state with the new set of streams.
-    //                         let stream_list: Vec<String> =
-    //                             t.iter().map(|i: &StreamInfo| i.stream.to_string()).collect();
-    //                         state.list.extend_from_slice(stream_list.as_slice());
-    //                         let token: Option<ContinuationToken> = result.continuation_token;
-    //                         match token {
-    //                             None => {
-    //                                 warn!(
-    //                                     "None returned for continuation token list streams API for scope {}",
-    //                                     scope
-    //                                 );
-    //                             }
-    //                             Some(ct) => {
-    //                                 debug!(
-    //                                     "Returned token {} for list streams API under scope {}",
-    //                                     ct.token, scope
-    //                                 );
-    //                                 state.token = ct
-    //                             }
-    //                         };
-    //                         Some((Ok(state.list.pop().unwrap()), state))
-    //                     }
-    //                 }
-    //                 Err(status) => {
-    //                     debug!("Error {} while listing streams under scope {}", status, scope);
-    //                     Some((Err(self.map_grpc_error(operation_name, status).await), state))
-    //                 }
-    //             }
-    //         }
-    //     })
-    //     .boxed();
-    //     stream_result
-    // }
 
     async fn call_create_scope(&self, scope: &Scope) -> Result<bool> {
         use create_scope_status::Status;
