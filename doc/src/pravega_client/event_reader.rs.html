@@ -1673,7 +1673,7 @@
         <span class="ident">slice_meta_map</span>.<span class="ident">iter</span>().<span class="ident">for_each</span>(<span class="op">|</span>(<span class="ident">segment</span>, <span class="ident">meta</span>)<span class="op">|</span> {
             <span class="kw">let</span> (<span class="ident">tx_stop</span>, <span class="ident">rx_stop</span>) <span class="op">=</span> <span class="ident">oneshot</span>::<span class="ident">channel</span>();
             <span class="ident">stop_reading_map</span>.<span class="ident">insert</span>(<span class="ident">segment</span>.<span class="ident">clone</span>(), <span class="ident">tx_stop</span>);
-            <span class="ident">factory</span>.<span class="ident">get_runtime</span>().<span class="ident">enter</span>();
+            <span class="kw">let</span> <span class="ident">_guard</span> <span class="op">=</span> <span class="ident">factory</span>.<span class="ident">get_runtime</span>().<span class="ident">enter</span>();
             <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="ident">SegmentSlice</span>::<span class="ident">get_segment_data</span>(
                 <span class="ident">segment</span>.<span class="ident">clone</span>(),
                 <span class="ident">meta</span>.<span class="ident">start_offset</span>,
@@ -2763,4 +2763,5 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "pravega_client";</script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="pravega_client"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

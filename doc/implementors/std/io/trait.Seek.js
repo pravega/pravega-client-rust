@@ -1,3 +1,3 @@
 (function() {var implementors = {};
-implementors["pravega_client"] = [{"text":"impl Seek for ByteStreamReader","synthetic":false,"types":[]}];
+implementors["pravega_client"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/std/io/trait.Seek.html\" title=\"trait std::io::Seek\">Seek</a> for <a class=\"struct\" href=\"pravega_client/byte_stream/struct.ByteStreamReader.html\" title=\"struct pravega_client::byte_stream::ByteStreamReader\">ByteStreamReader</a>","synthetic":false,"types":["pravega_client::byte_stream::ByteStreamReader"]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -283,7 +283,7 @@
             <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">factory</span>.<span class="ident">create_delegation_token_provider</span>(<span class="ident">stream</span>.<span class="ident">clone</span>()).<span class="kw">await</span>);
         <span class="kw">let</span> <span class="ident">runtime_handle</span> <span class="op">=</span> <span class="ident">factory</span>.<span class="ident">get_runtime</span>();
         <span class="kw">let</span> <span class="ident">span</span> <span class="op">=</span> <span class="macro">info_span</span><span class="macro">!</span>(<span class="string">&quot;Pinger&quot;</span>, <span class="ident">transactional_event_stream_writer</span> <span class="op">=</span> <span class="op">%</span><span class="ident">writer_id</span>);
-        <span class="ident">runtime_handle</span>.<span class="ident">enter</span>();
+        <span class="kw">let</span> <span class="ident">_guard</span> <span class="op">=</span> <span class="ident">runtime_handle</span>.<span class="ident">enter</span>();
         <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="ident">pinger</span>.<span class="ident">start_ping</span>().<span class="ident">instrument</span>(<span class="ident">span</span>).<span class="kw">await</span> });
         <span class="ident">TransactionalEventStreamWriter</span> {
             <span class="ident">stream</span>,
@@ -308,7 +308,7 @@
             .<span class="ident">context</span>(<span class="ident">TxnStreamControllerError</span> {})<span class="question-mark">?</span>;
         <span class="macro">info</span><span class="macro">!</span>(<span class="string">&quot;Transaction {} created&quot;</span>, <span class="ident">txn_segments</span>.<span class="ident">tx_id</span>);
         <span class="kw">let</span> <span class="ident">txn_id</span> <span class="op">=</span> <span class="ident">txn_segments</span>.<span class="ident">tx_id</span>;
-        <span class="self">self</span>.<span class="ident">pinger_handle</span>.<span class="ident">add</span>(<span class="ident">txn_id</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="self">self</span>.<span class="ident">pinger_handle</span>.<span class="ident">add</span>(<span class="ident">txn_id</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident">Transaction</span>::<span class="ident">new</span>(
             <span class="ident">TransactionInfo</span>::<span class="ident">new</span>(<span class="ident">txn_id</span>, <span class="self">self</span>.<span class="ident">writer_id</span>, <span class="self">self</span>.<span class="ident">stream</span>.<span class="ident">clone</span>(), <span class="bool-val">false</span>),
             <span class="ident">txn_segments</span>.<span class="ident">stream_segments</span>,
@@ -397,4 +397,5 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../";window.currentCrate = "pravega_client";</script><script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client"></div>
+    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>

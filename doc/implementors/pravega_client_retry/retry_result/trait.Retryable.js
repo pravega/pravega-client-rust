@@ -1,3 +1,3 @@
 (function() {var implementors = {};
-implementors["pravega_client"] = [{"text":"impl Retryable for ReaderError","synthetic":false,"types":[]}];
+implementors["pravega_client"] = [{"text":"impl Retryable for <a class=\"enum\" href=\"pravega_client/segment_reader/enum.ReaderError.html\" title=\"enum pravega_client::segment_reader::ReaderError\">ReaderError</a>","synthetic":false,"types":["pravega_client::segment_reader::ReaderError"]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

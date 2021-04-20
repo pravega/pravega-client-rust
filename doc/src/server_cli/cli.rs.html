@@ -780,7 +780,6 @@
 <span id="777">777</span>
 <span id="778">778</span>
 <span id="779">779</span>
-<span id="780">780</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">/*
  * Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
@@ -1437,11 +1436,10 @@
             <span class="ident">table_segment_offset</span>,
         } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) <span class="kw">as</span> <span class="ident">i64</span>;
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">entries</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
-            <span class="ident">entries</span>.<span class="ident">push</span>((
+            <span class="kw">let</span> <span class="ident">entries</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[(
                 <span class="ident">TableKey</span>::<span class="ident">new</span>(<span class="ident">key</span>.<span class="ident">into_bytes</span>(), <span class="ident">key_version</span>),
                 <span class="ident">TableValue</span>::<span class="ident">new</span>(<span class="ident">value</span>.<span class="ident">into_bytes</span>()),
-            ));
+            )];
             <span class="kw">let</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">TableEntries</span> { <span class="ident">entries</span> };
             <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Requests</span>::<span class="ident">UpdateTableEntries</span>(<span class="ident">UpdateTableEntriesCommand</span> {
                 <span class="ident">request_id</span>: <span class="ident">id</span>,
@@ -1563,4 +1561,5 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "server_cli";</script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="server_cli"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

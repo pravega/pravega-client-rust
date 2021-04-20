@@ -145,6 +145,9 @@
 <span id="142">142</span>
 <span id="143">143</span>
 <span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -188,6 +191,9 @@
 
     <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Request has timed out: {:?}&quot;</span>, <span class="ident">source</span>))]</span>
     <span class="ident">RequestTimeout</span> { <span class="ident">source</span>: <span class="ident">Elapsed</span> },
+
+    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Wrong reply id {:?} for request {:?}&quot;</span>, <span class="ident">reply_id</span>, <span class="ident">request_id</span>))]</span>
+    <span class="ident">WrongReplyId</span> { <span class="ident">reply_id</span>: <span class="ident">i64</span>, <span class="ident">request_id</span>: <span class="ident">i64</span> },
 }
 
 <span class="kw">impl</span> <span class="ident">RawClientError</span> {
@@ -291,4 +297,5 @@
     <span class="ident">SyncTombstoneError</span> { <span class="ident">error_msg</span>: <span class="ident">String</span> },
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "pravega_client";</script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="pravega_client"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

@@ -333,8 +333,6 @@
 <span id="330">330</span>
 <span id="331">331</span>
 <span id="332">332</span>
-<span id="333">333</span>
-<span id="334">334</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -411,7 +409,7 @@
         <span class="kw">let</span> <span class="ident">txn_id</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">txn_id</span>;
         <span class="kw">let</span> <span class="ident">span</span> <span class="op">=</span> <span class="macro">info_span</span><span class="macro">!</span>(<span class="string">&quot;StreamReactor&quot;</span>, <span class="ident">txn_id</span> <span class="op">=</span> <span class="op">%</span><span class="ident">txn_id</span>, <span class="ident">event_stream_writer</span> <span class="op">=</span> <span class="op">%</span><span class="ident">writer_id</span>);
         <span class="comment">// tokio::spawn is tied to the factory runtime.</span>
-        <span class="ident">rt_handle</span>.<span class="ident">enter</span>();
+        <span class="kw">let</span> <span class="ident">_guard</span> <span class="op">=</span> <span class="ident">rt_handle</span>.<span class="ident">enter</span>();
         <span class="ident">tokio</span>::<span class="ident">spawn</span>(
             <span class="ident">Reactor</span>::<span class="ident">run</span>(
                 <span class="ident">info</span>.<span class="ident">stream</span>.<span class="ident">clone</span>(),
@@ -544,7 +542,6 @@
         <span class="comment">// remove this transaction from ping list</span>
         <span class="self">self</span>.<span class="ident">handle</span>
             .<span class="ident">remove</span>(<span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span>)
-            .<span class="kw">await</span>
             .<span class="ident">context</span>(<span class="ident">TxnStreamWriterError</span> {})<span class="question-mark">?</span>;
 
         <span class="self">self</span>.<span class="ident">factory</span>
@@ -573,7 +570,6 @@
         <span class="comment">// remove this transaction from ping list</span>
         <span class="self">self</span>.<span class="ident">handle</span>
             .<span class="ident">remove</span>(<span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span>)
-            .<span class="kw">await</span>
             .<span class="ident">context</span>(<span class="ident">TxnStreamWriterError</span> {})<span class="question-mark">?</span>;
 
         <span class="self">self</span>.<span class="ident">factory</span>
@@ -671,4 +667,5 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../";window.currentCrate = "pravega_client";</script><script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client"></div>
+    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>

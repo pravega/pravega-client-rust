@@ -1,3 +1,3 @@
 (function() {var implementors = {};
-implementors["pravega_client"] = [{"text":"impl Write for ByteStreamWriter","synthetic":false,"types":[]}];
+implementors["pravega_client"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"pravega_client/byte_stream/struct.ByteStreamWriter.html\" title=\"struct pravega_client::byte_stream::ByteStreamWriter\">ByteStreamWriter</a>","synthetic":false,"types":["pravega_client::byte_stream::ByteStreamWriter"]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

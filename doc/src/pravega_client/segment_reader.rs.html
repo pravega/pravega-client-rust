@@ -736,6 +736,17 @@
 <span id="733">733</span>
 <span id="734">734</span>
 <span id="735">735</span>
+<span id="736">736</span>
+<span id="737">737</span>
+<span id="738">738</span>
+<span id="739">739</span>
+<span id="740">740</span>
+<span id="741">741</span>
+<span id="742">742</span>
+<span id="743">743</span>
+<span id="744">744</span>
+<span id="745">745</span>
+<span id="746">746</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -1101,6 +1112,7 @@
     <span class="ident">end_of_segment</span>: <span class="ident">bool</span>,
     <span class="ident">receiver</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">oneshot</span>::<span class="ident">Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SegmentReadCommand</span>, <span class="ident">ReaderError</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">handle</span>: <span class="ident">Handle</span>,
+    <span class="ident">bg_job_handle</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">oneshot</span>::<span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
 
 <span class="comment">// maximum number of buffered reply</span>
@@ -1122,6 +1134,7 @@
             <span class="ident">handle</span>,
             <span class="ident">end_of_segment</span>: <span class="bool-val">false</span>,
             <span class="ident">receiver</span>: <span class="prelude-val">None</span>,
+            <span class="ident">bg_job_handle</span>: <span class="prelude-val">None</span>,
         };
         <span class="ident">wrapper</span>.<span class="ident">issue_request_if_needed</span>();
         <span class="ident">wrapper</span>
@@ -1174,7 +1187,7 @@
         <span class="self">self</span>.<span class="ident">reader</span>
     }
 
-    <span class="doccomment">/// Returns the size of data availble in buffer</span>
+    <span class="doccomment">/// Returns the size of data available in buffer</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">available</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">size</span> <span class="op">=</span> <span class="number">0</span>;
         <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">cmd</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">buffer</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
@@ -1190,13 +1203,16 @@
     <span class="kw">fn</span> <span class="ident">issue_request_if_needed</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
         <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">end_of_segment</span> <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">receiver</span>.<span class="ident">is_none</span>() {
             <span class="kw">let</span> (<span class="ident">sender</span>, <span class="ident">receiver</span>) <span class="op">=</span> <span class="ident">oneshot</span>::<span class="ident">channel</span>();
+            <span class="kw">let</span> (<span class="ident">bg_sender</span>, <span class="ident">bg_receiver</span>) <span class="op">=</span> <span class="ident">oneshot</span>::<span class="ident">channel</span>();
             <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">spawn</span>(<span class="ident">PrefetchingAsyncSegmentReader</span>::<span class="ident">read_async</span>(
                 <span class="self">self</span>.<span class="ident">reader</span>.<span class="ident">clone</span>(),
                 <span class="ident">sender</span>,
+                <span class="ident">bg_receiver</span>,
                 <span class="self">self</span>.<span class="ident">offset</span> <span class="op">+</span> <span class="self">self</span>.<span class="ident">available</span>() <span class="kw">as</span> <span class="ident">i64</span>,
                 <span class="self">self</span>.<span class="ident">read_size</span> <span class="kw">as</span> <span class="ident">i32</span>,
             ));
             <span class="self">self</span>.<span class="ident">receiver</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">receiver</span>);
+            <span class="self">self</span>.<span class="ident">bg_job_handle</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">bg_sender</span>);
         }
     }
 
@@ -1204,14 +1220,20 @@
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">read_async</span>(
         <span class="ident">reader</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">AsyncSegmentReader</span><span class="op">&gt;</span><span class="op">&gt;</span>,
         <span class="ident">sender</span>: <span class="ident">oneshot</span>::<span class="ident">Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SegmentReadCommand</span>, <span class="ident">ReaderError</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">shutdown</span>: <span class="ident">oneshot</span>::<span class="ident">Receiver</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span>,
         <span class="ident">offset</span>: <span class="ident">i64</span>,
         <span class="ident">length</span>: <span class="ident">i32</span>,
     ) {
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read</span>(<span class="ident">offset</span>, <span class="ident">length</span>).<span class="kw">await</span>;
-        <span class="ident">sender</span>
-            .<span class="ident">send</span>(<span class="ident">result</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">warn</span><span class="macro">!</span>(<span class="string">&quot;failed to send reply back: {:?}&quot;</span>, <span class="ident">e</span>))
-            .<span class="ident">expect</span>(<span class="string">&quot;send reply back&quot;</span>);
+        <span class="ident">tokio</span>::<span class="macro">select</span><span class="macro">!</span> {
+            <span class="ident">result</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read</span>(<span class="ident">offset</span>, <span class="ident">length</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">sender</span>
+                .<span class="ident">send</span>(<span class="ident">result</span>)
+                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">_e</span><span class="op">|</span> <span class="macro">warn</span><span class="macro">!</span>(<span class="string">&quot;failed to send reply back&quot;</span>));
+            }
+            <span class="kw">_</span> <span class="op">=</span> <span class="ident">shutdown</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;shut down background async read&quot;</span>);
+            }
+        }
     }
 
     <span class="kw">fn</span> <span class="ident">fill_buffer_if_available</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ReaderError</span><span class="op">&gt;</span> {
@@ -1473,4 +1495,5 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "pravega_client";</script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="pravega_client"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

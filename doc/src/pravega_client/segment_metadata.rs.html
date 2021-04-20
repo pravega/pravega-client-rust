@@ -222,6 +222,8 @@
 <span id="219">219</span>
 <span id="220">220</span>
 <span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -424,6 +426,8 @@
                         <span class="ident">RetryResult</span>::<span class="ident">Retry</span>(<span class="string">&quot;wrong host&quot;</span>.<span class="ident">to_string</span>())
                     }
                     <span class="ident">Replies</span>::<span class="ident">NoSuchSegment</span>(<span class="ident">_cmd</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult</span>::<span class="ident">Fail</span>(<span class="string">&quot;no such segment&quot;</span>.<span class="ident">to_string</span>()),
+                    <span class="comment">// this might caused by retry.</span>
+                    <span class="ident">Replies</span>::<span class="ident">SegmentIsSealed</span>(<span class="ident">_cmd</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult</span>::<span class="ident">Success</span>(()),
                     <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult</span>::<span class="ident">Fail</span>(<span class="string">&quot;unexpected reply&quot;</span>.<span class="ident">to_string</span>()),
                 },
                 <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
@@ -445,4 +449,5 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "pravega_client";</script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="pravega_client"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

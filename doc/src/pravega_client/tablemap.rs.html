@@ -1019,8 +1019,6 @@
 <span id="1016">1016</span>
 <span id="1017">1017</span>
 <span id="1018">1018</span>
-<span id="1019">1019</span>
-<span id="1020">1020</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -1126,8 +1124,9 @@
                 <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">if</span> <span class="ident">e</span>.<span class="ident">is_token_expired</span>() {
                         <span class="ident">delegation_token_provider</span>.<span class="ident">signal_token_expiry</span>();
-                        <span class="macro">info</span><span class="macro">!</span>(<span class="string">&quot;auth token needs to refresh&quot;</span>);
+                        <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;auth token needs to refresh&quot;</span>);
                     }
+                    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;retry on error {:?}&quot;</span>, <span class="ident">e</span>);
                     <span class="ident">RetryResult</span>::<span class="ident">Retry</span>(<span class="ident">e</span>)
                 }
             }
@@ -1703,8 +1702,9 @@
                 <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">if</span> <span class="ident">e</span>.<span class="ident">is_token_expired</span>() {
                         <span class="self">self</span>.<span class="ident">delegation_token_provider</span>.<span class="ident">signal_token_expiry</span>();
-                        <span class="macro">info</span><span class="macro">!</span>(<span class="string">&quot;auth token needs to refresh&quot;</span>);
+                        <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;auth token needs to refresh&quot;</span>);
                     }
+                    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;retry on error {:?}&quot;</span>, <span class="ident">e</span>);
                     <span class="ident">RetryResult</span>::<span class="ident">Retry</span>(<span class="ident">e</span>)
                 }
             }
@@ -1758,7 +1758,6 @@
                 .<span class="ident">create_raw_client_for_endpoint</span>(<span class="self">self</span>.<span class="ident">endpoint</span>.<span class="ident">clone</span>())
                 .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">req</span>)
                 .<span class="kw">await</span>;
-            <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Reply for read tableKeys request {:?}&quot;</span>, <span class="ident">result</span>);
             <span class="kw">match</span> <span class="ident">result</span> {
                 <span class="prelude-val">Ok</span>(<span class="ident">reply</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult</span>::<span class="ident">Success</span>(<span class="ident">reply</span>),
                 <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
@@ -1970,18 +1969,15 @@
             .<span class="ident">block_on</span>(<span class="ident">table_map</span>.<span class="ident">insert_conditionally</span>(<span class="kw-2">&amp;</span><span class="string">&quot;key&quot;</span>.<span class="ident">to_string</span>(), <span class="kw-2">&amp;</span><span class="string">&quot;value&quot;</span>.<span class="ident">to_string</span>(), <span class="op">-</span><span class="number">1</span>, <span class="op">-</span><span class="number">1</span>))
             .<span class="ident">expect</span>(<span class="string">&quot;unconditionally insert into table map&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">version</span>, <span class="number">0</span>);
-
         <span class="comment">// conditionally insert existing key</span>
         <span class="kw">let</span> <span class="ident">version</span> <span class="op">=</span> <span class="ident">rt</span>
             .<span class="ident">block_on</span>(<span class="ident">table_map</span>.<span class="ident">insert_conditionally</span>(<span class="kw-2">&amp;</span><span class="string">&quot;key&quot;</span>.<span class="ident">to_string</span>(), <span class="kw-2">&amp;</span><span class="string">&quot;value&quot;</span>.<span class="ident">to_string</span>(), <span class="number">0</span>, <span class="op">-</span><span class="number">1</span>))
             .<span class="ident">expect</span>(<span class="string">&quot;conditionally insert into table map&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">version</span>, <span class="number">1</span>);
-
         <span class="comment">// conditionally insert key with wrong version</span>
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span>
             <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">table_map</span>.<span class="ident">insert_conditionally</span>(<span class="kw-2">&amp;</span><span class="string">&quot;key&quot;</span>.<span class="ident">to_string</span>(), <span class="kw-2">&amp;</span><span class="string">&quot;value&quot;</span>.<span class="ident">to_string</span>(), <span class="number">0</span>, <span class="op">-</span><span class="number">1</span>));
         <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">result</span>.<span class="ident">is_err</span>());
-
         <span class="comment">// conditionally remove key</span>
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">table_map</span>.<span class="ident">remove_conditionally</span>(<span class="kw-2">&amp;</span><span class="string">&quot;key&quot;</span>.<span class="ident">to_string</span>(), <span class="number">1</span>, <span class="op">-</span><span class="number">1</span>));
         <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
@@ -2043,4 +2039,5 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "pravega_client";</script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="pravega_client"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

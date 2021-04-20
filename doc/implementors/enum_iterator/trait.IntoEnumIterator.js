@@ -1,3 +1,3 @@
 (function() {var implementors = {};
-implementors["pravega_client"] = [{"text":"impl IntoEnumIterator for ClientMetrics","synthetic":false,"types":[]}];
+implementors["pravega_client"] = [{"text":"impl IntoEnumIterator for <a class=\"enum\" href=\"pravega_client/metric/enum.ClientMetrics.html\" title=\"enum pravega_client::metric::ClientMetrics\">ClientMetrics</a>","synthetic":false,"types":["pravega_client::metric::ClientMetrics"]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
