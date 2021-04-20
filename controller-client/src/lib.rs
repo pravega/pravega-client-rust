@@ -1542,9 +1542,9 @@ mod test {
 
         // test list streams
         let res = rt
-            .block_on(controller.list_streams(&scope))
+            .block_on(controller.list_streams(&scope, &String::from("")))
             .expect("list streams");
-        assert_eq!(res, vec!["s1".to_string()])
+        assert_eq!(res, Some((vec!["s1".to_string()], String::from("123"))))
     }
 
     #[derive(Default)]
