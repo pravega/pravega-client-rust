@@ -75,7 +75,11 @@ impl ControllerClient for MockController {
         Ok(true)
     }
 
-    async fn list_streams(&self, scope: &Scope) -> Result<Vec<String>, RetryError<ControllerError>> {
+    async fn list_streams(
+        &self,
+        scope: &Scope,
+        _token: &String,
+    ) -> Result<Option<(Vec<String>, String)>, RetryError<ControllerError>> {
         let map_guard = self.created_scopes.read().await;
         let streams_set = map_guard.get(&scope.name).ok_or(RetryError {
             error: ControllerError::OperationError {
@@ -90,7 +94,7 @@ impl ControllerClient for MockController {
         for stream in streams_set {
             result.push(stream.stream.name.clone())
         }
-        Ok(result)
+        Ok(Some((result, String::from(""))))
     }
 
     async fn delete_scope(&self, scope: &Scope) -> Result<bool, RetryError<ControllerError>> {
