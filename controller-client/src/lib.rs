@@ -133,8 +133,7 @@ pub trait ControllerClient: Send + Sync {
      * API to list streams under a given scope and continuation token.
      * Use the pravega_controller_client::paginator::list_streams to paginate over all the streams.
      */
-    async fn list_streams(&self, scope: &Scope, token: &String)
-        -> ResultRetry<Option<(Vec<String>, String)>>;
+    async fn list_streams(&self, scope: &Scope, token: &str) -> ResultRetry<Option<(Vec<String>, String)>>;
 
     /**
      * API to delete a scope. Note that a scope can only be deleted in the case is it empty. If
@@ -332,11 +331,7 @@ impl ControllerClient for ControllerClientImpl {
         )
     }
 
-    async fn list_streams(
-        &self,
-        scope: &Scope,
-        token: &String,
-    ) -> ResultRetry<Option<(Vec<String>, String)>> {
+    async fn list_streams(&self, scope: &Scope, token: &str) -> ResultRetry<Option<(Vec<String>, String)>> {
         wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_list_streams(scope, token)
@@ -617,11 +612,7 @@ impl ControllerClientImpl {
         })
     }
 
-    async fn call_list_streams(
-        &self,
-        scope: &Scope,
-        token: &String,
-    ) -> Result<Option<(Vec<String>, String)>> {
+    async fn call_list_streams(&self, scope: &Scope, token: &str) -> Result<Option<(Vec<String>, String)>> {
         let operation_name = "ListStreams";
         let request: StreamsInScopeRequest = StreamsInScopeRequest {
             scope: Some(ScopeInfo::from(scope)),
