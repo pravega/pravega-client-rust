@@ -14,8 +14,42 @@ use futures::stream::{self};
 use pravega_client_retry::retry_result::RetryError;
 use pravega_client_shared::Scope;
 use std::vec::IntoIter;
-use tracing::{debug, error, info, warn};
+use tracing::info;
 
+///
+///Helper method to iterated over the all the Pravega streams under the provided Scope.
+///This method returns a stream of values,Pravega streams, produced asynchronously.
+///
+/// The below snippets show case the example uses.
+/// Sample 1:
+///```
+/// use pravega_client_shared::Scope;
+/// use pravega_controller_client::paginator::list_streams;
+///     let stream = list_streams(
+///         Scope {
+///             name: "testScope".to_string(),
+///         },
+///         controller_client,
+///     );
+///     // collect all the Streams in a single vector
+///     let stream_list:Vec<String> = stream.map(|str| str.unwrap()).collect::<Vec<String>>().await;
+/// ```
+///
+/// Sample 2:
+/// ```
+/// use pravega_client_shared::Scope;
+/// use pravega_controller_client::paginator::list_streams;
+///     let mut stream = list_streams(
+///         Scope {
+///             name: "testScope".to_string(),
+///         },
+///         controller_client,
+///     );
+/// let pravega_stream_1 = stream.next().await;
+/// let pravega_stream_2 = stream.next().await;
+/// // A None is returned at the end of the stream.
+/// ```
+///
 pub fn list_streams(
     scope: Scope,
     client: &dyn ControllerClient,
@@ -38,6 +72,10 @@ pub fn list_streams(
                 Some((Ok(element), state))
             } else {
                 // execute a request to the controller.
+                info!(
+                    "Fetch the next set of streams under scope {} using the provided token",
+                    state.scope
+                );
                 let res: ResultRetry<Option<(Vec<String>, String)>> =
                     client.list_streams(&state.scope, &state.token).await;
                 match res {
@@ -54,98 +92,9 @@ pub fn list_streams(
                             },
                         ))
                     }
-
                     Err(e) => Some((Err(e), state)),
                 }
             }
         },
     )
 }
-// impl Paginator<'_> {
-//     // pub fn list_streams(&self, scope: &Scope) -> impl Stream<Item = String> {
-//     //     struct State {
-//     //         scope: Scope,
-//     //         token: String,
-//     //     };
-//     //
-//     //     // Initial state with an empty Continuation token.
-//     //     let stream_result = stream::unfold(
-//     //         State {
-//     //             scope: scope.clone(),
-//     //             token: String::from(""),
-//     //         },
-//     //         |state| async move {
-//     //             let res: ResultRetry<Option<(Vec<String>, String)>> =
-//     //                 self.client.list_streams(scope, &state.token).await;
-//     //             match res {
-//     //                 Ok(None) => None,
-//     //                 Ok(Some((list, ct))) => Some((
-//     //                     stream::iter(list),
-//     //                     State {
-//     //                         scope: state.scope,
-//     //                         token: ct,
-//     //                     },
-//     //                 )),
-//     //                 _ => None,
-//     //             }
-//     //         },
-//     //     )
-//     //     .flatten();
-//     //     stream_result
-//     // }
-//     // pub fn list_streams(&self, scope: &Scope) -> impl Stream<Item = Result<String, ControllerError>> {
-//     //     struct State {
-//     //         scope: Scope,
-//     //         list: Vec<String>,
-//     //         token: String,
-//     //     };
-//     //
-//     //     // Initial state with an empty Continuation token.
-//     //
-//     //     let stream_result = stream::unfold(
-//     //         State {
-//     //             scope: scope.clone(),
-//     //             list: vec![],
-//     //             token: String::from(""),
-//     //         },
-//     //         |mut state| async move {
-//     //             if !state.list.is_empty() {
-//     //                 // Return from already fetched stream list.
-//     //                 Some((Ok(state.list.pop().unwrap()), state))
-//     //             } else {
-//     //                 // The list is empty, try fetching it from the controller using the previous continuation token.
-//     //
-//     //                 debug!(
-//     //                     "Triggering a request to the controller to list streams for scope {}",
-//     //                     &state.scope
-//     //                 );
-//     //                 let res: ResultRetry<Option<(Vec<String>, String)>> =
-//     //                     self.client.list_streams(&state.scope, &state.token).await;
-//     //
-//     //                 match res {
-//     //                     Ok(None) => None,
-//     //                     Ok(Some((list, token))) => {
-//     //                         if list.is_empty() {
-//     //                             // Empty result from the controller implies no further streams present.
-//     //                             None
-//     //                         } else {
-//     //                             // update state with the new set of streams.
-//     //                             state.list.extend_from_slice(list.as_slice());
-//     //                             state.token = token;
-//     //                             Some((Ok(state.list.pop().unwrap()), state))
-//     //                         }
-//     //                     }
-//     //                     Err(err) => {
-//     //                         error!(
-//     //                             "Error while listing streams under scope {}, {:?}",
-//     //                             &state.scope, err
-//     //                         );
-//     //                         None
-//     //                     }
-//     //                 }
-//     //             }
-//     //         },
-//     //     );
-//     //     stream_result
-//     // }
-// }
