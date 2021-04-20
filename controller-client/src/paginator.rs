@@ -64,7 +64,7 @@ pub fn list_streams(
     stream::unfold(
         State {
             streams: Vec::new().into_iter(),
-            scope: scope,
+            scope,
             token: String::from(""),
         },
         move |mut state| async move {

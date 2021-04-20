@@ -26,7 +26,6 @@
 #![allow(clippy::multiple_crate_versions)]
 #![allow(dead_code)]
 #![allow(clippy::similar_names)]
-#![allow(clippy::upper_case_acronyms)]
 
 use std::result::Result as StdResult;
 use std::time::{Duration, Instant};

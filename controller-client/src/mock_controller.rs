@@ -78,7 +78,7 @@ impl ControllerClient for MockController {
     async fn list_streams(
         &self,
         scope: &Scope,
-        _token: &String,
+        _token: &str,
     ) -> Result<Option<(Vec<String>, String)>, RetryError<ControllerError>> {
         let map_guard = self.created_scopes.read().await;
         let streams_set = map_guard.get(&scope.name).ok_or(RetryError {
