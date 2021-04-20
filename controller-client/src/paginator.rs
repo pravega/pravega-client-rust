@@ -58,7 +58,7 @@ pub fn list_streams(
         streams: IntoIter<String>,
         scope: Scope,
         token: String,
-    };
+    }
 
     // Initial state with an empty Continuation token.
     stream::unfold(
