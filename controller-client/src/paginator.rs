@@ -22,9 +22,18 @@ use tracing::info;
 ///
 /// The below snippets show case the example uses.
 /// Sample 1:
-///```
+///```ignore
+/// # futures::executor::block_on(async {
 /// use pravega_client_shared::Scope;
 /// use pravega_controller_client::paginator::list_streams;
+/// use pravega_client::client_factory::ClientFactory;
+/// use pravega_client_config::ClientConfigBuilder;
+/// use pravega_client_config::MOCK_CONTROLLER_URI;
+///     let config = ClientConfigBuilder::default()
+///         .controller_uri(MOCK_CONTROLLER_URI)
+///         .build()
+///         .expect("creating config");
+///     let controller_client = ClientFactory::new(config).get_controller_client();
 ///     let stream = list_streams(
 ///         Scope {
 ///             name: "testScope".to_string(),
@@ -33,12 +42,23 @@ use tracing::info;
 ///     );
 ///     // collect all the Streams in a single vector
 ///     let stream_list:Vec<String> = stream.map(|str| str.unwrap()).collect::<Vec<String>>().await;
+///  # });
 /// ```
 ///
 /// Sample 2:
-/// ```
+/// ```ignore
+/// # futures::executor::block_on(async {
 /// use pravega_client_shared::Scope;
 /// use pravega_controller_client::paginator::list_streams;
+/// use pravega_client::client_factory::ClientFactory;
+/// use pravega_client_config::ClientConfigBuilder;
+/// use pravega_client_config::MOCK_CONTROLLER_URI;
+/// use futures::StreamExt;
+///     let config = ClientConfigBuilder::default()
+///         .controller_uri(MOCK_CONTROLLER_URI)
+///         .build()
+///         .expect("creating config");
+///     let controller_client = ClientFactory::new(config).get_controller_client();
 ///     let mut stream = list_streams(
 ///         Scope {
 ///             name: "testScope".to_string(),
@@ -48,6 +68,7 @@ use tracing::info;
 /// let pravega_stream_1 = stream.next().await;
 /// let pravega_stream_2 = stream.next().await;
 /// // A None is returned at the end of the stream.
+///  # });
 /// ```
 ///
 pub fn list_streams(
