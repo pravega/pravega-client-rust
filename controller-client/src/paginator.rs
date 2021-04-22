@@ -12,7 +12,7 @@ use crate::{ControllerClient, ControllerError, ResultRetry};
 use futures::prelude::*;
 use futures::stream::{self};
 use pravega_client_retry::retry_result::RetryError;
-use pravega_client_shared::Scope;
+use pravega_client_shared::{CToken, Scope, ScopedStream};
 use std::vec::IntoIter;
 use tracing::info;
 
@@ -74,48 +74,49 @@ use tracing::info;
 pub fn list_streams(
     scope: Scope,
     client: &dyn ControllerClient,
-) -> impl Stream<Item = Result<String, RetryError<ControllerError>>> + '_ {
+) -> impl Stream<Item = Result<ScopedStream, RetryError<ControllerError>>> + '_ {
     struct State {
-        streams: IntoIter<String>,
+        streams: IntoIter<ScopedStream>,
         scope: Scope,
-        token: String,
+        token: CToken,
     }
 
     // Initial state with an empty Continuation token.
+    let get_next_stream_async = move |mut state: State| async move {
+        if let Some(element) = state.streams.next() {
+            Some((Ok(element), state))
+        } else {
+            // execute a request to the controller.
+            info!(
+                "Fetch the next set of streams under scope {} using the provided token",
+                state.scope
+            );
+            let res: ResultRetry<Option<(Vec<ScopedStream>, CToken)>> =
+                client.list_streams(&state.scope, &state.token).await;
+            match res {
+                Ok(None) => None,
+                Ok(Some((list, ct))) => {
+                    // create a consuming iterator
+                    let mut stream_iter = list.into_iter();
+                    Some((
+                        Ok(stream_iter.next()?),
+                        State {
+                            streams: stream_iter,
+                            scope: state.scope.clone(),
+                            token: ct,
+                        },
+                    ))
+                }
+                Err(e) => Some((Err(e), state)),
+            }
+        }
+    };
     stream::unfold(
         State {
             streams: Vec::new().into_iter(),
             scope,
-            token: String::from(""),
+            token: CToken::empty(),
         },
-        move |mut state| async move {
-            if let Some(element) = state.streams.next() {
-                Some((Ok(element), state))
-            } else {
-                // execute a request to the controller.
-                info!(
-                    "Fetch the next set of streams under scope {} using the provided token",
-                    state.scope
-                );
-                let res: ResultRetry<Option<(Vec<String>, String)>> =
-                    client.list_streams(&state.scope, &state.token).await;
-                match res {
-                    Ok(None) => None,
-                    Ok(Some((list, ct))) => {
-                        // create a consuming iterator
-                        let mut stream_iter = list.into_iter();
-                        Some((
-                            Ok(stream_iter.next()?),
-                            State {
-                                streams: stream_iter,
-                                scope: state.scope.clone(),
-                                token: ct,
-                            },
-                        ))
-                    }
-                    Err(e) => Some((Err(e), state)),
-                }
-            }
-        },
+        get_next_stream_async,
     )
 }

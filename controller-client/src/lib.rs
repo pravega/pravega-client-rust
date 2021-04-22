@@ -133,7 +133,11 @@ pub trait ControllerClient: Send + Sync {
      * API to list streams under a given scope and continuation token.
      * Use the pravega_controller_client::paginator::list_streams to paginate over all the streams.
      */
-    async fn list_streams(&self, scope: &Scope, token: &str) -> ResultRetry<Option<(Vec<String>, String)>>;
+    async fn list_streams(
+        &self,
+        scope: &Scope,
+        token: &CToken,
+    ) -> ResultRetry<Option<(Vec<ScopedStream>, CToken)>>;
 
     /**
      * API to delete a scope. Note that a scope can only be deleted in the case is it empty. If
@@ -331,7 +335,11 @@ impl ControllerClient for ControllerClientImpl {
         )
     }
 
-    async fn list_streams(&self, scope: &Scope, token: &str) -> ResultRetry<Option<(Vec<String>, String)>> {
+    async fn list_streams(
+        &self,
+        scope: &Scope,
+        token: &CToken,
+    ) -> ResultRetry<Option<(Vec<ScopedStream>, CToken)>> {
         wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_list_streams(scope, token)
@@ -612,13 +620,15 @@ impl ControllerClientImpl {
         })
     }
 
-    async fn call_list_streams(&self, scope: &Scope, token: &str) -> Result<Option<(Vec<String>, String)>> {
+    async fn call_list_streams(
+        &self,
+        scope: &Scope,
+        token: &CToken,
+    ) -> Result<Option<(Vec<ScopedStream>, CToken)>> {
         let operation_name = "ListStreams";
         let request: StreamsInScopeRequest = StreamsInScopeRequest {
             scope: Some(ScopeInfo::from(scope)),
-            continuation_token: Some(ContinuationToken {
-                token: token.to_string(),
-            }),
+            continuation_token: Some(ContinuationToken::from(token)),
         };
         debug!(
             "Triggering a request to the controller to list streams for scope {}",
@@ -630,15 +640,13 @@ impl ControllerClientImpl {
         match op_status {
             Ok(streams_with_token) => {
                 let result = streams_with_token.into_inner();
-                let t: Vec<StreamInfo> = result.streams;
+                let mut t: Vec<StreamInfo> = result.streams;
                 if t.is_empty() {
                     // Empty result from the controller implies no further streams present.
                     Ok(None)
                 } else {
                     // update state with the new set of streams.
-                    let stream_list: Vec<String> =
-                        t.iter().map(|i: &StreamInfo| i.stream.to_string()).collect();
-
+                    let stream_list: Vec<ScopedStream> = t.drain(..).map(|i| i.into()).collect();
                     let token: Option<ContinuationToken> = result.continuation_token;
                     let ct: String = match token.map(|t| t.token) {
                         None => {
@@ -653,7 +661,7 @@ impl ControllerClientImpl {
                             t
                         }
                     };
-                    Ok(Some((stream_list, ct)))
+                    Ok(Some((stream_list, CToken::from(ct.as_str()))))
                 }
             }
             Err(status) => {
@@ -1455,9 +1463,15 @@ mod test {
 
         // test list streams
         let res = rt
-            .block_on(controller.list_streams(&scope, &String::from("")))
+            .block_on(controller.list_streams(&scope, &CToken::empty()))
             .expect("list streams");
-        assert_eq!(res, Some((vec!["s1".to_string()], String::from("123"))))
+        let expected_stream = ScopedStream {
+            scope,
+            stream: Stream {
+                name: String::from("s1"),
+            },
+        };
+        assert_eq!(res, Some((vec![expected_stream], CToken::from("123"))))
     }
 
     #[derive(Default)]
