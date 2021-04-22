@@ -14,6 +14,7 @@ use futures::stream::{self};
 use pravega_client_retry::retry_result::RetryError;
 use pravega_client_shared::{CToken, Scope, ScopedStream};
 use std::vec::IntoIter;
+use tracing::error;
 use tracing::info;
 
 ///
@@ -25,6 +26,7 @@ use tracing::info;
 ///```ignore
 /// # futures::executor::block_on(async {
 /// use pravega_client_shared::Scope;
+/// use pravega_client_shared::ScopedStream;
 /// use pravega_controller_client::paginator::list_streams;
 /// use pravega_client::client_factory::ClientFactory;
 /// use pravega_client_config::ClientConfigBuilder;
@@ -41,7 +43,7 @@ use tracing::info;
 ///         controller_client,
 ///     );
 ///     // collect all the Streams in a single vector
-///     let stream_list:Vec<String> = stream.map(|str| str.unwrap()).collect::<Vec<String>>().await;
+///     let stream_list:Vec<ScopedStream> = stream.map(|str| str.unwrap()).collect::<Vec<ScopedStream>>().await;
 ///  # });
 /// ```
 ///
@@ -107,7 +109,14 @@ pub fn list_streams(
                         },
                     ))
                 }
-                Err(e) => Some((Err(e), state)),
+                Err(e) => {
+                    //log an error and return None to indicate end of stream.
+                    error!(
+                        "Error while attempting to list streams for scope {}. Error: {:?}",
+                        state.scope, e
+                    );
+                    None
+                }
             }
         }
     };

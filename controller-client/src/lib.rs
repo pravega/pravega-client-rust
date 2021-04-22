@@ -90,6 +90,8 @@ pub enum ControllerError {
     ConnectionError { can_retry: bool, error_msg: String },
     #[snafu(display("Invalid configuration passed to the Controller client. Error {}", error_msg))]
     InvalidConfiguration { can_retry: bool, error_msg: String },
+    #[snafu(display("Invalid response from the Controller. Error {}", error_msg))]
+    InvalidResponse { can_retry: bool, error_msg: String },
 }
 
 // Implementation of Retryable trait for the error thrown by the Controller.
@@ -108,6 +110,10 @@ impl Retryable for ControllerError {
                 error_msg: _,
             } => *can_retry,
             InvalidConfiguration {
+                can_retry,
+                error_msg: _,
+            } => *can_retry,
+            InvalidResponse {
                 can_retry,
                 error_msg: _,
             } => *can_retry,
@@ -648,20 +654,22 @@ impl ControllerClientImpl {
                     // update state with the new set of streams.
                     let stream_list: Vec<ScopedStream> = t.drain(..).map(|i| i.into()).collect();
                     let token: Option<ContinuationToken> = result.continuation_token;
-                    let ct: String = match token.map(|t| t.token) {
+                    match token.map(|t| t.token) {
                         None => {
                             warn!(
                                 "None returned for continuation token list streams API for scope {}",
                                 scope
                             );
-                            String::from("")
+                            Err(ControllerError::InvalidResponse {
+                                can_retry: false,
+                                error_msg: "No continuation token received from Controller".to_string(),
+                            })
                         }
-                        Some(t) => {
-                            debug!("Returned token {} for list streams API under scope {}", t, scope);
-                            t
+                        Some(ct) => {
+                            debug!("Returned token {} for list streams API under scope {}", ct, scope);
+                            Ok(Some((stream_list, CToken::from(ct.as_str()))))
                         }
-                    };
-                    Ok(Some((stream_list, CToken::from(ct.as_str()))))
+                    }
                 }
             }
             Err(status) => {

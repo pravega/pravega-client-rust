@@ -48,6 +48,11 @@ enum Command {
         #[structopt(help = "Stream Name")]
         stream_name: String,
     },
+    /// List Streams under a scope
+    ListStreams {
+        #[structopt(help = "Scope Name")]
+        scope_name: String,
+    },
 }
 
 #[derive(StructOpt, Debug)]
@@ -123,6 +128,23 @@ fn main() {
             let scoped_stream = ScopedStream::new(scope_name.into(), stream_name.into());
             let result = rt.block_on(controller_client.delete_stream(&scoped_stream));
             println!("Delete stream status {:?}", result);
+        }
+        Command::ListStreams { scope_name } => {
+            use futures::future;
+            use futures::stream::StreamExt;
+            use pravega_controller_client::paginator::list_streams;
+
+            let scope = Scope::from(scope_name.clone());
+            let stream = list_streams(scope, &controller_client);
+            println!("Listing streams under scope {:?}", scope_name);
+            rt.block_on(stream.for_each(|stream| {
+                if stream.is_ok() {
+                    println!("{:?}", stream.unwrap());
+                } else {
+                    println!("Error while fetching data from Controller. Details: {:?}", stream);
+                }
+                future::ready(())
+            }));
         }
     }
 }
