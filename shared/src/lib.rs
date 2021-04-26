@@ -189,6 +189,31 @@ impl From<&str> for ScopedStream {
     }
 }
 
+///
+/// This represents the continuation token returned by the controller
+/// as part of the list streams grpc API.
+///
+#[derive(new, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CToken {
+    pub token: String,
+}
+
+impl CToken {
+    pub fn empty() -> CToken {
+        CToken {
+            token: String::from(""),
+        }
+    }
+}
+
+impl From<&str> for CToken {
+    fn from(string: &str) -> Self {
+        CToken {
+            token: string.to_string(),
+        }
+    }
+}
+
 #[derive(new, Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScopedSegment {
     pub scope: Scope,
