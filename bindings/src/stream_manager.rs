@@ -211,7 +211,7 @@ impl StreamManager {
             stream: Stream::from(stream_name.to_string()),
         };
         let stream_writer = StreamWriter::new(
-            self.cf.create_event_stream_writer(scoped_stream.clone()),
+            self.cf.create_event_writer(scoped_stream.clone()),
             self.cf.clone(),
             scoped_stream,
         );
@@ -242,7 +242,7 @@ impl StreamManager {
         let handle = self.cf.get_runtime();
         let txn_writer = handle.block_on(
             self.cf
-                .create_transactional_event_stream_writer(scoped_stream.clone(), WriterId(writer_id)),
+                .create_transactional_event_writer(scoped_stream.clone(), WriterId(writer_id)),
         );
         let txn_stream_writer = StreamTxnWriter::new(txn_writer, self.cf.clone(), scoped_stream);
         Ok(txn_stream_writer)
@@ -255,7 +255,7 @@ impl StreamManager {
     /// import pravega_client;
     /// manager=pravega_client.StreamManager("127.0.0.1:9090")
     /// // Create a ReaderGroup against an already created Pravega scope and Stream.
-    /// reader_group=manager.create_reader_group("rg1", "scope", "stream")
+    /// event.reader_group=manager.create_reader_group("rg1", "scope", "stream")
     /// ```
     ///
     #[text_signature = "($self, reader_group_name, scope_name, stream_name)"]

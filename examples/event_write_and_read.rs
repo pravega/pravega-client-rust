@@ -57,7 +57,7 @@ async fn main() {
 
     // create event stream writer
     let stream = ScopedStream::from("my_scope/my_stream");
-    let mut event_stream_writer = client_factory.create_event_stream_writer(stream.clone());
+    let mut event_stream_writer = client_factory.create_event_writer(stream.clone());
 
     // write payload
     let payload = "hello world".to_string().into_bytes();

@@ -1,13 +1,13 @@
-/*
- * Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- */
-use pravega_client::raw_client::*;
+//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+
 use pravega_client_config::{connection_type::ConnectionType, ClientConfigBuilder};
 use pravega_client_shared::PravegaNodeUri;
 use pravega_connection_pool::connection_pool::ConnectionPool;

@@ -13,8 +13,8 @@ use pravega_client_shared::*;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
 use std::sync::Arc;
 
-/// helper function
-/// creates a scoped stream for integration test.
+// helper function
+// creates a scoped stream for integration test.
 pub(crate) async fn create_scope_stream(
     controller_client: &dyn ControllerClient,
     scope_name: &Scope,

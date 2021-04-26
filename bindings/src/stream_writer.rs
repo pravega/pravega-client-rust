@@ -10,7 +10,7 @@
 
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
-        use pravega_client::error::SegmentWriterError;
+        use pravega_client::errors::SegmentWriterError;
         use pravega_client::event_stream_writer::EventStreamWriter;
         use pravega_client_shared::ScopedStream;
         use pravega_client::client_factory::ClientFactory;

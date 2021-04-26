@@ -16,7 +16,7 @@ cfg_if! {
         use pyo3::prelude::*;
         use pyo3::PyResult;
         use crate::TxnFailedException;
-        use pravega_client::error::TransactionError;
+        use pravega_client::errors::TransactionError;
         use pravega_client_shared::{Timestamp, TransactionStatus, TxId};
         use pyo3::PyObjectProtocol;
         use tracing::{trace, info, warn};

@@ -41,7 +41,7 @@ A ReaderGroup can be created using the StreamManager. Individual readers can be 
 import pravega_client
 manager=pravega_client.StreamManager("127.0.0.1:9090")
 // Create a ReaderGroup rg1 against an already created Pravega scope and Stream.
-reader_group=manager.create_reader_group("rg1", "scope", "stream")
+event.reader_group=manager.create_reader_group("rg1", "scope", "stream")
 ``` 
 
 * ## StreamWriter
@@ -116,8 +116,8 @@ A sample example snippet is shown below.
 import pravega_client
 manager = pravega_client.StreamManager("127.0.0.1:9090")
 // lets assume the Pravega scope and stream are already created.
-reader_group = manager.create_reader_group("rg1", "scope", "stream")
-reader = reader_group.create_reader("reader_id");
+event.reader_group = manager.create_reader_group("rg1", "scope", "stream")
+reader = event.reader_group.create_reader("reader_id");
 slice = await reader.get_segment_slice_async()
 for event in slice:
     print(event.data())

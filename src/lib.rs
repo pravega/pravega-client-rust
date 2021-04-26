@@ -34,108 +34,25 @@
 //! at the [website].
 //!
 //! Pravega client in Rust provides a few APIs at high level:
-//! * [EventStreamWriter] and [EventStreamReader] provide a way to write and read discrete item.
-//! * [ByteStream] API provides a way to write and read raw bytes.
-//! * [Transaction] API provides a mechanism for writing many events atomically.
+//! * [Event] provides a way to write and read discrete item.
+//! * [Byte] provides a way to write and read raw bytes.
 //!
 //! [Pravega]: https://www.pravega.io/
 //! [website]: http://pravega.io/docs/latest/key-features/#pravega-key-features
-//! [EventStreamWriter]: crate::event_stream_writer
-//! [EventStreamReader]: crate::event_reader
-//! [ByteStream]: byte_stream
-//! [Transaction]: transaction
+//! [Event]: crate::event
+//! [Byte]: crate::byte
 //!
-//!
-use crate::client_factory::ClientFactory;
-use pcg_rand::Pcg32;
-use pravega_client_shared::{
-    Retention, RetentionType, ScaleType, Scaling, Scope, ScopedStream, Stream, StreamConfiguration,
-};
-use rand::{Rng, SeedableRng};
-use std::cell::RefCell;
-use std::sync::atomic::{AtomicI64, Ordering};
-
-pub mod byte_stream;
 pub mod client_factory;
-pub mod error;
-pub mod event_reader;
-pub mod event_stream_writer;
+pub mod event;
+pub mod byte;
+pub mod sync;
+
+pub(crate) mod segment;
+#[cfg(feature = "cli")]
+pub mod cli;
+#[cfg(feature = "integration-test")]
+pub mod test_utils;
 #[macro_use]
-pub mod metric;
-pub mod event_reader_group;
-pub mod raw_client;
-mod reactor;
-pub mod reader_group;
-pub mod reader_group_config;
-pub mod segment_metadata;
-pub mod segment_reader;
-pub mod segment_slice;
-mod stream;
-pub mod table_synchronizer;
-pub mod tablemap;
-pub mod trace;
-pub mod transaction;
-
-thread_local! {
-    pub(crate) static RNG: RefCell<Pcg32> = RefCell::new(Pcg32::from_entropy());
-}
-
-pub(crate) static REQUEST_ID_GENERATOR: AtomicI64 = AtomicI64::new(0);
-
-/// Function used to generate request ids for all the modules.
-pub(crate) fn get_request_id() -> i64 {
-    REQUEST_ID_GENERATOR.fetch_add(1, Ordering::SeqCst) + 1
-}
-
-/// Function used to generate random u64.
-pub(crate) fn get_random_u64() -> u64 {
-    RNG.with(|rng| rng.borrow_mut().gen())
-}
-
-/// Function used to generate random u128.
-pub(crate) fn get_random_u128() -> u128 {
-    RNG.with(|rng| rng.borrow_mut().gen())
-}
-
-/// Function used to generate random i64.
-pub(crate) fn get_random_f64() -> f64 {
-    RNG.with(|rng| rng.borrow_mut().gen())
-}
-
+mod util;
 #[macro_use]
 extern crate derive_new;
-
-// helper method
-async fn create_stream(factory: &ClientFactory, scope: &str, stream: &str) {
-    factory
-        .get_controller_client()
-        .create_scope(&Scope {
-            name: scope.to_string(),
-        })
-        .await
-        .unwrap();
-    factory
-        .get_controller_client()
-        .create_stream(&StreamConfiguration {
-            scoped_stream: ScopedStream {
-                scope: Scope {
-                    name: scope.to_string(),
-                },
-                stream: Stream {
-                    name: stream.to_string(),
-                },
-            },
-            scaling: Scaling {
-                scale_type: ScaleType::FixedNumSegments,
-                target_rate: 0,
-                scale_factor: 0,
-                min_num_segments: 1,
-            },
-            retention: Retention {
-                retention_type: RetentionType::None,
-                retention_param: 0,
-            },
-        })
-        .await
-        .unwrap();
-}

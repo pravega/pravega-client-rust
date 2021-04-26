@@ -13,9 +13,9 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use byteorder::BigEndian;
 use pravega_client::byte_stream::ByteStreamReader;
 use pravega_client::client_factory::ClientFactory;
-use pravega_client::error::SegmentWriterError;
-use pravega_client::event_reader::EventReader;
-use pravega_client::event_stream_writer::EventStreamWriter;
+use pravega_client::errors::SegmentWriterError;
+use pravega_client::event::event_reader::EventReader;
+use pravega_client::event::writer::EventStreamWriter;
 use pravega_client_config::connection_type::{ConnectionType, MockType};
 use pravega_client_config::{ClientConfig, ClientConfigBuilder};
 use pravega_client_shared::*;
@@ -351,7 +351,7 @@ async fn set_up_event_stream_writer(config: ClientConfig) -> EventStreamWriter {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
     };
-    client_factory.create_event_stream_writer(scoped_stream)
+    client_factory.create_event_writer(scoped_stream)
 }
 
 async fn set_up_event_stream_reader(config: ClientConfig) -> EventReader {
@@ -384,7 +384,7 @@ fn set_up_byte_stream_reader(config: ClientConfig, rt: &mut Runtime) -> ByteStre
         1,
     ));
     let scoped_segment = ScopedSegment::from("testByteReaderPerf/testByteReaderPerf/0");
-    client_factory.create_byte_stream_reader(scoped_segment)
+    client_factory.create_byte_reader(scoped_segment)
 }
 
 async fn create_scope_stream(

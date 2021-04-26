@@ -11,7 +11,7 @@ use super::check_standalone_status;
 use super::wait_for_standalone_with_timeout;
 use crate::pravega_service::{PravegaService, PravegaStandaloneService, PravegaStandaloneServiceConfig};
 use pravega_client::client_factory::ClientFactory;
-use pravega_client::raw_client::{RawClient, RawClientImpl};
+use pravega_client::segment::raw_client::{RawClient, RawClientImpl};
 use pravega_client_config::connection_type::MockType;
 use pravega_client_config::{connection_type::ConnectionType, ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_client_retry::retry_async::retry_async;

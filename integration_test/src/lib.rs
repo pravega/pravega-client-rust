@@ -11,25 +11,27 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-mod byte_stream_tests;
+use std::{thread, time};
+// use pravega_client_rust::metric;
+use std::process::Command;
+
+use lazy_static::*;
+use tracing::{error, info, info_span, warn};
+
+use crate::pravega_service::{PravegaService, PravegaStandaloneService};
+
+mod byte_reader_writer_tests;
 mod controller_tests;
 #[cfg(test)]
 mod disconnection_tests;
-mod event_stream_reader_tests;
-mod event_stream_writer_tests;
+mod event_reader_tests;
+mod event_writer_tests;
 mod pravega_service;
 mod tablemap_tests;
-mod tablesynchronizer_tests;
-mod transactional_event_stream_writer_tests;
+mod synchronizer_tests;
+mod transactional_event_writer_tests;
 mod utils;
 mod wirecommand_tests;
-
-use crate::pravega_service::{PravegaService, PravegaStandaloneService};
-use lazy_static::*;
-// use pravega_client_rust::metric;
-use std::process::Command;
-use std::{thread, time};
-use tracing::{error, info, info_span, warn};
 
 #[macro_use]
 extern crate derive_new;
@@ -61,12 +63,15 @@ fn check_standalone_status() -> bool {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::pravega_service::PravegaStandaloneServiceConfig;
-    use pravega_client::trace;
     use std::env;
     use std::net::SocketAddr;
+
+    use pravega_client::util::trace;
     use wirecommand_tests::*;
+
+    use crate::pravega_service::PravegaStandaloneServiceConfig;
+
+    use super::*;
 
     #[test]
     fn integration_test() {
@@ -104,27 +109,27 @@ mod test {
         let span = info_span!("event stream writer test", auth = config.auth, tls = config.tls);
         span.in_scope(|| {
             info!("Running event stream writer test");
-            event_stream_writer_tests::test_event_stream_writer(config.clone());
+            event_writer_tests::test_event_stream_writer(config.clone());
         });
         let span = info_span!("synchronizer test", auth = config.auth, tls = config.tls);
         span.in_scope(|| {
             info!("Running synchronizer test");
-            tablesynchronizer_tests::test_tablesynchronizer(config.clone());
+            synchronizer_tests::test_tablesynchronizer(config.clone());
         });
         let span = info_span!("transaction test", auth = config.auth, tls = config.tls);
         span.in_scope(|| {
             info!("Running transaction test");
-            transactional_event_stream_writer_tests::test_transactional_event_stream_writer(config.clone());
+            transactional_event_writer_tests::test_transactional_event_stream_writer(config.clone());
         });
         let span = info_span!("byte stream test", auth = config.auth, tls = config.tls);
         span.in_scope(|| {
             info!("Running byte stream test");
-            byte_stream_tests::test_byte_stream(config.clone());
+            byte_reader_writer_tests::test_byte_stream(config.clone());
         });
         let span = info_span!("event reader test", auth = config.auth, tls = config.tls);
         span.in_scope(|| {
             info!("Running event reader test");
-            event_stream_reader_tests::test_event_stream_reader(config.clone());
+            event_reader_tests::test_event_stream_reader(config.clone());
         });
         // Shut down Pravega standalone
         pravega.stop().unwrap();
