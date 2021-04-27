@@ -17,8 +17,8 @@ use pcg_rand::Pcg32;
 use rand::{Rng, SeedableRng};
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicI64, Ordering};
+use tracing::span;
 
-pub(crate) mod trace;
 #[macro_use]
 pub(crate) mod metric;
 
@@ -46,6 +46,11 @@ pub(crate) fn get_random_u128() -> u128 {
 /// Function used to generate random i64.
 pub(crate) fn get_random_f64() -> f64 {
     RNG.with(|rng| rng.borrow_mut().gen())
+}
+
+/// Return the current span.
+pub(crate) fn current_span() -> span::Span {
+    span::Span::current()
 }
 
 pub(crate) async fn create_stream(factory: &ClientFactory, scope: &str, stream: &str) {

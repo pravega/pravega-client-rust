@@ -10,7 +10,7 @@
 
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
-        use pravega_client::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
+        use pravega_client::event::transactional_writer::TransactionalEventWriter;
         use pravega_client::client_factory::ClientFactory;
         use pyo3::exceptions;
         use pyo3::prelude::*;
@@ -31,7 +31,7 @@ cfg_if! {
 #[pyclass]
 #[derive(new)]
 pub(crate) struct StreamTxnWriter {
-    writer: TransactionalEventStreamWriter,
+    writer: TransactionalEventWriter,
     factory: ClientFactory,
     stream: ScopedStream,
 }

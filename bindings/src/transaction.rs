@@ -10,13 +10,12 @@
 
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
-        use pravega_client::transaction::Transaction;
+        use pravega_client::event::transactional_writer::{Transaction, TransactionError};
         use pravega_client::client_factory::ClientFactory;
         use pyo3::exceptions;
         use pyo3::prelude::*;
         use pyo3::PyResult;
         use crate::TxnFailedException;
-        use pravega_client::errors::TransactionError;
         use pravega_client_shared::{Timestamp, TransactionStatus, TxId};
         use pyo3::PyObjectProtocol;
         use tracing::{trace, info, warn};

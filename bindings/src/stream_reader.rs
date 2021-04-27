@@ -10,7 +10,7 @@
 
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
-        use pravega_client::event_reader::EventReader;
+        use pravega_client::event::reader::EventReader;
         use pravega_client_shared::ScopedStream;
         use pravega_client::client_factory::ClientFactory;
         use pyo3::prelude::*;
@@ -18,7 +18,7 @@ cfg_if! {
         use pyo3::PyObjectProtocol;
         use tracing::info;
         use std::sync::Arc;
-        use pravega_client::segment_slice::{Event, SegmentSlice};
+        use pravega_client::event::reader::{Event, SegmentSlice};
         use pyo3::PyIterProtocol;
         use tokio::sync::Mutex;
     }

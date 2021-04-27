@@ -13,8 +13,7 @@ use crate::segment::event::{Incoming, PendingEvent, ServerReply, WriterInfo};
 use crate::segment::raw_client::{RawClient, RawClientError};
 use crate::update;
 use crate::util::metric::ClientMetrics;
-use crate::util::trace;
-use crate::util::{get_random_u128, get_request_id};
+use crate::util::{current_span, get_random_u128, get_request_id};
 
 use pravega_client_auth::DelegationTokenProvider;
 use pravega_client_channel::{CapacityGuard, ChannelSender};
@@ -127,7 +126,7 @@ impl SegmentWriter {
                 Ok(uri) => uri,
                 Err(e) => return Err(SegmentWriterError::RetryControllerWriting { err: e }),
             };
-            trace::current_span().record("host", &field::debug(&uri));
+            current_span().record("host", &field::debug(&uri));
 
             let request = Requests::SetupAppend(SetupAppendCommand {
                 request_id: get_request_id(),

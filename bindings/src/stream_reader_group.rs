@@ -12,7 +12,7 @@ use crate::stream_reader::StreamReader;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client_shared::ScopedStream;
-        use pravega_client::event_reader_group::ReaderGroup;
+        use pravega_client::event::reader_group::ReaderGroup;
         use pravega_client::client_factory::ClientFactory;
         use pyo3::prelude::*;
         use pyo3::PyResult;
