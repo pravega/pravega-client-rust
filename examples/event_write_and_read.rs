@@ -14,8 +14,7 @@ use pravega_client_shared::{
     Retention, RetentionType, ScaleType, Scaling, Scope, ScopedStream, Stream, StreamConfiguration,
 };
 
-#[tokio::main]
-async fn main() {
+fn main() {
     // assuming Pravega standalone is listening at localhost:9090
     let config = ClientConfigBuilder::default()
         .controller_uri("localhost:9090")
@@ -23,56 +22,59 @@ async fn main() {
         .unwrap();
 
     let client_factory = ClientFactory::new(config);
-    let controller_client = client_factory.get_controller_client();
 
-    // create a scope
-    let scope = Scope::from("my_scope".to_owned());
-    controller_client
-        .create_scope(&scope)
-        .await
-        .expect("create scope");
+    client_factory.get_runtime().block_on(async {
+        let controller_client = client_factory.get_controller_client();
 
-    // create a stream containing only one segment
-    let stream = Stream::from("my_stream".to_owned());
-    let stream_config = StreamConfiguration {
-        scoped_stream: ScopedStream {
-            scope: scope.clone(),
-            stream: stream.clone(),
-        },
-        scaling: Scaling {
-            scale_type: ScaleType::FixedNumSegments,
-            target_rate: 0,
-            scale_factor: 0,
-            min_num_segments: 1,
-        },
-        retention: Retention {
-            retention_type: RetentionType::None,
-            retention_param: 0,
-        },
-    };
-    controller_client
-        .create_stream(&stream_config)
-        .await
-        .expect("create stream");
+        // create a scope
+        let scope = Scope::from("fooScope".to_owned());
+        controller_client
+            .create_scope(&scope)
+            .await
+            .expect("create scope");
 
-    // create event stream writer
-    let stream = ScopedStream::from("my_scope/my_stream");
-    let mut event_stream_writer = client_factory.create_event_writer(stream.clone());
+        // create a stream containing only one segment
+        let stream = Stream::from("barStream".to_owned());
+        let stream_config = StreamConfiguration {
+            scoped_stream: ScopedStream {
+                scope: scope.clone(),
+                stream: stream.clone(),
+            },
+            scaling: Scaling {
+                scale_type: ScaleType::FixedNumSegments,
+                target_rate: 0,
+                scale_factor: 0,
+                min_num_segments: 1,
+            },
+            retention: Retention {
+                retention_type: RetentionType::None,
+                retention_param: 0,
+            },
+        };
+        controller_client
+            .create_stream(&stream_config)
+            .await
+            .expect("create stream");
 
-    // write payload
-    let payload = "hello world".to_string().into_bytes();
-    let result = event_stream_writer.write_event(payload).await;
-    assert!(result.await.is_ok());
+        // create event stream writer
+        let stream = ScopedStream::from("fooScope/barStream");
+        let mut event_stream_writer = client_factory.create_event_writer(stream.clone());
 
-    // create event stream reader
-    let rg = client_factory
-        .create_reader_group(scope, "rg".to_string(), stream)
-        .await;
-    let mut reader = rg.create_reader("r1".to_string()).await;
+        // write payload
+        let payload = "hello world".to_string().into_bytes();
+        let result = event_stream_writer.write_event(payload).await;
+        assert!(result.await.is_ok());
 
-    // read from segment
-    let mut slice = reader.acquire_segment().await.expect("acquire segment");
-    let read_event = slice.next();
-    assert!(read_event.is_some(), "event slice should have event to read");
-    assert_eq!(b"hello world", read_event.unwrap().value.as_slice());
+        // create event stream reader
+        let rg = client_factory
+            .create_reader_group(scope, "rg".to_string(), stream)
+            .await;
+        let mut reader = rg.create_reader("r1".to_string()).await;
+
+        // read from segment
+        let mut slice = reader.acquire_segment().await.expect("acquire segment");
+        let read_event = slice.next();
+        assert!(read_event.is_some(), "event slice should have event to read");
+        assert_eq!(b"hello world", read_event.unwrap().value.as_slice());
+    });
 }

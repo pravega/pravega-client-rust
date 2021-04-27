@@ -820,7 +820,6 @@ impl Table {
                 .create_raw_client_for_endpoint(self.endpoint.clone())
                 .send_request(&req)
                 .await;
-            debug!("Reply for read tableEntriesDelta request {:?}", result);
 
             match result {
                 Ok(reply) => RetryResult::Success(reply),

@@ -17,7 +17,7 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 pravega-client = { path = "../", version = "0.1"}
 pravega-client-config = { path = "../config", version = "0.1"}
 pravega-client-shared = { path = "../shared", version = "0.1"}
-tokio = "1.1"
+tokio = "1.5"
 
 [[example]]
 name = "event_write_and_read"
