@@ -9,8 +9,8 @@
 //
 
 use crate::client_factory::ClientFactory;
-use crate::util::get_request_id;
 use crate::segment::raw_client::{RawClient, RawClientError};
+use crate::util::get_request_id;
 
 use pravega_client_auth::DelegationTokenProvider;
 use pravega_client_retry::retry_async::retry_async;
@@ -37,7 +37,7 @@ pub type Version = i64;
 const KVTABLE_SUFFIX: &str = "_kvtable";
 
 #[derive(Debug, Snafu)]
-pub enum TableMapError {
+pub enum TableError {
     #[snafu(display("Connection error while performing {}: {}", operation, source))]
     ConnectionError {
         can_retry: bool,
@@ -47,26 +47,28 @@ pub enum TableMapError {
     #[snafu(display("Key does not exist while performing {}: {}", operation, error_msg))]
     KeyDoesNotExist { operation: String, error_msg: String },
     #[snafu(display(
-    "Incorrect Key version observed while performing {}: {}",
-    operation,
-    error_msg
+        "Incorrect Key version observed while performing {}: {}",
+        operation,
+        error_msg
     ))]
     IncorrectKeyVersion { operation: String, error_msg: String },
     #[snafu(display("Error observed while performing {} due to {}", operation, error_msg,))]
     OperationError { operation: String, error_msg: String },
 }
 
-pub struct TableMap {
-    /// name of the map
+/// Table is the client implementation of Table Segment in Pravega.
+/// Table Segment is a key-value table based on Pravega segment.
+pub struct Table {
+    // name should be unique as it is used to construct the internal stream.
+    // different table with same name will share the same state.
     name: String,
     endpoint: PravegaNodeUri,
     factory: ClientFactory,
     delegation_token_provider: DelegationTokenProvider,
 }
 
-impl TableMap {
-    /// create a table map
-    pub async fn new(scope: Scope, name: String, factory: ClientFactory) -> Result<TableMap, TableMapError> {
+impl Table {
+    pub async fn new(scope: Scope, name: String, factory: ClientFactory) -> Result<Table, TableError> {
         let segment = ScopedSegment {
             scope,
             stream: PravegaStream::from(format!("{}{}", name, KVTABLE_SUFFIX)),
@@ -112,7 +114,7 @@ impl TableMap {
             }
         })
         .await
-        .map_err(|e| TableMapError::ConnectionError {
+        .map_err(|e| TableError::ConnectionError {
             can_retry: true,
             operation: op.to_string(),
             source: e.error,
@@ -120,7 +122,7 @@ impl TableMap {
         .and_then(|(r, endpoint)| match r {
             Replies::SegmentCreated(..) | Replies::SegmentAlreadyExists(..) => {
                 info!("Table segment {:?} created", segment);
-                let table_map = TableMap {
+                let table_map = Table {
                     name: segment.to_string(),
                     endpoint,
                     factory,
@@ -128,18 +130,18 @@ impl TableMap {
                 };
                 Ok(table_map)
             }
-            _ => Err(TableMapError::OperationError {
+            _ => Err(TableError::OperationError {
                 operation: op.to_string(),
                 error_msg: r.to_string(),
             }),
         })
     }
 
-    /// Returns the latest value corresponding to the key.
+    /// Return the latest value corresponding to the key.
     ///
     /// If the map does not have the key [`None`] is returned. The version number of the Value is
     /// returned by the API.
-    pub async fn get<K, V>(&self, k: &K) -> Result<Option<(V, Version)>, TableMapError>
+    pub async fn get<K, V>(&self, k: &K) -> Result<Option<(V, Version)>, TableError>
     where
         K: Serialize + serde::de::DeserializeOwned,
         V: Serialize + serde::de::DeserializeOwned,
@@ -157,9 +159,9 @@ impl TableMap {
         })
     }
 
-    /// Unconditionally inserts a new or update an existing entry for the given key.
+    /// Unconditionally insert a new or update an existing entry for the given key.
     /// Once the update is performed the newer version is returned.
-    pub async fn insert<K, V>(&self, k: &K, v: &V, offset: i64) -> Result<Version, TableMapError>
+    pub async fn insert<K, V>(&self, k: &K, v: &V, offset: i64) -> Result<Version, TableError>
     where
         K: Serialize + serde::de::DeserializeOwned,
         V: Serialize + serde::de::DeserializeOwned,
@@ -169,7 +171,7 @@ impl TableMap {
             .await
     }
 
-    /// Conditionally inserts a key-value pair into the table map. The Key and Value are serialized to bytes using
+    /// Conditionally insert a key-value pair into the table map. The Key and Value are serialized to bytes using
     /// cbor.
     ///
     /// The insert is performed after checking the key_version passed.
@@ -181,7 +183,7 @@ impl TableMap {
         v: &V,
         key_version: Version,
         offset: i64,
-    ) -> Result<Version, TableMapError>
+    ) -> Result<Version, TableError>
     where
         K: Serialize + serde::de::DeserializeOwned,
         V: Serialize + serde::de::DeserializeOwned,
@@ -198,7 +200,7 @@ impl TableMap {
         &self,
         k: &K,
         offset: i64,
-    ) -> Result<(), TableMapError> {
+    ) -> Result<(), TableError> {
         self.remove_conditionally(k, TableKey::KEY_NO_VERSION, offset)
             .await
     }
@@ -210,7 +212,7 @@ impl TableMap {
         k: &K,
         key_version: Version,
         offset: i64,
-    ) -> Result<(), TableMapError>
+    ) -> Result<(), TableError>
     where
         K: Serialize + serde::de::DeserializeOwned,
     {
@@ -218,10 +220,10 @@ impl TableMap {
         self.remove_raw_values(vec![(key, key_version)], offset).await
     }
 
-    /// Returns the latest values for a given list of keys. If the tablemap does not have a
+    /// Return the latest values for a given list of keys. If the table does not have a
     /// key a `None` is returned for the corresponding key. The version number of the Value is also
     /// returned by the API
-    pub async fn get_all<K, V>(&self, keys: Vec<&K>) -> Result<Vec<Option<(V, Version)>>, TableMapError>
+    pub async fn get_all<K, V>(&self, keys: Vec<&K>) -> Result<Vec<Option<(V, Version)>>, TableError>
     where
         K: Serialize + serde::de::DeserializeOwned,
         V: Serialize + serde::de::DeserializeOwned,
@@ -231,7 +233,7 @@ impl TableMap {
             .map(|k| to_vec(*k).expect("error during serialization."))
             .collect();
 
-        let read_result: Result<Vec<(Vec<u8>, Version)>, TableMapError> = self.get_raw_values(keys_raw).await;
+        let read_result: Result<Vec<(Vec<u8>, Version)>, TableError> = self.get_raw_values(keys_raw).await;
         read_result.map(|v| {
             v.iter()
                 .map(|(data, version)| {
@@ -246,9 +248,9 @@ impl TableMap {
         })
     }
 
-    /// Unconditionally inserts a new or updates an existing entry for the given keys.
+    /// Unconditionally insert a new or updates an existing entry for the given keys.
     /// Once the update is performed the newer versions are returned.
-    pub async fn insert_all<K, V>(&self, kvps: Vec<(&K, &V)>, offset: i64) -> Result<Vec<Version>, TableMapError>
+    pub async fn insert_all<K, V>(&self, kvps: Vec<(&K, &V)>, offset: i64) -> Result<Vec<Version>, TableError>
     where
         K: Serialize + serde::de::DeserializeOwned,
         V: Serialize + serde::de::DeserializeOwned,
@@ -266,7 +268,7 @@ impl TableMap {
         self.insert_raw_values(r, offset).await
     }
 
-    /// Conditionally inserts key-value pairs into the table map. The Key and Value are serialized to to bytes using
+    /// Conditionally insert key-value pairs into the table. The Key and Value are serialized to to bytes using
     /// cbor
     ///
     /// The insert is performed after checking the key_version passed, in case of a failure none of the key-value pairs
@@ -277,7 +279,7 @@ impl TableMap {
         &self,
         kvps: Vec<(&K, &V, Version)>,
         offset: i64,
-    ) -> Result<Vec<Version>, TableMapError>
+    ) -> Result<Vec<Version>, TableError>
     where
         K: Serialize + serde::de::DeserializeOwned,
         V: Serialize + serde::de::DeserializeOwned,
@@ -295,8 +297,8 @@ impl TableMap {
         self.insert_raw_values(r, offset).await
     }
 
-    /// Unconditionally remove the provided keys from the table map.
-    pub async fn remove_all<K>(&self, keys: Vec<&K>, offset: i64) -> Result<(), TableMapError>
+    /// Unconditionally remove the provided keys from the table.
+    pub async fn remove_all<K>(&self, keys: Vec<&K>, offset: i64) -> Result<(), TableError>
     where
         K: Serialize + serde::de::DeserializeOwned,
     {
@@ -304,13 +306,13 @@ impl TableMap {
         self.remove_conditionally_all(r, offset).await
     }
 
-    /// Conditionally remove keys after checking the key version. In-case of a failure none of the keys
+    /// Conditionally remove keys after checking the key version. In case of a failure none of the keys
     /// are removed.
     pub async fn remove_conditionally_all<K>(
         &self,
         keys: Vec<(&K, Version)>,
         offset: i64,
-    ) -> Result<(), TableMapError>
+    ) -> Result<(), TableError>
     where
         K: Serialize + serde::de::DeserializeOwned,
     {
@@ -325,7 +327,7 @@ impl TableMap {
     pub fn read_keys_stream<'stream, 'map: 'stream, K: 'stream>(
         &'map self,
         max_keys_at_once: i32,
-    ) -> impl Stream<Item = Result<(K, Version), TableMapError>> + 'stream
+    ) -> impl Stream<Item = Result<(K, Version), TableError>> + 'stream
     where
         K: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
     {
@@ -352,7 +354,7 @@ impl TableMap {
     pub fn read_entries_stream<'stream, 'map: 'stream, K: 'map, V: 'map>(
         &'map self,
         max_entries_at_once: i32,
-    ) -> impl Stream<Item = Result<(K, V, Version), TableMapError>> + 'stream
+    ) -> impl Stream<Item = Result<(K, V, Version), TableError>> + 'stream
     where
         K: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
         V: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
@@ -382,7 +384,7 @@ impl TableMap {
         &'map self,
         max_entries_at_once: i32,
         mut from_position: i64,
-    ) -> impl Stream<Item = Result<(K, V, Version, i64), TableMapError>> + 'stream
+    ) -> impl Stream<Item = Result<(K, V, Version, i64), TableError>> + 'stream
     where
         K: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
         V: Serialize + serde::de::DeserializeOwned + std::marker::Unpin,
@@ -413,7 +415,7 @@ impl TableMap {
         &self,
         max_keys_at_once: i32,
         token: &[u8],
-    ) -> Result<(Vec<(K, Version)>, Vec<u8>), TableMapError>
+    ) -> Result<(Vec<(K, Version)>, Vec<u8>), TableError>
     where
         K: Serialize + serde::de::DeserializeOwned,
     {
@@ -438,7 +440,7 @@ impl TableMap {
         &self,
         max_entries_at_once: i32,
         token: &[u8],
-    ) -> Result<(Vec<(K, V, Version)>, Vec<u8>), TableMapError>
+    ) -> Result<(Vec<(K, V, Version)>, Vec<u8>), TableError>
     where
         K: Serialize + serde::de::DeserializeOwned,
         V: Serialize + serde::de::DeserializeOwned,
@@ -457,12 +459,12 @@ impl TableMap {
         })
     }
 
-    /// Get a list of entries in the table map from a given position.
+    /// Get a list of entries in the table from a given position.
     async fn get_entries_delta<K, V>(
         &self,
         max_entries_at_once: i32,
         from_position: i64,
-    ) -> Result<(Vec<(K, V, Version)>, i64), TableMapError>
+    ) -> Result<(Vec<(K, V, Version)>, i64), TableError>
     where
         K: Serialize + serde::de::DeserializeOwned,
         V: Serialize + serde::de::DeserializeOwned,
@@ -489,7 +491,7 @@ impl TableMap {
         &self,
         kvps: Vec<(Vec<u8>, Vec<u8>, Version)>,
         offset: i64,
-    ) -> Result<Vec<Version>, TableMapError> {
+    ) -> Result<Vec<Version>, TableError> {
         let op = "Insert into tablemap";
 
         retry_async(self.factory.get_config().retry_policy, || async {
@@ -530,19 +532,19 @@ impl TableMap {
             }
         })
         .await
-        .map_err(|e| TableMapError::ConnectionError {
+        .map_err(|e| TableError::ConnectionError {
             can_retry: true,
             operation: op.into(),
             source: e.error,
         })
         .and_then(|r| match r {
             Replies::TableEntriesUpdated(c) => Ok(c.updated_versions),
-            Replies::TableKeyBadVersion(c) => Err(TableMapError::IncorrectKeyVersion {
+            Replies::TableKeyBadVersion(c) => Err(TableError::IncorrectKeyVersion {
                 operation: op.into(),
                 error_msg: c.to_string(),
             }),
             // unexpected response from Segment store causes a panic.
-            _ => Err(TableMapError::OperationError {
+            _ => Err(TableError::OperationError {
                 operation: op.into(),
                 error_msg: r.to_string(),
             }),
@@ -551,7 +553,7 @@ impl TableMap {
 
     /// Get raw bytes for a given Key. If no value is present then None is returned.
     /// The read result and the corresponding version is returned as a tuple.
-    async fn get_raw_values(&self, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, Version)>, TableMapError> {
+    async fn get_raw_values(&self, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, Version)>, TableError> {
         let op = "Read from tablemap";
 
         retry_async(self.factory.get_config().retry_policy, || async {
@@ -587,7 +589,7 @@ impl TableMap {
             }
         })
         .await
-        .map_err(|e| TableMapError::ConnectionError {
+        .map_err(|e| TableError::ConnectionError {
             can_retry: true,
             operation: op.into(),
             source: e.error,
@@ -605,7 +607,7 @@ impl TableMap {
                     Ok(result)
                 }
             }
-            _ => Err(TableMapError::OperationError {
+            _ => Err(TableError::OperationError {
                 operation: op.into(),
                 error_msg: reply.to_string(),
             }),
@@ -614,7 +616,7 @@ impl TableMap {
 
     /// Remove a list of keys where the key, represented in raw bytes, and version of the corresponding
     /// keys is specified.
-    async fn remove_raw_values(&self, keys: Vec<(Vec<u8>, Version)>, offset: i64) -> Result<(), TableMapError> {
+    async fn remove_raw_values(&self, keys: Vec<(Vec<u8>, Version)>, offset: i64) -> Result<(), TableError> {
         let op = "Remove keys from table";
 
         retry_async(self.factory.get_config().retry_policy, || async {
@@ -652,22 +654,22 @@ impl TableMap {
             }
         })
         .await
-        .map_err(|e| TableMapError::ConnectionError {
+        .map_err(|e| TableError::ConnectionError {
             can_retry: true,
             operation: op.into(),
             source: e.error,
         })
         .and_then(|r| match r {
             Replies::TableKeysRemoved(..) => Ok(()),
-            Replies::TableKeyBadVersion(c) => Err(TableMapError::IncorrectKeyVersion {
+            Replies::TableKeyBadVersion(c) => Err(TableError::IncorrectKeyVersion {
                 operation: op.into(),
                 error_msg: c.to_string(),
             }),
-            Replies::TableKeyDoesNotExist(c) => Err(TableMapError::KeyDoesNotExist {
+            Replies::TableKeyDoesNotExist(c) => Err(TableError::KeyDoesNotExist {
                 operation: op.into(),
                 error_msg: c.to_string(),
             }),
-            _ => Err(TableMapError::OperationError {
+            _ => Err(TableError::OperationError {
                 operation: op.into(),
                 error_msg: r.to_string(),
             }),
@@ -679,7 +681,7 @@ impl TableMap {
         &self,
         max_keys_at_once: i32,
         token: &[u8],
-    ) -> Result<(Vec<(Vec<u8>, Version)>, Vec<u8>), TableMapError> {
+    ) -> Result<(Vec<(Vec<u8>, Version)>, Vec<u8>), TableError> {
         let op = "Read keys";
 
         retry_async(self.factory.get_config().retry_policy, || async {
@@ -710,7 +712,7 @@ impl TableMap {
             }
         })
         .await
-        .map_err(|e| TableMapError::ConnectionError {
+        .map_err(|e| TableError::ConnectionError {
             can_retry: true,
             operation: op.into(),
             source: e.error,
@@ -722,7 +724,7 @@ impl TableMap {
 
                 Ok((keys, c.continuation_token))
             }
-            _ => Err(TableMapError::OperationError {
+            _ => Err(TableError::OperationError {
                 operation: op.into(),
                 error_msg: r.to_string(),
             }),
@@ -734,7 +736,7 @@ impl TableMap {
         &self,
         max_entries_at_once: i32,
         token: &[u8],
-    ) -> Result<(Vec<(Vec<u8>, Vec<u8>, Version)>, Vec<u8>), TableMapError> {
+    ) -> Result<(Vec<(Vec<u8>, Vec<u8>, Version)>, Vec<u8>), TableError> {
         let op = "Read entries";
 
         retry_async(self.factory.get_config().retry_policy, || async {
@@ -767,7 +769,7 @@ impl TableMap {
             }
         })
         .await
-        .map_err(|e| TableMapError::ConnectionError {
+        .map_err(|e| TableError::ConnectionError {
             can_retry: true,
             operation: op.into(),
             source: e.error,
@@ -785,7 +787,7 @@ impl TableMap {
                     Ok((entries, c.continuation_token))
                 }
                 // unexpected response from Segment store causes a panic.
-                _ => Err(TableMapError::OperationError {
+                _ => Err(TableError::OperationError {
                     operation: op.into(),
                     error_msg: r.to_string(),
                 }),
@@ -799,7 +801,7 @@ impl TableMap {
         &self,
         max_entries_at_once: i32,
         from_position: i64,
-    ) -> Result<(Vec<(Vec<u8>, Vec<u8>, Version)>, i64), TableMapError> {
+    ) -> Result<(Vec<(Vec<u8>, Vec<u8>, Version)>, i64), TableError> {
         let op = "Read entries delta";
 
         retry_async(self.factory.get_config().retry_policy, || async {
@@ -832,7 +834,7 @@ impl TableMap {
             }
         })
         .await
-        .map_err(|e| TableMapError::ConnectionError {
+        .map_err(|e| TableError::ConnectionError {
             can_retry: true,
             operation: op.into(),
             source: e.error,
@@ -850,7 +852,7 @@ impl TableMap {
                     Ok((entries, c.last_position))
                 }
                 // unexpected response from Segment store causes a panic.
-                _ => Err(TableMapError::OperationError {
+                _ => Err(TableError::OperationError {
                     operation: op.into(),
                     error_msg: r.to_string(),
                 }),
@@ -960,7 +962,7 @@ mod test {
     }
 
     // helper function
-    fn create_table_map(rt: &mut Runtime) -> TableMap {
+    fn create_table_map(rt: &mut Runtime) -> Table {
         let config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(MockType::Happy))
             .mock(true)

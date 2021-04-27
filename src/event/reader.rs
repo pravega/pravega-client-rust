@@ -10,25 +10,25 @@
 
 use crate::client_factory::ClientFactory;
 use crate::event::reader_group_state::Offset;
-use crate::segment::reader::{ReaderError, AsyncSegmentReader};
 use crate::segment::reader::ReaderError::SegmentSealed;
+use crate::segment::reader::{AsyncSegmentReader, ReaderError};
 
-use pravega_client_shared::{Reader, ScopedSegment, Segment, SegmentWithRange};
 use pravega_client_retry::retry_result::Retryable;
+use pravega_client_shared::{Reader, ScopedSegment, Segment, SegmentWithRange};
 use pravega_wire_protocol::commands::{Command, EventCommand, TYPE_PLUS_LENGTH_SIZE};
 
+use bytes::{Buf, BufMut, BytesMut};
+use core::fmt;
 use im::HashMap as ImHashMap;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::oneshot;
+use tokio::sync::oneshot::error::TryRecvError;
 use tokio::sync::{mpsc, Mutex};
 use tokio::time::timeout;
-use tokio::sync::oneshot::error::TryRecvError;
 use tracing::{debug, error, info, warn};
-use bytes::{Buf, BufMut, BytesMut};
-use core::fmt;
 type ReaderErrorWithOffset = (ReaderError, i64);
 type SegmentReadResult = Result<SegmentDataBuffer, ReaderErrorWithOffset>;
 
@@ -1117,8 +1117,8 @@ impl SegmentDataBuffer {
 mod tests {
     use super::*;
     use crate::client_factory::ClientFactory;
-    use crate::sync::synchronizer::SynchronizerError;
     use crate::event::reader_group_state::ReaderGroupStateError;
+    use crate::sync::synchronizer::SynchronizerError;
 
     use pravega_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
     use pravega_client_shared::{Reader, Scope, ScopedSegment, ScopedStream, Stream};
@@ -1531,7 +1531,7 @@ mod tests {
     #[tokio::test]
     async fn test_read_partial_events_buffer_10() {
         let (tx, mut rx) = mpsc::channel(1);
-        tokio::spawn(generate_variable_size_events(tx, 10, 20, 0 ,false));
+        tokio::spawn(generate_variable_size_events(tx, 10, 20, 0, false));
         let mut segment_slice = create_segment_slice(0);
         let mut expected_offset: usize = 0;
         let mut expected_event_len = 0;
@@ -1539,7 +1539,11 @@ mod tests {
         loop {
             if segment_slice.is_empty() {
                 if let Some(response) = rx.recv().await {
-                    segment_slice.meta.segment_data.value.put(response.expect("get response").value);
+                    segment_slice
+                        .meta
+                        .segment_data
+                        .value
+                        .put(response.expect("get response").value);
                 } else {
                     break; // All events are sent.
                 }
@@ -1567,7 +1571,11 @@ mod tests {
         loop {
             if segment_slice.is_empty() {
                 if let Some(response) = rx.recv().await {
-                    segment_slice.meta.segment_data.value.put(response.expect("get response").value);
+                    segment_slice
+                        .meta
+                        .segment_data
+                        .value
+                        .put(response.expect("get response").value);
                 } else {
                     break; // All events are sent.
                 }
@@ -1611,8 +1619,8 @@ mod tests {
             offset_in_segment: 0,
             value: buf,
         })
-            .await
-            .unwrap();
+        .await
+        .unwrap();
 
         buf = BytesMut::with_capacity(10);
         buf.put_i32(3);
@@ -1622,8 +1630,8 @@ mod tests {
             offset_in_segment: 0,
             value: buf,
         })
-            .await
-            .unwrap();
+        .await
+        .unwrap();
 
         buf = BytesMut::with_capacity(10);
         buf.put_i32(4);
@@ -1633,8 +1641,8 @@ mod tests {
             offset_in_segment: 0,
             value: buf,
         })
-            .await
-            .unwrap();
+        .await
+        .unwrap();
 
         buf = BytesMut::with_capacity(10);
         buf.put_i32(5);
@@ -1644,8 +1652,8 @@ mod tests {
             offset_in_segment: 0,
             value: buf,
         })
-            .await
-            .unwrap();
+        .await
+        .unwrap();
 
         buf = BytesMut::with_capacity(10);
         buf.put_i32(6);
@@ -1655,8 +1663,8 @@ mod tests {
             offset_in_segment: 0,
             value: buf,
         })
-            .await
-            .unwrap();
+        .await
+        .unwrap();
 
         buf = BytesMut::with_capacity(10);
         buf.put_i32(7);
@@ -1666,8 +1674,8 @@ mod tests {
             offset_in_segment: 0,
             value: buf,
         })
-            .await
-            .unwrap();
+        .await
+        .unwrap();
 
         buf = BytesMut::with_capacity(10);
         buf.put_u8(b'a');
@@ -1678,8 +1686,8 @@ mod tests {
             offset_in_segment: 0,
             value: buf,
         })
-            .await
-            .unwrap();
+        .await
+        .unwrap();
 
         buf = BytesMut::with_capacity(10);
         buf.put(&b"aaa"[..]);
@@ -1688,8 +1696,8 @@ mod tests {
             offset_in_segment: 0,
             value: buf,
         })
-            .await
-            .unwrap();
+        .await
+        .unwrap();
     }
 
     // This is a test function to generate single events of varying sizes
@@ -1840,7 +1848,7 @@ mod tests {
         segment_name.push_str(".#epoch.0");
         let mut buf = BytesMut::with_capacity(buf_size);
         let mut offset: i64 = 0;
-        for i in 1..num_events + 1{
+        for i in 1..num_events + 1 {
             let mut data = generate_event_data(i);
             if data.len() < buf.capacity() - buf.len() {
                 buf.put(data);

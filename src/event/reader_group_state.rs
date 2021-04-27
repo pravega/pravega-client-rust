@@ -17,7 +17,7 @@ use pravega_client_shared::{Reader, Scope, ScopedSegment, Segment, SegmentWithRa
 #[cfg(test)]
 use mockall::automock;
 use serde::{Deserialize, Serialize};
-use snafu::{ResultExt, ensure, OptionExt, Snafu};
+use snafu::{ensure, OptionExt, ResultExt, Snafu};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use tracing::{debug, info, warn};
@@ -119,7 +119,7 @@ impl ReaderGroupState {
 
     // Internal logic of add_reader method. Separate the actual logic with table synchronizer
     // to facilitate the unit test.
-    fn add_reader_internal(table: &mut Table, reader: &Reader) -> Result<Option<String>, SynchronizerError> {
+    fn add_reader_internal(table: &mut Update, reader: &Reader) -> Result<Option<String>, SynchronizerError> {
         if table.contains_key(ASSIGNED, &reader.to_string()) {
             return Err(SynchronizerError::SyncUpdateError {
                 error_msg: format!("Failed to add online reader {:?}: reader already online", reader),
@@ -200,7 +200,7 @@ impl ReaderGroupState {
     }
 
     fn update_reader_positions_internal(
-        table: &mut Table,
+        table: &mut Update,
         reader: &Reader,
         latest_positions: &HashMap<ScopedSegment, Offset>,
     ) -> Result<Option<String>, SynchronizerError> {
@@ -248,7 +248,7 @@ impl ReaderGroupState {
     }
 
     fn remove_reader_internal(
-        table: &mut Table,
+        table: &mut Update,
         reader: &Reader,
         owned_segments: &HashMap<ScopedSegment, Offset>,
     ) -> Result<Option<String>, SynchronizerError> {
@@ -354,7 +354,7 @@ impl ReaderGroupState {
     }
 
     fn assign_segment_to_reader_internal(
-        table: &mut Table,
+        table: &mut Update,
         reader: &Reader,
     ) -> Result<Option<String>, SynchronizerError> {
         let mut assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)?;
@@ -421,7 +421,7 @@ impl ReaderGroupState {
 
     /// Find the corresponding segment in the assigned segment list.
     fn release_segment_internal(
-        table: &mut Table,
+        table: &mut Update,
         reader: &Reader,
         segment: &ScopedSegment,
         offset: &Offset,
@@ -495,7 +495,7 @@ impl ReaderGroupState {
     }
 
     fn segment_completed_internal(
-        table: &mut Table,
+        table: &mut Update,
         reader: &Reader,
         segment_completed: &ScopedSegment,
         successors_mapped_to_their_predecessors: &im::HashMap<SegmentWithRange, Vec<Segment>>,
@@ -565,7 +565,7 @@ impl ReaderGroupState {
     }
 
     fn get_reader_owned_segments_from_table(
-        table: &mut Table,
+        table: &mut Update,
         reader: &Reader,
     ) -> Result<HashMap<ScopedSegment, Offset>, SynchronizerError> {
         ReaderGroupState::check_reader_online(&table.get_inner_map(ASSIGNED), reader)?;
@@ -578,7 +578,7 @@ impl ReaderGroupState {
         Ok(owned_segments)
     }
 
-    fn get_unassigned_segments_from_table(table: &mut Table) -> HashMap<ScopedSegment, Offset> {
+    fn get_unassigned_segments_from_table(table: &mut Update) -> HashMap<ScopedSegment, Offset> {
         table
             .get_inner_map(UNASSIGNED)
             .iter()
@@ -592,7 +592,7 @@ impl ReaderGroupState {
             .collect::<HashMap<ScopedSegment, Offset>>()
     }
 
-    fn get_future_segments_from_table(table: &mut Table) -> HashMap<ScopedSegment, HashSet<Segment>> {
+    fn get_future_segments_from_table(table: &mut Update) -> HashMap<ScopedSegment, HashSet<Segment>> {
         table
             .get_inner_map(FUTURE)
             .iter()
@@ -654,7 +654,7 @@ mod test {
         static ref SEGMENT_TEST: ScopedSegment = SEGMENT.clone();
     }
 
-    fn set_up() -> Table {
+    fn set_up() -> Update {
         let offset = Box::new(Offset::new(0));
         let data = serialize(&*offset).expect("serialize value");
 
@@ -671,7 +671,7 @@ mod test {
         map.insert(UNASSIGNED.to_owned(), unassigned_segments);
 
         let counter = HashMap::new();
-        let table = Table::new(map, counter, vec![], vec![]);
+        let table = Update::new(map, counter, vec![], vec![]);
 
         assert!(table.contains_outer_key(UNASSIGNED));
         assert!(table.contains_key(UNASSIGNED, &SEGMENT_TEST.to_string()));

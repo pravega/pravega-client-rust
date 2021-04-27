@@ -11,13 +11,13 @@
 use crate::byte::reader::ByteReader;
 use crate::byte::writer::ByteWriter;
 use crate::event::reader_group::{ReaderGroup, ReaderGroupConfigBuilder};
-use crate::event::writer::EventWriter;
 use crate::event::transactional_writer::TransactionalEventWriter;
-use crate::segment::raw_client::RawClientImpl;
+use crate::event::writer::EventWriter;
 use crate::segment::metadata::SegmentMetadataClient;
+use crate::segment::raw_client::RawClientImpl;
 use crate::segment::reader::AsyncSegmentReaderImpl;
 use crate::sync::synchronizer::Synchronizer;
-use crate::sync::table_map::TableMap;
+use crate::sync::table::Table;
 cfg_if::cfg_if! {
     if #[cfg(feature = "integration-test")] {
         use crate::test_utils::{RawClientWrapper, SegmentReaderWrapper};
@@ -125,8 +125,8 @@ impl ClientFactory {
         )
     }
 
-    pub async fn create_table(&self, scope: Scope, name: String) -> TableMap {
-        TableMap::new(scope, name, self.clone())
+    pub async fn create_table(&self, scope: Scope, name: String) -> Table {
+        Table::new(scope, name, self.clone())
             .await
             .expect("Failed to create Table map")
     }
@@ -143,7 +143,7 @@ impl ClientFactory {
                 .create_delegation_token_provider(ScopedStream::from(&segment))
                 .await,
         )
-            .await
+        .await
     }
 
     pub(crate) async fn create_raw_client(&self, segment: &ScopedSegment) -> RawClientImpl<'_> {
@@ -160,11 +160,17 @@ impl ClientFactory {
         self.0.create_raw_client(endpoint)
     }
 
-    pub(crate) async fn create_delegation_token_provider(&self, stream: ScopedStream) -> DelegationTokenProvider {
+    pub(crate) async fn create_delegation_token_provider(
+        &self,
+        stream: ScopedStream,
+    ) -> DelegationTokenProvider {
         self.0.create_delegation_token_provider(stream).await
     }
 
-    pub(crate) async fn create_segment_metadata_client(&self, segment: ScopedSegment) -> SegmentMetadataClient {
+    pub(crate) async fn create_segment_metadata_client(
+        &self,
+        segment: ScopedSegment,
+    ) -> SegmentMetadataClient {
         SegmentMetadataClient::new(segment.clone(), self.clone()).await
     }
 
@@ -190,9 +196,8 @@ impl ClientFactory {
                 .create_delegation_token_provider(ScopedStream::from(&segment))
                 .await,
         )
-            .await
+        .await
     }
-
 }
 
 impl ClientFactoryInternal {

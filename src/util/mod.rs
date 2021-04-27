@@ -9,12 +9,14 @@
 //
 
 use crate::client_factory::ClientFactory;
-use pravega_client_shared::{Scope, StreamConfiguration, ScopedStream, ScaleType, Scaling, Stream, Retention, RetentionType};
+use pravega_client_shared::{
+    Retention, RetentionType, ScaleType, Scaling, Scope, ScopedStream, Stream, StreamConfiguration,
+};
 
-use std::cell::RefCell;
-use std::sync::atomic::{AtomicI64, Ordering};
 use pcg_rand::Pcg32;
 use rand::{Rng, SeedableRng};
+use std::cell::RefCell;
+use std::sync::atomic::{AtomicI64, Ordering};
 
 pub(crate) mod trace;
 #[macro_use]

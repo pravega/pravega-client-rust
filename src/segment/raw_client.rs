@@ -13,16 +13,16 @@ use pravega_connection_pool::connection_pool::{ConnectionPool, ConnectionPoolErr
 use pravega_wire_protocol::client_connection::{ClientConnection, ClientConnectionImpl};
 use pravega_wire_protocol::commands::{Reply, Request};
 use pravega_wire_protocol::connection_factory::SegmentConnectionManager;
-use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use pravega_wire_protocol::error::ClientConnectionError;
+use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
 use async_trait::async_trait;
 use snafu::ResultExt;
-use tokio::time::{timeout, Duration};
-use tokio::time::error::Elapsed;
 use snafu::Snafu;
-use std::fmt::Debug;
 use std::fmt;
+use std::fmt::Debug;
+use tokio::time::error::Elapsed;
+use tokio::time::{timeout, Duration};
 
 #[derive(Debug, Snafu)]
 pub enum RawClientError {

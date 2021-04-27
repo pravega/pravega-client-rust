@@ -14,14 +14,14 @@ use crate::event::reader_group_state::Offset;
 
 use pravega_client_shared::{Reader, Scope, ScopedSegment, ScopedStream};
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 use serde::{Deserialize, Serialize};
+use serde_cbor::Error as CborError;
 use serde_cbor::{from_slice, to_vec};
 use snafu::ResultExt;
 use snafu::Snafu;
-use serde_cbor::Error as CborError;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 cfg_if::cfg_if! {
     if #[cfg(test)] {
@@ -384,12 +384,12 @@ pub enum SerdeError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sync::synchronizer::SynchronizerError::SyncUpdateError;
-    use crate::event::reader_group_state::ReaderGroupStateError;
     use crate::event::reader_group::ReaderGroupConfigBuilder;
+    use crate::event::reader_group_state::ReaderGroupStateError;
+    use crate::sync::synchronizer::SynchronizerError::SyncUpdateError;
     use pravega_client_config::ClientConfigBuilder;
     use pravega_client_config::MOCK_CONTROLLER_URI;
-    use pravega_client_shared::{Stream, Segment};
+    use pravega_client_shared::{Segment, Stream};
 
     #[test]
     fn test_stream_cut_serde() {

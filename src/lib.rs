@@ -42,14 +42,14 @@
 //! [Event]: crate::event
 //! [Byte]: crate::byte
 //!
+pub mod byte;
 pub mod client_factory;
 pub mod event;
-pub mod byte;
 pub mod sync;
 
-pub(crate) mod segment;
 #[cfg(feature = "cli")]
 pub mod cli;
+pub(crate) mod segment;
 #[cfg(feature = "integration-test")]
 pub mod test_utils;
 #[macro_use]

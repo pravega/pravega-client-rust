@@ -8,39 +8,38 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::client_factory::ClientFactory;
+use crate::segment::event::{Incoming, PendingEvent, ServerReply, WriterInfo};
+use crate::segment::raw_client::{RawClient, RawClientError};
 use crate::update;
+use crate::util::metric::ClientMetrics;
 use crate::util::trace;
 use crate::util::{get_random_u128, get_request_id};
-use crate::client_factory::ClientFactory;
-use crate::util::metric::ClientMetrics;
-use crate::segment::raw_client::{RawClient, RawClientError};
-use crate::segment::event::{Incoming, PendingEvent, ServerReply, WriterInfo};
 
+use pravega_client_auth::DelegationTokenProvider;
+use pravega_client_channel::{CapacityGuard, ChannelSender};
 use pravega_client_retry::retry_async::retry_async;
 use pravega_client_retry::retry_policy::RetryWithBackoff;
-use pravega_client_retry::retry_result::{RetryResult, RetryError};
+use pravega_client_retry::retry_result::{RetryError, RetryResult};
 use pravega_client_shared::*;
+use pravega_connection_pool::connection_pool::ConnectionPoolError;
+use pravega_controller_client::ControllerError;
 use pravega_wire_protocol::client_connection::*;
 use pravega_wire_protocol::commands::{
     AppendBlockEndCommand, ConditionalBlockEndCommand, SetupAppendCommand,
 };
-use pravega_wire_protocol::wire_commands::{Replies, Requests};
-use pravega_client_auth::DelegationTokenProvider;
-use pravega_client_channel::{CapacityGuard, ChannelSender};
 use pravega_wire_protocol::error::ClientConnectionError;
-use pravega_connection_pool::connection_pool::ConnectionPoolError;
-use pravega_controller_client::ControllerError;
+use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
-
+use snafu::{ResultExt, Snafu};
+use std::collections::VecDeque;
 use std::fmt;
+use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use tokio::select;
 use tokio::sync::oneshot;
-use tracing_futures::Instrument;
-use snafu::{ResultExt, Snafu};
-use std::collections::VecDeque;
 use tracing::{debug, error, field, info, info_span, trace, warn};
-use std::io::{ErrorKind, Error};
+use tracing_futures::Instrument;
 
 pub(crate) struct SegmentWriter {
     /// Unique id for each SegmentWriter.
@@ -338,9 +337,9 @@ impl SegmentWriter {
         let writer = self.connection.as_mut().expect("must have connection");
         writer.write(&request).await.context(SegmentWriting {})?;
 
-        update!(ClientMetrics::ClientAppendBlockSize, total_size as u64, "Segment Writer Id" => self.id.to_string());
+        update!(ClientMetrics::AppendBlockSize, total_size as u64, "Segment Writer Id" => self.id.to_string());
         update!(
-            ClientMetrics::ClientOutstandingAppendCount,
+            ClientMetrics::OutstandingAppendCount,
             self.pending.len() as u64,
             "Segment Writer Id" => self.id.to_string()
         );
@@ -462,10 +461,10 @@ impl SegmentWriter {
         // remove failed append from inflight list
         while let Some(append) = self.inflight.pop_back() {
             if append.event_id >= event_id {
-                let _res = append
-                    .event
-                    .oneshot_sender
-                    .send(Result::Err(Error::new(ErrorKind::BrokenPipe, "conditional check failed")));
+                let _res = append.event.oneshot_sender.send(Result::Err(Error::new(
+                    ErrorKind::BrokenPipe,
+                    "conditional check failed",
+                )));
             } else {
                 self.inflight.push_back(append);
                 break;
@@ -474,10 +473,10 @@ impl SegmentWriter {
 
         // clear pending list
         while let Some(append) = self.pending.pop_back() {
-            let _res = append
-                .event
-                .oneshot_sender
-                .send(Result::Err(Error::new(ErrorKind::BrokenPipe, "conditional check failed")));
+            let _res = append.event.oneshot_sender.send(Result::Err(Error::new(
+                ErrorKind::BrokenPipe,
+                "conditional check failed",
+            )));
         }
     }
 }

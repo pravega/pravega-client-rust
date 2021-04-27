@@ -8,9 +8,9 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::segment::reader::PrefetchingAsyncSegmentReader;
-use crate::segment::metadata::SegmentMetadataClient;
 use crate::client_factory::ClientFactory;
+use crate::segment::metadata::SegmentMetadataClient;
+use crate::segment::reader::PrefetchingAsyncSegmentReader;
 
 use pravega_client_shared::ScopedSegment;
 
@@ -19,8 +19,17 @@ use std::io::{Error, ErrorKind, Read, Seek, SeekFrom};
 use std::sync::Arc;
 use uuid::Uuid;
 
-
 /// A ByteReader enables reading raw bytes from a segment.
+///
+/// The ByteReader implements the [Read] and [Seek] trait in standard library.
+///
+/// Internally ByteReader uses a prefetching reader that prefetches data from the stream in the background.
+/// The prefetched data is cached in memory so any sequential read should hit the cache.
+/// Any [Seek] operation will invalidate the cache and causes cache miss, so frequent [Seek] and read operation
+/// might not have good performance.
+///
+/// [`Read`]: https://doc.rust-lang.org/std/io/trait.Read.html
+/// [`Seek`]: https://doc.rust-lang.org/stable/std/io/trait.Seek.html
 ///
 /// # Examples
 /// ```no_run
@@ -171,13 +180,13 @@ impl Seek for ByteReader {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::byte::writer::ByteWriter;
     use crate::util::create_stream;
     use pravega_client_config::connection_type::{ConnectionType, MockType};
     use pravega_client_config::ClientConfigBuilder;
     use pravega_client_shared::PravegaNodeUri;
-    use tokio::runtime::Runtime;
-    use crate::byte::writer::ByteWriter;
     use std::io::Write;
+    use tokio::runtime::Runtime;
 
     #[test]
     fn test_byte_stream_seek() {

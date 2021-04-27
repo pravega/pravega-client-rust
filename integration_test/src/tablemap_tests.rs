@@ -12,7 +12,7 @@ use futures::pin_mut;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 use pravega_client::client_factory::ClientFactory;
-use pravega_client::sync::table_map::{TableMapError, TableMap, Version};
+use pravega_client::sync::table::{Table, TableError, Version};
 use pravega_client_config::{ClientConfig, ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
@@ -48,7 +48,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     let v: String = "val".into();
     let r = map.insert(&k, &v, -1).await;
     info!("==> PUT {:?}", r);
-    let r: Result<Option<(String, Version)>, TableMapError> = map.get(&k).await;
+    let r: Result<Option<(String, Version)>, TableError> = map.get(&k).await;
     info!("==> GET {:?}", r);
 
     // versioning test
@@ -57,14 +57,14 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     let v_1: String = "v_1".to_string();
     let v_100: String = "v_100".to_string();
 
-    let rr: Result<Option<(String, Version)>, TableMapError> = map.get(&k).await;
+    let rr: Result<Option<(String, Version)>, TableError> = map.get(&k).await;
     assert!(rr.is_ok() && rr.unwrap().is_none());
     let r = map
         .insert_conditionally(&k, &v, TableKey::KEY_NOT_EXISTS, -1)
         .await;
     assert!(r.is_ok());
     let version = r.unwrap();
-    let rr: Result<Option<(String, Version)>, TableMapError> = map.get(&k).await;
+    let rr: Result<Option<(String, Version)>, TableError> = map.get(&k).await;
     assert!(rr.is_ok());
     let temp = rr.unwrap();
     assert!(temp.is_some());
@@ -77,7 +77,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     assert!(r.is_err());
     match r {
         Ok(_v) => panic!("Bad version error expected"),
-        Err(TableMapError::IncorrectKeyVersion { .. }) => (), // this is expected
+        Err(TableError::IncorrectKeyVersion { .. }) => (), // this is expected
         _ => panic!("Invalid Error message"),
     }
     // update with the write version.
@@ -86,7 +86,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
         .await;
     assert!(r.is_ok());
     // verify if the write was successful.
-    let rr: Result<Option<(String, Version)>, TableMapError> = map.get(&k).await;
+    let rr: Result<Option<(String, Version)>, TableError> = map.get(&k).await;
     assert!(rr.is_ok());
     let temp = rr.unwrap();
     assert!(temp.is_some());
@@ -98,7 +98,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
         .await;
     assert!(r.is_ok());
     // verify if the write was successful.
-    let rr: Result<Option<(String, Version)>, TableMapError> = map.get(&k).await;
+    let rr: Result<Option<(String, Version)>, TableError> = map.get(&k).await;
     assert!(rr.is_ok());
     let temp = rr.unwrap();
     assert!(temp.is_some());
@@ -115,7 +115,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     assert!(r.is_err());
     match r {
         Ok(_v) => panic!("Bad version error expected"),
-        Err(TableMapError::IncorrectKeyVersion { .. }) => (), // this is expected
+        Err(TableError::IncorrectKeyVersion { .. }) => (), // this is expected
         _ => panic!("Invalid Error message"),
     }
     //verify unconditional delete
@@ -123,7 +123,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     let r = map.remove(&key, -1).await;
     assert!(r.is_ok());
     // verify with get.
-    let rr: Result<Option<(String, Version)>, TableMapError> = map.get(&k).await;
+    let rr: Result<Option<(String, Version)>, TableError> = map.get(&k).await;
     assert!(rr.is_ok());
     assert!(rr.unwrap().is_none());
     // verify conditional delete post delete.
@@ -132,8 +132,8 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
     assert!(r.is_err());
     match r {
         Ok(_v) => panic!("Key does not exist error expected"),
-        Err(TableMapError::KeyDoesNotExist { .. }) => (), // this is expected
-        Err(TableMapError::IncorrectKeyVersion { .. }) => (), // incorrectKeyVersion is returned sometimes.
+        Err(TableError::KeyDoesNotExist { .. }) => (), // this is expected
+        Err(TableError::IncorrectKeyVersion { .. }) => (), // incorrectKeyVersion is returned sometimes.
         _ => panic!("Invalid Error message"),
     }
 }
@@ -151,14 +151,14 @@ async fn test_multiple_key_operations(client_factory: &ClientFactory) {
 
     let data = vec![(&k1, &v1), (&k2, &v2)];
     let versions = map.insert_all(data, -1).await;
-    let r: Result<Option<(String, Version)>, TableMapError> = map.get(&k1).await;
+    let r: Result<Option<(String, Version)>, TableError> = map.get(&k1).await;
     info!("==> GET {:?}", r);
     assert!(r.is_ok());
     let temp = r.unwrap();
     assert!(temp.is_some());
     assert_eq!(temp.unwrap().0, "v".to_string());
 
-    let r: Result<Option<(String, Version)>, TableMapError> = map.get(&k2).await;
+    let r: Result<Option<(String, Version)>, TableError> = map.get(&k2).await;
     info!("==> GET {:?}", r);
     assert!(r.is_ok());
     let temp = r.unwrap();
@@ -176,25 +176,25 @@ async fn test_multiple_key_operations(client_factory: &ClientFactory) {
     assert!(versions.is_err());
     match versions {
         Ok(_v) => panic!("Bad version error expected"),
-        Err(TableMapError::IncorrectKeyVersion { .. }) => (), // this is expected
+        Err(TableError::IncorrectKeyVersion { .. }) => (), // this is expected
         _ => panic!("Invalid Error message"),
     }
     // verify no new updates have happened.
-    let r: Result<Option<(String, Version)>, TableMapError> = map.get(&k1).await;
+    let r: Result<Option<(String, Version)>, TableError> = map.get(&k1).await;
     info!("==> GET {:?}", r);
     assert!(r.is_ok());
     let temp = r.unwrap();
     assert!(temp.is_some());
     assert_eq!(temp.unwrap().0, "v".to_string());
 
-    let r: Result<Option<(String, Version)>, TableMapError> = map.get(&k3).await;
+    let r: Result<Option<(String, Version)>, TableError> = map.get(&k3).await;
     info!("==> GET {:?}", r);
     assert!(r.is_ok());
     let temp = r.unwrap();
     assert!(temp.is_none());
 
     let keys = vec![&k1, &k2];
-    let r: Result<Vec<Option<(String, Version)>>, TableMapError> = map.get_all(keys).await;
+    let r: Result<Vec<Option<(String, Version)>>, TableError> = map.get_all(keys).await;
     info!("==> GET ALL {:?}", r);
     assert!(r.is_ok());
     let test = r.unwrap();
@@ -204,7 +204,7 @@ async fn test_multiple_key_operations(client_factory: &ClientFactory) {
         assert_eq!(data, "v".to_string());
     }
 
-    let r: Result<Vec<Option<(String, Version)>>, TableMapError> = map.get_all(vec![&k1, &k3]).await;
+    let r: Result<Vec<Option<(String, Version)>>, TableError> = map.get_all(vec![&k1, &k3]).await;
     info!("==> GET ALL {:?}", r);
     assert!(r.is_ok());
     let result = r.unwrap();
@@ -230,7 +230,7 @@ async fn test_multiple_key_remove_operations(client_factory: &ClientFactory) {
     let unconditional_remove = map.remove_all(vec![&k1, &k2], -1).await;
     assert!(unconditional_remove.is_ok());
     // verify is remove is successful.
-    let r: Result<Vec<Option<(String, Version)>>, TableMapError> = map.get_all(vec![&k1, &k2]).await;
+    let r: Result<Vec<Option<(String, Version)>>, TableError> = map.get_all(vec![&k1, &k2]).await;
     assert!(r.is_ok());
     let result = r.unwrap();
     assert!(result[0].is_none());
@@ -243,7 +243,7 @@ async fn test_multiple_key_remove_operations(client_factory: &ClientFactory) {
     assert!(r.is_err());
     match r {
         Ok(_v) => panic!("Bad version error expected"),
-        Err(TableMapError::IncorrectKeyVersion { .. }) => (), // this is expected
+        Err(TableError::IncorrectKeyVersion { .. }) => (), // this is expected
         _ => panic!("Invalid Error message"),
     }
     // verify k3, k4  is still present.

@@ -17,27 +17,27 @@ struct Metric(ClientMetrics, String, String);
 
 #[derive(Clone, IntoEnumIterator, PartialEq)]
 pub(crate) enum ClientMetrics {
-    ClientAppendLatency,
-    ClientAppendBlockSize,
-    ClientOutstandingAppendCount,
+    AppendLatency,
+    AppendBlockSize,
+    OutstandingAppendCount,
 }
 
 impl ClientMetrics {
     fn register(&self) {
         match self {
-            ClientMetrics::ClientAppendLatency => {
+            ClientMetrics::AppendLatency => {
                 register_gauge!(
                     "pravega.client.segment.append_latency_ms",
                     "The latency for a single append."
                 );
             }
-            ClientMetrics::ClientAppendBlockSize => {
+            ClientMetrics::AppendBlockSize => {
                 register_gauge!(
                     "pravega.client.segment.append_block_size",
                     "The block size for a single append wirecommand."
                 );
             }
-            ClientMetrics::ClientOutstandingAppendCount => {
+            ClientMetrics::OutstandingAppendCount => {
                 register_gauge!(
                     "pravega.client.segment.outstanding_append_count",
                     "The current outstanding appends from caller."
@@ -62,13 +62,13 @@ pub(crate) fn metric_init(scrape_port: SocketAddr) {
 macro_rules! update {
     ($metric:expr, $value:expr, $($tags:tt)*) => {
         match $metric {
-            ClientMetrics::ClientAppendLatency => {
+            ClientMetrics::AppendLatency => {
                 metrics::gauge!("pravega.client.segment.append_latency_ms", $value as f64, $($tags)*);
             }
-            ClientMetrics::ClientAppendBlockSize => {
+            ClientMetrics::AppendBlockSize => {
                 metrics::gauge!("pravega.client.segment.append_block_size", $value as f64, $($tags)*);
             }
-            ClientMetrics::ClientOutstandingAppendCount => {
+            ClientMetrics::OutstandingAppendCount => {
                 metrics::gauge!("pravega.client.segment.outstanding_append_count", $value as f64, $($tags)*);
             }
         }

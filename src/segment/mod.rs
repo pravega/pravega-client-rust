@@ -9,9 +9,9 @@
 //
 
 pub(crate) mod event;
-pub(crate) mod reactor;
-pub(crate) mod selector;
-pub(crate) mod writer;
-pub(crate) mod reader;
 pub(crate) mod metadata;
 pub(crate) mod raw_client;
+pub(crate) mod reactor;
+pub(crate) mod reader;
+pub(crate) mod selector;
+pub(crate) mod writer;

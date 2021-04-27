@@ -9,22 +9,22 @@
 //
 
 use crate::client_factory::ClientFactory;
-use crate::util::get_request_id;
 use crate::segment::raw_client::{RawClient, RawClientError};
+use crate::util::get_request_id;
 
+use pravega_client_auth::DelegationTokenProvider;
 use pravega_client_retry::retry_async::retry_async;
 use pravega_client_retry::retry_result::RetryResult;
 use pravega_client_retry::retry_result::Retryable;
-use pravega_client_auth::DelegationTokenProvider;
 use pravega_client_shared::{PravegaNodeUri, ScopedSegment};
 use pravega_wire_protocol::commands::{ReadSegmentCommand, SegmentReadCommand};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
 use async_trait::async_trait;
 use snafu::Snafu;
-use std::result::Result as StdResult;
 use std::cmp;
 use std::collections::VecDeque;
+use std::result::Result as StdResult;
 use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::oneshot::error::TryRecvError;

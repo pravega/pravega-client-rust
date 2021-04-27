@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 use crate::client_factory::ClientFactory;
-use crate::sync::table_map::{TableMapError, TableMap, Version};
+use crate::sync::table::{Table, TableError, Version};
 
 use pravega_client_shared::Scope;
 use pravega_wire_protocol::commands::TableKey;
@@ -19,6 +19,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_cbor::ser::Serializer as CborSerializer;
 use serde_cbor::to_vec;
+use snafu::Snafu;
 use std::clone::Clone;
 use std::cmp::{Eq, PartialEq};
 use std::collections::HashMap;
@@ -28,17 +29,16 @@ use std::slice::Iter;
 use std::time::Duration;
 use tokio::time::sleep;
 use tracing::debug;
-use snafu::Snafu;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]
 pub enum SynchronizerError {
     #[snafu(display(
-    "Table Synchronizer failed while performing {:?} with table error: {:?}",
-    operation,
-    source
+        "Synchronizer failed while performing {:?} with table error: {:?}",
+        operation,
+        source
     ))]
-    SyncTableError { operation: String, source: TableMapError },
+    SyncTableError { operation: String, source: TableError },
 
     #[snafu(display("Failed to run update function in table synchronizer due to: {:?}", error_msg))]
     SyncUpdateError { error_msg: String },
@@ -47,18 +47,18 @@ pub enum SynchronizerError {
     SyncTombstoneError { error_msg: String },
 }
 
-/// Provides a map that is synchronized across different processes.
+/// Provide a map that is synchronized across different processes.
 /// The pattern is to have a map that can be updated by using Insert or Remove.
-/// Each process can perform logic based on its in memory map and apply updates by supplying a
+/// Each process can do updates to its in memory map by supplying a
 /// function to create Insert/Remove objects.
 /// Updates from other processes can be obtained by calling fetchUpdates().
 pub struct Synchronizer {
-    /// The name of the TableSynchronizer. This is also the name of the stream name of table segment.
-    /// Different instances of TableSynchronizer with same name will point to the same table segment.
+    /// The name of the Synchronizer. This is also the name of the stream name of the table segment.
+    /// Different instances of Synchronizer with same name will point to the same table segment.
     name: String,
 
-    /// TableMap is the table segment client.
-    table_map: TableMap,
+    /// Table is the table segment client.
+    table_map: Table,
 
     /// in_memory_map is a two-level nested hash map that uses two keys to identify a value.
     /// The reason to make it a nested map is that the actual data structures shared across
@@ -87,9 +87,9 @@ const DELAY_MILLIS: u64 = 1000;
 
 impl Synchronizer {
     pub async fn new(scope: Scope, name: String, factory: ClientFactory) -> Synchronizer {
-        let table_map = TableMap::new(scope, name.clone(), factory)
+        let table_map = Table::new(scope, name.clone(), factory)
             .await
-            .expect("create table map");
+            .expect("create table");
         Synchronizer {
             name: name.clone(),
             table_map,
@@ -100,7 +100,7 @@ impl Synchronizer {
         }
     }
 
-    /// Gets the outer map currently held in memory.
+    /// Get the outer map currently held in memory.
     /// The return type does not contain the version information.
     pub fn get_outer_map(&self) -> HashMap<String, HashMap<String, Value>> {
         self.in_memory_map
@@ -117,7 +117,7 @@ impl Synchronizer {
             .collect()
     }
 
-    /// Gets the inner map currently held in memory.
+    /// Get the inner map currently held in memory.
     /// The return type does not contain the version information.
     pub fn get_inner_map(&self, outer_key: &str) -> HashMap<String, Value> {
         self.in_memory_map
@@ -138,13 +138,12 @@ impl Synchronizer {
             .collect()
     }
 
-    /// Gets the name of the table_synchronizer, the name is the same as the stream name.
+    /// Get the name of the Synchronizer.
     pub fn get_name(&self) -> String {
         self.name.clone()
     }
 
-    /// Gets the Value associated with the map.
-    /// This is a non-blocking call.
+    /// Get the Value associated with the map.
     /// The data in Value is not deserialized and the caller should call deserialize_from to deserialize.
     pub fn get(&self, outer_key: &str, inner_key: &str) -> Option<&Value> {
         let inner_map = self.in_memory_map.get(outer_key)?;
@@ -165,8 +164,7 @@ impl Synchronizer {
         )
     }
 
-    /// Gets the Key version of the given key,
-    /// This is a non-blocking call.
+    /// Get the Key version of the given key,
     pub fn get_key_version(&self, outer_key: &str, inner_key: &Option<String>) -> Version {
         if let Some(inner) = inner_key {
             let search_key = Key {
@@ -192,8 +190,7 @@ impl Synchronizer {
         }
     }
 
-    /// Gets the key-value pair of given key,
-    /// This is a non-blocking call.
+    /// Get the key-value pair of given key,
     /// It will return a copy of the key-value pair.
     fn get_key_value(&self, outer_key: &str, inner_key: &str) -> Option<(String, Value)> {
         let inner_map = self.in_memory_map.get(outer_key)?;
@@ -210,8 +207,8 @@ impl Synchronizer {
         }
     }
 
-    /// Fetches the latest map from remote server and applies it to the local map.
-    pub async fn fetch_updates(&mut self) -> Result<i32, TableMapError> {
+    /// Fetch the latest map from remote server and apply it to the local map.
+    pub async fn fetch_updates(&mut self) -> Result<i32, TableError> {
         debug!(
             "fetch the latest map and apply to the local map, fetch from position {}",
             self.fetch_position
@@ -254,7 +251,7 @@ impl Synchronizer {
                     counter += 1;
                 }
                 _ => {
-                    return Err(TableMapError::OperationError {
+                    return Err(TableError::OperationError {
                         operation: "fetch_updates".to_string(),
                         error_msg: "fetch entries error".to_string(),
                     });
@@ -265,20 +262,20 @@ impl Synchronizer {
         Ok(counter)
     }
 
-    /// Inserts/Updates a list of keys and applies it atomically to local map.
-    /// This will update the local_map to the latest version.
+    /// Insert/Update a list of keys and applies it atomically to the local map.
+    /// This will update the local map to the latest version.
     pub async fn insert(
         &mut self,
-        updates_generator: impl FnMut(&mut Table) -> Result<Option<String>, SynchronizerError>,
+        updates_generator: impl FnMut(&mut Update) -> Result<Option<String>, SynchronizerError>,
     ) -> Result<Option<String>, SynchronizerError> {
         conditionally_write(updates_generator, self, MAX_RETRIES).await
     }
 
-    /// Removes a list of keys and applies it atomically to local map.
-    /// This will update the local_map to latest version.
+    /// Remove a list of keys and apply it atomically to local map.
+    /// This will update the local map to latest version.
     pub async fn remove(
         &mut self,
-        deletes_generator: impl FnMut(&mut Table) -> Result<Option<String>, SynchronizerError>,
+        deletes_generator: impl FnMut(&mut Update) -> Result<Option<String>, SynchronizerError>,
     ) -> Result<Option<String>, SynchronizerError> {
         conditionally_remove(deletes_generator, self, MAX_RETRIES).await
     }
@@ -309,7 +306,7 @@ impl Hash for Key {
 
 const PREFIX_LENGTH: usize = 2;
 
-/// This is used to parse the key received from the server.
+// This is used to parse the key received from the server.
 struct InternalKey {
     pub key: String,
 }
@@ -351,25 +348,25 @@ const TOMBSTONE: &str = "tombstone";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct Tombstone {}
 
-/// The Table struct contains a nested map and a version map, which are the same as in
-/// table synchronizer but will be updated instantly when caller calls Insert or Remove method.
-/// It is used to update the server side of table map and its updates will be applied to
-/// table synchronizer once the updates are successfully stored on the server side.
-pub struct Table {
+/// The Update contains a nested map and a version map, which are the same map in
+/// synchronizer but will be updated instantly when caller calls Insert or Remove method.
+/// It is used to update the server side of table and its updates will be applied to
+/// synchronizer once the updates are successfully stored on the server side.
+pub struct Update {
     map: HashMap<String, HashMap<String, Value>>,
     map_version: HashMap<String, Value>,
     insert: Vec<Insert>,
     remove: Vec<Remove>,
 }
 
-impl Table {
+impl Update {
     pub fn new(
         map: HashMap<String, HashMap<String, Value>>,
         map_version: HashMap<String, Value>,
         insert: Vec<Insert>,
         remove: Vec<Remove>,
     ) -> Self {
-        Table {
+        Update {
             map,
             map_version,
             insert,
@@ -672,7 +669,7 @@ where
 }
 
 async fn conditionally_write(
-    mut updates_generator: impl FnMut(&mut Table) -> Result<Option<String>, SynchronizerError>,
+    mut updates_generator: impl FnMut(&mut Update) -> Result<Option<String>, SynchronizerError>,
     table_synchronizer: &mut Synchronizer,
     mut retry: i32,
 ) -> Result<Option<String>, SynchronizerError> {
@@ -682,7 +679,7 @@ async fn conditionally_write(
         let map = table_synchronizer.get_outer_map();
         let map_version = table_synchronizer.get_inner_map_version();
 
-        let mut to_update = Table {
+        let mut to_update = Update {
             map,
             map_version,
             insert: Vec::new(),
@@ -713,11 +710,11 @@ async fn conditionally_write(
             .insert_conditionally_all(to_send, table_synchronizer.table_segment_offset)
             .await;
         match result {
-            Err(TableMapError::IncorrectKeyVersion { operation, error_msg }) => {
+            Err(TableError::IncorrectKeyVersion { operation, error_msg }) => {
                 debug!("IncorrectKeyVersion {}, {}", operation, error_msg);
                 table_synchronizer.fetch_updates().await.expect("fetch update");
             }
-            Err(TableMapError::KeyDoesNotExist { operation, error_msg }) => {
+            Err(TableError::KeyDoesNotExist { operation, error_msg }) => {
                 debug!("KeyDoesNotExist {}, {}", operation, error_msg);
                 table_synchronizer.fetch_updates().await.expect("fetch update");
             }
@@ -744,7 +741,7 @@ async fn conditionally_write(
 }
 
 async fn conditionally_remove(
-    mut delete_generator: impl FnMut(&mut Table) -> Result<Option<String>, SynchronizerError>,
+    mut delete_generator: impl FnMut(&mut Update) -> Result<Option<String>, SynchronizerError>,
     table_synchronizer: &mut Synchronizer,
     mut retry: i32,
 ) -> Result<Option<String>, SynchronizerError> {
@@ -754,7 +751,7 @@ async fn conditionally_remove(
         let map = table_synchronizer.get_outer_map();
         let map_version = table_synchronizer.get_inner_map_version();
 
-        let mut to_delete = Table {
+        let mut to_delete = Update {
             map,
             map_version,
             insert: Vec::new(),
@@ -783,11 +780,11 @@ async fn conditionally_remove(
             .await;
 
         match result {
-            Err(TableMapError::IncorrectKeyVersion { operation, error_msg }) => {
+            Err(TableError::IncorrectKeyVersion { operation, error_msg }) => {
                 debug!("IncorrectKeyVersion {}, {}", operation, error_msg);
                 table_synchronizer.fetch_updates().await.expect("fetch update");
             }
-            Err(TableMapError::KeyDoesNotExist { operation, error_msg }) => {
+            Err(TableError::KeyDoesNotExist { operation, error_msg }) => {
                 debug!("KeyDoesNotExist {}, {}", operation, error_msg);
                 table_synchronizer.fetch_updates().await.expect("fetch update");
             }
@@ -813,7 +810,7 @@ async fn conditionally_remove(
 }
 
 async fn clear_tombstone(
-    to_remove: &mut Table,
+    to_remove: &mut Update,
     table_synchronizer: &mut Synchronizer,
 ) -> Result<Option<String>, SynchronizerError> {
     table_synchronizer
@@ -829,7 +826,7 @@ async fn clear_tombstone(
 }
 
 fn apply_inserts_to_localmap(
-    to_update: &mut Table,
+    to_update: &mut Update,
     new_version: Vec<Version>,
     table_synchronizer: &mut Synchronizer,
 ) {
@@ -867,7 +864,7 @@ fn apply_inserts_to_localmap(
     debug!("Updates {} entries in local map ", i);
 }
 
-fn apply_deletes_to_localmap(to_delete: &mut Table, table_synchronizer: &mut Synchronizer) {
+fn apply_deletes_to_localmap(to_delete: &mut Update, table_synchronizer: &mut Synchronizer) {
     let mut i = 0;
     for delete in to_delete.get_remove_iter() {
         let delete_key = Key {
@@ -884,12 +881,10 @@ fn apply_deletes_to_localmap(to_delete: &mut Table, table_synchronizer: &mut Syn
     debug!("Deletes {} entries in local map ", i);
 }
 
-
-
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::sync::synchronizer::{deserialize_from, Table};
+    use crate::sync::synchronizer::{deserialize_from, Update};
     use crate::sync::synchronizer::{serialize, Value};
     use pravega_client_config::connection_type::{ConnectionType, MockType};
     use pravega_client_config::ClientConfigBuilder;
@@ -1016,7 +1011,7 @@ mod test {
 
     #[test]
     fn test_insert_and_get() {
-        let mut table = Table {
+        let mut table = Update {
             map: HashMap::new(),
             map_version: HashMap::new(),
             insert: Vec::new(),

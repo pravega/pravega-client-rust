@@ -204,8 +204,8 @@ pub(crate) mod test {
     use crate::segment::selector::test::create_segment_selector;
     use pravega_client_channel::ChannelSender;
     use pravega_client_config::connection_type::MockType;
-    use tokio::sync::oneshot;
     use std::io::Error;
+    use tokio::sync::oneshot;
 
     type EventHandle = oneshot::Receiver<Result<(), Error>>;
 

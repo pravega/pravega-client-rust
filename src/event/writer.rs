@@ -8,18 +8,18 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::segment::reactor::Reactor;
-use crate::segment::event::{Incoming, PendingEvent};
 use crate::client_factory::ClientFactory;
+use crate::segment::event::{Incoming, PendingEvent};
+use crate::segment::reactor::Reactor;
 use crate::util::get_random_u128;
 
 use pravega_client_channel::{create_channel, ChannelSender};
-use pravega_client_shared::{WriterId, ScopedStream};
+use pravega_client_shared::{ScopedStream, WriterId};
 
+use std::io::{Error, ErrorKind};
 use tokio::sync::oneshot;
 use tracing::info_span;
 use tracing_futures::Instrument;
-use std::io::{Error, ErrorKind};
 
 /// Writes events exactly once to a given stream.
 ///
@@ -147,7 +147,10 @@ impl EventWriter {
         if let Err(_e) = self.sender.send((append_event, size)).await {
             let (tx_error, rx_error) = oneshot::channel();
             tx_error
-                .send(Err(Error::new(ErrorKind::BrokenPipe, "failed to send request to reactor")))
+                .send(Err(Error::new(
+                    ErrorKind::BrokenPipe,
+                    "failed to send request to reactor",
+                )))
                 .expect("send error");
             rx_error
         } else {

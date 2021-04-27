@@ -25,9 +25,9 @@ use pravega_wire_protocol::commands::{
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
+use std::io::Error;
 use std::net::SocketAddr;
 use tracing::info;
-use std::io::Error;
 
 pub fn test_event_stream_writer(config: PravegaStandaloneServiceConfig) {
     // spin up Pravega standalone
@@ -378,7 +378,9 @@ async fn test_write_correctness_with_routing_key(writer: &mut EventWriter, facto
         segment: Segment::from(1),
     };
     let reader1 = factory.create_segment_reader_wrapper(first_segment.clone()).await;
-    let reader2 = factory.create_segment_reader_wrapper(second_segment.clone()).await;
+    let reader2 = factory
+        .create_segment_reader_wrapper(second_segment.clone())
+        .await;
 
     let mut i: i32 = 0;
     let mut offset1: i64 = 0;

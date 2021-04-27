@@ -9,18 +9,18 @@
 //
 
 use crate::client_factory::ClientFactory;
-use crate::util::get_random_f64;
 use crate::segment::event::Incoming;
 use crate::segment::writer::{Append, SegmentWriter};
+use crate::util::get_random_f64;
 
-use pravega_client_channel::ChannelSender;
 use pravega_client_auth::DelegationTokenProvider;
-use pravega_client_shared::{ScopedStream, ScopedSegment, StreamSegments, StreamSegmentsWithPredecessors};
+use pravega_client_channel::ChannelSender;
+use pravega_client_shared::{ScopedSegment, ScopedStream, StreamSegments, StreamSegmentsWithPredecessors};
 
 use ahash::RandomState;
 use std::collections::{BTreeMap, HashMap};
-use tracing::{debug, warn};
 use std::sync::Arc;
+use tracing::{debug, warn};
 
 /// Maintains mapping from segments to segment writers.
 pub(crate) struct SegmentSelector {
@@ -70,7 +70,8 @@ impl SegmentSelector {
                 .factory
                 .get_controller_client()
                 .get_current_segments(&self.stream)
-                .await                .expect("retry failed");
+                .await
+                .expect("retry failed");
         }
         self.create_missing_writers().await;
     }
@@ -185,8 +186,11 @@ pub(crate) mod test {
     use pravega_client_channel::{create_channel, ChannelReceiver};
     use pravega_client_config::connection_type::{ConnectionType, MockType};
     use pravega_client_config::ClientConfigBuilder;
+    use pravega_client_shared::{
+        PravegaNodeUri, Retention, RetentionType, ScaleType, Scaling, Scope, Segment, SegmentWithRange,
+        StreamConfiguration,
+    };
     use tokio::runtime::Runtime;
-    use pravega_client_shared::{PravegaNodeUri, SegmentWithRange, Segment, Scope, StreamConfiguration, Scaling, ScaleType, Retention, RetentionType};
 
     #[test]
     fn test_segment_selector() {

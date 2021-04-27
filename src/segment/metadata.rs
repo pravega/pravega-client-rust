@@ -9,8 +9,8 @@
 //
 
 use crate::client_factory::ClientFactory;
-use crate::util::get_request_id;
 use crate::segment::raw_client::RawClient;
+use crate::util::get_request_id;
 
 use pravega_client_auth::DelegationTokenProvider;
 use pravega_client_retry::retry_async::retry_async;

@@ -13,23 +13,25 @@ use crate::segment::event::{Incoming, PendingEvent};
 use crate::segment::reactor::Reactor;
 
 use pravega_client_auth::DelegationTokenProvider;
-use pravega_client_shared::{ScopedStream, StreamSegments, TransactionStatus, TxId, WriterId, PingStatus, Timestamp};
 use pravega_client_channel::{create_channel, ChannelSender};
+use pravega_client_shared::{
+    PingStatus, ScopedStream, StreamSegments, Timestamp, TransactionStatus, TxId, WriterId,
+};
 use pravega_controller_client::ControllerError;
 
+use futures::FutureExt;
 use snafu::{ResultExt, Snafu};
 use std::collections::BTreeMap;
-use std::sync::Arc;
-use futures::FutureExt;
 use std::collections::HashSet;
+use std::io::Error;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
-use tokio::time::sleep;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;
+use tokio::time::sleep;
 use tracing::{debug, error, info, info_span};
 use tracing_futures::Instrument;
-use std::io::Error;
 
 /// A writer that writes Events to a stream transactionally. Events that are written to the
 /// transaction can be committed atomically, which means that reader cannot see any writes prior to committing
@@ -226,7 +228,7 @@ impl Transaction {
                 factory.clone(),
                 Some(stream_segments),
             )
-                .instrument(span),
+            .instrument(span),
         );
         Transaction {
             info,

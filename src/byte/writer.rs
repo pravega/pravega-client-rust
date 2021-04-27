@@ -9,10 +9,10 @@
 //
 
 use crate::client_factory::ClientFactory;
+use crate::event::writer::EventWriter;
 use crate::segment::event::{Incoming, PendingEvent};
 use crate::segment::metadata::SegmentMetadataClient;
 use crate::segment::reactor::Reactor;
-use crate::event::writer::EventWriter;
 use crate::util::get_random_u128;
 
 use pravega_client_channel::{create_channel, ChannelSender};
@@ -25,7 +25,7 @@ use tracing_futures::Instrument;
 
 type EventHandle = oneshot::Receiver<Result<(), Error>>;
 
-/// Allows for writing raw bytes directly to a segment.
+/// Allow for writing raw bytes directly to a segment.
 ///
 /// ByteWriter does not frame, attach headers, or otherwise modify the bytes written to it in any
 /// way. So unlike [`EventWriter`] the data written cannot be split apart when read.
@@ -194,7 +194,10 @@ impl ByteWriter {
             if let Err(_e) = sender.send((append_event, size)).await {
                 let (tx_error, rx_error) = oneshot::channel();
                 tx_error
-                    .send(Err(Error::new(ErrorKind::BrokenPipe, "failed to send request to reactor")))
+                    .send(Err(Error::new(
+                        ErrorKind::BrokenPipe,
+                        "failed to send request to reactor",
+                    )))
                     .expect("send error");
                 return rx_error;
             }

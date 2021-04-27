@@ -18,9 +18,9 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
 
 use pravega_client::client_factory::ClientFactory;
-use pravega_client::test_utils::{RawClientWrapper, MetadataWrapper};
-use pravega_client::event::transactional_writer::TransactionalEventWriter;
 use pravega_client::event::transactional_writer::Transaction;
+use pravega_client::event::transactional_writer::TransactionalEventWriter;
+use pravega_client::test_utils::{MetadataWrapper, RawClientWrapper};
 use tracing::{error, info};
 
 use crate::pravega_service::PravegaStandaloneServiceConfig;
@@ -103,10 +103,7 @@ async fn test_abort_transaction(writer: &mut TransactionalEventWriter) {
     info!("test abort transaction passed");
 }
 
-async fn test_write_and_read_transaction(
-    writer: &mut TransactionalEventWriter,
-    factory: &ClientFactory,
-) {
+async fn test_write_and_read_transaction(writer: &mut TransactionalEventWriter, factory: &ClientFactory) {
     info!("test write transaction");
 
     let mut transaction = writer.begin().await.expect("begin transaction");

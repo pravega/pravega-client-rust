@@ -55,10 +55,10 @@
 //! [TransactionalEventWriter]: crate::event::transactional_event_writer::TransactionalEventWriter
 //! [Transaction]: crate::crate::event::transactional_event_writer::Transaction
 //! [details]: https://pravega.io/docs/nightly/pravega-concepts/#transactions
-//! [EventStreamReader]: crate::event::event_reader::EventReader
+//! [EventReader]: crate::event::event_reader::EventReader
 //!
-pub mod writer;
 pub mod reader;
-pub mod transactional_writer;
 pub mod reader_group;
 pub(crate) mod reader_group_state;
+pub mod transactional_writer;
+pub mod writer;
