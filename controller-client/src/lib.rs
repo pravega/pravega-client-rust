@@ -568,12 +568,19 @@ impl ControllerClientImpl {
             | Code::AlreadyExists
             | Code::PermissionDenied
             | Code::OutOfRange
-            | Code::Unimplemented
-            | Code::Unauthenticated => ControllerError::OperationError {
+            | Code::Unimplemented => ControllerError::OperationError {
                 can_retry: false,
                 operation: operation_name.into(),
                 error_msg: status.to_string(),
             },
+            Code::Unauthenticated => {
+                self.reset().await;
+                ControllerError::OperationError {
+                    can_retry: true,
+                    operation: operation_name.into(),
+                    error_msg: status.to_string(),
+                }
+            }
             Code::Unknown => {
                 self.reset().await;
                 ControllerError::ConnectionError {

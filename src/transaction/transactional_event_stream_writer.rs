@@ -18,6 +18,7 @@ use snafu::ResultExt;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::oneshot;
 use tracing::{info, info_span};
 use tracing_futures::Instrument;
 
@@ -68,12 +69,13 @@ pub struct TransactionalEventStreamWriter {
     factory: ClientFactory,
     pinger_handle: PingerHandle,
     delegation_token_provider: Arc<DelegationTokenProvider>,
+    shutdown: oneshot::Sender<()>,
 }
 
 impl TransactionalEventStreamWriter {
     // use ClientFactory to initialize a TransactionalEventStreamWriter.
     pub(crate) async fn new(stream: ScopedStream, writer_id: WriterId, factory: ClientFactory) -> Self {
-        let (mut pinger, pinger_handle) = Pinger::new(
+        let (mut pinger, pinger_handle, shutdown) = Pinger::new(
             stream.clone(),
             factory.get_config().transaction_timeout_time,
             factory.clone(),
@@ -90,6 +92,7 @@ impl TransactionalEventStreamWriter {
             factory,
             pinger_handle,
             delegation_token_provider,
+            shutdown,
         }
     }
 
