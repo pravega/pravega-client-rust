@@ -15,6 +15,7 @@ use pravega_client_shared::{PingStatus, ScopedStream, TxId};
 use std::collections::HashSet;
 use std::time::Duration;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::oneshot;
 use tokio::time::sleep;
 use tracing::{debug, error, info};
 
@@ -22,7 +23,6 @@ use tracing::{debug, error, info};
 enum PingerEvent {
     Add(TxId),
     Remove(TxId),
-    Terminate,
 }
 
 /// Pinger is used to ping transactions periodically. It spawns a task that runs in the background
@@ -34,6 +34,7 @@ pub(crate) struct Pinger {
     ping_interval_millis: u64,
     factory: ClientFactory,
     receiver: UnboundedReceiver<PingerEvent>,
+    shutdown: oneshot::Receiver<()>,
 }
 
 /// PingerHandle is just a wrapped channel sender which is used to communicate with the Pinger.
@@ -65,28 +66,24 @@ impl PingerHandle {
     }
 }
 
-impl Drop for PingerHandle {
-    fn drop(&mut self) {
-        let _res = self.0.send(PingerEvent::Terminate);
-    }
-}
-
 impl Pinger {
     pub(crate) fn new(
         stream: ScopedStream,
         txn_lease_millis: u64,
         factory: ClientFactory,
-    ) -> (Self, PingerHandle) {
+    ) -> (Self, PingerHandle, oneshot::Sender<()>) {
         let (tx, rx) = unbounded_channel();
+        let (oneshot_tx, oneshot_rx) = oneshot::channel();
         let pinger = Pinger {
             stream,
             txn_lease_millis,
             ping_interval_millis: Pinger::get_ping_interval(txn_lease_millis),
             factory,
             receiver: rx,
+            shutdown: oneshot_rx,
         };
         let handle = PingerHandle(tx);
-        (pinger, handle)
+        (pinger, handle, oneshot_tx)
     }
 
     pub(crate) async fn start_ping(&mut self) {
@@ -107,9 +104,6 @@ impl Pinger {
                         }
                         PingerEvent::Remove(id) => {
                             txn_list.remove(&id);
-                        }
-                        PingerEvent::Terminate => {
-                            return;
                         }
                     }
                 } else {
@@ -149,7 +143,15 @@ impl Pinger {
             info!("sending transaction pings complete.");
 
             // delay for transaction lease milliseconds.
-            sleep(Duration::from_millis(self.txn_lease_millis)).await;
+            tokio::select! {
+                _ = sleep(Duration::from_millis(self.txn_lease_millis)) => {
+                    debug!("pinger wake up after {}ms", self.txn_lease_millis);
+                }
+                _ = &mut self.shutdown => {
+                    info!("shut down pinger");
+                    return;
+                }
+            }
         }
     }
 
@@ -176,5 +178,6 @@ mod test {
         assert_eq!(Pinger::get_ping_interval(9000u64), 3000u64);
         assert_eq!(Pinger::get_ping_interval(16000u64), 4000u64);
         assert_eq!(Pinger::get_ping_interval(25000u64), 5000u64);
+        println!("{}", Pinger::get_ping_interval(90 * 1000u64))
     }
 }
