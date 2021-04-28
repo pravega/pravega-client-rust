@@ -178,6 +178,5 @@ mod test {
         assert_eq!(Pinger::get_ping_interval(9000u64), 3000u64);
         assert_eq!(Pinger::get_ping_interval(16000u64), 4000u64);
         assert_eq!(Pinger::get_ping_interval(25000u64), 5000u64);
-        println!("{}", Pinger::get_ping_interval(90 * 1000u64))
     }
 }
