@@ -16,9 +16,8 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::sync::Mutex;
 use std::time::SystemTime;
-use tokio::runtime::Runtime;
+use tokio::sync::Mutex;
 
 pub const URL_TOKEN: &str = "/realms/{realm-name}/protocol/openid-connect/token";
 pub const BASIC: &str = "Basic";
@@ -70,8 +69,8 @@ impl Credentials {
         }
     }
 
-    pub fn get_request_metadata(&self) -> String {
-        self.inner.get_request_metadata()
+    pub async fn get_request_metadata(&self) -> String {
+        self.inner.get_request_metadata().await
     }
 }
 
@@ -85,7 +84,7 @@ impl Clone for Credentials {
 
 #[async_trait]
 trait Cred: Debug + CredClone + Send + Sync {
-    fn get_request_metadata(&self) -> String;
+    async fn get_request_metadata(&self) -> String;
 }
 
 trait CredClone {
@@ -109,7 +108,7 @@ struct Basic {
 
 #[async_trait]
 impl Cred for Basic {
-    fn get_request_metadata(&self) -> String {
+    async fn get_request_metadata(&self) -> String {
         format!("{} {}", self.method, self.token)
     }
 }
@@ -124,17 +123,16 @@ struct KeyCloak {
 
 #[async_trait]
 impl Cred for KeyCloak {
-    fn get_request_metadata(&self) -> String {
+    async fn get_request_metadata(&self) -> String {
         if self.is_expired() {
-            self.refresh_rpt_token();
+            self.refresh_rpt_token().await;
         }
-        format!("{} {}", self.method, *self.token.lock().expect("lock token"))
+        format!("{} {}", self.method, *self.token.lock().await)
     }
 }
 
 impl KeyCloak {
-    fn refresh_rpt_token(&self) {
-        let rt = Runtime::new().expect("create tokio runtime to get rpt token");
+    async fn refresh_rpt_token(&self) {
         // read keycloak json
         let file = File::open(self.path.to_string()).expect("open keycloak.json");
         let mut buf_reader = BufReader::new(file);
@@ -145,30 +143,30 @@ impl KeyCloak {
         let key_cloak_json: KeyCloakJson = serde_json::from_slice(&buffer).expect("decode slice to struct");
 
         // first POST request for access token
-        let access_token = rt
-            .block_on(obtain_access_token(
-                &key_cloak_json.auth_server_url,
-                &key_cloak_json.realm,
-                &key_cloak_json.resource,
-                &key_cloak_json.credentials.secret,
-            ))
-            .expect("obtain access token");
+        let access_token = obtain_access_token(
+            &key_cloak_json.auth_server_url,
+            &key_cloak_json.realm,
+            &key_cloak_json.resource,
+            &key_cloak_json.credentials.secret,
+        )
+        .await
+        .expect("obtain access token");
 
         // second POST request for rpt
-        let rpt = rt
-            .block_on(authorize(
-                &key_cloak_json.auth_server_url,
-                &key_cloak_json.realm,
-                &access_token,
-            ))
-            .expect("get rpt");
+        let rpt = authorize(
+            &key_cloak_json.auth_server_url,
+            &key_cloak_json.realm,
+            &access_token,
+        )
+        .await
+        .expect("get rpt");
 
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .expect("get unix time");
         let expires_at = now.as_secs() + rpt.expires_in;
 
-        *self.token.lock().expect("lock token") = rpt.access_token;
+        *self.token.lock().await = rpt.access_token;
         self.expires_at.store(expires_at, Ordering::Relaxed);
     }
 
