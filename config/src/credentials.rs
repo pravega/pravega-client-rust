@@ -72,6 +72,10 @@ impl Credentials {
     pub async fn get_request_metadata(&self) -> String {
         self.inner.get_request_metadata().await
     }
+
+    pub fn is_expired(&self) -> bool {
+        self.inner.is_expired()
+    }
 }
 
 impl Clone for Credentials {
@@ -85,6 +89,7 @@ impl Clone for Credentials {
 #[async_trait]
 trait Cred: Debug + CredClone + Send + Sync {
     async fn get_request_metadata(&self) -> String;
+    fn is_expired(&self) -> bool;
 }
 
 trait CredClone {
@@ -111,6 +116,10 @@ impl Cred for Basic {
     async fn get_request_metadata(&self) -> String {
         format!("{} {}", self.method, self.token)
     }
+
+    fn is_expired(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -128,6 +137,13 @@ impl Cred for KeyCloak {
             self.refresh_rpt_token().await;
         }
         format!("{} {}", self.method, *self.token.lock().await)
+    }
+
+    fn is_expired(&self) -> bool {
+        let now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("get unix time");
+        now.as_secs() + REFRESH_THRESHOLD_SECONDS >= self.expires_at.load(Ordering::Relaxed)
     }
 }
 
@@ -168,13 +184,6 @@ impl KeyCloak {
 
         *self.token.lock().await = rpt.access_token;
         self.expires_at.store(expires_at, Ordering::Relaxed);
-    }
-
-    fn is_expired(&self) -> bool {
-        let now = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .expect("get unix time");
-        now.as_secs() + REFRESH_THRESHOLD_SECONDS >= self.expires_at.load(Ordering::Relaxed)
     }
 }
 

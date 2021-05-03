@@ -276,9 +276,9 @@ pub trait ControllerClient: Send + Sync {
     ) -> ResultRetry<()>;
 
     ///
-    ///Check the status of a Stream Scale operation for a given scale epoch. It returns a
-    ///`true` if the stream scaling operation has completed and `false` if the stream scaling is
-    ///in  progress.
+    /// Check the status of a Stream Scale operation for a given scale epoch. It returns a
+    /// `true` if the stream scaling operation has completed and `false` if the stream scaling is
+    /// in progress.
     ///
     async fn check_scale(&self, stream: &ScopedStream, scale_epoch: i32) -> ResultRetry<bool>;
 }
@@ -557,11 +557,26 @@ impl ControllerClientImpl {
     /// Due to this cloning the `Channel` type is cheap and encouraged.
     ///
     async fn get_controller_client(&self) -> ControllerServiceClient<Channel> {
+        if self.config.is_auth_enabled && self.config.credentials.is_expired() {
+            // get_request_metadata internally checks if token expired before sending request to the server,
+            // race condition might happen here but eventually only one request will be sent.
+            let mut x = self.channel.write().await;
+            let token = self.config.credentials.get_request_metadata().await;
+            let token = MetadataValue::from_str(&token).expect("convert to metadata value");
+            *x = ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
+                req.metadata_mut().insert(AUTHORIZATION, token.clone());
+                Ok(req)
+            });
+        }
         self.channel.read().await.clone()
     }
 
     // Method used to translate grpc errors to ControllerError.
     async fn map_grpc_error(&self, operation_name: &str, status: Status) -> ControllerError {
+        warn!(
+            "controller operation {:?} gets grpc error {:?}",
+            operation_name, status
+        );
         match status.code() {
             Code::InvalidArgument
             | Code::NotFound
