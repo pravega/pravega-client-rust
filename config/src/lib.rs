@@ -35,8 +35,6 @@ use pravega_client_shared::PravegaNodeUri;
 use std::collections::HashMap;
 use std::env;
 use std::time::Duration;
-use tracing::{dispatcher, Dispatch, Level};
-use tracing_subscriber::FmtSubscriber;
 
 pub const MOCK_CONTROLLER_URI: (&str, u16) = ("localhost", 9090);
 const AUTH_METHOD: &str = "method";
@@ -50,7 +48,6 @@ const TLS_CERT_PATH: &str = "pravega_client_tls_cert_path";
 
 #[derive(Builder, Debug, Getters, CopyGetters, Clone)]
 #[builder(setter(into))]
-#[builder(build_fn(validate = "Self::validate"))]
 pub struct ClientConfig {
     #[get_copy = "pub"]
     #[builder(default = "u32::max_value()")]
@@ -101,10 +98,6 @@ pub struct ClientConfig {
     #[get_copy = "pub"]
     #[builder(default = "self.default_timeout()")]
     pub request_timeout: Duration,
-
-    #[get_copy = "pub"]
-    #[builder(default = "Level::INFO")]
-    pub log_level: Level,
 }
 
 impl ClientConfigBuilder {
@@ -147,18 +140,6 @@ impl ClientConfigBuilder {
 
     fn default_timeout(&self) -> Duration {
         Duration::from_secs(30)
-    }
-
-    fn validate(&self) -> Result<(), String> {
-        let subscriber = FmtSubscriber::builder()
-            .with_ansi(true)
-            .with_max_level(Level::DEBUG)
-            .finish();
-
-        let my_dispatch = Dispatch::new(subscriber);
-        // this function can only be called once.
-        dispatcher::set_global_default(my_dispatch)
-            .map_err(|e| format!("failed to set tracing level globally: {:?}", e))
     }
 }
 

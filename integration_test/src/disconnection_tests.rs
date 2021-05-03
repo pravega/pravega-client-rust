@@ -11,7 +11,7 @@ use super::check_standalone_status;
 use super::wait_for_standalone_with_timeout;
 use crate::pravega_service::{PravegaService, PravegaStandaloneService, PravegaStandaloneServiceConfig};
 use pravega_client::client_factory::ClientFactory;
-use pravega_client::segment::raw_client::{RawClient, RawClientImpl};
+use pravega_client::test_utils::RawClientWrapper;
 use pravega_client_config::connection_type::MockType;
 use pravega_client_config::{connection_type::ConnectionType, ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_client_retry::retry_async::retry_async;
@@ -61,7 +61,7 @@ async fn test_retry_with_no_connection() {
     let manager = SegmentConnectionManager::new(cf, 1);
     let pool = ConnectionPool::new(manager);
 
-    let raw_client = RawClientImpl::new(&pool, endpoint, Duration::from_secs(3600));
+    let raw_client = RawClientWrapper::new(&pool, endpoint, Duration::from_secs(3600));
 
     let result = retry_async(retry_policy, || async {
         let request = Requests::Hello(HelloCommand {
@@ -167,7 +167,7 @@ fn test_retry_with_unexpected_reply() {
     let connection_factory = ConnectionFactory::create(ConnectionFactoryConfig::from(&config));
     let manager = SegmentConnectionManager::new(connection_factory, 1);
     let pool = ConnectionPool::new(manager);
-    let raw_client = RawClientImpl::new(&pool, endpoint, Duration::from_secs(3600));
+    let raw_client = RawClientWrapper::new(&pool, endpoint, Duration::from_secs(3600));
     let result = cf.get_runtime().block_on(retry_async(retry_policy, || async {
         let request = Requests::SealSegment(SealSegmentCommand {
             segment: segment_name.to_string(),

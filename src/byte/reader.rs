@@ -189,7 +189,7 @@ mod test {
     use tokio::runtime::Runtime;
 
     #[test]
-    fn test_byte_stream_seek() {
+    fn test_byte_seek() {
         let rt = Runtime::new().unwrap();
         let (mut writer, mut reader) = create_reader_and_writer(&rt);
 

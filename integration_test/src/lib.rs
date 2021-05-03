@@ -66,16 +66,31 @@ mod test {
     use std::env;
     use std::net::SocketAddr;
 
-    use pravega_client::util::trace;
     use wirecommand_tests::*;
 
     use crate::pravega_service::PravegaStandaloneServiceConfig;
 
     use super::*;
+    use tracing::{dispatcher, Dispatch, Level};
 
     #[test]
     fn integration_test() {
-        trace::init();
+        let subscriber = FmtSubscriber::builder()
+            .with_ansi(true)
+            .with_max_level(Level::DEBUG)
+            .finish();
+
+        let my_dispatch = Dispatch::new(subscriber);
+        // this function can only be called once.
+        dispatcher::set_global_default(my_dispatch)
+            .map_err(|e| {
+                format!(
+                    "failed to set tracing level globally, probably you tried to set it multiple times: {:?}",
+                    e
+                )
+            })
+            .unwrap();
+
         // metric::metric_init(PROMETHEUS_SCRAPE_PORT.parse::<SocketAddr>().unwrap());
         info!("Running integration test");
         let config = PravegaStandaloneServiceConfig::new(false, true, true);
