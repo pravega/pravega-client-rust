@@ -514,16 +514,7 @@ impl ControllerClientImpl {
     pub fn new(config: ClientConfig, rt: &Runtime) -> Self {
         // actual connection is established lazily.
         let ch = rt.block_on(get_channel(&config));
-        let client = if config.is_auth_enabled {
-            let token = rt.block_on(config.credentials.get_request_metadata());
-            let token = MetadataValue::from_str(&token).expect("convert to metadata value");
-            ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
-                req.metadata_mut().insert(AUTHORIZATION, token.clone());
-                Ok(req)
-            })
-        } else {
-            ControllerServiceClient::new(ch)
-        };
+        let client = ControllerServiceClient::new(ch);
 
         ControllerClientImpl {
             config,
@@ -538,16 +529,7 @@ impl ControllerClientImpl {
     pub async fn reset(&self) {
         let ch = get_channel(&self.config).await;
         let mut x = self.channel.write().await;
-        if self.config.is_auth_enabled {
-            let token = self.config.credentials.get_request_metadata().await;
-            let token = MetadataValue::from_str(&token).expect("convert to metadata value");
-            *x = ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
-                req.metadata_mut().insert(AUTHORIZATION, token.clone());
-                Ok(req)
-            });
-        } else {
-            *x = ControllerServiceClient::new(ch);
-        }
+        *x = ControllerServiceClient::new(ch);
     }
 
     ///
