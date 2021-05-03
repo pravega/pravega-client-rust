@@ -561,6 +561,7 @@ impl ControllerClientImpl {
             // get_request_metadata internally checks if token expired before sending request to the server,
             // race condition might happen here but eventually only one request will be sent.
             let mut x = self.channel.write().await;
+            let ch = get_channel(&self.config).await;
             let token = self.config.credentials.get_request_metadata().await;
             let token = MetadataValue::from_str(&token).expect("convert to metadata value");
             *x = ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
