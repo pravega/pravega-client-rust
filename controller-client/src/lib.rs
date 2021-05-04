@@ -536,16 +536,11 @@ impl ControllerClientImpl {
     /// This logic can be removed once https://github.com/tower-rs/tower/issues/383 is fixed.
     ///
     pub async fn reset(&self) {
-        let ch = get_channel(&self.config).await;
-        let mut x = self.channel.write().await;
         if self.config.is_auth_enabled {
-            let token = self.config.credentials.get_request_metadata().await;
-            let token = MetadataValue::from_str(&token).expect("convert to metadata value");
-            *x = ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
-                req.metadata_mut().insert(AUTHORIZATION, token.clone());
-                Ok(req)
-            });
+            self.refresh_token_if_needed().await;
         } else {
+            let ch = get_channel(&self.config).await;
+            let mut x = self.channel.write().await;
             *x = ControllerServiceClient::new(ch);
         }
     }
@@ -560,16 +555,20 @@ impl ControllerClientImpl {
         if self.config.is_auth_enabled && self.config.credentials.is_expired() {
             // get_request_metadata internally checks if token expired before sending request to the server,
             // race condition might happen here but eventually only one request will be sent.
-            let mut x = self.channel.write().await;
-            let ch = get_channel(&self.config).await;
-            let token = self.config.credentials.get_request_metadata().await;
-            let token = MetadataValue::from_str(&token).expect("convert to metadata value");
-            *x = ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
-                req.metadata_mut().insert(AUTHORIZATION, token.clone());
-                Ok(req)
-            });
+            self.refresh_token_if_needed().await;
         }
         self.channel.read().await.clone()
+    }
+
+    async fn refresh_token_if_needed(&self) {
+        let ch = get_channel(&self.config).await;
+        let mut x = self.channel.write().await;
+        let token = self.config.credentials.get_request_metadata().await;
+        let token = MetadataValue::from_str(&token).expect("convert to metadata value");
+        *x = ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
+            req.metadata_mut().insert(AUTHORIZATION, token.clone());
+            Ok(req)
+        });
     }
 
     // Method used to translate grpc errors to ControllerError.
