@@ -8,6 +8,10 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+//! Factory to create components in Pravega Rust client.
+//!
+//! Applications should always use this ClientFactory to initialize components.
+//!
 use crate::byte::reader::ByteReader;
 use crate::byte::writer::ByteWriter;
 use crate::event::reader_group::{ReaderGroup, ReaderGroupConfigBuilder};

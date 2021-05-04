@@ -26,9 +26,7 @@ use tracing_futures::Instrument;
 /// EventStreamWriter spawns a `Reactor` that runs in the background for processing incoming events.
 /// The `write` method sends the event to the `Reactor` asynchronously and returns a `tokio::oneshot::Receiver`
 /// that contains the result of the write to the caller. The maximum size of the serialized event
-/// supported is [`size`], writing size larger than that will returns an error.
-///
-/// [`size`]: EventWriter::MAX_EVENT_SIZE
+/// supported is 8MB, writing size larger than that will returns an error.
 ///
 /// # Note
 ///
@@ -72,7 +70,7 @@ pub struct EventWriter {
 }
 
 impl EventWriter {
-    pub const MAX_EVENT_SIZE: usize = 8 * 1024 * 1024;
+    pub(crate) const MAX_EVENT_SIZE: usize = 8 * 1024 * 1024;
     // maximum 16 MB total size of events could be held in memory
     const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
@@ -121,7 +119,7 @@ impl EventWriter {
     ///
     ///
     /// [`channel`]: pravega_client_channel
-    /// [`capacity`]: EvenWriter::CHANNEL_CAPACITY
+    /// [`capacity`]: EventWriter::CHANNEL_CAPACITY
     ///
     pub async fn write_event_by_routing_key(
         &mut self,
