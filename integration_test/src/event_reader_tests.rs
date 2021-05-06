@@ -36,7 +36,7 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
 
-    let runtime = client_factory.get_runtime();
+    let runtime = client_factory.runtime();
     test_read_large_events(&client_factory, &runtime);
     test_multi_reader_multi_segments_tail_read(&client_factory, &runtime);
     runtime.block_on(test_read_api(&client_factory));
@@ -57,7 +57,7 @@ fn test_read_large_events(client_factory: &ClientFactory, rt: &Runtime) {
     const EVENT_SIZE: usize = 1000;
 
     let new_stream = rt.block_on(create_scope_stream(
-        client_factory.get_controller_client(),
+        client_factory.controller_client(),
         &scope_name,
         &stream_name,
         1,
@@ -108,7 +108,7 @@ fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactory, rt
     const EVENT_SIZE: usize = 1024;
 
     let new_stream = rt.block_on(create_scope_stream(
-        client_factory.get_controller_client(),
+        client_factory.controller_client(),
         &scope_name,
         &stream_name,
         2,
@@ -191,13 +191,8 @@ async fn test_release_segment(client_factory: &ClientFactory) {
     const NUM_EVENTS: usize = 10;
     const EVENT_SIZE: usize = 10;
 
-    let new_stream = create_scope_stream(
-        client_factory.get_controller_client(),
-        &scope_name,
-        &stream_name,
-        1,
-    )
-    .await;
+    let new_stream =
+        create_scope_stream(client_factory.controller_client(), &scope_name, &stream_name, 1).await;
     // write events only if the stream is created. This is useful if we are running the reader tests
     // multiple times.
     if new_stream {
@@ -256,13 +251,8 @@ async fn test_release_segment_at(client_factory: &ClientFactory) {
     const NUM_EVENTS: usize = 10;
     const EVENT_SIZE: usize = 10;
 
-    let new_stream = create_scope_stream(
-        client_factory.get_controller_client(),
-        &scope_name,
-        &stream_name,
-        1,
-    )
-    .await;
+    let new_stream =
+        create_scope_stream(client_factory.controller_client(), &scope_name, &stream_name, 1).await;
     // write events only if the stream is created.
     if new_stream {
         write_events_before_and_after_scale(
@@ -323,13 +313,8 @@ async fn test_stream_scaling(client_factory: &ClientFactory) {
     const NUM_EVENTS: usize = 10;
     const EVENT_SIZE: usize = 10;
 
-    let new_stream = create_scope_stream(
-        client_factory.get_controller_client(),
-        &scope_name,
-        &stream_name,
-        1,
-    )
-    .await;
+    let new_stream =
+        create_scope_stream(client_factory.controller_client(), &scope_name, &stream_name, 1).await;
     // write events only if the stream is created.
     if new_stream {
         write_events_before_and_after_scale(
@@ -388,13 +373,8 @@ async fn test_read_api(client_factory: &ClientFactory) {
     const NUM_EVENTS: usize = 10;
     const EVNET_SIZE: usize = 10;
 
-    let new_stream = create_scope_stream(
-        client_factory.get_controller_client(),
-        &scope_name,
-        &stream_name,
-        4,
-    )
-    .await;
+    let new_stream =
+        create_scope_stream(client_factory.controller_client(), &scope_name, &stream_name, 4).await;
     // write events only if the stream is not created.
     if new_stream {
         // write 100 events.
@@ -442,7 +422,7 @@ async fn test_read_api(client_factory: &ClientFactory) {
 }
 
 fn test_multiple_readers(client_factory: &ClientFactory) {
-    let h = client_factory.get_runtime();
+    let h = client_factory.runtime();
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testMultiReader".to_owned());
     let str = ScopedStream {
@@ -453,13 +433,8 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
     const EVENT_SIZE: usize = 10;
 
     h.block_on(async {
-        let new_stream = create_scope_stream(
-            client_factory.get_controller_client(),
-            &scope_name,
-            &stream_name,
-            4,
-        )
-        .await;
+        let new_stream =
+            create_scope_stream(client_factory.controller_client(), &scope_name, &stream_name, 4).await;
         // write events only if the stream is created.
         if new_stream {
             // write events
@@ -510,7 +485,7 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
 }
 
 fn test_segment_rebalance(client_factory: &ClientFactory) {
-    let h = client_factory.get_runtime();
+    let h = client_factory.runtime();
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testsegrebalance".to_owned());
     let str = ScopedStream {
@@ -521,13 +496,8 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
     const EVENT_SIZE: usize = 10;
 
     h.block_on(async {
-        let new_stream = create_scope_stream(
-            client_factory.get_controller_client(),
-            &scope_name,
-            &stream_name,
-            4,
-        )
-        .await;
+        let new_stream =
+            create_scope_stream(client_factory.controller_client(), &scope_name, &stream_name, 4).await;
         // write events only if the stream is created.
         if new_stream {
             // write events with random routing keys.
@@ -608,7 +578,7 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
 }
 
 fn test_reader_offline(client_factory: &ClientFactory) {
-    let h = client_factory.get_runtime();
+    let h = client_factory.runtime();
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testReaderOffline".to_owned());
     let str = ScopedStream {
@@ -619,13 +589,8 @@ fn test_reader_offline(client_factory: &ClientFactory) {
     const EVENT_SIZE: usize = 10;
 
     h.block_on(async {
-        let new_stream = create_scope_stream(
-            client_factory.get_controller_client(),
-            &scope_name,
-            &stream_name,
-            4,
-        )
-        .await;
+        let new_stream =
+            create_scope_stream(client_factory.controller_client(), &scope_name, &stream_name, 4).await;
         // write events only if the stream is created.
         if new_stream {
             // write events
@@ -725,7 +690,7 @@ async fn write_events_before_and_after_scale(
     };
     let new_range = [(0.0, 0.5), (0.5, 1.0)];
     let to_seal_segments: Vec<Segment> = vec![Segment::from(0)];
-    let controller = client_factory.get_controller_client();
+    let controller = client_factory.controller_client();
     let scale_result = controller
         .scale_stream(&scoped_stream, to_seal_segments.as_slice(), &new_range)
         .await;

@@ -60,12 +60,11 @@ impl StreamReaderGroup {
     pub fn create_reader(&self, reader_name: &str) -> PyResult<StreamReader> {
         info!(
             "Creating reader {:?} under reader group {:?}",
-            reader_name,
-            self.reader_group.get_name()
+            reader_name, self.reader_group.name
         );
         let reader = self
             .factory
-            .get_runtime()
+            .runtime()
             .block_on(self.reader_group.create_reader(reader_name.to_string()));
         let stream_reader = StreamReader::new(
             Arc::new(Mutex::new(reader)),
@@ -79,8 +78,7 @@ impl StreamReaderGroup {
     fn to_str(&self) -> String {
         format!(
             "Stream: {:?} , ReaderGroup: {:?}",
-            self.stream,
-            self.reader_group.get_name()
+            self.stream, self.reader_group.name
         )
     }
 }

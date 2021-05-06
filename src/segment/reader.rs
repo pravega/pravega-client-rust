@@ -210,7 +210,7 @@ pub(crate) struct AsyncSegmentReaderImpl {
 #[async_trait]
 impl AsyncSegmentReader for AsyncSegmentReaderImpl {
     async fn read(&self, offset: i64, length: i32) -> StdResult<SegmentReadCommand, ReaderError> {
-        retry_async(self.factory.get_config().retry_policy, || async {
+        retry_async(self.factory.config().retry_policy, || async {
             let raw_client = self
                 .factory
                 .create_raw_client_for_endpoint(self.endpoint.lock().await.clone());
@@ -218,7 +218,7 @@ impl AsyncSegmentReader for AsyncSegmentReaderImpl {
                 Ok(cmd) => RetryResult::Success(cmd),
                 Err(e) => {
                     if e.can_retry() {
-                        let controller = self.factory.get_controller_client();
+                        let controller = self.factory.controller_client();
                         let endpoint = controller
                             .get_endpoint_for_segment(&self.segment)
                             .await
@@ -248,7 +248,7 @@ impl AsyncSegmentReaderImpl {
         delegation_token_provider: DelegationTokenProvider,
     ) -> AsyncSegmentReaderImpl {
         let endpoint = factory
-            .get_controller_client()
+            .controller_client()
             .get_endpoint_for_segment(&segment)
             .await
             .expect("get endpoint for segment");
@@ -273,7 +273,7 @@ impl AsyncSegmentReaderImpl {
             suggested_length: length,
             delegation_token: self
                 .delegation_token_provider
-                .retrieve_token(self.factory.get_controller_client())
+                .retrieve_token(self.factory.controller_client())
                 .await,
             request_id: get_request_id(),
         });
@@ -574,7 +574,7 @@ mod tests {
             .build()
             .expect("creating config");
         let factory = ClientFactory::new(config);
-        let runtime = factory.get_runtime();
+        let runtime = factory.runtime();
 
         let scope_name = Scope::from("examples".to_owned());
         let stream_name = Stream::from("someStream".to_owned());

@@ -21,7 +21,7 @@ use uuid::Uuid;
 
 /// A ByteReader enables reading raw bytes from a segment.
 ///
-/// The ByteReader implements [Read] and [Seek] trait in the standard library.
+/// The ByteReader implements [`Read`] and [`Seek`] trait in the standard library.
 ///
 /// Internally ByteReader uses a prefetching reader that prefetches data from the server in the background.
 /// The prefetched data is cached in memory so any sequential reads should be able to hit the cache.
@@ -29,7 +29,7 @@ use uuid::Uuid;
 /// Any seek operation will invalidate the cache and causes cache miss, so frequent seek and read operations
 /// might not have good performance.
 ///
-/// You can also wrap ByteReader with [BufReader], but doing so will not increase performance further.
+/// You can also wrap ByteReader with [`BufReader`], but doing so will not increase performance further.
 ///
 /// [`Read`]: https://doc.rust-lang.org/std/io/trait.Read.html
 /// [`Seek`]: https://doc.rust-lang.org/stable/std/io/trait.Seek.html
@@ -72,7 +72,7 @@ impl Read for ByteReader {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
         let result = self
             .factory
-            .get_runtime()
+            .runtime()
             .block_on(self.reader.as_mut().unwrap().read(buf));
         result.map_err(|e| Error::new(ErrorKind::Other, format!("Error: {:?}", e)))
     }
@@ -81,16 +81,16 @@ impl Read for ByteReader {
 impl ByteReader {
     pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory, buffer_size: usize) -> Self {
         let async_reader = factory
-            .get_runtime()
+            .runtime()
             .block_on(factory.create_async_event_reader(segment.clone()));
         let async_reader_wrapper = PrefetchingAsyncSegmentReader::new(
-            factory.get_runtime().handle().clone(),
+            factory.runtime().handle().clone(),
             Arc::new(Box::new(async_reader)),
             0,
             buffer_size,
         );
         let metadata_client = factory
-            .get_runtime()
+            .runtime()
             .block_on(factory.create_segment_metadata_client(segment));
         ByteReader {
             reader_id: Uuid::new_v4(),
@@ -112,7 +112,7 @@ impl ByteReader {
     /// ```
     pub fn current_head(&self) -> std::io::Result<u64> {
         self.factory
-            .get_runtime()
+            .runtime()
             .block_on(self.metadata_client.fetch_current_starting_head())
             .map(|i| i as u64)
             .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
@@ -133,7 +133,7 @@ impl ByteReader {
     /// ByteReader has a buffer internally. This method returns the size of remaining data in that buffer.
     /// ```no_run
     /// let mut byte_reader = client_factory.create_byte_reader(segment);
-    /// let num = byte_reader.available();
+    /// let size = byte_reader.available();
     /// ```
     pub fn available(&self) -> usize {
         self.reader.as_ref().unwrap().available()
@@ -142,7 +142,7 @@ impl ByteReader {
     fn recreate_reader_wrapper(&mut self, offset: i64) {
         let internal_reader = self.reader.take().unwrap().extract_reader();
         let new_reader_wrapper = PrefetchingAsyncSegmentReader::new(
-            self.factory.get_runtime().handle().clone(),
+            self.factory.runtime().handle().clone(),
             internal_reader,
             offset,
             self.reader_buffer_size,
@@ -182,7 +182,7 @@ impl Seek for ByteReader {
             SeekFrom::End(offset) => {
                 let tail = self
                     .factory
-                    .get_runtime()
+                    .runtime()
                     .block_on(self.metadata_client.fetch_current_segment_length())
                     .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))?;
                 if tail + offset < 0 {

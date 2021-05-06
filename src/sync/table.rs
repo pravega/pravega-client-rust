@@ -58,6 +58,17 @@ pub enum TableError {
 
 /// Table is the client implementation of Table Segment in Pravega.
 /// Table Segment is a key-value table based on Pravega segment.
+///
+/// # Exmaples
+/// ```no_run
+/// let map = client_factory.create_table(scope, "table".into()).await;
+/// let k: String = "key".into();
+/// let v: String = "val".into();
+/// let result = map.insert(&k, &v, -1).await;
+/// assert!(result.is_ok());
+/// let result: Result<Option<(String, Version)>, TableError> = map.get(&k).await;
+/// assert!(result.is_ok());
+/// ```
 pub struct Table {
     // name should be unique as it is used to construct the internal stream.
     // different table with same name will share the same state.
@@ -81,17 +92,17 @@ impl Table {
             .await;
 
         let op = "Create table segment";
-        retry_async(factory.get_config().retry_policy, || async {
+        retry_async(factory.config().retry_policy, || async {
             let req = Requests::CreateTableSegment(CreateTableSegmentCommand {
                 request_id: get_request_id(),
                 segment: segment.to_string(),
                 delegation_token: delegation_token_provider
-                    .retrieve_token(factory.get_controller_client())
+                    .retrieve_token(factory.controller_client())
                     .await,
             });
 
             let endpoint = factory
-                .get_controller_client()
+                .controller_client()
                 .get_endpoint_for_segment(&segment)
                 .await
                 .expect("get endpoint for segment");
@@ -195,7 +206,7 @@ impl Table {
             .map(|versions| versions[0])
     }
 
-    /// Unconditionally remove a key from the Tablemap. If the key does not exist an Ok(()) is returned.
+    /// Unconditionally remove a key from the Table. If the key does not exist an Ok(()) is returned.
     pub async fn remove<K: Serialize + serde::de::DeserializeOwned>(
         &self,
         k: &K,
@@ -205,8 +216,8 @@ impl Table {
             .await
     }
 
-    /// Conditionally remove a key from the Tablemap if it matches the provided key version.
-    /// TableError::BadKeyVersion is returned incase the version does not exist.
+    /// Conditionally remove a key from the Table if it matches the provided key version.
+    /// TableError::BadKeyVersion is returned in case the version does not exist.
     pub async fn remove_conditionally<K>(
         &self,
         k: &K,
@@ -494,7 +505,7 @@ impl Table {
     ) -> Result<Vec<Version>, TableError> {
         let op = "Insert into tablemap";
 
-        retry_async(self.factory.get_config().retry_policy, || async {
+        retry_async(self.factory.config().retry_policy, || async {
             let entries: Vec<(TableKey, TableValue)> = kvps
                 .iter()
                 .map(|(k, v, ver)| {
@@ -510,7 +521,7 @@ impl Table {
                 segment: self.name.clone(),
                 delegation_token: self
                     .delegation_token_provider
-                    .retrieve_token(self.factory.get_controller_client())
+                    .retrieve_token(self.factory.controller_client())
                     .await,
                 table_entries: te,
                 table_segment_offset: offset,
@@ -556,7 +567,7 @@ impl Table {
     async fn get_raw_values(&self, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, Version)>, TableError> {
         let op = "Read from tablemap";
 
-        retry_async(self.factory.get_config().retry_policy, || async {
+        retry_async(self.factory.config().retry_policy, || async {
             let table_keys: Vec<TableKey> = keys
                 .iter()
                 .map(|k| TableKey::new(k.clone(), TableKey::KEY_NO_VERSION))
@@ -567,7 +578,7 @@ impl Table {
                 segment: self.name.clone(),
                 delegation_token: self
                     .delegation_token_provider
-                    .retrieve_token(self.factory.get_controller_client())
+                    .retrieve_token(self.factory.controller_client())
                     .await,
                 keys: table_keys,
             });
@@ -619,7 +630,7 @@ impl Table {
     async fn remove_raw_values(&self, keys: Vec<(Vec<u8>, Version)>, offset: i64) -> Result<(), TableError> {
         let op = "Remove keys from table";
 
-        retry_async(self.factory.get_config().retry_policy, || async {
+        retry_async(self.factory.config().retry_policy, || async {
             let tks: Vec<TableKey> = keys
                 .iter()
                 .map(|(k, ver)| TableKey::new(k.clone(), *ver))
@@ -630,7 +641,7 @@ impl Table {
                 segment: self.name.clone(),
                 delegation_token: self
                     .delegation_token_provider
-                    .retrieve_token(self.factory.get_controller_client())
+                    .retrieve_token(self.factory.controller_client())
                     .await,
                 keys: tks,
                 table_segment_offset: offset,
@@ -684,13 +695,13 @@ impl Table {
     ) -> Result<(Vec<(Vec<u8>, Version)>, Vec<u8>), TableError> {
         let op = "Read keys";
 
-        retry_async(self.factory.get_config().retry_policy, || async {
+        retry_async(self.factory.config().retry_policy, || async {
             let req = Requests::ReadTableKeys(ReadTableKeysCommand {
                 request_id: get_request_id(),
                 segment: self.name.clone(),
                 delegation_token: self
                     .delegation_token_provider
-                    .retrieve_token(self.factory.get_controller_client())
+                    .retrieve_token(self.factory.controller_client())
                     .await,
                 suggested_key_count: max_keys_at_once,
                 continuation_token: token.to_vec(),
@@ -739,13 +750,13 @@ impl Table {
     ) -> Result<(Vec<(Vec<u8>, Vec<u8>, Version)>, Vec<u8>), TableError> {
         let op = "Read entries";
 
-        retry_async(self.factory.get_config().retry_policy, || async {
+        retry_async(self.factory.config().retry_policy, || async {
             let req = Requests::ReadTableEntries(ReadTableEntriesCommand {
                 request_id: get_request_id(),
                 segment: self.name.clone(),
                 delegation_token: self
                     .delegation_token_provider
-                    .retrieve_token(self.factory.get_controller_client())
+                    .retrieve_token(self.factory.controller_client())
                     .await,
                 suggested_entry_count: max_entries_at_once,
                 continuation_token: token.to_vec(),
@@ -804,13 +815,13 @@ impl Table {
     ) -> Result<(Vec<(Vec<u8>, Vec<u8>, Version)>, i64), TableError> {
         let op = "Read entries delta";
 
-        retry_async(self.factory.get_config().retry_policy, || async {
+        retry_async(self.factory.config().retry_policy, || async {
             let req = Requests::ReadTableEntriesDelta(ReadTableEntriesDeltaCommand {
                 request_id: get_request_id(),
                 segment: self.name.clone(),
                 delegation_token: self
                     .delegation_token_provider
-                    .retrieve_token(self.factory.get_controller_client())
+                    .retrieve_token(self.factory.controller_client())
                     .await,
                 from_position,
                 suggested_entry_count: max_entries_at_once,

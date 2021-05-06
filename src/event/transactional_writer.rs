@@ -61,7 +61,7 @@ use tracing_futures::Instrument;
 ///         .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
 ///         .build()
 ///         .expect("creating config");
-///     let client_factory = ClientFactory::new(config.clone());
+///     let client_factory = ClientFactory::new(config);
 ///     let mut writer = client_factory
 ///         .create_transactional_event_writer(scoped_stream.clone(), WriterId(0))
 ///         .await;
@@ -89,12 +89,12 @@ impl TransactionalEventWriter {
     pub(crate) async fn new(stream: ScopedStream, writer_id: WriterId, factory: ClientFactory) -> Self {
         let (mut pinger, pinger_handle) = Pinger::new(
             stream.clone(),
-            factory.get_config().transaction_timeout_time,
+            factory.config().transaction_timeout_time,
             factory.clone(),
         );
         let delegation_token_provider =
             Arc::new(factory.create_delegation_token_provider(stream.clone()).await);
-        let runtime_handle = factory.get_runtime();
+        let runtime_handle = factory.runtime();
         let span = info_span!("Pinger", transactional_event_stream_writer = %writer_id);
         let _guard = runtime_handle.enter();
         tokio::spawn(async move { pinger.start_ping().instrument(span).await });
@@ -111,10 +111,10 @@ impl TransactionalEventWriter {
     pub async fn begin(&mut self) -> Result<Transaction, TransactionalEventWriterError> {
         let txn_segments = self
             .factory
-            .get_controller_client()
+            .controller_client()
             .create_transaction(
                 &self.stream,
-                Duration::from_millis(self.factory.get_config().transaction_timeout_time),
+                Duration::from_millis(self.factory.config().transaction_timeout_time),
             )
             .await
             .map_err(|e| e.error)
@@ -139,7 +139,7 @@ impl TransactionalEventWriter {
     pub async fn get_txn(&self, txn_id: TxId) -> Result<Transaction, TransactionalEventWriterError> {
         let status = self
             .factory
-            .get_controller_client()
+            .controller_client()
             .check_transaction_status(&self.stream, txn_id)
             .await
             .map_err(|e| e.error)
@@ -156,7 +156,7 @@ impl TransactionalEventWriter {
         }
         let segments = self
             .factory
-            .get_controller_client()
+            .controller_client()
             .get_epoch_segments(&self.stream, txn_id.get_epoch())
             .await
             .map_err(|e| e.error)
@@ -217,7 +217,7 @@ impl Transaction {
                 event_handles: vec![],
             };
         }
-        let rt_handle = factory.get_runtime();
+        let rt_handle = factory.runtime();
         let writer_id = info.writer_id;
         let txn_id = info.txn_id;
         let span = info_span!("StreamReactor", txn_id = %txn_id, event_stream_writer = %writer_id);
@@ -243,32 +243,18 @@ impl Transaction {
     }
 
     /// get the transaction id.
-    pub fn get_txn_id(&self) -> TxId {
+    pub fn txn_id(&self) -> TxId {
         self.info.txn_id
     }
 
-    /// get transactional event stream writer id.
-    pub fn get_writer_id(&self) -> WriterId {
-        self.info.writer_id
-    }
-
     /// get the stream that this transaction is based on.
-    pub fn get_stream(&self) -> ScopedStream {
+    pub fn stream(&self) -> ScopedStream {
         self.info.stream.clone()
     }
 
     /// write_event accepts a vec of bytes as the input event and an optional routing key which is used
     /// to determine which segment to write to. It calls the corresponding transactional event segment
-    /// writer to write the data to segmentstore server.
-    ///
-    /// This method has a backpressure mechanism. Internally, it uses [`Channel`] to send event to
-    /// Reactor for processing. [`Channel`] can has a limited [`capacity`], when its capacity
-    /// is reached, any further write will not be acceptedgit  until enough space has been freed in the [`Channel`].
-    ///
-    ///
-    /// [`channel`]: pravega_client_channel
-    /// [`capacity`]: Transaction::CHANNEL_CAPACITY
-    ///
+    /// writer to write the data to the server.
     pub async fn write_event(
         &mut self,
         routing_key: Option<String>,
@@ -358,7 +344,7 @@ impl Transaction {
             .context(TxnStreamWriterError {})?;
 
         self.factory
-            .get_controller_client()
+            .controller_client()
             .commit_transaction(
                 &self.info.stream,
                 self.info.txn_id,
@@ -386,7 +372,7 @@ impl Transaction {
             .context(TxnStreamWriterError {})?;
 
         self.factory
-            .get_controller_client()
+            .controller_client()
             .abort_transaction(&self.info.stream, self.info.txn_id)
             .await
             .map_err(|e| e.error)
@@ -399,7 +385,7 @@ impl Transaction {
     /// check the current Transaction status by sending request to Pravega controller.
     pub async fn check_status(&self) -> Result<TransactionStatus, TransactionError> {
         self.factory
-            .get_controller_client()
+            .controller_client()
             .check_transaction_status(&self.info.stream, self.info.txn_id)
             .await
             .map_err(|e| e.error)
@@ -533,7 +519,7 @@ impl Pinger {
                 );
                 let status = self
                     .factory
-                    .get_controller_client()
+                    .controller_client()
                     .ping_transaction(
                         &self.stream,
                         txn_id.to_owned(),
@@ -622,9 +608,9 @@ pub(crate) mod test {
         let mut txn_stream_writer = rt.block_on(create_txn_stream_writer());
         let transaction = rt.block_on(txn_stream_writer.begin()).expect("open transaction");
         let fetched_transaction = rt
-            .block_on(txn_stream_writer.get_txn(transaction.get_txn_id()))
+            .block_on(txn_stream_writer.get_txn(transaction.txn_id()))
             .expect("get transaction");
-        assert_eq!(transaction.get_txn_id(), fetched_transaction.get_txn_id());
+        assert_eq!(transaction.txn_id(), fetched_transaction.txn_id());
     }
 
     // helper function

@@ -25,7 +25,7 @@ pub fn test_tablesynchronizer(config: PravegaStandaloneServiceConfig) {
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
-    let handle = client_factory.get_runtime();
+    let handle = client_factory.runtime();
     handle.block_on(test_insert(&client_factory));
     handle.block_on(test_remove(&client_factory));
     handle.block_on(test_insert_with_two_table_synchronizers(&client_factory));

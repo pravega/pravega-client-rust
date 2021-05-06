@@ -101,22 +101,22 @@ impl StreamWriter {
             Option::None => {
                 trace!("Writing a single event with no routing key");
                 self.factory
-                    .get_runtime()
+                    .runtime()
                     .block_on(self.writer.write_event(event.to_vec()))
             }
             Option::Some(key) => {
                 trace!("Writing a single event for a given routing key {:?}", key);
                 self.factory
-                    .get_runtime()
+                    .runtime()
                     .block_on(self.writer.write_event_by_routing_key(key.into(), event.to_vec()))
             }
         };
 
-        let _guard = self.factory.get_runtime().enter();
+        let _guard = self.factory.runtime().enter();
         let timeout_fut = timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), write_future);
 
         let result: Result<Result<Result<(), Error>, RecvError>, _> =
-            self.factory.get_runtime().block_on(timeout_fut);
+            self.factory.runtime().block_on(timeout_fut);
         match result {
             Ok(t) => match t {
                 Ok(t1) => match t1 {

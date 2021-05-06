@@ -55,14 +55,14 @@ pub(crate) fn current_span() -> span::Span {
 
 pub(crate) async fn create_stream(factory: &ClientFactory, scope: &str, stream: &str) {
     factory
-        .get_controller_client()
+        .controller_client()
         .create_scope(&Scope {
             name: scope.to_string(),
         })
         .await
         .unwrap();
     factory
-        .get_controller_client()
+        .controller_client()
         .create_stream(&StreamConfiguration {
             scoped_stream: ScopedStream {
                 scope: Scope {

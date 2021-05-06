@@ -49,8 +49,9 @@ use tracing::info;
 /// It also contains a tokio runtime that is used to drive for async tasks. Spawned tasks in readers and
 /// writers are tied to this runtime.
 ///
-/// Application can call clone on ClientFactory in case ownership is needed. It holds an Arc to the
+/// Applications can call clone on ClientFactory in case ownership is needed. It holds an Arc to the
 /// internal object so cloned objects are still sharing the same connection pool and runtime.
+///
 #[derive(Clone)]
 pub struct ClientFactory(Arc<ClientFactoryInternal>);
 
@@ -62,6 +63,20 @@ struct ClientFactoryInternal {
 }
 
 impl ClientFactory {
+    /// Create a new ClientFactory.
+    /// # Examples
+    /// ```no_run
+    /// use pravega_client_config::ClientConfigBuilder;
+    /// use pravega_client::client_factory::ClientFactory;
+    ///
+    /// fn main() {
+    ///    let config = ClientConfigBuilder::default()
+    ///         .controller_uri("localhost:8000")
+    ///         .build()
+    ///         .expect("create config");
+    ///     let client_factory = ClientFactory::new(config);
+    /// }
+    /// ```
     pub fn new(config: ClientConfig) -> ClientFactory {
         let rt = tokio::runtime::Runtime::new().expect("create runtime");
         let cf = ConnectionFactory::create(ConnectionFactoryConfig::from(&config));
@@ -79,16 +94,16 @@ impl ClientFactory {
         }))
     }
 
-    pub fn get_runtime(&self) -> &Runtime {
-        self.0.get_runtime()
+    pub fn runtime(&self) -> &Runtime {
+        self.0.runtime()
     }
 
-    pub fn get_config(&self) -> &ClientConfig {
+    pub fn config(&self) -> &ClientConfig {
         &self.0.config
     }
 
-    pub fn get_controller_client(&self) -> &dyn ControllerClient {
-        self.0.get_controller_client()
+    pub fn controller_client(&self) -> &dyn ControllerClient {
+        self.0.controller_client()
     }
 
     pub fn create_event_writer(&self, stream: ScopedStream) -> EventWriter {
@@ -122,11 +137,7 @@ impl ClientFactory {
     }
 
     pub fn create_byte_reader(&self, segment: ScopedSegment) -> ByteReader {
-        ByteReader::new(
-            segment,
-            self.clone(),
-            self.get_config().reader_wrapper_buffer_size(),
-        )
+        ByteReader::new(segment, self.clone(), self.config().reader_wrapper_buffer_size())
     }
 
     pub async fn create_table(&self, scope: Scope, name: String) -> Table {
@@ -227,12 +238,12 @@ impl ClientFactoryInternal {
         &self.connection_pool
     }
 
-    pub(crate) fn get_controller_client(&self) -> &dyn ControllerClient {
+    pub(crate) fn controller_client(&self) -> &dyn ControllerClient {
         &*self.controller_client
     }
 
-    /// borrow the Runtime.
-    pub(crate) fn get_runtime(&self) -> &Runtime {
+    // borrow the Runtime.
+    pub(crate) fn runtime(&self) -> &Runtime {
         &self.runtime
     }
 }

@@ -68,7 +68,7 @@ impl SegmentSelector {
         } else {
             self.current_segments = self
                 .factory
-                .get_controller_client()
+                .controller_client()
                 .get_current_segments(&self.stream)
                 .await
                 .expect("retry failed");
@@ -96,7 +96,7 @@ impl SegmentSelector {
     ) -> Option<Vec<Append>> {
         let stream_segments_with_predecessors = self
             .factory
-            .get_controller_client()
+            .controller_client()
             .get_successors(sealed_segment)
             .await
             .expect("get successors for sealed segment");
@@ -137,7 +137,7 @@ impl SegmentSelector {
                 let mut writer = SegmentWriter::new(
                     scoped_segment.clone(),
                     self.sender.clone(),
-                    self.factory.get_config().retry_policy,
+                    self.factory.config().retry_policy,
                     self.delegation_token_provider.clone(),
                 );
 
@@ -248,14 +248,14 @@ pub(crate) mod test {
             .unwrap();
         let factory = ClientFactory::new(config);
         factory
-            .get_controller_client()
+            .controller_client()
             .create_scope(&Scope {
                 name: "testScope".to_string(),
             })
             .await
             .unwrap();
         factory
-            .get_controller_client()
+            .controller_client()
             .create_stream(&StreamConfiguration {
                 scoped_stream: stream.clone(),
                 scaling: Scaling {
@@ -274,7 +274,7 @@ pub(crate) mod test {
         let (sender, receiver) = create_channel(1024);
         let mut selector = SegmentSelector::new(stream.clone(), sender.clone(), factory.clone()).await;
         let stream_segments = factory
-            .get_controller_client()
+            .controller_client()
             .get_current_segments(&stream)
             .await
             .unwrap();

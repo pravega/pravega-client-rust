@@ -42,9 +42,9 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
-    let handle = client_factory.get_runtime();
+    let handle = client_factory.runtime();
     handle.block_on(utils::create_scope_stream(
-        client_factory.get_controller_client(),
+        client_factory.controller_client(),
         &scope_name,
         &stream_name,
         1,
@@ -67,7 +67,7 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     let scope_name = Scope::from("testScopeByteStreamPrefetch".to_owned());
     let stream_name = Stream::from("testStreamByteStreamPrefetch".to_owned());
     handle.block_on(utils::create_scope_stream(
-        client_factory.get_controller_client(),
+        client_factory.controller_client(),
         &scope_name,
         &stream_name,
         1,
@@ -89,7 +89,7 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
         segment: Segment::from(0),
     };
     handle.block_on(utils::create_scope_stream(
-        client_factory.get_controller_client(),
+        client_factory.controller_client(),
         &scope_name,
         &stream_name,
         1,

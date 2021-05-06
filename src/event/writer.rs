@@ -23,14 +23,22 @@ use tracing_futures::Instrument;
 
 /// Write events exactly once to a given stream.
 ///
-/// EventStreamWriter spawns a `Reactor` that runs in the background for processing incoming events.
+/// EventWriter spawns a `Reactor` that runs in the background for processing incoming events.
 /// The `write` method sends the event to the `Reactor` asynchronously and returns a `tokio::oneshot::Receiver`
-/// that contains the result of the write to the caller. The maximum size of the serialized event
-/// supported is 8MB, writing size larger than that will returns an error.
+/// which contains the result of the write to the caller. The maximum size of the serialized event
+/// supported is 8MB, writing size larger than that will return an error.
 ///
-/// # Note
+/// ## Backpressure
+/// Write has a backpressure mechanism. Internally, it uses [`Channel`] to send event to
+/// Reactor for processing. [`Channel`] has a limited [`capacity`], when its capacity
+/// is reached, any further write will not be accepted until enough space has been freed in the [`Channel`].
 ///
-/// The EventStreamWriter implementation provides [`retry`] logic to handle connection failures and service host
+/// [`channel`]: pravega_client_channel
+/// [`capacity`]: EventWriter::CHANNEL_CAPACITY
+///
+/// ## Note
+///
+/// The EventWriter implementation provides [`retry`] logic to handle connection failures and service host
 /// failures. Internal retries will not violate the exactly once semantic so it is better to rely on them
 /// than to wrap this with custom retry logic.
 ///
@@ -80,7 +88,7 @@ impl EventWriter {
         let span = info_span!("Reactor", event_stream_writer = %writer_id);
         // spawn is tied to the factory runtime.
         factory
-            .get_runtime()
+            .runtime()
             .spawn(Reactor::run(stream, tx.clone(), rx, factory.clone(), None).instrument(span));
         EventWriter {
             writer_id,
@@ -88,18 +96,25 @@ impl EventWriter {
         }
     }
 
-    /// Writes an event without routing key.
+    /// Write an event without routing key.
     ///
     /// A random routing key will be generated in this case.
     ///
-    /// Write has a backpressure mechanism. Internally, it uses [`Channel`] to send event to
-    /// Reactor for processing. [`Channel`] can has a limited [`capacity`], when its capacity
-    /// is reached, any further write will not be accepted until enough space has been freed in the [`Channel`].
+    /// This method sends the payload to a background task called reactor to process,
+    /// so the success of this method only means the payload has been sent to the reactor.
+    /// Applications may want to call await on the returned tokio oneshot to check whether
+    /// the payload is successfully persisted or not.
+    /// If oneshot returns an error indicating something is going wrong on the server side, then
+    /// subsequent calls are also likely to fail.
     ///
+    /// # Examples
     ///
-    /// [`channel`]: pravega_client_channel
-    /// [`capacity`]: EventWriter::CHANNEL_CAPACITY
-    ///
+    /// ```no_run
+    /// let mut event_writer = client_factory.create_event_writer(stream);
+    /// // result is a tokio oneshot
+    /// let result = event_writer.write_event(payload).await;
+    /// result.await.expect("flush to server");
+    /// ```
     pub async fn write_event(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), Error>> {
         let size = event.len();
         let (tx, rx) = oneshot::channel();
@@ -113,14 +128,7 @@ impl EventWriter {
 
     /// Writes an event with a routing key.
     ///
-    /// Write has a backpressure mechanism. Internally, it uses [`Channel`] to send event to
-    /// Reactor for processing. [`Channel`] can has a limited [`capacity`], when its capacity
-    /// is reached, any further write will not be accepted until enough space has been freed in the [`Channel`].
-    ///
-    ///
-    /// [`channel`]: pravega_client_channel
-    /// [`capacity`]: EventWriter::CHANNEL_CAPACITY
-    ///
+    /// Same as the write_event.
     pub async fn write_event_by_routing_key(
         &mut self,
         routing_key: String,

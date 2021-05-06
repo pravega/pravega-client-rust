@@ -23,8 +23,8 @@ fn main() {
 
     let client_factory = ClientFactory::new(config);
 
-    client_factory.get_runtime().block_on(async {
-        let controller_client = client_factory.get_controller_client();
+    client_factory.runtime().block_on(async {
+        let controller_client = client_factory.controller_client();
 
         // create a scope
         let scope = Scope::from("fooScope".to_owned());
@@ -76,5 +76,6 @@ fn main() {
         let read_event = slice.next();
         assert!(read_event.is_some(), "event slice should have event to read");
         assert_eq!(b"hello world", read_event.unwrap().value.as_slice());
+        reader.reader_offline().await;
     });
 }

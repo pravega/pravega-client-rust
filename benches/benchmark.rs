@@ -345,7 +345,7 @@ async fn set_up_event_stream_writer(config: ClientConfig) -> EventStreamWriter {
     let scope_name: Scope = Scope::from("testWriterPerf".to_string());
     let stream_name = Stream::from("testWriterPerf".to_string());
     let client_factory = ClientFactory::new(config.clone());
-    let controller_client = client_factory.get_controller_client();
+    let controller_client = client_factory.controller_client();
     create_scope_stream(controller_client, &scope_name, &stream_name, 1).await;
     let scoped_stream = ScopedStream {
         scope: scope_name.clone(),
@@ -358,7 +358,7 @@ async fn set_up_event_stream_reader(config: ClientConfig) -> EventReader {
     let scope_name: Scope = Scope::from("testReaderPerf".to_string());
     let stream_name = Stream::from("testReaderPerf".to_string());
     let client_factory = ClientFactory::new(config.clone());
-    let controller_client = client_factory.get_controller_client();
+    let controller_client = client_factory.controller_client();
     create_scope_stream(controller_client, &scope_name, &stream_name, 1).await;
     let scoped_stream = ScopedStream {
         scope: scope_name.clone(),
@@ -376,7 +376,7 @@ fn set_up_byte_stream_reader(config: ClientConfig, rt: &mut Runtime) -> ByteStre
     let scope_name: Scope = Scope::from("testByteReaderPerf".to_string());
     let stream_name = Stream::from("testByteReaderPerf".to_string());
     let client_factory = ClientFactory::new(config.clone());
-    let controller_client = client_factory.get_controller_client();
+    let controller_client = client_factory.controller_client();
     rt.block_on(create_scope_stream(
         controller_client,
         &scope_name,

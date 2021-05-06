@@ -45,7 +45,7 @@ pub(crate) struct SegmentMetadataClient {
 impl SegmentMetadataClient {
     pub(crate) async fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
         let endpoint = factory
-            .get_controller_client()
+            .controller_client()
             .get_endpoint_for_segment(&segment)
             .await
             .expect("get endpoint");
@@ -62,9 +62,9 @@ impl SegmentMetadataClient {
 
     /// Return info for the current segment.
     pub async fn get_segment_info(&self) -> Result<SegmentInfo, SegmentMetadataClientError> {
-        let controller = self.factory.get_controller_client();
+        let controller = self.factory.controller_client();
 
-        retry_async(self.factory.get_config().retry_policy, || async {
+        retry_async(self.factory.config().retry_policy, || async {
             let mut endpoint = self.endpoint.lock().await;
             let raw_client = self.factory.create_raw_client_for_endpoint((*endpoint).clone());
             let result = raw_client
@@ -128,9 +128,9 @@ impl SegmentMetadataClient {
     /// This data will no longer be readable. Existing offsets are not affected by this operations.
     /// The new startingOffset will be reflected in latest SegmentInfo.
     pub async fn truncate_segment(&self, offset: i64) -> Result<(), SegmentMetadataClientError> {
-        let controller = self.factory.get_controller_client();
+        let controller = self.factory.controller_client();
 
-        retry_async(self.factory.get_config().retry_policy, || async {
+        retry_async(self.factory.config().retry_policy, || async {
             let mut endpoint = self.endpoint.lock().await;
             let raw_client = self.factory.create_raw_client_for_endpoint((*endpoint).clone());
             let result = raw_client
@@ -176,9 +176,9 @@ impl SegmentMetadataClient {
 
     /// Seals the segment so that no more writes can go to it.
     pub async fn seal_segment(&self) -> Result<(), SegmentMetadataClientError> {
-        let controller = self.factory.get_controller_client();
+        let controller = self.factory.controller_client();
 
-        retry_async(self.factory.get_config().retry_policy, || async {
+        retry_async(self.factory.config().retry_policy, || async {
             let mut endpoint = self.endpoint.lock().await;
             let raw_client = self.factory.create_raw_client_for_endpoint((*endpoint).clone());
             let result = raw_client

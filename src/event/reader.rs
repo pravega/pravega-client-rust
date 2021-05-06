@@ -110,7 +110,7 @@ pub struct EventReader {
 impl EventReader {
     /// Initialize the reader. This fetches the assigned segments from the TableSynchronizer and
     /// spawns background tasks to start reads from those Segments.
-    pub async fn init_reader(
+    pub(crate) async fn init_reader(
         id: String,
         rg_state: Arc<Mutex<ReaderGroupState>>,
         factory: ClientFactory,
@@ -165,7 +165,7 @@ impl EventReader {
         slice_meta_map.iter().for_each(|(segment, meta)| {
             let (tx_stop, rx_stop) = oneshot::channel();
             stop_reading_map.insert(segment.clone(), tx_stop);
-            let _guard = factory.get_runtime().enter();
+            let _guard = factory.runtime().enter();
             tokio::spawn(SegmentSlice::get_segment_data(
                 segment.clone(),
                 meta.start_offset,
@@ -252,7 +252,7 @@ impl EventReader {
         }
     }
 
-    /// Release a segment back to the reader and also indicate the offset upto which the segment slice is consumed.
+    /// Release a segment back to the reader and also indicate the offset up to which the segment slice is consumed.
     pub async fn release_segment_at(&mut self, slice: SegmentSlice, offset: i64) {
         info!(
             "releasing segment slice {} at offset {}",
@@ -286,7 +286,7 @@ impl EventReader {
 
             // reinitialize the segment data reactor.
             let (tx_drop_fetch, rx_drop_fetch) = oneshot::channel();
-            self.factory.get_runtime().spawn(SegmentSlice::get_segment_data(
+            self.factory.runtime().spawn(SegmentSlice::get_segment_data(
                 segment.clone(),
                 slice_meta.read_offset, // start reading from the offset provided.
                 self.tx.clone(),
@@ -517,7 +517,7 @@ impl EventReader {
                 // Fetch next segments that can be read from.
                 let successors = self
                     .factory
-                    .get_controller_client()
+                    .controller_client()
                     .get_successors(&completed_scoped_segment)
                     .await
                     .expect("Failed to fetch successors of the segment")
@@ -626,7 +626,7 @@ impl EventReader {
     ) -> ImHashMap<SegmentWithRange, Vec<Segment>> {
         let completed_scoped_segment = ScopedSegment::from(completed_scoped_segment);
         self.factory
-            .get_controller_client()
+            .controller_client()
             .get_successors(&completed_scoped_segment)
             .await
             .expect("Failed to fetch successors of the segment")
@@ -1153,7 +1153,7 @@ mod tests {
         );
 
         // simulate data being received from Segment store.
-        let _guard = cf.get_runtime().enter();
+        let _guard = cf.runtime().enter();
         tokio::spawn(generate_variable_size_events(
             tx.clone(),
             10,
@@ -1183,7 +1183,7 @@ mod tests {
         let mut event_size = 0;
 
         // Attempt to acquire a segment.
-        while let Some(mut slice) = cf.get_runtime().block_on(reader.acquire_segment()) {
+        while let Some(mut slice) = cf.runtime().block_on(reader.acquire_segment()) {
             loop {
                 if let Some(event) = slice.next() {
                     println!("Read event {:?}", event);
@@ -1219,7 +1219,7 @@ mod tests {
         );
 
         // simulate data being received from Segment store.
-        let _guard = cf.get_runtime().enter();
+        let _guard = cf.runtime().enter();
         tokio::spawn(generate_variable_size_events(
             tx.clone(),
             1024,
@@ -1278,7 +1278,7 @@ mod tests {
         let mut event_count = 0;
 
         // Attempt to acquire a segment.
-        while let Some(mut slice) = cf.get_runtime().block_on(reader.acquire_segment()) {
+        while let Some(mut slice) = cf.runtime().block_on(reader.acquire_segment()) {
             loop {
                 if let Some(event) = slice.next() {
                     println!("Read event {:?}", event);
@@ -1314,7 +1314,7 @@ mod tests {
         );
 
         // simulate data being received from Segment store. 2 async tasks pumping in data.
-        let _guard = cf.get_runtime().enter();
+        let _guard = cf.runtime().enter();
         tokio::spawn(generate_variable_size_events(
             tx.clone(),
             100,
@@ -1352,7 +1352,7 @@ mod tests {
 
         let mut total_events_read = 0;
         // Attempt to acquire a segment.
-        while let Some(mut slice) = cf.get_runtime().block_on(reader.acquire_segment()) {
+        while let Some(mut slice) = cf.runtime().block_on(reader.acquire_segment()) {
             let segment = slice.meta.scoped_segment.clone();
             println!("Received Segment Slice {:?}", segment);
             let mut event_count = 0;
@@ -1393,7 +1393,7 @@ mod tests {
         );
 
         // simulate data being received from Segment store.
-        let _guard = cf.get_runtime().enter();
+        let _guard = cf.runtime().enter();
         tokio::spawn(generate_variable_size_events(
             tx.clone(),
             10,
@@ -1422,7 +1422,7 @@ mod tests {
         );
 
         // acquire a segment
-        let mut slice = cf.get_runtime().block_on(reader.acquire_segment()).unwrap();
+        let mut slice = cf.runtime().block_on(reader.acquire_segment()).unwrap();
 
         // read an event.
         let event = slice.next().unwrap();
@@ -1431,16 +1431,16 @@ mod tests {
         assert_eq!(event.offset_in_segment, 0); // first event.
 
         // release the segment slice.
-        cf.get_runtime().block_on(reader.release_segment(slice));
+        cf.runtime().block_on(reader.release_segment(slice));
 
         // acquire the next segment
-        let slice = cf.get_runtime().block_on(reader.acquire_segment()).unwrap();
+        let slice = cf.runtime().block_on(reader.acquire_segment()).unwrap();
 
         //Do not read, simply return it back.
-        cf.get_runtime().block_on(reader.release_segment(slice));
+        cf.runtime().block_on(reader.release_segment(slice));
 
         // Try acquiring the segment again.
-        let mut slice = cf.get_runtime().block_on(reader.acquire_segment()).unwrap();
+        let mut slice = cf.runtime().block_on(reader.acquire_segment()).unwrap();
         // Verify a partial event being present. This implies
         let event = slice.next().unwrap();
         assert_eq!(event.value.len(), 2);
@@ -1462,7 +1462,7 @@ mod tests {
         );
 
         // simulate data being received from Segment store.
-        let _guard = cf.get_runtime().enter();
+        let _guard = cf.runtime().enter();
         tokio::spawn(generate_constant_size_events(
             tx.clone(),
             20,
@@ -1492,7 +1492,7 @@ mod tests {
         );
 
         // acquire a segment
-        let mut slice = cf.get_runtime().block_on(reader.acquire_segment()).unwrap();
+        let mut slice = cf.runtime().block_on(reader.acquire_segment()).unwrap();
 
         // read an event.
         let event = slice.next().unwrap();
@@ -1508,7 +1508,7 @@ mod tests {
         assert_eq!(event.offset_in_segment, 9); // second event.
 
         // release the segment slice.
-        cf.get_runtime().block_on(reader.release_segment_at(slice, 0));
+        cf.runtime().block_on(reader.release_segment_at(slice, 0));
 
         // simulate a segment read at offset 0.
         let (_stop_tx, stop_rx) = oneshot::channel();
@@ -1522,7 +1522,7 @@ mod tests {
         ));
 
         // acquire the next segment
-        let mut slice = cf.get_runtime().block_on(reader.acquire_segment()).unwrap();
+        let mut slice = cf.runtime().block_on(reader.acquire_segment()).unwrap();
         // Verify a partial event being present. This implies
         let event = slice.next().unwrap();
         assert_eq!(event.value.len(), 1);

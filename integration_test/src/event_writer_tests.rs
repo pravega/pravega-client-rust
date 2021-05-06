@@ -40,9 +40,9 @@ pub fn test_event_stream_writer(config: PravegaStandaloneServiceConfig) {
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
-    let handle = client_factory.get_runtime();
+    let handle = client_factory.runtime();
     handle.block_on(utils::create_scope_stream(
-        client_factory.get_controller_client(),
+        client_factory.controller_client(),
         &scope_name,
         &stream_name,
         1,
@@ -63,7 +63,7 @@ pub fn test_event_stream_writer(config: PravegaStandaloneServiceConfig) {
     let scope_name = Scope::from("testScopeWriter2".to_owned());
     let stream_name = Stream::from("testStreamWriter2".to_owned());
     handle.block_on(utils::create_scope_stream(
-        client_factory.get_controller_client(),
+        client_factory.controller_client(),
         &scope_name,
         &stream_name,
         1,
@@ -80,7 +80,7 @@ pub fn test_event_stream_writer(config: PravegaStandaloneServiceConfig) {
     let scope_name = Scope::from("testScopeWriter3".to_owned());
     let stream_name = Stream::from("testStreamWriter3".to_owned());
     handle.block_on(utils::create_scope_stream(
-        client_factory.get_controller_client(),
+        client_factory.controller_client(),
         &scope_name,
         &stream_name,
         2,
@@ -132,12 +132,12 @@ async fn test_segment_scaling_up(writer: &mut EventWriter, factory: &ClientFacto
             let new_range = [(0.0, 0.5), (0.5, 1.0)];
 
             let scale_result = factory
-                .get_controller_client()
+                .controller_client()
                 .scale_stream(&scoped_stream, &sealed_segments, &new_range)
                 .await;
             assert!(scale_result.is_ok());
             let current_segments_result = factory
-                .get_controller_client()
+                .controller_client()
                 .get_current_segments(&scoped_stream)
                 .await;
             assert_eq!(2, current_segments_result.unwrap().key_segment_map.len());
@@ -171,12 +171,12 @@ async fn test_segment_scaling_down(writer: &mut EventWriter, factory: &ClientFac
             let sealed_segments = [Segment::from(4_294_967_297), Segment::from(4_294_967_298)];
             let new_range = [(0.0, 1.0)];
             let scale_result = factory
-                .get_controller_client()
+                .controller_client()
                 .scale_stream(&scoped_stream, &sealed_segments, &new_range)
                 .await;
             assert!(scale_result.is_ok());
             let current_segments_result = factory
-                .get_controller_client()
+                .controller_client()
                 .get_current_segments(&scoped_stream)
                 .await;
             assert_eq!(1, current_segments_result.unwrap().key_segment_map.len());
@@ -242,12 +242,12 @@ async fn test_write_correctness_while_scaling(writer: &mut EventWriter, factory:
             let new_range = [(0.0, 0.5), (0.5, 1.0)];
 
             let scale_result = factory
-                .get_controller_client()
+                .controller_client()
                 .scale_stream(&scoped_stream, &sealed_segments, &new_range)
                 .await;
             assert!(scale_result.is_ok());
             let current_segments_result = factory
-                .get_controller_client()
+                .controller_client()
                 .get_current_segments(&scoped_stream)
                 .await;
             assert_eq!(2, current_segments_result.unwrap().key_segment_map.len());
@@ -422,7 +422,7 @@ async fn test_write_with_stream_sealed(writer: &mut EventWriter, factory: &Clien
                 scope: Scope::from("testScopeWriterStreamSealed".to_owned()),
                 stream: Stream::from("testStreamWriterStreamSealed".to_owned()),
             };
-            let seal_result = factory.get_controller_client().seal_stream(&scoped_stream).await;
+            let seal_result = factory.controller_client().seal_stream(&scoped_stream).await;
             assert!(seal_result.is_ok());
         }
         let rx = writer.write_event(String::from("hello").into_bytes()).await;

@@ -48,13 +48,47 @@ pub enum SynchronizerError {
 }
 
 /// Provide a map that is synchronized across different processes.
-/// The pattern is to have a map that can be updated by using Insert or Remove.
+///
+/// The goal is to have a map that can be updated by using Insert or Remove.
 /// Each process can do updates to its in memory map by supplying a
 /// function to create Insert/Remove objects.
 /// Updates from other processes can be obtained by calling fetchUpdates().
+///
+/// The name of the Synchronizer is also the stream name of the table segment.
+/// Different instances of Synchronizer with same name will point to the same table segment.
+///
+/// # Exmaples
+/// ```no_run
+/// // two synchronizer instances with the same name can communicate with each other.
+/// let mut synchronizer1 = client_factory
+///     .create_synchronizer(scope.clone(), "synchronizer".to_owned())
+///     .await;
+///
+/// let mut synchronizer2 = client_factory
+///     .create_synchronizer(scope.clone(), "synchronizer".to_owned())
+///     .await;
+///
+/// let result = synchronizer1
+///     .insert(|table| {
+///         table.insert(
+///             "outer_key_foo".to_owned(),
+///             "inner_key_bar".to_owned(),
+///             "i32".to_owned(),
+///             Box::new(1),
+///         );
+///         Ok(None)
+///     })
+///     .await;
+/// assert!(result.is_ok());
+///
+/// let entries_num = synchronizer2.fetch_updates().await.expect("fetch updates");
+/// assert_eq!(entries_num, 1);
+/// let value_option = synchronizer2.get("outer_key_foo", "inner_key_bar");
+/// assert!(value_option.is_some());
+///
+/// ```
 pub struct Synchronizer {
-    /// The name of the Synchronizer. This is also the name of the stream name of the table segment.
-    /// Different instances of Synchronizer with same name will point to the same table segment.
+    /// The name of the Synchronizer.
     name: String,
 
     /// Table is the table segment client.

@@ -88,9 +88,9 @@ fn test_retry_while_start_pravega() {
         .build()
         .expect("build client config");
     let cf = ClientFactory::new(config);
-    let controller_client = cf.get_controller_client();
+    let controller_client = cf.controller_client();
 
-    cf.get_runtime().block_on(create_scope_stream(controller_client));
+    cf.runtime().block_on(create_scope_stream(controller_client));
 }
 
 async fn create_scope_stream(controller_client: &dyn ControllerClient) {
@@ -148,7 +148,7 @@ fn test_retry_with_unexpected_reply() {
         .build()
         .expect("build client config");
     let cf = ClientFactory::new(config.clone());
-    let controller_client = cf.get_controller_client();
+    let controller_client = cf.controller_client();
 
     //Get the endpoint.
     let segment_name = ScopedSegment {
@@ -160,7 +160,7 @@ fn test_retry_with_unexpected_reply() {
         },
     };
     let endpoint = cf
-        .get_runtime()
+        .runtime()
         .block_on(controller_client.get_endpoint_for_segment(&segment_name))
         .expect("get endpoint for segment");
 
@@ -168,7 +168,7 @@ fn test_retry_with_unexpected_reply() {
     let manager = SegmentConnectionManager::new(connection_factory, 1);
     let pool = ConnectionPool::new(manager);
     let raw_client = RawClientWrapper::new(&pool, endpoint, Duration::from_secs(3600));
-    let result = cf.get_runtime().block_on(retry_async(retry_policy, || async {
+    let result = cf.runtime().block_on(retry_async(retry_policy, || async {
         let request = Requests::SealSegment(SealSegmentCommand {
             segment: segment_name.to_string(),
             request_id: 0,

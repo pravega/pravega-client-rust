@@ -119,7 +119,7 @@ impl SegmentWriter {
 
             // get endpoint
             let uri = match factory
-                .get_controller_client()
+                .controller_client()
                 .get_endpoint_for_segment(&self.segment) // retries are internal to the controller client.
                 .await
             {
@@ -134,7 +134,7 @@ impl SegmentWriter {
                 segment: self.segment.to_string(),
                 delegation_token: self
                     .delegation_token_provider
-                    .retrieve_token(factory.get_controller_client())
+                    .retrieve_token(factory.controller_client())
                     .await,
             });
 
@@ -752,7 +752,7 @@ pub(crate) mod test {
             SegmentWriter::new(
                 segment,
                 sender.clone(),
-                factory.get_config().retry_policy,
+                factory.config().retry_policy,
                 Arc::new(delegation_token_provider),
             ),
             sender,

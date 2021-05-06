@@ -22,3 +22,8 @@
 //! [details]: https://pravega.io/docs/nightly/state-synchronizer-design/
 pub mod synchronizer;
 pub mod table;
+
+#[doc(inline)]
+pub use synchronizer::Synchronizer;
+#[doc(inline)]
+pub use table::Table;

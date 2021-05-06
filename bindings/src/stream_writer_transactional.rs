@@ -46,7 +46,7 @@ impl StreamTxnWriter {
     ///
     #[text_signature = "($self)"]
     pub fn begin_txn(&mut self) -> PyResult<StreamTransaction> {
-        let result = self.factory.get_runtime().block_on(self.writer.begin());
+        let result = self.factory.runtime().block_on(self.writer.begin());
         match result {
             Ok(txn) => Ok(StreamTransaction::new(txn, self.factory.clone())),
             Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
@@ -59,10 +59,7 @@ impl StreamTxnWriter {
     #[text_signature = "($self, txn_id)"]
     pub fn get_txn(&mut self, txn_id: u128) -> PyResult<StreamTransaction> {
         debug!("Writing a single event for a given routing key");
-        let result = self
-            .factory
-            .get_runtime()
-            .block_on(self.writer.get_txn(TxId(txn_id)));
+        let result = self.factory.runtime().block_on(self.writer.get_txn(TxId(txn_id)));
 
         match result {
             Ok(txn) => Ok(StreamTransaction::new(txn, self.factory.clone())),

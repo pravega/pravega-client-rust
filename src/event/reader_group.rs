@@ -39,17 +39,16 @@ cfg_if::cfg_if! {
 /// [`ReaderGroup::create_reader`] API.
 ///
 /// [`ReaderGroup::create_reader`]: ReaderGroup::create_reader
-/// An example usage pattern is as follows
-///
+/// # Examples
 /// ```no_run
-/// use pravega_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
+/// use pravega_client_config::ClientConfigBuilder;
 /// use pravega_client::client_factory::ClientFactory;
 /// use pravega_client_shared::{ScopedStream, Scope, Stream};
 ///
 /// #[tokio::main]
 /// async fn main() {
 ///    let config = ClientConfigBuilder::default()
-///         .controller_uri(MOCK_CONTROLLER_URI)
+///         .controller_uri("localhost:8000")
 ///         .build()
 ///         .expect("creating config");
 ///     let client_factory = ClientFactory::new(config);
@@ -66,9 +65,8 @@ cfg_if::cfg_if! {
 ///     // EventReader APIs can be used to read events.
 /// }
 /// ```
-#[derive(new)]
 pub struct ReaderGroup {
-    name: String,
+    pub name: String,
     config: ReaderGroupConfig,
     pub state: Arc<Mutex<ReaderGroupState>>,
     client_factory: ClientFactory,
@@ -103,7 +101,7 @@ impl ReaderGroup {
     /// Create a reader group that will be used the read events from a provided Pravega stream.
     /// This function is idempotent and invoking it multiple times does not re-initialize an already
     /// existing reader group.
-    pub async fn create(
+    pub(crate) async fn create(
         scope: Scope,
         name: String,
         rg_config: ReaderGroupConfig,
@@ -113,7 +111,7 @@ impl ReaderGroup {
         let mut init_segments: HashMap<ScopedSegment, Offset> = HashMap::new();
         for stream in streams {
             let segments = client_factory
-                .get_controller_client()
+                .controller_client()
                 .get_head_segments(&stream)
                 .await
                 .expect("Error while fetching stream's starting segments to read from ");
@@ -144,13 +142,14 @@ impl ReaderGroup {
         }
     }
 
-    /// Get the reader name.
-    pub fn get_name(&self) -> String {
-        self.name.clone()
-    }
-
     /// Create a new EventReader under the ReaderGroup. This method panics if the reader is
     /// already part of the reader group.
+    ///
+    /// # Examples
+    /// ```no_run
+    /// let rg = client_factory.create_reader_group(scope, "rg".to_string(), stream).await;
+    /// let reader = rg.create_reader("reader".to_string()).await;
+    /// ```
     pub async fn create_reader(&self, reader_id: String) -> EventReader {
         let r: Reader = Reader::from(reader_id.clone());
         self.state
@@ -442,7 +441,7 @@ mod tests {
             client_factory: client_factory.clone(),
         };
         client_factory
-            .get_runtime()
+            .runtime()
             .block_on(rg.create_reader("r1".to_string()));
     }
 

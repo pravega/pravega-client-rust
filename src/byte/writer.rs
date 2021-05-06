@@ -103,14 +103,12 @@ impl Write for ByteWriter {
     /// Writes the given data to the server. It doesn't mean the data is persisted on the server side
     /// when this method returns Ok, user should call flush to ensure all data has been acknowledged
     /// by the server.
-    ///
-    ///
     fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
         let bytes_to_write = std::cmp::min(buf.len(), EventWriter::MAX_EVENT_SIZE);
         let payload = buf[0..bytes_to_write].to_vec();
         let oneshot_receiver = self
             .factory
-            .get_runtime()
+            .runtime()
             .block_on(self.write_internal(self.sender.clone(), payload));
 
         self.write_offset += bytes_to_write as i64;
@@ -121,9 +119,7 @@ impl Write for ByteWriter {
     /// This is a blocking call that will wait for data to be persisted on the server side.
     fn flush(&mut self) -> Result<(), Error> {
         if let Some(event_handle) = self.event_handle.take() {
-            self.factory
-                .get_runtime()
-                .block_on(self.flush_internal(event_handle))
+            self.factory.runtime().block_on(self.flush_internal(event_handle))
         } else {
             Ok(())
         }
@@ -135,7 +131,7 @@ impl ByteWriter {
     const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
     pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
-        let rt = factory.get_runtime();
+        let rt = factory.runtime();
         let (sender, receiver) = create_channel(Self::CHANNEL_CAPACITY);
         let metadata_client = rt.block_on(factory.create_segment_metadata_client(segment.clone()));
         let writer_id = WriterId(get_random_u128());
@@ -155,6 +151,7 @@ impl ByteWriter {
 
     /// Seal the segment and no further writes are allowed.
     ///
+    /// # Examples
     /// ```no_run
     /// let mut byte_writer = client_factory.create_byte_writer(segment);
     /// byte_writer.seal().expect("seal segment");
@@ -172,6 +169,7 @@ impl ByteWriter {
     /// Truncate data before a given offset for the segment. No reads are allowed before
     /// truncation point after calling this method.
     ///
+    /// # Examples
     /// ```no_run
     /// let byte_writer = client_factory.create_byte_writer(segment);
     /// byte_writer.truncate_data_before(1024).expect("truncate segment");
@@ -185,6 +183,7 @@ impl ByteWriter {
 
     /// Track the current write position for this writer.
     ///
+    /// # Examples
     /// ```no_run
     /// let byte_writer = client_factory.create_byte_writer(segment);
     /// let offset = byte_writer.current_write_offset();
@@ -196,6 +195,7 @@ impl ByteWriter {
     /// Seek to the tail of the segment.
     ///
     /// This method is useful for tail reads.
+    /// # Examples
     /// ```no_run
     /// let mut byte_writer = client_factory.create_byte_writer(segment);
     /// byte_writer.seek_to_tail();
@@ -203,7 +203,7 @@ impl ByteWriter {
     pub fn seek_to_tail(&mut self) {
         let segment_info = self
             .factory
-            .get_runtime()
+            .runtime()
             .block_on(self.metadata_client.get_segment_info())
             .expect("failed to get segment info");
         self.write_offset = segment_info.write_offset;

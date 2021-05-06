@@ -58,6 +58,7 @@ pub(crate) fn metric_init(scrape_port: SocketAddr) {
     }
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! update {
     ($metric:expr, $value:expr, $($tags:tt)*) => {

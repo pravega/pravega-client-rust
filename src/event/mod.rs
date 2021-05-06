@@ -26,17 +26,6 @@
 //! If an Event is confirmed to be successfully persisted, any previous Events
 //! are also guaranteed to be persisted.
 //!
-//! ## [TransactionalEventWriter]
-//! [TransactionalEventWriter] provides a way to execute [Transaction] in Pravega.
-//! The idea of a Transaction is that a Writer can "batch" up a bunch of Events and commit them as a unit into a Stream.
-//! This is useful, for example, in Flink jobs, using Pravega as a sink.
-//! The Flink job can continuously produce results for some data processing and use the Transaction
-//! to durably accumulate the results of the processing.
-//! For example, at the end of some sort of time window, the Flink job can commit the Transaction
-//! and therefore make the results of the processing available for downstream processing,
-//! or in the case of an error, the Transaction is aborted and the results disappear.
-//! See more [details].
-//!
 //! ## [EventReader]
 //! [EventReader] reads Events from a Pravega Stream.
 //! An [EventReader] must belong to a [ReaderGroup]. The [EventReader] read call returns a slice of segment data
@@ -53,6 +42,17 @@
 //! that allows a distributed application to read and process Stream data in parallel.
 //! A large amount of Stream data can be consumed by a coordinated group of Readers in a Reader Group.
 //! For example, a collection of Flink tasks processing Stream data in parallel using Reader Group.
+//!
+//! ## [TransactionalEventWriter]
+//! [TransactionalEventWriter] provides a way to execute [Transaction] in Pravega.
+//! The idea of a Transaction is that a Writer can "batch" up a bunch of Events and commit them as a unit into a Stream.
+//! This is useful, for example, in Flink jobs, using Pravega as a sink.
+//! The Flink job can continuously produce results for some data processing and use the Transaction
+//! to durably accumulate the results of the processing.
+//! For example, at the end of some sort of time window, the Flink job can commit the Transaction
+//! and therefore make the results of the processing available for downstream processing,
+//! or in the case of an error, the Transaction is aborted and the results disappear.
+//! See more [details].
 //!
 //! [EventWriter]: crate::event::writer::EventWriter
 //! [oneshot]: https://docs.rs/tokio/1.5.0/tokio/sync/oneshot/index.html

@@ -48,7 +48,7 @@ impl StreamTransaction {
     #[cfg(feature = "python_binding")]
     #[text_signature = "($self)"]
     pub fn get_txn_id(&mut self) -> PyResult<u128> {
-        let result: TxId = self.txn.get_txn_id();
+        let result: TxId = self.txn.txn_id();
         Ok(result.0)
     }
 
@@ -58,7 +58,7 @@ impl StreamTransaction {
     #[text_signature = "($self)"]
     pub fn is_open(&self) -> PyResult<bool> {
         let result: Result<TransactionStatus, TransactionError> =
-            self.factory.get_runtime().block_on(self.txn.check_status());
+            self.factory.runtime().block_on(self.txn.check_status());
 
         match result {
             Ok(TransactionStatus::Open) => Ok(true),
@@ -90,15 +90,12 @@ impl StreamTransaction {
     #[text_signature = "($self, event, routing_key=None)"]
     #[args(event, routing_key = "None", "*")]
     pub fn write_event_bytes(&mut self, event: &[u8], routing_key: Option<&str>) -> PyResult<()> {
-        trace!(
-            "Writing a single event to a transaction {:?}",
-            self.txn.get_txn_id()
-        );
+        trace!("Writing a single event to a transaction {:?}", self.txn.txn_id());
         let key: Option<String> = routing_key.map(|k| k.into());
         // to_vec creates an owned copy of the python byte array object.
         let result: Result<(), TransactionError> = self
             .factory
-            .get_runtime()
+            .runtime()
             .block_on(self.txn.write_event(key, event.to_vec()));
 
         match result {
@@ -130,12 +127,12 @@ impl StreamTransaction {
     ///
     #[text_signature = "($self, timestamp_as_u64)"]
     pub fn commit_timestamp(&mut self, timestamp: u64) -> PyResult<()> {
-        info!("Committing the transaction {:?}", self.txn.get_txn_id());
+        info!("Committing the transaction {:?}", self.txn.txn_id());
         let commit_fut = self.txn.commit(Timestamp::from(timestamp));
-        let _guard = self.factory.get_runtime().enter();
+        let _guard = self.factory.runtime().enter();
         let timeout_fut = timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), commit_fut);
         let result_commit: Result<Result<(), TransactionError>, _> =
-            self.factory.get_runtime().block_on(timeout_fut);
+            self.factory.runtime().block_on(timeout_fut);
 
         match result_commit {
             Ok(t) => match t {
@@ -161,12 +158,12 @@ impl StreamTransaction {
     ///
     #[text_signature = "($self)"]
     pub fn abort(&mut self) -> PyResult<()> {
-        info!("Aborting the transaction {}", self.txn.get_txn_id());
+        info!("Aborting the transaction {}", self.txn.txn_id());
         let abort_fut = self.txn.abort();
-        let _guard = self.factory.get_runtime().enter();
+        let _guard = self.factory.runtime().enter();
         let timeout_fut = timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), abort_fut);
         let result_abort: Result<Result<(), TransactionError>, _> =
-            self.factory.get_runtime().block_on(timeout_fut);
+            self.factory.runtime().block_on(timeout_fut);
 
         match result_abort {
             Ok(t) => match t {
@@ -188,11 +185,7 @@ impl StreamTransaction {
 
     /// Returns the string representation.
     fn to_str(&self) -> String {
-        format!(
-            "Txn id: {:?} , {:?}",
-            self.txn.get_txn_id(),
-            self.txn.get_stream()
-        )
+        format!("Txn id: {:?} , {:?}", self.txn.txn_id(), self.txn.stream())
     }
 }
 

@@ -23,7 +23,7 @@ use crate::pravega_service::PravegaStandaloneServiceConfig;
 use pravega_client_shared::Scope;
 use pravega_wire_protocol::commands::TableKey;
 
-pub fn test_tablemap(config: PravegaStandaloneServiceConfig) {
+pub fn test_table(config: PravegaStandaloneServiceConfig) {
     let config = ClientConfigBuilder::default()
         .controller_uri(MOCK_CONTROLLER_URI)
         .is_auth_enabled(config.auth)
@@ -32,7 +32,7 @@ pub fn test_tablemap(config: PravegaStandaloneServiceConfig) {
         .expect("creating config");
 
     let client_factory = ClientFactory::new(config);
-    let handle = client_factory.get_runtime();
+    let handle = client_factory.runtime();
     handle.block_on(test_single_key_operations(&client_factory));
     handle.block_on(test_multiple_key_operations(&client_factory));
     handle.block_on(test_multiple_key_remove_operations(&client_factory));
@@ -41,7 +41,7 @@ pub fn test_tablemap(config: PravegaStandaloneServiceConfig) {
 
 async fn test_single_key_operations(client_factory: &ClientFactory) {
     let scope = Scope {
-        name: "tablemapScope".to_string(),
+        name: "tableScope".to_string(),
     };
     let map = client_factory.create_table(scope, "t1".into()).await;
     let k: String = "key".into();
@@ -140,7 +140,7 @@ async fn test_single_key_operations(client_factory: &ClientFactory) {
 
 async fn test_multiple_key_operations(client_factory: &ClientFactory) {
     let scope = Scope {
-        name: "tablemapScope".to_string(),
+        name: "tableScope".to_string(),
     };
     let map = client_factory.create_table(scope, "t2".into()).await;
     let k1: String = "k1".into();
@@ -214,7 +214,7 @@ async fn test_multiple_key_operations(client_factory: &ClientFactory) {
 
 async fn test_multiple_key_remove_operations(client_factory: &ClientFactory) {
     let scope = Scope {
-        name: "tablemapScope".to_string(),
+        name: "tableScope".to_string(),
     };
     let map = client_factory.create_table(scope, "t4".into()).await;
     let k1: String = "k1".into();
@@ -270,7 +270,7 @@ async fn test_multiple_key_remove_operations(client_factory: &ClientFactory) {
 
 async fn test_iterators(client_factory: &ClientFactory) {
     let scope = Scope {
-        name: "tablemapScope".to_string(),
+        name: "tableScope".to_string(),
     };
     let map = client_factory.create_table(scope, "stream_test".into()).await;
     let k1: String = "k1".into();

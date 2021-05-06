@@ -28,7 +28,7 @@ mod event_reader_tests;
 mod event_writer_tests;
 mod pravega_service;
 mod synchronizer_tests;
-mod tablemap_tests;
+mod table_tests;
 mod transactional_event_writer_tests;
 mod utils;
 mod wirecommand_tests;
@@ -119,7 +119,7 @@ mod test {
         let span = info_span!("table map test", auth = config.auth, tls = config.tls);
         span.in_scope(|| {
             info!("Running table map test");
-            tablemap_tests::test_tablemap(config.clone());
+            table_tests::test_table(config.clone());
         });
         let span = info_span!("event stream writer test", auth = config.auth, tls = config.tls);
         span.in_scope(|| {

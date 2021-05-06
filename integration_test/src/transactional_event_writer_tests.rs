@@ -49,11 +49,11 @@ pub fn test_transactional_event_stream_writer(config: PravegaStandaloneServiceCo
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
-    let handle = client_factory.get_runtime();
+    let handle = client_factory.runtime();
     handle.block_on(setup_test(
         &scope_name,
         &stream_name,
-        client_factory.get_controller_client(),
+        client_factory.controller_client(),
     ));
 
     let mut writer =
@@ -122,8 +122,8 @@ async fn test_write_and_read_transaction(writer: &mut TransactionalEventWriter, 
             .expect("write to transaction");
     }
     let segments = factory
-        .get_controller_client()
-        .get_current_segments(&transaction.get_stream())
+        .controller_client()
+        .get_current_segments(&transaction.stream())
         .await
         .expect("get segments");
     // should not be able to see the write before commit
