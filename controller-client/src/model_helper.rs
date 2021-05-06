@@ -71,6 +71,23 @@ impl<'a> From<&'a ScopedStream> for StreamInfo {
     }
 }
 
+impl From<StreamInfo> for ScopedStream {
+    fn from(value: StreamInfo) -> ScopedStream {
+        ScopedStream {
+            scope: Scope::from(value.scope),
+            stream: Stream::from(value.stream),
+        }
+    }
+}
+
+impl<'a> From<&'a CToken> for ContinuationToken {
+    fn from(t: &'a CToken) -> ContinuationToken {
+        ContinuationToken {
+            token: t.token.to_owned(),
+        }
+    }
+}
+
 impl<'a> From<&'a Scope> for ScopeInfo {
     fn from(value: &'a Scope) -> ScopeInfo {
         ScopeInfo {

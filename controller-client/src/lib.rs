@@ -35,12 +35,12 @@ use async_trait::async_trait;
 use controller::{
     controller_service_client::ControllerServiceClient, create_scope_status, create_stream_status,
     delete_scope_status, delete_stream_status, ping_txn_status, scale_request, scale_response,
-    scale_status_response, txn_state, txn_status, update_stream_status, CreateScopeStatus,
+    scale_status_response, txn_state, txn_status, update_stream_status, ContinuationToken, CreateScopeStatus,
     CreateStreamStatus, CreateTxnRequest, CreateTxnResponse, DelegationToken, DeleteScopeStatus,
     DeleteStreamStatus, GetEpochSegmentsRequest, GetSegmentsRequest, NodeUri, PingTxnRequest, PingTxnStatus,
     ScaleRequest, ScaleResponse, ScaleStatusRequest, ScaleStatusResponse, ScopeInfo, SegmentId,
-    SegmentRanges, SegmentsAtTime, StreamConfig, StreamInfo, SuccessorResponse, TxnId, TxnRequest, TxnState,
-    TxnStatus, UpdateStreamStatus,
+    SegmentRanges, SegmentsAtTime, StreamConfig, StreamInfo, StreamsInScopeRequest, StreamsInScopeResponse,
+    SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
 };
 use im::{HashMap as ImHashMap, OrdMap};
 use ordered_float::OrderedFloat;
@@ -54,12 +54,12 @@ use pravega_client_shared::*;
 use snafu::Snafu;
 use std::convert::{From, Into};
 use std::str::FromStr;
-use std::sync::RwLock;
 use tokio::runtime::Runtime;
+use tokio::sync::RwLock;
 use tonic::codegen::http::uri::InvalidUri;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Uri};
 use tonic::{metadata::MetadataValue, Code, Request, Status};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 #[allow(non_camel_case_types)]
 pub mod controller {
@@ -69,6 +69,7 @@ pub mod controller {
 
 pub mod mock_controller;
 mod model_helper;
+pub mod paginator;
 
 // Max number of retries by the controller in case of a retryable failure.
 const MAX_RETRIES: i32 = 10;
@@ -89,6 +90,8 @@ pub enum ControllerError {
     ConnectionError { can_retry: bool, error_msg: String },
     #[snafu(display("Invalid configuration passed to the Controller client. Error {}", error_msg))]
     InvalidConfiguration { can_retry: bool, error_msg: String },
+    #[snafu(display("Invalid response from the Controller. Error {}", error_msg))]
+    InvalidResponse { can_retry: bool, error_msg: String },
 }
 
 // Implementation of Retryable trait for the error thrown by the Controller.
@@ -110,6 +113,10 @@ impl Retryable for ControllerError {
                 can_retry,
                 error_msg: _,
             } => *can_retry,
+            InvalidResponse {
+                can_retry,
+                error_msg: _,
+            } => *can_retry,
         }
     }
 }
@@ -128,7 +135,15 @@ pub trait ControllerClient: Send + Sync {
      */
     async fn create_scope(&self, scope: &Scope) -> ResultRetry<bool>;
 
-    async fn list_streams(&self, scope: &Scope) -> ResultRetry<Vec<String>>;
+    /**
+     * API to list streams under a given scope and continuation token.
+     * Use the pravega_controller_client::paginator::list_streams to paginate over all the streams.
+     */
+    async fn list_streams(
+        &self,
+        scope: &Scope,
+        token: &CToken,
+    ) -> ResultRetry<Option<(Vec<ScopedStream>, CToken)>>;
 
     /**
      * API to delete a scope. Note that a scope can only be deleted in the case is it empty. If
@@ -261,9 +276,9 @@ pub trait ControllerClient: Send + Sync {
     ) -> ResultRetry<()>;
 
     ///
-    ///Check the status of a Stream Scale operation for a given scale epoch. It returns a
-    ///`true` if the stream scaling operation has completed and `false` if the stream scaling is
-    ///in  progress.
+    /// Check the status of a Stream Scale operation for a given scale epoch. It returns a
+    /// `true` if the stream scaling operation has completed and `false` if the stream scaling is
+    /// in progress.
     ///
     async fn check_scale(&self, stream: &ScopedStream, scale_epoch: i32) -> ResultRetry<bool>;
 }
@@ -326,8 +341,15 @@ impl ControllerClient for ControllerClientImpl {
         )
     }
 
-    async fn list_streams(&self, scope: &Scope) -> ResultRetry<Vec<String>> {
-        unimplemented!()
+    async fn list_streams(
+        &self,
+        scope: &Scope,
+        token: &CToken,
+    ) -> ResultRetry<Option<(Vec<ScopedStream>, CToken)>> {
+        wrap_with_async_retry!(
+            self.config.retry_policy.max_tries(MAX_RETRIES),
+            self.call_list_streams(scope, token)
+        )
     }
 
     async fn delete_scope(&self, scope: &Scope) -> ResultRetry<bool> {
@@ -493,7 +515,7 @@ impl ControllerClientImpl {
         // actual connection is established lazily.
         let ch = rt.block_on(get_channel(&config));
         let client = if config.is_auth_enabled {
-            let token = config.credentials.get_request_metadata();
+            let token = rt.block_on(config.credentials.get_request_metadata());
             let token = MetadataValue::from_str(&token).expect("convert to metadata value");
             ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
                 req.metadata_mut().insert(AUTHORIZATION, token.clone());
@@ -514,16 +536,11 @@ impl ControllerClientImpl {
     /// This logic can be removed once https://github.com/tower-rs/tower/issues/383 is fixed.
     ///
     pub async fn reset(&self) {
-        let ch = get_channel(&self.config).await;
-        let mut x = self.channel.write().unwrap();
         if self.config.is_auth_enabled {
-            let token = self.config.credentials.get_request_metadata();
-            let token = MetadataValue::from_str(&token).expect("convert to metadata value");
-            *x = ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
-                req.metadata_mut().insert(AUTHORIZATION, token.clone());
-                Ok(req)
-            });
+            self.refresh_token_if_needed().await;
         } else {
+            let ch = get_channel(&self.config).await;
+            let mut x = self.channel.write().await;
             *x = ControllerServiceClient::new(ch);
         }
     }
@@ -534,24 +551,51 @@ impl ControllerClientImpl {
     /// which runs the connection in a background task and provides a `mpsc` channel interface.
     /// Due to this cloning the `Channel` type is cheap and encouraged.
     ///
-    fn get_controller_client(&self) -> ControllerServiceClient<Channel> {
-        self.channel.read().unwrap().clone()
+    async fn get_controller_client(&self) -> ControllerServiceClient<Channel> {
+        if self.config.is_auth_enabled && self.config.credentials.is_expired() {
+            // get_request_metadata internally checks if token expired before sending request to the server,
+            // race condition might happen here but eventually only one request will be sent.
+            self.refresh_token_if_needed().await;
+        }
+        self.channel.read().await.clone()
+    }
+
+    async fn refresh_token_if_needed(&self) {
+        let ch = get_channel(&self.config).await;
+        let mut x = self.channel.write().await;
+        let token = self.config.credentials.get_request_metadata().await;
+        let token = MetadataValue::from_str(&token).expect("convert to metadata value");
+        *x = ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
+            req.metadata_mut().insert(AUTHORIZATION, token.clone());
+            Ok(req)
+        });
     }
 
     // Method used to translate grpc errors to ControllerError.
     async fn map_grpc_error(&self, operation_name: &str, status: Status) -> ControllerError {
+        warn!(
+            "controller operation {:?} gets grpc error {:?}",
+            operation_name, status
+        );
         match status.code() {
             Code::InvalidArgument
             | Code::NotFound
             | Code::AlreadyExists
             | Code::PermissionDenied
             | Code::OutOfRange
-            | Code::Unimplemented
-            | Code::Unauthenticated => ControllerError::OperationError {
+            | Code::Unimplemented => ControllerError::OperationError {
                 can_retry: false,
                 operation: operation_name.into(),
                 error_msg: status.to_string(),
             },
+            Code::Unauthenticated => {
+                self.reset().await;
+                ControllerError::OperationError {
+                    can_retry: true,
+                    operation: operation_name.into(),
+                    error_msg: status.to_string(),
+                }
+            }
             Code::Unknown => {
                 self.reset().await;
                 ControllerError::ConnectionError {
@@ -604,6 +648,62 @@ impl ControllerClientImpl {
         })
     }
 
+    async fn call_list_streams(
+        &self,
+        scope: &Scope,
+        token: &CToken,
+    ) -> Result<Option<(Vec<ScopedStream>, CToken)>> {
+        let operation_name = "ListStreams";
+        let request: StreamsInScopeRequest = StreamsInScopeRequest {
+            scope: Some(ScopeInfo::from(scope)),
+            continuation_token: Some(ContinuationToken::from(token)),
+        };
+        debug!(
+            "Triggering a request to the controller to list streams for scope {}",
+            scope
+        );
+
+        let op_status: StdResult<tonic::Response<StreamsInScopeResponse>, tonic::Status> = self
+            .get_controller_client()
+            .await
+            .list_streams_in_scope(request)
+            .await;
+        match op_status {
+            Ok(streams_with_token) => {
+                let result = streams_with_token.into_inner();
+                let mut t: Vec<StreamInfo> = result.streams;
+                if t.is_empty() {
+                    // Empty result from the controller implies no further streams present.
+                    Ok(None)
+                } else {
+                    // update state with the new set of streams.
+                    let stream_list: Vec<ScopedStream> = t.drain(..).map(|i| i.into()).collect();
+                    let token: Option<ContinuationToken> = result.continuation_token;
+                    match token.map(|t| t.token) {
+                        None => {
+                            warn!(
+                                "None returned for continuation token list streams API for scope {}",
+                                scope
+                            );
+                            Err(ControllerError::InvalidResponse {
+                                can_retry: false,
+                                error_msg: "No continuation token received from Controller".to_string(),
+                            })
+                        }
+                        Some(ct) => {
+                            debug!("Returned token {} for list streams API under scope {}", ct, scope);
+                            Ok(Some((stream_list, CToken::from(ct.as_str()))))
+                        }
+                    }
+                }
+            }
+            Err(status) => {
+                debug!("Error {} while listing streams under scope {}", status, scope);
+                Err(self.map_grpc_error(operation_name, status).await)
+            }
+        }
+    }
+
     async fn call_create_scope(&self, scope: &Scope) -> Result<bool> {
         use create_scope_status::Status;
         let operation_name = "CreateScope";
@@ -611,6 +711,7 @@ impl ControllerClientImpl {
 
         let op_status: StdResult<tonic::Response<CreateScopeStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .create_scope(tonic::Request::new(request))
             .await;
         match op_status {
@@ -637,6 +738,7 @@ impl ControllerClientImpl {
 
         let op_status: StdResult<tonic::Response<DeleteScopeStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .delete_scope(tonic::Request::new(ScopeInfo::from(scope)))
             .await;
         let operation_name = "DeleteScope";
@@ -665,6 +767,7 @@ impl ControllerClientImpl {
         let request: StreamConfig = StreamConfig::from(stream_config);
         let op_status: StdResult<tonic::Response<CreateStreamStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .create_stream(tonic::Request::new(request))
             .await;
         let operation_name = "CreateStream";
@@ -695,6 +798,7 @@ impl ControllerClientImpl {
         let request: StreamConfig = StreamConfig::from(stream_config);
         let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .update_stream(tonic::Request::new(request))
             .await;
         let operation_name = "updateStream";
@@ -724,6 +828,7 @@ impl ControllerClientImpl {
         let request: controller::StreamCut = controller::StreamCut::from(stream_cut);
         let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .truncate_stream(tonic::Request::new(request))
             .await;
         let operation_name = "truncateStream";
@@ -753,6 +858,7 @@ impl ControllerClientImpl {
         let request: StreamInfo = StreamInfo::from(stream);
         let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .seal_stream(tonic::Request::new(request))
             .await;
         let operation_name = "SealStream";
@@ -782,6 +888,7 @@ impl ControllerClientImpl {
         let request: StreamInfo = StreamInfo::from(stream);
         let op_status: StdResult<tonic::Response<DeleteStreamStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .delete_stream(tonic::Request::new(request))
             .await;
         let operation_name = "DeleteStream";
@@ -810,6 +917,7 @@ impl ControllerClientImpl {
         let request: StreamInfo = StreamInfo::from(stream);
         let op_status: StdResult<tonic::Response<SegmentsAtTime>, tonic::Status> = self
             .get_controller_client()
+            .await
             .get_segments(tonic::Request::new(GetSegmentsRequest {
                 stream_info: Some(request),
                 timestamp: 0,
@@ -839,6 +947,7 @@ impl ControllerClientImpl {
         let request: StreamInfo = StreamInfo::from(stream);
         let op_status: StdResult<tonic::Response<SegmentRanges>, tonic::Status> = self
             .get_controller_client()
+            .await
             .get_epoch_segments(tonic::Request::new(GetEpochSegmentsRequest {
                 stream_info: Some(request),
                 epoch,
@@ -855,6 +964,7 @@ impl ControllerClientImpl {
         let request: StreamInfo = StreamInfo::from(stream);
         let op_status: StdResult<tonic::Response<SegmentRanges>, tonic::Status> = self
             .get_controller_client()
+            .await
             .get_current_segments(tonic::Request::new(request))
             .await;
         let operation_name = "getCurrentSegments";
@@ -871,6 +981,7 @@ impl ControllerClientImpl {
         };
         let op_status: StdResult<tonic::Response<CreateTxnResponse>, tonic::Status> = self
             .get_controller_client()
+            .await
             .create_transaction(tonic::Request::new(request))
             .await;
         let operation_name = "createTransaction";
@@ -923,6 +1034,7 @@ impl ControllerClientImpl {
         };
         let op_status: StdResult<tonic::Response<PingTxnStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .ping_transaction(tonic::Request::new(request))
             .await;
         let operation_name = "pingTransaction";
@@ -972,6 +1084,7 @@ impl ControllerClientImpl {
         };
         let op_status: StdResult<tonic::Response<TxnStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .commit_transaction(tonic::Request::new(request))
             .await;
         let operation_name = "commitTransaction";
@@ -1008,6 +1121,7 @@ impl ControllerClientImpl {
         };
         let op_status: StdResult<tonic::Response<TxnStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .abort_transaction(tonic::Request::new(request))
             .await;
         let operation_name = "abortTransaction";
@@ -1048,6 +1162,7 @@ impl ControllerClientImpl {
         };
         let op_status: StdResult<tonic::Response<TxnState>, tonic::Status> = self
             .get_controller_client()
+            .await
             .check_transaction_state(tonic::Request::new(request))
             .await;
         let operation_name = "checkTransactionStatus";
@@ -1071,6 +1186,7 @@ impl ControllerClientImpl {
     async fn call_get_endpoint_for_segment(&self, segment: &ScopedSegment) -> Result<PravegaNodeUri> {
         let op_status: StdResult<tonic::Response<NodeUri>, tonic::Status> = self
             .get_controller_client()
+            .await
             .get_uri(tonic::Request::new(segment.into()))
             .await;
         let operation_name = "get_endpoint";
@@ -1093,6 +1209,7 @@ impl ControllerClientImpl {
         debug!("sending get successors request for {:?}", segment);
         let op_status: StdResult<tonic::Response<SuccessorResponse>, tonic::Status> = self
             .get_controller_client()
+            .await
             .get_segments_immediately_following(tonic::Request::new(segment_id_request))
             .await;
         let operation_name = "get_successors_segment";
@@ -1122,6 +1239,7 @@ impl ControllerClientImpl {
         // start the scale Stream operation.
         let op_status: StdResult<tonic::Response<ScaleResponse>, tonic::Status> = self
             .get_controller_client()
+            .await
             .scale(tonic::Request::new(scale_request))
             .await;
         let operation_name = "scale_stream";
@@ -1160,6 +1278,7 @@ impl ControllerClientImpl {
         };
         let op_status: StdResult<tonic::Response<ScaleStatusResponse>, tonic::Status> = self
             .get_controller_client()
+            .await
             .check_scale(tonic::Request::new(request))
             .await;
 
@@ -1187,6 +1306,7 @@ impl ControllerClientImpl {
     async fn call_get_delegation_token(&self, stream: &ScopedStream) -> Result<String> {
         let op_status: StdResult<tonic::Response<DelegationToken>, tonic::Status> = self
             .get_controller_client()
+            .await
             .get_delegation_token(tonic::Request::new(StreamInfo::from(stream)))
             .await;
         let operation_name = "get_delegation_token";
@@ -1393,6 +1513,18 @@ mod test {
             .block_on(controller.get_or_refresh_delegation_token_for(scoped_stream))
             .expect("get delegation token");
         assert_eq!(res, "123".to_string());
+
+        // test list streams
+        let res = rt
+            .block_on(controller.list_streams(&scope, &CToken::empty()))
+            .expect("list streams");
+        let expected_stream = ScopedStream {
+            scope,
+            stream: Stream {
+                name: String::from("s1"),
+            },
+        };
+        assert_eq!(res, Some((vec![expected_stream], CToken::from("123"))))
     }
 
     #[derive(Default)]
@@ -1625,16 +1757,39 @@ mod test {
         }
         async fn list_streams_in_scope(
             &self,
-            _request: Request<controller::StreamsInScopeRequest>,
+            request: Request<controller::StreamsInScopeRequest>,
         ) -> std::result::Result<Response<controller::StreamsInScopeResponse>, Status> {
-            let reply = controller::StreamsInScopeResponse {
-                streams: vec![],
-                continuation_token: Some(controller::ContinuationToken {
-                    token: "123".to_string(),
-                }),
-                status: controller::streams_in_scope_response::Status::Success as i32,
+            let req = request.into_inner();
+            let s1 = ScopedStream {
+                scope: Scope {
+                    name: req.scope.unwrap().scope,
+                },
+                stream: Stream {
+                    name: String::from("s1"),
+                },
             };
-            Ok(Response::new(reply))
+            let request_token: String = req.continuation_token.unwrap().token;
+            if request_token.is_empty() {
+                // first response
+                let reply = controller::StreamsInScopeResponse {
+                    streams: vec![StreamInfo::from(&s1)],
+                    continuation_token: Some(controller::ContinuationToken {
+                        token: "123".to_string(),
+                    }),
+                    status: controller::streams_in_scope_response::Status::Success as i32,
+                };
+                Ok(Response::new(reply))
+            } else {
+                // subsequent response
+                let reply = controller::StreamsInScopeResponse {
+                    streams: vec![],
+                    continuation_token: Some(controller::ContinuationToken {
+                        token: "123".to_string(),
+                    }),
+                    status: controller::streams_in_scope_response::Status::Success as i32,
+                };
+                Ok(Response::new(reply))
+            }
         }
         async fn remove_writer(
             &self,
