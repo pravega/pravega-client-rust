@@ -33,8 +33,10 @@ use tokio::time::sleep;
 use tracing::{debug, error, info, info_span};
 use tracing_futures::Instrument;
 
-/// A writer that writes Events to a stream transactionally. Events that are written to the
-/// transaction can be committed atomically, which means that reader cannot see any writes prior to committing
+/// Write events to a stream transactionally.
+///
+/// Events that are written to the transaction can be committed atomically,
+/// which means that reader cannot see any writes prior to committing
 /// and will not see any writes if the transaction is aborted.
 ///
 /// # Example
@@ -106,7 +108,7 @@ impl TransactionalEventWriter {
     }
 
     /// This method opens a transaction by sending a request to Pravega controller.
-    pub async fn begin(&mut self) -> Result<Transaction, TransactionalEventStreamWriterError> {
+    pub async fn begin(&mut self) -> Result<Transaction, TransactionalEventWriterError> {
         let txn_segments = self
             .factory
             .get_controller_client()
@@ -134,7 +136,7 @@ impl TransactionalEventWriter {
     /// If the current transaction is not in open status, meaning it has been committed
     /// or aborted, this method will create a closed transaction that only contains the meta data
     /// of this transaction.
-    pub async fn get_txn(&self, txn_id: TxId) -> Result<Transaction, TransactionalEventStreamWriterError> {
+    pub async fn get_txn(&self, txn_id: TxId) -> Result<Transaction, TransactionalEventWriterError> {
         let status = self
             .factory
             .get_controller_client()
@@ -179,8 +181,9 @@ struct TransactionInfo {
     closed: bool,
 }
 
-/// Transaction is an abstract of the Pravega Transaction. It can be used to write, commit and abort
-/// a Pravega Transaction.
+/// Pravega Transaction support.
+///
+/// It can be used to write, commit and abort a Pravega Transaction.
 pub struct Transaction {
     info: TransactionInfo,
     sender: ChannelSender<Incoming>,
@@ -442,10 +445,10 @@ pub(crate) struct Pinger {
 pub(crate) struct PingerHandle(UnboundedSender<PingerEvent>);
 
 impl PingerHandle {
-    pub(crate) fn add(&mut self, txn_id: TxId) -> Result<(), TransactionalEventStreamWriterError> {
+    pub(crate) fn add(&mut self, txn_id: TxId) -> Result<(), TransactionalEventWriterError> {
         if let Err(e) = self.0.send(PingerEvent::Add(txn_id)) {
             error!("pinger failed to add transaction: {:?}", e);
-            Err(TransactionalEventStreamWriterError::PingerError {
+            Err(TransactionalEventWriterError::PingerError {
                 msg: format!("failed to add transaction due to: {:?}", e),
             })
         } else {
@@ -453,10 +456,10 @@ impl PingerHandle {
         }
     }
 
-    pub(crate) fn remove(&mut self, txn_id: TxId) -> Result<(), TransactionalEventStreamWriterError> {
+    pub(crate) fn remove(&mut self, txn_id: TxId) -> Result<(), TransactionalEventWriterError> {
         if let Err(e) = self.0.send(PingerEvent::Remove(txn_id)) {
             error!("pinger failed to remove transaction: {:?}", e);
-            Err(TransactionalEventStreamWriterError::PingerError {
+            Err(TransactionalEventWriterError::PingerError {
                 msg: format!("failed to remove transaction due to: {:?}", e),
             })
         } else {
@@ -566,7 +569,7 @@ impl Pinger {
 }
 
 #[derive(Debug, Snafu)]
-pub enum TransactionalEventStreamWriterError {
+pub enum TransactionalEventWriterError {
     #[snafu(display("Pinger failed to {:?}", msg))]
     PingerError { msg: String },
 
@@ -580,9 +583,7 @@ pub enum TransactionError {
     TxnSegmentWriterError { error_msg: String },
 
     #[snafu(display("Transactional stream writer failed due to {:?}", source))]
-    TxnStreamWriterError {
-        source: TransactionalEventStreamWriterError,
-    },
+    TxnStreamWriterError { source: TransactionalEventWriterError },
 
     #[snafu(display("Transaction {:?} already closed", id))]
     TxnClosed { id: TxId },

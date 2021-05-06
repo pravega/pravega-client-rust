@@ -21,7 +21,7 @@ use tokio::sync::oneshot;
 use tracing::info_span;
 use tracing_futures::Instrument;
 
-/// Writes events exactly once to a given stream.
+/// Write events exactly once to a given stream.
 ///
 /// EventStreamWriter spawns a `Reactor` that runs in the background for processing incoming events.
 /// The `write` method sends the event to the `Reactor` asynchronously and returns a `tokio::oneshot::Receiver`

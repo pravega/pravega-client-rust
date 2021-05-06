@@ -31,11 +31,20 @@ type EventHandle = oneshot::Receiver<Result<(), Error>>;
 /// way. So unlike [`EventWriter`] the data written cannot be split apart when read.
 /// As such, any bytes written by this API can ONLY be read using [`ByteReader`].
 ///
-/// Similarly, multiple ByteWriters write to the same segment as this will result in interleaved data,
+/// ## Parallelism
+/// Multiple ByteWriters write to the same segment as this will result in interleaved data,
 /// which is not desirable in most cases. ByteWriter uses Conditional Append to make sure that writers
 /// are aware of the content in the segment. If another process writes data to the segment after this one began writing,
 /// all subsequent writes from this writer will not be written and [`flush`] will fail. This prevents data from being accidentally interleaved.
 ///
+/// ## Backpressure
+/// Write has a backpressure mechanism. Internally, it uses [`Channel`] to send event to
+/// Reactor for processing. [`Channel`] can has a limited [`capacity`], when its capacity
+/// is reached, any further write will not be accepted until enough space has been freed in the [`Channel`].
+///
+///
+/// [`channel`]: pravega_client_channel
+/// [`capacity`]: ByteWriter::CHANNEL_CAPACITY
 /// [`EventWriter`]: crate::event::writer::EventWriter
 /// [`ByteReader`]: crate::byte::reader::ByteReader
 /// [`flush`]: ByteWriter::flush
@@ -71,6 +80,10 @@ type EventHandle = oneshot::Receiver<Result<(), Error>>;
 ///     let mut byte_writer = client_factory.create_byte_writer(segment);
 ///
 ///     let payload = "hello world".to_string().into_bytes();
+///
+///     // write doesn't mean the data is persisted on the server side
+///     // when this method returns Ok, user should call flush to ensure
+///     // all data has been acknowledged by the server.
 ///     byte_writer.write(&payload).expect("write");
 ///     byte_writer.flush().expect("flush");
 /// }
@@ -91,13 +104,6 @@ impl Write for ByteWriter {
     /// when this method returns Ok, user should call flush to ensure all data has been acknowledged
     /// by the server.
     ///
-    /// Write has a backpressure mechanism. Internally, it uses [`Channel`] to send event to
-    /// Reactor for processing. [`Channel`] can has a limited [`capacity`], when its capacity
-    /// is reached, any further write will not be accepted until enough space has been freed in the [`Channel`].
-    ///
-    ///
-    /// [`channel`]: pravega_client_channel
-    /// [`capacity`]: ByteWriter::CHANNEL_CAPACITY
     ///
     fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
         let bytes_to_write = std::cmp::min(buf.len(), EventWriter::MAX_EVENT_SIZE);
@@ -128,7 +134,7 @@ impl ByteWriter {
     // maximum 16 MB total size of events could be held in memory
     const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
-    pub fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
+    pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
         let rt = factory.get_runtime();
         let (sender, receiver) = create_channel(Self::CHANNEL_CAPACITY);
         let metadata_client = rt.block_on(factory.create_segment_metadata_client(segment.clone()));
@@ -147,7 +153,12 @@ impl ByteWriter {
         }
     }
 
-    /// Seals the segment and no further writes are allowed.
+    /// Seal the segment and no further writes are allowed.
+    ///
+    /// ```no_run
+    /// let mut byte_writer = client_factory.create_byte_writer(segment);
+    /// byte_writer.seal().expect("seal segment");
+    /// ```
     pub async fn seal(&mut self) -> Result<(), Error> {
         if let Some(event_handle) = self.event_handle.take() {
             self.flush_internal(event_handle).await?;
@@ -158,8 +169,13 @@ impl ByteWriter {
             .map_err(|e| Error::new(ErrorKind::Other, format!("segment seal error: {:?}", e)))
     }
 
-    /// Truncates data before a given offset for the segment. No reads are allowed before
+    /// Truncate data before a given offset for the segment. No reads are allowed before
     /// truncation point after calling this method.
+    ///
+    /// ```no_run
+    /// let byte_writer = client_factory.create_byte_writer(segment);
+    /// byte_writer.truncate_data_before(1024).expect("truncate segment");
+    /// ```
     pub async fn truncate_data_before(&self, offset: i64) -> Result<(), Error> {
         self.metadata_client
             .truncate_segment(offset)
@@ -167,12 +183,23 @@ impl ByteWriter {
             .map_err(|e| Error::new(ErrorKind::Other, format!("segment truncation error: {:?}", e)))
     }
 
-    /// Tracks the current write position for this writer.
-    pub fn current_write_offset(&mut self) -> i64 {
+    /// Track the current write position for this writer.
+    ///
+    /// ```no_run
+    /// let byte_writer = client_factory.create_byte_writer(segment);
+    /// let offset = byte_writer.current_write_offset();
+    /// ```
+    pub fn current_write_offset(&self) -> i64 {
         self.write_offset
     }
 
     /// Seek to the tail of the segment.
+    ///
+    /// This method is useful for tail reads.
+    /// ```no_run
+    /// let mut byte_writer = client_factory.create_byte_writer(segment);
+    /// byte_writer.seek_to_tail();
+    /// ```
     pub fn seek_to_tail(&mut self) {
         let segment_info = self
             .factory

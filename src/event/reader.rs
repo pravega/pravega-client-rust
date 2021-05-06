@@ -44,7 +44,9 @@ cfg_if::cfg_if! {
     }
 }
 
-/// This represents an event reader. An event reader fetches data from its assigned segments as a SegmentSlice,
+/// Read events from Stream.
+///
+/// An event reader fetches data from its assigned segments as a SegmentSlice,
 /// where a SegmentSlice represents data from a Pravega Segment. It provides the following APIs.
 /// 1. A method to initialize the event reader [EventReader#init](EventReader#init)
 /// 2. A method to obtain a SegmentSlice to read events from a Pravega segment. The user can use the

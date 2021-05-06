@@ -71,7 +71,7 @@ pub(crate) struct SegmentWriter {
     // Delegation token provider used to authenticate client when communicating with segmentstore.
     delegation_token_provider: Arc<DelegationTokenProvider>,
 
-    /// Number of consecutive reconnections
+    // Number of consecutive reconnections
     pub(crate) reconnection: i32,
 }
 

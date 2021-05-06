@@ -21,15 +21,19 @@ use uuid::Uuid;
 
 /// A ByteReader enables reading raw bytes from a segment.
 ///
-/// The ByteReader implements the [Read] and [Seek] trait in standard library.
+/// The ByteReader implements [Read] and [Seek] trait in the standard library.
 ///
-/// Internally ByteReader uses a prefetching reader that prefetches data from the stream in the background.
-/// The prefetched data is cached in memory so any sequential read should hit the cache.
-/// Any [Seek] operation will invalidate the cache and causes cache miss, so frequent [Seek] and read operation
+/// Internally ByteReader uses a prefetching reader that prefetches data from the server in the background.
+/// The prefetched data is cached in memory so any sequential reads should be able to hit the cache.
+///
+/// Any seek operation will invalidate the cache and causes cache miss, so frequent seek and read operations
 /// might not have good performance.
+///
+/// You can also wrap ByteReader with [BufReader], but doing so will not increase performance further.
 ///
 /// [`Read`]: https://doc.rust-lang.org/std/io/trait.Read.html
 /// [`Seek`]: https://doc.rust-lang.org/stable/std/io/trait.Seek.html
+/// [`BufReader`]: https://doc.rust-lang.org/std/io/struct.BufReader.html
 ///
 /// # Examples
 /// ```no_run
@@ -75,7 +79,7 @@ impl Read for ByteReader {
 }
 
 impl ByteReader {
-    pub fn new(segment: ScopedSegment, factory: ClientFactory, buffer_size: usize) -> Self {
+    pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory, buffer_size: usize) -> Self {
         let async_reader = factory
             .get_runtime()
             .block_on(factory.create_async_event_reader(segment.clone()));
@@ -97,7 +101,15 @@ impl ByteReader {
         }
     }
 
-    /// Returns the head of current readable data in the segment.
+    /// Return the head of current readable data in the segment.
+    ///
+    /// The ByteReader is initialized to read from the segment at offset 0. However, it might
+    /// encounter the SegmentIsTruncated error due to the segment has been truncated. In this case,
+    /// application should call this method to get the current readable head and read from it.
+    /// ```no_run
+    /// let mut byte_reader = client_factory.create_byte_reader(segment);
+    /// let offset = byte_reader.current_head().expect("get current head offset");
+    /// ```
     pub fn current_head(&self) -> std::io::Result<u64> {
         self.factory
             .get_runtime()
@@ -106,12 +118,23 @@ impl ByteReader {
             .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
     }
 
-    /// Returns the read offset.
+    /// Return the current read offset.
+    ///
+    /// ```no_run
+    /// let mut byte_reader = client_factory.create_byte_reader(segment);
+    /// let offset = byte_reader.current_offset();
+    /// ```
     pub fn current_offset(&self) -> i64 {
         self.reader.as_ref().unwrap().offset
     }
 
-    /// Returns the bytes that are available to read instantly without fetching from server.
+    /// Return the bytes that are available to read instantly without fetching from server.
+    ///
+    /// ByteReader has a buffer internally. This method returns the size of remaining data in that buffer.
+    /// ```no_run
+    /// let mut byte_reader = client_factory.create_byte_reader(segment);
+    /// let num = byte_reader.available();
+    /// ```
     pub fn available(&self) -> usize {
         self.reader.as_ref().unwrap().available()
     }

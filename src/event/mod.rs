@@ -16,7 +16,7 @@
 //! An Event could also be a web log data associated with a user click on a website.
 //! Applications make sense of Events using their own serializers and deserializers,
 //! allowing them to read and write objects in Pravega similarly to reading and writing objects from files.
-//! # APIs
+//!
 //! ## [EventWriter]
 //! [EventWriter] writes events to the tail of Pravega streams.
 //! It has exactly once guarantee that an Event will not missing or duplicating in Pravega
@@ -63,7 +63,21 @@
 //! [ReaderGroup]: crate::event::reader_group::ReaderGroup
 //!
 pub mod reader;
+#[doc(inline)]
+pub use reader::EventReader;
+
 pub mod reader_group;
-pub(crate) mod reader_group_state;
+#[doc(inline)]
+pub use reader_group::ReaderGroup;
+
 pub mod transactional_writer;
+#[doc(inline)]
+pub use transactional_writer::Transaction;
+#[doc(inline)]
+pub use transactional_writer::TransactionalEventWriter;
+
 pub mod writer;
+#[doc(inline)]
+pub use writer::EventWriter;
+
+pub(crate) mod reader_group_state;

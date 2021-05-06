@@ -31,7 +31,8 @@ cfg_if::cfg_if! {
     }
 }
 
-/// A reader group is a collection of readers that collectively read all the events in the stream.
+/// A collection of readers that collectively read all the events in the stream.
+///
 /// The events are distributed among the readers in the group such that each event goes to only one reader.
 ///
 /// The readers in the group may change over time. Readers are added to the group by invoking the
