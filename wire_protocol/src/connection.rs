@@ -175,6 +175,15 @@ impl Connection for TlsConnection {
             .expect("get connection")
             .write_all(payload)
             .await
+            .context(SendData {
+                endpoint: endpoint.clone(),
+            })?;
+
+        self.stream
+            .as_mut()
+            .expect("get connection")
+            .flush()
+            .await
             .context(SendData { endpoint })?;
         Ok(())
     }
@@ -327,7 +336,10 @@ impl ConnectionWriteHalf for ConnectionWriteHalfTls {
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
         let endpoint = self.endpoint.clone();
         if let Some(ref mut writer) = self.write_half {
-            writer.write_all(payload).await.context(SendData { endpoint })?;
+            writer.write_all(payload).await.context(SendData {
+                endpoint: endpoint.clone(),
+            })?;
+            writer.flush().await.context(SendData { endpoint })?;
         } else {
             panic!("should not try to write when write half is gone");
         }

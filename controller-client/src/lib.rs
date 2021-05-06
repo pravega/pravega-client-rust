@@ -54,8 +54,8 @@ use pravega_client_shared::*;
 use snafu::Snafu;
 use std::convert::{From, Into};
 use std::str::FromStr;
-use std::sync::RwLock;
 use tokio::runtime::Runtime;
+use tokio::sync::RwLock;
 use tonic::codegen::http::uri::InvalidUri;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Uri};
 use tonic::{metadata::MetadataValue, Code, Request, Status};
@@ -276,9 +276,9 @@ pub trait ControllerClient: Send + Sync {
     ) -> ResultRetry<()>;
 
     ///
-    ///Check the status of a Stream Scale operation for a given scale epoch. It returns a
-    ///`true` if the stream scaling operation has completed and `false` if the stream scaling is
-    ///in  progress.
+    /// Check the status of a Stream Scale operation for a given scale epoch. It returns a
+    /// `true` if the stream scaling operation has completed and `false` if the stream scaling is
+    /// in progress.
     ///
     async fn check_scale(&self, stream: &ScopedStream, scale_epoch: i32) -> ResultRetry<bool>;
 }
@@ -515,7 +515,7 @@ impl ControllerClientImpl {
         // actual connection is established lazily.
         let ch = rt.block_on(get_channel(&config));
         let client = if config.is_auth_enabled {
-            let token = config.credentials.get_request_metadata();
+            let token = rt.block_on(config.credentials.get_request_metadata());
             let token = MetadataValue::from_str(&token).expect("convert to metadata value");
             ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
                 req.metadata_mut().insert(AUTHORIZATION, token.clone());
@@ -536,16 +536,11 @@ impl ControllerClientImpl {
     /// This logic can be removed once https://github.com/tower-rs/tower/issues/383 is fixed.
     ///
     pub async fn reset(&self) {
-        let ch = get_channel(&self.config).await;
-        let mut x = self.channel.write().unwrap();
         if self.config.is_auth_enabled {
-            let token = self.config.credentials.get_request_metadata();
-            let token = MetadataValue::from_str(&token).expect("convert to metadata value");
-            *x = ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
-                req.metadata_mut().insert(AUTHORIZATION, token.clone());
-                Ok(req)
-            });
+            self.refresh_token_if_needed().await;
         } else {
+            let ch = get_channel(&self.config).await;
+            let mut x = self.channel.write().await;
             *x = ControllerServiceClient::new(ch);
         }
     }
@@ -556,12 +551,32 @@ impl ControllerClientImpl {
     /// which runs the connection in a background task and provides a `mpsc` channel interface.
     /// Due to this cloning the `Channel` type is cheap and encouraged.
     ///
-    fn get_controller_client(&self) -> ControllerServiceClient<Channel> {
-        self.channel.read().unwrap().clone()
+    async fn get_controller_client(&self) -> ControllerServiceClient<Channel> {
+        if self.config.is_auth_enabled && self.config.credentials.is_expired() {
+            // get_request_metadata internally checks if token expired before sending request to the server,
+            // race condition might happen here but eventually only one request will be sent.
+            self.refresh_token_if_needed().await;
+        }
+        self.channel.read().await.clone()
+    }
+
+    async fn refresh_token_if_needed(&self) {
+        let ch = get_channel(&self.config).await;
+        let mut x = self.channel.write().await;
+        let token = self.config.credentials.get_request_metadata().await;
+        let token = MetadataValue::from_str(&token).expect("convert to metadata value");
+        *x = ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
+            req.metadata_mut().insert(AUTHORIZATION, token.clone());
+            Ok(req)
+        });
     }
 
     // Method used to translate grpc errors to ControllerError.
     async fn map_grpc_error(&self, operation_name: &str, status: Status) -> ControllerError {
+        warn!(
+            "controller operation {:?} gets grpc error {:?}",
+            operation_name, status
+        );
         match status.code() {
             Code::InvalidArgument
             | Code::NotFound
@@ -648,8 +663,11 @@ impl ControllerClientImpl {
             scope
         );
 
-        let op_status: StdResult<tonic::Response<StreamsInScopeResponse>, tonic::Status> =
-            self.get_controller_client().list_streams_in_scope(request).await;
+        let op_status: StdResult<tonic::Response<StreamsInScopeResponse>, tonic::Status> = self
+            .get_controller_client()
+            .await
+            .list_streams_in_scope(request)
+            .await;
         match op_status {
             Ok(streams_with_token) => {
                 let result = streams_with_token.into_inner();
@@ -693,6 +711,7 @@ impl ControllerClientImpl {
 
         let op_status: StdResult<tonic::Response<CreateScopeStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .create_scope(tonic::Request::new(request))
             .await;
         match op_status {
@@ -719,6 +738,7 @@ impl ControllerClientImpl {
 
         let op_status: StdResult<tonic::Response<DeleteScopeStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .delete_scope(tonic::Request::new(ScopeInfo::from(scope)))
             .await;
         let operation_name = "DeleteScope";
@@ -747,6 +767,7 @@ impl ControllerClientImpl {
         let request: StreamConfig = StreamConfig::from(stream_config);
         let op_status: StdResult<tonic::Response<CreateStreamStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .create_stream(tonic::Request::new(request))
             .await;
         let operation_name = "CreateStream";
@@ -777,6 +798,7 @@ impl ControllerClientImpl {
         let request: StreamConfig = StreamConfig::from(stream_config);
         let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .update_stream(tonic::Request::new(request))
             .await;
         let operation_name = "updateStream";
@@ -806,6 +828,7 @@ impl ControllerClientImpl {
         let request: controller::StreamCut = controller::StreamCut::from(stream_cut);
         let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .truncate_stream(tonic::Request::new(request))
             .await;
         let operation_name = "truncateStream";
@@ -835,6 +858,7 @@ impl ControllerClientImpl {
         let request: StreamInfo = StreamInfo::from(stream);
         let op_status: StdResult<tonic::Response<UpdateStreamStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .seal_stream(tonic::Request::new(request))
             .await;
         let operation_name = "SealStream";
@@ -864,6 +888,7 @@ impl ControllerClientImpl {
         let request: StreamInfo = StreamInfo::from(stream);
         let op_status: StdResult<tonic::Response<DeleteStreamStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .delete_stream(tonic::Request::new(request))
             .await;
         let operation_name = "DeleteStream";
@@ -892,6 +917,7 @@ impl ControllerClientImpl {
         let request: StreamInfo = StreamInfo::from(stream);
         let op_status: StdResult<tonic::Response<SegmentsAtTime>, tonic::Status> = self
             .get_controller_client()
+            .await
             .get_segments(tonic::Request::new(GetSegmentsRequest {
                 stream_info: Some(request),
                 timestamp: 0,
@@ -921,6 +947,7 @@ impl ControllerClientImpl {
         let request: StreamInfo = StreamInfo::from(stream);
         let op_status: StdResult<tonic::Response<SegmentRanges>, tonic::Status> = self
             .get_controller_client()
+            .await
             .get_epoch_segments(tonic::Request::new(GetEpochSegmentsRequest {
                 stream_info: Some(request),
                 epoch,
@@ -937,6 +964,7 @@ impl ControllerClientImpl {
         let request: StreamInfo = StreamInfo::from(stream);
         let op_status: StdResult<tonic::Response<SegmentRanges>, tonic::Status> = self
             .get_controller_client()
+            .await
             .get_current_segments(tonic::Request::new(request))
             .await;
         let operation_name = "getCurrentSegments";
@@ -953,6 +981,7 @@ impl ControllerClientImpl {
         };
         let op_status: StdResult<tonic::Response<CreateTxnResponse>, tonic::Status> = self
             .get_controller_client()
+            .await
             .create_transaction(tonic::Request::new(request))
             .await;
         let operation_name = "createTransaction";
@@ -1005,6 +1034,7 @@ impl ControllerClientImpl {
         };
         let op_status: StdResult<tonic::Response<PingTxnStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .ping_transaction(tonic::Request::new(request))
             .await;
         let operation_name = "pingTransaction";
@@ -1054,6 +1084,7 @@ impl ControllerClientImpl {
         };
         let op_status: StdResult<tonic::Response<TxnStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .commit_transaction(tonic::Request::new(request))
             .await;
         let operation_name = "commitTransaction";
@@ -1090,6 +1121,7 @@ impl ControllerClientImpl {
         };
         let op_status: StdResult<tonic::Response<TxnStatus>, tonic::Status> = self
             .get_controller_client()
+            .await
             .abort_transaction(tonic::Request::new(request))
             .await;
         let operation_name = "abortTransaction";
@@ -1130,6 +1162,7 @@ impl ControllerClientImpl {
         };
         let op_status: StdResult<tonic::Response<TxnState>, tonic::Status> = self
             .get_controller_client()
+            .await
             .check_transaction_state(tonic::Request::new(request))
             .await;
         let operation_name = "checkTransactionStatus";
@@ -1153,6 +1186,7 @@ impl ControllerClientImpl {
     async fn call_get_endpoint_for_segment(&self, segment: &ScopedSegment) -> Result<PravegaNodeUri> {
         let op_status: StdResult<tonic::Response<NodeUri>, tonic::Status> = self
             .get_controller_client()
+            .await
             .get_uri(tonic::Request::new(segment.into()))
             .await;
         let operation_name = "get_endpoint";
@@ -1175,6 +1209,7 @@ impl ControllerClientImpl {
         debug!("sending get successors request for {:?}", segment);
         let op_status: StdResult<tonic::Response<SuccessorResponse>, tonic::Status> = self
             .get_controller_client()
+            .await
             .get_segments_immediately_following(tonic::Request::new(segment_id_request))
             .await;
         let operation_name = "get_successors_segment";
@@ -1204,6 +1239,7 @@ impl ControllerClientImpl {
         // start the scale Stream operation.
         let op_status: StdResult<tonic::Response<ScaleResponse>, tonic::Status> = self
             .get_controller_client()
+            .await
             .scale(tonic::Request::new(scale_request))
             .await;
         let operation_name = "scale_stream";
@@ -1242,6 +1278,7 @@ impl ControllerClientImpl {
         };
         let op_status: StdResult<tonic::Response<ScaleStatusResponse>, tonic::Status> = self
             .get_controller_client()
+            .await
             .check_scale(tonic::Request::new(request))
             .await;
 
@@ -1269,6 +1306,7 @@ impl ControllerClientImpl {
     async fn call_get_delegation_token(&self, stream: &ScopedStream) -> Result<String> {
         let op_status: StdResult<tonic::Response<DelegationToken>, tonic::Status> = self
             .get_controller_client()
+            .await
             .get_delegation_token(tonic::Request::new(StreamInfo::from(stream)))
             .await;
         let operation_name = "get_delegation_token";
