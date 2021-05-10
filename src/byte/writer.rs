@@ -81,7 +81,7 @@ type EventHandle = oneshot::Receiver<Result<(), Error>>;
 ///
 ///     let payload = "hello world".to_string().into_bytes();
 ///
-///     // write doesn't mean the data is persisted on the server side
+///     // It doesn't mean the data is persisted on the server side
 ///     // when this method returns Ok, user should call flush to ensure
 ///     // all data has been acknowledged by the server.
 ///     byte_writer.write(&payload).expect("write");
@@ -152,7 +152,7 @@ impl ByteWriter {
     /// Seal the segment and no further writes are allowed.
     ///
     /// # Examples
-    /// ```no_run
+    /// ```ignore
     /// let mut byte_writer = client_factory.create_byte_writer(segment);
     /// byte_writer.seal().expect("seal segment");
     /// ```
@@ -170,7 +170,7 @@ impl ByteWriter {
     /// truncation point after calling this method.
     ///
     /// # Examples
-    /// ```no_run
+    /// ```ignore
     /// let byte_writer = client_factory.create_byte_writer(segment);
     /// byte_writer.truncate_data_before(1024).expect("truncate segment");
     /// ```
@@ -184,7 +184,7 @@ impl ByteWriter {
     /// Track the current write position for this writer.
     ///
     /// # Examples
-    /// ```no_run
+    /// ```ignore
     /// let byte_writer = client_factory.create_byte_writer(segment);
     /// let offset = byte_writer.current_write_offset();
     /// ```
@@ -196,7 +196,7 @@ impl ByteWriter {
     ///
     /// This method is useful for tail reads.
     /// # Examples
-    /// ```no_run
+    /// ```ignore
     /// let mut byte_writer = client_factory.create_byte_writer(segment);
     /// byte_writer.seek_to_tail();
     /// ```

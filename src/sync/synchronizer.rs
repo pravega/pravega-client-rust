@@ -58,7 +58,7 @@ pub enum SynchronizerError {
 /// Different instances of Synchronizer with same name will point to the same table segment.
 ///
 /// # Exmaples
-/// ```no_run
+/// ```ignore
 /// // two synchronizer instances with the same name can communicate with each other.
 /// let mut synchronizer1 = client_factory
 ///     .create_synchronizer(scope.clone(), "synchronizer".to_owned())

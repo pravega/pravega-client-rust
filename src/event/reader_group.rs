@@ -146,7 +146,7 @@ impl ReaderGroup {
     /// already part of the reader group.
     ///
     /// # Examples
-    /// ```no_run
+    /// ```ignore
     /// let rg = client_factory.create_reader_group(scope, "rg".to_string(), stream).await;
     /// let reader = rg.create_reader("reader".to_string()).await;
     /// ```

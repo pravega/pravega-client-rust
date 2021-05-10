@@ -24,6 +24,8 @@
     clippy::similar_names
 )]
 #![allow(clippy::multiple_crate_versions)]
+#![allow(bare_trait_objects)]
+
 pub mod client_connection;
 pub mod commands;
 pub mod connection;

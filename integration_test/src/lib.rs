@@ -10,6 +10,7 @@
 
 #![allow(dead_code)]
 #![allow(unused_imports)]
+#![allow(bare_trait_objects)]
 
 use std::{thread, time};
 // use pravega_client_rust::metric;
@@ -19,6 +20,7 @@ use lazy_static::*;
 use tracing::{error, info, info_span, warn};
 
 use crate::pravega_service::{PravegaService, PravegaStandaloneService};
+use tracing_subscriber::FmtSubscriber;
 
 mod byte_reader_writer_tests;
 mod controller_tests;

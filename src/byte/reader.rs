@@ -106,7 +106,7 @@ impl ByteReader {
     /// The ByteReader is initialized to read from the segment at offset 0. However, it might
     /// encounter the SegmentIsTruncated error due to the segment has been truncated. In this case,
     /// application should call this method to get the current readable head and read from it.
-    /// ```no_run
+    /// ```ignore
     /// let mut byte_reader = client_factory.create_byte_reader(segment);
     /// let offset = byte_reader.current_head().expect("get current head offset");
     /// ```
@@ -120,7 +120,7 @@ impl ByteReader {
 
     /// Return the current read offset.
     ///
-    /// ```no_run
+    /// ```ignore
     /// let mut byte_reader = client_factory.create_byte_reader(segment);
     /// let offset = byte_reader.current_offset();
     /// ```
@@ -131,7 +131,7 @@ impl ByteReader {
     /// Return the bytes that are available to read instantly without fetching from server.
     ///
     /// ByteReader has a buffer internally. This method returns the size of remaining data in that buffer.
-    /// ```no_run
+    /// ```ignore
     /// let mut byte_reader = client_factory.create_byte_reader(segment);
     /// let size = byte_reader.available();
     /// ```

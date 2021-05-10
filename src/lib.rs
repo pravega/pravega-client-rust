@@ -25,6 +25,7 @@
     clippy::similar_names
 )]
 #![allow(clippy::multiple_crate_versions, clippy::needless_doctest_main)]
+#![allow(bare_trait_objects)]
 
 //! A Rust client for [Pravega].
 //!

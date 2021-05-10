@@ -109,7 +109,7 @@ impl EventWriter {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// let mut event_writer = client_factory.create_event_writer(stream);
     /// // result is a tokio oneshot
     /// let result = event_writer.write_event(payload).await;

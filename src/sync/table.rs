@@ -60,7 +60,7 @@ pub enum TableError {
 /// Table Segment is a key-value table based on Pravega segment.
 ///
 /// # Exmaples
-/// ```no_run
+/// ```ignore
 /// let map = client_factory.create_table(scope, "table".into()).await;
 /// let k: String = "key".into();
 /// let v: String = "val".into();
