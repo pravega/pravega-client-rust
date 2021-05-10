@@ -31,6 +31,11 @@ type EventHandle = oneshot::Receiver<Result<(), Error>>;
 /// way. So unlike [`EventWriter`] the data written cannot be split apart when read.
 /// As such, any bytes written by this API can ONLY be read using [`ByteReader`].
 ///
+/// ## Atomicity
+/// If buf length is less than or equal to 8 MiB, the entire buffer will be written atomically.
+/// If buf length is greater than 8 MiB, only the first 8 MiB will be written, and it will be written atomically.
+/// In either case, the actual number of bytes written will be returned and those bytes are written atomically.
+///
 /// ## Parallelism
 /// Multiple ByteWriters write to the same segment as this will result in interleaved data,
 /// which is not desirable in most cases. ByteWriter uses Conditional Append to make sure that writers
@@ -42,19 +47,16 @@ type EventHandle = oneshot::Receiver<Result<(), Error>>;
 /// Reactor for processing. [`Channel`] can has a limited [`capacity`], when its capacity
 /// is reached, any further write will not be accepted until enough space has been freed in the [`Channel`].
 ///
+/// # Retry
+/// The ByteWriter implementation provides [`retry`] logic to handle connection failures and service host
+/// failures. Internal retries will not violate the exactly once semantic so it is better to rely on them
+/// than to wrap this with custom retry logic.
 ///
 /// [`channel`]: pravega_client_channel
 /// [`capacity`]: ByteWriter::CHANNEL_CAPACITY
 /// [`EventWriter`]: crate::event::writer::EventWriter
 /// [`ByteReader`]: crate::byte::reader::ByteReader
 /// [`flush`]: ByteWriter::flush
-///
-/// # Note
-///
-/// The ByteWriter implementation provides [`retry`] logic to handle connection failures and service host
-/// failures. Internal retries will not violate the exactly once semantic so it is better to rely on them
-/// than to wrap this with custom retry logic.
-///
 /// [`retry`]: pravega_client_retry
 ///
 /// # Examples

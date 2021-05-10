@@ -36,7 +36,7 @@ use tracing_futures::Instrument;
 /// [`channel`]: pravega_client_channel
 /// [`capacity`]: EventWriter::CHANNEL_CAPACITY
 ///
-/// ## Note
+/// ## Retry
 ///
 /// The EventWriter implementation provides [`retry`] logic to handle connection failures and service host
 /// failures. Internal retries will not violate the exactly once semantic so it is better to rely on them

@@ -19,7 +19,6 @@
 //!   CORRUPT YOUR DATA in an unrecoverable way.
 //! * Sharing a single-segment stream between multiple byte writers is possible but it might generate
 //!   interleaved data.
-
 //!
 //! [`ByteWriter`]: ByteWriter
 //! [`ByteReader`]: ByteReader
