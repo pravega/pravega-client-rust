@@ -84,17 +84,17 @@ impl ReaderGroup {
             _init_segments: HashMap<ScopedSegment, Offset>,
         ) -> ReaderGroupState {
             ReaderGroupState::default()
-        }
+            }
         } else {
             async fn create_rg_state (
-        scope: Scope,
-        name: String,
-        rg_config: ReaderGroupConfig,
-        client_factory: &ClientFactory,
-        init_segments: HashMap<ScopedSegment, Offset>,
-    ) -> ReaderGroupState {
-        ReaderGroupState::new(scope, name, client_factory, rg_config.config, init_segments).await
-    }
+                scope: Scope,
+                name: String,
+                rg_config: ReaderGroupConfig,
+                client_factory: &ClientFactory,
+                init_segments: HashMap<ScopedSegment, Offset>,
+            ) -> ReaderGroupState {
+                ReaderGroupState::new(scope, name, client_factory, rg_config.config, init_segments).await
+            }
         }
     }
 
