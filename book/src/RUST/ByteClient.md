@@ -87,8 +87,7 @@ use pravega_client::client_factory::ClientFactory;
 use pravega_client_shared::ScopedSegment;
 use std::io::Write;
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let config = ClientConfigBuilder::default()
      .controller_uri("localhost:9090")
      .build()

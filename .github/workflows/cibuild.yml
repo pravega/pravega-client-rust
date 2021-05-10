@@ -53,7 +53,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --workspace
+          args: --workspace --features integration-test
         env:  #Will be handled by clippy
           RUSTFLAGS: -A warnings
   

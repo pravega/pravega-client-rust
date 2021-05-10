@@ -64,8 +64,7 @@ type EventHandle = oneshot::Receiver<Result<(), Error>>;
 /// use pravega_client_shared::ScopedSegment;
 /// use std::io::Write;
 ///
-/// #[tokio::main]
-/// async fn main() {
+/// fn main() {
 ///     // assuming Pravega controller is running at endpoint `localhost:9090`
 ///     let config = ClientConfigBuilder::default()
 ///         .controller_uri("localhost:9090")
