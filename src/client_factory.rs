@@ -7,6 +7,7 @@
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
+#![allow(bare_trait_objects)]
 
 //! Factory to create components in Pravega Rust client.
 //!

@@ -8,6 +8,8 @@
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
 #![allow(dead_code)]
+#![allow(bare_trait_objects)]
+
 use super::ControllerClient;
 use super::ControllerError;
 use crate::ResultRetry;
