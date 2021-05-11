@@ -12,6 +12,7 @@ with strict ordering and consistency.
 This project supports interaction with Pravega for Python versions 3.8+. For a quick tutorial on the Python bindings 
 visit the [book](https://pravega.github.io/pravega-client-rust/Python/PythonBindings.html).
 
+Also check out the Pravega Python client [API documents](https://pravega.github.io/pravega-client-rust/python/pravega_client.html).
 ## Install
 
 The client library can be installed using pip.

@@ -33,7 +33,7 @@ in the `Cargo.toml` file, add the following as dependencies
 pravega-client = "0.1"
 pravega-client-config = "0.1"
 pravega-client-shared = "0.1"
-tokio = "0.2"
+tokio = "1"
 ```
 
 ### A simple app that writes and reads events
