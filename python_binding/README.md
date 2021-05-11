@@ -41,8 +41,11 @@ writer.write_event("hello world")
 import pravega_client
 # assuming Pravega controller is listening at 127.0.0.1:9090
 stream_manager = pravega_client.StreamManager("127.0.0.1:9090")
+
 reader_group = stream_manager.create_reader_group("my_reader_group", "scope_foo", "stream_bar")
+
 reader = reader_group.create_reader("my_reader");
+
 slice = await reader.get_segment_slice_async()
 for event in slice:
     print(event.data())
