@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["ClientMetrics",""]],"fn":[["metric_init",""]]});

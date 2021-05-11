@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["Command",""]],"fn":[["main",""]],"static":[["ID_GENERATOR",""]],"struct":[["Opt",""]]});

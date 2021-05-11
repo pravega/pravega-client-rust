@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["TableError",""]],"struct":[["Table","Table is the client implementation of Table Segment in Pravega. Table Segment is a key-value table based on Pravega segment."]],"type":[["Version",""]]});

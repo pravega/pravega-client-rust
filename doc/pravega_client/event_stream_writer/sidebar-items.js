@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["EventStreamWriter","Writes events exactly once to a given stream."]]});

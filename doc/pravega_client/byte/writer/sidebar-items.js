@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["ByteWriter","Allow for writing raw bytes directly to a segment."]]});

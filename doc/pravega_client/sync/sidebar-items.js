@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["synchronizer",""],["table",""]],"struct":[["Synchronizer","Provide a map that is synchronized across different processes."],["Table","Table is the client implementation of Table Segment in Pravega. Table Segment is a key-value table based on Pravega segment."]]});

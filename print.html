@@ -100,7 +100,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="RUST/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="RUST/EventStreamClient.html"><strong aria-hidden="true">3.1.</strong> Event Stream Client</a></li><li class="chapter-item expanded "><a href="RUST/ByteStreamClient.html"><strong aria-hidden="true">3.2.</strong> Byte Stream Client</a></li><li class="chapter-item expanded "><a href="RUST/Transaction.html"><strong aria-hidden="true">3.3.</strong> Transaction</a></li><li class="chapter-item expanded "><a href="RUST/contribution.html"><strong aria-hidden="true">3.4.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="Python/PythonBindings.html"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="RUST/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="RUST/EventClient.html"><strong aria-hidden="true">3.1.</strong> Event Client</a></li><li class="chapter-item expanded "><a href="RUST/ByteClient.html"><strong aria-hidden="true">3.2.</strong> Byte Client</a></li><li class="chapter-item expanded "><a href="RUST/contribution.html"><strong aria-hidden="true">3.3.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="Python/PythonBindings.html"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -170,17 +170,17 @@
                     <main>
                         <h1><a class="header" href="#pravega-rust-client-and-pravega-language-bindings-user-guide" id="pravega-rust-client-and-pravega-language-bindings-user-guide">Pravega Rust Client and Pravega language bindings user guide.</a></h1>
 <p>Welcome to the Pravega Rust client and Pravega language bindings user guide! This book is a companion to 
-<a href="https://docs.rs/pravega_native_client">Pravega Rust Client</a> and the supported language bindings over the Pravega Rust
+<a href="https://docs.rs/pravega-client/0.1.0/pravega_client/">Pravega Rust Client</a> and the supported language bindings over the Pravega Rust
 Client. At the moment this repository supports Python bindings to Pravega.</p>
 <p>This book contains examples and documentation to explain all of Pravega Rust client's use cases in detail and the Python
-language bindigs.</p>
+language bindings.</p>
 <p>Please choose from the chapters on the left to jump to individual topics, or continue below to start with Pravega Rust Clients's README.</p>
 <ul>
 <li>
-<p>User Guide: <a href="https://pravega.github.io/pravega-client-rust/">stable</a> | <a href="./index.html">master</a></p>
+<p>User Guide: <a href="https://pravega.github.io/pravega-client/">stable</a> | <a href="./index.html">master</a></p>
 </li>
 <li>
-<p>API Documentation: <a href="https://docs.rs/pravega_native_client/">stable</a> |  <a href="./doc/index.html">master</a></p>
+<p>API Documentation: <a href="https://docs.rs/pravega_client/">stable</a> |  <a href="./doc/index.html">master</a></p>
 </li>
 <li>
 <p>Python API Documentation: <a href="">stable</a> | <a href="./python/pravega_client.html">master</a></p>
@@ -229,41 +229,170 @@ pravega-client-shared = &quot;0.1&quot;
 tokio = &quot;0.2&quot;
 </code></pre>
 <h3><a class="header" href="#a-simple-app-that-writes-and-reads-events" id="a-simple-app-that-writes-and-reads-events">A simple app that writes and reads events</a></h3>
-<p>Check out the <a href="../../examples/event_write_and_read.rs">event write and read example</a>.</p>
+<p>Check out the <a href="https://github.com/pravega/pravega-client/tree/master/examples">event write and read example</a>.</p>
 <h1><a class="header" href="#rust-client" id="rust-client">Rust Client</a></h1>
 <p>This section describes the Rust client APIs to interact with Pravega. </p>
 <ul>
-<li>Event Stream APIs</li>
-<li>Byte Stream APIS</li>
-<li>Transaction APIs</li>
+<li>Event APIs</li>
+<li>Byte APIS</li>
 </ul>
-<h1><a class="header" href="#event-stream-client" id="event-stream-client">Event Stream Client</a></h1>
-<h2><a class="header" href="#event-stream-writer" id="event-stream-writer">Event Stream Writer</a></h2>
-<p>An EventStreamWriter can be used to write events into the Pravega Stream.</p>
+<h1><a class="header" href="#event-client" id="event-client">Event Client</a></h1>
+<h2><a class="header" href="#event-writer" id="event-writer">Event Writer</a></h2>
+<p>An EventWriter can be used to write events into the Pravega Stream.</p>
 <p>An Event is a discrete item that can be read and processed independently.
 Events are written atomically and will appear in the Stream exactly once. 
-An optional routing key can be specified by the user. Events with the same routing key are guaranteed to be read back in the order they were written. While events with different routing keys may be read and processed in parallel. </p>
-<p><a href="RUST/./doc/pravega_client_rust/event_stream_writer/struct.EventStreamWriter.html">API docs</a>.</p>
-<h2><a class="header" href="#event-stream-reader" id="event-stream-reader">Event Stream Reader</a></h2>
-<p>An EventStreamReader can be used to read events from the Pravega Stream.</p>
-<p>Every EventStreamReader belongs to a ReaderGroup.
-All the EventStreamReaders within a ReaderGroup work together to from a Stream. This allows 
-maximum read performance without duplicate reads. EventStreamReaders internally coordinate with each other
-within a ReaderGroup using a so called TableSynchronizer.</p>
-<p>For the details how TableSynchronizer works please check related blog <a href="https://blog.pravega.io/2019/02/15/exploring-state-synchronizer/">state synchronizer</a>.</p>
-<p><a href="RUST/./doc/pravega_client_rust/event_reader/struct.EventReader.html">API docs</a></p>
-<h1><a class="header" href="#byte-stream-client" id="byte-stream-client">Byte Stream Client</a></h1>
-<p>Unlike EventStreamWriter, ByteStreamWriter writes raw bytes into Pravega Stream
-without adding any headers or encoding. This means that the data stored in the Stream is a continuous
-stream of bytes. Because of that, data written by ByteStreamWriter can only be read by
-ByteStreamReader. </p>
-<p>The Byte Stream Client is useful in cases where a raw stream of bytes is desirable. For example in video streaming.</p>
-<p>For more details please refer <a href="RUST/./doc/pravega_client_rust/byte_stream/index.html">API docs</a>.</p>
-<h1><a class="header" href="#transaction" id="transaction">Transaction</a></h1>
-<p>Transactions provides a mechanism for writing many events atomically.
+An optional routing key can be specified by the user. 
+Events with the same routing key are guaranteed to be read back in the order they were written, 
+while events with different routing keys may be read and processed in parallel.</p>
+<p><a href="RUST/./doc/pravega_client/event/writer/struct.EventWriter.html">API docs</a>.</p>
+<h2><a class="header" href="#event-reader" id="event-reader">Event Reader</a></h2>
+<p>An EventReader can be used to read events from the Pravega Stream.</p>
+<p>Every EventReader belongs to a ReaderGroup.
+All the EventReaders within a ReaderGroup work together to from a Stream. This allows 
+maximum read performance without duplicate reads. EventReaders internally coordinate with each other
+within a ReaderGroup using a so-called Synchronizer.</p>
+<p>For the details how Synchronizer works please check related blog <a href="https://blog.pravega.io/2019/02/15/exploring-state-synchronizer/">state synchronizer</a>.</p>
+<p><a href="RUST/./doc/pravega_client/event/reader/struct.EventReader.html">API docs</a></p>
+<h2><a class="header" href="#transactional-event-writer" id="transactional-event-writer">Transactional Event Writer</a></h2>
+<p>Pravega transaction provides a mechanism for writing many events atomically.
 A Transaction is unbounded in size but is bounded in time. If it has not been committed within a time window
-specified  at the time of its creation it will be automatically aborted.</p>
-<p>For more details please refer <a href="RUST/./doc/pravega_client_rust/transaction/transactional_event_stream_writer/index.html">API docs</a>.</p>
+specified at the time of its creation, it will be automatically aborted.</p>
+<p>For more details please refer <a href="RUST/./doc/pravega_client/event/writer/transactional_event_writer/index.html">API docs</a>.</p>
+<h1><a class="header" href="#byte-client" id="byte-client">Byte Client</a></h1>
+<p>Unlike EventWriter, ByteWriter writes raw bytes into Pravega Stream
+without adding any headers or encoding. This means that the data stored in the Stream is a continuous
+stream of bytes. Because of that, data written by ByteWriter can only be read by
+ByteReader. </p>
+<p>The Byte Client is useful in cases where a raw stream of bytes is desirable such as video streaming.</p>
+<h2><a class="header" href="#example-walkthrough" id="example-walkthrough">Example walkthrough</a></h2>
+<h3><a class="header" href="#create-a-clientfactory" id="create-a-clientfactory">Create a ClientFactory</a></h3>
+<p>Applications should use <code>ClientFactory</code> to initialize components. The client doesn't expose
+the underlying <code>new</code> method to users.</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// assuming pravega controller is listening at localhost:9090
+let config = ClientConfigBuilder::default()
+    .controller_uri(&quot;localhost:9090&quot;)
+    .build()
+    .expect(&quot;creating config&quot;);
+
+let client_factory = ClientFactory::new(config);
+<span class="boring">}
+</span></code></pre></pre>
+<h3><a class="header" href="#create-a-byte-writer" id="create-a-byte-writer">Create a Byte Writer</a></h3>
+<p>Assuming a new stream <code>mystream</code> has been created under scope <code>myscope</code> and
+it contains a segment whose segmentId is 0.</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let segment = ScopedSegment::from(&quot;myscope/mystream/0&quot;);
+let mut byte_writer = client_factory.create_byte_writer(segment);
+<span class="boring">}
+</span></code></pre></pre>
+<h3><a class="header" href="#seek-to-tail" id="seek-to-tail">Seek to tail</a></h3>
+<p>Sometimes applications use Byte Writer to write to a segment that 
+contains some preexisting data. In this case, we need to find out
+the tail offset of the segment first.</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>byte_writer.seek_to_tail();
+<span class="boring">}
+</span></code></pre></pre>
+<h3><a class="header" href="#write-some-data" id="write-some-data">Write some data</a></h3>
+<p>It doesn't mean the data is persisted on the server side
+when write method returns <code>Ok()</code>, user should call <code>writer.flush()</code> to ensure
+all data has been acknowledged by the server.</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let payload = &quot;hello world&quot;.to_string().into_bytes();
+byte_writer.write(&amp;payload).expect(&quot;write&quot;);
+byte_writer.flush().expect(&quot;flush&quot;);
+<span class="boring">}
+</span></code></pre></pre>
+<h3><a class="header" href="#truncate-the-segment" id="truncate-the-segment">Truncate the segment</a></h3>
+<p><code>ByteWriter</code> can also truncate the segment. Truncation means that the
+data prior to some offset is not needed anymore. Truncated data cannot be read. 
+Applications use truncation to save space on the server.</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>byte_writer.truncate_data_before(4).expect(&quot;truncate segment&quot;);
+<span class="boring">}
+</span></code></pre></pre>
+<h3><a class="header" href="#seal-the-segment" id="seal-the-segment">Seal the segment</a></h3>
+<p>Sealing a segment is basically to make a segment read-only.</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>byte_writer.seal().expect(&quot;seal segment&quot;);
+<span class="boring">}
+</span></code></pre></pre>
+<h3><a class="header" href="#create-a-byte-reader" id="create-a-byte-reader">Create a Byte Reader</a></h3>
+<p>Create a <code>ByteReader</code> to read the same segment we just write.</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let segment = ScopedSegment::from(&quot;myscope/mystream/0&quot;);
+let mut byte_reader = client_factory.create_byte_reader(segment);
+<span class="boring">}
+</span></code></pre></pre>
+<h3><a class="header" href="#read-from-an-offset" id="read-from-an-offset">Read from an offset</a></h3>
+<p><code>ByteReader</code> can seek to any offset in the segment and read from it. It also 
+provides a useful method to show the current head of the readable offset. Remember that 
+the truncated data is not readable anymore, so the current head of the readable offset
+is the truncation offset.</p>
+<p><code>read</code> method will block until some data are fetched from the server. If returned <code>size</code> is 0,
+then it reaches the end of segment and no more data could be read from this offset.</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let offset = byte_reader.current_head().expect(&quot;get current head offset&quot;);
+let mut buf: Vec&lt;u8&gt; = vec![0; 4];
+let size = byte_reader.read(&amp;mut buf).expect(&quot;read from byte stream&quot;);
+<span class="boring">}
+</span></code></pre></pre>
+<h3><a class="header" href="#put-it-together" id="put-it-together">Put it together</a></h3>
+<pre><pre class="playground"><code class="language-rust">use pravega_client_config::ClientConfigBuilder;
+use pravega_client::client_factory::ClientFactory;
+use pravega_client_shared::ScopedSegment;
+use std::io::Write;
+
+fn main() {
+    let config = ClientConfigBuilder::default()
+     .controller_uri(&quot;localhost:9090&quot;)
+     .build()
+     .expect(&quot;creating config&quot;);
+    
+    let client_factory = ClientFactory::new(config);
+    
+    let segment = ScopedSegment::from(&quot;myscope/mystream/0&quot;);
+    
+    // write
+    let mut byte_writer = client_factory.create_byte_writer(segment);
+    byte_writer.seek_to_tail();
+    
+    let payload = &quot;hello world&quot;.to_string().into_bytes();
+    
+    byte_writer.write(&amp;payload).expect(&quot;write&quot;);
+    byte_writer.flush().expect(&quot;flush&quot;);
+    
+    byte_writer.truncate_data_before(4).expect(&quot;truncate segment&quot;);
+
+    byte_writer.seal().expect(&quot;seal segment&quot;);
+
+    // read
+    let segment = ScopedSegment::from(&quot;myscope/mystream/0&quot;);
+    let mut byte_reader = client_factory.create_byte_reader(segment);
+
+    let offset = byte_reader.current_head().expect(&quot;get current head offset&quot;);
+    let mut buf: Vec&lt;u8&gt; = vec![0; 4];
+    let size = byte_reader.read(&amp;mut buf).expect(&quot;read from byte stream&quot;);
+}
+</code></pre></pre>
+<p>For more details please refer <a href="RUST/./doc/pravega_client/byte_stream/index.html">API docs</a>.</p>
 <h1><a class="header" href="#developer-corner" id="developer-corner">Developer Corner</a></h1>
 <h1><a class="header" href="#python-client" id="python-client">Python Client</a></h1>
 <p>This section describes </p>
@@ -304,7 +433,7 @@ writer=manager.create_writer(&quot;scope&quot;, &quot;stream&quot;)
 <pre><code class="language-python">import pravega_client
 manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
 // Create a ReaderGroup rg1 against an already created Pravega scope and Stream.
-reader_group=manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;)
+event.reader_group=manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;)
 </code></pre>
 <ul>
 <li>
@@ -376,8 +505,8 @@ the responsibility of reading from different segments in the Pravega stream.</p>
 <pre><code class="language-python">import pravega_client
 manager = pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
 // lets assume the Pravega scope and stream are already created.
-reader_group = manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;)
-reader = reader_group.create_reader(&quot;reader_id&quot;);
+event.reader_group = manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;)
+reader = event.reader_group.create_reader(&quot;reader_id&quot;);
 slice = await reader.get_segment_slice_async()
 for event in slice:
     print(event.data())

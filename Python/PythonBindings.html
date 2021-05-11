@@ -98,7 +98,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="../index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="../quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="../RUST/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../RUST/EventStreamClient.html"><strong aria-hidden="true">3.1.</strong> Event Stream Client</a></li><li class="chapter-item expanded "><a href="../RUST/ByteStreamClient.html"><strong aria-hidden="true">3.2.</strong> Byte Stream Client</a></li><li class="chapter-item expanded "><a href="../RUST/Transaction.html"><strong aria-hidden="true">3.3.</strong> Transaction</a></li><li class="chapter-item expanded "><a href="../RUST/contribution.html"><strong aria-hidden="true">3.4.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="../Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../Python/PythonBindings.html" class="active"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="../Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="../quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="../RUST/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../RUST/EventClient.html"><strong aria-hidden="true">3.1.</strong> Event Client</a></li><li class="chapter-item expanded "><a href="../RUST/ByteClient.html"><strong aria-hidden="true">3.2.</strong> Byte Client</a></li><li class="chapter-item expanded "><a href="../RUST/contribution.html"><strong aria-hidden="true">3.3.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="../Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../Python/PythonBindings.html" class="active"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="../Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -199,7 +199,7 @@ writer=manager.create_writer(&quot;scope&quot;, &quot;stream&quot;)
 <pre><code class="language-python">import pravega_client
 manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
 // Create a ReaderGroup rg1 against an already created Pravega scope and Stream.
-reader_group=manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;)
+event.reader_group=manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;)
 </code></pre>
 <ul>
 <li>
@@ -271,8 +271,8 @@ the responsibility of reading from different segments in the Pravega stream.</p>
 <pre><code class="language-python">import pravega_client
 manager = pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
 // lets assume the Pravega scope and stream are already created.
-reader_group = manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;)
-reader = reader_group.create_reader(&quot;reader_id&quot;);
+event.reader_group = manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;)
+reader = event.reader_group.create_reader(&quot;reader_id&quot;);
 slice = await reader.get_segment_slice_async()
 for event in slice:
     print(event.data())

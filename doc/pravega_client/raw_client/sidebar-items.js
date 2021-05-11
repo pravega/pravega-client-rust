@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["RawClientImpl",""]],"trait":[["RawClient","RawClient is on top of the ClientConnection. It provides methods that take Request enums and return Reply enums asynchronously. It has logic to process some of the replies from server and return the processed result to caller."]]});

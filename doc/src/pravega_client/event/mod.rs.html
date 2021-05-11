@@ -1,0 +1,173 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/event/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../pravega_client/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1"> 1</span>
+<span id="2"> 2</span>
+<span id="3"> 3</span>
+<span id="4"> 4</span>
+<span id="5"> 5</span>
+<span id="6"> 6</span>
+<span id="7"> 7</span>
+<span id="8"> 8</span>
+<span id="9"> 9</span>
+<span id="10">10</span>
+<span id="11">11</span>
+<span id="12">12</span>
+<span id="13">13</span>
+<span id="14">14</span>
+<span id="15">15</span>
+<span id="16">16</span>
+<span id="17">17</span>
+<span id="18">18</span>
+<span id="19">19</span>
+<span id="20">20</span>
+<span id="21">21</span>
+<span id="22">22</span>
+<span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
+<span id="53">53</span>
+<span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
+<span id="61">61</span>
+<span id="62">62</span>
+<span id="63">63</span>
+<span id="64">64</span>
+<span id="65">65</span>
+<span id="66">66</span>
+<span id="67">67</span>
+<span id="68">68</span>
+<span id="69">69</span>
+<span id="70">70</span>
+<span id="71">71</span>
+<span id="72">72</span>
+<span id="73">73</span>
+<span id="74">74</span>
+<span id="75">75</span>
+<span id="76">76</span>
+<span id="77">77</span>
+<span id="78">78</span>
+<span id="79">79</span>
+<span id="80">80</span>
+<span id="81">81</span>
+<span id="82">82</span>
+<span id="83">83</span>
+</pre><div class="example-wrap"><pre class="rust ">
+<span class="comment">//</span>
+<span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
+<span class="comment">//</span>
+<span class="comment">// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="comment">// you may not use this file except in compliance with the License.</span>
+<span class="comment">// You may obtain a copy of the License at</span>
+<span class="comment">//</span>
+<span class="comment">// http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="comment">//</span>
+
+<span class="doccomment">//! The Event API for writing and reading data.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! An Event is represented as a set of bytes within a Stream.</span>
+<span class="doccomment">//! For example, an Event could be as simple as a small number of bytes containing</span>
+<span class="doccomment">//! a temperature reading from an IoT sensor composed of a timestamp, a metric identifier and a value.</span>
+<span class="doccomment">//! An Event could also be a web log data associated with a user click on a website.</span>
+<span class="doccomment">//! Applications make sense of Events using their own serializers and deserializers,</span>
+<span class="doccomment">//! allowing them to read and write objects in Pravega similarly to reading and writing objects from files.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ## [EventWriter]</span>
+<span class="doccomment">//! [EventWriter] writes events to the tail of Pravega streams.</span>
+<span class="doccomment">//! It has exactly once guarantee that an Event will not missing or duplicating in Pravega</span>
+<span class="doccomment">//! in case of a connection failure.</span>
+<span class="doccomment">//! Each async write call will return a Result type containing an [oneshot].</span>
+<span class="doccomment">//! Application can await on this [oneshot] to make sure that an Event has been persisted in Pravega.</span>
+<span class="doccomment">//! If an Event is confirmed to be successfully persisted, any previous Events</span>
+<span class="doccomment">//! are also guaranteed to be persisted.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ## [EventReader]</span>
+<span class="doccomment">//! [EventReader] reads Events from a Pravega Stream.</span>
+<span class="doccomment">//! An [EventReader] must belong to a [ReaderGroup]. The [EventReader] read call returns a slice of segment data</span>
+<span class="doccomment">//! and application can call its iterator API to get the next Event. After finishing the slice, reader</span>
+<span class="doccomment">//! drops the slice and will try to get another segment slice from the stream.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ## [ReaderGroup]</span>
+<span class="doccomment">//! [ReaderGroup] a named collection of [EventReader].</span>
+<span class="doccomment">//! A Reader Group perform parallel reads from a given Stream.</span>
+<span class="doccomment">//! It is guaranteed that each Event published to a Stream is sent to exactly one Reader within the Reader Group.</span>
+<span class="doccomment">//! There could be one or more [EventReader] in the Reader Group and there could be many different</span>
+<span class="doccomment">//! Reader Groups simultaneously reading from any given Stream.</span>
+<span class="doccomment">//! A Reader Group can be considered as a &quot;composite Reader&quot; or &quot;distributed Reader&quot;,</span>
+<span class="doccomment">//! that allows a distributed application to read and process Stream data in parallel.</span>
+<span class="doccomment">//! A large amount of Stream data can be consumed by a coordinated group of Readers in a Reader Group.</span>
+<span class="doccomment">//! For example, a collection of Flink tasks processing Stream data in parallel using Reader Group.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ## [TransactionalEventWriter]</span>
+<span class="doccomment">//! [TransactionalEventWriter] provides a way to execute [Transaction] in Pravega.</span>
+<span class="doccomment">//! The idea of a Transaction is that a Writer can &quot;batch&quot; up a bunch of Events and commit them as a unit into a Stream.</span>
+<span class="doccomment">//! This is useful, for example, in Flink jobs, using Pravega as a sink.</span>
+<span class="doccomment">//! The Flink job can continuously produce results for some data processing and use the Transaction</span>
+<span class="doccomment">//! to durably accumulate the results of the processing.</span>
+<span class="doccomment">//! For example, at the end of some sort of time window, the Flink job can commit the Transaction</span>
+<span class="doccomment">//! and therefore make the results of the processing available for downstream processing,</span>
+<span class="doccomment">//! or in the case of an error, the Transaction is aborted and the results disappear.</span>
+<span class="doccomment">//! See more [details].</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! [EventWriter]: crate::event::writer::EventWriter</span>
+<span class="doccomment">//! [oneshot]: https://docs.rs/tokio/1.5.0/tokio/sync/oneshot/index.html</span>
+<span class="doccomment">//! [TransactionalEventWriter]: crate::event::transactional_writer::TransactionalEventWriter</span>
+<span class="doccomment">//! [Transaction]: crate::event::transactional_writer::Transaction</span>
+<span class="doccomment">//! [details]: https://pravega.io/docs/nightly/pravega-concepts/#transactions</span>
+<span class="doccomment">//! [EventReader]: crate::event::reader::EventReader</span>
+<span class="doccomment">//! [ReaderGroup]: crate::event::reader_group::ReaderGroup</span>
+<span class="doccomment">//!</span>
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">reader</span>;
+<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">inline</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">reader</span>::<span class="ident">EventReader</span>;
+
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">reader_group</span>;
+<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">inline</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">reader_group</span>::<span class="ident">ReaderGroup</span>;
+
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">transactional_writer</span>;
+<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">inline</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">transactional_writer</span>::<span class="ident">Transaction</span>;
+<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">inline</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">transactional_writer</span>::<span class="ident">TransactionalEventWriter</span>;
+
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">writer</span>;
+<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">inline</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">writer</span>::<span class="ident">EventWriter</span>;
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">reader_group_state</span>;
+</pre></div>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client"></div>
+    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>

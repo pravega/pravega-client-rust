@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Event","This represents an event that was read from a Pravega Segment and the offset at which the event was read from."],["EventReader","Read events from Stream."],["SegmentSlice","This represents a segment slice which can be used to read events from a Pravega segment as an iterator."],["SliceMetadata",""]]});

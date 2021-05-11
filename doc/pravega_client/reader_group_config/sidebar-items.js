@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["ReaderGroupConfig","Specifies the ReaderGroupConfig. ReaderGroupConfig::default() ensures the group refresh interval is set to 3 seconds."],["ReaderGroupConfigBuilder",""]]});

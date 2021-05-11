@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["TransactionError",""],["TransactionalEventWriterError",""]],"struct":[["Transaction","Pravega Transaction support."],["TransactionalEventWriter","Write events to a stream transactionally."]]});

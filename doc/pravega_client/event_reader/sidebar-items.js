@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["EventReader","This represents an event reader. An event reader fetches data from its assigned segments as a SegmentSlice, where a SegmentSlice represents data from a Pravega Segment. It provides the following APIs."],["ReaderState","Reader meta data."]],"type":[["ReaderErrorWithOffset",""],["SegmentReadResult",""]]});

@@ -1,0 +1,52 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `event` mod in crate `pravega_client`."><meta name="keywords" content="rust, rustlang, rust-lang, event"><title>pravega_client::event - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../pravega_client/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a><p class="location">Module event</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li></ul></div><p class="location"><a href="../index.html">pravega_client</a></p><div id="sidebar-vars" data-name="event" data-ty="mod" data-relpath="../"></div><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class="fqn"><span class="in-band">Module <a href="../index.html">pravega_client</a>::<wbr><a class="mod" href="">event</a></span><span class="out-of-band"><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="../../src/pravega_client/event/mod.rs.html#11-83" title="goto source code">[src]</a></span></h1><div class="docblock"><p>The Event API for writing and reading data.</p>
+<p>An Event is represented as a set of bytes within a Stream.
+For example, an Event could be as simple as a small number of bytes containing
+a temperature reading from an IoT sensor composed of a timestamp, a metric identifier and a value.
+An Event could also be a web log data associated with a user click on a website.
+Applications make sense of Events using their own serializers and deserializers,
+allowing them to read and write objects in Pravega similarly to reading and writing objects from files.</p>
+<h2 id="eventwriter" class="section-header"><a href="#eventwriter">EventWriter</a></h2>
+<p><a href="../../pravega_client/event/struct.EventWriter.html">EventWriter</a> writes events to the tail of Pravega streams.
+It has exactly once guarantee that an Event will not missing or duplicating in Pravega
+in case of a connection failure.
+Each async write call will return a Result type containing an <a href="https://docs.rs/tokio/1.5.0/tokio/sync/oneshot/index.html">oneshot</a>.
+Application can await on this <a href="https://docs.rs/tokio/1.5.0/tokio/sync/oneshot/index.html">oneshot</a> to make sure that an Event has been persisted in Pravega.
+If an Event is confirmed to be successfully persisted, any previous Events
+are also guaranteed to be persisted.</p>
+<h2 id="eventreader" class="section-header"><a href="#eventreader">EventReader</a></h2>
+<p><a href="../../pravega_client/event/struct.EventReader.html">EventReader</a> reads Events from a Pravega Stream.
+An <a href="../../pravega_client/event/struct.EventReader.html">EventReader</a> must belong to a <a href="../../pravega_client/event/struct.ReaderGroup.html">ReaderGroup</a>. The <a href="../../pravega_client/event/struct.EventReader.html">EventReader</a> read call returns a slice of segment data
+and application can call its iterator API to get the next Event. After finishing the slice, reader
+drops the slice and will try to get another segment slice from the stream.</p>
+<h2 id="readergroup" class="section-header"><a href="#readergroup">ReaderGroup</a></h2>
+<p><a href="../../pravega_client/event/struct.ReaderGroup.html">ReaderGroup</a> a named collection of <a href="../../pravega_client/event/struct.EventReader.html">EventReader</a>.
+A Reader Group perform parallel reads from a given Stream.
+It is guaranteed that each Event published to a Stream is sent to exactly one Reader within the Reader Group.
+There could be one or more <a href="../../pravega_client/event/struct.EventReader.html">EventReader</a> in the Reader Group and there could be many different
+Reader Groups simultaneously reading from any given Stream.
+A Reader Group can be considered as a &quot;composite Reader&quot; or &quot;distributed Reader&quot;,
+that allows a distributed application to read and process Stream data in parallel.
+A large amount of Stream data can be consumed by a coordinated group of Readers in a Reader Group.
+For example, a collection of Flink tasks processing Stream data in parallel using Reader Group.</p>
+<h2 id="transactionaleventwriter" class="section-header"><a href="#transactionaleventwriter">TransactionalEventWriter</a></h2>
+<p><a href="../../pravega_client/event/struct.TransactionalEventWriter.html">TransactionalEventWriter</a> provides a way to execute <a href="../../pravega_client/event/struct.Transaction.html">Transaction</a> in Pravega.
+The idea of a Transaction is that a Writer can &quot;batch&quot; up a bunch of Events and commit them as a unit into a Stream.
+This is useful, for example, in Flink jobs, using Pravega as a sink.
+The Flink job can continuously produce results for some data processing and use the Transaction
+to durably accumulate the results of the processing.
+For example, at the end of some sort of time window, the Flink job can commit the Transaction
+and therefore make the results of the processing available for downstream processing,
+or in the case of an error, the Transaction is aborted and the results disappear.
+See more <a href="https://pravega.io/docs/nightly/pravega-concepts/#transactions">details</a>.</p>
+</div><h2 id="modules" class="section-header"><a href="#modules">Modules</a></h2>
+<table><tr class="module-item"><td><a class="mod" href="reader/index.html" title="pravega_client::event::reader mod">reader</a></td><td class="docblock-short"></td></tr><tr class="module-item"><td><a class="mod" href="reader_group/index.html" title="pravega_client::event::reader_group mod">reader_group</a></td><td class="docblock-short"></td></tr><tr class="module-item"><td><a class="mod" href="transactional_writer/index.html" title="pravega_client::event::transactional_writer mod">transactional_writer</a></td><td class="docblock-short"></td></tr><tr class="module-item"><td><a class="mod" href="writer/index.html" title="pravega_client::event::writer mod">writer</a></td><td class="docblock-short"></td></tr></table><h2 id="structs" class="section-header"><a href="#structs">Structs</a></h2>
+<table><tr class="module-item"><td><a class="struct" href="struct.EventReader.html" title="pravega_client::event::EventReader struct">EventReader</a></td><td class="docblock-short"><p>Read events from Stream.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.EventWriter.html" title="pravega_client::event::EventWriter struct">EventWriter</a></td><td class="docblock-short"><p>Write events exactly once to a given stream.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.ReaderGroup.html" title="pravega_client::event::ReaderGroup struct">ReaderGroup</a></td><td class="docblock-short"><p>A collection of readers that collectively read all the events in the stream.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.Transaction.html" title="pravega_client::event::Transaction struct">Transaction</a></td><td class="docblock-short"><p>Pravega Transaction support.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.TransactionalEventWriter.html" title="pravega_client::event::TransactionalEventWriter struct">TransactionalEventWriter</a></td><td class="docblock-short"><p>Write events to a stream transactionally.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="pravega_client"></div>
+    <script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>
