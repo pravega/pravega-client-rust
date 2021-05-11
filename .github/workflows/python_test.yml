@@ -40,7 +40,7 @@ jobs:
       - name: Install maturin and tox
         run: pip install 'maturin==0.8.3' virtualenv tox
       - name: Test with tox
-        run: tox -c bindings/tox.ini
+        run: tox -c python_binding/tox.ini
       - name: Upload Pravega standalone logs
         uses: actions/upload-artifact@v2
         if: always()
