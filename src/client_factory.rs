@@ -7,7 +7,29 @@
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
+#![allow(bare_trait_objects)]
 
+//! Factory to create components in Pravega Rust client.
+//!
+//! Applications should always use this ClientFactory to initialize components.
+//!
+use crate::byte::reader::ByteReader;
+use crate::byte::writer::ByteWriter;
+use crate::event::reader_group::{ReaderGroup, ReaderGroupConfigBuilder};
+use crate::event::transactional_writer::TransactionalEventWriter;
+use crate::event::writer::EventWriter;
+use crate::segment::metadata::SegmentMetadataClient;
+use crate::segment::raw_client::RawClientImpl;
+use crate::segment::reader::AsyncSegmentReaderImpl;
+use crate::sync::synchronizer::Synchronizer;
+use crate::sync::table::Table;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "integration-test")] {
+        use crate::test_utils::{RawClientWrapper, SegmentReaderWrapper};
+    }
+}
+
+use pravega_client_auth::DelegationTokenProvider;
 use pravega_client_config::ClientConfig;
 use pravega_client_shared::{DelegationToken, PravegaNodeUri, Scope, ScopedSegment, ScopedStream, WriterId};
 use pravega_connection_pool::connection_pool::ConnectionPool;
@@ -17,22 +39,20 @@ use pravega_wire_protocol::connection_factory::{
     ConnectionFactory, ConnectionFactoryConfig, SegmentConnectionManager,
 };
 
-use crate::byte_stream::{ByteStreamReader, ByteStreamWriter};
-use crate::event_reader_group::ReaderGroup;
-use crate::event_stream_writer::EventStreamWriter;
-use crate::raw_client::RawClientImpl;
-use crate::reader_group_config::{ReaderGroupConfig, ReaderGroupConfigBuilder};
-use crate::segment_metadata::SegmentMetadataClient;
-use crate::segment_reader::AsyncSegmentReaderImpl;
-use crate::table_synchronizer::TableSynchronizer;
-use crate::tablemap::TableMap;
-use crate::transaction::transactional_event_stream_writer::TransactionalEventStreamWriter;
-use pravega_client_auth::DelegationTokenProvider;
 use std::fmt;
 use std::sync::Arc;
 use tokio::runtime::Runtime;
 use tracing::info;
 
+/// Applications should use ClientFactory to create resources they need.
+///
+/// ClientFactory contains a connection pool that is shared by all the readers and writers it creates.
+/// It also contains a tokio runtime that is used to drive for async tasks. Spawned tasks in readers and
+/// writers are tied to this runtime.
+///
+/// Applications can call clone on ClientFactory in case ownership is needed. It holds an Arc to the
+/// internal object so cloned objects are still sharing the same connection pool and runtime.
+///
 #[derive(Clone)]
 pub struct ClientFactory(Arc<ClientFactoryInternal>);
 
@@ -44,6 +64,20 @@ struct ClientFactoryInternal {
 }
 
 impl ClientFactory {
+    /// Create a new ClientFactory.
+    /// # Examples
+    /// ```no_run
+    /// use pravega_client_config::ClientConfigBuilder;
+    /// use pravega_client::client_factory::ClientFactory;
+    ///
+    /// fn main() {
+    ///    let config = ClientConfigBuilder::default()
+    ///         .controller_uri("localhost:8000")
+    ///         .build()
+    ///         .expect("create config");
+    ///     let client_factory = ClientFactory::new(config);
+    /// }
+    /// ```
     pub fn new(config: ClientConfig) -> ClientFactory {
         let rt = tokio::runtime::Runtime::new().expect("create runtime");
         let cf = ConnectionFactory::create(ConnectionFactoryConfig::from(&config));
@@ -61,50 +95,20 @@ impl ClientFactory {
         }))
     }
 
-    ///
-    /// Get the Runtime handle.
-    ///
-    pub fn get_runtime(&self) -> &Runtime {
-        self.0.get_runtime()
+    pub fn runtime(&self) -> &Runtime {
+        self.0.runtime()
     }
 
-    pub async fn create_async_event_reader(&self, segment: ScopedSegment) -> AsyncSegmentReaderImpl {
-        AsyncSegmentReaderImpl::init(
-            segment.clone(),
-            self.clone(),
-            self.0
-                .create_delegation_token_provider(ScopedStream::from(&segment))
-                .await,
-        )
-        .await
+    pub fn config(&self) -> &ClientConfig {
+        &self.0.config
     }
 
-    pub async fn create_table_map(&self, scope: Scope, name: String) -> TableMap {
-        TableMap::new(scope, name, self.clone())
-            .await
-            .expect("Failed to create Table map")
+    pub fn controller_client(&self) -> &dyn ControllerClient {
+        self.0.controller_client()
     }
 
-    pub async fn create_table_synchronizer(&self, scope: Scope, name: String) -> TableSynchronizer {
-        TableSynchronizer::new(scope, name, self.clone()).await
-    }
-
-    pub async fn create_raw_client(&self, segment: &ScopedSegment) -> RawClientImpl<'_> {
-        let endpoint = self
-            .0
-            .controller_client
-            .get_endpoint_for_segment(segment)
-            .await
-            .expect("get endpoint for segment");
-        self.0.create_raw_client(endpoint)
-    }
-
-    pub fn create_raw_client_for_endpoint(&self, endpoint: PravegaNodeUri) -> RawClientImpl<'_> {
-        self.0.create_raw_client(endpoint)
-    }
-
-    pub fn create_event_stream_writer(&self, stream: ScopedStream) -> EventStreamWriter {
-        EventStreamWriter::new(stream, self.clone())
+    pub fn create_event_writer(&self, stream: ScopedStream) -> EventWriter {
+        EventWriter::new(stream, self.clone())
     }
 
     pub async fn create_reader_group(
@@ -121,50 +125,94 @@ impl ClientFactory {
         ReaderGroup::create(scope, reader_group_name, rg_config, self.clone()).await
     }
 
-    pub async fn create_reader_group_with_config(
-        &self,
-        scope: Scope,
-        reader_group_name: String,
-        rg_config: ReaderGroupConfig,
-    ) -> ReaderGroup {
-        info!("Creating reader group {:?} ", reader_group_name);
-        ReaderGroup::create(scope, reader_group_name, rg_config, self.clone()).await
-    }
-
-    pub async fn create_transactional_event_stream_writer(
+    pub async fn create_transactional_event_writer(
         &self,
         stream: ScopedStream,
         writer_id: WriterId,
-    ) -> TransactionalEventStreamWriter {
-        TransactionalEventStreamWriter::new(stream, writer_id, self.clone()).await
+    ) -> TransactionalEventWriter {
+        TransactionalEventWriter::new(stream, writer_id, self.clone()).await
     }
 
-    pub fn create_byte_stream_writer(&self, segment: ScopedSegment) -> ByteStreamWriter {
-        ByteStreamWriter::new(segment, self.clone())
+    pub fn create_byte_writer(&self, segment: ScopedSegment) -> ByteWriter {
+        ByteWriter::new(segment, self.clone())
     }
 
-    pub fn create_byte_stream_reader(&self, segment: ScopedSegment) -> ByteStreamReader {
-        ByteStreamReader::new(
-            segment,
+    pub fn create_byte_reader(&self, segment: ScopedSegment) -> ByteReader {
+        ByteReader::new(segment, self.clone(), self.config().reader_wrapper_buffer_size())
+    }
+
+    pub async fn create_table(&self, scope: Scope, name: String) -> Table {
+        Table::new(scope, name, self.clone())
+            .await
+            .expect("Failed to create Table map")
+    }
+
+    pub async fn create_synchronizer(&self, scope: Scope, name: String) -> Synchronizer {
+        Synchronizer::new(scope, name, self.clone()).await
+    }
+
+    pub(crate) async fn create_async_event_reader(&self, segment: ScopedSegment) -> AsyncSegmentReaderImpl {
+        AsyncSegmentReaderImpl::new(
+            segment.clone(),
             self.clone(),
-            self.get_config().reader_wrapper_buffer_size(),
+            self.0
+                .create_delegation_token_provider(ScopedStream::from(&segment))
+                .await,
         )
+        .await
     }
 
-    pub async fn create_delegation_token_provider(&self, stream: ScopedStream) -> DelegationTokenProvider {
+    pub(crate) async fn create_raw_client(&self, segment: &ScopedSegment) -> RawClientImpl<'_> {
+        let endpoint = self
+            .0
+            .controller_client
+            .get_endpoint_for_segment(segment)
+            .await
+            .expect("get endpoint for segment");
+        self.0.create_raw_client(endpoint)
+    }
+
+    pub(crate) fn create_raw_client_for_endpoint(&self, endpoint: PravegaNodeUri) -> RawClientImpl<'_> {
+        self.0.create_raw_client(endpoint)
+    }
+
+    pub(crate) async fn create_delegation_token_provider(
+        &self,
+        stream: ScopedStream,
+    ) -> DelegationTokenProvider {
         self.0.create_delegation_token_provider(stream).await
     }
 
-    pub async fn create_segment_metadata_client(&self, segment: ScopedSegment) -> SegmentMetadataClient {
+    pub(crate) async fn create_segment_metadata_client(
+        &self,
+        segment: ScopedSegment,
+    ) -> SegmentMetadataClient {
         SegmentMetadataClient::new(segment.clone(), self.clone()).await
     }
 
-    pub fn get_controller_client(&self) -> &dyn ControllerClient {
-        self.0.get_controller_client()
+    #[doc(hidden)]
+    #[cfg(feature = "integration-test")]
+    pub async fn create_raw_client_wrapper(&self, segment: &ScopedSegment) -> RawClientWrapper<'_> {
+        let endpoint = self
+            .0
+            .controller_client
+            .get_endpoint_for_segment(segment)
+            .await
+            .expect("get endpoint for segment");
+        RawClientWrapper::new(&self.0.connection_pool, endpoint, self.0.config.request_timeout)
     }
 
-    pub fn get_config(&self) -> &ClientConfig {
-        &self.0.config
+    #[doc(hidden)]
+    #[cfg(feature = "integration-test")]
+    pub async fn create_segment_reader_wrapper(&self, segment: ScopedSegment) -> SegmentReaderWrapper {
+        SegmentReaderWrapper::new(
+            segment.clone(),
+            self.clone(),
+            self.0
+                .create_delegation_token_provider(ScopedStream::from(&segment))
+                .await,
+        )
+        .await
     }
 }
 
@@ -191,14 +239,12 @@ impl ClientFactoryInternal {
         &self.connection_pool
     }
 
-    pub(crate) fn get_controller_client(&self) -> &dyn ControllerClient {
+    pub(crate) fn controller_client(&self) -> &dyn ControllerClient {
         &*self.controller_client
     }
 
-    ///
-    /// borrow the Runtime.
-    ///
-    pub(crate) fn get_runtime(&self) -> &Runtime {
+    // borrow the Runtime.
+    pub(crate) fn runtime(&self) -> &Runtime {
         &self.runtime
     }
 }

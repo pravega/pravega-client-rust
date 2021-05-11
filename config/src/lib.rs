@@ -176,7 +176,7 @@ mod tests {
             .build()
             .unwrap();
 
-        assert_eq!(config.max_connections_in_pool(), u32::max_value() as u32);
+        assert_eq!(config.max_connections_in_pool(), u32::MAX as u32);
         assert_eq!(config.max_controller_connections(), 3u32);
         assert_eq!(config.connection_type(), ConnectionType::Tokio);
         assert_eq!(config.retry_policy(), RetryWithBackoff::default());

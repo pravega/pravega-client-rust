@@ -88,8 +88,9 @@ path = "src/cli.rs"
 required-features = ["cli"]
 
 [features]
-default = ["cli"]
-cli = ["clap", "structopt"]
+default = []
+cli = []
+integration-test = []
 
 [[bench]]
 name = "benchmark"

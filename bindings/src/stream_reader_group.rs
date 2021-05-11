@@ -12,7 +12,7 @@ use crate::stream_reader::StreamReader;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client_shared::ScopedStream;
-        use pravega_client::event_reader_group::ReaderGroup;
+        use pravega_client::event::reader_group::ReaderGroup;
         use pravega_client::client_factory::ClientFactory;
         use pyo3::prelude::*;
         use pyo3::PyResult;
@@ -50,8 +50,8 @@ impl StreamReaderGroup {
     /// import pravega_client;
     /// manager=pravega_client.StreamManager("127.0.0.1:9090")
     /// // lets assume the Pravega scope and stream are already created.
-    /// reader_group=manager.create_reader_group("rg1", "scope", "stream")
-    /// reader=reader_group.create_reader("reader_id");
+    /// event.reader_group=manager.create_reader_group("rg1", "scope", "stream")
+    /// reader=event.reader_group.create_reader("reader_id");
     /// slice=await reader.get_segment_slice_async()
     /// for event in slice:
     ///     print(event.data())
@@ -60,12 +60,11 @@ impl StreamReaderGroup {
     pub fn create_reader(&self, reader_name: &str) -> PyResult<StreamReader> {
         info!(
             "Creating reader {:?} under reader group {:?}",
-            reader_name,
-            self.reader_group.get_name()
+            reader_name, self.reader_group.name
         );
         let reader = self
             .factory
-            .get_runtime()
+            .runtime()
             .block_on(self.reader_group.create_reader(reader_name.to_string()));
         let stream_reader = StreamReader::new(
             Arc::new(Mutex::new(reader)),
@@ -79,8 +78,7 @@ impl StreamReaderGroup {
     fn to_str(&self) -> String {
         format!(
             "Stream: {:?} , ReaderGroup: {:?}",
-            self.stream,
-            self.reader_group.get_name()
+            self.stream, self.reader_group.name
         )
     }
 }

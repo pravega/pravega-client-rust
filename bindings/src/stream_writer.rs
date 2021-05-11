@@ -8,10 +8,10 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use std::io::Error;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
-        use pravega_client::error::SegmentWriterError;
-        use pravega_client::event_stream_writer::EventStreamWriter;
+        use pravega_client::event::writer::EventWriter;
         use pravega_client_shared::ScopedStream;
         use pravega_client::client_factory::ClientFactory;
         use pyo3::exceptions;
@@ -33,7 +33,7 @@ cfg_if! {
 #[pyclass]
 #[derive(new)]
 pub(crate) struct StreamWriter {
-    writer: EventStreamWriter,
+    writer: EventWriter,
     factory: ClientFactory,
     stream: ScopedStream,
 }
@@ -97,26 +97,26 @@ impl StreamWriter {
     #[args(event, routing_key = "None", "*")]
     pub fn write_event_bytes(&mut self, event: &[u8], routing_key: Option<&str>) -> PyResult<()> {
         // to_vec creates an owned copy of the python byte array object.
-        let write_future: tokio::sync::oneshot::Receiver<Result<(), SegmentWriterError>> = match routing_key {
+        let write_future: tokio::sync::oneshot::Receiver<Result<(), Error>> = match routing_key {
             Option::None => {
                 trace!("Writing a single event with no routing key");
                 self.factory
-                    .get_runtime()
+                    .runtime()
                     .block_on(self.writer.write_event(event.to_vec()))
             }
             Option::Some(key) => {
                 trace!("Writing a single event for a given routing key {:?}", key);
                 self.factory
-                    .get_runtime()
+                    .runtime()
                     .block_on(self.writer.write_event_by_routing_key(key.into(), event.to_vec()))
             }
         };
 
-        let _guard = self.factory.get_runtime().enter();
+        let _guard = self.factory.runtime().enter();
         let timeout_fut = timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), write_future);
 
-        let result: Result<Result<Result<(), SegmentWriterError>, RecvError>, _> =
-            self.factory.get_runtime().block_on(timeout_fut);
+        let result: Result<Result<Result<(), Error>, RecvError>, _> =
+            self.factory.runtime().block_on(timeout_fut);
         match result {
             Ok(t) => match t {
                 Ok(t1) => match t1 {

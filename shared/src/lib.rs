@@ -38,7 +38,7 @@ use std::cmp::{min, Reverse};
 use std::collections::{BTreeMap, HashMap};
 use std::convert::From;
 use std::fmt;
-use std::fmt::Write;
+use std::fmt::{Debug, Write};
 use std::fmt::{Display, Formatter};
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::ops::Index;
@@ -312,8 +312,14 @@ impl Display for ScopedSegment {
     }
 }
 
-#[derive(From, Debug, Shrinkwrap, Copy, Clone, Hash, PartialEq, Eq)]
+#[derive(From, Shrinkwrap, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct WriterId(pub u128);
+
+impl Debug for WriterId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:x}", self.0)
+    }
+}
 
 impl Display for WriterId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

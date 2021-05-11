@@ -7,11 +7,9 @@
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
-
 use lazy_static::*;
 use pravega_client::client_factory::ClientFactory;
-use pravega_client::raw_client::RawClient;
-use pravega_client::raw_client::RawClientImpl;
+use pravega_client::test_utils::RawClientWrapper;
 use pravega_client_config::{ClientConfig, ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_client_shared::*;
 use pravega_connection_pool::connection_pool::ConnectionPool;
@@ -49,7 +47,7 @@ pub fn wirecommand_test_wrapper() {
         .build()
         .expect("build client config");
     let cf = ClientFactory::new(config);
-    let h = cf.get_runtime();
+    let h = cf.runtime();
     h.block_on(wirecommand_tests(&cf));
 }
 
@@ -112,7 +110,7 @@ pub async fn wirecommand_tests(factory: &ClientFactory) {
 }
 
 async fn test_hello(factory: &ClientFactory) {
-    let controller_client = factory.get_controller_client();
+    let controller_client = factory.controller_client();
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testStream".to_owned());
     // Create scope and stream
@@ -164,11 +162,7 @@ async fn test_hello(factory: &ClientFactory) {
         high_version: 10,
     });
 
-    let raw_client = RawClientImpl::new(
-        &*CONNECTION_POOL,
-        endpoint,
-        factory.get_config().request_timeout(),
-    );
+    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
     raw_client
         .send_request(&request)
         .await
@@ -177,7 +171,7 @@ async fn test_hello(factory: &ClientFactory) {
 
 // KeepAlive would not send back reply.
 async fn test_keep_alive(factory: &ClientFactory) {
-    let controller_client = factory.get_controller_client();
+    let controller_client = factory.controller_client();
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testStream".to_owned());
     let segment_name = ScopedSegment {
@@ -201,7 +195,7 @@ async fn test_keep_alive(factory: &ClientFactory) {
 }
 
 async fn test_setup_append(factory: &ClientFactory) {
-    let controller_client = factory.get_controller_client();
+    let controller_client = factory.controller_client();
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testStream".to_owned());
     let segment_name = ScopedSegment {
@@ -231,11 +225,7 @@ async fn test_setup_append(factory: &ClientFactory) {
         last_event_number: i64::min_value(),
     });
 
-    let raw_client = RawClientImpl::new(
-        &*CONNECTION_POOL,
-        endpoint,
-        factory.get_config().request_timeout(),
-    );
+    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
     raw_client
         .send_request(&request)
         .await
@@ -267,7 +257,7 @@ async fn test_setup_append(factory: &ClientFactory) {
 }
 
 async fn test_create_segment(factory: &ClientFactory) {
-    let controller_client = factory.get_controller_client();
+    let controller_client = factory.controller_client();
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testStream".to_owned());
     let segment_name = ScopedSegment {
@@ -281,11 +271,7 @@ async fn test_create_segment(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientImpl::new(
-        &*CONNECTION_POOL,
-        endpoint,
-        factory.get_config().request_timeout(),
-    );
+    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let request1 = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 1,
@@ -322,7 +308,7 @@ async fn test_create_segment(factory: &ClientFactory) {
 }
 
 async fn test_seal_segment(factory: &ClientFactory) {
-    let controller_client = factory.get_controller_client();
+    let controller_client = factory.controller_client();
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testStream".to_owned());
     let segment_name = ScopedSegment {
@@ -336,11 +322,7 @@ async fn test_seal_segment(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientImpl::new(
-        &*CONNECTION_POOL,
-        endpoint,
-        factory.get_config().request_timeout(),
-    );
+    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let request = Requests::SealSegment(SealSegmentCommand {
         segment: segment_name.to_string(),
@@ -360,7 +342,7 @@ async fn test_seal_segment(factory: &ClientFactory) {
 }
 
 async fn test_update_and_get_segment_attribute(factory: &ClientFactory) {
-    let controller_client = factory.get_controller_client();
+    let controller_client = factory.controller_client();
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testStream".to_owned());
     let segment_name = ScopedSegment {
@@ -374,11 +356,7 @@ async fn test_update_and_get_segment_attribute(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientImpl::new(
-        &*CONNECTION_POOL,
-        endpoint,
-        factory.get_config().request_timeout(),
-    );
+    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let sname = segment_name.to_string();
     let uid = Uuid::new_v4().as_u128();
@@ -387,7 +365,7 @@ async fn test_update_and_get_segment_attribute(factory: &ClientFactory) {
         segment_name: sname.clone(),
         attribute_id: uid,
         new_value: 1,
-        expected_value: i64::min_value(),
+        expected_value: i64::MIN,
         delegation_token: String::from(""),
     });
     let reply = Replies::SegmentAttributeUpdated(SegmentAttributeUpdatedCommand {
@@ -417,7 +395,7 @@ async fn test_update_and_get_segment_attribute(factory: &ClientFactory) {
 }
 
 async fn test_get_stream_segment_info(factory: &ClientFactory) {
-    let controller_client = factory.get_controller_client();
+    let controller_client = factory.controller_client();
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testStream".to_owned());
     let stream = ScopedStream {
@@ -439,11 +417,7 @@ async fn test_get_stream_segment_info(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientImpl::new(
-        &*CONNECTION_POOL,
-        endpoint,
-        factory.get_config().request_timeout(),
-    );
+    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let sname = segment_name.to_string();
     let request = Requests::GetStreamSegmentInfo(GetStreamSegmentInfoCommand {
@@ -463,7 +437,7 @@ async fn test_get_stream_segment_info(factory: &ClientFactory) {
 }
 
 async fn test_delete_segment(factory: &ClientFactory) {
-    let controller_client = factory.get_controller_client();
+    let controller_client = factory.controller_client();
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testStream".to_owned());
     let segment_name = ScopedSegment {
@@ -477,11 +451,7 @@ async fn test_delete_segment(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientImpl::new(
-        &*CONNECTION_POOL,
-        endpoint,
-        factory.get_config().request_timeout(),
-    );
+    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let request = Requests::DeleteSegment(DeleteSegmentCommand {
         request_id: 7,
@@ -499,7 +469,7 @@ async fn test_delete_segment(factory: &ClientFactory) {
 }
 
 async fn test_conditional_append_and_read_segment(factory: &ClientFactory) {
-    let controller_client = factory.get_controller_client();
+    let controller_client = factory.controller_client();
     let scope_name = Scope::from("scope".to_owned());
     let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
@@ -513,11 +483,7 @@ async fn test_conditional_append_and_read_segment(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientImpl::new(
-        &*CONNECTION_POOL,
-        endpoint,
-        factory.get_config().request_timeout(),
-    );
+    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 8,
@@ -586,7 +552,7 @@ async fn test_conditional_append_and_read_segment(factory: &ClientFactory) {
 }
 
 async fn test_update_segment_policy(factory: &ClientFactory) {
-    let controller_client = factory.get_controller_client();
+    let controller_client = factory.controller_client();
     let scope_name = Scope::from("scope".to_owned());
     let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
@@ -600,11 +566,7 @@ async fn test_update_segment_policy(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientImpl::new(
-        &*CONNECTION_POOL,
-        endpoint,
-        factory.get_config().request_timeout(),
-    );
+    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let request = Requests::UpdateSegmentPolicy(UpdateSegmentPolicyCommand {
         request_id: 12,
@@ -625,7 +587,7 @@ async fn test_update_segment_policy(factory: &ClientFactory) {
 }
 
 async fn test_merge_segment(factory: &ClientFactory) {
-    let controller_client = factory.get_controller_client();
+    let controller_client = factory.controller_client();
     let scope_name = Scope::from("scope".to_owned());
     let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
@@ -639,11 +601,7 @@ async fn test_merge_segment(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientImpl::new(
-        &*CONNECTION_POOL,
-        endpoint,
-        factory.get_config().request_timeout(),
-    );
+    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 13,
@@ -717,7 +675,7 @@ async fn test_merge_segment(factory: &ClientFactory) {
 }
 
 async fn test_truncate_segment(factory: &ClientFactory) {
-    let controller_client = factory.get_controller_client();
+    let controller_client = factory.controller_client();
     let scope_name = Scope::from("scope".to_owned());
     let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
@@ -731,11 +689,7 @@ async fn test_truncate_segment(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientImpl::new(
-        &*CONNECTION_POOL,
-        endpoint,
-        factory.get_config().request_timeout(),
-    );
+    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     // truncate the first event1.
     let request = Requests::TruncateSegment(TruncateSegmentCommand {
@@ -756,7 +710,7 @@ async fn test_truncate_segment(factory: &ClientFactory) {
 }
 
 async fn test_update_table_entries(factory: &ClientFactory) {
-    let controller_client = factory.get_controller_client();
+    let controller_client = factory.controller_client();
     let scope_name = Scope::from("scope".to_owned());
     let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
@@ -770,11 +724,7 @@ async fn test_update_table_entries(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientImpl::new(
-        &*CONNECTION_POOL,
-        endpoint,
-        factory.get_config().request_timeout(),
-    );
+    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 18,
@@ -864,7 +814,7 @@ async fn test_update_table_entries(factory: &ClientFactory) {
 }
 
 async fn test_read_table_key(factory: &ClientFactory) {
-    let controller_client = factory.get_controller_client();
+    let controller_client = factory.controller_client();
     let scope_name = Scope::from("scope".to_owned());
     let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
@@ -878,11 +828,7 @@ async fn test_read_table_key(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientImpl::new(
-        &*CONNECTION_POOL,
-        endpoint,
-        factory.get_config().request_timeout(),
-    );
+    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let request = Requests::ReadTableKeys(ReadTableKeysCommand {
         request_id: 22,
@@ -907,7 +853,7 @@ async fn test_read_table_key(factory: &ClientFactory) {
 }
 
 async fn test_read_table(factory: &ClientFactory) {
-    let controller_client = factory.get_controller_client();
+    let controller_client = factory.controller_client();
     let scope_name = Scope::from("scope".to_owned());
     let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
@@ -921,11 +867,7 @@ async fn test_read_table(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientImpl::new(
-        &*CONNECTION_POOL,
-        endpoint,
-        factory.get_config().request_timeout(),
-    );
+    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let keys = vec![
         TableKey::new(String::from("key1").into_bytes(), i64::MIN),
@@ -963,7 +905,7 @@ async fn test_read_table(factory: &ClientFactory) {
 }
 
 async fn test_read_table_entries(factory: &ClientFactory) {
-    let controller_client = factory.get_controller_client();
+    let controller_client = factory.controller_client();
     let scope_name = Scope::from("scope".to_owned());
     let stream_name = Stream::from("stream".to_owned());
     let segment_name = ScopedSegment {
@@ -977,11 +919,7 @@ async fn test_read_table_entries(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientImpl::new(
-        &*CONNECTION_POOL,
-        endpoint,
-        factory.get_config().request_timeout(),
-    );
+    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let request = Requests::ReadTableEntries(ReadTableEntriesCommand {
         request_id: 22,

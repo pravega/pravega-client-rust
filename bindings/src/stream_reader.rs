@@ -10,7 +10,7 @@
 
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
-        use pravega_client::event_reader::EventReader;
+        use pravega_client::event::reader::EventReader;
         use pravega_client_shared::ScopedStream;
         use pravega_client::client_factory::ClientFactory;
         use pyo3::prelude::*;
@@ -18,7 +18,7 @@ cfg_if! {
         use pyo3::PyObjectProtocol;
         use tracing::info;
         use std::sync::Arc;
-        use pravega_client::segment_slice::{Event, SegmentSlice};
+        use pravega_client::event::reader::{Event, SegmentSlice};
         use pyo3::PyIterProtocol;
         use tokio::sync::Mutex;
     }
@@ -67,7 +67,7 @@ impl StreamReader {
             (fut.clone_ref(py), fut, loop_event)
         };
         let read = self.reader.clone();
-        let _guard = self.factory.get_runtime().enter();
+        let _guard = self.factory.runtime().enter();
         tokio::spawn(async move {
             let slice_result = read.lock().await.acquire_segment().await;
             let slice_py: Slice = Slice {
@@ -92,7 +92,7 @@ impl StreamReader {
     ///
     #[text_signature = "($self)"]
     pub fn reader_offline(&self) -> PyResult<()> {
-        self.factory.get_runtime().block_on(self.reader_offline_async());
+        self.factory.runtime().block_on(self.reader_offline_async());
         Ok(())
     }
 
@@ -103,7 +103,7 @@ impl StreamReader {
     pub fn release_segment(&self, slice: &mut Slice) -> PyResult<()> {
         info!("Release segment slice back");
         if let Some(s) = slice.get_set_to_none() {
-            self.factory.get_runtime().block_on(self.release_segment_async(s));
+            self.factory.runtime().block_on(self.release_segment_async(s));
         }
         Ok(())
     }
