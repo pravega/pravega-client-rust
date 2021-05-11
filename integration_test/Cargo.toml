@@ -13,7 +13,7 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 
 [dependencies]
 tracing = "0.1"
-pravega-client = { path = "../" }
+pravega-client = { path = "../", features = ["integration-test"]}
 pravega-wire-protocol = { path = "../wire_protocol"}
 pravega-controller-client = { path = "../controller-client"}
 pravega-client-shared = { path = "../shared"}
