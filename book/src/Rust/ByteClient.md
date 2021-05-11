@@ -120,4 +120,4 @@ fn main() {
 }
 ```
 
-For more details please refer [API docs](./doc/pravega_client/byte_stream/index.html).
+For more details please refer [API docs](../doc/pravega_client/byte).
