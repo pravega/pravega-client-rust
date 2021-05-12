@@ -14,7 +14,7 @@ ROOT = Path(__file__).parent.parent.parent
 
 # manylinux is set to unchecked due to the below error
 # Your library is not manylinux compliant because it links the following forbidden libraries: ["libssl.so.1.1", "libcrypto.so.1.1"]
-os.chdir("./bindings")
+os.chdir("./python_binding")
 command = [
     "maturin",
     "build",
