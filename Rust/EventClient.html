@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Developer Corner - Pravega Native Client</title>
+        <title>Event Client - Pravega Native Client</title>
         
         
 
@@ -98,7 +98,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="../index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="../quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="../RUST/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../RUST/EventClient.html"><strong aria-hidden="true">3.1.</strong> Event Client</a></li><li class="chapter-item expanded "><a href="../RUST/ByteClient.html"><strong aria-hidden="true">3.2.</strong> Byte Client</a></li><li class="chapter-item expanded "><a href="../RUST/contribution.html" class="active"><strong aria-hidden="true">3.3.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="../Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../Python/PythonBindings.html"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="../Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="../quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="../Rust/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../Rust/EventClient.html" class="active"><strong aria-hidden="true">3.1.</strong> Event Client</a></li><li class="chapter-item expanded "><a href="../Rust/ByteClient.html"><strong aria-hidden="true">3.2.</strong> Byte Client</a></li><li class="chapter-item expanded "><a href="../Rust/contribution.html"><strong aria-hidden="true">3.3.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="../Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../Python/PythonBindings.html"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="../Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -166,20 +166,41 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#developer-corner" id="developer-corner">Developer Corner</a></h1>
+                        <h1><a class="header" href="#event-client" id="event-client">Event Client</a></h1>
+<h2><a class="header" href="#event-writer" id="event-writer">Event Writer</a></h2>
+<p>An EventWriter can be used to write events into the Pravega Stream.</p>
+<p>An Event is a discrete item that can be read and processed independently.
+Events are written atomically and will appear in the Stream exactly once. 
+An optional routing key can be specified by the user. 
+Events with the same routing key are guaranteed to be read back in the order they were written, 
+while events with different routing keys may be read and processed in parallel.</p>
+<p><a href="../doc/pravega_client/event/writer/struct.EventWriter.html">API docs</a>.</p>
+<h2><a class="header" href="#event-reader" id="event-reader">Event Reader</a></h2>
+<p>An EventReader can be used to read events from the Pravega Stream.</p>
+<p>Every EventReader belongs to a ReaderGroup.
+All the EventReaders within a ReaderGroup work together to from a Stream. This allows 
+maximum read performance without duplicate reads. EventReaders internally coordinate with each other
+within a ReaderGroup using a so-called Synchronizer.</p>
+<p>For the details how Synchronizer works please check related blog <a href="https://blog.pravega.io/2019/02/15/exploring-state-synchronizer/">state synchronizer</a>.</p>
+<p><a href="../doc/pravega_client/event/reader/struct.EventReader.html">API docs</a></p>
+<h2><a class="header" href="#transactional-event-writer" id="transactional-event-writer">Transactional Event Writer</a></h2>
+<p>Pravega transaction provides a mechanism for writing many events atomically.
+A Transaction is unbounded in size but is bounded in time. If it has not been committed within a time window
+specified at the time of its creation, it will be automatically aborted.</p>
+<p>For more details please refer <a href="../doc/pravega_client/event/transactional_writer/struct.TransactionalEventWriter.html">API docs</a>.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="../RUST/ByteClient.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../Rust/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
                         
-                            <a rel="next" href="../Python/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="../Rust/ByteClient.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -191,13 +212,13 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="../RUST/ByteClient.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../Rust/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a rel="next" href="../Python/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="../Rust/ByteClient.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 

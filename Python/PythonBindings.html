@@ -98,7 +98,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="../index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="../quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="../RUST/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../RUST/EventClient.html"><strong aria-hidden="true">3.1.</strong> Event Client</a></li><li class="chapter-item expanded "><a href="../RUST/ByteClient.html"><strong aria-hidden="true">3.2.</strong> Byte Client</a></li><li class="chapter-item expanded "><a href="../RUST/contribution.html"><strong aria-hidden="true">3.3.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="../Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../Python/PythonBindings.html" class="active"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="../Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="../quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="../Rust/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../Rust/EventClient.html"><strong aria-hidden="true">3.1.</strong> Event Client</a></li><li class="chapter-item expanded "><a href="../Rust/ByteClient.html"><strong aria-hidden="true">3.2.</strong> Byte Client</a></li><li class="chapter-item expanded "><a href="../Rust/contribution.html"><strong aria-hidden="true">3.3.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="../Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../Python/PythonBindings.html" class="active"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="../Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -166,73 +166,62 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#python-bindings" id="python-bindings">Python Bindings</a></h1>
+                        <h1><a class="header" href="#python-binding" id="python-binding">Python Binding</a></h1>
 <p>The below section provides a Pravega Python API tutorial for the Rust based Pravega Native client. This tutorial is a 
 companion to <a href="../python/pravega_client.html">Pravega Python API</a></p>
-<ul>
-<li>
+<p>Also, check out the <a href="https://github.com/pravega/pravega-client-rust/tree/master/python-binding">repo</a>.</p>
 <h2><a class="header" href="#streammanager" id="streammanager">StreamManager</a></h2>
-</li>
-</ul>
 <p>A StreamManger is used to create a Scopes, Streams, Writers and Readers. It can also be used to perform
 operations on the stream which include sealing a stream and deleting streams among others.</p>
 <p>A StreamManager can be created by using a Controller URI. The below example snippet </p>
 <pre><code class="language-python">import pravega_client
 manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
-// stream manager can be used to create scopes, streams, writers and readers against Pravega.
+# stream manager can be used to create scopes, streams, writers and readers against Pravega.
 manager.create_scope(&quot;scope&quot;)
-manager.create_stream(&quot;stream&quot;, &quot;stream&quot;, 1)
+manager.create_stream(&quot;scope&quot;, &quot;stream&quot;, 1)
 </code></pre>
 <p>A StreamWriter can be used create a Stream writer. The below snippet is shows a sample pattern.</p>
 <pre><code class="language-python">import pravega_client
 manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
-// Create a writer against an already created Pravega scope and Stream.
+# create a writer against an already created Pravega scope and Stream.
 writer=manager.create_writer(&quot;scope&quot;, &quot;stream&quot;)
 </code></pre>
 <p>A transactional Writer can be created using the StreamManager. The below example snippet shows a sample pattern.</p>
 <pre><code class="language-python"> import pravega_client
  manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
- // Create a transactional writer against an already created Pravega scope and Stream.
+# create a transactional writer against an already created Pravega scope and Stream.
  writer=manager.create_transaction_writer(&quot;scope&quot;, &quot;stream&quot;, &quot;123&quot;)
 </code></pre>
 <p>A ReaderGroup can be created using the StreamManager. Individual readers can be created using this ReaderGroup object.</p>
 <pre><code class="language-python">import pravega_client
 manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
-// Create a ReaderGroup rg1 against an already created Pravega scope and Stream.
+# create a ReaderGroup rg1 against an already created Pravega scope and Stream.
 event.reader_group=manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;)
 </code></pre>
-<ul>
-<li>
 <h2><a class="header" href="#streamwriter" id="streamwriter">StreamWriter</a></h2>
-</li>
-</ul>
 <p>A StreamWriter object created using the StreamManager can be used to write events into the Pravega Stream. The events 
 that are written will appear in the Stream exactly once. The event of type String is converted into bytes with <code>UTF-8</code> encoding.
 The user can optionally specify the routing key. The StreamWriter can also write a byte array into the Pravega Stream 
 with/without a routing key.</p>
 <p>Note that the implementation provides retry logic to handle connection failures and service host failures. Internal 
-retries will not violate the exactly once semantic, so it is better to rely on them than to wrap this with custom retry logic.</p>
+retries will not violate the exactly-once semantic, so it is better to rely on them than to wrap this with custom retry logic.</p>
 <pre><code class="language-python">import pravega_client
 manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
-// lets assume the Pravega scope and stream are already created.
+# assuming the Pravega scope and stream are already created.
 writer=manager.create_writer(&quot;scope&quot;, &quot;stream&quot;)
-// write into Pravega stream without specifying the routing key.
+# write into Pravega stream without specifying the routing key.
 writer.write_event(&quot;e1&quot;)
-// write into Pravega stream by specifying the routing key.
+# write into Pravega stream by specifying the routing key.
 writer.write_event(&quot;e2&quot;, &quot;key1&quot;) 
 e=&quot;eventData&quot;                                                   
-// Convert the event object to a byte array.
+# convert the event object to a byte array.
 e_bytes=e.encode(&quot;utf-8&quot;)                                       
-// write into Pravega stream without specifying the routing key.    
+# write into Pravega stream without specifying the routing key.    
 writer.write_event_bytes(e_bytes)                                    
-// write into Pravega stream by specifying the routing key.       
+# write into Pravega stream by specifying the routing key.       
 writer.write_event_bytes(e_bytes, &quot;key1&quot;)    
 </code></pre>
-<ul>
-<li>
 <h2><a class="header" href="#transactionwriter" id="transactionwriter">TransactionWriter</a></h2>
-</li>
-</ul>
 <p>A TransactionWriter created using a StreamManager  writes Events to an Event stream transactionally. All events that are 
 written as part of a transaction can be committed atomically by calling commit(). This will result in either all of those 
 events going into the stream or none of them and the commit call failing with an exception.</p>
@@ -255,13 +244,9 @@ self.assertTrue(txn2.is_open(), &quot;Transaction is open&quot;)
 # Abort a transaction, none of the events will be written into the Stream.
 txn2.abort()
 </code></pre>
-<ul>
-<li>
 <h2><a class="header" href="#eventreader" id="eventreader">EventReader</a></h2>
-</li>
-</ul>
 <p>One or more EventReaders can be created from the ReaderGroup object created using the StreamManager. Every reader has 
-an async method call reader.get_segment_slice_async() that returns a Python Future which completes when a segment slice 
+an async method call <code>reader.get_segment_slice_async()</code> that returns a Python Future which completes when a segment slice 
 is acquired for consumption.  It can contain one or more events and the user can iterate over the segment slice to read 
 the events. If there are multiple segments in the stream then this API can return a segment slice of any segments in the
 stream. The reader ensures that events returned by the stream are in order.</p>
@@ -270,9 +255,9 @@ the responsibility of reading from different segments in the Pravega stream.</p>
 <p>A sample example snippet is shown below.</p>
 <pre><code class="language-python">import pravega_client
 manager = pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
-// lets assume the Pravega scope and stream are already created.
-event.reader_group = manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;)
-reader = event.reader_group.create_reader(&quot;reader_id&quot;);
+# assuming the Pravega scope and stream are already created.
+reader_group = manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;)
+reader = reader_group.create_reader(&quot;reader_id&quot;);
 slice = await reader.get_segment_slice_async()
 for event in slice:
     print(event.data())
