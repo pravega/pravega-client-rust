@@ -1,8 +1,8 @@
 # Pravega Rust Client and Pravega language bindings user guide.
 
 Welcome to the Pravega Rust client and Pravega language bindings user guide! This book is a companion to 
-[Pravega Rust Client](https://docs.rs/pravega-client/0.1.0/pravega_client/) and the supported language bindings over the Pravega Rust
-Client. At the moment this repository supports [Python binding](https://github.com/pravega/pravega-client-rust/tree/master/python-binding) to Pravega.
+[Pravega Rust Client](https://docs.rs/pravega-client/0.2.0/pravega_client/) and the supported language bindings over the Pravega Rust
+Client. At the moment this repository supports [Python binding](https://github.com/pravega/pravega-client-rust/tree/master/python_binding) to Pravega.
 
 This book contains examples and documentation to explain all of Pravega Rust client's use cases in detail and the Python
 language binding.
@@ -13,7 +13,7 @@ Please choose from the chapters on the left to jump to individual topics, or con
 
 * API Documentation: [stable](https://docs.rs/pravega_client/) |  [master](./doc/index.html)
 
-* Python API Documentation: [stable]() | [master](./python/pravega_client_rust.html)
+* Python API Documentation: [stable]() | [master](./python/pravega_client.html)
 
 {{#include ../../README.md}}
 

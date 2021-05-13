@@ -58,11 +58,11 @@ fn main() {
 
         // create event stream writer
         let stream = ScopedStream::from("fooScope/barStream");
-        let mut event_stream_writer = client_factory.create_event_writer(stream.clone());
+        let mut event_writer = client_factory.create_event_writer(stream.clone());
 
         // write payload
         let payload = "hello world".to_string().into_bytes();
-        let result = event_stream_writer.write_event(payload).await;
+        let result = event_writer.write_event(payload).await;
         assert!(result.await.is_ok());
 
         // create event stream reader

@@ -37,4 +37,4 @@ tokio = "1"
 ```
 
 ### A simple app that writes and reads events
-Check out the [event write and read example](https://github.com/pravega/pravega-client/tree/master/examples).
+Check out the [event write and read example](https://github.com/pravega/pravega-client-rust/tree/master/examples).
