@@ -121,17 +121,17 @@ impl StreamWriter {
             Ok(t) => match t {
                 Ok(t1) => match t1 {
                     Ok(_) => Ok(()),
-                    Err(e) => Err(exceptions::ValueError::py_err(format!(
+                    Err(e) => Err(exceptions::PyValueError::new_err(format!(
                         "Error observed while writing an event {:?}",
                         e
                     ))),
                 },
-                Err(e) => Err(exceptions::ValueError::py_err(format!(
+                Err(e) => Err(exceptions::PyValueError::new_err(format!(
                     "Error observed while writing an event {:?}",
                     e
                 ))),
             },
-            Err(_) => Err(exceptions::ValueError::py_err(
+            Err(_) => Err(exceptions::PyValueError::new_err(
                 "Write timed out, please check connectivity with Pravega.",
             )),
         }
