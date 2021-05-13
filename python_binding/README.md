@@ -47,7 +47,15 @@ reader_group = stream_manager.create_reader_group("my_reader_group", "scope_foo"
 
 reader = reader_group.create_reader("my_reader");
 
+# acquire a segment slice to read
 slice = await reader.get_segment_slice_async()
 for event in slice:
     print(event.data())
+    
+# after calling release segment, data in this segment slice will not be read again by
+# readers in the same reader group.
+reader.release_segment(slice)
+
+# remember to mark the finished reader as offline.
+reader.reader_offline()
 ```
