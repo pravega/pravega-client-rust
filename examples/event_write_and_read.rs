@@ -15,6 +15,7 @@ use pravega_client_shared::{
 };
 
 fn main() {
+    println!("start event write and read example");
     // assuming Pravega standalone is listening at localhost:9090
     let config = ClientConfigBuilder::default()
         .controller_uri("localhost:9090")
@@ -22,6 +23,7 @@ fn main() {
         .unwrap();
 
     let client_factory = ClientFactory::new(config);
+    println!("client factory created");
 
     client_factory.runtime().block_on(async {
         let controller_client = client_factory.controller_client();
@@ -32,6 +34,7 @@ fn main() {
             .create_scope(&scope)
             .await
             .expect("create scope");
+        println!("scope created");
 
         // create a stream containing only one segment
         let stream = Stream::from("barStream".to_owned());
@@ -55,27 +58,33 @@ fn main() {
             .create_stream(&stream_config)
             .await
             .expect("create stream");
+        println!("stream created");
 
         // create event stream writer
         let stream = ScopedStream::from("fooScope/barStream");
-        let mut event_stream_writer = client_factory.create_event_writer(stream.clone());
+        let mut event_writer = client_factory.create_event_writer(stream.clone());
+        println!("event writer created");
 
         // write payload
         let payload = "hello world".to_string().into_bytes();
-        let result = event_stream_writer.write_event(payload).await;
+        let result = event_writer.write_event(payload).await;
         assert!(result.await.is_ok());
+        println!("event writer sent and flushed data");
 
         // create event stream reader
         let rg = client_factory
             .create_reader_group(scope, "rg".to_string(), stream)
             .await;
         let mut reader = rg.create_reader("r1".to_string()).await;
+        println!("event reader created");
 
         // read from segment
         let mut slice = reader.acquire_segment().await.expect("acquire segment");
         let read_event = slice.next();
         assert!(read_event.is_some(), "event slice should have event to read");
         assert_eq!(b"hello world", read_event.unwrap().value.as_slice());
+        println!("event reader read data");
         reader.reader_offline().await;
+        println!("event write and read example finished");
     });
 }

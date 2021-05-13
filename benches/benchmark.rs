@@ -11,11 +11,10 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use byteorder::BigEndian;
-use pravega_client::byte_stream::ByteStreamReader;
+use pravega_client::byte::ByteReader;
 use pravega_client::client_factory::ClientFactory;
-use pravega_client::errors::SegmentWriterError;
-use pravega_client::event::event_reader::EventReader;
-use pravega_client::event::writer::EventStreamWriter;
+use pravega_client::event::EventReader;
+use pravega_client::event::EventWriter;
 use pravega_client_config::connection_type::{ConnectionType, MockType};
 use pravega_client_config::{ClientConfig, ClientConfigBuilder};
 use pravega_client_shared::*;
@@ -26,8 +25,8 @@ use pravega_wire_protocol::commands::{
     TableEntries, TableEntriesDeltaReadCommand, TableEntriesUpdatedCommand, TYPE_PLUS_LENGTH_SIZE,
 };
 use pravega_wire_protocol::wire_commands::{Decode, Encode, Replies, Requests};
-use std::io::Cursor;
 use std::io::Read;
+use std::io::{Cursor, Error};
 use std::net::SocketAddr;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
@@ -51,7 +50,7 @@ impl MockServer {
         MockServer { address, listener }
     }
 
-    pub async fn run(mut self) {
+    pub async fn run(self) {
         // 100K data chunk
         let data_chunk: [u8; READ_EVENT_SIZE_BYTES] = [0xAAu8; READ_EVENT_SIZE_BYTES];
         let event_data: Vec<u8> = Requests::Event(EventCommand {
@@ -215,7 +214,7 @@ async fn run_reader(reader: &mut EventReader, last_offset: &mut i64) {
 // This benchmark test uses a mock server that replies ok to any requests instantly. It involves
 // kernel latency.
 fn event_stream_read_mock_server(c: &mut Criterion) {
-    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
     let mock_server = rt.block_on(MockServer::new());
     let config = ClientConfigBuilder::default()
         .controller_uri(mock_server.address)
@@ -237,7 +236,7 @@ fn event_stream_read_mock_server(c: &mut Criterion) {
 // This benchmark test uses a mock server that replies ok to any requests instantly. It involves
 // kernel latency.
 fn event_stream_writer_mock_server(c: &mut Criterion) {
-    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
     let mock_server = rt.block_on(MockServer::new());
     let config = ClientConfigBuilder::default()
         .controller_uri(mock_server.address)
@@ -259,7 +258,7 @@ fn event_stream_writer_mock_server(c: &mut Criterion) {
 // This benchmark test uses a mock server that replies ok to any requests instantly. It involves
 // kernel latency. It does not wait for reply.
 fn event_stream_writer_mock_server_no_block(c: &mut Criterion) {
-    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
     let mock_server = rt.block_on(MockServer::new());
     let config = ClientConfigBuilder::default()
         .controller_uri(mock_server.address)
@@ -281,7 +280,7 @@ fn event_stream_writer_mock_server_no_block(c: &mut Criterion) {
 // This benchmark test uses a mock connection that replies ok to any requests instantly. It does not
 // involve kernel latency.
 fn event_stream_writer_mock_connection(c: &mut Criterion) {
-    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
     let config = ClientConfigBuilder::default()
         .controller_uri("127.0.0.1:9090".parse::<SocketAddr>().unwrap())
         .mock(true)
@@ -302,7 +301,7 @@ fn event_stream_writer_mock_connection(c: &mut Criterion) {
 // This benchmark test uses a mock connection that replies ok to any requests instantly. It does not
 // involve kernel latency. It does not wait for reply.
 fn event_stream_writer_mock_connection_no_block(c: &mut Criterion) {
-    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
     let config = ClientConfigBuilder::default()
         .controller_uri("127.0.0.1:9090".parse::<SocketAddr>().unwrap())
         .mock(true)
@@ -321,7 +320,7 @@ fn event_stream_writer_mock_connection_no_block(c: &mut Criterion) {
 }
 
 fn byte_stream_reader_mock_server(c: &mut Criterion) {
-    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
     let mock_server = rt.block_on(MockServer::new());
     let config = ClientConfigBuilder::default()
         .controller_uri(mock_server.address)
@@ -329,7 +328,7 @@ fn byte_stream_reader_mock_server(c: &mut Criterion) {
         .build()
         .expect("creating config");
     rt.spawn(async { MockServer::run(mock_server).await });
-    let mut reader = set_up_byte_stream_reader(config, &mut rt);
+    let mut reader = set_up_byte_stream_reader(config, &rt);
     let _ = tracing_subscriber::fmt::try_init();
     info!("start byte stream reader mock server performance testing");
     c.bench_function("byte_stream_reader_mock_server", |b| {
@@ -341,7 +340,7 @@ fn byte_stream_reader_mock_server(c: &mut Criterion) {
 }
 
 // helper functions
-async fn set_up_event_stream_writer(config: ClientConfig) -> EventStreamWriter {
+async fn set_up_event_stream_writer(config: ClientConfig) -> EventWriter {
     let scope_name: Scope = Scope::from("testWriterPerf".to_string());
     let stream_name = Stream::from("testWriterPerf".to_string());
     let client_factory = ClientFactory::new(config.clone());
@@ -372,7 +371,7 @@ async fn set_up_event_stream_reader(config: ClientConfig) -> EventReader {
     reader
 }
 
-fn set_up_byte_stream_reader(config: ClientConfig, rt: &mut Runtime) -> ByteStreamReader {
+fn set_up_byte_stream_reader(config: ClientConfig, rt: &Runtime) -> ByteReader {
     let scope_name: Scope = Scope::from("testByteReaderPerf".to_string());
     let stream_name = Stream::from("testByteReaderPerf".to_string());
     let client_factory = ClientFactory::new(config.clone());
@@ -422,7 +421,7 @@ async fn create_scope_stream(
 }
 
 // run sends request to server and wait for the reply
-async fn run(writer: &mut EventStreamWriter) {
+async fn run(writer: &mut EventWriter) {
     let mut receivers = Vec::with_capacity(EVENT_NUM);
     for _i in 0..EVENT_NUM {
         let rx = writer.write_event(vec![0; EVENT_SIZE]).await;
@@ -431,13 +430,13 @@ async fn run(writer: &mut EventStreamWriter) {
     assert_eq!(receivers.len(), EVENT_NUM);
 
     for rx in receivers {
-        let reply: Result<(), SegmentWriterError> = rx.await.expect("wait for result from oneshot");
+        let reply: Result<(), Error> = rx.await.expect("wait for result from oneshot");
         assert_eq!(reply.is_ok(), true);
     }
 }
 
 // run no block sends request to server and does not wait for the reply
-async fn run_no_block(writer: &mut EventStreamWriter) {
+async fn run_no_block(writer: &mut EventWriter) {
     let mut receivers = Vec::with_capacity(EVENT_NUM);
     for _i in 0..EVENT_NUM {
         let rx = writer.write_event(vec![0; EVENT_SIZE]).await;
@@ -446,7 +445,7 @@ async fn run_no_block(writer: &mut EventStreamWriter) {
     assert_eq!(receivers.len(), EVENT_NUM);
 }
 
-fn run_byte_stream_read(reader: &mut ByteStreamReader) {
+fn run_byte_stream_read(reader: &mut ByteReader) {
     for _i in 0..EVENT_NUM {
         let mut read = 0;
         let mut buf = vec![0; EVENT_SIZE];
