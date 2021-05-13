@@ -155,7 +155,7 @@ impl ByteWriter {
     /// # Examples
     /// ```ignore
     /// let mut byte_writer = client_factory.create_byte_writer(segment);
-    /// byte_writer.seal().expect("seal segment");
+    /// byte_writer.seal().await.expect("seal segment");
     /// ```
     pub async fn seal(&mut self) -> Result<(), Error> {
         if let Some(event_handle) = self.event_handle.take() {
@@ -173,7 +173,7 @@ impl ByteWriter {
     /// # Examples
     /// ```ignore
     /// let byte_writer = client_factory.create_byte_writer(segment);
-    /// byte_writer.truncate_data_before(1024).expect("truncate segment");
+    /// byte_writer.truncate_data_before(1024).await.expect("truncate segment");
     /// ```
     pub async fn truncate_data_before(&self, offset: i64) -> Result<(), Error> {
         self.metadata_client

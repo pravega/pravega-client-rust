@@ -35,7 +35,7 @@ pub enum ConnectionPoolError {
 /// ```no_run
 /// use async_trait::async_trait;
 /// use pravega_connection_pool::connection_pool::{Manager, ConnectionPoolError, ConnectionPool};
-/// use pravega_rust_client_shared::PravegaNodeUri;
+/// use pravega_client_shared::PravegaNodeUri;
 /// use tokio::runtime::Runtime;
 ///
 /// struct FooConnection {}
@@ -298,7 +298,7 @@ impl<T: Send + Sized> DerefMut for PooledConnection<'_, T> {
 mod tests {
     use super::*;
     use std::sync::Arc;
-    use std::time::Duration;
+    use tokio::time::Duration;
 
     struct FooConnection {}
 
@@ -330,7 +330,7 @@ mod tests {
         }
     }
 
-    #[tokio::test(core_threads = 4)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn test_connection_pool_basic() {
         let manager = FooManager {
             max_connections_in_pool: 2,
@@ -348,7 +348,7 @@ mod tests {
         assert_eq!(pool.pool_len(&endpoint), 1);
     }
 
-    #[tokio::test(core_threads = 4)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn test_connection_pool_size() {
         const MAX_CONNECTION: u32 = 2;
         let manager = FooManager {
@@ -366,7 +366,7 @@ mod tests {
                     .get_connection(endpoint_clone)
                     .await
                     .expect("get connection");
-                tokio::time::delay_for(Duration::from_millis(500)).await;
+                tokio::time::sleep(Duration::from_millis(500)).await;
             });
             handles.push(handle);
         }
