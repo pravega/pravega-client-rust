@@ -170,8 +170,8 @@
                     <main>
                         <h1><a class="header" href="#pravega-rust-client-and-pravega-language-bindings-user-guide" id="pravega-rust-client-and-pravega-language-bindings-user-guide">Pravega Rust Client and Pravega language bindings user guide.</a></h1>
 <p>Welcome to the Pravega Rust client and Pravega language bindings user guide! This book is a companion to 
-<a href="https://docs.rs/pravega-client/0.1.0/pravega_client/">Pravega Rust Client</a> and the supported language bindings over the Pravega Rust
-Client. At the moment this repository supports <a href="https://github.com/pravega/pravega-client-rust/tree/master/python-binding">Python binding</a> to Pravega.</p>
+<a href="https://docs.rs/pravega-client/0.2.0/pravega_client/">Pravega Rust Client</a> and the supported language bindings over the Pravega Rust
+Client. At the moment this repository supports <a href="https://github.com/pravega/pravega-client-rust/tree/master/python_binding">Python binding</a> to Pravega.</p>
 <p>This book contains examples and documentation to explain all of Pravega Rust client's use cases in detail and the Python
 language binding.</p>
 <p>Please choose from the chapters on the left to jump to individual topics, or continue below to start with Pravega Rust Clients's README.</p>
@@ -183,7 +183,7 @@ language binding.</p>
 <p>API Documentation: <a href="https://docs.rs/pravega_client/">stable</a> |  <a href="./doc/index.html">master</a></p>
 </li>
 <li>
-<p>Python API Documentation: <a href="">stable</a> | <a href="./python/pravega_client_rust.html">master</a></p>
+<p>Python API Documentation: <a href="">stable</a> | <a href="./python/pravega_client.html">master</a></p>
 </li>
 </ul>
 <p><img src="https://github.com/pravega/pravega-client-rust/workflows/CIbuild/badge.svg" alt="CIbuild" />
@@ -229,12 +229,12 @@ pravega-client-shared = &quot;0.1&quot;
 tokio = &quot;1&quot;
 </code></pre>
 <h3><a class="header" href="#a-simple-app-that-writes-and-reads-events" id="a-simple-app-that-writes-and-reads-events">A simple app that writes and reads events</a></h3>
-<p>Check out the <a href="https://github.com/pravega/pravega-client/tree/master/examples">event write and read example</a>.</p>
+<p>Check out the <a href="https://github.com/pravega/pravega-client-rust/tree/master/examples">event write and read example</a>.</p>
 <h1><a class="header" href="#rust-client" id="rust-client">Rust Client</a></h1>
 <p>This section describes the Rust client APIs to interact with Pravega. </p>
 <ul>
-<li>Event APIs</li>
-<li>Byte APIS</li>
+<li>Event API</li>
+<li>Byte API</li>
 </ul>
 <h1><a class="header" href="#event-client" id="event-client">Event Client</a></h1>
 <h2><a class="header" href="#event-writer" id="event-writer">Event Writer</a></h2>
@@ -403,7 +403,7 @@ fn main() {
 <h1><a class="header" href="#python-binding" id="python-binding">Python Binding</a></h1>
 <p>The below section provides a Pravega Python API tutorial for the Rust based Pravega Native client. This tutorial is a 
 companion to <a href="Python/../python/pravega_client.html">Pravega Python API</a></p>
-<p>Also, check out the <a href="https://github.com/pravega/pravega-client-rust/tree/master/python-binding">repo</a>.</p>
+<p>Also, check out the <a href="https://github.com/pravega/pravega-client-rust/tree/master/python_binding">repo</a>.</p>
 <h2><a class="header" href="#streammanager" id="streammanager">StreamManager</a></h2>
 <p>A StreamManger is used to create a Scopes, Streams, Writers and Readers. It can also be used to perform
 operations on the stream which include sealing a stream and deleting streams among others.</p>
@@ -498,7 +498,44 @@ for event in slice:
 </code></pre>
 <h1><a class="header" href="#developercorner" id="developercorner">DeveloperCorner</a></h1>
 <h1><a class="header" href="#python-bindings" id="python-bindings">Python Bindings</a></h1>
-<p>{{#include ../../../bindings/PythonBinding.md}}</p>
+<h2><a class="header" href="#steps-to-generate-python-bindings-for-pravega" id="steps-to-generate-python-bindings-for-pravega">Steps to generate python bindings for Pravega:</a></h2>
+<p><em>Pre-requisites</em></p>
+<ul>
+<li>Python 3.8 and up.</li>
+</ul>
+<ol>
+<li>Ensure <code>cargo build</code> works fine.</li>
+<li>There are two ways of running generating bindings. This describes the steps where maturin is manually installed.
+<ul>
+<li>Manually install <a href="https://github.com/PyO3/maturin">maturin</a> via <code>pip install maturin</code></li>
+<li><code>maturin build --release --no-sdist --strip --manylinux off</code> This command auto detects the python interpreter and uses it. To
+specify a specific interpreter using <code>--interpreter</code> option.</li>
+<li><code>maturin sdist</code> to generate the source distribution. </li>
+</ul>
+</li>
+<li>Steps to generate bindings using a docker approach.
+<ul>
+<li><code>docker run --rm -v --release --no-sdist --strip --manylinux off</code></li>
+</ul>
+</li>
+<li>After the bindings are generated by either 2 or 3 the next step is to publish the artifacts.
+<ul>
+<li>The artifacts can be published via <a href="https://github.com/pypa/twine">twine</a>
+<ul>
+<li><code>pip install twine</code></li>
+<li><code>twine upload -r testpypi target/*</code> this command uploads the artifacts to test.pypi</li>
+<li><code>twine upload target/*</code> this command uploads the artifacts to pypi.</li>
+</ul>
+</li>
+<li>The artifacts can be published via <a href="https://github.com/PyO3/maturin">maturin</a>
+<ul>
+<li><code>maturin publish -b pyo3 -p XXX -u YYY -r https://test.pypi.org/legacy/</code> this publishes the bindings to test.pypi</li>
+<li><code>maturin publish -b pyo3 -p XXX -u YYY</code> This publishes the bindings to pypi.</li>
+</ul>
+</li>
+</ul>
+</li>
+</ol>
 
                     </main>
 
