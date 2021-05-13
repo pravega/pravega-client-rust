@@ -50,13 +50,13 @@ byte_writer.flush().expect("flush");
 data prior to some offset is not needed anymore. Truncated data cannot be read. 
 Applications use truncation to save space on the server.
 ```rust
-byte_writer.truncate_data_before(4).expect("truncate segment");
+byte_writer.truncate_data_before(4).await.expect("truncate segment");
 ```
 
 ### Seal the segment
 Sealing a segment is basically to make a segment read-only.
 ```rust
-byte_writer.seal().expect("seal segment");
+byte_writer.seal().await.expect("seal segment");
 ```
 
 ### Create a Byte Reader
@@ -105,10 +105,10 @@ fn main() {
     
     byte_writer.write(&payload).expect("write");
     byte_writer.flush().expect("flush");
-    
-    byte_writer.truncate_data_before(4).expect("truncate segment");
 
-    byte_writer.seal().expect("seal segment");
+    client_factory.runtime().block_on(byte_writer.truncate_data_before(4)).expect("truncate segment");
+
+    client_factory.runtime().block_on(byte_writer.seal()).expect("seal segment");
 
     // read
     let segment = ScopedSegment::from("myscope/mystream/0");
