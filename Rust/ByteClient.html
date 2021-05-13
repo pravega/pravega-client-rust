@@ -227,7 +227,7 @@ Applications use truncation to save space on the server.</p>
 <pre><pre class="playground"><code class="language-rust">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>byte_writer.truncate_data_before(4).expect(&quot;truncate segment&quot;);
+</span>byte_writer.truncate_data_before(4).await.expect(&quot;truncate segment&quot;);
 <span class="boring">}
 </span></code></pre></pre>
 <h3><a class="header" href="#seal-the-segment" id="seal-the-segment">Seal the segment</a></h3>
@@ -235,7 +235,7 @@ Applications use truncation to save space on the server.</p>
 <pre><pre class="playground"><code class="language-rust">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>byte_writer.seal().expect(&quot;seal segment&quot;);
+</span>byte_writer.seal().await.expect(&quot;seal segment&quot;);
 <span class="boring">}
 </span></code></pre></pre>
 <h3><a class="header" href="#create-a-byte-reader" id="create-a-byte-reader">Create a Byte Reader</a></h3>
@@ -286,10 +286,10 @@ fn main() {
     
     byte_writer.write(&amp;payload).expect(&quot;write&quot;);
     byte_writer.flush().expect(&quot;flush&quot;);
-    
-    byte_writer.truncate_data_before(4).expect(&quot;truncate segment&quot;);
 
-    byte_writer.seal().expect(&quot;seal segment&quot;);
+    client_factory.runtime().block_on(byte_writer.truncate_data_before(4)).expect(&quot;truncate segment&quot;);
+
+    client_factory.runtime().block_on(byte_writer.seal()).expect(&quot;seal segment&quot;);
 
     // read
     let segment = ScopedSegment::from(&quot;myscope/mystream/0&quot;);

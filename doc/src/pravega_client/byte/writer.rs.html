@@ -408,7 +408,7 @@
     <span class="doccomment">/// # Examples</span>
     <span class="doccomment">/// ```ignore</span>
     <span class="doccomment">/// let mut byte_writer = client_factory.create_byte_writer(segment);</span>
-    <span class="doccomment">/// byte_writer.seal().expect(&quot;seal segment&quot;);</span>
+    <span class="doccomment">/// byte_writer.seal().await.expect(&quot;seal segment&quot;);</span>
     <span class="doccomment">/// ```</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">seal</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">event_handle</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">event_handle</span>.<span class="ident">take</span>() {
@@ -426,7 +426,7 @@
     <span class="doccomment">/// # Examples</span>
     <span class="doccomment">/// ```ignore</span>
     <span class="doccomment">/// let byte_writer = client_factory.create_byte_writer(segment);</span>
-    <span class="doccomment">/// byte_writer.truncate_data_before(1024).expect(&quot;truncate segment&quot;);</span>
+    <span class="doccomment">/// byte_writer.truncate_data_before(1024).await.expect(&quot;truncate segment&quot;);</span>
     <span class="doccomment">/// ```</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">truncate_data_before</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">i64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">metadata_client</span>
