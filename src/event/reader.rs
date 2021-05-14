@@ -29,6 +29,8 @@ use tokio::sync::oneshot::error::TryRecvError;
 use tokio::sync::{mpsc, Mutex};
 use tokio::time::timeout;
 use tracing::{debug, error, info, warn};
+use std::thread::panicking;
+
 type ReaderErrorWithOffset = (ReaderError, i64);
 type SegmentReadResult = Result<SegmentDataBuffer, ReaderErrorWithOffset>;
 
@@ -327,10 +329,11 @@ impl EventReader {
             .remove_reader(&self.id, offset_map)
             .await
             .expect("Update ReaderGroup to ensure reader is offline");
+        //TODO: Should this return an error?
     }
 
-    // Release the segment of the provided SegmentSlice from the reader. This segment is marked as
-    // unassigned in the reader group state and other reads can acquire it.
+    /// Release the segment of the provided SegmentSlice from the reader. This segment is marked as
+    /// unassigned in the reader group state and other reads can acquire it.
     async fn release_segment_from_reader(&mut self, mut slice: SegmentSlice, read_offset: i64) {
         let new_segments_to_release = self
             .rg_state
@@ -364,6 +367,7 @@ impl EventReader {
                 .release_segment(&self.id, &segment, &Offset::new(read_offset))
                 .await
                 .expect("Failed to release segment from RG state for reader");
+            //TODO: Fix
         }
     }
 
@@ -375,6 +379,10 @@ impl EventReader {
     /// acquired SegmentSlice this method waits until SegmentSlice is completely consumed before
     /// returning the data.
     pub async fn acquire_segment(&mut self) -> Option<SegmentSlice> {
+        //TODO: Release segments sometimes.
+        //TODO: Handle case were slice was release in panic.
+        //TODO:
+
         info!("acquiring segment for reader {}", self.id);
         // Check if newer segments should be acquired.
         if self.meta.last_segment_acquire.elapsed() > REBALANCE_INTERVAL {
@@ -659,6 +667,7 @@ impl ReaderState {
     async fn wait_for_segment_slice_return(&mut self, segment: &ScopedSegment) -> Option<SliceMetadata> {
         if let Some(receiver) = self.slice_release_receiver.remove(segment) {
             match receiver.await {
+                //TODO: Handle error here.
                 Ok(returned_meta) => {
                     debug!("SegmentSlice returned {:?}", returned_meta);
                     returned_meta
@@ -983,8 +992,13 @@ impl Default for SegmentSlice {
 impl Drop for SegmentSlice {
     fn drop(&mut self) {
         if let Some(sender) = self.slice_return_tx.take() {
-            self.slice_return_tx = None;
-            let _ = sender.send(Some(self.meta.clone()));
+            if panicking() {
+                //TODO: need to return an error to the channel to indicate processing failed.
+                //Perhaps this self.meta should track the previous offset so it when the segment is released
+                //it can backtrack exactly one event.
+            } else {
+                let _ = sender.send(Some(self.meta.clone()));
+            }
         }
     }
 }

@@ -28,7 +28,7 @@ cfg_if! {
 /// This represents a Stream reader for a given Stream.
 /// Note: A python object of StreamReader cannot be created directly without using the StreamManager.
 ///
-#[cfg(feature = "python_binding")]
+//#[cfg(feature = "python_binding")]
 #[pyclass]
 #[derive(new)]
 pub(crate) struct StreamReader {
@@ -158,7 +158,7 @@ impl StreamReader {
 /// This represents a Stream reader for a given Stream.
 /// Note: A python object of StreamReader cannot be created directly without using the StreamManager.
 ///
-#[cfg(feature = "python_binding")]
+//#[cfg(feature = "python_binding")]
 #[pyclass]
 #[derive(new)]
 pub(crate) struct EventData {

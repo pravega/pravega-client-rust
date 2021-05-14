@@ -97,7 +97,7 @@ impl ReaderGroupState {
             } else {
                 info!("ReaderGroup {:?} already initialized", reader_group_name);
             }
-            Ok(None)
+            Ok(())
         })
         .await
         .expect("should initialize table synchronizer");
@@ -119,7 +119,7 @@ impl ReaderGroupState {
 
     // Internal logic of add_reader method. Separate the actual logic with table synchronizer
     // to facilitate the unit test.
-    fn add_reader_internal(table: &mut Update, reader: &Reader) -> Result<Option<String>, SynchronizerError> {
+    fn add_reader_internal(table: &mut Update, reader: &Reader) -> Result<(), SynchronizerError> {
         if table.contains_key(ASSIGNED, &reader.to_string()) {
             return Err(SynchronizerError::SyncUpdateError {
                 error_msg: format!("Failed to add online reader {:?}: reader already online", reader),
@@ -141,7 +141,7 @@ impl ReaderGroupState {
             "u64".to_owned(),
             Box::new(u64::MAX),
         );
-        Ok(None)
+        Ok(())
     }
 
     /// Returns the active readers in a vector.
@@ -251,7 +251,7 @@ impl ReaderGroupState {
         table: &mut Update,
         reader: &Reader,
         owned_segments: &HashMap<ScopedSegment, Offset>,
-    ) -> Result<Option<String>, SynchronizerError> {
+    ) -> Result<(), SynchronizerError> {
         let assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)?;
 
         for (segment, pos) in assigned_segments {
@@ -267,7 +267,7 @@ impl ReaderGroupState {
         }
         table.insert_tombstone(ASSIGNED.to_owned(), reader.to_string())?;
         table.insert_tombstone(DISTANCE.to_owned(), reader.to_string())?;
-        Ok(None)
+        Ok(())
     }
 
     /// Compute the number of segments to acquire.
@@ -425,7 +425,7 @@ impl ReaderGroupState {
         reader: &Reader,
         segment: &ScopedSegment,
         offset: &Offset,
-    ) -> Result<Option<String>, SynchronizerError> {
+    ) -> Result<(), SynchronizerError> {
         let mut assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)?;
         let unassigned_segments = ReaderGroupState::get_unassigned_segments_from_table(table);
 
@@ -461,7 +461,7 @@ impl ReaderGroupState {
             "Offset".to_owned(),
             Box::new(offset.to_owned()),
         );
-        Ok(None)
+        Ok(())
     }
 
     /// Remove the completed segments and add its successors for next to read.
