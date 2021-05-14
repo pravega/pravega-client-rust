@@ -107,6 +107,15 @@ pub struct EventReader {
     rg_state: Arc<Mutex<ReaderGroupState>>,
 }
 
+impl Drop for EventReader {
+    /// Destructor for reader invoked. This will automatically invoke reader_offline().
+    fn drop(&mut self) {
+        info!("reader {} is dropped", self.id);
+        let runtime = self.factory.runtime().handle().clone();
+        runtime.block_on(self.reader_offline());
+    }
+}
+
 impl EventReader {
     /// Initialize the reader. This fetches the assigned segments from the TableSynchronizer and
     /// spawns background tasks to start reads from those Segments.
