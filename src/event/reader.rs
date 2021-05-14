@@ -1213,6 +1213,7 @@ mod tests {
                 break;
             }
         }
+        cf.runtime().block_on(reader.reader_offline());
     }
 
     #[test]
@@ -1307,6 +1308,7 @@ mod tests {
             }
         }
         assert_eq!(event_count, NUM_EVENTS + NUM_EVENTS);
+        cf.runtime().block_on(reader.reader_offline());
     }
 
     // This test verifies an EventReader reading from a stream where both the segments are sending data.
@@ -1387,6 +1389,7 @@ mod tests {
                 break;
             }
         }
+        cf.runtime().block_on(reader.reader_offline());
     }
 
     #[test]
@@ -1455,6 +1458,7 @@ mod tests {
         assert_eq!(event.value.len(), 2);
         assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
         assert_eq!(event.offset_in_segment, 8 + 1); // first event.
+        cf.runtime().block_on(reader.reader_offline());
     }
 
     #[test]
@@ -1537,6 +1541,7 @@ mod tests {
         assert_eq!(event.value.len(), 1);
         assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
         assert_eq!(event.offset_in_segment, 0); // first event.
+        cf.runtime().block_on(reader.reader_offline());
     }
 
     #[tokio::test]
