@@ -768,8 +768,14 @@ pub(crate) mod test {
         offset: Option<i64>,
     ) -> (PendingEvent, CapacityGuard, EventHandle) {
         let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
-        let event = PendingEvent::new(Some("routing_key".into()), vec![1; size], offset, oneshot_sender)
-            .expect("create pending event");
+        let event = PendingEvent::new(
+            None,
+            Some("routing_key".into()),
+            vec![1; size],
+            offset,
+            oneshot_sender,
+        )
+        .expect("create pending event");
         sender.send((Incoming::AppendEvent(event), size)).await.unwrap();
         loop {
             let (event, guard) = receiver.recv().await.unwrap();
