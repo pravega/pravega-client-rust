@@ -91,6 +91,7 @@ type EventHandle = oneshot::Receiver<Result<(), Error>>;
 /// ```
 pub struct ByteWriter {
     writer_id: WriterId,
+    scoped_segment: ScopedSegment,
     sender: ChannelSender<Incoming>,
     metadata_client: SegmentMetadataClient,
     factory: ClientFactory,
@@ -142,6 +143,7 @@ impl ByteWriter {
         rt.spawn(Reactor::run(stream, sender.clone(), receiver, factory.clone(), None).instrument(span));
         ByteWriter {
             writer_id,
+            scoped_segment: segment,
             sender,
             metadata_client,
             factory,
@@ -217,7 +219,13 @@ impl ByteWriter {
     ) -> oneshot::Receiver<Result<(), Error>> {
         let size = event.len();
         let (tx, rx) = oneshot::channel();
-        if let Some(pending_event) = PendingEvent::without_header(None, event, Some(self.write_offset), tx) {
+        if let Some(pending_event) = PendingEvent::without_header(
+            Some(self.scoped_segment.clone()),
+            None,
+            event,
+            Some(self.write_offset),
+            tx,
+        ) {
             let append_event = Incoming::AppendEvent(pending_event);
             if let Err(_e) = sender.send((append_event, size)).await {
                 let (tx_error, rx_error) = oneshot::channel();

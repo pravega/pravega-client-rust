@@ -70,16 +70,19 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
         client_factory.controller_client(),
         &scope_name,
         &stream_name,
-        1,
+        4,
     ));
-    let scoped_segment = ScopedSegment {
-        scope: scope_name,
-        stream: stream_name,
-        segment: Segment::from(0),
-    };
-    let mut writer = client_factory.create_byte_writer(scoped_segment.clone());
-    let mut reader = client_factory.create_byte_reader(scoped_segment);
-    test_write_and_read_with_workload(&mut writer, &mut reader);
+
+    for i in 0..4 {
+        let scoped_segment = ScopedSegment {
+            scope: scope_name.clone(),
+            stream: stream_name.clone(),
+            segment: Segment::from(i),
+        };
+        let mut writer = client_factory.create_byte_writer(scoped_segment.clone());
+        let mut reader = client_factory.create_byte_reader(scoped_segment);
+        test_write_and_read_with_workload(&mut writer, &mut reader);
+    }
 
     let scope_name = Scope::from("testScopeByteStreamConditionalAppend".to_owned());
     let stream_name = Stream::from("testStreamByteStreamConditionalAppend".to_owned());

@@ -50,7 +50,11 @@ impl Reactor {
         let (event, cap_guard) = receiver.recv().await.expect("sender closed, processor exit");
         match event {
             Incoming::AppendEvent(pending_event) => {
-                let event_segment_writer = selector.get_segment_writer(&pending_event.routing_key);
+                let event_segment_writer = if let Some(segment) = &pending_event.scoped_segment {
+                    selector.get_segment_writer_by_key(segment)
+                } else {
+                    selector.get_segment_writer(&pending_event.routing_key)
+                };
 
                 if let Err(e) = event_segment_writer.write(pending_event, cap_guard).await {
                     warn!("failed to write append to segment due to {:?}, reconnecting", e);

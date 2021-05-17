@@ -118,7 +118,7 @@ impl EventWriter {
     pub async fn write_event(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), Error>> {
         let size = event.len();
         let (tx, rx) = oneshot::channel();
-        if let Some(pending_event) = PendingEvent::with_header(None, event, None, tx) {
+        if let Some(pending_event) = PendingEvent::with_header(None, None, event, None, tx) {
             let append_event = Incoming::AppendEvent(pending_event);
             self.writer_event_internal(append_event, size, rx).await
         } else {
@@ -136,7 +136,7 @@ impl EventWriter {
     ) -> oneshot::Receiver<Result<(), Error>> {
         let size = event.len();
         let (tx, rx) = oneshot::channel();
-        if let Some(pending_event) = PendingEvent::with_header(Some(routing_key), event, None, tx) {
+        if let Some(pending_event) = PendingEvent::with_header(None, Some(routing_key), event, None, tx) {
             let append_event = Incoming::AppendEvent(pending_event);
             self.writer_event_internal(append_event, size, rx).await
         } else {
