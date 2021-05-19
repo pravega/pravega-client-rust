@@ -58,10 +58,33 @@ impl Credentials {
     }
 
     pub fn keycloak(path: &str) -> Self {
+        // read keycloak json
+        let file = File::open(path.to_string()).expect("open keycloak.json");
+        let mut buf_reader = BufReader::new(file);
+        let mut buffer = Vec::new();
+        buf_reader.read_to_end(&mut buffer).expect("read to the end");
+
+        // decode json string to struct
+        let key_cloak_json: KeyCloakJson = serde_json::from_slice(&buffer).expect("decode slice to struct");
+
         let keycloak = KeyCloak {
             method: BEARER.to_string(),
             token: Arc::new(Mutex::new("".to_string())),
-            path: path.to_string(),
+            json: key_cloak_json,
+            expires_at: Arc::new(AtomicU64::new(0)),
+        };
+        Credentials {
+            inner: Box::new(keycloak) as Box<dyn Cred>,
+        }
+    }
+
+    pub fn keycloak_by_json_string(json: &str) -> Self {
+        // decode json string to struct
+        let key_cloak_json: KeyCloakJson = serde_json::from_str(json).expect("decode slice to struct");
+        let keycloak = KeyCloak {
+            method: BEARER.to_string(),
+            token: Arc::new(Mutex::new("".to_string())),
+            json: key_cloak_json,
             expires_at: Arc::new(AtomicU64::new(0)),
         };
         Credentials {
@@ -126,7 +149,7 @@ impl Cred for Basic {
 struct KeyCloak {
     method: String,
     token: Arc<Mutex<String>>,
-    path: String,
+    json: KeyCloakJson,
     expires_at: Arc<AtomicU64>,
 }
 
@@ -149,33 +172,20 @@ impl Cred for KeyCloak {
 
 impl KeyCloak {
     async fn refresh_rpt_token(&self) {
-        // read keycloak json
-        let file = File::open(self.path.to_string()).expect("open keycloak.json");
-        let mut buf_reader = BufReader::new(file);
-        let mut buffer = Vec::new();
-        buf_reader.read_to_end(&mut buffer).expect("read to the end");
-
-        // decode json string to struct
-        let key_cloak_json: KeyCloakJson = serde_json::from_slice(&buffer).expect("decode slice to struct");
-
         // first POST request for access token
         let access_token = obtain_access_token(
-            &key_cloak_json.auth_server_url,
-            &key_cloak_json.realm,
-            &key_cloak_json.resource,
-            &key_cloak_json.credentials.secret,
+            &self.json.auth_server_url,
+            &self.json.realm,
+            &self.json.resource,
+            &self.json.credentials.secret,
         )
         .await
         .expect("obtain access token");
 
         // second POST request for rpt
-        let rpt = authorize(
-            &key_cloak_json.auth_server_url,
-            &key_cloak_json.realm,
-            &access_token,
-        )
-        .await
-        .expect("get rpt");
+        let rpt = authorize(&self.json.auth_server_url, &self.json.realm, &access_token)
+            .await
+            .expect("get rpt");
 
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -187,7 +197,7 @@ impl KeyCloak {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct KeyCloakJson {
     realm: String,
     #[serde(rename(deserialize = "auth-server-url"))]
@@ -196,7 +206,7 @@ struct KeyCloakJson {
     credentials: Credential,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct Credential {
     secret: String,
 }

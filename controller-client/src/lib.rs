@@ -53,11 +53,14 @@ use pravega_client_retry::wrap_with_async_retry;
 use pravega_client_shared::*;
 use snafu::Snafu;
 use std::convert::{From, Into};
+use std::fs::File;
+use std::io::BufReader;
 use std::str::FromStr;
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
+use tokio_rustls::rustls::ClientConfig as RustlsClientConfig;
 use tonic::codegen::http::uri::InvalidUri;
-use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Uri};
+use tonic::transport::{Channel, ClientTlsConfig, Endpoint, Uri};
 use tonic::{metadata::MetadataValue, Code, Request, Status};
 use tracing::{debug, info, warn};
 
@@ -310,10 +313,33 @@ async fn get_channel(config: &ClientConfig) -> Channel {
             "getting channel for uri {:?} with controller TLS enabled",
             uri_result
         );
-        let pem = std::fs::read(&config.trustcert).expect("read truststore");
-        let ca = Certificate::from_pem(pem);
+        let mut rustls_client_config = RustlsClientConfig::new();
+        rustls_client_config.alpn_protocols.push(Vec::from("h2"));
+        let cert_paths =
+            std::fs::read_dir(&config.trustcert).expect("cannot read from the provided cert directory");
+        for entry in cert_paths {
+            let path = entry.expect("get the cert file").path();
+            debug!("reading cert file {}", path.display());
+            let mut pem = BufReader::new(File::open(path.clone()).expect("read cert file"));
+
+            let res = rustls_client_config.root_store.add_pem_file(&mut pem);
+            match res {
+                Ok((valid, invalid)) => {
+                    debug!(
+                        "{} contains {} valid certs and {} invalid certs",
+                        path.display(),
+                        valid,
+                        invalid
+                    );
+                }
+                Err(_e) => {
+                    debug!("failed to add cert files {}", path.display());
+                }
+            }
+        }
+        debug!("{} cert files added", rustls_client_config.root_store.len());
         let tls = ClientTlsConfig::new()
-            .ca_certificate(ca)
+            .rustls_client_config(rustls_client_config)
             .domain_name(config.controller_uri.domain_name());
         (0..config.max_controller_connections)
             .map(|_a| {

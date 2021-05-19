@@ -109,7 +109,7 @@ impl ClientConfigBuilder {
             let cert_path = ret_val.get(TLS_CERT_PATH).expect("get tls cert path").to_owned();
             return cert_path;
         }
-        "./ca-cert.crt".to_owned()
+        "./certs".to_owned()
     }
 
     fn extract_credentials(&self) -> Credentials {
