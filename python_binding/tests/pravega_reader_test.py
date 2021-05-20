@@ -55,7 +55,6 @@ class PravegaReaderTest(aiounittest.AsyncTestCase):
             print(event.data())
             self.assertEqual(b'test event', event.data(), "Invalid event data")
         self.assertEqual(count, 2, "Two events are expected")
-        r1.reader_offline()
 
     # This test verifies data reading a Pravega stream with multiple readers.
     # It also invokes release Segment after consuming the first segment slice and marks the first
@@ -104,7 +103,6 @@ class PravegaReaderTest(aiounittest.AsyncTestCase):
 
         print("Number of events read after consuming slice2 ", count)
         self.assertEqual(count, 100, "100 events are expected")
-        r2.reader_offline()
 
     # This test verifies data reading a Pravega stream with multiple readers.
     # It also invokes release Segment after consuming part of the first segment slice and marks the first
@@ -160,7 +158,6 @@ class PravegaReaderTest(aiounittest.AsyncTestCase):
             print("Number of events read after consuming slice3 ", count)
 
         self.assertEqual(count, 100, "100 events are expected")
-        r2.reader_offline()
 
     # This test verifies reading large events from a Pravega stream
     async def test_largeEvents(self):
@@ -193,4 +190,3 @@ class PravegaReaderTest(aiounittest.AsyncTestCase):
             for event in segment_slice:
                 count += 1
             r1.release_segment(segment_slice)
-        r1.reader_offline()

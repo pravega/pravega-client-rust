@@ -1177,6 +1177,7 @@ mod tests {
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
             .return_const(0 as isize);
+        rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
             Arc::new(Mutex::new(rg_mock)),
@@ -1213,7 +1214,6 @@ mod tests {
                 break;
             }
         }
-        cf.runtime().block_on(reader.reader_offline());
     }
 
     #[test]
@@ -1245,6 +1245,7 @@ mod tests {
             .expect_compute_segments_to_acquire_or_release()
             .with(predicate::eq(Reader::from("r1".to_string())))
             .return_const(1 as isize);
+        rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
 
         // mock rg_state.assign_segment_to_reader
         let res: Result<Option<ScopedSegment>, ReaderGroupStateError> =
@@ -1308,7 +1309,6 @@ mod tests {
             }
         }
         assert_eq!(event_count, NUM_EVENTS + NUM_EVENTS);
-        cf.runtime().block_on(reader.reader_offline());
     }
 
     // This test verifies an EventReader reading from a stream where both the segments are sending data.
@@ -1348,6 +1348,7 @@ mod tests {
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
             .return_const(0 as isize);
+        rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
             Arc::new(Mutex::new(rg_mock)),
@@ -1389,7 +1390,6 @@ mod tests {
                 break;
             }
         }
-        cf.runtime().block_on(reader.reader_offline());
     }
 
     #[test]
@@ -1421,7 +1421,7 @@ mod tests {
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
             .return_const(0 as isize);
-
+        rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
             Arc::new(Mutex::new(rg_mock)),
@@ -1458,7 +1458,6 @@ mod tests {
         assert_eq!(event.value.len(), 2);
         assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
         assert_eq!(event.offset_in_segment, 8 + 1); // first event.
-        cf.runtime().block_on(reader.reader_offline());
     }
 
     #[test]
@@ -1493,6 +1492,7 @@ mod tests {
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
             .return_const(0 as isize);
+        rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
             Arc::new(Mutex::new(rg_mock)),
@@ -1541,7 +1541,6 @@ mod tests {
         assert_eq!(event.value.len(), 1);
         assert!(is_all_same(event.value.as_slice()), "Event has been corrupted");
         assert_eq!(event.offset_in_segment, 0); // first event.
-        cf.runtime().block_on(reader.reader_offline());
     }
 
     #[tokio::test]
