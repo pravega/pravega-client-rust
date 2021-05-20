@@ -9,7 +9,7 @@
 //
 
 use crate::client_factory::ClientFactory;
-use crate::segment::event::Incoming;
+use crate::segment::event::{Incoming, RoutingInfo};
 use crate::segment::writer::{Append, SegmentWriter};
 use crate::util::get_random_f64;
 
@@ -164,9 +164,12 @@ impl SegmentSelector {
     /// Resends a list of events.
     pub(crate) async fn resend(&mut self, to_resend: Vec<Append>) {
         for append in to_resend {
-            let segment = self
-                .current_segments
-                .get_segment_for_routing_key(&append.event.routing_key, get_random_f64);
+            let segment = match &append.event.routing_info {
+                RoutingInfo::RoutingKey(key) => self
+                    .current_segments
+                    .get_segment_for_routing_key(key, get_random_f64),
+                RoutingInfo::Segment(segment) => segment,
+            };
             let segment_writer = self.writers.get_mut(segment).expect("must have writer");
             segment_writer.add_pending(append.event, append.cap_guard);
             if let Err(e) = segment_writer.write_pending_events().await {

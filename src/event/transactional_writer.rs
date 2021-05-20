@@ -9,7 +9,7 @@
 //
 
 use crate::client_factory::ClientFactory;
-use crate::segment::event::{Incoming, PendingEvent};
+use crate::segment::event::{Incoming, PendingEvent, RoutingInfo};
 use crate::segment::reactor::Reactor;
 
 use pravega_client_auth::DelegationTokenProvider;
@@ -266,7 +266,8 @@ impl Transaction {
 
         let size = event.len();
         let (tx, rx) = oneshot::channel();
-        if let Some(pending_event) = PendingEvent::with_header(None, routing_key, event, None, tx) {
+        let routing_info = RoutingInfo::RoutingKey(routing_key);
+        if let Some(pending_event) = PendingEvent::with_header(routing_info, event, None, tx) {
             let append_event = Incoming::AppendEvent(pending_event);
             if let Err(e) = self.sender.send((append_event, size)).await {
                 error!(

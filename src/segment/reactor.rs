@@ -15,7 +15,7 @@ use pravega_client_shared::*;
 use pravega_wire_protocol::wire_commands::Replies;
 
 use crate::client_factory::ClientFactory;
-use crate::segment::event::{Incoming, ServerReply};
+use crate::segment::event::{Incoming, RoutingInfo, ServerReply};
 use crate::segment::selector::SegmentSelector;
 
 const MAX_RECONNECTION_ALLOWED_FOR_CONDITIONAL_CHECK: i32 = 3;
@@ -50,10 +50,9 @@ impl Reactor {
         let (event, cap_guard) = receiver.recv().await.expect("sender closed, processor exit");
         match event {
             Incoming::AppendEvent(pending_event) => {
-                let event_segment_writer = if let Some(segment) = &pending_event.scoped_segment {
-                    selector.get_segment_writer_by_key(segment)
-                } else {
-                    selector.get_segment_writer(&pending_event.routing_key)
+                let event_segment_writer = match &pending_event.routing_info {
+                    RoutingInfo::RoutingKey(key) => selector.get_segment_writer(key),
+                    RoutingInfo::Segment(segment) => selector.get_segment_writer_by_key(segment),
                 };
 
                 if let Err(e) = event_segment_writer.write(pending_event, cap_guard).await {
@@ -204,7 +203,7 @@ impl Reactor {
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
-    use crate::segment::event::PendingEvent;
+    use crate::segment::event::{PendingEvent, RoutingInfo};
     use crate::segment::selector::test::create_segment_selector;
     use pravega_client_channel::ChannelSender;
     use pravega_client_config::connection_type::MockType;
@@ -277,14 +276,9 @@ pub(crate) mod test {
         size: usize,
     ) -> oneshot::Receiver<Result<(), Error>> {
         let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
-        let event = PendingEvent::new(
-            None,
-            Some("routing_key".into()),
-            vec![1; size],
-            None,
-            oneshot_sender,
-        )
-        .expect("create pending event");
+        let routing_info = RoutingInfo::RoutingKey("routing_key".to_string());
+        let event = PendingEvent::new(routing_info, vec![1; size], None, oneshot_sender)
+            .expect("create pending event");
         sender.send((Incoming::AppendEvent(event), size)).await.unwrap();
         oneshot_receiver
     }

@@ -38,9 +38,14 @@ pub(crate) struct WriterInfo {
 }
 
 #[derive(Debug)]
+pub(crate) enum RoutingInfo {
+    RoutingKey(Option<String>),
+    Segment(ScopedSegment),
+}
+
+#[derive(Debug)]
 pub(crate) struct PendingEvent {
-    pub(crate) scoped_segment: Option<ScopedSegment>,
-    pub(crate) routing_key: Option<String>,
+    pub(crate) routing_info: RoutingInfo,
     pub(crate) data: Vec<u8>,
     pub(crate) conditional_offset: Option<i64>,
     pub(crate) oneshot_sender: oneshot::Sender<Result<(), Error>>,
@@ -49,8 +54,7 @@ pub(crate) struct PendingEvent {
 impl PendingEvent {
     pub(crate) const MAX_WRITE_SIZE: usize = 8 * 1024 * 1024 + 8;
     pub(crate) fn new(
-        scoped_segment: Option<ScopedSegment>,
-        routing_key: Option<String>,
+        routing_info: RoutingInfo,
         data: Vec<u8>,
         conditional_offset: Option<i64>,
         oneshot_sender: oneshot::Sender<Result<(), Error>>,
@@ -74,8 +78,7 @@ impl PendingEvent {
             None
         } else {
             Some(PendingEvent {
-                scoped_segment,
-                routing_key,
+                routing_info,
                 data,
                 conditional_offset,
                 oneshot_sender,
@@ -84,21 +87,14 @@ impl PendingEvent {
     }
 
     pub(crate) fn with_header(
-        scoped_segment: Option<ScopedSegment>,
-        routing_key: Option<String>,
+        routing_info: RoutingInfo,
         data: Vec<u8>,
         conditional_offset: Option<i64>,
         oneshot_sender: oneshot::Sender<Result<(), Error>>,
     ) -> Option<PendingEvent> {
         let cmd = EventCommand { data };
         match cmd.write_fields() {
-            Ok(data) => PendingEvent::new(
-                scoped_segment,
-                routing_key,
-                data,
-                conditional_offset,
-                oneshot_sender,
-            ),
+            Ok(data) => PendingEvent::new(routing_info, data, conditional_offset, oneshot_sender),
             Err(e) => {
                 warn!("failed to serialize event to event command, sending this error back to caller");
                 oneshot_sender
@@ -113,19 +109,12 @@ impl PendingEvent {
     }
 
     pub(crate) fn without_header(
-        scoped_segment: Option<ScopedSegment>,
-        routing_key: Option<String>,
+        routing_info: RoutingInfo,
         data: Vec<u8>,
         conditional_offset: Option<i64>,
         oneshot_sender: oneshot::Sender<Result<(), Error>>,
     ) -> Option<PendingEvent> {
-        PendingEvent::new(
-            scoped_segment,
-            routing_key,
-            data,
-            conditional_offset,
-            oneshot_sender,
-        )
+        PendingEvent::new(routing_info, data, conditional_offset, oneshot_sender)
     }
 
     pub(crate) fn is_empty(&self) -> bool {

@@ -10,7 +10,7 @@
 
 use crate::client_factory::ClientFactory;
 use crate::event::writer::EventWriter;
-use crate::segment::event::{Incoming, PendingEvent};
+use crate::segment::event::{Incoming, PendingEvent, RoutingInfo};
 use crate::segment::metadata::SegmentMetadataClient;
 use crate::segment::reactor::Reactor;
 use crate::util::get_random_u128;
@@ -219,13 +219,10 @@ impl ByteWriter {
     ) -> oneshot::Receiver<Result<(), Error>> {
         let size = event.len();
         let (tx, rx) = oneshot::channel();
-        if let Some(pending_event) = PendingEvent::without_header(
-            Some(self.scoped_segment.clone()),
-            None,
-            event,
-            Some(self.write_offset),
-            tx,
-        ) {
+        let routing_info = RoutingInfo::Segment(self.scoped_segment.clone());
+        if let Some(pending_event) =
+            PendingEvent::without_header(routing_info, event, Some(self.write_offset), tx)
+        {
             let append_event = Incoming::AppendEvent(pending_event);
             if let Err(_e) = sender.send((append_event, size)).await {
                 let (tx_error, rx_error) = oneshot::channel();
