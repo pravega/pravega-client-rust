@@ -796,6 +796,12 @@
 <span id="793">793</span>
 <span id="794">794</span>
 <span id="795">795</span>
+<span id="796">796</span>
+<span id="797">797</span>
+<span id="798">798</span>
+<span id="799">799</span>
+<span id="800">800</span>
+<span id="801">801</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -1337,6 +1343,7 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">test</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment</span>::<span class="ident">event</span>::<span class="ident">RoutingInfo</span>;
     <span class="kw">use</span> <span class="ident">pravega_client_channel</span>::{<span class="ident">create_channel</span>, <span class="ident">ChannelReceiver</span>};
     <span class="kw">use</span> <span class="ident">pravega_client_config</span>::<span class="ident">connection_type</span>::{<span class="ident">ConnectionType</span>, <span class="ident">MockType</span>};
     <span class="kw">use</span> <span class="ident">pravega_client_config</span>::<span class="ident">ClientConfigBuilder</span>;
@@ -1567,8 +1574,13 @@
         <span class="ident">offset</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">PendingEvent</span>, <span class="ident">CapacityGuard</span>, <span class="ident">EventHandle</span>) {
         <span class="kw">let</span> (<span class="ident">oneshot_sender</span>, <span class="ident">oneshot_receiver</span>) <span class="op">=</span> <span class="ident">tokio</span>::<span class="ident">sync</span>::<span class="ident">oneshot</span>::<span class="ident">channel</span>();
-        <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">PendingEvent</span>::<span class="ident">new</span>(<span class="prelude-val">Some</span>(<span class="string">&quot;routing_key&quot;</span>.<span class="ident">into</span>()), <span class="macro">vec</span><span class="macro">!</span>[<span class="number">1</span>; <span class="ident">size</span>], <span class="ident">offset</span>, <span class="ident">oneshot_sender</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;create pending event&quot;</span>);
+        <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">PendingEvent</span>::<span class="ident">new</span>(
+            <span class="ident">RoutingInfo</span>::<span class="ident">RoutingKey</span>(<span class="prelude-val">Some</span>(<span class="string">&quot;routing_key&quot;</span>.<span class="ident">into</span>())),
+            <span class="macro">vec</span><span class="macro">!</span>[<span class="number">1</span>; <span class="ident">size</span>],
+            <span class="ident">offset</span>,
+            <span class="ident">oneshot_sender</span>,
+        )
+        .<span class="ident">expect</span>(<span class="string">&quot;create pending event&quot;</span>);
         <span class="ident">sender</span>.<span class="ident">send</span>((<span class="ident">Incoming</span>::<span class="ident">AppendEvent</span>(<span class="ident">event</span>), <span class="ident">size</span>)).<span class="kw">await</span>.<span class="ident">unwrap</span>();
         <span class="kw">loop</span> {
             <span class="kw">let</span> (<span class="ident">event</span>, <span class="ident">guard</span>) <span class="op">=</span> <span class="ident">receiver</span>.<span class="ident">recv</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>();

@@ -204,6 +204,8 @@
 <span id="201">201</span>
 <span id="202">202</span>
 <span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -216,7 +218,7 @@
 <span class="comment">//</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">client_factory</span>::<span class="ident">ClientFactory</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment</span>::<span class="ident">event</span>::{<span class="ident">Incoming</span>, <span class="ident">PendingEvent</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment</span>::<span class="ident">event</span>::{<span class="ident">Incoming</span>, <span class="ident">PendingEvent</span>, <span class="ident">RoutingInfo</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment</span>::<span class="ident">reactor</span>::<span class="ident">Reactor</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">util</span>::<span class="ident">get_random_u128</span>;
 
@@ -325,7 +327,8 @@
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">write_event</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">event</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">oneshot</span>::<span class="ident">Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">event</span>.<span class="ident">len</span>();
         <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">oneshot</span>::<span class="ident">channel</span>();
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">pending_event</span>) <span class="op">=</span> <span class="ident">PendingEvent</span>::<span class="ident">with_header</span>(<span class="prelude-val">None</span>, <span class="ident">event</span>, <span class="prelude-val">None</span>, <span class="ident">tx</span>) {
+        <span class="kw">let</span> <span class="ident">routing_info</span> <span class="op">=</span> <span class="ident">RoutingInfo</span>::<span class="ident">RoutingKey</span>(<span class="prelude-val">None</span>);
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">pending_event</span>) <span class="op">=</span> <span class="ident">PendingEvent</span>::<span class="ident">with_header</span>(<span class="ident">routing_info</span>, <span class="ident">event</span>, <span class="prelude-val">None</span>, <span class="ident">tx</span>) {
             <span class="kw">let</span> <span class="ident">append_event</span> <span class="op">=</span> <span class="ident">Incoming</span>::<span class="ident">AppendEvent</span>(<span class="ident">pending_event</span>);
             <span class="self">self</span>.<span class="ident">writer_event_internal</span>(<span class="ident">append_event</span>, <span class="ident">size</span>, <span class="ident">rx</span>).<span class="kw">await</span>
         } <span class="kw">else</span> {
@@ -343,7 +346,8 @@
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">oneshot</span>::<span class="ident">Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">event</span>.<span class="ident">len</span>();
         <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">oneshot</span>::<span class="ident">channel</span>();
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">pending_event</span>) <span class="op">=</span> <span class="ident">PendingEvent</span>::<span class="ident">with_header</span>(<span class="prelude-val">Some</span>(<span class="ident">routing_key</span>), <span class="ident">event</span>, <span class="prelude-val">None</span>, <span class="ident">tx</span>) {
+        <span class="kw">let</span> <span class="ident">routing_info</span> <span class="op">=</span> <span class="ident">RoutingInfo</span>::<span class="ident">RoutingKey</span>(<span class="prelude-val">Some</span>(<span class="ident">routing_key</span>));
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">pending_event</span>) <span class="op">=</span> <span class="ident">PendingEvent</span>::<span class="ident">with_header</span>(<span class="ident">routing_info</span>, <span class="ident">event</span>, <span class="prelude-val">None</span>, <span class="ident">tx</span>) {
             <span class="kw">let</span> <span class="ident">append_event</span> <span class="op">=</span> <span class="ident">Incoming</span>::<span class="ident">AppendEvent</span>(<span class="ident">pending_event</span>);
             <span class="self">self</span>.<span class="ident">writer_event_internal</span>(<span class="ident">append_event</span>, <span class="ident">size</span>, <span class="ident">rx</span>).<span class="kw">await</span>
         } <span class="kw">else</span> {
@@ -383,24 +387,24 @@
     <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">runtime</span>::<span class="ident">Runtime</span>;
 
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment</span>::<span class="ident">event</span>::<span class="ident">PendingEvent</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment</span>::<span class="ident">event</span>::{<span class="ident">PendingEvent</span>, <span class="ident">RoutingInfo</span>};
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_pending_event</span>() {
         <span class="comment">// test with legal event size</span>
         <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">_rx</span>) <span class="op">=</span> <span class="ident">oneshot</span>::<span class="ident">channel</span>();
         <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
-        <span class="kw">let</span> <span class="ident">routing_key</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+        <span class="kw">let</span> <span class="ident">routing_info</span> <span class="op">=</span> <span class="ident">RoutingInfo</span>::<span class="ident">RoutingKey</span>(<span class="prelude-val">None</span>);
 
-        <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">PendingEvent</span>::<span class="ident">without_header</span>(<span class="ident">routing_key</span>, <span class="ident">data</span>, <span class="prelude-val">None</span>, <span class="ident">tx</span>).<span class="ident">expect</span>(<span class="string">&quot;create pending event&quot;</span>);
+        <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">PendingEvent</span>::<span class="ident">without_header</span>(<span class="ident">routing_info</span>, <span class="ident">data</span>, <span class="prelude-val">None</span>, <span class="ident">tx</span>).<span class="ident">expect</span>(<span class="string">&quot;create pending event&quot;</span>);
         <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">event</span>.<span class="ident">is_empty</span>());
 
         <span class="comment">// test with illegal event size</span>
         <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">oneshot</span>::<span class="ident">channel</span>();
         <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="number">0</span>; (<span class="ident">PendingEvent</span>::<span class="ident">MAX_WRITE_SIZE</span> <span class="op">+</span> <span class="number">1</span>) <span class="kw">as</span> <span class="ident">usize</span>];
-        <span class="kw">let</span> <span class="ident">routing_key</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+        <span class="kw">let</span> <span class="ident">routing_info</span> <span class="op">=</span> <span class="ident">RoutingInfo</span>::<span class="ident">RoutingKey</span>(<span class="prelude-val">None</span>);
 
-        <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">PendingEvent</span>::<span class="ident">without_header</span>(<span class="ident">routing_key</span>, <span class="ident">data</span>, <span class="prelude-val">None</span>, <span class="ident">tx</span>);
+        <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">PendingEvent</span>::<span class="ident">without_header</span>(<span class="ident">routing_info</span>, <span class="ident">data</span>, <span class="prelude-val">None</span>, <span class="ident">tx</span>);
         <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">event</span>.<span class="ident">is_none</span>());
 
         <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">Runtime</span>::<span class="ident">new</span>().<span class="ident">expect</span>(<span class="string">&quot;get runtime&quot;</span>);

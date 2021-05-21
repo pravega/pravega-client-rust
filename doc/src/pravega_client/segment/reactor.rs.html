@@ -282,6 +282,10 @@
 <span id="279">279</span>
 <span id="280">280</span>
 <span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -300,7 +304,7 @@
 <span class="kw">use</span> <span class="ident">pravega_wire_protocol</span>::<span class="ident">wire_commands</span>::<span class="ident">Replies</span>;
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">client_factory</span>::<span class="ident">ClientFactory</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment</span>::<span class="ident">event</span>::{<span class="ident">Incoming</span>, <span class="ident">ServerReply</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment</span>::<span class="ident">event</span>::{<span class="ident">Incoming</span>, <span class="ident">RoutingInfo</span>, <span class="ident">ServerReply</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment</span>::<span class="ident">selector</span>::<span class="ident">SegmentSelector</span>;
 
 <span class="kw">const</span> <span class="ident">MAX_RECONNECTION_ALLOWED_FOR_CONDITIONAL_CHECK</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">3</span>;
@@ -335,7 +339,10 @@
         <span class="kw">let</span> (<span class="ident">event</span>, <span class="ident">cap_guard</span>) <span class="op">=</span> <span class="ident">receiver</span>.<span class="ident">recv</span>().<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;sender closed, processor exit&quot;</span>);
         <span class="kw">match</span> <span class="ident">event</span> {
             <span class="ident">Incoming</span>::<span class="ident">AppendEvent</span>(<span class="ident">pending_event</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="kw">let</span> <span class="ident">event_segment_writer</span> <span class="op">=</span> <span class="ident">selector</span>.<span class="ident">get_segment_writer</span>(<span class="kw-2">&amp;</span><span class="ident">pending_event</span>.<span class="ident">routing_key</span>);
+                <span class="kw">let</span> <span class="ident">event_segment_writer</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">pending_event</span>.<span class="ident">routing_info</span> {
+                    <span class="ident">RoutingInfo</span>::<span class="ident">RoutingKey</span>(<span class="ident">key</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">selector</span>.<span class="ident">get_segment_writer</span>(<span class="ident">key</span>),
+                    <span class="ident">RoutingInfo</span>::<span class="ident">Segment</span>(<span class="ident">segment</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">selector</span>.<span class="ident">get_segment_writer_by_key</span>(<span class="ident">segment</span>),
+                };
 
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">event_segment_writer</span>.<span class="ident">write</span>(<span class="ident">pending_event</span>, <span class="ident">cap_guard</span>).<span class="kw">await</span> {
                     <span class="macro">warn</span><span class="macro">!</span>(<span class="string">&quot;failed to write append to segment due to {:?}, reconnecting&quot;</span>, <span class="ident">e</span>);
@@ -485,7 +492,7 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">test</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment</span>::<span class="ident">event</span>::<span class="ident">PendingEvent</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment</span>::<span class="ident">event</span>::{<span class="ident">PendingEvent</span>, <span class="ident">RoutingInfo</span>};
     <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment</span>::<span class="ident">selector</span>::<span class="ident">test</span>::<span class="ident">create_segment_selector</span>;
     <span class="kw">use</span> <span class="ident">pravega_client_channel</span>::<span class="ident">ChannelSender</span>;
     <span class="kw">use</span> <span class="ident">pravega_client_config</span>::<span class="ident">connection_type</span>::<span class="ident">MockType</span>;
@@ -558,7 +565,8 @@
         <span class="ident">size</span>: <span class="ident">usize</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">oneshot</span>::<span class="ident">Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">oneshot_sender</span>, <span class="ident">oneshot_receiver</span>) <span class="op">=</span> <span class="ident">tokio</span>::<span class="ident">sync</span>::<span class="ident">oneshot</span>::<span class="ident">channel</span>();
-        <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">PendingEvent</span>::<span class="ident">new</span>(<span class="prelude-val">Some</span>(<span class="string">&quot;routing_key&quot;</span>.<span class="ident">into</span>()), <span class="macro">vec</span><span class="macro">!</span>[<span class="number">1</span>; <span class="ident">size</span>], <span class="prelude-val">None</span>, <span class="ident">oneshot_sender</span>)
+        <span class="kw">let</span> <span class="ident">routing_info</span> <span class="op">=</span> <span class="ident">RoutingInfo</span>::<span class="ident">RoutingKey</span>(<span class="prelude-val">Some</span>(<span class="string">&quot;routing_key&quot;</span>.<span class="ident">to_string</span>()));
+        <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">PendingEvent</span>::<span class="ident">new</span>(<span class="ident">routing_info</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="number">1</span>; <span class="ident">size</span>], <span class="prelude-val">None</span>, <span class="ident">oneshot_sender</span>)
             .<span class="ident">expect</span>(<span class="string">&quot;create pending event&quot;</span>);
         <span class="ident">sender</span>.<span class="ident">send</span>((<span class="ident">Incoming</span>::<span class="ident">AppendEvent</span>(<span class="ident">event</span>), <span class="ident">size</span>)).<span class="kw">await</span>.<span class="ident">unwrap</span>();
         <span class="ident">oneshot_receiver</span>

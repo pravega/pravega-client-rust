@@ -688,6 +688,7 @@
 <span id="685">685</span>
 <span id="686">686</span>
 <span id="687">687</span>
+<span id="688">688</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -700,7 +701,7 @@
 <span class="comment">//</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">client_factory</span>::<span class="ident">ClientFactory</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment</span>::<span class="ident">event</span>::{<span class="ident">Incoming</span>, <span class="ident">PendingEvent</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment</span>::<span class="ident">event</span>::{<span class="ident">Incoming</span>, <span class="ident">PendingEvent</span>, <span class="ident">RoutingInfo</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment</span>::<span class="ident">reactor</span>::<span class="ident">Reactor</span>;
 
 <span class="kw">use</span> <span class="ident">pravega_client_auth</span>::<span class="ident">DelegationTokenProvider</span>;
@@ -957,7 +958,8 @@
 
         <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">event</span>.<span class="ident">len</span>();
         <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">oneshot</span>::<span class="ident">channel</span>();
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">pending_event</span>) <span class="op">=</span> <span class="ident">PendingEvent</span>::<span class="ident">with_header</span>(<span class="ident">routing_key</span>, <span class="ident">event</span>, <span class="prelude-val">None</span>, <span class="ident">tx</span>) {
+        <span class="kw">let</span> <span class="ident">routing_info</span> <span class="op">=</span> <span class="ident">RoutingInfo</span>::<span class="ident">RoutingKey</span>(<span class="ident">routing_key</span>);
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">pending_event</span>) <span class="op">=</span> <span class="ident">PendingEvent</span>::<span class="ident">with_header</span>(<span class="ident">routing_info</span>, <span class="ident">event</span>, <span class="prelude-val">None</span>, <span class="ident">tx</span>) {
             <span class="kw">let</span> <span class="ident">append_event</span> <span class="op">=</span> <span class="ident">Incoming</span>::<span class="ident">AppendEvent</span>(<span class="ident">pending_event</span>);
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">sender</span>.<span class="ident">send</span>((<span class="ident">append_event</span>, <span class="ident">size</span>)).<span class="kw">await</span> {
                 <span class="macro">error</span><span class="macro">!</span>(
