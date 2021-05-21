@@ -276,7 +276,7 @@ pub(crate) mod test {
         size: usize,
     ) -> oneshot::Receiver<Result<(), Error>> {
         let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
-        let routing_info = RoutingInfo::RoutingKey("routing_key".to_string());
+        let routing_info = RoutingInfo::RoutingKey(Some("routing_key".to_string()));
         let event = PendingEvent::new(routing_info, vec![1; size], None, oneshot_sender)
             .expect("create pending event");
         sender.send((Incoming::AppendEvent(event), size)).await.unwrap();

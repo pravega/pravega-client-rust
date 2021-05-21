@@ -538,6 +538,7 @@ pub enum SegmentWriterError {
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
+    use crate::segment::event::RoutingInfo;
     use pravega_client_channel::{create_channel, ChannelReceiver};
     use pravega_client_config::connection_type::{ConnectionType, MockType};
     use pravega_client_config::ClientConfigBuilder;
@@ -769,8 +770,7 @@ pub(crate) mod test {
     ) -> (PendingEvent, CapacityGuard, EventHandle) {
         let (oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
         let event = PendingEvent::new(
-            None,
-            Some("routing_key".into()),
+            RoutingInfo::RoutingKey(Some("routing_key".into())),
             vec![1; size],
             offset,
             oneshot_sender,

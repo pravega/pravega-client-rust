@@ -185,7 +185,7 @@ mod tests {
         // test with legal event size
         let (tx, _rx) = oneshot::channel();
         let data = vec![];
-        let routing_info = RoutingInfo::Empty();
+        let routing_info = RoutingInfo::RoutingKey(None);
 
         let event = PendingEvent::without_header(routing_info, data, None, tx).expect("create pending event");
         assert!(event.is_empty());
@@ -193,7 +193,7 @@ mod tests {
         // test with illegal event size
         let (tx, rx) = oneshot::channel();
         let data = vec![0; (PendingEvent::MAX_WRITE_SIZE + 1) as usize];
-        let routing_info = RoutingInfo::Empty();
+        let routing_info = RoutingInfo::RoutingKey(None);
 
         let event = PendingEvent::without_header(routing_info, data, None, tx);
         assert!(event.is_none());
