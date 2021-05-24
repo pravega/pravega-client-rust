@@ -78,7 +78,7 @@ impl Credentials {
         }
     }
 
-    pub fn keycloak_by_json_string(json: &str) -> Self {
+    pub fn keycloak_from_json_string(json: &str) -> Self {
         // decode json string to struct
         let key_cloak_json: KeyCloakJson = serde_json::from_str(json).expect("decode slice to struct");
         let keycloak = KeyCloak {

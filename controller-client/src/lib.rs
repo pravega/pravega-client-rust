@@ -53,7 +53,6 @@ use pravega_client_retry::wrap_with_async_retry;
 use pravega_client_shared::*;
 use snafu::Snafu;
 use std::convert::{From, Into};
-use std::fs::File;
 use std::io::BufReader;
 use std::str::FromStr;
 use tokio::runtime::Runtime;
@@ -315,25 +314,18 @@ async fn get_channel(config: &ClientConfig) -> Channel {
         );
         let mut rustls_client_config = RustlsClientConfig::new();
         rustls_client_config.alpn_protocols.push(Vec::from("h2"));
-        let cert_paths =
-            std::fs::read_dir(&config.trustcert).expect("cannot read from the provided cert directory");
-        for entry in cert_paths {
-            let path = entry.expect("get the cert file").path();
-            debug!("reading cert file {}", path.display());
-            let mut pem = BufReader::new(File::open(path.clone()).expect("read cert file"));
-
-            let res = rustls_client_config.root_store.add_pem_file(&mut pem);
+        for cert in &config.trustcerts {
+            let mut wrapper = BufReader::new(cert.as_bytes());
+            let res = rustls_client_config.root_store.add_pem_file(&mut wrapper);
             match res {
                 Ok((valid, invalid)) => {
                     debug!(
-                        "{} contains {} valid certs and {} invalid certs",
-                        path.display(),
-                        valid,
-                        invalid
+                        "pem file contains {} valid certs and {} invalid certs",
+                        valid, invalid
                     );
                 }
                 Err(_e) => {
-                    debug!("failed to add cert files {}", path.display());
+                    debug!("failed to add cert files {}", cert);
                 }
             }
         }
