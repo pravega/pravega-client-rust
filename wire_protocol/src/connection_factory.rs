@@ -61,10 +61,9 @@ pub trait ConnectionFactory: Send + Sync {
 impl dyn ConnectionFactory {
     pub fn create(config: ConnectionFactoryConfig) -> Box<dyn ConnectionFactory> {
         match config.connection_type {
-            ConnectionType::Tokio => Box::new(TokioConnectionFactory::new(
-                config.is_tls_enabled,
-                config.certs.clone(),
-            )),
+            ConnectionType::Tokio => {
+                Box::new(TokioConnectionFactory::new(config.is_tls_enabled, config.certs))
+            }
             ConnectionType::Mock(mock_type) => Box::new(MockConnectionFactory::new(mock_type)),
         }
     }
