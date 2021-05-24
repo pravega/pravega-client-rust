@@ -167,7 +167,7 @@ fn check_auth_token_expired(reply: &Replies) -> Result<(), RawClientError> {
 mod tests {
     use super::*;
     use pravega_client_config::connection_type::ConnectionType;
-    use pravega_wire_protocol::commands::HelloCommand;
+    use pravega_wire_protocol::commands::{HelloCommand, ReadSegmentCommand, SegmentReadCommand};
     use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryConfig};
     use pravega_wire_protocol::wire_commands::Encode;
     use std::io::Write;
@@ -185,7 +185,7 @@ mod tests {
             let rt = Runtime::new().expect("create tokio Runtime");
             let config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
             let connection_factory = ConnectionFactory::create(config);
-            let manager = SegmentConnectionManager::new(connection_factory, 2);
+            let manager = SegmentConnectionManager::new(connection_factory, 1);
             let pool = ConnectionPool::new(manager);
             Common { rt, pool }
         }
@@ -263,6 +263,90 @@ mod tests {
             Replies::Hello(HelloCommand {
                 high_version: 9,
                 low_version: 5,
+            })
+        );
+        h.join().expect("thread finished");
+    }
+
+    #[test]
+    fn test_invalid_connection() {
+        let common = Common::new();
+        let server = Server::new();
+
+        let raw_client = RawClientImpl::new(
+            &common.pool,
+            PravegaNodeUri::from(server.address),
+            Duration::from_secs(30),
+        );
+        let h = thread::spawn(move || {
+            let mut cnt = 0;
+            for stream in server.listener.incoming() {
+                cnt += 1;
+                match stream {
+                    Ok(mut stream) => {
+                        if cnt == 1 {
+                            let reply = Replies::Hello(HelloCommand {
+                                high_version: 11,
+                                low_version: 5,
+                            });
+                            let bytes = reply.write_fields().expect("serialize reply");
+                            stream.write_all(&bytes).expect("send valid payload");
+                        } else if cnt == 2 {
+                            let buf = vec![0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 255, 255, 255, 255];
+                            stream.write_all(&buf).expect("send invalid payload");
+                        } else if cnt == 3 {
+                            let reply = Replies::Hello(HelloCommand {
+                                high_version: 11,
+                                low_version: 5,
+                            });
+                            let bytes = reply.write_fields().expect("serialize reply");
+                            stream.write_all(&bytes).expect("send valid payload");
+                        } else if cnt == 4 {
+                            let reply = Replies::SegmentRead(SegmentReadCommand {
+                                segment: "foo".to_string(),
+                                offset: 0,
+                                at_tail: false,
+                                end_of_segment: false,
+                                data: vec![0, 0, 0, 0],
+                                request_id: 0,
+                            });
+                            let bytes = reply.write_fields().expect("serialize reply");
+                            stream.write_all(&bytes).expect("send valid payload");
+                            break;
+                        }
+                    }
+                    Err(_e) => {
+                        panic!("connection failed");
+                    }
+                }
+            }
+        });
+        let request = Requests::ReadSegment(ReadSegmentCommand {
+            segment: "foo".to_string(),
+            offset: 0,
+            suggested_length: 0,
+            delegation_token: "".to_string(),
+            request_id: 0,
+        });
+
+        let res = common.rt.block_on(raw_client.send_request(&request));
+        // payload length too long
+        assert!(res.is_err());
+
+        // send again for retry
+        let reply = common
+            .rt
+            .block_on(raw_client.send_request(&request))
+            .expect("get reply");
+        assert_eq!(
+            reply,
+            Replies::SegmentRead(SegmentReadCommand {
+                segment: "foo".to_string(),
+                offset: 0,
+                at_tail: false,
+                end_of_segment: false,
+                data: vec![0, 0, 0, 0],
+                request_id: 0
             })
         );
         h.join().expect("thread finished");

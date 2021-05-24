@@ -158,6 +158,10 @@ impl Connection for MockConnection {
     fn is_valid(&self) -> bool {
         true
     }
+
+    fn set_validity(&mut self, _is_valid: bool) {
+        unimplemented!()
+    }
 }
 
 impl Debug for MockConnection {

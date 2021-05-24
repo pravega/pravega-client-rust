@@ -116,10 +116,13 @@ impl ConnectionFactory for TokioConnectionFactory {
                 .connect(domain, stream)
                 .await
                 .expect("connect to tls stream");
+            // set connection as invalid initially.
+            // applications should decide whether this connection is safe to be recycled.
             Box::new(TlsConnection {
                 uuid,
                 endpoint: endpoint.clone(),
                 stream: Some(stream),
+                is_valid: false,
             }) as Box<dyn Connection>
         } else {
             let stream = TcpStream::connect(endpoint.to_socket_addr())
@@ -128,10 +131,13 @@ impl ConnectionFactory for TokioConnectionFactory {
                     connection_type,
                     endpoint: endpoint.clone(),
                 })?;
+            // set connection as invalid initially.
+            // applications should decide whether this connection is safe to be recycled.
             Box::new(TokioConnection {
                 uuid,
                 endpoint: endpoint.clone(),
                 stream: Some(stream),
+                is_valid: false,
             }) as Box<dyn Connection>
         };
         verify_connection(&mut *tokio_connection)

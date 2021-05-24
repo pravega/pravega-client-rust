@@ -117,6 +117,7 @@ impl ClientConnection for ClientConnectionImpl<'_> {
 }
 
 pub async fn read_wirecommand(connection: &mut dyn Connection) -> Result<Replies, ClientConnectionError> {
+    connection.set_validity(false);
     let mut header: Vec<u8> = vec![0; LENGTH_FIELD_OFFSET as usize + LENGTH_FIELD_LENGTH as usize];
     connection.read_async(&mut header[..]).await.context(Read {
         part: "header".to_string(),
@@ -136,6 +137,7 @@ pub async fn read_wirecommand(connection: &mut dyn Connection) -> Result<Replies
     })?;
     let concatenated = [&header[..], &payload[..]].concat();
     let reply: Replies = Replies::read_from(&concatenated).context(DecodeCommand {})?;
+    connection.set_validity(true);
     Ok(reply)
 }
 
@@ -143,8 +145,14 @@ pub async fn write_wirecommand(
     connection: &mut dyn Connection,
     request: &Requests,
 ) -> Result<(), ClientConnectionError> {
+    connection.set_validity(false);
     let payload = request.write_fields().context(EncodeCommand {})?;
-    connection.send_async(&payload).await.context(Write {})
+    if let Err(e) = connection.send_async(&payload).await.context(Write {}) {
+        return Err(e);
+    } else {
+        connection.set_validity(true);
+    }
+    Ok(())
 }
 
 #[cfg(test)]

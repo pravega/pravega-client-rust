@@ -82,6 +82,8 @@ pub trait Connection: Send + Sync + Debug {
     /// Checks if this connection is valid. A Connection is considered to be invalid after
     /// split so it can be discarded when returning to the connection pol.
     fn is_valid(&self) -> bool;
+
+    fn set_validity(&mut self, is_valid: bool);
 }
 
 /// The underlying connection is using Tokio TcpStream.
@@ -89,6 +91,7 @@ pub struct TokioConnection {
     pub uuid: Uuid,
     pub endpoint: PravegaNodeUri,
     pub stream: Option<TcpStream>,
+    pub is_valid: bool,
 }
 
 #[async_trait]
@@ -145,7 +148,11 @@ impl Connection for TokioConnection {
     }
 
     fn is_valid(&self) -> bool {
-        self.stream.as_ref().expect("get connection").is_valid()
+        self.is_valid && self.stream.as_ref().expect("get connection").is_valid()
+    }
+
+    fn set_validity(&mut self, validity: bool) {
+        self.is_valid = validity
     }
 }
 
@@ -162,6 +169,7 @@ pub struct TlsConnection {
     pub uuid: Uuid,
     pub endpoint: PravegaNodeUri,
     pub stream: Option<TlsStream<TcpStream>>,
+    pub is_valid: bool,
 }
 
 #[async_trait]
@@ -227,7 +235,11 @@ impl Connection for TlsConnection {
     }
 
     fn is_valid(&self) -> bool {
-        self.stream.as_ref().expect("get connection").is_valid()
+        self.is_valid && self.stream.as_ref().expect("get connection").is_valid()
+    }
+
+    fn set_validity(&mut self, is_valid: bool) {
+        self.is_valid = is_valid;
     }
 }
 
