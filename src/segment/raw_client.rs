@@ -170,7 +170,7 @@ mod tests {
     use pravega_wire_protocol::commands::{HelloCommand, ReadSegmentCommand, SegmentReadCommand};
     use pravega_wire_protocol::connection_factory::{ConnectionFactory, ConnectionFactoryConfig};
     use pravega_wire_protocol::wire_commands::Encode;
-    use std::io::Write;
+    use std::io::{Read, Write};
     use std::net::{SocketAddr, TcpListener};
     use std::thread;
     use tokio::runtime::Runtime;
@@ -278,46 +278,61 @@ mod tests {
             PravegaNodeUri::from(server.address),
             Duration::from_secs(30),
         );
+
         let h = thread::spawn(move || {
-            let mut cnt = 0;
+            let mut conn = 0;
             for stream in server.listener.incoming() {
-                cnt += 1;
-                match stream {
-                    Ok(mut stream) => {
-                        if cnt == 1 {
-                            let reply = Replies::Hello(HelloCommand {
-                                high_version: 11,
-                                low_version: 5,
-                            });
-                            let bytes = reply.write_fields().expect("serialize reply");
-                            stream.write_all(&bytes).expect("send valid payload");
-                        } else if cnt == 2 {
-                            let buf = vec![0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 255, 255, 255, 255];
-                            stream.write_all(&buf).expect("send invalid payload");
-                        } else if cnt == 3 {
-                            let reply = Replies::Hello(HelloCommand {
-                                high_version: 11,
-                                low_version: 5,
-                            });
-                            let bytes = reply.write_fields().expect("serialize reply");
-                            stream.write_all(&bytes).expect("send valid payload");
-                        } else if cnt == 4 {
-                            let reply = Replies::SegmentRead(SegmentReadCommand {
-                                segment: "foo".to_string(),
-                                offset: 0,
-                                at_tail: false,
-                                end_of_segment: false,
-                                data: vec![0, 0, 0, 0],
-                                request_id: 0,
-                            });
-                            let bytes = reply.write_fields().expect("serialize reply");
-                            stream.write_all(&bytes).expect("send valid payload");
-                            break;
+                conn += 1;
+                if let Ok(mut stream) = stream {
+                    if conn == 1 {
+                        let mut cnt = 0;
+                        let mut buf = vec![0; 8];
+                        while let Ok(_size) = stream.read_exact(&mut buf) {
+                            cnt += 1;
+                            if cnt == 1 {
+                                let reply = Replies::Hello(HelloCommand {
+                                    high_version: 11,
+                                    low_version: 5,
+                                });
+                                let bytes = reply.write_fields().expect("serialize reply");
+                                stream.write_all(&bytes).expect("send hello");
+                            } else if cnt == 2 {
+                                let buf =
+                                    vec![0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 255, 255, 255, 255];
+                                stream.write_all(&buf).expect("send invalid payload");
+                                break;
+                            }
+                        }
+                    } else {
+                        let mut cnt = 0;
+                        let mut buf = vec![0; 8];
+                        while let Ok(_size) = stream.read_exact(&mut buf) {
+                            cnt += 1;
+                            if cnt == 1 {
+                                let reply = Replies::Hello(HelloCommand {
+                                    high_version: 11,
+                                    low_version: 5,
+                                });
+                                let bytes = reply.write_fields().expect("serialize reply");
+                                stream.write_all(&bytes).expect("send valid payload");
+                            } else if cnt == 2 {
+                                let reply = Replies::SegmentRead(SegmentReadCommand {
+                                    segment: "foo".to_string(),
+                                    offset: 0,
+                                    at_tail: false,
+                                    end_of_segment: false,
+                                    data: vec![0, 0, 0, 0],
+                                    request_id: 0,
+                                });
+                                let bytes = reply.write_fields().expect("serialize reply");
+                                stream.write_all(&bytes).expect("send valid payload");
+                                break;
+                            }
                         }
                     }
-                    Err(_e) => {
-                        panic!("connection failed");
-                    }
+                }
+                if conn == 2 {
+                    break;
                 }
             }
         });
@@ -333,11 +348,12 @@ mod tests {
         // payload length too long
         assert!(res.is_err());
 
-        // send again for retry
+        // retry
         let reply = common
             .rt
             .block_on(raw_client.send_request(&request))
             .expect("get reply");
+
         assert_eq!(
             reply,
             Replies::SegmentRead(SegmentReadCommand {

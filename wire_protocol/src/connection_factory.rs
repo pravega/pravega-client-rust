@@ -195,7 +195,6 @@ async fn verify_connection(conn: &mut dyn Connection) -> Result<(), ClientConnec
     });
     write_wirecommand(conn, &request).await?;
     let reply = read_wirecommand(conn).await?;
-
     match reply {
         Replies::Hello(cmd) => {
             if cmd.low_version <= WIRE_VERSION && cmd.high_version >= WIRE_VERSION {
