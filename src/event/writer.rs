@@ -9,7 +9,7 @@
 //
 
 use crate::client_factory::ClientFactory;
-use crate::segment::event::{Incoming, PendingEvent};
+use crate::segment::event::{Incoming, PendingEvent, RoutingInfo};
 use crate::segment::reactor::Reactor;
 use crate::util::get_random_u128;
 
@@ -118,7 +118,8 @@ impl EventWriter {
     pub async fn write_event(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), Error>> {
         let size = event.len();
         let (tx, rx) = oneshot::channel();
-        if let Some(pending_event) = PendingEvent::with_header(None, event, None, tx) {
+        let routing_info = RoutingInfo::RoutingKey(None);
+        if let Some(pending_event) = PendingEvent::with_header(routing_info, event, None, tx) {
             let append_event = Incoming::AppendEvent(pending_event);
             self.writer_event_internal(append_event, size, rx).await
         } else {
@@ -136,7 +137,8 @@ impl EventWriter {
     ) -> oneshot::Receiver<Result<(), Error>> {
         let size = event.len();
         let (tx, rx) = oneshot::channel();
-        if let Some(pending_event) = PendingEvent::with_header(Some(routing_key), event, None, tx) {
+        let routing_info = RoutingInfo::RoutingKey(Some(routing_key));
+        if let Some(pending_event) = PendingEvent::with_header(routing_info, event, None, tx) {
             let append_event = Incoming::AppendEvent(pending_event);
             self.writer_event_internal(append_event, size, rx).await
         } else {
@@ -176,24 +178,24 @@ mod tests {
     use tokio::runtime::Runtime;
 
     use super::*;
-    use crate::segment::event::PendingEvent;
+    use crate::segment::event::{PendingEvent, RoutingInfo};
 
     #[test]
     fn test_pending_event() {
         // test with legal event size
         let (tx, _rx) = oneshot::channel();
         let data = vec![];
-        let routing_key = None;
+        let routing_info = RoutingInfo::RoutingKey(None);
 
-        let event = PendingEvent::without_header(routing_key, data, None, tx).expect("create pending event");
+        let event = PendingEvent::without_header(routing_info, data, None, tx).expect("create pending event");
         assert!(event.is_empty());
 
         // test with illegal event size
         let (tx, rx) = oneshot::channel();
         let data = vec![0; (PendingEvent::MAX_WRITE_SIZE + 1) as usize];
-        let routing_key = None;
+        let routing_info = RoutingInfo::RoutingKey(None);
 
-        let event = PendingEvent::without_header(routing_key, data, None, tx);
+        let event = PendingEvent::without_header(routing_info, data, None, tx);
         assert!(event.is_none());
 
         let rt = Runtime::new().expect("get runtime");

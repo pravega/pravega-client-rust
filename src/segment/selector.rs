@@ -9,7 +9,7 @@
 //
 
 use crate::client_factory::ClientFactory;
-use crate::segment::event::Incoming;
+use crate::segment::event::{Incoming, RoutingInfo};
 use crate::segment::writer::{Append, SegmentWriter};
 use crate::util::get_random_f64;
 
@@ -22,12 +22,12 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use tracing::{debug, warn};
 
-/// Maintains mapping from segments to segment writers.
+/// Maintain the mapping from segments to segment writers.
 pub(crate) struct SegmentSelector {
     /// The stream of this SegmentSelector.
     pub(crate) stream: ScopedStream,
 
-    /// Maps segment to SegmentWriter.
+    /// Map segment to SegmentWriter.
     pub(crate) writers: HashMap<ScopedSegment, SegmentWriter, RandomState>,
 
     /// The current segments in this stream.
@@ -60,7 +60,7 @@ impl SegmentSelector {
         }
     }
 
-    /// Initializes segment writers by setting up connections so that segment
+    /// Initialize segment writers by setting up connections so that segment
     /// writers are ready to use after initialization.
     pub(crate) async fn initialize(&mut self, stream_segments: Option<StreamSegments>) {
         if let Some(ss) = stream_segments {
@@ -76,12 +76,19 @@ impl SegmentSelector {
         self.create_missing_writers().await;
     }
 
-    /// Gets a segment writer by providing an optional routing key. The stream at least owns one
+    /// Get a segment writer by providing an optional routing key. The stream at least owns one
     /// segment so this method should always has writer to return.
     pub(crate) fn get_segment_writer(&mut self, routing_key: &Option<String>) -> &mut SegmentWriter {
         let segment = self
             .current_segments
             .get_segment_for_routing_key(routing_key, get_random_f64);
+        self.writers
+            .get_mut(segment)
+            .expect("must have corresponding writer")
+    }
+
+    /// Get a segment writer by providing the segment name.
+    pub(crate) fn get_segment_writer_by_key(&mut self, segment: &ScopedSegment) -> &mut SegmentWriter {
         self.writers
             .get_mut(segment)
             .expect("must have corresponding writer")
@@ -157,9 +164,12 @@ impl SegmentSelector {
     /// Resends a list of events.
     pub(crate) async fn resend(&mut self, to_resend: Vec<Append>) {
         for append in to_resend {
-            let segment = self
-                .current_segments
-                .get_segment_for_routing_key(&append.event.routing_key, get_random_f64);
+            let segment = match &append.event.routing_info {
+                RoutingInfo::RoutingKey(key) => self
+                    .current_segments
+                    .get_segment_for_routing_key(key, get_random_f64),
+                RoutingInfo::Segment(segment) => segment,
+            };
             let segment_writer = self.writers.get_mut(segment).expect("must have writer");
             segment_writer.add_pending(append.event, append.cap_guard);
             if let Err(e) = segment_writer.write_pending_events().await {
