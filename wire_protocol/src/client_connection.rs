@@ -105,7 +105,6 @@ impl ClientConnection for ClientConnectionImpl<'_> {
 
     fn split(&mut self) -> (ClientConnectionReadHalf, ClientConnectionWriteHalf) {
         let (r, w) = self.connection.split();
-        self.connection.invalidate();
         let reader = ClientConnectionReadHalf { read_half: r };
         let writer = ClientConnectionWriteHalf { write_half: w };
         (reader, writer)

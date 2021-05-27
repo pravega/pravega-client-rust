@@ -136,7 +136,6 @@ where
                             inner: Some(conn),
                             endpoint,
                             pool: &self.managed_pool,
-                            valid: true,
                         });
                     }
 
@@ -149,7 +148,6 @@ where
                         inner: Some(conn),
                         endpoint,
                         pool: &self.managed_pool,
-                        valid: true,
                     });
                 }
             }
@@ -250,13 +248,6 @@ pub struct PooledConnection<'a, T: Send + Sized> {
     endpoint: PravegaNodeUri,
     inner: Option<T>,
     pool: &'a ManagedPool<T>,
-    valid: bool,
-}
-
-impl<T: Send + Sized> PooledConnection<'_, T> {
-    pub fn invalidate(&mut self) {
-        self.valid = false;
-    }
 }
 
 impl<T: Send + Sized> fmt::Debug for PooledConnection<'_, T> {
@@ -268,15 +259,13 @@ impl<T: Send + Sized> fmt::Debug for PooledConnection<'_, T> {
 impl<T: Send + Sized> Drop for PooledConnection<'_, T> {
     fn drop(&mut self) {
         let conn = self.inner.take().expect("get inner connection");
-        if self.valid {
-            self.pool.add_connection(
-                self.endpoint.clone(),
-                InternalConn {
-                    uuid: self.uuid,
-                    conn,
-                },
-            )
-        }
+        self.pool.add_connection(
+            self.endpoint.clone(),
+            InternalConn {
+                uuid: self.uuid,
+                conn,
+            },
+        )
     }
 }
 
