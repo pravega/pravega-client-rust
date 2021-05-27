@@ -23,12 +23,14 @@ use im::HashMap as ImHashMap;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokio::runtime::Handle;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;
 use tokio::sync::{mpsc, Mutex};
 use tokio::time::timeout;
 use tracing::{debug, error, info, warn};
+
 type ReaderErrorWithOffset = (ReaderError, i64);
 type SegmentReadResult = Result<SegmentDataBuffer, ReaderErrorWithOffset>;
 
@@ -111,8 +113,22 @@ impl Drop for EventReader {
     /// Destructor for reader invoked. This will automatically invoke reader_offline().
     fn drop(&mut self) {
         info!("reader {} is dropped", self.id);
-        let runtime = self.factory.runtime().handle().clone();
-        runtime.block_on(self.reader_offline());
+        // try fetching the currently running Runtme.
+        let r = Handle::try_current();
+        match r {
+            Ok(handle) => {
+                // enter the runtime context.
+                let _ = handle.enter();
+                // ensure we block until the reader_offline method completes.
+                futures::executor::block_on(self.reader_offline());
+            }
+            Err(_) => {
+                // get a handle of the runtime.
+                let handle = self.factory.runtime().handle().clone();
+                // ensure we block until the reader_offline executes successfully.
+                handle.block_on(self.reader_offline());
+            }
+        }
     }
 }
 
@@ -218,6 +234,7 @@ impl EventReader {
                 slice_stop_reading,
                 last_segment_release: Instant::now(),
                 last_segment_acquire: Instant::now(),
+                reader_offline: false,
             },
             rg_state,
         }
@@ -313,29 +330,32 @@ impl EventReader {
     /// Mark the reader as offline. This will ensure the segments owned by this reader is distributed
     /// to other readers in the ReaderGroup.
     pub async fn reader_offline(&mut self) {
-        info!("putting reader {} offline", self.id);
-        // stop reading from all the segments.
-        self.meta.stop_reading_all();
-        // Close all slice return Receivers.
-        self.meta.close_all_slice_return_channel();
-        // use the updated map to return the data.
+        if !self.meta.reader_offline {
+            info!("putting reader {} offline", self.id);
+            // stop reading from all the segments.
+            self.meta.stop_reading_all();
+            // Close all slice return Receivers.
+            self.meta.close_all_slice_return_channel();
+            // use the updated map to return the data.
 
-        let mut offset_map: HashMap<ScopedSegment, Offset> = HashMap::new();
-        for (seg, off) in self.meta.slices_dished_out.drain() {
-            offset_map.insert(seg, Offset::new(off));
+            let mut offset_map: HashMap<ScopedSegment, Offset> = HashMap::new();
+            for (seg, off) in self.meta.slices_dished_out.drain() {
+                offset_map.insert(seg, Offset::new(off));
+            }
+            for (_, meta) in self.meta.slices.drain() {
+                offset_map.insert(
+                    ScopedSegment::from(meta.scoped_segment.as_str()),
+                    Offset::new(meta.read_offset),
+                );
+            }
+            self.rg_state
+                .lock()
+                .await
+                .remove_reader(&self.id, offset_map)
+                .await
+                .expect("Update ReaderGroup to ensure reader is offline");
+            self.meta.reader_offline = true;
         }
-        for (_, meta) in self.meta.slices.drain() {
-            offset_map.insert(
-                ScopedSegment::from(meta.scoped_segment.as_str()),
-                Offset::new(meta.read_offset),
-            );
-        }
-        self.rg_state
-            .lock()
-            .await
-            .remove_reader(&self.id, offset_map)
-            .await
-            .expect("Update ReaderGroup to ensure reader is offline");
     }
 
     // Release the segment of the provided SegmentSlice from the reader. This segment is marked as
@@ -590,7 +610,7 @@ impl EventReader {
                     break;
                 }
             }
-            debug!("Segments acquired by reader {:?} is {:?}", self.id, new_segments);
+            debug!("Segments acquired by reader {:?} are {:?}", self.id, new_segments);
             Some(new_segments)
         }
     }
@@ -651,6 +671,7 @@ struct ReaderState {
     slice_stop_reading: HashMap<ScopedSegment, oneshot::Sender<()>>,
     last_segment_release: Instant,
     last_segment_acquire: Instant,
+    reader_offline: bool,
 }
 
 impl ReaderState {
