@@ -22,13 +22,12 @@ use pravega_connection_pool::connection_pool::{ConnectionPoolError, Manager};
 use snafu::ResultExt;
 use std::collections::HashMap;
 use std::fmt;
-use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 use tokio_rustls::{rustls, webpki::DNSNameRef, TlsConnector};
-use tracing::info;
+use tracing::{debug, info};
 use uuid::Uuid;
 
 /// ConnectionFactory trait is the factory used to establish the TCP connection with remote servers.
@@ -62,10 +61,9 @@ pub trait ConnectionFactory: Send + Sync {
 impl dyn ConnectionFactory {
     pub fn create(config: ConnectionFactoryConfig) -> Box<dyn ConnectionFactory> {
         match config.connection_type {
-            ConnectionType::Tokio => Box::new(TokioConnectionFactory::new(
-                config.is_tls_enabled,
-                &config.cert_path,
-            )),
+            ConnectionType::Tokio => {
+                Box::new(TokioConnectionFactory::new(config.is_tls_enabled, config.certs))
+            }
             ConnectionType::Mock(mock_type) => Box::new(MockConnectionFactory::new(mock_type)),
         }
     }
@@ -73,15 +71,12 @@ impl dyn ConnectionFactory {
 
 struct TokioConnectionFactory {
     tls_enabled: bool,
-    path: String,
+    certs: Vec<String>,
 }
 
 impl TokioConnectionFactory {
-    fn new(tls_enabled: bool, path: &str) -> Self {
-        TokioConnectionFactory {
-            tls_enabled,
-            path: path.to_owned(),
-        }
+    fn new(tls_enabled: bool, certs: Vec<String>) -> Self {
+        TokioConnectionFactory { tls_enabled, certs }
     }
 }
 
@@ -99,8 +94,22 @@ impl ConnectionFactory for TokioConnectionFactory {
                 endpoint
             );
             let mut config = rustls::ClientConfig::new();
-            let mut pem = BufReader::new(File::open(&self.path).expect("open pem file"));
-            config.root_store.add_pem_file(&mut pem).expect("add pem file");
+            for cert in &self.certs {
+                let mut pem = BufReader::new(cert.as_bytes());
+
+                let res = config.root_store.add_pem_file(&mut pem);
+                match res {
+                    Ok((valid, invalid)) => {
+                        debug!(
+                            "pem file contains {} valid certs and {} invalid certs",
+                            valid, invalid
+                        );
+                    }
+                    Err(_e) => {
+                        debug!("failed to add cert files {}", cert);
+                    }
+                }
+            }
             let connector = TlsConnector::from(Arc::new(config));
             let stream = TcpStream::connect(endpoint.to_socket_addr())
                 .await
@@ -277,7 +286,7 @@ pub struct ConnectionFactoryConfig {
     #[new(value = "false")]
     is_tls_enabled: bool,
     #[new(default)]
-    cert_path: String,
+    certs: Vec<String>,
 }
 
 /// ConnectionFactoryConfig can be built from ClientConfig.
@@ -286,7 +295,7 @@ impl From<&ClientConfig> for ConnectionFactoryConfig {
         ConnectionFactoryConfig {
             connection_type: client_config.connection_type,
             is_tls_enabled: client_config.is_tls_enabled,
-            cert_path: client_config.trustcert.clone(),
+            certs: client_config.trustcerts.clone(),
         }
     }
 }
