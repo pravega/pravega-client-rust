@@ -1919,6 +1919,40 @@
 <span id="1916">1916</span>
 <span id="1917">1917</span>
 <span id="1918">1918</span>
+<span id="1919">1919</span>
+<span id="1920">1920</span>
+<span id="1921">1921</span>
+<span id="1922">1922</span>
+<span id="1923">1923</span>
+<span id="1924">1924</span>
+<span id="1925">1925</span>
+<span id="1926">1926</span>
+<span id="1927">1927</span>
+<span id="1928">1928</span>
+<span id="1929">1929</span>
+<span id="1930">1930</span>
+<span id="1931">1931</span>
+<span id="1932">1932</span>
+<span id="1933">1933</span>
+<span id="1934">1934</span>
+<span id="1935">1935</span>
+<span id="1936">1936</span>
+<span id="1937">1937</span>
+<span id="1938">1938</span>
+<span id="1939">1939</span>
+<span id="1940">1940</span>
+<span id="1941">1941</span>
+<span id="1942">1942</span>
+<span id="1943">1943</span>
+<span id="1944">1944</span>
+<span id="1945">1945</span>
+<span id="1946">1946</span>
+<span id="1947">1947</span>
+<span id="1948">1948</span>
+<span id="1949">1949</span>
+<span id="1950">1950</span>
+<span id="1951">1951</span>
+<span id="1952">1952</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -1945,12 +1979,14 @@
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::{<span class="ident">HashMap</span>, <span class="ident">HashSet</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">time</span>::{<span class="ident">Duration</span>, <span class="ident">Instant</span>};
+<span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">runtime</span>::<span class="ident">Handle</span>;
 <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">sync</span>::<span class="ident">mpsc</span>::{<span class="ident">Receiver</span>, <span class="ident">Sender</span>};
 <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">sync</span>::<span class="ident">oneshot</span>;
 <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">sync</span>::<span class="ident">oneshot</span>::<span class="ident">error</span>::<span class="ident">TryRecvError</span>;
 <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">sync</span>::{<span class="ident">mpsc</span>, <span class="ident">Mutex</span>};
 <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">time</span>::<span class="ident">timeout</span>;
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">warn</span>};
+
 <span class="kw">type</span> <span class="ident">ReaderErrorWithOffset</span> <span class="op">=</span> (<span class="ident">ReaderError</span>, <span class="ident">i64</span>);
 <span class="kw">type</span> <span class="ident">SegmentReadResult</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SegmentDataBuffer</span>, <span class="ident">ReaderErrorWithOffset</span><span class="op">&gt;</span>;
 
@@ -2027,6 +2063,29 @@
     <span class="ident">tx</span>: <span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">SegmentReadResult</span><span class="op">&gt;</span>,
     <span class="ident">meta</span>: <span class="ident">ReaderState</span>,
     <span class="ident">rg_state</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">ReaderGroupState</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">EventReader</span> {
+    <span class="doccomment">/// Destructor for reader invoked. This will automatically invoke reader_offline().</span>
+    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
+        <span class="macro">info</span><span class="macro">!</span>(<span class="string">&quot;reader {} is dropped&quot;</span>, <span class="self">self</span>.<span class="ident">id</span>);
+        <span class="comment">// try fetching the currently running Runtme.</span>
+        <span class="kw">let</span> <span class="ident">r</span> <span class="op">=</span> <span class="ident">Handle</span>::<span class="ident">try_current</span>();
+        <span class="kw">match</span> <span class="ident">r</span> {
+            <span class="prelude-val">Ok</span>(<span class="ident">handle</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="comment">// enter the runtime context.</span>
+                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">enter</span>();
+                <span class="comment">// ensure we block until the reader_offline method completes.</span>
+                <span class="ident">futures</span>::<span class="ident">executor</span>::<span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">reader_offline</span>());
+            }
+            <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="comment">// get a handle of the runtime.</span>
+                <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">runtime</span>().<span class="ident">handle</span>().<span class="ident">clone</span>();
+                <span class="comment">// ensure we block until the reader_offline executes successfully.</span>
+                <span class="ident">handle</span>.<span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">reader_offline</span>());
+            }
+        }
+    }
 }
 
 <span class="kw">impl</span> <span class="ident">EventReader</span> {
@@ -2131,6 +2190,7 @@
                 <span class="ident">slice_stop_reading</span>,
                 <span class="ident">last_segment_release</span>: <span class="ident">Instant</span>::<span class="ident">now</span>(),
                 <span class="ident">last_segment_acquire</span>: <span class="ident">Instant</span>::<span class="ident">now</span>(),
+                <span class="ident">reader_offline</span>: <span class="bool-val">false</span>,
             },
             <span class="ident">rg_state</span>,
         }
@@ -2226,29 +2286,32 @@
     <span class="doccomment">/// Mark the reader as offline. This will ensure the segments owned by this reader is distributed</span>
     <span class="doccomment">/// to other readers in the ReaderGroup.</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">reader_offline</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
-        <span class="macro">info</span><span class="macro">!</span>(<span class="string">&quot;putting reader {} offline&quot;</span>, <span class="self">self</span>.<span class="ident">id</span>);
-        <span class="comment">// stop reading from all the segments.</span>
-        <span class="self">self</span>.<span class="ident">meta</span>.<span class="ident">stop_reading_all</span>();
-        <span class="comment">// Close all slice return Receivers.</span>
-        <span class="self">self</span>.<span class="ident">meta</span>.<span class="ident">close_all_slice_return_channel</span>();
-        <span class="comment">// use the updated map to return the data.</span>
+        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">meta</span>.<span class="ident">reader_offline</span> {
+            <span class="macro">info</span><span class="macro">!</span>(<span class="string">&quot;putting reader {} offline&quot;</span>, <span class="self">self</span>.<span class="ident">id</span>);
+            <span class="comment">// stop reading from all the segments.</span>
+            <span class="self">self</span>.<span class="ident">meta</span>.<span class="ident">stop_reading_all</span>();
+            <span class="comment">// Close all slice return Receivers.</span>
+            <span class="self">self</span>.<span class="ident">meta</span>.<span class="ident">close_all_slice_return_channel</span>();
+            <span class="comment">// use the updated map to return the data.</span>
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">offset_map</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
-        <span class="kw">for</span> (<span class="ident">seg</span>, <span class="ident">off</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">meta</span>.<span class="ident">slices_dished_out</span>.<span class="ident">drain</span>() {
-            <span class="ident">offset_map</span>.<span class="ident">insert</span>(<span class="ident">seg</span>, <span class="ident">Offset</span>::<span class="ident">new</span>(<span class="ident">off</span>));
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">offset_map</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
+            <span class="kw">for</span> (<span class="ident">seg</span>, <span class="ident">off</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">meta</span>.<span class="ident">slices_dished_out</span>.<span class="ident">drain</span>() {
+                <span class="ident">offset_map</span>.<span class="ident">insert</span>(<span class="ident">seg</span>, <span class="ident">Offset</span>::<span class="ident">new</span>(<span class="ident">off</span>));
+            }
+            <span class="kw">for</span> (<span class="kw">_</span>, <span class="ident">meta</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">meta</span>.<span class="ident">slices</span>.<span class="ident">drain</span>() {
+                <span class="ident">offset_map</span>.<span class="ident">insert</span>(
+                    <span class="ident">ScopedSegment</span>::<span class="ident">from</span>(<span class="ident">meta</span>.<span class="ident">scoped_segment</span>.<span class="ident">as_str</span>()),
+                    <span class="ident">Offset</span>::<span class="ident">new</span>(<span class="ident">meta</span>.<span class="ident">read_offset</span>),
+                );
+            }
+            <span class="self">self</span>.<span class="ident">rg_state</span>
+                .<span class="ident">lock</span>()
+                .<span class="kw">await</span>
+                .<span class="ident">remove_reader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">id</span>, <span class="ident">offset_map</span>)
+                .<span class="kw">await</span>
+                .<span class="ident">expect</span>(<span class="string">&quot;Update ReaderGroup to ensure reader is offline&quot;</span>);
+            <span class="self">self</span>.<span class="ident">meta</span>.<span class="ident">reader_offline</span> <span class="op">=</span> <span class="bool-val">true</span>;
         }
-        <span class="kw">for</span> (<span class="kw">_</span>, <span class="ident">meta</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">meta</span>.<span class="ident">slices</span>.<span class="ident">drain</span>() {
-            <span class="ident">offset_map</span>.<span class="ident">insert</span>(
-                <span class="ident">ScopedSegment</span>::<span class="ident">from</span>(<span class="ident">meta</span>.<span class="ident">scoped_segment</span>.<span class="ident">as_str</span>()),
-                <span class="ident">Offset</span>::<span class="ident">new</span>(<span class="ident">meta</span>.<span class="ident">read_offset</span>),
-            );
-        }
-        <span class="self">self</span>.<span class="ident">rg_state</span>
-            .<span class="ident">lock</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">remove_reader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">id</span>, <span class="ident">offset_map</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">expect</span>(<span class="string">&quot;Update ReaderGroup to ensure reader is offline&quot;</span>);
     }
 
     <span class="comment">// Release the segment of the provided SegmentSlice from the reader. This segment is marked as</span>
@@ -2503,7 +2566,7 @@
                     <span class="kw">break</span>;
                 }
             }
-            <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Segments acquired by reader {:?} is {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">id</span>, <span class="ident">new_segments</span>);
+            <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Segments acquired by reader {:?} are {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">id</span>, <span class="ident">new_segments</span>);
             <span class="prelude-val">Some</span>(<span class="ident">new_segments</span>)
         }
     }
@@ -2564,6 +2627,7 @@
     <span class="ident">slice_stop_reading</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">oneshot</span>::<span class="ident">Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">last_segment_release</span>: <span class="ident">Instant</span>,
     <span class="ident">last_segment_acquire</span>: <span class="ident">Instant</span>,
+    <span class="ident">reader_offline</span>: <span class="ident">bool</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">ReaderState</span> {
@@ -3090,6 +3154,7 @@
         <span class="ident">rg_mock</span>
             .<span class="ident">expect_compute_segments_to_acquire_or_release</span>()
             .<span class="ident">return_const</span>(<span class="number">0</span> <span class="kw">as</span> <span class="ident">isize</span>);
+        <span class="ident">rg_mock</span>.<span class="ident">expect_remove_reader</span>().<span class="ident">return_once</span>(<span class="kw">move</span> <span class="op">|</span><span class="kw">_</span>, <span class="kw">_</span><span class="op">|</span> <span class="prelude-val">Ok</span>(()));
         <span class="comment">// create a new Event Reader with the segment slice data.</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">reader</span> <span class="op">=</span> <span class="ident">EventReader</span>::<span class="ident">init_event_reader</span>(
             <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Mutex</span>::<span class="ident">new</span>(<span class="ident">rg_mock</span>)),
@@ -3157,6 +3222,7 @@
             .<span class="ident">expect_compute_segments_to_acquire_or_release</span>()
             .<span class="ident">with</span>(<span class="ident">predicate</span>::<span class="ident">eq</span>(<span class="ident">Reader</span>::<span class="ident">from</span>(<span class="string">&quot;r1&quot;</span>.<span class="ident">to_string</span>())))
             .<span class="ident">return_const</span>(<span class="number">1</span> <span class="kw">as</span> <span class="ident">isize</span>);
+        <span class="ident">rg_mock</span>.<span class="ident">expect_remove_reader</span>().<span class="ident">return_once</span>(<span class="kw">move</span> <span class="op">|</span><span class="kw">_</span>, <span class="kw">_</span><span class="op">|</span> <span class="prelude-val">Ok</span>(()));
 
         <span class="comment">// mock rg_state.assign_segment_to_reader</span>
         <span class="kw">let</span> <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span><span class="op">&gt;</span>, <span class="ident">ReaderGroupStateError</span><span class="op">&gt;</span> <span class="op">=</span>
@@ -3259,6 +3325,7 @@
         <span class="ident">rg_mock</span>
             .<span class="ident">expect_compute_segments_to_acquire_or_release</span>()
             .<span class="ident">return_const</span>(<span class="number">0</span> <span class="kw">as</span> <span class="ident">isize</span>);
+        <span class="ident">rg_mock</span>.<span class="ident">expect_remove_reader</span>().<span class="ident">return_once</span>(<span class="kw">move</span> <span class="op">|</span><span class="kw">_</span>, <span class="kw">_</span><span class="op">|</span> <span class="prelude-val">Ok</span>(()));
         <span class="comment">// create a new Event Reader with the segment slice data.</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">reader</span> <span class="op">=</span> <span class="ident">EventReader</span>::<span class="ident">init_event_reader</span>(
             <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Mutex</span>::<span class="ident">new</span>(<span class="ident">rg_mock</span>)),
@@ -3331,7 +3398,7 @@
         <span class="ident">rg_mock</span>
             .<span class="ident">expect_compute_segments_to_acquire_or_release</span>()
             .<span class="ident">return_const</span>(<span class="number">0</span> <span class="kw">as</span> <span class="ident">isize</span>);
-
+        <span class="ident">rg_mock</span>.<span class="ident">expect_remove_reader</span>().<span class="ident">return_once</span>(<span class="kw">move</span> <span class="op">|</span><span class="kw">_</span>, <span class="kw">_</span><span class="op">|</span> <span class="prelude-val">Ok</span>(()));
         <span class="comment">// create a new Event Reader with the segment slice data.</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">reader</span> <span class="op">=</span> <span class="ident">EventReader</span>::<span class="ident">init_event_reader</span>(
             <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Mutex</span>::<span class="ident">new</span>(<span class="ident">rg_mock</span>)),
@@ -3402,6 +3469,7 @@
         <span class="ident">rg_mock</span>
             .<span class="ident">expect_compute_segments_to_acquire_or_release</span>()
             .<span class="ident">return_const</span>(<span class="number">0</span> <span class="kw">as</span> <span class="ident">isize</span>);
+        <span class="ident">rg_mock</span>.<span class="ident">expect_remove_reader</span>().<span class="ident">return_once</span>(<span class="kw">move</span> <span class="op">|</span><span class="kw">_</span>, <span class="kw">_</span><span class="op">|</span> <span class="prelude-val">Ok</span>(()));
         <span class="comment">// create a new Event Reader with the segment slice data.</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">reader</span> <span class="op">=</span> <span class="ident">EventReader</span>::<span class="ident">init_event_reader</span>(
             <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Mutex</span>::<span class="ident">new</span>(<span class="ident">rg_mock</span>)),
