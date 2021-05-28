@@ -80,7 +80,7 @@ class PravegaReaderTest(aiounittest.AsyncTestCase):
         for i in range(100):
             w1.write_event("data")
 
-        reader_group = stream_manager.create_reader_group("rg-multi" + suffix, scope, stream);
+        reader_group = stream_manager.create_reader_group("rg-multi" + suffix, scope, stream)
         r1 = reader_group.create_reader("r1")
         slice1 = await r1.get_segment_slice_async()
         print(slice1)
