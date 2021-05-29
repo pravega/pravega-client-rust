@@ -34,6 +34,7 @@ use im::OrdMap;
 use murmurhash3::murmurhash3_x64_128;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
+use snafu::Snafu;
 use std::cmp::{min, Reverse};
 use std::collections::{BTreeMap, HashMap};
 use std::convert::From;
@@ -49,6 +50,21 @@ extern crate shrinkwraprs;
 
 #[macro_use]
 extern crate derive_new;
+
+type PravegaNodeUriParseResult<T> = std::result::Result<T, PravegaNodeUriParseError>;
+
+#[derive(Debug, Snafu)]
+pub enum PravegaNodeUriParseError {
+    #[snafu(display("Could not parse uri due to {}", error_msg))]
+    ParseError { error_msg: String },
+}
+
+#[derive(Debug, PartialEq, Default)]
+struct PravegaNodeUriParts {
+    scheme: Option<String>,
+    authority: Option<String>,
+    port: Option<u16>,
+}
 
 #[derive(From, Shrinkwrap, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct PravegaNodeUri(pub String);
@@ -75,22 +91,87 @@ impl From<SocketAddr> for PravegaNodeUri {
 impl PravegaNodeUri {
     pub fn to_socket_addr(&self) -> SocketAddr {
         // to_socket_addrs will resolve hostname to ip address
-        let mut addrs_vec: Vec<_> = self
-            .0
-            .to_socket_addrs()
-            .expect("Unable to resolve domain")
-            .collect();
-        addrs_vec.pop().expect("get the first SocketAddr")
+        match PravegaNodeUri::uri_parts_from_string(self.to_string()) {
+            Ok(uri_parts) => {
+                let mut addrs_vec: Vec<_> =
+                    format!("{}:{}", uri_parts.authority.unwrap(), uri_parts.port.unwrap())
+                        .to_socket_addrs()
+                        .expect("Unable to resolve domain")
+                        .collect();
+                addrs_vec.pop().expect("get the first SocketAddr")
+            }
+            Err(e) => panic!("{}", e),
+        }
     }
 
     pub fn domain_name(&self) -> String {
-        let parts: Vec<_> = self.0.split(':').collect();
-        parts[0].to_string()
+        match PravegaNodeUri::uri_parts_from_string(self.to_string()) {
+            Ok(uri_parts) => uri_parts.authority.expect("uri missing authority"),
+            Err(e) => panic!("{}", e),
+        }
     }
 
     pub fn port(&self) -> u16 {
-        let parts: Vec<_> = self.0.split(':').collect();
-        parts[1].parse::<u16>().expect("parse port to u16")
+        match PravegaNodeUri::uri_parts_from_string(self.to_string()) {
+            Ok(uri_parts) => uri_parts.port.expect("parse port to u16"),
+            Err(e) => panic!("{}", e),
+        }
+    }
+
+    /// Return Result of the uri scheme or empty string if no scheme was specified
+    pub fn scheme(&self) -> PravegaNodeUriParseResult<String> {
+        match PravegaNodeUri::uri_parts_from_string(self.to_string()) {
+            Ok(sa) => match sa.scheme {
+                Some(scheme) => Ok(scheme),
+                _ => Ok("".to_string()),
+            },
+            Err(e) => Err(e),
+        }
+    }
+
+    /// verifies the uri is well-formed (contains at least host:port, with optional scheme:// prefix)
+    ///
+    pub fn is_well_formed(uri: String) -> bool {
+        match PravegaNodeUri::uri_parts_from_string(uri) {
+            Ok(uri_parts) => uri_parts.port.is_some() && uri_parts.authority.is_some(),
+            Err(_) => false,
+        }
+    }
+
+    fn uri_parts_from_string(uri: String) -> PravegaNodeUriParseResult<PravegaNodeUriParts> {
+        let mut uri_parts: PravegaNodeUriParts = PravegaNodeUriParts::default();
+        let mut parts: Vec<_> = uri.split("://").collect();
+        if parts.len() > 2 || parts.is_empty() {
+            return Err(PravegaNodeUriParseError::ParseError {
+                error_msg: "malformed uri".into(),
+            });
+        }
+        let authority_port_parts: Vec<_> = parts.pop().unwrap().split(':').collect();
+        match authority_port_parts.len() {
+            1 => {
+                return Err(PravegaNodeUriParseError::ParseError {
+                    error_msg: "malformed uri, missing port".into(),
+                })
+            }
+            2 => {
+                uri_parts.authority = Some(authority_port_parts[0].to_string());
+                uri_parts.port = Some(
+                    authority_port_parts[1]
+                        .parse::<u16>()
+                        .expect("port not a valid u16"),
+                );
+            }
+            _ => {
+                return Err(PravegaNodeUriParseError::ParseError {
+                    error_msg: "malformed uri".into(),
+                })
+            }
+        };
+        if !parts.is_empty() {
+            // could add a default scheme here
+            uri_parts.scheme = Some(parts.pop().unwrap().to_lowercase());
+        }
+        Ok(uri_parts)
     }
 }
 
@@ -748,6 +829,38 @@ mod test {
         assert_eq!(uri.domain_name(), "localhost".to_string());
         assert_eq!(uri.port(), 9090);
         assert_eq!(uri.to_socket_addr(), socket_addr);
+
+        assert_eq!(
+            PravegaNodeUri::uri_parts_from_string("127.0.0.1:9090".to_string()).unwrap(),
+            PravegaNodeUriParts {
+                scheme: None,
+                authority: Some("127.0.0.1".to_string()),
+                port: Some(9090)
+            }
+        );
+
+        let uri_with_scheme = PravegaNodeUri("tls://127.0.0.1:9090".to_string());
+        assert_eq!(
+            PravegaNodeUri::uri_parts_from_string(uri_with_scheme.to_string()).unwrap(),
+            PravegaNodeUriParts {
+                scheme: Some("tls".to_string()),
+                authority: Some("127.0.0.1".to_string()),
+                port: Some(9090),
+            }
+        );
+        assert!(PravegaNodeUri::is_well_formed(uri_with_scheme.to_string()));
+        assert_eq!(uri_with_scheme.port(), 9090);
+        assert!(PravegaNodeUri::uri_parts_from_string("tls://127.0.0.1://9090".into()).is_err());
+        assert!(!PravegaNodeUri::is_well_formed("tls://127.0.0.1://9090".into()));
+        assert!(PravegaNodeUri("tls://127.0.0.1://9090".to_string())
+            .scheme()
+            .is_err());
+        assert_eq!(
+            PravegaNodeUri("tls://127.0.0.1:9090".to_string())
+                .scheme()
+                .unwrap(),
+            "tls".to_string()
+        );
     }
 
     #[test]
