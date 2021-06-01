@@ -148,7 +148,9 @@ impl Connection for TokioConnection {
     }
 
     fn is_valid(&self) -> bool {
-        self.is_valid && self.stream.as_ref().expect("get connection").is_valid()
+        self.is_valid
+            && self.stream.as_ref().is_some()
+            && self.stream.as_ref().expect("get connection").is_valid()
     }
 
     fn set_validity(&mut self, validity: bool) {
@@ -235,7 +237,9 @@ impl Connection for TlsConnection {
     }
 
     fn is_valid(&self) -> bool {
-        self.is_valid && self.stream.as_ref().expect("get connection").is_valid()
+        self.is_valid
+            && self.stream.as_ref().is_some()
+            && self.stream.as_ref().expect("get connection").is_valid()
     }
 
     fn set_validity(&mut self, is_valid: bool) {
