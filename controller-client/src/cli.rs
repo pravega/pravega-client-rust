@@ -109,6 +109,7 @@ fn main() {
                     retention_type: RetentionType::None,
                     retention_param: 0,
                 },
+                tags: None,
             };
             let result = rt.block_on(controller_client.create_stream(&stream_cfg));
             println!("Stream creation status {:?}", result);

@@ -129,3 +129,65 @@ pub fn list_streams(
         get_next_stream_async,
     )
 }
+
+pub fn list_streams_for_tag(
+    scope: Scope,
+    tag: String,
+    client: &dyn ControllerClient,
+) -> impl Stream<Item = Result<ScopedStream, RetryError<ControllerError>>> + '_ {
+    struct State {
+        streams: IntoIter<ScopedStream>,
+        scope: Scope,
+        tag: String,
+        token: CToken,
+    }
+
+    // Initial state with an empty Continuation token.
+    let get_next_stream_async = move |mut state: State| async move {
+        if let Some(element) = state.streams.next() {
+            Some((Ok(element), state))
+        } else {
+            // execute a request to the controller.
+            info!(
+                "Fetch the next set of streams with tag {} under scope {} using the provided token",
+                state.tag, state.scope
+            );
+            let res: ResultRetry<Option<(Vec<ScopedStream>, CToken)>> = client
+                .list_streams_for_tag(&state.scope, &state.tag, &state.token)
+                .await;
+            match res {
+                Ok(None) => None,
+                Ok(Some((list, ct))) => {
+                    // create a consuming iterator
+                    let mut stream_iter = list.into_iter();
+                    Some((
+                        Ok(stream_iter.next()?),
+                        State {
+                            streams: stream_iter,
+                            scope: state.scope.clone(),
+                            tag: state.tag.clone(),
+                            token: ct,
+                        },
+                    ))
+                }
+                Err(e) => {
+                    //log an error and return None to indicate end of stream.
+                    error!(
+                        "Error while attempting to list streams with tag {} under scope {}. Error: {:?}",
+                        state.tag, state.scope, e
+                    );
+                    None
+                }
+            }
+        }
+    };
+    stream::unfold(
+        State {
+            streams: Vec::new().into_iter(),
+            scope,
+            tag,
+            token: CToken::empty(),
+        },
+        get_next_stream_async,
+    )
+}

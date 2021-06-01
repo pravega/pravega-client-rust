@@ -124,6 +124,7 @@ async fn create_scope_stream(controller_client: &dyn ControllerClient) {
             retention_type: RetentionType::None,
             retention_param: 0,
         },
+        tags: None,
     };
     let retry_policy = RetryWithBackoff::default().max_tries(10);
     let result = retry_async(retry_policy, || async {
