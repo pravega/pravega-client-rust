@@ -33,6 +33,7 @@ tracing = "0.1"
 jsonwebtoken = "7"
 serde = {version = "1.0", features = ["derive"] }
 futures = "0.3"
+tokio-rustls = "0.22.0"
 num = "0.4"
 num-derive = "0.3"
 num-traits = "0.2"

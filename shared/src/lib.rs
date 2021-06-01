@@ -131,7 +131,7 @@ pub struct Reader {
     pub name: String,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Segment {
     pub number: i64,
     pub tx_id: Option<TxId>,
@@ -160,6 +160,23 @@ impl Segment {
 
     pub fn is_transaction_segment(&self) -> bool {
         self.tx_id.is_some()
+    }
+
+    pub fn get_epoch(&self) -> i32 {
+        (self.number >> 32) as i32
+    }
+
+    pub fn get_segment_number(&self) -> i32 {
+        self.number as i32
+    }
+}
+
+impl fmt::Debug for Segment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Segment")
+            .field("segment", &self.get_segment_number())
+            .field("epoch", &self.get_epoch())
+            .finish()
     }
 }
 
