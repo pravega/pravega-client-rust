@@ -149,7 +149,7 @@ pub trait ControllerClient: Send + Sync {
 
     /**
      * API to list streams associated with the given tag under a given scope and continuation token.
-     * Use the pravega_controller_client::paginator::list_streams to paginate over all the streams.
+     * Use the pravega_controller_client::paginator::list_streams_for_tag to paginate over all the streams.
      */
     async fn list_streams_for_tag(
         &self,
@@ -1122,7 +1122,6 @@ impl ControllerClientImpl {
         let request = CreateTxnRequest {
             stream_info: Some(StreamInfo::from(stream)),
             lease: lease.as_millis() as i64,
-            scale_grace_period: 0,
         };
         let op_status: StdResult<tonic::Response<CreateTxnResponse>, tonic::Status> = self
             .get_controller_client()

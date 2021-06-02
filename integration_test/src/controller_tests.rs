@@ -115,6 +115,17 @@ pub async fn test_stream_tags(controller: &dyn ControllerClient) {
 
     assert_eq!(1, stream_list.len());
     assert!(stream_list.contains(&scoped_stream1));
+
+    use futures::StreamExt;
+    let stream = list_streams_for_tag(scope_name, "tag2".to_string(), controller);
+    futures::pin_mut!(stream);
+    let stream_list: Vec<ScopedStream> = stream
+        .map(|str| str.unwrap())
+        .collect::<Vec<ScopedStream>>()
+        .await;
+    assert_eq!(2, stream_list.len());
+    assert!(stream_list.contains(&scoped_stream1));
+    assert!(stream_list.contains(&scoped_stream2));
 }
 
 // Helper method to fetch all the streams for a tag.

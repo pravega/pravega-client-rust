@@ -433,7 +433,6 @@ message TxnId {
 message CreateTxnRequest {
     StreamInfo streamInfo = 1;
     int64 lease = 2;
-    int64 scaleGracePeriod = 3 [deprecated=true];
 }
 
 message CreateTxnResponse {
