@@ -53,7 +53,7 @@ impl Reactor {
                 let event_segment_writer = selector.get_segment_writer(&pending_event.routing_key);
 
                 if let Err(e) = event_segment_writer.write(pending_event, cap_guard).await {
-                    warn!("failed to write append to segment due to {:?}, reconnecting", e);
+                    info!("failed to write append to segment due to {:?}, reconnecting", e);
                     event_segment_writer.reconnect(factory).await;
                 }
                 Ok(())
@@ -80,7 +80,7 @@ impl Reactor {
                     // cause InvalidEventNumber error.
                     if write_half.get_id() == writer_info.connection_id && writer_info.writer_id == writer.id
                     {
-                        warn!("reconnect for writer {:?}", writer_info);
+                        info!("reconnect for writer {:?}", writer_info);
                         writer.reconnect(factory).await;
                     } else {
                         info!("reconnect signal received for writer: {:?}, but does not match current writer: id {}, connection id {}, ignore", writer_info, writer.id, write_half.get_id());
@@ -116,7 +116,7 @@ impl Reactor {
                 writer.reconnection = 0;
                 writer.ack(cmd.event_number);
                 if let Err(e) = writer.write_pending_events().await {
-                    warn!(
+                    info!(
                         "writer {:?} failed to flush data to segment {:?} due to {:?}, reconnecting",
                         writer.id, writer.segment, e
                     );
@@ -156,7 +156,7 @@ impl Reactor {
             }
 
             Replies::WrongHost(cmd) => {
-                warn!(
+                info!(
                     "wrong host {:?} : stack trace {}",
                     cmd.segment, cmd.server_stack_trace
                 );

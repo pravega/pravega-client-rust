@@ -271,9 +271,15 @@ impl ReaderGroupState {
     }
 
     /// Compute the number of segments to acquire.
-    pub async fn compute_segments_to_acquire_or_release(&mut self, reader: &Reader) -> isize {
+    pub async fn compute_segments_to_acquire_or_release(
+        &mut self,
+        reader: &Reader,
+    ) -> Result<isize, ReaderGroupStateError> {
         self.sync.fetch_updates().await.expect("should fetch updates");
         let assigned_segment_map = self.sync.get_inner_map(ASSIGNED);
+        ReaderGroupState::check_reader_online(&assigned_segment_map, reader).context(SyncError {
+            error_msg: format!("assign segment to reader {:?}", reader),
+        })?;
         let num_of_readers = assigned_segment_map.len();
         let mut num_assigned_segments = 0;
         for v in assigned_segment_map.values() {
@@ -299,7 +305,7 @@ impl ReaderGroupState {
         });
         let expected: isize = expected_segment_count_per_reader.try_into().unwrap();
         let current: isize = current_segment_count.unwrap_or_default().try_into().unwrap();
-        expected - current
+        Ok(expected - current)
     }
 
     /// Return the list of all segments.

@@ -55,6 +55,7 @@ async fn test_insert(client_factory: &ClientFactory) {
                 "i32".to_owned(),
                 Box::new(1),
             );
+            Ok(())
         })
         .await;
 
@@ -67,6 +68,7 @@ async fn test_insert(client_factory: &ClientFactory) {
                 "i32".to_owned(),
                 Box::new(1),
             );
+            Ok(())
         })
         .await;
     assert!(result.is_ok());
@@ -106,6 +108,7 @@ async fn test_remove(client_factory: &ClientFactory) {
                     Box::new(2),
                 );
             }
+            Ok(())
         })
         .await;
     assert!(result.is_ok());
@@ -115,6 +118,7 @@ async fn test_remove(client_factory: &ClientFactory) {
             if table.get("outer_key", "inner_key").is_some() {
                 table.insert_tombstone("outer_key".to_owned(), "inner_key".to_owned())?;
             }
+            Ok(())
         })
         .await;
     assert!(result.is_ok());
@@ -162,6 +166,7 @@ async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory
                     );
                 }
             }
+            Ok(())
         })
         .await;
     assert!(result.is_ok());
@@ -190,6 +195,7 @@ async fn test_insert_with_two_table_synchronizers(client_factory: &ClientFactory
                     );
                 }
             }
+            Ok(())
         })
         .await;
     assert!(result.is_ok());
@@ -224,6 +230,7 @@ async fn test_remove_with_two_table_synchronizers(client_factory: &ClientFactory
             if data == 3 {
                 table.insert_tombstone("outer_key".to_owned(), "inner_key".to_owned())?;
             }
+            Ok(())
         })
         .await;
     assert!(result.is_ok());
@@ -241,6 +248,7 @@ async fn test_remove_with_two_table_synchronizers(client_factory: &ClientFactory
                     Box::new(4),
                 );
             }
+            Ok(())
         })
         .await;
 
@@ -286,6 +294,7 @@ async fn test_insert_and_get_with_customize_struct(client_factory: &ClientFactor
                 "Test2".to_owned(),
                 Box::new(Test2 { age: 10 }),
             );
+            Ok(())
         })
         .await;
     assert!(result.is_ok());
@@ -325,6 +334,7 @@ async fn test_fetching_updates_delta(client_factory: &ClientFactory) {
                 "i32".to_owned(),
                 Box::new(1),
             );
+            Ok(())
         })
         .await;
     assert!(result.is_ok());
@@ -338,6 +348,7 @@ async fn test_fetching_updates_delta(client_factory: &ClientFactory) {
                 "i32".to_owned(),
                 Box::new(2),
             );
+            Ok(())
         })
         .await;
     let updates2 = synchronizer.fetch_updates().await.expect("fetch updates");

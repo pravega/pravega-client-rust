@@ -771,7 +771,9 @@ async fn conditionally_write<R>(
             }
         }
     }
-    update_result.ok_or(SynchronizerError::SyncUpdateError { error_msg: "No attempts were made.".into()})
+    update_result.ok_or(SynchronizerError::SyncUpdateError {
+        error_msg: "No attempts were made.".into(),
+    })
 }
 
 async fn conditionally_remove<R>(
@@ -840,7 +842,9 @@ async fn conditionally_remove<R>(
             }
         }
     }
-    delete_result.ok_or(SynchronizerError::SyncUpdateError { error_msg: "No attempts were made.".into()})
+    delete_result.ok_or(SynchronizerError::SyncUpdateError {
+        error_msg: "No attempts were made.".into(),
+    })
 }
 
 async fn clear_tombstone(

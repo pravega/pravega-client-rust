@@ -161,7 +161,7 @@ impl ReaderGroup {
         EventReader::init_reader(r.name, self.state.clone(), self.client_factory.clone()).await
     }
 
-    /// Returns the readers which are currently online
+    /// Returns the readers which are currently online.
     pub async fn list_readers(&self) -> Vec<Reader> {
         self.state.lock().await.get_online_readers().await
     }
@@ -175,11 +175,16 @@ impl ReaderGroup {
     /// assumed.
     ///
     /// If the reader is already offline, this method will have no effect.
-    pub async fn reader_offline(&self, reader: &Reader, last_position: HashMap<ScopedSegment, Offset>) -> Result<(), ReaderGroupStateError> {
+    pub async fn reader_offline(
+        &self,
+        reader: &Reader,
+        last_position: HashMap<ScopedSegment, Offset>,
+    ) -> Result<(), ReaderGroupStateError> {
         self.state
             .lock()
             .await
-            .remove_reader(&reader, last_position).await
+            .remove_reader(reader, last_position)
+            .await
     }
 }
 

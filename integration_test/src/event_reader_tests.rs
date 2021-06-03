@@ -19,6 +19,7 @@ use pravega_client_shared::{
 };
 use pravega_controller_client::ControllerClient;
 
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread;
@@ -84,7 +85,7 @@ fn test_read_large_events(client_factory: &ClientFactory, rt: &Runtime) {
 
     let mut event_count = 0;
     while event_count < NUM_EVENTS {
-        if let Some(mut slice) = rt.block_on(reader.acquire_segment()) {
+        if let Some(mut slice) = rt.block_on(reader.acquire_segment()).expect("acquire segment") {
             while let Some(event) = slice.next() {
                 assert_eq!(
                     vec![1; EVENT_SIZE],
@@ -94,7 +95,8 @@ fn test_read_large_events(client_factory: &ClientFactory, rt: &Runtime) {
                 event_count += 1;
                 info!("read count {}", event_count);
             }
-            rt.block_on(reader.release_segment(slice));
+            rt.block_on(reader.release_segment(slice))
+                .expect("release segment");
         }
     }
     assert_eq!(event_count, NUM_EVENTS);
@@ -147,7 +149,7 @@ fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactory, rt
     let read_count2 = read_count.clone();
     let handle1 = rt.spawn(async move {
         while read_count1.load(Ordering::Relaxed) < NUM_EVENTS {
-            if let Some(mut slice) = reader1.acquire_segment().await {
+            if let Some(mut slice) = reader1.acquire_segment().await.expect("acquire segment") {
                 info!("acquire segment for reader r1, {:?}", slice);
                 while let Some(event) = slice.next() {
                     assert_eq!(
@@ -158,13 +160,13 @@ fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactory, rt
                     let prev = read_count1.fetch_add(1, Ordering::SeqCst);
                     info!("read count {}", prev + 1);
                 }
-                reader1.release_segment(slice).await;
+                reader1.release_segment(slice).await.expect("release segment");
             }
         }
     });
     let handle2 = rt.spawn(async move {
         while read_count2.load(Ordering::Relaxed) < NUM_EVENTS {
-            if let Some(mut slice) = reader2.acquire_segment().await {
+            if let Some(mut slice) = reader2.acquire_segment().await.expect("acquire segment") {
                 info!("acquire segment for reader r2 {:?}", slice);
                 while let Some(event) = slice.next() {
                     assert_eq!(
@@ -175,7 +177,7 @@ fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactory, rt
                     let prev = read_count2.fetch_add(1, Ordering::SeqCst);
                     info!("read count {}", prev + 1);
                 }
-                reader2.release_segment(slice).await;
+                reader2.release_segment(slice).await.expect("release segment");
             }
         }
     });
@@ -218,10 +220,10 @@ async fn test_release_segment(client_factory: &ClientFactory) {
     let mut event_count = 0;
     let mut release_invoked = false;
     while event_count < NUM_EVENTS {
-        if let Some(mut slice) = reader.acquire_segment().await {
+        if let Some(mut slice) = reader.acquire_segment().await.expect("acquire segment") {
             loop {
                 if !release_invoked && event_count == 5 {
-                    reader.release_segment(slice).await;
+                    reader.release_segment(slice).await.expect("release segment");
                     release_invoked = true;
                     break;
                 } else if let Some(event) = slice.next() {
@@ -280,10 +282,13 @@ async fn test_release_segment_at(client_factory: &ClientFactory) {
             // all events have been read. Exit test.
             break;
         }
-        if let Some(mut slice) = reader.acquire_segment().await {
+        if let Some(mut slice) = reader.acquire_segment().await.expect("acquire segment") {
             loop {
                 if !release_invoked && event_count == 5 {
-                    reader.release_segment_at(slice, 0).await; // release segment @ the beginning, so that the reader reads all the data.
+                    reader
+                        .release_segment_at(slice, 0)
+                        .await
+                        .expect("acquire segment"); // release segment @ the beginning, so that the reader reads all the data.
                     release_invoked = true;
                     break;
                 } else if let Some(event) = slice.next() {
@@ -341,7 +346,7 @@ async fn test_stream_scaling(client_factory: &ClientFactory) {
             // all events have been read. Exit test.
             break;
         }
-        if let Some(mut slice) = reader.acquire_segment().await {
+        if let Some(mut slice) = reader.acquire_segment().await.expect("acquire segment") {
             loop {
                 if let Some(event) = slice.next() {
                     assert_eq!(
@@ -396,7 +401,7 @@ async fn test_read_api(client_factory: &ClientFactory) {
         .await;
     let mut reader = rg.create_reader("r1".to_string()).await;
     let mut event_count = 0;
-    while let Some(mut slice) = reader.acquire_segment().await {
+    while let Some(mut slice) = reader.acquire_segment().await.expect("acquire segment") {
         loop {
             if let Some(event) = slice.next() {
                 assert_eq!(
@@ -455,7 +460,7 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
     // no segments will be assigned to reader2
     let mut reader2 = h.block_on(rg.create_reader("r2".to_string()));
 
-    if let Some(mut slice) = h.block_on(reader1.acquire_segment()) {
+    if let Some(mut slice) = h.block_on(reader1.acquire_segment()).expect("acquire segment") {
         if let Some(event) = slice.next() {
             assert_eq!(
                 vec![1; EVENT_SIZE],
@@ -464,20 +469,22 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
             );
             // wait for release timeout.
             thread::sleep(Duration::from_secs(20));
-            h.block_on(reader1.release_segment(slice));
+            h.block_on(reader1.release_segment(slice))
+                .expect("release segment");
         } else {
             panic!("A valid slice is expected");
         }
     }
 
-    if let Some(mut slice) = h.block_on(reader2.acquire_segment()) {
+    if let Some(mut slice) = h.block_on(reader2.acquire_segment()).expect("acquire segment") {
         if let Some(event) = slice.next() {
             assert_eq!(
                 vec![1; EVENT_SIZE],
                 event.value.as_slice(),
                 "Corrupted event read"
             );
-            h.block_on(reader2.release_segment(slice));
+            h.block_on(reader2.release_segment(slice))
+                .expect("release segment");
         } else {
             panic!("A valid slice is expected for reader2");
         }
@@ -524,7 +531,7 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
     reader1.set_last_acquire_release_time(last_acquire_release_time);
     reader2.set_last_acquire_release_time(last_acquire_release_time);
     let mut events_read = 0;
-    if let Some(mut slice) = h.block_on(reader1.acquire_segment()) {
+    if let Some(mut slice) = h.block_on(reader1.acquire_segment()).expect("acquire segment") {
         if let Some(event) = slice.next() {
             assert_eq!(
                 vec![1; EVENT_SIZE],
@@ -533,14 +540,15 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
             );
             events_read += 1;
             // this should trigger a release.
-            h.block_on(reader1.release_segment(slice));
+            h.block_on(reader1.release_segment(slice))
+                .expect("release segment");
         } else {
             panic!("A valid slice is expected");
         }
     }
 
     // try acquiring a segment on reader 2 and verify segments are acquired.
-    if let Some(mut slice) = h.block_on(reader2.acquire_segment()) {
+    if let Some(mut slice) = h.block_on(reader2.acquire_segment()).expect("acquire segment") {
         if let Some(event) = slice.next() {
             // validate that reader 2 acquired a segment.
             assert_eq!(
@@ -549,17 +557,18 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
                 "Corrupted event read"
             );
             events_read += 1;
-            h.block_on(reader2.release_segment(slice));
+            h.block_on(reader2.release_segment(slice))
+                .expect("release segment");
         } else {
             panic!("A valid slice is expected for reader2");
         }
     }
     // set reader 2 offline. This should ensure all the segments assigned to reader2 are available to be assigned by reader1.else {  }
-    h.block_on(reader2.reader_offline());
+    h.block_on(reader2.reader_offline()).expect("reader offline");
     //reset the time to ensure reader1 acquires segment in the next cycle.
     reader1.set_last_acquire_release_time(Instant::now() - Duration::from_secs(20));
 
-    while let Some(slice) = h.block_on(reader1.acquire_segment()) {
+    while let Some(slice) = h.block_on(reader1.acquire_segment()).expect("acquire segment") {
         // read all events in the slice.
         for event in slice {
             assert_eq!(
@@ -611,7 +620,7 @@ fn test_reader_offline(client_factory: &ClientFactory) {
 
     // read one event using reader1 and release it back.
     // A drop of segment slice does the same .
-    if let Some(mut slice) = h.block_on(reader1.acquire_segment()) {
+    if let Some(mut slice) = h.block_on(reader1.acquire_segment()).expect("acquire segment") {
         if let Some(event) = slice.next() {
             assert_eq!(
                 vec![1; EVENT_SIZE],
@@ -620,18 +629,19 @@ fn test_reader_offline(client_factory: &ClientFactory) {
             );
             // wait for release timeout.
             thread::sleep(Duration::from_secs(10));
-            h.block_on(reader1.release_segment(slice));
+            h.block_on(reader1.release_segment(slice))
+                .expect("release segment");
         } else {
             panic!("A valid slice is expected");
         }
     }
     // reader offline.
-    h.block_on(reader1.reader_offline());
+    h.block_on(reader1.reader_offline()).expect("reader offline");
 
     let mut reader2 = h.block_on(rg.create_reader("r2".to_string()));
 
     let mut events_read = 1; // one event has been already read by reader 1.
-    while let Some(slice) = h.block_on(reader2.acquire_segment()) {
+    while let Some(slice) = h.block_on(reader2.acquire_segment()).expect("acquire segment") {
         // read from a Segment slice.
         for event in slice {
             assert_eq!(
@@ -646,6 +656,67 @@ fn test_reader_offline(client_factory: &ClientFactory) {
         }
     }
     assert_eq!(NUM_EVENTS, events_read);
+}
+
+fn test_reader_offline_by_other_thread(client_factory: &ClientFactory) {
+    let h = client_factory.runtime();
+    let scope_name = Scope::from("testScope".to_owned());
+    let stream_name = Stream::from("testReaderOfflineByOtherThread".to_owned());
+    let str = ScopedStream {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+    };
+    const NUM_EVENTS: usize = 10;
+    const EVENT_SIZE: usize = 10;
+
+    h.block_on(async {
+        let new_stream =
+            create_scope_stream(client_factory.controller_client(), &scope_name, &stream_name, 4).await;
+        // write events only if the stream is created.
+        if new_stream {
+            // write events
+            write_events(
+                scope_name.clone(),
+                stream_name.clone(),
+                client_factory.clone(),
+                NUM_EVENTS,
+                EVENT_SIZE,
+            )
+            .await;
+        }
+    });
+
+    let rg = h.block_on(client_factory.create_reader_group(scope_name, "rg_reader_offline".to_string(), str));
+
+    // test reader being removed by reader group before releasing a segment slice
+    // add reader back online
+    let mut reader1 = h.block_on(rg.create_reader("r1".to_string()));
+    // read one event using reader1 and release it back.
+    // A drop of segment slice does the same
+    if let Some(mut slice) = h.block_on(reader1.acquire_segment()).expect("acquire segment") {
+        // offline again
+        h.block_on(rg.reader_offline(&reader1.id, HashMap::new()))
+            .expect("remove reader");
+        if let Some(event) = slice.next() {
+            assert_eq!(
+                vec![1; EVENT_SIZE],
+                event.value.as_slice(),
+                "Corrupted event read"
+            );
+            // wait for release timeout, only after that offset can be updated in the reader group state.
+            thread::sleep(Duration::from_secs(10));
+            // writing the offset into reader group state will have error
+            assert!(h.block_on(reader1.release_segment(slice)).is_err());
+        } else {
+            panic!("A valid slice is expected");
+        }
+    }
+
+    // test reader being removed by reader group before it offline
+    let mut reader1 = h.block_on(rg.create_reader("r1".to_string()));
+    h.block_on(rg.reader_offline(&reader1.id, HashMap::new()))
+        .expect("remove reader");
+    assert!(h.block_on(reader1.reader_offline()).is_err());
 }
 
 // helper method to write events to Pravega
