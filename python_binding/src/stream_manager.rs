@@ -27,7 +27,7 @@ cfg_if! {
 /// Create a StreamManager by providing a controller uri.
 /// ```
 /// import pravega_client;
-/// manager=pravega_client.StreamManager("127.0.0.1:9090")
+/// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
 /// // this manager can be used to create scopes, streams, writers and readers against Pravega.
 /// manager.create_scope("scope")
 ///
@@ -48,7 +48,7 @@ pub(crate) struct StreamManager {
 /// Create a StreamManager by providing a controller uri.
 /// ```
 /// import pravega_client;
-/// manager=pravega_client.StreamManager("127.0.0.1:9090")
+/// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
 /// // this manager can be used to create scopes, streams, writers and readers against Pravega.
 /// manager.create_scope("scope")
 ///
@@ -210,7 +210,7 @@ impl StreamManager {
     ///
     /// ```
     /// import pravega_client;
-    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
+    /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
     /// // Create a writer against an already created Pravega scope and Stream.
     /// writer=manager.create_writer("scope", "stream")
     /// ```
@@ -234,7 +234,7 @@ impl StreamManager {
     ///
     /// ```
     /// import pravega_client;
-    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
+    /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
     /// // Create a transactional writer against an already created Pravega scope and Stream.
     /// writer=manager.create_transaction_writer("scope", "stream", "123")
     /// ```
@@ -264,7 +264,7 @@ impl StreamManager {
     ///
     /// ```
     /// import pravega_client;
-    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
+    /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
     /// // Create a ReaderGroup against an already created Pravega scope and Stream.
     /// event.reader_group=manager.create_reader_group("rg1", "scope", "stream")
     /// ```

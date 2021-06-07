@@ -58,7 +58,7 @@ use tracing_futures::Instrument;
 ///     // omit the step to create scope and stream in Pravega
 ///
 ///     let config = ClientConfigBuilder::default()
-///         .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
+///         .controller_uri(PravegaNodeUri::from("tcp://127.0.0.2:9091".to_string()))
 ///         .build()
 ///         .expect("creating config");
 ///     let client_factory = ClientFactory::new(config);

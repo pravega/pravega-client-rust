@@ -48,7 +48,7 @@ impl StreamReaderGroup {
     ///
     /// ```
     /// import pravega_client;
-    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
+    /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
     /// // lets assume the Pravega scope and stream are already created.
     /// event.reader_group=manager.create_reader_group("rg1", "scope", "stream")
     /// reader=event.reader_group.create_reader("reader_id");
