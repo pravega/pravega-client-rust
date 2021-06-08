@@ -106,7 +106,7 @@ impl PravegaNodeUri {
 
     pub fn domain_name(&self) -> String {
         match PravegaNodeUri::uri_parts_from_string(self.to_string()) {
-            Ok(uri_parts) => uri_parts.domain_name.expect("uri missing authority"),
+            Ok(uri_parts) => uri_parts.domain_name.expect("uri missing domain name"),
             Err(e) => panic!("{}", e),
         }
     }
@@ -140,29 +140,37 @@ impl PravegaNodeUri {
 
     fn uri_parts_from_string(uri: String) -> PravegaNodeUriParseResult<PravegaNodeUriParts> {
         let mut uri_parts: PravegaNodeUriParts = PravegaNodeUriParts::default();
-        let endpoints: Vec<_> = uri.split(",").collect();
-        if endpoints.len() < 1 || endpoints[0].is_empty() {
+
+        // The Java client supports multiple comma separated endpoints in a single string
+        // where the first endpoint has the scheme to be applied to all endpoints.
+        // To be semi-compatible with the Java code this method accepts a string containing comma separated
+        // endpoints, but it uses only the first endpoint in the string
+        let first_endpoint = match uri.split(",").nth(0) {
+            Some(endpoint) => endpoint,
+            _ => {
+                return Err(PravegaNodeUriParseError::ParseError {
+                    error_msg: format!("malformed uri {}", uri),
+                })
+            }
+        };
+
+        let mut scheme_authority: Vec<_> = first_endpoint.split("://").collect();
+        if scheme_authority.len() > 2 || scheme_authority.is_empty() {
             return Err(PravegaNodeUriParseError::ParseError {
                 error_msg: format!("malformed uri {}", uri),
             });
         }
-        let mut parts: Vec<_> = endpoints[0].split("://").collect();
-        if parts.len() > 2 || parts.is_empty() {
-            return Err(PravegaNodeUriParseError::ParseError {
-                error_msg: format!("malformed uri {}", uri),
-            });
-        }
-        let authority_port_parts: Vec<_> = parts.pop().unwrap().split(':').collect();
-        match authority_port_parts.len() {
+        let domain_name_port_parts: Vec<_> = scheme_authority.pop().unwrap().split(':').collect();
+        match domain_name_port_parts.len() {
             1 => {
                 return Err(PravegaNodeUriParseError::ParseError {
                     error_msg: format!("port not found in malformed uri,  {}", uri),
                 })
             }
             2 => {
-                uri_parts.domain_name = Some(authority_port_parts[0].to_string());
+                uri_parts.domain_name = Some(domain_name_port_parts[0].to_string());
                 uri_parts.port = Some(
-                    authority_port_parts[1]
+                    domain_name_port_parts[1]
                         .parse::<u16>()
                         .expect("port not a valid u16"),
                 );
@@ -173,9 +181,9 @@ impl PravegaNodeUri {
                 })
             }
         };
-        if !parts.is_empty() {
+        if !scheme_authority.is_empty() {
             // could add a default scheme here
-            uri_parts.scheme = Some(parts.pop().unwrap().to_lowercase());
+            uri_parts.scheme = Some(scheme_authority.pop().unwrap().to_lowercase());
         }
         Ok(uri_parts)
     }
