@@ -145,7 +145,7 @@ impl PravegaNodeUri {
         // where the first endpoint has the scheme to be applied to all endpoints.
         // To be semi-compatible with the Java code this method accepts a string containing comma separated
         // endpoints, but it uses only the first endpoint in the string
-        let first_endpoint = match uri.split(",").nth(0) {
+        let first_endpoint = match uri.split(',').next() {
             Some(endpoint) => endpoint,
             _ => {
                 return Err(PravegaNodeUriParseError::ParseError {
