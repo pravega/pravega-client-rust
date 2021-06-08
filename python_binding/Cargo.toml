@@ -1,6 +1,6 @@
 [package]
 name = "pravega"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2018"
 categories = ["network-programming"]
 keywords = ["streaming", "client", "pravega"]
@@ -31,20 +31,20 @@ python_binding = ["pyo3"]
 tracing = "0.1.17"
 tracing-futures = "0.2.4"
 tracing-subscriber = "0.2.2"
-pravega-client = { path = "../"}
-pravega-client-shared = { path = "../shared"}
-pravega-controller-client = { path = "../controller-client"}
-pravega-wire-protocol = { path = "../wire_protocol"}
-pravega-client-retry = {path = "../retry", version = "0.1"}
-pravega-connection-pool = {path = "../connection_pool"}
-pravega-client-config = {path = "../config"}
+pravega-client = { path = "../", version = "0.2"}
+pravega-client-shared = { path = "../shared", version = "0.2"}
+pravega-controller-client = { path = "../controller-client", version = "0.2"}
+pravega-wire-protocol = { path = "../wire_protocol", version = "0.2"}
+pravega-client-retry = {path = "../retry", version = "0.2"}
+pravega-connection-pool = {path = "../connection_pool", version = "0.2"}
+pravega-client-config = {path = "../config", version = "0.2"}
 tokio = { version = "1.1", features = ["full"] }
 lazy_static = "1.4.0"
 uuid = {version = "0.8", features = ["v4"]}
 futures = "0.3.5"
 derive-new = "0.5"
 #Python bindings
-pyo3 = { features = ["extension-module"], optional = true, version = "0.11.0" }
+pyo3 = { features = ["extension-module"], optional = true, version = "0.13" }
 #WASM bindings
 wasm-bindgen = { version = "0.2.63", optional = true }
 cfg-if = "0.1.10"

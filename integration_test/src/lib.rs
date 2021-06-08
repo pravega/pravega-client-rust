@@ -94,11 +94,11 @@ mod test {
             .unwrap();
 
         // metric::metric_init(PROMETHEUS_SCRAPE_PORT.parse::<SocketAddr>().unwrap());
-        info!("Running integration test");
-        let config = PravegaStandaloneServiceConfig::new(false, true, true);
-        run_tests(config);
+        // info!("Running integration test");
+        // let config = PravegaStandaloneServiceConfig::new(false, true, true);
+        // run_tests(config);
 
-        let config = PravegaStandaloneServiceConfig::new(false, false, false);
+        let config = PravegaStandaloneServiceConfig::new(true, false, false);
         run_tests(config);
 
         // disconnection test will start its own Pravega Standalone.
@@ -113,41 +113,41 @@ mod test {
             env::set_var("pravega_client_auth_username", "admin");
             env::set_var("pravega_client_auth_password", "1111_aaaa");
         }
-        let span = info_span!("controller test", auth = config.auth, tls = config.tls);
-        span.in_scope(|| {
-            info!("Running controller test");
-            controller_tests::test_controller_apis(config.clone());
-        });
-        let span = info_span!("table map test", auth = config.auth, tls = config.tls);
-        span.in_scope(|| {
-            info!("Running table map test");
-            table_tests::test_table(config.clone());
-        });
-        let span = info_span!("event stream writer test", auth = config.auth, tls = config.tls);
-        span.in_scope(|| {
-            info!("Running event stream writer test");
-            event_writer_tests::test_event_stream_writer(config.clone());
-        });
-        let span = info_span!("synchronizer test", auth = config.auth, tls = config.tls);
-        span.in_scope(|| {
-            info!("Running synchronizer test");
-            synchronizer_tests::test_tablesynchronizer(config.clone());
-        });
-        let span = info_span!("transaction test", auth = config.auth, tls = config.tls);
-        span.in_scope(|| {
-            info!("Running transaction test");
-            transactional_event_writer_tests::test_transactional_event_stream_writer(config.clone());
-        });
+        // let span = info_span!("controller test", auth = config.auth, tls = config.tls);
+        // span.in_scope(|| {
+        //     info!("Running controller test");
+        //     controller_tests::test_controller_apis(config.clone());
+        // });
+        // let span = info_span!("table map test", auth = config.auth, tls = config.tls);
+        // span.in_scope(|| {
+        //     info!("Running table map test");
+        //     table_tests::test_table(config.clone());
+        // });
+        // let span = info_span!("event stream writer test", auth = config.auth, tls = config.tls);
+        // span.in_scope(|| {
+        //     info!("Running event stream writer test");
+        //     event_writer_tests::test_event_stream_writer(config.clone());
+        // });
+        // let span = info_span!("synchronizer test", auth = config.auth, tls = config.tls);
+        // span.in_scope(|| {
+        //     info!("Running synchronizer test");
+        //     synchronizer_tests::test_tablesynchronizer(config.clone());
+        // });
+        // let span = info_span!("transaction test", auth = config.auth, tls = config.tls);
+        // span.in_scope(|| {
+        //     info!("Running transaction test");
+        //     transactional_event_writer_tests::test_transactional_event_stream_writer(config.clone());
+        // });
         let span = info_span!("byte stream test", auth = config.auth, tls = config.tls);
         span.in_scope(|| {
             info!("Running byte stream test");
             byte_reader_writer_tests::test_byte_stream(config.clone());
         });
-        let span = info_span!("event reader test", auth = config.auth, tls = config.tls);
-        span.in_scope(|| {
-            info!("Running event reader test");
-            event_reader_tests::test_event_stream_reader(config.clone());
-        });
+        // let span = info_span!("event reader test", auth = config.auth, tls = config.tls);
+        // span.in_scope(|| {
+        //     info!("Running event reader test");
+        //     event_reader_tests::test_event_stream_reader(config.clone());
+        // });
         // Shut down Pravega standalone
         pravega.stop().unwrap();
         wait_for_standalone_with_timeout(false, 30);

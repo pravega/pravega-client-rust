@@ -79,18 +79,20 @@ impl Read for ByteReader {
 
 impl ByteReader {
     pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory, buffer_size: usize) -> Self {
-        let async_reader = factory
+        factory
             .runtime()
-            .block_on(factory.create_async_event_reader(segment.clone()));
+            .block_on(ByteReader::new_async(segment, factory.clone(), buffer_size))
+    }
+
+    pub(crate) async fn new_async(segment: ScopedSegment, factory: ClientFactory, buffer_size: usize) -> Self {
+        let async_reader = factory.create_async_event_reader(segment.clone()).await;
         let async_reader_wrapper = PrefetchingAsyncSegmentReader::new(
             factory.runtime().handle().clone(),
             Arc::new(Box::new(async_reader)),
             0,
             buffer_size,
         );
-        let metadata_client = factory
-            .runtime()
-            .block_on(factory.create_segment_metadata_client(segment));
+        let metadata_client = factory.create_segment_metadata_client(segment);
         ByteReader {
             reader_id: Uuid::new_v4(),
             reader: Some(async_reader_wrapper),
@@ -106,13 +108,11 @@ impl ByteReader {
     /// encounter the SegmentIsTruncated error due to the segment has been truncated. In this case,
     /// application should call this method to get the current readable head and read from it.
     /// ```ignore
-    /// let mut byte_reader = client_factory.create_byte_reader(segment);
-    /// let offset = byte_reader.current_head().expect("get current head offset");
+    /// let mut byte_reader = client_factory.create_byte_reader_async(segment).await;
+    /// let offset = byte_reader.current_head().await.expect("get current head offset");
     /// ```
-    pub fn current_head(&self) -> std::io::Result<u64> {
-        self.factory
-            .runtime()
-            .block_on(self.metadata_client.fetch_current_starting_head())
+    pub async fn current_head(&self) -> std::io::Result<u64> {
+            self.metadata_client.fetch_current_starting_head().await
             .map(|i| i as u64)
             .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
     }
