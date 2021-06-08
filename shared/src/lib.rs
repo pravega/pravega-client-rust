@@ -62,7 +62,7 @@ pub enum PravegaNodeUriParseError {
 #[derive(Debug, PartialEq, Default)]
 struct PravegaNodeUriParts {
     scheme: Option<String>,
-    authority: Option<String>,
+    domain_name: Option<String>,
     port: Option<u16>,
 }
 
@@ -94,7 +94,7 @@ impl PravegaNodeUri {
         match PravegaNodeUri::uri_parts_from_string(self.to_string()) {
             Ok(uri_parts) => {
                 let mut addrs_vec: Vec<_> =
-                    format!("{}:{}", uri_parts.authority.unwrap(), uri_parts.port.unwrap())
+                    format!("{}:{}", uri_parts.domain_name.unwrap(), uri_parts.port.unwrap())
                         .to_socket_addrs()
                         .expect("Unable to resolve domain")
                         .collect();
@@ -106,7 +106,7 @@ impl PravegaNodeUri {
 
     pub fn domain_name(&self) -> String {
         match PravegaNodeUri::uri_parts_from_string(self.to_string()) {
-            Ok(uri_parts) => uri_parts.authority.expect("uri missing authority"),
+            Ok(uri_parts) => uri_parts.domain_name.expect("uri missing authority"),
             Err(e) => panic!("{}", e),
         }
     }
@@ -133,7 +133,7 @@ impl PravegaNodeUri {
     ///
     pub fn is_well_formed(uri: String) -> bool {
         match PravegaNodeUri::uri_parts_from_string(uri) {
-            Ok(uri_parts) => uri_parts.port.is_some() && uri_parts.authority.is_some(),
+            Ok(uri_parts) => uri_parts.port.is_some() && uri_parts.domain_name.is_some(),
             Err(_) => false,
         }
     }
@@ -160,7 +160,7 @@ impl PravegaNodeUri {
                 })
             }
             2 => {
-                uri_parts.authority = Some(authority_port_parts[0].to_string());
+                uri_parts.domain_name = Some(authority_port_parts[0].to_string());
                 uri_parts.port = Some(
                     authority_port_parts[1]
                         .parse::<u16>()
@@ -840,7 +840,7 @@ mod test {
             PravegaNodeUri::uri_parts_from_string("127.0.0.1:9090".to_string()).unwrap(),
             PravegaNodeUriParts {
                 scheme: None,
-                authority: Some("127.0.0.1".to_string()),
+                domain_name: Some("127.0.0.1".to_string()),
                 port: Some(9090)
             }
         );
@@ -850,7 +850,7 @@ mod test {
             PravegaNodeUri::uri_parts_from_string(uri_with_scheme.to_string()).unwrap(),
             PravegaNodeUriParts {
                 scheme: Some("tls".to_string()),
-                authority: Some("127.0.0.1".to_string()),
+                domain_name: Some("127.0.0.1".to_string()),
                 port: Some(9090),
             }
         );
@@ -864,7 +864,7 @@ mod test {
             PravegaNodeUri::uri_parts_from_string(uri_with_scheme.to_string()).unwrap(),
             PravegaNodeUriParts {
                 scheme: Some("ssl".to_string()),
-                authority: Some("127.0.0.1".to_string()),
+                domain_name: Some("127.0.0.1".to_string()),
                 port: Some(9090),
             }
         );
