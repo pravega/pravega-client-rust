@@ -87,7 +87,7 @@ impl StreamManager {
         info!("Scope creation status {:?}", scope_result);
         match scope_result {
             Ok(t) => Ok(t),
-            Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
+            Err(e) => Err(exceptions::PyValueError::new_err(format!("{:?}", e))),
         }
     }
 
@@ -106,7 +106,7 @@ impl StreamManager {
         info!("Scope deletion status {:?}", scope_result);
         match scope_result {
             Ok(t) => Ok(t),
-            Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
+            Err(e) => Err(exceptions::PyValueError::new_err(format!("{:?}", e))),
         }
     }
 
@@ -147,7 +147,7 @@ impl StreamManager {
         info!("Stream creation status {:?}", stream_result);
         match stream_result {
             Ok(t) => Ok(t),
-            Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
+            Err(e) => Err(exceptions::PyValueError::new_err(format!("{:?}", e))),
         }
     }
 
@@ -169,7 +169,7 @@ impl StreamManager {
         info!("Sealing stream status {:?}", stream_result);
         match stream_result {
             Ok(t) => Ok(t),
-            Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
+            Err(e) => Err(exceptions::PyValueError::new_err(format!("{:?}", e))),
         }
     }
 
@@ -190,7 +190,7 @@ impl StreamManager {
         info!("Deleting stream status {:?}", stream_result);
         match stream_result {
             Ok(t) => Ok(t),
-            Err(e) => Err(exceptions::ValueError::py_err(format!("{:?}", e))),
+            Err(e) => Err(exceptions::PyValueError::new_err(format!("{:?}", e))),
         }
     }
 

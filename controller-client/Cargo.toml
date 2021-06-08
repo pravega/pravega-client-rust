@@ -1,6 +1,6 @@
 [package]
 name = "pravega-controller-client"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2018"
 build = "build.rs"
 categories = ["network-programming"]
@@ -13,11 +13,11 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
            "Sandeep Shridhar <sandeep.shridhar@dell.com>", "Wenxiao Zhang <wenxiao.zhang@dell.com>"]
 
 [dependencies]
-pravega-client-shared = { path = "../shared", version = "0.1"}
-pravega-wire-protocol = { path = "../wire_protocol", version = "0.1"}
-pravega-client-retry = {path = "../retry", version = "0.1"}
-pravega-connection-pool = {path = "../connection_pool", version = "0.1" }
-pravega-client-config = {path = "../config", version = "0.1"}
+pravega-client-shared = { path = "../shared", version = "0.2"}
+pravega-wire-protocol = { path = "../wire_protocol", version = "0.2"}
+pravega-client-retry = {path = "../retry", version = "0.2"}
+pravega-connection-pool = {path = "../connection_pool", version = "0.2" }
+pravega-client-config = {path = "../config", version = "0.2"}
 async-trait = "0.1"
 prost = "0.7"
 snafu = "0.6"
@@ -33,6 +33,7 @@ tracing = "0.1"
 jsonwebtoken = "7"
 serde = {version = "1.0", features = ["derive"] }
 futures = "0.3"
+tokio-rustls = "0.22.0"
 
 [build-dependencies]
 tonic-build = "0.4"

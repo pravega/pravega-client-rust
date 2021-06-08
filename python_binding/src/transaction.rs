@@ -63,7 +63,7 @@ impl StreamTransaction {
         match result {
             Ok(TransactionStatus::Open) => Ok(true),
             Ok(_t) => Ok(false),
-            Err(t) => Err(exceptions::ValueError::py_err(format!("{:?}", t))),
+            Err(t) => Err(exceptions::PyValueError::new_err(format!("{:?}", t))),
         }
     }
 
@@ -102,9 +102,9 @@ impl StreamTransaction {
             Ok(_t) => Ok(()),
             Err(TransactionError::TxnClosed { id }) => {
                 warn!("Transaction is already closed");
-                Err(TxnFailedException::py_err(id.0))
+                Err(TxnFailedException::new_err(id.0))
             }
-            Err(e) => Err(exceptions::ValueError::py_err(format!("Error {:?}", e))),
+            Err(e) => Err(exceptions::PyValueError::new_err(format!("Error {:?}", e))),
         }
     }
 
@@ -139,14 +139,14 @@ impl StreamTransaction {
                 Ok(_) => Ok(()),
                 Err(TransactionError::TxnClosed { id }) => {
                     warn!("Transaction {:?} already closed", id);
-                    Err(TxnFailedException::py_err(id.0))
+                    Err(TxnFailedException::new_err(id.0))
                 }
-                Err(e) => Err(exceptions::ValueError::py_err(format!(
+                Err(e) => Err(exceptions::PyValueError::new_err(format!(
                     " Commit of transaction failed with {:?}",
                     e
                 ))),
             },
-            Err(_) => Err(exceptions::ValueError::py_err(
+            Err(_) => Err(exceptions::PyValueError::new_err(
                 "Commit timed out, please check connectivity with Pravega",
             )),
         }
@@ -170,14 +170,14 @@ impl StreamTransaction {
                 Ok(_) => Ok(()),
                 Err(TransactionError::TxnClosed { id }) => {
                     warn!("Transaction {:?} already closed", id);
-                    Err(TxnFailedException::py_err(id.0))
+                    Err(TxnFailedException::new_err(id.0))
                 }
-                Err(e) => Err(exceptions::ValueError::py_err(format!(
+                Err(e) => Err(exceptions::PyValueError::new_err(format!(
                     "Abort of transaction failed with {:?}",
                     e
                 ))),
             },
-            Err(_) => Err(exceptions::ValueError::py_err(
+            Err(_) => Err(exceptions::PyValueError::new_err(
                 "Abort timed out, please check connectivity with Pravega",
             )),
         }

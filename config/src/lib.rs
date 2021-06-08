@@ -33,8 +33,9 @@ use getset::{CopyGetters, Getters};
 use pravega_client_retry::retry_policy::RetryWithBackoff;
 use pravega_client_shared::PravegaNodeUri;
 use std::collections::HashMap;
-use std::env;
 use std::time::Duration;
+use std::{env, fs};
+use tracing::debug;
 
 pub const MOCK_CONTROLLER_URI: (&str, u16) = ("localhost", 9090);
 const AUTH_METHOD: &str = "method";
@@ -44,7 +45,8 @@ const AUTH_TOKEN: &str = "token";
 const AUTH_KEYCLOAK_PATH: &str = "keycloak";
 const AUTH_PROPS_PREFIX_ENV: &str = "pravega_client_auth_";
 
-const TLS_CERT_PATH: &str = "pravega_client_tls_cert_path";
+const TLS_CERT_PATH_ENV: &str = "pravega_client_tls_cert_path";
+const DEFAULT_TLS_CERT_PATH: &str = "./certs";
 
 #[derive(Builder, Debug, Getters, CopyGetters, Clone)]
 #[builder(setter(into))]
@@ -77,8 +79,8 @@ pub struct ClientConfig {
     #[builder(default = "false")]
     pub mock: bool,
 
-    #[builder(default = "self.extract_trustcert()")]
-    pub trustcert: String,
+    #[builder(default = "self.extract_trustcerts()")]
+    pub trustcerts: Vec<String>,
 
     #[get_copy = "pub"]
     #[builder(default = "false")]
@@ -101,15 +103,30 @@ pub struct ClientConfig {
 }
 
 impl ClientConfigBuilder {
-    fn extract_trustcert(&self) -> String {
-        let ret_val = env::vars()
-            .filter(|(k, _v)| k.starts_with(TLS_CERT_PATH))
-            .collect::<HashMap<String, String>>();
-        if ret_val.contains_key(TLS_CERT_PATH) {
-            let cert_path = ret_val.get(TLS_CERT_PATH).expect("get tls cert path").to_owned();
-            return cert_path;
+    fn extract_trustcerts(&self) -> Vec<String> {
+        if let Some(enable) = self.is_tls_enabled {
+            if !enable {
+                return vec![];
+            }
+        } else {
+            return vec![];
         }
-        "./ca-cert.crt".to_owned()
+        let ret_val = env::vars()
+            .filter(|(k, _v)| k.starts_with(TLS_CERT_PATH_ENV))
+            .collect::<HashMap<String, String>>();
+        let cert_path = if ret_val.contains_key(TLS_CERT_PATH_ENV) {
+            ret_val.get(TLS_CERT_PATH_ENV).expect("get tls cert path")
+        } else {
+            DEFAULT_TLS_CERT_PATH
+        };
+        let mut certs = vec![];
+        let cert_paths = std::fs::read_dir(cert_path).expect("cannot read from the provided cert directory");
+        for entry in cert_paths {
+            let path = entry.expect("get the cert file").path();
+            debug!("reading cert file {}", path.display());
+            certs.push(fs::read_to_string(path.clone()).expect("read cert file"));
+        }
+        certs
     }
 
     fn extract_credentials(&self) -> Credentials {
@@ -232,19 +249,27 @@ mod tests {
     #[test]
     fn test_extract_tls_cert_path() {
         // test default
+        fs::create_dir(DEFAULT_TLS_CERT_PATH).expect("create default cert path");
+        fs::File::create(format!("{}/foo.crt", DEFAULT_TLS_CERT_PATH)).expect("create crt");
         let config = ClientConfigBuilder::default()
             .controller_uri("127.0.0.2:9091".to_string())
+            .is_tls_enabled(true)
             .build()
             .unwrap();
-        assert_eq!(config.trustcert, "./ca-cert.crt");
+        assert_eq!(config.trustcerts.len(), 1);
+        fs::remove_dir_all(DEFAULT_TLS_CERT_PATH).expect("remove dir");
 
         // test with env var set
-        env::set_var("pravega_client_tls_cert_path", "/");
+        fs::create_dir("./bar").expect("create default cert path");
+        fs::File::create(format!("./bar/foo.crt")).expect("create crt");
+        env::set_var("pravega_client_tls_cert_path", "./bar");
         let config = ClientConfigBuilder::default()
             .controller_uri("127.0.0.2:9091".to_string())
+            .is_tls_enabled(true)
             .build()
             .unwrap();
-        assert_eq!(config.trustcert, "/");
+        assert_eq!(config.trustcerts.len(), 1);
+        fs::remove_dir_all("./bar").expect("remove dir");
         env::remove_var("pravega_client_tls_cert_path");
     }
 }
