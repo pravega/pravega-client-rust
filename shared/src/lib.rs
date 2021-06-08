@@ -140,17 +140,23 @@ impl PravegaNodeUri {
 
     fn uri_parts_from_string(uri: String) -> PravegaNodeUriParseResult<PravegaNodeUriParts> {
         let mut uri_parts: PravegaNodeUriParts = PravegaNodeUriParts::default();
-        let mut parts: Vec<_> = uri.split("://").collect();
+        let endpoints: Vec<_> = uri.split(",").collect();
+        if endpoints.len() < 1 || endpoints[0].is_empty() {
+            return Err(PravegaNodeUriParseError::ParseError {
+                error_msg: format!("malformed uri {}", uri),
+            });
+        }
+        let mut parts: Vec<_> = endpoints[0].split("://").collect();
         if parts.len() > 2 || parts.is_empty() {
             return Err(PravegaNodeUriParseError::ParseError {
-                error_msg: "malformed uri".into(),
+                error_msg: format!("malformed uri {}", uri),
             });
         }
         let authority_port_parts: Vec<_> = parts.pop().unwrap().split(':').collect();
         match authority_port_parts.len() {
             1 => {
                 return Err(PravegaNodeUriParseError::ParseError {
-                    error_msg: "malformed uri, missing port".into(),
+                    error_msg: format!("port not found in malformed uri,  {}", uri),
                 })
             }
             2 => {
@@ -163,7 +169,7 @@ impl PravegaNodeUri {
             }
             _ => {
                 return Err(PravegaNodeUriParseError::ParseError {
-                    error_msg: "malformed uri".into(),
+                    error_msg: format!("malformed uri {}", uri),
                 })
             }
         };
@@ -850,6 +856,19 @@ mod test {
         );
         assert!(PravegaNodeUri::is_well_formed(uri_with_scheme.to_string()));
         assert_eq!(uri_with_scheme.port(), 9090);
+
+        // test a multi-endpoint uri that java client claims to support in client/src/main/java/io/pravega/client/ClientConfig.java
+        let uri_with_scheme =
+            PravegaNodeUri("ssl://127.0.0.1:9090,127.0.0.1:9091,127.0.0.1:9092".to_string());
+        assert_eq!(
+            PravegaNodeUri::uri_parts_from_string(uri_with_scheme.to_string()).unwrap(),
+            PravegaNodeUriParts {
+                scheme: Some("ssl".to_string()),
+                authority: Some("127.0.0.1".to_string()),
+                port: Some(9090),
+            }
+        );
+
         assert!(PravegaNodeUri::uri_parts_from_string("tls://127.0.0.1://9090".into()).is_err());
         assert!(!PravegaNodeUri::is_well_formed("tls://127.0.0.1://9090".into()));
         assert!(PravegaNodeUri("tls://127.0.0.1://9090".to_string())
@@ -861,6 +880,10 @@ mod test {
                 .unwrap(),
             "tls".to_string()
         );
+        assert!(PravegaNodeUri("".to_string()).scheme().is_err());
+        assert!(PravegaNodeUri(",tls://127.0.0.1:9090".to_string())
+            .scheme()
+            .is_err());
     }
 
     #[test]
