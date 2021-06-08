@@ -59,7 +59,7 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     let mut writer = client_factory.create_byte_writer(scoped_segment.clone());
     let mut reader = client_factory.create_byte_reader(scoped_segment);
 
-    test_simple_write_and_read(&mut writer, &mut reader);
+    // test_simple_write_and_read(&mut writer, &mut reader);
     // test_seek(&mut reader);
     // test_truncation(&mut writer, &mut reader, &mut rt);
     // test_seal(&mut writer, &mut reader, &mut rt);
@@ -95,6 +95,21 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     //     1,
     // ));
     // test_multiple_writers_conditional_append(&client_factory, segment);
+    let scope_name = Scope::from("testScopeAsyncByteStream".to_owned());
+    let stream_name = Stream::from("testStreamAsyncByteStream".to_owned());
+    let segment = ScopedSegment {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+        segment: Segment::from(0),
+    };
+    handle.block_on(utils::create_scope_stream(
+        client_factory.controller_client(),
+        &scope_name,
+        &stream_name,
+        1,
+    ));
+    handle.block_on(test_async_write_and_read(&client_factory, segment));
+
 }
 
 fn test_simple_write_and_read(writer: &mut ByteWriter, reader: &mut ByteReader) {
@@ -163,7 +178,7 @@ fn test_truncation(writer: &mut ByteWriter, reader: &mut ByteReader, rt: &mut Ru
     assert!(result.is_err());
 
     // get current head
-    let head = reader.current_head().expect("get current head");
+    let head = rt.block_on(reader.current_head()).expect("get current head");
     assert_eq!(head, 4);
 
     // read from current head
@@ -249,4 +264,32 @@ fn test_multiple_writers_conditional_append(factory: &ClientFactory, segment: Sc
     writer1.seek_to_tail();
     assert_eq!(writer1.current_write_offset(), 3072);
     info!("test byte stream multiple writers concurrent append passed");
+}
+
+async fn test_async_write_and_read(factory: &ClientFactory, segment: ScopedSegment) {
+    info!("test byte stream async write and read");
+    let mut writer = factory.create_byte_writer_async(segment.clone()).await;
+    for _i in 0..10 {
+        for _j in 0..1000 {
+            let buf = vec![1; 1024];
+            let (size, oneshot) = writer.write(&buf).await.expect("write to byte stream");
+            assert_eq!(size, 1024);
+            assert!(oneshot.await.is_ok());
+        }
+        writer.seek_to_tail().await;
+    }
+
+    let mut reader = factory.create_byte_reader_async(segment.clone()).await;
+    reader.seek_async(SeekFrom::Start(0));
+    let mut read = 0;
+    loop {
+        let mut buf = vec![0; 1024];
+        let size = reader.read_async(&mut buf).await.expect("read from byte stream");
+        read += size;
+        if read == 1024 * 1000 * 10 {
+            break;
+        }
+    }
+    assert_eq!(reader.available(), 0);
+    info!("test async write and read passed");
 }

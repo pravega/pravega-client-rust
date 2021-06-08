@@ -20,7 +20,7 @@ use pravega_client_shared::{ScopedSegment, ScopedStream, WriterId};
 
 use std::io::{Error, ErrorKind, Write};
 use tokio::sync::oneshot;
-use tracing::{info_span, error};
+use tracing::{error, info_span};
 use tracing_futures::Instrument;
 
 type EventHandle = oneshot::Receiver<Result<(), Error>>;
@@ -133,7 +133,9 @@ impl ByteWriter {
     const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
     pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
-        factory.runtime().block_on(ByteWriter::new_async(segment, factory.clone()))
+        factory
+            .runtime()
+            .block_on(ByteWriter::new_async(segment, factory.clone()))
     }
 
     pub(crate) async fn new_async(segment: ScopedSegment, factory: ClientFactory) -> Self {
@@ -171,7 +173,6 @@ impl ByteWriter {
         let event_handle = self.write_internal(self.sender.clone(), payload).await;
         self.write_offset += bytes_to_write as i64;
         (bytes_to_write, event_handle)
-
     }
     /// Seal the segment and no further writes are allowed.
     ///
@@ -225,9 +226,11 @@ impl ByteWriter {
     /// byte_writer.seek_to_tail().await;
     /// ```
     pub async fn seek_to_tail(&mut self) {
-        let segment_info = self.metadata_client.get_segment_info().await
+        let segment_info = self
+            .metadata_client
+            .get_segment_info()
+            .await
             .expect("failed to get segment info");
-        error!("{:?}", segment_info);
         self.write_offset = segment_info.write_offset;
     }
 
