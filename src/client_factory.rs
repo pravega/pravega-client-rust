@@ -146,7 +146,7 @@ impl ClientFactory {
     }
 
     pub async fn create_byte_reader_async(&self, segment: ScopedSegment) -> ByteReader {
-        ByteReader::new(segment, self.clone(), self.config().reader_wrapper_buffer_size())
+        ByteReader::new_async(segment, self.clone(), self.config().reader_wrapper_buffer_size()).await
     }
 
     pub async fn create_table(&self, scope: Scope, name: String) -> Table {

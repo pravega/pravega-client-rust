@@ -20,7 +20,7 @@ use pravega_client_shared::{ScopedSegment, ScopedStream, WriterId};
 
 use std::io::{Error, ErrorKind, Write};
 use tokio::sync::oneshot;
-use tracing::{error, info_span};
+use tracing::info_span;
 use tracing_futures::Instrument;
 
 type EventHandle = oneshot::Receiver<Result<(), Error>>;
@@ -222,10 +222,27 @@ impl ByteWriter {
     /// This method is useful for tail reads.
     /// # Examples
     /// ```ignore
-    /// let mut byte_writer = client_factory.create_byte_writer_async(segment).await;
-    /// byte_writer.seek_to_tail().await;
+    /// let mut byte_writer = client_factory.create_byte_writer_async(segment);
+    /// byte_writer.seek_to_tail();
     /// ```
-    pub async fn seek_to_tail(&mut self) {
+    pub fn seek_to_tail(&mut self) {
+        let segment_info = self
+            .factory
+            .runtime()
+            .block_on(self.metadata_client.get_segment_info())
+            .expect("failed to get segment info");
+        self.write_offset = segment_info.write_offset;
+    }
+
+    /// Seek to the tail of the segment.
+    ///
+    /// This method is useful for tail reads.
+    /// # Examples
+    /// ```ignore
+    /// let mut byte_writer = client_factory.create_byte_writer_async(segment).await;
+    /// byte_writer.seek_to_tail_async().await;
+    /// ```
+    pub async fn seek_to_tail_async(&mut self) {
         let segment_info = self
             .metadata_client
             .get_segment_info()
