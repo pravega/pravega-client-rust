@@ -174,6 +174,7 @@ impl ByteWriter {
         self.write_offset += bytes_to_write as i64;
         (bytes_to_write, event_handle)
     }
+
     /// Seal the segment and no further writes are allowed.
     ///
     /// # Examples
