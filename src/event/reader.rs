@@ -825,7 +825,7 @@ impl SegmentSlice {
         factory: ClientFactory,
     ) {
         let mut offset: i64 = start_offset;
-        let segment_reader = factory.create_async_event_reader(segment.clone()).await;
+        let segment_reader = factory.create_async_segment_reader(segment.clone()).await;
         loop {
             if let Ok(_) | Err(TryRecvError::Closed) = drop_fetch.try_recv() {
                 info!("Stop reading from the segment");

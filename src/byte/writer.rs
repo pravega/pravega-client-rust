@@ -152,6 +152,23 @@ impl ByteWriter {
         }
     }
 
+    /// Write data asynchronously.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// let mut byte_writer = client_factory.create_byte_writer_async(segment).await;
+    /// let payload = vec![0; 8];
+    /// let (size, handle) = byte_writer.write(&payload).await;
+    /// assert!(handle.await.is_ok());
+    /// ```
+    pub async fn write_async(&mut self, buf: &[u8]) -> (usize, oneshot::Receiver<Result<(), Error>>) {
+        let bytes_to_write = std::cmp::min(buf.len(), EventWriter::MAX_EVENT_SIZE);
+        let payload = buf[0..bytes_to_write].to_vec();
+        let event_handle = self.write_internal(self.sender.clone(), payload).await;
+        self.write_offset += bytes_to_write as i64;
+        (bytes_to_write, event_handle)
+    }
+
     /// Seal the segment and no further writes are allowed.
     ///
     /// # Examples
@@ -208,6 +225,23 @@ impl ByteWriter {
             .factory
             .runtime()
             .block_on(self.metadata_client.get_segment_info())
+            .expect("failed to get segment info");
+        self.write_offset = segment_info.write_offset;
+    }
+
+    /// Seek to the tail of the segment.
+    ///
+    /// This method is useful for tail reads.
+    /// # Examples
+    /// ```ignore
+    /// let mut byte_writer = client_factory.create_byte_writer_async(segment).await;
+    /// byte_writer.seek_to_tail_async().await;
+    /// ```
+    pub async fn seek_to_tail_async(&mut self) {
+        let segment_info = self
+            .metadata_client
+            .get_segment_info()
+            .await
             .expect("failed to get segment info");
         self.write_offset = segment_info.write_offset;
     }

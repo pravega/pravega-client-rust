@@ -61,10 +61,11 @@ use uuid::Uuid;
 /// ```
 pub struct ByteReader {
     reader_id: Uuid,
+    pub segment: ScopedSegment,
     reader: Option<PrefetchingAsyncSegmentReader>,
     reader_buffer_size: usize,
     metadata_client: SegmentMetadataClient,
-    factory: ClientFactory,
+    pub factory: ClientFactory,
 }
 
 impl Read for ByteReader {
@@ -81,7 +82,7 @@ impl ByteReader {
     pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory, buffer_size: usize) -> Self {
         let async_reader = factory
             .runtime()
-            .block_on(factory.create_async_event_reader(segment.clone()));
+            .block_on(factory.create_async_segment_reader(segment.clone()));
         let async_reader_wrapper = PrefetchingAsyncSegmentReader::new(
             factory.runtime().handle().clone(),
             Arc::new(Box::new(async_reader)),
@@ -90,16 +91,16 @@ impl ByteReader {
         );
         let metadata_client = factory
             .runtime()
-            .block_on(factory.create_segment_metadata_client(segment));
+            .block_on(factory.create_segment_metadata_client(segment.clone()));
         ByteReader {
             reader_id: Uuid::new_v4(),
+            segment,
             reader: Some(async_reader_wrapper),
             reader_buffer_size: buffer_size,
             metadata_client,
             factory,
         }
     }
-
     /// Return the head of current readable data in the segment.
     ///
     /// The ByteReader is initialized to read from the segment at offset 0. However, it might
@@ -109,10 +110,18 @@ impl ByteReader {
     /// let mut byte_reader = client_factory.create_byte_reader(segment);
     /// let offset = byte_reader.current_head().expect("get current head offset");
     /// ```
-    pub fn current_head(&self) -> std::io::Result<u64> {
-        self.factory
-            .runtime()
-            .block_on(self.metadata_client.fetch_current_starting_head())
+    pub async fn current_head(&self) -> std::io::Result<u64> {
+        self.metadata_client
+            .fetch_current_starting_head()
+            .await
+            .map(|i| i as u64)
+            .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
+    }
+
+    pub async fn current_tail(&self) -> std::io::Result<u64> {
+        self.metadata_client
+            .fetch_current_segment_length()
+            .await
             .map(|i| i as u64)
             .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
     }
@@ -284,7 +293,7 @@ mod test {
         assert!(reader.read(&mut buf).is_err());
 
         // read from current head
-        let offset = reader.current_head().expect("get current head");
+        let offset = rt.block_on(reader.current_head()).expect("get current head");
         reader.seek(SeekFrom::Start(offset)).expect("seek to new head");
         let mut buf = vec![0; 100];
         assert!(reader.read(&mut buf).is_ok());

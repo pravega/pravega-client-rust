@@ -39,6 +39,7 @@ use pravega_wire_protocol::connection_factory::{
     ConnectionFactory, ConnectionFactoryConfig, SegmentConnectionManager,
 };
 
+use crate::index::{IndexReader, IndexWriter};
 use std::fmt;
 use std::sync::Arc;
 use tokio::runtime::Runtime;
@@ -137,8 +138,24 @@ impl ClientFactory {
         ByteWriter::new(segment, self.clone())
     }
 
+    pub async fn create_byte_writer_async(&self, segment: ScopedSegment) -> ByteWriter {
+        ByteWriter::new_async(segment, self.clone()).await
+    }
+
     pub fn create_byte_reader(&self, segment: ScopedSegment) -> ByteReader {
         ByteReader::new(segment, self.clone(), self.config().reader_wrapper_buffer_size())
+    }
+
+    pub async fn create_byte_reader_async(&self, segment: ScopedSegment) -> ByteReader {
+        ByteReader::new_async(segment, self.clone(), self.config().reader_wrapper_buffer_size()).await
+    }
+
+    pub async fn create_index_writer(&self, segment: ScopedSegment) -> IndexWriter {
+        IndexWriter::new(self.clone(), segment).await
+    }
+
+    pub async fn create_index_reader(&self, segment: ScopedSegment) -> IndexReader {
+        IndexReader::new(self.clone(), segment).await
     }
 
     pub async fn create_table(&self, scope: Scope, name: String) -> Table {
@@ -151,7 +168,7 @@ impl ClientFactory {
         Synchronizer::new(scope, name, self.clone()).await
     }
 
-    pub(crate) async fn create_async_event_reader(&self, segment: ScopedSegment) -> AsyncSegmentReaderImpl {
+    pub(crate) async fn create_async_segment_reader(&self, segment: ScopedSegment) -> AsyncSegmentReaderImpl {
         AsyncSegmentReaderImpl::new(
             segment.clone(),
             self.clone(),
