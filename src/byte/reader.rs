@@ -80,18 +80,24 @@ impl Read for ByteReader {
 
 impl ByteReader {
     pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory, buffer_size: usize) -> Self {
-        let async_reader = factory
+        factory
             .runtime()
-            .block_on(factory.create_async_segment_reader(segment.clone()));
+            .block_on(ByteReader::new_async(segment, factory.clone(), buffer_size))
+    }
+
+    pub(crate) async fn new_async(
+        segment: ScopedSegment,
+        factory: ClientFactory,
+        buffer_size: usize,
+    ) -> Self {
+        let async_reader = factory.create_async_segment_reader(segment.clone()).await;
         let async_reader_wrapper = PrefetchingAsyncSegmentReader::new(
             factory.runtime().handle().clone(),
             Arc::new(Box::new(async_reader)),
             0,
             buffer_size,
         );
-        let metadata_client = factory
-            .runtime()
-            .block_on(factory.create_segment_metadata_client(segment.clone()));
+        let metadata_client = factory.create_segment_metadata_client(segment.clone()).await;
         ByteReader {
             reader_id: Uuid::new_v4(),
             segment,
@@ -101,6 +107,17 @@ impl ByteReader {
             factory,
         }
     }
+
+    /// Read data asynchronously.
+    pub async fn read_async(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
+        self.reader
+            .as_mut()
+            .unwrap()
+            .read(buf)
+            .await
+            .map_err(|e| Error::new(ErrorKind::Other, format!("Error: {:?}", e)))
+    }
+
     /// Return the head of current readable data in the segment.
     ///
     /// The ByteReader is initialized to read from the segment at offset 0. However, it might
@@ -147,23 +164,8 @@ impl ByteReader {
         self.reader.as_ref().unwrap().available()
     }
 
-    fn recreate_reader_wrapper(&mut self, offset: i64) {
-        let internal_reader = self.reader.take().unwrap().extract_reader();
-        let new_reader_wrapper = PrefetchingAsyncSegmentReader::new(
-            self.factory.runtime().handle().clone(),
-            internal_reader,
-            offset,
-            self.reader_buffer_size,
-        );
-        self.reader = Some(new_reader_wrapper);
-    }
-}
-
-/// The Seek implementation for ByteStreamReader allows seeking to a byte offset from the beginning
-/// of the stream or a byte offset relative to the current position in the stream.
-/// If the stream has been truncated, the byte offset will be relative to the original beginning of the stream.
-impl Seek for ByteReader {
-    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+    /// Seek to an offset asynchronously.
+    pub async fn seek_async(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         match pos {
             SeekFrom::Start(offset) => {
                 let offset = offset.try_into().map_err(|e| {
@@ -189,9 +191,9 @@ impl Seek for ByteReader {
             }
             SeekFrom::End(offset) => {
                 let tail = self
-                    .factory
-                    .runtime()
-                    .block_on(self.metadata_client.fetch_current_segment_length())
+                    .metadata_client
+                    .fetch_current_segment_length()
+                    .await
                     .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))?;
                 if tail + offset < 0 {
                     Err(Error::new(
@@ -205,6 +207,26 @@ impl Seek for ByteReader {
                 }
             }
         }
+    }
+    fn recreate_reader_wrapper(&mut self, offset: i64) {
+        let internal_reader = self.reader.take().unwrap().extract_reader();
+        let new_reader_wrapper = PrefetchingAsyncSegmentReader::new(
+            self.factory.runtime().handle().clone(),
+            internal_reader,
+            offset,
+            self.reader_buffer_size,
+        );
+        self.reader = Some(new_reader_wrapper);
+    }
+}
+
+/// The Seek implementation for ByteReader allows seeking to a byte offset from the beginning
+/// of the stream or a byte offset relative to the current position in the stream.
+/// If the stream has been truncated, the byte offset will be relative to the original beginning of the stream.
+impl Seek for ByteReader {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        let factory = self.factory.clone();
+        factory.runtime().block_on(self.seek_async(pos))
     }
 }
 

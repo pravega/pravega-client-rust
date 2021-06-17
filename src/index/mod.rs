@@ -34,13 +34,14 @@ lazy_static! {
     static ref CONFIG: Config = {
         let mut config = bincode2::config();
         config.big_endian();
-        config.limit(RECORD_SIZE.into());
+        config.limit(RECORD_SIZE);
         config.array_length(LengthOption::U32);
         config.string_length(LengthOption::U16);
         config
     };
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! label {
     ($($x:expr),*) => {
@@ -98,7 +99,7 @@ pub(crate) fn hash_key_to_u128(key: &'static str) -> u128 {
 
 #[derive(Clone)]
 pub struct Label {
-    entries: Vec<(&'static str, u64)>,
+    pub entries: Vec<(&'static str, u64)>,
 }
 
 #[cfg(test)]

@@ -28,6 +28,7 @@ mod controller_tests;
 mod disconnection_tests;
 mod event_reader_tests;
 mod event_writer_tests;
+mod index_stream_tests;
 mod pravega_service;
 mod synchronizer_tests;
 mod table_tests;
@@ -79,7 +80,7 @@ mod test {
     fn integration_test() {
         let subscriber = FmtSubscriber::builder()
             .with_ansi(true)
-            .with_max_level(Level::DEBUG)
+            .with_max_level(Level::INFO)
             .finish();
 
         let my_dispatch = Dispatch::new(subscriber);
@@ -147,6 +148,11 @@ mod test {
         span.in_scope(|| {
             info!("Running event reader test");
             event_reader_tests::test_event_stream_reader(config.clone());
+        });
+        let span = info_span!("index stream test", auth = config.auth, tls = config.tls);
+        span.in_scope(|| {
+            info!("Running index stream test");
+            index_stream_tests::test_index_stream(config.clone());
         });
         // Shut down Pravega standalone
         pravega.stop().unwrap();

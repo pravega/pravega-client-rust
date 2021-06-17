@@ -133,9 +133,15 @@ impl ByteWriter {
     const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
     pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
+        factory
+            .runtime()
+            .block_on(ByteWriter::new_async(segment, factory.clone()))
+    }
+
+    pub(crate) async fn new_async(segment: ScopedSegment, factory: ClientFactory) -> Self {
         let rt = factory.runtime();
         let (sender, receiver) = create_channel(Self::CHANNEL_CAPACITY);
-        let metadata_client = rt.block_on(factory.create_segment_metadata_client(segment.clone()));
+        let metadata_client = factory.create_segment_metadata_client(segment.clone()).await;
         let writer_id = WriterId(get_random_u128());
         let stream = ScopedStream::from(&segment);
         let span = info_span!("Reactor", byte_stream_writer = %writer_id);

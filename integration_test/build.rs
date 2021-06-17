@@ -16,8 +16,8 @@ use tar::Archive;
 use tracing::info;
 
 const LIBRARY: &str = "pravega";
-const VERSION: &str = "0.10.0-2876.1c3854e-SNAPSHOT";
-const TAG: &str = "refresh-cert";
+const VERSION: &str = "0.9.1-2790.6a599d9-SNAPSHOT";
+const TAG: &str = "0.9";
 const BASE: &str = "./";
 
 fn main() {

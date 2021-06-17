@@ -10,7 +10,7 @@
 
 use crate::byte::ByteWriter;
 use crate::client_factory::ClientFactory;
-use crate::index::{hash_key_to_u128, IndexReader, Label, Record, RECORD_SIZE};
+use crate::index::{hash_key_to_u128, Label, Record, RECORD_SIZE};
 
 use pravega_client_shared::ScopedSegment;
 
@@ -40,6 +40,10 @@ pub enum IndexWriterError {
     Internal { msg: String },
 }
 
+/// Index Writer writes a fixed size of record to the stream.
+///
+/// Write takes a byte array and a Label. It hashes the Label entry key and construct a Record. Then
+/// it serializes the Record and writes to the stream.
 pub struct IndexWriter {
     byte_writer: ByteWriter,
     entries: Option<Vec<(u128, u64)>>,
@@ -48,7 +52,7 @@ pub struct IndexWriter {
 
 impl IndexWriter {
     pub(crate) async fn new(factory: ClientFactory, segment: ScopedSegment) -> Self {
-        let byte_writer = factory.create_byte_writer_async(segment.clone()).await;
+        let mut byte_writer = factory.create_byte_writer_async(segment.clone()).await;
         byte_writer.seek_to_tail_async().await;
 
         let index_reader = factory.create_index_reader(segment.clone()).await;
@@ -60,7 +64,7 @@ impl IndexWriter {
         if head_offset != tail_offset {
             let prev_record_offset = tail_offset - RECORD_SIZE;
             let record = index_reader
-                .read_record(prev_record_offset)
+                .read_record_from_random_offset(prev_record_offset)
                 .await
                 .expect("read last record");
             return IndexWriter {
@@ -76,13 +80,15 @@ impl IndexWriter {
         }
     }
 
+    /// Append data with a given label
     pub async fn append(&mut self, data: Vec<u8>, label: Label) -> Result<(), IndexWriterError> {
         let entries = self.preprocess_label(label)?;
         self.validate_entries(&entries)?;
         self.entries = Some(entries);
-        append_internal().await
+        self.append_internal(data).await
     }
 
+    /// Append data with a given label conditioned on a label.
     pub async fn append_conditionally(
         &mut self,
         data: Vec<u8>,
@@ -93,9 +99,10 @@ impl IndexWriter {
         let entries = self.preprocess_label(label)?;
         self.validate_entries(&entries)?;
         self.entries = Some(entries);
-        append_internal().await
+        self.append_internal(data).await
     }
 
+    /// Flush data.
     pub async fn flush(&mut self) -> Result<(), IndexWriterError> {
         if let Some(handle) = self.event_handle.take() {
             match handle.await {
@@ -116,7 +123,17 @@ impl IndexWriter {
         Ok(())
     }
 
-    async fn append_internal(&mut self) -> Result<(), IndexWriterError> {
+    /// Truncate data given an offset.
+    pub async fn truncate(&mut self, offset: u64) -> Result<(), IndexWriterError> {
+        self.byte_writer
+            .truncate_data_before(offset as i64)
+            .await
+            .map_err(|e| IndexWriterError::Internal {
+                msg: format!("failed to truncate data {:?}", e),
+            })
+    }
+
+    async fn append_internal(&mut self, data: Vec<u8>) -> Result<(), IndexWriterError> {
         let record = Record::new(self.entries.as_ref().unwrap().clone(), data);
         let encoded = record.write_fields().context(InvalidData {})?;
         let (_size, handle) = self.byte_writer.write_async(&encoded).await;
@@ -125,13 +142,11 @@ impl IndexWriter {
     }
 
     // check if the provided label matches the previous label in this writer.
-    fn check_condition(&self, mut condition_on: Label) -> Result<(), IndexWriterError> {
+    fn check_condition(&self, condition_on: Label) -> Result<(), IndexWriterError> {
         ensure!(
-            self.entries.is_some()
+            self.entries.is_some(),
             InvalidCondition {
-                msg: format!(
-                    "Index Writer doesn't have a previous label",
-                ),
+                msg: "Index Writer doesn't have a previous label".to_string(),
             }
         );
 
@@ -145,7 +160,7 @@ impl IndexWriter {
             ensure!(
                 matching == entries_hash.len(),
                 InvalidCondition {
-                    msg: format!("Current condition label does not match the previous one",),
+                    msg: "Current condition label does not match the previous one".to_string(),
                 }
             );
         }
@@ -158,7 +173,7 @@ impl IndexWriter {
         ensure!(
             !label.entries.is_empty(),
             InvalidLabel {
-                msg: format!("Label entry should not be empty",),
+                msg: "Label entry should not be empty".to_string(),
             }
         );
 
@@ -187,7 +202,7 @@ impl IndexWriter {
     }
 
     // check if the provided entry value is monotonically increasing.
-    fn validate_entries(&self, entries_hash: &Vec<(u128, u64)>) -> Result<(), IndexWriterError> {
+    fn validate_entries(&self, entries_hash: &[(u128, u64)]) -> Result<(), IndexWriterError> {
         // if previous label exists, ensure new label entry value is monotonically increasing.
         if let Some(ref prev_entries) = self.entries {
             // new label should not contain less number of entry than previous label

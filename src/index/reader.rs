@@ -15,20 +15,13 @@ use crate::segment::reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 
 use pravega_client_shared::ScopedSegment;
 
-use crate::index::reader::IndexReaderError::EntryNotFound;
-use snafu::{ensure, Backtrace, ResultExt, Snafu};
-use std::io::{Error, ErrorKind};
+use snafu::Snafu;
+use std::io::{Error, SeekFrom};
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
 pub enum IndexReaderError {
-    #[snafu(display("Could not serialize/deserialize record because of: {}", source))]
-    InvalidData {
-        source: BincodeError,
-        backtrace: Backtrace,
-    },
-
-    #[snafu(display("Entry {} does not exist}", msg))]
+    #[snafu(display("Entry {} does not exist", msg))]
     EntryNotFound { msg: String },
 
     #[snafu(display("Internal error : {}", msg))]
@@ -43,7 +36,7 @@ pub struct IndexReader {
 
 impl IndexReader {
     pub(crate) async fn new(factory: ClientFactory, segment: ScopedSegment) -> Self {
-        let byte_reader = factory.create_byte_reader_async(segment).await;
+        let byte_reader = factory.create_byte_reader_async(segment.clone()).await;
         let current_offset = byte_reader
             .current_head()
             .await
@@ -56,26 +49,38 @@ impl IndexReader {
         }
     }
 
+    /// Given an entry (key, x), find the offset of the first record that contains the given entry key
+    /// and value >= x.
+    ///
+    /// Note that if there are multiple entries that have same entry key and value, this method will find and return
+    /// the first one.
     pub async fn search_offset(&mut self, entry: (&'static str, u64)) -> Result<u64, IndexReaderError> {
+        const RECORD_SIZE_SIGNED: i64 = RECORD_SIZE as i64;
+
         let target_key = hash_key_to_u128(entry.0);
         let target_value = entry.1;
 
-        let head = self.head_offset().await?;
-        let tail = self.tail_offset().await?;
+        let head = self.head_offset().await.map_err(|e| IndexReaderError::Internal {
+            msg: format!("error when fetching head offset: {:?}", e),
+        })? as i64;
+        let tail = self.tail_offset().await.map_err(|e| IndexReaderError::Internal {
+            msg: format!("error when fetching tail offset: {:?}", e),
+        })? as i64;
         let mut start = 0;
-        let mut end = (tail - head) / RECORD_SIZE - 1;
+        let num_of_record = (tail - head) as i64 / RECORD_SIZE_SIGNED;
+        let mut end = num_of_record - 1;
 
-        let mut offset: Option<u64> = None;
         while start <= end {
             let mid = start + (end - start) / 2;
-            let record = self.read_record(head + mid * RECORD_SIZE).await?;
+            let record = self
+                .read_record_from_random_offset((head + mid * RECORD_SIZE_SIGNED) as u64)
+                .await?;
 
-            if record.entries.iter().any(|&e| e.0 == target_key) {
+            if let Some(e) = record.entries.iter().find(|&e| e.0 == target_key) {
                 // record contains the entry, compare value with the target value.
                 if e.1 >= target_value {
                     // value is large than or equal to the target value, check the first half.
                     end = mid - 1;
-                    offset = Some(head + mid * RECORD_SIZE);
                 } else {
                     // value is smaller than the target value, check the second half.
                     start = mid + 1;
@@ -87,58 +92,83 @@ impl IndexReader {
             }
         }
 
-        if let Some(res) = offset {
-            Ok(result)
-        } else {
+        if start == num_of_record {
             Err(IndexReaderError::EntryNotFound {
                 msg: format!("key/value: {}/{}", entry.0, entry.1),
             })
+        } else {
+            Ok((head + start * RECORD_SIZE_SIGNED) as u64)
         }
     }
 
-    pub async fn read_from(&mut self, entry: (&'static str, u64)) -> Result<Vec<u8>, IndexReaderError> {
-        let offset = self.search_offset(entry)?;
-        let record = self.read_record(offset).await?;
+    /// Read an record from the current offset.
+    pub async fn read(&mut self) -> Result<Vec<u8>, IndexReaderError> {
+        let mut buf = vec![0; RECORD_SIZE as usize];
+        self.byte_reader
+            .read_async(&mut buf)
+            .await
+            .map_err(|e| IndexReaderError::Internal {
+                msg: format!("byte reader read error {:?}", e),
+            })?;
+        let record = Record::read_from(&buf).map_err(|e| IndexReaderError::Internal {
+            msg: format!("deserialize record {:?}", e),
+        })?;
+        self.current_offset += RECORD_SIZE;
         Ok(record.data)
     }
 
+    /// Seek to a given offset.
+    ///
+    /// After calling this method, read method will start to read from the seek offset.
+    pub async fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        self.byte_reader.seek_async(pos).await
+    }
+
     /// First readable record.
-    pub async fn first_record(&mut self) -> Result<Vec<u8>, Error> {
+    pub async fn first_record(&mut self) -> Result<Vec<u8>, IndexReaderError> {
         let head_offset = self
             .byte_reader
             .current_head()
             .await
             .expect("get current readable head");
-        let first_record = self.read_record(head_offset).await?;
+        let first_record = self.read_record_from_random_offset(head_offset).await?;
         Ok(first_record.data)
     }
 
     /// Last record.
-    pub async fn last_record(&mut self) -> Result<Vec<u8>, Error> {
+    pub async fn last_record(&mut self) -> Result<Vec<u8>, IndexReaderError> {
         let last_offset = self.byte_reader.current_tail().await.expect("get current tail");
         let last_record_offset = last_offset - RECORD_SIZE;
-        let last_record = self.read_record(last_record_offset).await?;
+        let last_record = self.read_record_from_random_offset(last_record_offset).await?;
         Ok(last_record.data)
     }
 
-    /// Read a record from a given offset.
-    pub async fn read_record(&self, offset: u64) -> Result<Record, Error> {
-        let segment_read_cmd = self
-            .segment_reader
-            .read(offset as i64, RECORD_SIZE as i32)
-            .await
-            .map_err(|e| Error::new(ErrorKind::Other, format!("segment reader error: {:?}", e)))?;
-        let record = Record::read_from(&segment_read_cmd.data)
-            .map_err(|e| Error::new(ErrorKind::Other, format!("record deserialization error: {:?}", e)))?;
-        Ok(record)
-    }
-
+    /// Get the readable head offset.
     pub async fn head_offset(&self) -> Result<u64, Error> {
         self.byte_reader.current_head().await
     }
 
+    /// Get the tail offset.
     pub async fn tail_offset(&self) -> Result<u64, Error> {
         self.byte_reader.current_tail().await
+    }
+
+    // Read a record from a given offset.
+    pub(crate) async fn read_record_from_random_offset(
+        &self,
+        offset: u64,
+    ) -> Result<Record, IndexReaderError> {
+        let segment_read_cmd = self
+            .segment_reader
+            .read(offset as i64, RECORD_SIZE as i32)
+            .await
+            .map_err(|e| IndexReaderError::Internal {
+                msg: format!("segment reader error: {:?}", e),
+            })?;
+        let record = Record::read_from(&segment_read_cmd.data).map_err(|e| IndexReaderError::Internal {
+            msg: format!("record deserialization error: {:?}", e),
+        })?;
+        Ok(record)
     }
 
     // sort the entry by key alphabetically and hash the entry key
