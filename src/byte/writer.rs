@@ -138,12 +138,19 @@ impl ByteWriter {
         let metadata_client = rt.block_on(factory.create_segment_metadata_client(segment.clone()));
         let writer_id = WriterId(get_random_u128());
         let stream = ScopedStream::from(&segment);
+        let segment_index = segment.segment.number as usize;
+        let stream_segments = rt
+            .block_on(factory.controller_client().get_current_segments(&stream))
+            .expect("get old segment number");
+        let mut segments = stream_segments.get_segments();
+        segments.sort_by_key(|i| i.segment.number);
+        let adjusted_segment = segments.get(segment_index).expect("get correct segment").clone();
         let span = info_span!("Reactor", byte_stream_writer = %writer_id);
         // spawn is tied to the factory runtime.
         rt.spawn(Reactor::run(stream, sender.clone(), receiver, factory.clone(), None).instrument(span));
         ByteWriter {
             writer_id,
-            scoped_segment: segment,
+            scoped_segment: adjusted_segment,
             sender,
             metadata_client,
             factory,
