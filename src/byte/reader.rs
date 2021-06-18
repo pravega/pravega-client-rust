@@ -79,18 +79,25 @@ impl Read for ByteReader {
 
 impl ByteReader {
     pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory, buffer_size: usize) -> Self {
+        let rt = factory.runtime();
+        let segment_index = segment.segment.number as usize;
+        let stream_segments = rt
+            .block_on(factory.controller_client().get_current_segments(&stream))
+            .expect("get current segments in stream");
+        let mut segments = stream_segments.get_segments();
+        segments.sort_by_key(|i| i.segment.number);
+        let adjusted_segment = segments.get(segment_index).expect("get correct segment").clone();
+
         let async_reader = factory
             .runtime()
-            .block_on(factory.create_async_event_reader(segment.clone()));
+            .block_on(factory.create_async_event_reader(adjusted_segment.clone()));
         let async_reader_wrapper = PrefetchingAsyncSegmentReader::new(
             factory.runtime().handle().clone(),
             Arc::new(Box::new(async_reader)),
             0,
             buffer_size,
         );
-        let metadata_client = factory
-            .runtime()
-            .block_on(factory.create_segment_metadata_client(segment));
+        let metadata_client = rt.block_on(factory.create_segment_metadata_client(adjusted_segment));
         ByteReader {
             reader_id: Uuid::new_v4(),
             reader: Some(async_reader_wrapper),
