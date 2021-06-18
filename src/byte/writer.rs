@@ -141,7 +141,7 @@ impl ByteWriter {
         let segment_index = segment.segment.number as usize;
         let stream_segments = rt
             .block_on(factory.controller_client().get_current_segments(&stream))
-            .expect("get old segment number");
+            .expect("get current segments in stream");
         let mut segments = stream_segments.get_segments();
         segments.sort_by_key(|i| i.segment.number);
         let adjusted_segment = segments.get(segment_index).expect("get correct segment").clone();
