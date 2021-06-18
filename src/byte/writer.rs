@@ -164,15 +164,33 @@ impl ByteWriter {
     /// ```ignore
     /// let mut byte_writer = client_factory.create_byte_writer_async(segment).await;
     /// let payload = vec![0; 8];
-    /// let (size, handle) = byte_writer.write(&payload).await;
+    /// let (size, handle) = byte_writer.write_async(&payload).await;
     /// assert!(handle.await.is_ok());
     /// ```
-    pub async fn write_async(&mut self, buf: &[u8]) -> (usize, oneshot::Receiver<Result<(), Error>>) {
+    pub async fn write_async(&mut self, buf: &[u8]) -> usize {
         let bytes_to_write = std::cmp::min(buf.len(), EventWriter::MAX_EVENT_SIZE);
         let payload = buf[0..bytes_to_write].to_vec();
         let event_handle = self.write_internal(self.sender.clone(), payload).await;
         self.write_offset += bytes_to_write as i64;
-        (bytes_to_write, event_handle)
+        self.event_handle = Some(event_handle);
+        bytes_to_write
+    }
+
+    /// Flush data asynchronously.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// let mut byte_writer = client_factory.create_byte_writer_async(segment).await;
+    /// let payload = vec![0; 8];
+    /// let size = byte_writer.write_async(&payload).await;
+    /// byte_writer.flush().await;
+    /// ```
+    pub async fn flush_async(&mut self) -> Result<(), Error> {
+        if let Some(event_handle) = self.event_handle.take() {
+            self.flush_internal(event_handle).await
+        } else {
+            Ok(())
+        }
     }
 
     /// Seal the segment and no further writes are allowed.

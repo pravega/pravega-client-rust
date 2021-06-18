@@ -271,10 +271,10 @@ async fn test_async_write_and_read(factory: &ClientFactory, segment: ScopedSegme
     for _i in 0i32..10 {
         for _j in 0i32..1000 {
             let buf = vec![1; 1024];
-            let (size, oneshot) = writer.write_async(&buf).await;
+            let size = writer.write_async(&buf).await;
             assert_eq!(size, 1024);
-            assert!(oneshot.await.is_ok());
         }
+        writer.flush_async().await.expect("flush");
         writer.seek_to_tail_async().await;
     }
 
