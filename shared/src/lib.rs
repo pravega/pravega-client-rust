@@ -31,8 +31,10 @@ use derive_more::{Display, From};
 use encoding_rs::mem;
 use im::HashMap as ImHashMap;
 use im::OrdMap;
+use lazy_static::lazy_static;
 use murmurhash3::murmurhash3_x64_128;
 use ordered_float::OrderedFloat;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 use std::cmp::{min, Reverse};
@@ -45,6 +47,7 @@ use std::net::{SocketAddr, ToSocketAddrs};
 use std::ops::Index;
 use std::vec;
 use uuid::Uuid;
+
 #[macro_use]
 extern crate shrinkwraprs;
 
@@ -139,13 +142,26 @@ impl PravegaNodeUri {
     }
 
     fn uri_parts_from_string(uri: String) -> PravegaNodeUriParseResult<PravegaNodeUriParts> {
+        lazy_static! {
+            static ref URI_RE: Regex = Regex::new(
+                r"(?x)
+            (?:(?P<scheme>[[:alnum:]]+)://)?
+            (?P<domain_name>([0-9A-Za-z\-\.]+|\[[0-9A-F\.:]+\]))
+            :
+            (?P<port>[[:digit:]]+)"
+            )
+            .unwrap();
+        }
         let mut uri_parts: PravegaNodeUriParts = PravegaNodeUriParts::default();
 
         // The Java client supports multiple comma separated endpoints in a single string
         // where the first endpoint has the scheme to be applied to all endpoints.
-        // To be semi-compatible with the Java code this method accepts a string containing comma separated
-        // endpoints, but it uses only the first endpoint in the string
-        let first_endpoint = match uri.split(',').next() {
+        // To be semi-compatible with the Java code this method accepts a string containing comma
+        // separated (or any separator) endpoints, but it uses only the first endpoint in the string.
+        // The domain name portion can be an ip name, ipv4 address or an ipv6 literal
+        // ipv6 addresses retain [] wrapper because both to_socket_addrs() and
+        // http URI from_str() require IP literals
+        let first_endpoint = match URI_RE.captures_iter(&uri).next() {
             Some(endpoint) => endpoint,
             _ => {
                 return Err(PravegaNodeUriParseError::ParseError {
@@ -154,37 +170,18 @@ impl PravegaNodeUri {
             }
         };
 
-        let mut scheme_authority: Vec<_> = first_endpoint.split("://").collect();
-        if scheme_authority.len() > 2 || scheme_authority.is_empty() {
-            return Err(PravegaNodeUriParseError::ParseError {
-                error_msg: format!("malformed uri {}", uri),
-            });
-        }
-        let domain_name_port_parts: Vec<_> = scheme_authority.pop().unwrap().split(':').collect();
-        match domain_name_port_parts.len() {
-            1 => {
-                return Err(PravegaNodeUriParseError::ParseError {
-                    error_msg: format!("port not found in malformed uri,  {}", uri),
-                })
-            }
-            2 => {
-                uri_parts.domain_name = Some(domain_name_port_parts[0].to_string());
-                uri_parts.port = Some(
-                    domain_name_port_parts[1]
-                        .parse::<u16>()
-                        .expect("port not a valid u16"),
-                );
-            }
-            _ => {
-                return Err(PravegaNodeUriParseError::ParseError {
-                    error_msg: format!("malformed uri {}", uri),
-                })
-            }
-        };
-        if !scheme_authority.is_empty() {
-            // could add a default scheme here
-            uri_parts.scheme = Some(scheme_authority.pop().unwrap().to_lowercase());
-        }
+        uri_parts.domain_name = Some(first_endpoint.name("domain_name").unwrap().as_str().to_string());
+        uri_parts.port = Some(
+            first_endpoint
+                .name("port")
+                .unwrap()
+                .as_str()
+                .parse::<u16>()
+                .expect("port not a valid u16"),
+        );
+        uri_parts.scheme = first_endpoint
+            .name("scheme")
+            .map(|scheme| scheme.as_str().to_string());
         Ok(uri_parts)
     }
 }
@@ -889,9 +886,22 @@ mod test {
             "tls".to_string()
         );
         assert!(PravegaNodeUri("".to_string()).scheme().is_err());
-        assert!(PravegaNodeUri(",tls://127.0.0.1:9090".to_string())
-            .scheme()
-            .is_err());
+
+        // test ipv6 literal
+        assert!(
+            PravegaNodeUri("tcps://[1762:0:0:0:0:B03:1:AF18]:12345".to_string())
+                .scheme()
+                .is_ok()
+        );
+
+        assert_eq!(
+            PravegaNodeUri::uri_parts_from_string("tcps://[::1]:12345".to_string()).unwrap(),
+            PravegaNodeUriParts {
+                scheme: Some("tcps".to_string()),
+                domain_name: Some("[::1]".to_string()),
+                port: Some(12345),
+            }
+        );
     }
 
     #[test]
