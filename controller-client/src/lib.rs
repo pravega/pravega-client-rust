@@ -1954,6 +1954,104 @@ mod test {
             };
             Ok(Response::new(reply))
         }
+        async fn list_scopes(
+            &self,
+            _request: tonic::Request<controller::ScopesRequest>,
+        ) -> std::result::Result<Response<controller::ScopesResponse>, tonic::Status> {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+
+        async fn check_scope_exists(
+            &self,
+            _request: tonic::Request<controller::ScopeInfo>,
+        ) -> std::result::Result<tonic::Response<controller::ExistsResponse>, tonic::Status> {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn check_stream_exists(
+            &self,
+            _request: tonic::Request<controller::StreamInfo>,
+        ) -> std::result::Result<tonic::Response<controller::ExistsResponse>, tonic::Status> {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+
+        async fn create_key_value_table(
+            &self,
+            _request: tonic::Request<controller::KeyValueTableConfig>,
+        ) -> std::result::Result<tonic::Response<controller::CreateKeyValueTableStatus>, tonic::Status>
+        {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn get_current_segments_key_value_table(
+            &self,
+            _request: tonic::Request<controller::KeyValueTableInfo>,
+        ) -> std::result::Result<tonic::Response<controller::SegmentRanges>, tonic::Status> {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn list_key_value_tables_in_scope(
+            &self,
+            _request: tonic::Request<controller::KvTablesInScopeRequest>,
+        ) -> std::result::Result<tonic::Response<controller::KvTablesInScopeResponse>, tonic::Status>
+        {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn delete_key_value_table(
+            &self,
+            _request: tonic::Request<controller::KeyValueTableInfo>,
+        ) -> std::result::Result<tonic::Response<controller::DeleteKvTableStatus>, tonic::Status> {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn list_subscribers(
+            &self,
+            _request: tonic::Request<controller::StreamInfo>,
+        ) -> std::result::Result<tonic::Response<controller::SubscribersResponse>, tonic::Status> {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn update_subscriber_stream_cut(
+            &self,
+            _request: tonic::Request<controller::SubscriberStreamCut>,
+        ) -> std::result::Result<tonic::Response<controller::UpdateSubscriberStatus>, tonic::Status> {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn create_reader_group(
+            &self,
+            _request: tonic::Request<controller::ReaderGroupConfiguration>,
+        ) -> std::result::Result<tonic::Response<controller::CreateReaderGroupResponse>, tonic::Status>
+        {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn get_reader_group_config(
+            &self,
+            _request: tonic::Request<controller::ReaderGroupInfo>,
+        ) -> std::result::Result<tonic::Response<controller::ReaderGroupConfigResponse>, tonic::Status>
+        {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn delete_reader_group(
+            &self,
+            _request: tonic::Request<controller::ReaderGroupInfo>,
+        ) -> std::result::Result<tonic::Response<controller::DeleteReaderGroupStatus>, tonic::Status>
+        {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn update_reader_group(
+            &self,
+            _request: tonic::Request<controller::ReaderGroupConfiguration>,
+        ) -> std::result::Result<tonic::Response<controller::UpdateReaderGroupResponse>, tonic::Status>
+        {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn get_stream_configuration(
+            &self,
+            _request: tonic::Request<controller::StreamInfo>,
+        ) -> std::result::Result<tonic::Response<controller::StreamConfig>, tonic::Status> {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn list_streams_in_scope_for_tag(
+            &self,
+            _request: tonic::Request<controller::StreamsInScopeWithTagRequest>,
+        ) -> std::result::Result<tonic::Response<controller::StreamsInScopeResponse>, tonic::Status> {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
     }
 
     async fn run_server() {
