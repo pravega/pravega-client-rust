@@ -278,6 +278,7 @@ pub(crate) mod test {
                     retention_type: RetentionType::None,
                     retention_param: 0,
                 },
+                tags: None,
             })
             .await
             .unwrap();

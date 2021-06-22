@@ -110,7 +110,7 @@ async fn test_simple_write(writer: &mut EventWriter) {
 
     for rx in receivers {
         let reply: Result<(), Error> = rx.await.expect("wait for result from oneshot");
-        assert_eq!(reply.is_ok(), true);
+        assert!(reply.is_ok());
     }
     info!("test simple write passed");
 }
@@ -150,7 +150,7 @@ async fn test_segment_scaling_up(writer: &mut EventWriter, factory: &ClientFacto
 
     for rx in receivers {
         let reply: Result<(), Error> = rx.await.expect("wait for result from oneshot");
-        assert_eq!(reply.is_ok(), true);
+        assert!(reply.is_ok());
     }
 
     info!("test event stream writer with segment scaled up passed");
@@ -189,7 +189,7 @@ async fn test_segment_scaling_down(writer: &mut EventWriter, factory: &ClientFac
 
     for rx in receivers {
         let reply: Result<(), Error> = rx.await.expect("wait for result from oneshot");
-        assert_eq!(reply.is_ok(), true);
+        assert!(reply.is_ok());
     }
     info!("test event stream writer with segment sealed passed");
 }
@@ -198,7 +198,7 @@ async fn test_write_correctness(writer: &mut EventWriter, factory: &ClientFactor
     info!("test read and write");
     let rx = writer.write_event(String::from("event0").into_bytes()).await;
     let reply: Result<(), Error> = rx.await.expect("wait for result from oneshot");
-    assert_eq!(reply.is_ok(), true);
+    assert!(reply.is_ok());
     let scope_name = Scope::from("testScopeWriter2".to_owned());
     let stream_name = Stream::from("testStreamWriter2".to_owned());
     let segment_name = ScopedSegment {
@@ -274,7 +274,7 @@ async fn test_write_correctness_while_scaling(writer: &mut EventWriter, factory:
     // the data should write successfully.
     for rx in receivers {
         let reply: Result<(), Error> = rx.await.expect("wait for result from oneshot");
-        assert_eq!(reply.is_ok(), true);
+        assert!(reply.is_ok());
     }
 
     let segment_name = ScopedSegment {
