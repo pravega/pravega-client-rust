@@ -253,8 +253,8 @@ async fn test_write_correctness_while_scaling(writer: &mut EventWriter, factory:
             assert_eq!(2, current_segments_result.unwrap().key_segment_map.len());
         }
 
+        let data = format!("event{}", i);
         if i % 2 == 0 {
-            let data = format!("event{}", i);
             // Routing key "even" and "odd" works is because their hashed value are in
             // 0~0.5 and 0.5~1.0 respectively. If the routing key hashing algorithm changed, this
             // test might fail.
@@ -263,7 +263,6 @@ async fn test_write_correctness_while_scaling(writer: &mut EventWriter, factory:
                 .await;
             receivers.push(rx);
         } else {
-            let data = format!("event{}", i);
             let rx = writer
                 .write_event_by_routing_key(String::from("odd"), data.into_bytes())
                 .await;
@@ -351,14 +350,13 @@ async fn test_write_correctness_with_routing_key(writer: &mut EventWriter, facto
     let stream_name = Stream::from("testStreamWriter3".to_owned());
     let mut receivers = vec![];
     while i < count {
+        let data = format!("event{}", i);
         if i % 2 == 0 {
-            let data = format!("event{}", i);
             let rx = writer
                 .write_event_by_routing_key(String::from("even"), data.into_bytes())
                 .await;
             receivers.push(rx);
         } else {
-            let data = format!("event{}", i);
             let rx = writer
                 .write_event_by_routing_key(String::from("odd"), data.into_bytes())
                 .await;
