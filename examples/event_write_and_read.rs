@@ -53,6 +53,7 @@ fn main() {
                 retention_type: RetentionType::None,
                 retention_param: 0,
             },
+            tags: None,
         };
         controller_client
             .create_stream(&stream_config)
