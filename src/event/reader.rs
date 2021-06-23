@@ -486,7 +486,7 @@ impl EventReader {
                         } else {
                             //None is sent if the the segment is released from the reader.
                             debug!("ignore the received data since None was returned");
-                            return None;
+                            None
                         }
                     }
                     Err((e, offset)) => {
