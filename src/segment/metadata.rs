@@ -98,10 +98,8 @@ impl SegmentMetadataClient {
                 Err(e) => {
                     if e.is_token_expired() {
                         self.delegation_token_provider.signal_token_expiry();
-                        RetryResult::Retry(e.to_string())
-                    } else {
-                        RetryResult::Retry(e.to_string())
                     }
+                    RetryResult::Retry(e.to_string())
                 }
             }
         })
@@ -159,10 +157,8 @@ impl SegmentMetadataClient {
                 Err(e) => {
                     if e.is_token_expired() {
                         self.delegation_token_provider.signal_token_expiry();
-                        RetryResult::Retry(e.to_string())
-                    } else {
-                        RetryResult::Retry(e.to_string())
                     }
+                    RetryResult::Retry(e.to_string())
                 }
             }
         })
@@ -208,10 +204,8 @@ impl SegmentMetadataClient {
                 Err(e) => {
                     if e.is_token_expired() {
                         self.delegation_token_provider.signal_token_expiry();
-                        RetryResult::Retry(e.to_string())
-                    } else {
-                        RetryResult::Retry(e.to_string())
                     }
+                    RetryResult::Retry(e.to_string())
                 }
             }
         })

@@ -234,13 +234,11 @@ impl ClientFactoryInternal {
         stream: ScopedStream,
     ) -> DelegationTokenProvider {
         let token_provider = DelegationTokenProvider::new(stream);
-        if self.config.is_auth_enabled {
-            token_provider
-        } else {
+        if !self.config.is_auth_enabled {
             let empty_token = DelegationToken::new("".to_string(), None);
             token_provider.populate(empty_token).await;
-            token_provider
         }
+        token_provider
     }
 
     pub(crate) fn get_connection_pool(&self) -> &ConnectionPool<SegmentConnectionManager> {
