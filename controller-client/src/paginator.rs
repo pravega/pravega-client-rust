@@ -23,54 +23,49 @@ use tracing::info;
 ///
 /// The below snippets show case the example uses.
 /// Sample 1:
-///```ignore
-/// # futures::executor::block_on(async {
+///```
+/// # use tonic::transport::Channel;
+/// # use pravega_controller_client::controller::controller_service_client::ControllerServiceClient;
+/// use pravega_controller_client::ControllerClient;
+/// # async fn call_list_stream(controller_client: &dyn ControllerClient) {
 /// use pravega_client_shared::Scope;
 /// use pravega_client_shared::ScopedStream;
+/// use futures::future;
+/// use futures::stream::StreamExt;
 /// use pravega_controller_client::paginator::list_streams;
-/// use pravega_client::client_factory::ClientFactory;
-/// use pravega_client_config::ClientConfigBuilder;
-/// use pravega_client_config::MOCK_CONTROLLER_URI;
-///     let config = ClientConfigBuilder::default()
-///         .controller_uri(MOCK_CONTROLLER_URI)
-///         .build()
-///         .expect("creating config");
-///     let controller_client = ClientFactory::new(config).get_controller_client();
-///     let stream = list_streams(
-///         Scope {
-///             name: "testScope".to_string(),
-///         },
-///         controller_client,
-///     );
-///     // collect all the Streams in a single vector
-///     let stream_list:Vec<ScopedStream> = stream.map(|str| str.unwrap()).collect::<Vec<ScopedStream>>().await;
-///  # });
+/// let stream = list_streams(
+///     Scope {
+///         name: "testScope".to_string(),
+///     },
+///     controller_client,
+/// );
+/// // collect all the Streams in a single vector
+/// let stream_list:Vec<ScopedStream> = stream.map(|str| str.unwrap()).collect::<Vec<ScopedStream>>().await;
+/// # }
 /// ```
 ///
 /// Sample 2:
-/// ```ignore
-/// # futures::executor::block_on(async {
+/// ```
+/// # use tonic::transport::Channel;
+/// # use pravega_controller_client::controller::controller_service_client::ControllerServiceClient;
+/// use pravega_controller_client::ControllerClient;
+/// # async fn call_list_stream(controller_client: &dyn ControllerClient) {
 /// use pravega_client_shared::Scope;
+/// use pravega_client_shared::ScopedStream;
+/// use futures::future;
+/// use futures::stream::StreamExt;
 /// use pravega_controller_client::paginator::list_streams;
-/// use pravega_client::client_factory::ClientFactory;
-/// use pravega_client_config::ClientConfigBuilder;
-/// use pravega_client_config::MOCK_CONTROLLER_URI;
-/// use futures::StreamExt;
-///     let config = ClientConfigBuilder::default()
-///         .controller_uri(MOCK_CONTROLLER_URI)
-///         .build()
-///         .expect("creating config");
-///     let controller_client = ClientFactory::new(config).get_controller_client();
-///     let mut stream = list_streams(
-///         Scope {
-///             name: "testScope".to_string(),
-///         },
-///         controller_client,
-///     );
+/// let stream = list_streams(
+///     Scope {
+///         name: "testScope".to_string(),
+///     },
+///     controller_client,
+/// );
+/// futures::pin_mut!(stream);
 /// let pravega_stream_1 = stream.next().await;
 /// let pravega_stream_2 = stream.next().await;
 /// // A None is returned at the end of the stream.
-///  # });
+/// # }
 /// ```
 ///
 pub fn list_streams(
@@ -135,57 +130,53 @@ pub fn list_streams(
 ///This method returns a stream of values,Pravega streams, produced asynchronously.
 ///
 /// The below snippets show case the example uses.
+///
 /// Sample 1:
-///```ignore
-/// # futures::executor::block_on(async {
+/// ```
+/// # use tonic::transport::Channel;
+/// # use pravega_controller_client::controller::controller_service_client::ControllerServiceClient;
+/// use pravega_controller_client::ControllerClient;
+/// # async fn call_list_stream(controller_client: &dyn ControllerClient) {
 /// use pravega_client_shared::Scope;
 /// use pravega_client_shared::ScopedStream;
+/// use futures::future;
+/// use futures::stream::StreamExt;
 /// use pravega_controller_client::paginator::list_streams_for_tag;
-/// use pravega_client::client_factory::ClientFactory;
-/// use pravega_client_config::ClientConfigBuilder;
-/// use pravega_client_config::MOCK_CONTROLLER_URI;
-///     let config = ClientConfigBuilder::default()
-///         .controller_uri(MOCK_CONTROLLER_URI)
-///         .build()
-///         .expect("creating config");
-///     let controller_client = ClientFactory::new(config).get_controller_client();
-///     let stream = list_streams_for_tag(
-///         Scope {
-///             name: "testScope".to_string(),
-///         },
-///         "tagx".to_string(),
-///         controller_client,
-///     );
-///     // collect all the Streams in a single vector
-///     let stream_list:Vec<ScopedStream> = stream.map(|str| str.unwrap()).collect::<Vec<ScopedStream>>().await;
-///  # });
+/// let stream = list_streams_for_tag(
+///     Scope {
+///         name: "testScope".to_string(),
+///     },
+///     "tagx".to_string(),
+///     controller_client,
+/// );
+/// // collect all the Streams in a single vector
+/// let stream_list:Vec<ScopedStream> = stream.map(|str| str.unwrap()).collect::<Vec<ScopedStream>>().await;
+/// # }
 /// ```
 ///
 /// Sample 2:
-/// ```ignore
-/// # futures::executor::block_on(async {
+/// ```
+/// # use tonic::transport::Channel;
+/// # use pravega_controller_client::controller::controller_service_client::ControllerServiceClient;
+/// use pravega_controller_client::ControllerClient;
+/// # async fn call_list_stream(controller_client: &dyn ControllerClient) {
 /// use pravega_client_shared::Scope;
+/// use pravega_client_shared::ScopedStream;
+/// use futures::future;
+/// use futures::stream::StreamExt;
 /// use pravega_controller_client::paginator::list_streams_for_tag;
-/// use pravega_client::client_factory::ClientFactory;
-/// use pravega_client_config::ClientConfigBuilder;
-/// use pravega_client_config::MOCK_CONTROLLER_URI;
-/// use futures::StreamExt;
-///     let config = ClientConfigBuilder::default()
-///         .controller_uri(MOCK_CONTROLLER_URI)
-///         .build()
-///         .expect("creating config");
-///     let controller_client = ClientFactory::new(config).get_controller_client();
-///     let mut stream = list_streams_for_tag(
-///         Scope {
-///             name: "testScope".to_string(),
-///         },
-///         "tagx".to_string(),
-///         controller_client,
-///     );
+/// let stream = list_streams_for_tag(
+///      Scope {
+///         name: "testScope".to_string(),
+///      },
+///     "tagx".to_string(),
+///     controller_client,
+/// );
+/// futures::pin_mut!(stream);
 /// let pravega_stream_1 = stream.next().await;
 /// let pravega_stream_2 = stream.next().await;
 /// // A None is returned at the end of the stream.
-///  # });
+/// # }
 /// ```
 ///
 pub fn list_streams_for_tag(
