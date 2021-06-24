@@ -62,8 +62,8 @@ enum Command {
     version = "0.1"
 )]
 struct Opt {
-    /// Used to configure controller grpc, default uri http://127.0.0.1:9090
-    #[structopt(short = "uri", long, default_value = "127.0.0.1:9090")]
+    /// Used to configure controller grpc, default uri tcp://127.0.0.1:9090
+    #[structopt(short = "uri", long, default_value = "tcp://127.0.0.1:9090")]
     controller_uri: String,
 
     #[structopt(subcommand)] // Note that we mark a field as a subcommand
