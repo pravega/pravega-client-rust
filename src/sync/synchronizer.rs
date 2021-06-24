@@ -349,6 +349,9 @@ impl InternalKey {
     fn split(&self) -> (String, Option<String>) {
         let outer_name_length: usize = self.key[..PREFIX_LENGTH].parse().expect("parse prefix length");
         assert!(self.key.len() >= PREFIX_LENGTH + outer_name_length);
+        let outer = self.key[PREFIX_LENGTH..PREFIX_LENGTH + outer_name_length]
+            .parse::<String>()
+            .expect("parse outer key");
 
         let outer = self.key[PREFIX_LENGTH..PREFIX_LENGTH + outer_name_length]
             .parse::<String>()

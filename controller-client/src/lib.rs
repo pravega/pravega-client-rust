@@ -296,9 +296,19 @@ async fn get_channel(config: &ClientConfig) -> Channel {
 
     // Placeholder to add authentication headers.
     let s = if config.is_tls_enabled {
-        format!("{}{}", HTTPS_PREFIX, &config.controller_uri.to_string())
+        format!(
+            "{}{}:{}",
+            HTTPS_PREFIX,
+            &config.controller_uri.domain_name(),
+            config.controller_uri.port()
+        )
     } else {
-        format!("{}{}", HTTP_PREFIX, &config.controller_uri.to_string())
+        format!(
+            "{}{}:{}",
+            HTTP_PREFIX,
+            &config.controller_uri.domain_name(),
+            config.controller_uri.port()
+        )
     };
     let uri_result = Uri::from_str(s.as_str())
         .map_err(|e1: InvalidUri| ControllerError::InvalidConfiguration {
