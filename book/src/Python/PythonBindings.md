@@ -14,7 +14,7 @@ A StreamManager can be created by using a Controller URI. The below example snip
 
  ```python
 import pravega_client
-manager=pravega_client.StreamManager("127.0.0.1:9090")
+manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
 # stream manager can be used to create scopes, streams, writers and readers against Pravega.
 manager.create_scope("scope")
 manager.create_stream("scope", "stream", 1)
@@ -24,7 +24,7 @@ A StreamWriter can be used create a Stream writer. The below snippet is shows a 
 
 ```python
 import pravega_client
-manager=pravega_client.StreamManager("127.0.0.1:9090")
+manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
 # create a writer against an already created Pravega scope and Stream.
 writer=manager.create_writer("scope", "stream")
 ```
@@ -32,7 +32,7 @@ A transactional Writer can be created using the StreamManager. The below example
 
 ```python
  import pravega_client
- manager=pravega_client.StreamManager("127.0.0.1:9090")
+ manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
 # create a transactional writer against an already created Pravega scope and Stream.
  writer=manager.create_transaction_writer("scope", "stream", "123")
  ```
@@ -41,7 +41,7 @@ A ReaderGroup can be created using the StreamManager. Individual readers can be 
 
 ```python
 import pravega_client
-manager=pravega_client.StreamManager("127.0.0.1:9090")
+manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
 # create a ReaderGroup rg1 against an already created Pravega scope and Stream.
 event.reader_group=manager.create_reader_group("rg1", "scope", "stream")
 ``` 
@@ -58,7 +58,7 @@ retries will not violate the exactly-once semantic, so it is better to rely on t
 
 ```python
 import pravega_client
-manager=pravega_client.StreamManager("127.0.0.1:9090")
+manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
 # assuming the Pravega scope and stream are already created.
 writer=manager.create_writer("scope", "stream")
 # write into Pravega stream without specifying the routing key.
@@ -83,7 +83,7 @@ Prior to committing a transaction, the events written to it cannot be read or ot
 
 ```python
 import pravega_client                                         
-manager = pravega_client.StreamManager("127.0.0.1:9090")        
+manager = pravega_client.StreamManager("tcp://127.0.0.1:9090")        
 w1 = stream_manager.create_transaction_writer(scope,"testTxn", 1)
 # Begin a Transaction
 txn1 = w1.begin_txn()
@@ -116,7 +116,7 @@ A sample example snippet is shown below.
 
 ```python
 import pravega_client
-manager = pravega_client.StreamManager("127.0.0.1:9090")
+manager = pravega_client.StreamManager("tcp://127.0.0.1:9090")
 # assuming the Pravega scope and stream are already created.
 reader_group = manager.create_reader_group("rg1", "scope", "stream")
 reader = reader_group.create_reader("reader_id");

@@ -55,7 +55,7 @@ impl StreamWriter {
     ///
     /// ```
     /// import pravega_client;
-    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
+    /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
     /// // lets assume the Pravega scope and stream are already created.
     /// writer=manager.create_writer("scope", "stream")
     /// // write into Pravega stream without specifying the routing key.
@@ -80,7 +80,7 @@ impl StreamWriter {
     ///
     /// ```
     /// import pravega_client;
-    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
+    /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
     /// // lets assume the Pravega scope and stream are already created.
     /// writer=manager.create_writer("scope", "stream")
     ///
