@@ -40,9 +40,12 @@
 <dd>
 <div class="desc"><p>Create a StreamManager by providing a controller uri.</p>
 <pre><code>import pravega_client;
-manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
+manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
 // this manager can be used to create scopes, streams, writers and readers against Pravega.
 manager.create_scope(&quot;scope&quot;)
+
+// optionally enable tls support using tls:// scheme
+manager=pravega_client.StreamManager(&quot;tls://127.0.0.1:9090&quot;)
 </code></pre></div>
 <h3>Methods</h3>
 <dl>
@@ -52,7 +55,7 @@ manager.create_scope(&quot;scope&quot;)
 <dd>
 <div class="desc"><p>Create a ReaderGroup for a given Stream.</p>
 <pre><code>import pravega_client;
-manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
+manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
 // Create a ReaderGroup against an already created Pravega scope and Stream.
 event.reader_group=manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;)
 </code></pre></div>
@@ -75,7 +78,7 @@ event.reader_group=manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot
 <dd>
 <div class="desc"><p>Create a Transactional Writer for a given Stream.</p>
 <pre><code>import pravega_client;
-manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
+manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
 // Create a transactional writer against an already created Pravega scope and Stream.
 writer=manager.create_transaction_writer(&quot;scope&quot;, &quot;stream&quot;, &quot;123&quot;)
 </code></pre></div>
@@ -86,7 +89,7 @@ writer=manager.create_transaction_writer(&quot;scope&quot;, &quot;stream&quot;, 
 <dd>
 <div class="desc"><p>Create a Writer for a given Stream.</p>
 <pre><code>import pravega_client;
-manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
+manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
 // Create a writer against an already created Pravega scope and Stream.
 writer=manager.create_writer(&quot;scope&quot;, &quot;stream&quot;)
 </code></pre></div>
@@ -136,7 +139,7 @@ or more events and the user can iterate over the segment slice to read the event
 If there are multiple segments in the stream then this API can return a segment slice of any
 segments in the stream. The reader ensures that events returned by the stream are in order.</p>
 <pre><code>import pravega_client;
-manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
+manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
 // lets assume the Pravega scope and stream are already created.
 reader=manager.create_reader(&quot;scope&quot;, &quot;stream&quot;);
 slice=await reader.get_segment_slice_async()
@@ -183,7 +186,7 @@ or more events and the user can iterate over the segment slice to read the event
 If there are multiple segments in the stream then this API can return a segment slice of any
 segments in the stream. The reader ensures that events returned by the stream are in order.</p>
 <pre><code>import pravega_client;
-manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
+manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
 // lets assume the Pravega scope and stream are already created.
 event.reader_group=manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;)
 reader=event.reader_group.create_reader(&quot;reader_id&quot;);
@@ -326,7 +329,7 @@ The user can optionally specify the routing key.</p>
 failures. Internal retries will not violate the exactly once semantic so it is better to rely on them
 than to wrap this with custom retry logic.</p>
 <pre><code>import pravega_client;
-manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
+manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
 // lets assume the Pravega scope and stream are already created.
 writer=manager.create_writer(&quot;scope&quot;, &quot;stream&quot;)
 // write into Pravega stream without specifying the routing key.
@@ -343,7 +346,7 @@ writer.write_event(&quot;e2&quot;, &quot;key1&quot;)
 that the the event to be written is a byte array. The user can optionally specify the
 routing key.</p>
 <pre><code>import pravega_client;
-manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
+manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
 // lets assume the Pravega scope and stream are already created.
 writer=manager.create_writer(&quot;scope&quot;, &quot;stream&quot;)
 

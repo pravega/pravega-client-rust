@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/sync/synchronizer.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>synchronizer.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../pravega_client/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../pravega_client/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
                 <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
 <span id="2">   2</span>
 <span id="3">   3</span>
@@ -1098,9 +1098,6 @@
 <span id="1095">1095</span>
 <span id="1096">1096</span>
 <span id="1097">1097</span>
-<span id="1098">1098</span>
-<span id="1099">1099</span>
-<span id="1100">1100</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -1111,28 +1108,28 @@
 <span class="comment">//</span>
 <span class="comment">// http://www.apache.org/licenses/LICENSE-2.0</span>
 <span class="comment">//</span>
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">client_factory</span>::<span class="ident">ClientFactory</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">sync</span>::<span class="ident">table</span>::{<span class="ident">Table</span>, <span class="ident">TableError</span>, <span class="ident">Version</span>};
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::client_factory::ClientFactory</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::sync::table</span>::{<span class="ident">Table</span>, <span class="ident">TableError</span>, <span class="ident">Version</span>};
 
-<span class="kw">use</span> <span class="ident">pravega_client_shared</span>::<span class="ident">Scope</span>;
-<span class="kw">use</span> <span class="ident">pravega_wire_protocol</span>::<span class="ident">commands</span>::<span class="ident">TableKey</span>;
+<span class="kw">use</span> <span class="ident">pravega_client_shared::Scope</span>;
+<span class="kw">use</span> <span class="ident">pravega_wire_protocol::commands::TableKey</span>;
 
-<span class="kw">use</span> <span class="ident">futures</span>::<span class="ident">pin_mut</span>;
-<span class="kw">use</span> <span class="ident">futures</span>::<span class="ident">stream</span>::<span class="ident">StreamExt</span>;
-<span class="kw">use</span> <span class="ident">serde</span>::<span class="ident">de</span>::<span class="ident">DeserializeOwned</span>;
+<span class="kw">use</span> <span class="ident">futures::pin_mut</span>;
+<span class="kw">use</span> <span class="ident">futures::stream::StreamExt</span>;
+<span class="kw">use</span> <span class="ident">serde::de::DeserializeOwned</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">serde_cbor</span>::<span class="ident">ser</span>::<span class="ident">Serializer</span> <span class="kw">as</span> <span class="ident">CborSerializer</span>;
-<span class="kw">use</span> <span class="ident">serde_cbor</span>::<span class="ident">to_vec</span>;
-<span class="kw">use</span> <span class="ident">snafu</span>::<span class="ident">Snafu</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">clone</span>::<span class="ident">Clone</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cmp</span>::{<span class="ident">Eq</span>, <span class="ident">PartialEq</span>};
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">HashMap</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Debug</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">hash</span>::{<span class="ident">Hash</span>, <span class="ident">Hasher</span>};
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">slice</span>::<span class="ident">Iter</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">time</span>::<span class="ident">Duration</span>;
-<span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">time</span>::<span class="ident">sleep</span>;
-<span class="kw">use</span> <span class="ident">tracing</span>::<span class="ident">debug</span>;
+<span class="kw">use</span> <span class="ident">serde_cbor::ser::Serializer</span> <span class="kw">as</span> <span class="ident">CborSerializer</span>;
+<span class="kw">use</span> <span class="ident">serde_cbor::to_vec</span>;
+<span class="kw">use</span> <span class="ident">snafu::Snafu</span>;
+<span class="kw">use</span> <span class="ident">std::clone::Clone</span>;
+<span class="kw">use</span> <span class="ident">std::cmp</span>::{<span class="ident">Eq</span>, <span class="ident">PartialEq</span>};
+<span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
+<span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
+<span class="kw">use</span> <span class="ident">std::hash</span>::{<span class="ident">Hash</span>, <span class="ident">Hasher</span>};
+<span class="kw">use</span> <span class="ident">std::slice::Iter</span>;
+<span class="kw">use</span> <span class="ident">std::time::Duration</span>;
+<span class="kw">use</span> <span class="ident">tokio::time::sleep</span>;
+<span class="kw">use</span> <span class="ident">tracing::debug</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Snafu</span>)]</span>
 <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">visibility</span> <span class="op">=</span> <span class="string">&quot;pub(crate)&quot;</span>)]</span>
@@ -1225,14 +1222,14 @@
 
 <span class="kw">impl</span> <span class="ident">Synchronizer</span> {
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">scope</span>: <span class="ident">Scope</span>, <span class="ident">name</span>: <span class="ident">String</span>, <span class="ident">factory</span>: <span class="ident">ClientFactory</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Synchronizer</span> {
-        <span class="kw">let</span> <span class="ident">table_map</span> <span class="op">=</span> <span class="ident">Table</span>::<span class="ident">new</span>(<span class="ident">scope</span>, <span class="ident">name</span>.<span class="ident">clone</span>(), <span class="ident">factory</span>)
+        <span class="kw">let</span> <span class="ident">table_map</span> <span class="op">=</span> <span class="ident">Table::new</span>(<span class="ident">scope</span>, <span class="ident">name</span>.<span class="ident">clone</span>(), <span class="ident">factory</span>)
             .<span class="kw">await</span>
             .<span class="ident">expect</span>(<span class="string">&quot;create table&quot;</span>);
         <span class="ident">Synchronizer</span> {
             <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">clone</span>(),
             <span class="ident">table_map</span>,
-            <span class="ident">in_memory_map</span>: <span class="ident">HashMap</span>::<span class="ident">new</span>(),
-            <span class="ident">in_memory_map_version</span>: <span class="ident">HashMap</span>::<span class="ident">new</span>(),
+            <span class="ident">in_memory_map</span>: <span class="ident">HashMap::new</span>(),
+            <span class="ident">in_memory_map_version</span>: <span class="ident">HashMap::new</span>(),
             <span class="ident">table_segment_offset</span>: <span class="op">-</span><span class="number">1</span>,
             <span class="ident">fetch_position</span>: <span class="number">0</span>,
         }
@@ -1260,7 +1257,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_inner_map</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">outer_key</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Value</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">in_memory_map</span>
             .<span class="ident">get</span>(<span class="ident">outer_key</span>)
-            .<span class="ident">map_or_else</span>(<span class="ident">HashMap</span>::<span class="ident">new</span>, <span class="op">|</span><span class="ident">inner</span><span class="op">|</span> {
+            .<span class="ident">map_or_else</span>(<span class="ident">HashMap::new</span>, <span class="op">|</span><span class="ident">inner</span><span class="op">|</span> {
                 <span class="ident">inner</span>
                     .<span class="ident">iter</span>()
                     .<span class="ident">filter</span>(<span class="op">|</span>(<span class="ident">_k</span>, <span class="ident">v</span>)<span class="op">|</span> <span class="ident">v</span>.<span class="ident">type_id</span> <span class="op">!</span><span class="op">=</span> <span class="ident">TOMBSTONE</span>)
@@ -1288,7 +1285,7 @@
 
         <span class="kw">let</span> <span class="ident">search_key_inner</span> <span class="op">=</span> <span class="ident">Key</span> {
             <span class="ident">key</span>: <span class="ident">inner_key</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">key_version</span>: <span class="ident">TableKey</span>::<span class="ident">KEY_NO_VERSION</span>,
+            <span class="ident">key_version</span>: <span class="ident">TableKey::KEY_NO_VERSION</span>,
         };
 
         <span class="ident">inner_map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">search_key_inner</span>).<span class="ident">and_then</span>(
@@ -1307,23 +1304,23 @@
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">inner</span>) <span class="op">=</span> <span class="ident">inner_key</span> {
             <span class="kw">let</span> <span class="ident">search_key</span> <span class="op">=</span> <span class="ident">Key</span> {
                 <span class="ident">key</span>: <span class="ident">inner</span>.<span class="ident">to_owned</span>(),
-                <span class="ident">key_version</span>: <span class="ident">TableKey</span>::<span class="ident">KEY_NO_VERSION</span>,
+                <span class="ident">key_version</span>: <span class="ident">TableKey::KEY_NO_VERSION</span>,
             };
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">inner_map</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">in_memory_map</span>.<span class="ident">get</span>(<span class="ident">outer_key</span>) {
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">key</span>, <span class="ident">_value</span>)) <span class="op">=</span> <span class="ident">inner_map</span>.<span class="ident">get_key_value</span>(<span class="kw-2">&amp;</span><span class="ident">search_key</span>) {
                     <span class="kw">return</span> <span class="ident">key</span>.<span class="ident">key_version</span>;
                 }
             }
-            <span class="ident">TableKey</span>::<span class="ident">KEY_NOT_EXISTS</span>
+            <span class="ident">TableKey::KEY_NOT_EXISTS</span>
         } <span class="kw">else</span> {
             <span class="kw">let</span> <span class="ident">search_key</span> <span class="op">=</span> <span class="ident">Key</span> {
                 <span class="ident">key</span>: <span class="ident">outer_key</span>.<span class="ident">to_owned</span>(),
-                <span class="ident">key_version</span>: <span class="ident">TableKey</span>::<span class="ident">KEY_NO_VERSION</span>,
+                <span class="ident">key_version</span>: <span class="ident">TableKey::KEY_NO_VERSION</span>,
             };
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">key</span>, <span class="ident">_value</span>)) <span class="op">=</span> <span class="self">self</span>.<span class="ident">in_memory_map_version</span>.<span class="ident">get_key_value</span>(<span class="kw-2">&amp;</span><span class="ident">search_key</span>) {
                 <span class="ident">key</span>.<span class="ident">key_version</span>
             } <span class="kw">else</span> {
-                <span class="ident">TableKey</span>::<span class="ident">KEY_NOT_EXISTS</span>
+                <span class="ident">TableKey::KEY_NOT_EXISTS</span>
             }
         }
     }
@@ -1335,7 +1332,7 @@
 
         <span class="kw">let</span> <span class="ident">search_key</span> <span class="op">=</span> <span class="ident">Key</span> {
             <span class="ident">key</span>: <span class="ident">inner_key</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">key_version</span>: <span class="ident">TableKey</span>::<span class="ident">KEY_NO_VERSION</span>,
+            <span class="ident">key_version</span>: <span class="ident">TableKey::KEY_NO_VERSION</span>,
         };
 
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">key</span>, <span class="ident">value</span>)) <span class="op">=</span> <span class="ident">inner_map</span>.<span class="ident">get_key_value</span>(<span class="kw-2">&amp;</span><span class="ident">search_key</span>) {
@@ -1347,20 +1344,20 @@
 
     <span class="doccomment">/// Fetch the latest map from remote server and apply it to the local map.</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">fetch_updates</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">i32</span>, <span class="ident">TableError</span><span class="op">&gt;</span> {
-        <span class="macro">debug</span><span class="macro">!</span>(
+        <span class="macro">debug!</span>(
             <span class="string">&quot;fetch the latest map and apply to the local map, fetch from position {}&quot;</span>,
             <span class="self">self</span>.<span class="ident">fetch_position</span>
         );
         <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">table_map</span>
             .<span class="ident">read_entries_stream_from_position</span>(<span class="number">10</span>, <span class="self">self</span>.<span class="ident">fetch_position</span>);
-        <span class="macro">pin_mut</span><span class="macro">!</span>(<span class="ident">reply</span>);
+        <span class="macro">pin_mut!</span>(<span class="ident">reply</span>);
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">counter</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">0</span>;
         <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">entry</span>) <span class="op">=</span> <span class="ident">reply</span>.<span class="ident">next</span>().<span class="kw">await</span> {
             <span class="kw">match</span> <span class="ident">entry</span> {
                 <span class="prelude-val">Ok</span>((<span class="ident">k</span>, <span class="ident">v</span>, <span class="ident">version</span>, <span class="ident">last_position</span>)) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;fetched key with version {}&quot;</span>, <span class="ident">version</span>);
+                    <span class="macro">debug!</span>(<span class="string">&quot;fetched key with version {}&quot;</span>, <span class="ident">version</span>);
                     <span class="kw">let</span> <span class="ident">internal_key</span> <span class="op">=</span> <span class="ident">InternalKey</span> { <span class="ident">key</span>: <span class="ident">k</span> };
                     <span class="kw">let</span> (<span class="ident">outer_key</span>, <span class="ident">inner_key</span>) <span class="op">=</span> <span class="ident">internal_key</span>.<span class="ident">split</span>();
 
@@ -1370,7 +1367,7 @@
                             <span class="ident">key</span>: <span class="ident">inner</span>,
                             <span class="ident">key_version</span>: <span class="ident">version</span>,
                         };
-                        <span class="kw">let</span> <span class="ident">inner_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">in_memory_map</span>.<span class="ident">entry</span>(<span class="ident">outer_key</span>).<span class="ident">or_insert_with</span>(<span class="ident">HashMap</span>::<span class="ident">new</span>);
+                        <span class="kw">let</span> <span class="ident">inner_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">in_memory_map</span>.<span class="ident">entry</span>(<span class="ident">outer_key</span>).<span class="ident">or_insert_with</span>(<span class="ident">HashMap::new</span>);
 
                         <span class="comment">// this is necessary since insert will not update the Key</span>
                         <span class="ident">inner_map</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">inner_map_key</span>);
@@ -1389,14 +1386,14 @@
                     <span class="ident">counter</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
                 }
                 <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">TableError</span>::<span class="ident">OperationError</span> {
+                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">TableError::OperationError</span> {
                         <span class="ident">operation</span>: <span class="string">&quot;fetch_updates&quot;</span>.<span class="ident">to_string</span>(),
                         <span class="ident">error_msg</span>: <span class="string">&quot;fetch entries error&quot;</span>.<span class="ident">to_string</span>(),
                     });
                 }
             }
         }
-        <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;finished fetching updates&quot;</span>);
+        <span class="macro">debug!</span>(<span class="string">&quot;finished fetching updates&quot;</span>);
         <span class="prelude-val">Ok</span>(<span class="ident">counter</span>)
     }
 
@@ -1452,21 +1449,18 @@
 <span class="kw">impl</span> <span class="ident">InternalKey</span> {
     <span class="kw">fn</span> <span class="ident">split</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">String</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) {
         <span class="kw">let</span> <span class="ident">outer_name_length</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">key</span>[..<span class="ident">PREFIX_LENGTH</span>].<span class="ident">parse</span>().<span class="ident">expect</span>(<span class="string">&quot;parse prefix length&quot;</span>);
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">key</span>.<span class="ident">len</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">PREFIX_LENGTH</span> <span class="op">+</span> <span class="ident">outer_name_length</span>);
+        <span class="macro">assert!</span>(<span class="self">self</span>.<span class="ident">key</span>.<span class="ident">len</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">PREFIX_LENGTH</span> <span class="op">+</span> <span class="ident">outer_name_length</span>);
+        <span class="kw">let</span> <span class="ident">outer</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">key</span>[<span class="ident">PREFIX_LENGTH</span>..<span class="ident">PREFIX_LENGTH</span> <span class="op">+</span> <span class="ident">outer_name_length</span>]
+            .<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>()
+            .<span class="ident">expect</span>(<span class="string">&quot;parse outer key&quot;</span>);
 
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">key</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="ident">PREFIX_LENGTH</span> <span class="op">+</span> <span class="ident">outer_name_length</span> {
-            <span class="kw">let</span> <span class="ident">outer</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">key</span>[<span class="ident">PREFIX_LENGTH</span>..<span class="ident">PREFIX_LENGTH</span> <span class="op">+</span> <span class="ident">outer_name_length</span>]
-                .<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>()
-                .<span class="ident">expect</span>(<span class="string">&quot;parse outer key&quot;</span>);
             <span class="comment">// there is a slash separating outer_key and_inner key</span>
             <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">key</span>[<span class="ident">PREFIX_LENGTH</span> <span class="op">+</span> <span class="ident">outer_name_length</span> <span class="op">+</span> <span class="number">1</span>..]
                 .<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>()
                 .<span class="ident">expect</span>(<span class="string">&quot;parse inner key&quot;</span>);
             (<span class="ident">outer</span>, <span class="prelude-val">Some</span>(<span class="ident">inner</span>))
         } <span class="kw">else</span> {
-            <span class="kw">let</span> <span class="ident">outer</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">key</span>[<span class="ident">PREFIX_LENGTH</span>..<span class="ident">PREFIX_LENGTH</span> <span class="op">+</span> <span class="ident">outer_name_length</span>]
-                .<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>()
-                .<span class="ident">expect</span>(<span class="string">&quot;parse outer key&quot;</span>);
             (<span class="ident">outer</span>, <span class="prelude-val">None</span>)
         }
     }
@@ -1522,11 +1516,11 @@
         <span class="ident">new_value</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ValueData</span><span class="op">&gt;</span>,
     ) {
         <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">new_value</span>).<span class="ident">expect</span>(<span class="string">&quot;serialize value&quot;</span>);
-        <span class="kw">let</span> <span class="ident">insert</span> <span class="op">=</span> <span class="ident">Insert</span>::<span class="ident">new</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>(), <span class="prelude-val">Some</span>(<span class="ident">inner_key</span>.<span class="ident">clone</span>()), <span class="ident">type_id</span>.<span class="ident">clone</span>());
+        <span class="kw">let</span> <span class="ident">insert</span> <span class="op">=</span> <span class="ident">Insert::new</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>(), <span class="prelude-val">Some</span>(<span class="ident">inner_key</span>.<span class="ident">clone</span>()), <span class="ident">type_id</span>.<span class="ident">clone</span>());
 
         <span class="self">self</span>.<span class="ident">insert</span>.<span class="ident">push</span>(<span class="ident">insert</span>);
         <span class="comment">// also insert into map.</span>
-        <span class="kw">let</span> <span class="ident">inner_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">entry</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>()).<span class="ident">or_insert_with</span>(<span class="ident">HashMap</span>::<span class="ident">new</span>);
+        <span class="kw">let</span> <span class="ident">inner_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">entry</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>()).<span class="ident">or_insert_with</span>(<span class="ident">HashMap::new</span>);
         <span class="ident">inner_map</span>.<span class="ident">insert</span>(<span class="ident">inner_key</span>, <span class="ident">Value</span> { <span class="ident">type_id</span>, <span class="ident">data</span> });
 
         <span class="comment">// increment the version of the map, indicating that this map has changed</span>
@@ -1542,25 +1536,25 @@
         <span class="ident">inner_key</span>: <span class="ident">String</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">to_vec</span>(<span class="kw-2">&amp;</span><span class="ident">Tombstone</span> {}).<span class="ident">expect</span>(<span class="string">&quot;serialize tombstone&quot;</span>);
-        <span class="kw">let</span> <span class="ident">insert</span> <span class="op">=</span> <span class="ident">Insert</span>::<span class="ident">new</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>(), <span class="prelude-val">Some</span>(<span class="ident">inner_key</span>.<span class="ident">clone</span>()), <span class="string">&quot;tombstone&quot;</span>.<span class="ident">to_owned</span>());
+        <span class="kw">let</span> <span class="ident">insert</span> <span class="op">=</span> <span class="ident">Insert::new</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>(), <span class="prelude-val">Some</span>(<span class="ident">inner_key</span>.<span class="ident">clone</span>()), <span class="string">&quot;tombstone&quot;</span>.<span class="ident">to_owned</span>());
 
         <span class="self">self</span>.<span class="ident">insert</span>.<span class="ident">push</span>(<span class="ident">insert</span>);
 
         <span class="kw">let</span> <span class="ident">inner_map</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">map</span>
             .<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">outer_key</span>)
-            .<span class="ident">ok_or</span>(<span class="ident">SynchronizerError</span>::<span class="ident">SyncTombstoneError</span> {
-                <span class="ident">error_msg</span>: <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;outer key {} does not exist&quot;</span>, <span class="ident">outer_key</span>),
+            .<span class="ident">ok_or</span>(<span class="ident">SynchronizerError::SyncTombstoneError</span> {
+                <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;outer key {} does not exist&quot;</span>, <span class="ident">outer_key</span>),
             })<span class="question-mark">?</span>;
 
         <span class="ident">inner_map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">inner_key</span>).<span class="ident">map_or</span>(
-            <span class="prelude-val">Err</span>(<span class="ident">SynchronizerError</span>::<span class="ident">SyncTombstoneError</span> {
-                <span class="ident">error_msg</span>: <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;inner key {} does not exist&quot;</span>, <span class="ident">inner_key</span>),
+            <span class="prelude-val">Err</span>(<span class="ident">SynchronizerError::SyncTombstoneError</span> {
+                <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;inner key {} does not exist&quot;</span>, <span class="ident">inner_key</span>),
             }),
             <span class="op">|</span><span class="ident">v</span><span class="op">|</span> {
                 <span class="kw">if</span> <span class="ident">v</span>.<span class="ident">type_id</span> <span class="op">=</span><span class="op">=</span> <span class="ident">TOMBSTONE</span> {
-                    <span class="prelude-val">Err</span>(<span class="ident">SynchronizerError</span>::<span class="ident">SyncTombstoneError</span> {
-                        <span class="ident">error_msg</span>: <span class="macro">format</span><span class="macro">!</span>(
+                    <span class="prelude-val">Err</span>(<span class="ident">SynchronizerError::SyncTombstoneError</span> {
+                        <span class="ident">error_msg</span>: <span class="macro">format!</span>(
                             <span class="string">&quot;tombstone has already been added for key {}/{}&quot;</span>,
                             <span class="ident">outer_key</span>, <span class="ident">inner_key</span>
                         ),
@@ -1582,7 +1576,7 @@
         <span class="self">self</span>.<span class="ident">increment_map_version</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>());
 
         <span class="comment">// also push this key to remove list, this key will be removed after insert is completed.</span>
-        <span class="kw">let</span> <span class="ident">remove</span> <span class="op">=</span> <span class="ident">Remove</span>::<span class="ident">new</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>(), <span class="ident">inner_key</span>);
+        <span class="kw">let</span> <span class="ident">remove</span> <span class="op">=</span> <span class="ident">Remove::new</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>(), <span class="ident">inner_key</span>);
         <span class="self">self</span>.<span class="ident">remove</span>.<span class="ident">push</span>(<span class="ident">remove</span>);
 
         <span class="prelude-val">Ok</span>(())
@@ -1594,7 +1588,7 @@
         <span class="kw">let</span> <span class="ident">inner_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">outer_key</span>).<span class="ident">expect</span>(<span class="string">&quot;should contain outer key&quot;</span>);
         <span class="ident">inner_map</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">inner_key</span>);
 
-        <span class="kw">let</span> <span class="ident">remove</span> <span class="op">=</span> <span class="ident">Remove</span>::<span class="ident">new</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>(), <span class="ident">inner_key</span>);
+        <span class="kw">let</span> <span class="ident">remove</span> <span class="op">=</span> <span class="ident">Remove::new</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>(), <span class="ident">inner_key</span>);
         <span class="self">self</span>.<span class="ident">remove</span>.<span class="ident">push</span>(<span class="ident">remove</span>);
     }
 
@@ -1619,7 +1613,7 @@
     <span class="doccomment">/// get_inner_map method will take an outer_key return the outer map.</span>
     <span class="doccomment">/// The returned outer map will not contain value hinted by tombstone.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_inner_map</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">outer_key</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Value</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">get</span>(<span class="ident">outer_key</span>).<span class="ident">map_or_else</span>(<span class="ident">HashMap</span>::<span class="ident">new</span>, <span class="op">|</span><span class="ident">inner_map</span><span class="op">|</span> {
+        <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">get</span>(<span class="ident">outer_key</span>).<span class="ident">map_or_else</span>(<span class="ident">HashMap::new</span>, <span class="op">|</span><span class="ident">inner_map</span><span class="op">|</span> {
             <span class="ident">inner_map</span>
                 .<span class="ident">iter</span>()
                 .<span class="ident">filter</span>(<span class="op">|</span>(<span class="ident">_k</span>, <span class="ident">v</span>)<span class="op">|</span> <span class="ident">v</span>.<span class="ident">type_id</span> <span class="op">!</span><span class="op">=</span> <span class="ident">TOMBSTONE</span>)
@@ -1683,9 +1677,9 @@
         <span class="comment">// the value is just a placeholder, the version information is stored in the Key.</span>
         <span class="self">self</span>.<span class="ident">map_version</span>.<span class="ident">entry</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>()).<span class="ident">or_insert</span>(<span class="ident">Value</span> {
             <span class="ident">type_id</span>: <span class="string">&quot;blob&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">data</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="number">0</span>],
+            <span class="ident">data</span>: <span class="macro">vec!</span>[<span class="number">0</span>],
         });
-        <span class="kw">let</span> <span class="ident">insert</span> <span class="op">=</span> <span class="ident">Insert</span>::<span class="ident">new</span>(<span class="ident">outer_key</span>, <span class="prelude-val">None</span>, <span class="string">&quot;blob&quot;</span>.<span class="ident">to_owned</span>());
+        <span class="kw">let</span> <span class="ident">insert</span> <span class="op">=</span> <span class="ident">Insert::new</span>(<span class="ident">outer_key</span>, <span class="prelude-val">None</span>, <span class="string">&quot;blob&quot;</span>.<span class="ident">to_owned</span>());
         <span class="self">self</span>.<span class="ident">insert</span>.<span class="ident">push</span>(<span class="ident">insert</span>);
     }
 }
@@ -1706,14 +1700,14 @@
 <span class="kw">impl</span> <span class="ident">Insert</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">outer_key</span>: <span class="ident">String</span>, <span class="ident">inner_key</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>, <span class="ident">type_id</span>: <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">composite_key</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">inner_key</span>.<span class="ident">is_some</span>() {
-            <span class="macro">format</span><span class="macro">!</span>(
+            <span class="macro">format!</span>(
                 <span class="string">&quot;{:02}{}/{}&quot;</span>,
                 <span class="ident">outer_key</span>.<span class="ident">len</span>(),
                 <span class="ident">outer_key</span>,
                 <span class="ident">inner_key</span>.<span class="ident">clone</span>().<span class="ident">expect</span>(<span class="string">&quot;get inner key&quot;</span>)
             )
         } <span class="kw">else</span> {
-            <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:02}{}&quot;</span>, <span class="ident">outer_key</span>.<span class="ident">len</span>(), <span class="ident">outer_key</span>)
+            <span class="macro">format!</span>(<span class="string">&quot;{:02}{}&quot;</span>, <span class="ident">outer_key</span>.<span class="ident">len</span>(), <span class="ident">outer_key</span>)
         };
 
         <span class="ident">Insert</span> {
@@ -1739,7 +1733,7 @@
         <span class="ident">Remove</span> {
             <span class="ident">outer_key</span>: <span class="ident">outer_key</span>.<span class="ident">clone</span>(),
             <span class="ident">inner_key</span>: <span class="ident">inner_key</span>.<span class="ident">clone</span>(),
-            <span class="ident">composite_key</span>: <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:02}{}/{}&quot;</span>, <span class="ident">outer_key</span>.<span class="ident">len</span>(), <span class="ident">outer_key</span>, <span class="ident">inner_key</span>),
+            <span class="ident">composite_key</span>: <span class="macro">format!</span>(<span class="string">&quot;{:02}{}/{}&quot;</span>, <span class="ident">outer_key</span>.<span class="ident">len</span>(), <span class="ident">outer_key</span>, <span class="ident">inner_key</span>),
         }
     }
 }
@@ -1759,7 +1753,7 @@
     <span class="ident">T</span>: <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">ValueData</span> <span class="op">+</span> <span class="ident">Clone</span>,
 {
     <span class="kw">fn</span> <span class="ident">clone_box</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ValueData</span><span class="op">&gt;</span> {
-        <span class="ident">Box</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">clone</span>())
+        <span class="ident">Box::new</span>(<span class="self">self</span>.<span class="ident">clone</span>())
     }
 }
 
@@ -1774,7 +1768,7 @@
     <span class="kw">fn</span> <span class="ident">serialize_value</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">seralizer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">CborSerializer</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">serde_cbor</span>::<span class="ident">error</span>::<span class="ident">Error</span><span class="op">&gt;</span>;
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">serde_cbor::error::Error</span><span class="op">&gt;</span>;
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">ValueSerialize</span> <span class="kw">for</span> <span class="ident">T</span>
@@ -1784,26 +1778,26 @@
     <span class="kw">fn</span> <span class="ident">serialize_value</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">serializer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">CborSerializer</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">serde_cbor</span>::<span class="ident">error</span>::<span class="ident">Error</span><span class="op">&gt;</span> {
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">serde_cbor::error::Error</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">serialize</span>(<span class="ident">serializer</span>)
     }
 }
 
 <span class="doccomment">/// Serialize the &lt;dyn ValueData&gt; into the Vec&lt;u8&gt; by using cbor serializer.</span>
 <span class="doccomment">/// This method would be used by the insert method in table_synchronizer.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="ident">value</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">ValueData</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">serde_cbor</span>::<span class="ident">error</span>::<span class="ident">Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">vec</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
-    <span class="ident">value</span>.<span class="ident">serialize_value</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">CborSerializer</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vec</span>))<span class="question-mark">?</span>;
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="ident">value</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">ValueData</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">serde_cbor::error::Error</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">vec</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+    <span class="ident">value</span>.<span class="ident">serialize_value</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">CborSerializer::new</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vec</span>))<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(<span class="ident">vec</span>)
 }
 
 <span class="doccomment">/// Deserialize the Value into the type T by using cbor deserializer.</span>
 <span class="doccomment">/// This method would be used by the user after calling get() of table_synchronizer.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deserialize_from</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">reader</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">serde_cbor</span>::<span class="ident">error</span>::<span class="ident">Error</span><span class="op">&gt;</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deserialize_from</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">reader</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">serde_cbor::error::Error</span><span class="op">&gt;</span>
 <span class="kw">where</span>
     <span class="ident">T</span>: <span class="ident">DeserializeOwned</span>,
 {
-    <span class="ident">serde_cbor</span>::<span class="ident">de</span>::<span class="ident">from_slice</span>(<span class="ident">reader</span>)
+    <span class="ident">serde_cbor::de::from_slice</span>(<span class="ident">reader</span>)
 }
 
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">conditionally_write</span>(
@@ -1820,21 +1814,21 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">to_update</span> <span class="op">=</span> <span class="ident">Update</span> {
             <span class="ident">map</span>,
             <span class="ident">map_version</span>,
-            <span class="ident">insert</span>: <span class="ident">Vec</span>::<span class="ident">new</span>(),
-            <span class="ident">remove</span>: <span class="ident">Vec</span>::<span class="ident">new</span>(),
+            <span class="ident">insert</span>: <span class="ident">Vec::new</span>(),
+            <span class="ident">remove</span>: <span class="ident">Vec::new</span>(),
         };
 
         <span class="ident">update_result</span> <span class="op">=</span> <span class="ident">updates_generator</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">to_update</span>)<span class="question-mark">?</span>;
-        <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;number of insert is {}&quot;</span>, <span class="ident">to_update</span>.<span class="ident">insert</span>.<span class="ident">len</span>());
+        <span class="macro">debug!</span>(<span class="string">&quot;number of insert is {}&quot;</span>, <span class="ident">to_update</span>.<span class="ident">insert</span>.<span class="ident">len</span>());
         <span class="kw">if</span> <span class="ident">to_update</span>.<span class="ident">insert_is_empty</span>() {
-            <span class="macro">debug</span><span class="macro">!</span>(
+            <span class="macro">debug!</span>(
                 <span class="string">&quot;Conditionally Write to {} completed, as there is nothing to update for map&quot;</span>,
                 <span class="ident">table_synchronizer</span>.<span class="ident">get_name</span>()
             );
             <span class="kw">break</span>;
         }
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">to_send</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">to_send</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
         <span class="kw">for</span> <span class="ident">update</span> <span class="kw">in</span> <span class="ident">to_update</span>.<span class="ident">get_insert_iter</span>() {
             <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">to_update</span>
                 .<span class="ident">get_internal</span>(<span class="kw-2">&amp;</span><span class="ident">update</span>.<span class="ident">outer_key</span>, <span class="kw-2">&amp;</span><span class="ident">update</span>.<span class="ident">inner_key</span>)
@@ -1848,21 +1842,21 @@
             .<span class="ident">insert_conditionally_all</span>(<span class="ident">to_send</span>, <span class="ident">table_synchronizer</span>.<span class="ident">table_segment_offset</span>)
             .<span class="kw">await</span>;
         <span class="kw">match</span> <span class="ident">result</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">TableError</span>::<span class="ident">IncorrectKeyVersion</span> { <span class="ident">operation</span>, <span class="ident">error_msg</span> }) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;IncorrectKeyVersion {}, {}&quot;</span>, <span class="ident">operation</span>, <span class="ident">error_msg</span>);
+            <span class="prelude-val">Err</span>(<span class="ident">TableError::IncorrectKeyVersion</span> { <span class="ident">operation</span>, <span class="ident">error_msg</span> }) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">debug!</span>(<span class="string">&quot;IncorrectKeyVersion {}, {}&quot;</span>, <span class="ident">operation</span>, <span class="ident">error_msg</span>);
                 <span class="ident">table_synchronizer</span>.<span class="ident">fetch_updates</span>().<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;fetch update&quot;</span>);
             }
-            <span class="prelude-val">Err</span>(<span class="ident">TableError</span>::<span class="ident">KeyDoesNotExist</span> { <span class="ident">operation</span>, <span class="ident">error_msg</span> }) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;KeyDoesNotExist {}, {}&quot;</span>, <span class="ident">operation</span>, <span class="ident">error_msg</span>);
+            <span class="prelude-val">Err</span>(<span class="ident">TableError::KeyDoesNotExist</span> { <span class="ident">operation</span>, <span class="ident">error_msg</span> }) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">debug!</span>(<span class="string">&quot;KeyDoesNotExist {}, {}&quot;</span>, <span class="ident">operation</span>, <span class="ident">error_msg</span>);
                 <span class="ident">table_synchronizer</span>.<span class="ident">fetch_updates</span>().<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;fetch update&quot;</span>);
             }
             <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Error message is {}&quot;</span>, <span class="ident">e</span>);
+                <span class="macro">debug!</span>(<span class="string">&quot;Error message is {}&quot;</span>, <span class="ident">e</span>);
                 <span class="kw">if</span> <span class="ident">retry</span> <span class="op">&gt;</span> <span class="number">0</span> {
                     <span class="ident">retry</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
-                    <span class="ident">sleep</span>(<span class="ident">Duration</span>::<span class="ident">from_millis</span>(<span class="ident">DELAY_MILLIS</span>)).<span class="kw">await</span>;
+                    <span class="ident">sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="ident">DELAY_MILLIS</span>)).<span class="kw">await</span>;
                 } <span class="kw">else</span> {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SynchronizerError</span>::<span class="ident">SyncTableError</span> {
+                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SynchronizerError::SyncTableError</span> {
                         <span class="ident">operation</span>: <span class="string">&quot;insert conditionally_all&quot;</span>.<span class="ident">to_owned</span>(),
                         <span class="ident">source</span>: <span class="ident">e</span>,
                     });
@@ -1892,20 +1886,20 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">to_delete</span> <span class="op">=</span> <span class="ident">Update</span> {
             <span class="ident">map</span>,
             <span class="ident">map_version</span>,
-            <span class="ident">insert</span>: <span class="ident">Vec</span>::<span class="ident">new</span>(),
-            <span class="ident">remove</span>: <span class="ident">Vec</span>::<span class="ident">new</span>(),
+            <span class="ident">insert</span>: <span class="ident">Vec::new</span>(),
+            <span class="ident">remove</span>: <span class="ident">Vec::new</span>(),
         };
         <span class="ident">delete_result</span> <span class="op">=</span> <span class="ident">delete_generator</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">to_delete</span>)<span class="question-mark">?</span>;
 
         <span class="kw">if</span> <span class="ident">to_delete</span>.<span class="ident">remove_is_empty</span>() {
-            <span class="macro">debug</span><span class="macro">!</span>(
+            <span class="macro">debug!</span>(
                 <span class="string">&quot;Conditionally remove to {} completed, as there is nothing to remove for map&quot;</span>,
                 <span class="ident">table_synchronizer</span>.<span class="ident">get_name</span>()
             );
             <span class="kw">break</span>;
         }
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">send</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">send</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
         <span class="kw">for</span> <span class="ident">delete</span> <span class="kw">in</span> <span class="ident">to_delete</span>.<span class="ident">get_remove_iter</span>() {
             <span class="kw">let</span> <span class="ident">key_version</span> <span class="op">=</span>
                 <span class="ident">table_synchronizer</span>.<span class="ident">get_key_version</span>(<span class="kw-2">&amp;</span><span class="ident">delete</span>.<span class="ident">outer_key</span>, <span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(<span class="ident">delete</span>.<span class="ident">inner_key</span>.<span class="ident">to_owned</span>()));
@@ -1918,21 +1912,21 @@
             .<span class="kw">await</span>;
 
         <span class="kw">match</span> <span class="ident">result</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">TableError</span>::<span class="ident">IncorrectKeyVersion</span> { <span class="ident">operation</span>, <span class="ident">error_msg</span> }) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;IncorrectKeyVersion {}, {}&quot;</span>, <span class="ident">operation</span>, <span class="ident">error_msg</span>);
+            <span class="prelude-val">Err</span>(<span class="ident">TableError::IncorrectKeyVersion</span> { <span class="ident">operation</span>, <span class="ident">error_msg</span> }) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">debug!</span>(<span class="string">&quot;IncorrectKeyVersion {}, {}&quot;</span>, <span class="ident">operation</span>, <span class="ident">error_msg</span>);
                 <span class="ident">table_synchronizer</span>.<span class="ident">fetch_updates</span>().<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;fetch update&quot;</span>);
             }
-            <span class="prelude-val">Err</span>(<span class="ident">TableError</span>::<span class="ident">KeyDoesNotExist</span> { <span class="ident">operation</span>, <span class="ident">error_msg</span> }) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;KeyDoesNotExist {}, {}&quot;</span>, <span class="ident">operation</span>, <span class="ident">error_msg</span>);
+            <span class="prelude-val">Err</span>(<span class="ident">TableError::KeyDoesNotExist</span> { <span class="ident">operation</span>, <span class="ident">error_msg</span> }) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">debug!</span>(<span class="string">&quot;KeyDoesNotExist {}, {}&quot;</span>, <span class="ident">operation</span>, <span class="ident">error_msg</span>);
                 <span class="ident">table_synchronizer</span>.<span class="ident">fetch_updates</span>().<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;fetch update&quot;</span>);
             }
             <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Error message is {}&quot;</span>, <span class="ident">e</span>);
+                <span class="macro">debug!</span>(<span class="string">&quot;Error message is {}&quot;</span>, <span class="ident">e</span>);
                 <span class="kw">if</span> <span class="ident">retry</span> <span class="op">&gt;</span> <span class="number">0</span> {
                     <span class="ident">retry</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
-                    <span class="ident">sleep</span>(<span class="ident">Duration</span>::<span class="ident">from_millis</span>(<span class="ident">DELAY_MILLIS</span>)).<span class="kw">await</span>;
+                    <span class="ident">sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="ident">DELAY_MILLIS</span>)).<span class="kw">await</span>;
                 } <span class="kw">else</span> {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SynchronizerError</span>::<span class="ident">SyncTableError</span> {
+                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SynchronizerError::SyncTableError</span> {
                         <span class="ident">operation</span>: <span class="string">&quot;remove conditionally_all&quot;</span>.<span class="ident">to_owned</span>(),
                         <span class="ident">source</span>: <span class="ident">e</span>,
                     });
@@ -1981,7 +1975,7 @@
             <span class="kw">let</span> <span class="ident">in_mem_inner_map</span> <span class="op">=</span> <span class="ident">table_synchronizer</span>
                 .<span class="ident">in_memory_map</span>
                 .<span class="ident">entry</span>(<span class="ident">update</span>.<span class="ident">outer_key</span>.<span class="ident">clone</span>())
-                .<span class="ident">or_insert_with</span>(<span class="ident">HashMap</span>::<span class="ident">new</span>);
+                .<span class="ident">or_insert_with</span>(<span class="ident">HashMap::new</span>);
             <span class="ident">in_mem_inner_map</span>.<span class="ident">insert</span>(<span class="ident">new_key</span>, <span class="ident">new_value</span>);
         } <span class="kw">else</span> {
             <span class="kw">let</span> <span class="ident">new_key</span> <span class="op">=</span> <span class="ident">Key</span> {
@@ -1999,7 +1993,7 @@
         }
         <span class="ident">i</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
     }
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Updates {} entries in local map &quot;</span>, <span class="ident">i</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;Updates {} entries in local map &quot;</span>, <span class="ident">i</span>);
 }
 
 <span class="kw">fn</span> <span class="ident">apply_deletes_to_localmap</span>(<span class="ident">to_delete</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Update</span>, <span class="ident">table_synchronizer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Synchronizer</span>) {
@@ -2007,28 +2001,28 @@
     <span class="kw">for</span> <span class="ident">delete</span> <span class="kw">in</span> <span class="ident">to_delete</span>.<span class="ident">get_remove_iter</span>() {
         <span class="kw">let</span> <span class="ident">delete_key</span> <span class="op">=</span> <span class="ident">Key</span> {
             <span class="ident">key</span>: <span class="ident">delete</span>.<span class="ident">inner_key</span>.<span class="ident">clone</span>(),
-            <span class="ident">key_version</span>: <span class="ident">TableKey</span>::<span class="ident">KEY_NO_VERSION</span>,
+            <span class="ident">key_version</span>: <span class="ident">TableKey::KEY_NO_VERSION</span>,
         };
         <span class="kw">let</span> <span class="ident">in_mem_inner_map</span> <span class="op">=</span> <span class="ident">table_synchronizer</span>
             .<span class="ident">in_memory_map</span>
             .<span class="ident">entry</span>(<span class="ident">delete</span>.<span class="ident">outer_key</span>.<span class="ident">clone</span>())
-            .<span class="ident">or_insert_with</span>(<span class="ident">HashMap</span>::<span class="ident">new</span>);
+            .<span class="ident">or_insert_with</span>(<span class="ident">HashMap::new</span>);
         <span class="ident">in_mem_inner_map</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">delete_key</span>);
         <span class="ident">i</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
     }
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Deletes {} entries in local map &quot;</span>, <span class="ident">i</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;Deletes {} entries in local map &quot;</span>, <span class="ident">i</span>);
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">sync</span>::<span class="ident">synchronizer</span>::{<span class="ident">deserialize_from</span>, <span class="ident">Update</span>};
-    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">sync</span>::<span class="ident">synchronizer</span>::{<span class="ident">serialize</span>, <span class="ident">Value</span>};
-    <span class="kw">use</span> <span class="ident">pravega_client_config</span>::<span class="ident">connection_type</span>::{<span class="ident">ConnectionType</span>, <span class="ident">MockType</span>};
-    <span class="kw">use</span> <span class="ident">pravega_client_config</span>::<span class="ident">ClientConfigBuilder</span>;
-    <span class="kw">use</span> <span class="ident">pravega_client_shared</span>::<span class="ident">PravegaNodeUri</span>;
-    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">HashMap</span>;
-    <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">runtime</span>::<span class="ident">Runtime</span>;
+    <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::sync::synchronizer</span>::{<span class="ident">deserialize_from</span>, <span class="ident">Update</span>};
+    <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::sync::synchronizer</span>::{<span class="ident">serialize</span>, <span class="ident">Value</span>};
+    <span class="kw">use</span> <span class="ident">pravega_client_config::connection_type</span>::{<span class="ident">ConnectionType</span>, <span class="ident">MockType</span>};
+    <span class="kw">use</span> <span class="ident">pravega_client_config::ClientConfigBuilder</span>;
+    <span class="kw">use</span> <span class="ident">pravega_client_shared::PravegaNodeUri</span>;
+    <span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
+    <span class="kw">use</span> <span class="ident">tokio::runtime::Runtime</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_intern_key_split</span>() {
@@ -2036,27 +2030,27 @@
             <span class="ident">key</span>: <span class="string">&quot;10outer_keys/inner_key&quot;</span>.<span class="ident">to_owned</span>(),
         };
         <span class="kw">let</span> (<span class="ident">outer</span>, <span class="ident">inner</span>) <span class="op">=</span> <span class="ident">key1</span>.<span class="ident">split</span>();
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">outer</span>, <span class="string">&quot;outer_keys&quot;</span>.<span class="ident">to_owned</span>());
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">inner</span>.<span class="ident">expect</span>(<span class="string">&quot;should contain inner key&quot;</span>), <span class="string">&quot;inner_key&quot;</span>.<span class="ident">to_owned</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">outer</span>, <span class="string">&quot;outer_keys&quot;</span>.<span class="ident">to_owned</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">inner</span>.<span class="ident">expect</span>(<span class="string">&quot;should contain inner key&quot;</span>), <span class="string">&quot;inner_key&quot;</span>.<span class="ident">to_owned</span>());
 
         <span class="kw">let</span> <span class="ident">key2</span> <span class="op">=</span> <span class="ident">InternalKey</span> {
             <span class="ident">key</span>: <span class="string">&quot;05outer/inner_key&quot;</span>.<span class="ident">to_owned</span>(),
         };
         <span class="kw">let</span> (<span class="ident">outer</span>, <span class="ident">inner</span>) <span class="op">=</span> <span class="ident">key2</span>.<span class="ident">split</span>();
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">outer</span>, <span class="string">&quot;outer&quot;</span>.<span class="ident">to_owned</span>());
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">inner</span>.<span class="ident">expect</span>(<span class="string">&quot;should contain inner key&quot;</span>), <span class="string">&quot;inner_key&quot;</span>.<span class="ident">to_owned</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">outer</span>, <span class="string">&quot;outer&quot;</span>.<span class="ident">to_owned</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">inner</span>.<span class="ident">expect</span>(<span class="string">&quot;should contain inner key&quot;</span>), <span class="string">&quot;inner_key&quot;</span>.<span class="ident">to_owned</span>());
 
         <span class="kw">let</span> <span class="ident">key3</span> <span class="op">=</span> <span class="ident">InternalKey</span> {
             <span class="ident">key</span>: <span class="string">&quot;05outer&quot;</span>.<span class="ident">to_owned</span>(),
         };
         <span class="kw">let</span> (<span class="ident">outer</span>, <span class="ident">inner</span>) <span class="op">=</span> <span class="ident">key3</span>.<span class="ident">split</span>();
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">outer</span>, <span class="string">&quot;outer&quot;</span>.<span class="ident">to_owned</span>());
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">inner</span>.<span class="ident">is_none</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">outer</span>, <span class="string">&quot;outer&quot;</span>.<span class="ident">to_owned</span>());
+        <span class="macro">assert!</span>(<span class="ident">inner</span>.<span class="ident">is_none</span>());
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_insert_keys</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">map</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Key</span>, <span class="ident">Value</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">map</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Key</span>, <span class="ident">Value</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
         <span class="kw">let</span> <span class="ident">key1</span> <span class="op">=</span> <span class="ident">Key</span> {
             <span class="ident">key</span>: <span class="string">&quot;a&quot;</span>.<span class="ident">to_owned</span>(),
             <span class="ident">key_version</span>: <span class="number">0</span>,
@@ -2078,15 +2072,15 @@
             <span class="ident">data</span>,
         };
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">key1</span>, <span class="ident">value1</span>);
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">result</span>.<span class="ident">is_none</span>());
+        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_none</span>());
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">key2</span>, <span class="ident">value2</span>);
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">result</span>.<span class="ident">is_none</span>());
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">map</span>.<span class="ident">len</span>(), <span class="number">2</span>);
+        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_none</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">map</span>.<span class="ident">len</span>(), <span class="number">2</span>);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_insert_key_with_different_key_version</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">map</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Key</span>, <span class="ident">Value</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">map</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Key</span>, <span class="ident">Value</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
         <span class="kw">let</span> <span class="ident">key1</span> <span class="op">=</span> <span class="ident">Key</span> {
             <span class="ident">key</span>: <span class="string">&quot;a&quot;</span>.<span class="ident">to_owned</span>(),
             <span class="ident">key_version</span>: <span class="number">0</span>,
@@ -2108,15 +2102,15 @@
         };
 
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">key1</span>.<span class="ident">clone</span>(), <span class="ident">value1</span>);
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">result</span>.<span class="ident">is_none</span>());
+        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_none</span>());
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">key2</span>.<span class="ident">clone</span>(), <span class="ident">value2</span>);
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">result</span>.<span class="ident">is_some</span>());
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">map</span>.<span class="ident">len</span>(), <span class="number">1</span>);
+        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_some</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">map</span>.<span class="ident">len</span>(), <span class="number">1</span>);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_clone_map</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">map</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Key</span>, <span class="ident">Value</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">map</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Key</span>, <span class="ident">Value</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
         <span class="kw">let</span> <span class="ident">key1</span> <span class="op">=</span> <span class="ident">Key</span> {
             <span class="ident">key</span>: <span class="string">&quot;a&quot;</span>.<span class="ident">to_owned</span>(),
             <span class="ident">key_version</span>: <span class="number">0</span>,
@@ -2143,39 +2137,39 @@
         <span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">key2</span>.<span class="ident">clone</span>(), <span class="ident">value2</span>.<span class="ident">clone</span>());
         <span class="kw">let</span> <span class="ident">new_map</span> <span class="op">=</span> <span class="ident">map</span>.<span class="ident">clone</span>();
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">new_map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">key1</span>).<span class="ident">expect</span>(<span class="string">&quot;get value&quot;</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">new_map</span>.<span class="ident">len</span>(), <span class="number">1</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">result</span>.<span class="ident">clone</span>(), <span class="ident">value2</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">new_map</span>.<span class="ident">len</span>(), <span class="number">1</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">clone</span>(), <span class="ident">value2</span>);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_insert_and_get</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">Update</span> {
-            <span class="ident">map</span>: <span class="ident">HashMap</span>::<span class="ident">new</span>(),
-            <span class="ident">map_version</span>: <span class="ident">HashMap</span>::<span class="ident">new</span>(),
-            <span class="ident">insert</span>: <span class="ident">Vec</span>::<span class="ident">new</span>(),
-            <span class="ident">remove</span>: <span class="ident">Vec</span>::<span class="ident">new</span>(),
+            <span class="ident">map</span>: <span class="ident">HashMap::new</span>(),
+            <span class="ident">map_version</span>: <span class="ident">HashMap::new</span>(),
+            <span class="ident">insert</span>: <span class="ident">Vec::new</span>(),
+            <span class="ident">remove</span>: <span class="ident">Vec::new</span>(),
         };
         <span class="ident">table</span>.<span class="ident">insert</span>(
             <span class="string">&quot;test_outer&quot;</span>.<span class="ident">to_owned</span>(),
             <span class="string">&quot;test_inner&quot;</span>.<span class="ident">to_owned</span>(),
             <span class="string">&quot;i32&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">Box</span>::<span class="ident">new</span>(<span class="number">1</span>),
+            <span class="ident">Box::new</span>(<span class="number">1</span>),
         );
         <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">table</span>.<span class="ident">get</span>(<span class="string">&quot;test_outer&quot;</span>, <span class="string">&quot;test_inner&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;get value&quot;</span>);
         <span class="kw">let</span> <span class="ident">deserialized_data</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">deserialize_from</span>(<span class="kw-2">&amp;</span><span class="ident">value</span>.<span class="ident">data</span>).<span class="ident">expect</span>(<span class="string">&quot;deserialize&quot;</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">deserialized_data</span>, <span class="number">1</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">deserialized_data</span>, <span class="number">1</span>);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_integration_with_table_map</span>() {
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">Runtime</span>::<span class="ident">new</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">ClientConfigBuilder</span>::<span class="ident">default</span>()
-            .<span class="ident">connection_type</span>(<span class="ident">ConnectionType</span>::<span class="ident">Mock</span>(<span class="ident">MockType</span>::<span class="ident">Happy</span>))
+        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">Runtime::new</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">ClientConfigBuilder::default</span>()
+            .<span class="ident">connection_type</span>(<span class="ident">ConnectionType::Mock</span>(<span class="ident">MockType::Happy</span>))
             .<span class="ident">mock</span>(<span class="bool-val">true</span>)
-            .<span class="ident">controller_uri</span>(<span class="ident">PravegaNodeUri</span>::<span class="ident">from</span>(<span class="string">&quot;127.0.0.2:9091&quot;</span>.<span class="ident">to_string</span>()))
+            .<span class="ident">controller_uri</span>(<span class="ident">PravegaNodeUri::from</span>(<span class="string">&quot;127.0.0.2:9091&quot;</span>.<span class="ident">to_string</span>()))
             .<span class="ident">build</span>()
             .<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">factory</span> <span class="op">=</span> <span class="ident">ClientFactory</span>::<span class="ident">new</span>(<span class="ident">config</span>);
+        <span class="kw">let</span> <span class="ident">factory</span> <span class="op">=</span> <span class="ident">ClientFactory::new</span>(<span class="ident">config</span>);
         <span class="kw">let</span> <span class="ident">scope</span> <span class="op">=</span> <span class="ident">Scope</span> {
             <span class="ident">name</span>: <span class="string">&quot;tableSyncScope&quot;</span>.<span class="ident">to_string</span>(),
         };
@@ -2185,13 +2179,13 @@
                 <span class="string">&quot;outer_key&quot;</span>.<span class="ident">to_owned</span>(),
                 <span class="string">&quot;inner_key&quot;</span>.<span class="ident">to_owned</span>(),
                 <span class="string">&quot;i32&quot;</span>.<span class="ident">to_owned</span>(),
-                <span class="ident">Box</span>::<span class="ident">new</span>(<span class="number">1</span>),
+                <span class="ident">Box::new</span>(<span class="number">1</span>),
             );
             <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
         }))
         .<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">value_option</span> <span class="op">=</span> <span class="ident">sync</span>.<span class="ident">get</span>(<span class="string">&quot;outer_key&quot;</span>, <span class="string">&quot;inner_key&quot;</span>);
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">value_option</span>.<span class="ident">is_some</span>());
+        <span class="macro">assert!</span>(<span class="ident">value_option</span>.<span class="ident">is_some</span>());
 
         <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">sync</span>.<span class="ident">insert</span>(<span class="op">|</span><span class="ident">table</span><span class="op">|</span> {
             <span class="ident">table</span>.<span class="ident">insert_tombstone</span>(<span class="string">&quot;outer_key&quot;</span>.<span class="ident">to_owned</span>(), <span class="string">&quot;inner_key&quot;</span>.<span class="ident">to_owned</span>())<span class="question-mark">?</span>;
@@ -2199,9 +2193,9 @@
         }))
         .<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">value_option</span> <span class="op">=</span> <span class="ident">sync</span>.<span class="ident">get</span>(<span class="string">&quot;outer_key&quot;</span>, <span class="string">&quot;inner_key&quot;</span>);
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">value_option</span>.<span class="ident">is_none</span>());
+        <span class="macro">assert!</span>(<span class="ident">value_option</span>.<span class="ident">is_none</span>());
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-search-js="../../../search-index.js"></div>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
     <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script></body></html>

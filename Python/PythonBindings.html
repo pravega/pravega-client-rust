@@ -175,26 +175,26 @@ companion to <a href="../python/pravega_client.html">Pravega Python API</a></p>
 operations on the stream which include sealing a stream and deleting streams among others.</p>
 <p>A StreamManager can be created by using a Controller URI. The below example snippet </p>
 <pre><code class="language-python">import pravega_client
-manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
+manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
 # stream manager can be used to create scopes, streams, writers and readers against Pravega.
 manager.create_scope(&quot;scope&quot;)
 manager.create_stream(&quot;scope&quot;, &quot;stream&quot;, 1)
 </code></pre>
 <p>A StreamWriter can be used create a Stream writer. The below snippet is shows a sample pattern.</p>
 <pre><code class="language-python">import pravega_client
-manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
+manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
 # create a writer against an already created Pravega scope and Stream.
 writer=manager.create_writer(&quot;scope&quot;, &quot;stream&quot;)
 </code></pre>
 <p>A transactional Writer can be created using the StreamManager. The below example snippet shows a sample pattern.</p>
 <pre><code class="language-python"> import pravega_client
- manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
+ manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
 # create a transactional writer against an already created Pravega scope and Stream.
  writer=manager.create_transaction_writer(&quot;scope&quot;, &quot;stream&quot;, &quot;123&quot;)
 </code></pre>
 <p>A ReaderGroup can be created using the StreamManager. Individual readers can be created using this ReaderGroup object.</p>
 <pre><code class="language-python">import pravega_client
-manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
+manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
 # create a ReaderGroup rg1 against an already created Pravega scope and Stream.
 event.reader_group=manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;)
 </code></pre>
@@ -206,7 +206,7 @@ with/without a routing key.</p>
 <p>Note that the implementation provides retry logic to handle connection failures and service host failures. Internal 
 retries will not violate the exactly-once semantic, so it is better to rely on them than to wrap this with custom retry logic.</p>
 <pre><code class="language-python">import pravega_client
-manager=pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
+manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
 # assuming the Pravega scope and stream are already created.
 writer=manager.create_writer(&quot;scope&quot;, &quot;stream&quot;)
 # write into Pravega stream without specifying the routing key.
@@ -227,7 +227,7 @@ written as part of a transaction can be committed atomically by calling commit()
 events going into the stream or none of them and the commit call failing with an exception.</p>
 <p>Prior to committing a transaction, the events written to it cannot be read or otherwise seen by readers.</p>
 <pre><code class="language-python">import pravega_client                                         
-manager = pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)        
+manager = pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)        
 w1 = stream_manager.create_transaction_writer(scope,&quot;testTxn&quot;, 1)
 # Begin a Transaction
 txn1 = w1.begin_txn()
@@ -254,7 +254,7 @@ stream. The reader ensures that events returned by the stream are in order.</p>
 the responsibility of reading from different segments in the Pravega stream.</p>
 <p>A sample example snippet is shown below.</p>
 <pre><code class="language-python">import pravega_client
-manager = pravega_client.StreamManager(&quot;127.0.0.1:9090&quot;)
+manager = pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
 # assuming the Pravega scope and stream are already created.
 reader_group = manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;)
 reader = reader_group.create_reader(&quot;reader_id&quot;);

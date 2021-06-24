@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/segment/reactor.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>reactor.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../pravega_client/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../pravega_client/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
                 <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
@@ -301,11 +301,11 @@
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">warn</span>};
 
 <span class="kw">use</span> <span class="ident">pravega_client_shared</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">pravega_wire_protocol</span>::<span class="ident">wire_commands</span>::<span class="ident">Replies</span>;
+<span class="kw">use</span> <span class="ident">pravega_wire_protocol::wire_commands::Replies</span>;
 
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">client_factory</span>::<span class="ident">ClientFactory</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment</span>::<span class="ident">event</span>::{<span class="ident">Incoming</span>, <span class="ident">RoutingInfo</span>, <span class="ident">ServerReply</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment</span>::<span class="ident">selector</span>::<span class="ident">SegmentSelector</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::client_factory::ClientFactory</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::segment::event</span>::{<span class="ident">Incoming</span>, <span class="ident">RoutingInfo</span>, <span class="ident">ServerReply</span>};
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::segment::selector::SegmentSelector</span>;
 
 <span class="kw">const</span> <span class="ident">MAX_RECONNECTION_ALLOWED_FOR_CONDITIONAL_CHECK</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">3</span>;
 
@@ -320,15 +320,15 @@
         <span class="ident">factory</span>: <span class="ident">ClientFactory</span>,
         <span class="ident">stream_segments</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">StreamSegments</span><span class="op">&gt;</span>,
     ) {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">selector</span> <span class="op">=</span> <span class="ident">SegmentSelector</span>::<span class="ident">new</span>(<span class="ident">stream</span>, <span class="ident">sender</span>, <span class="ident">factory</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">selector</span> <span class="op">=</span> <span class="ident">SegmentSelector::new</span>(<span class="ident">stream</span>, <span class="ident">sender</span>, <span class="ident">factory</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
         <span class="comment">// get the current segments and create corresponding event segment writers</span>
         <span class="ident">selector</span>.<span class="ident">initialize</span>(<span class="ident">stream_segments</span>).<span class="kw">await</span>;
-        <span class="macro">info</span><span class="macro">!</span>(<span class="string">&quot;starting reactor&quot;</span>);
-        <span class="kw">while</span> <span class="ident">Reactor</span>::<span class="ident">run_once</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="kw-2">&amp;</span><span class="ident">factory</span>)
+        <span class="macro">info!</span>(<span class="string">&quot;starting reactor&quot;</span>);
+        <span class="kw">while</span> <span class="ident">Reactor::run_once</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="kw-2">&amp;</span><span class="ident">factory</span>)
             .<span class="kw">await</span>
             .<span class="ident">is_ok</span>()
         {}
-        <span class="macro">info</span><span class="macro">!</span>(<span class="string">&quot;reactor is closed&quot;</span>);
+        <span class="macro">info!</span>(<span class="string">&quot;reactor is closed&quot;</span>);
     }
 
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">run_once</span>(
@@ -338,27 +338,27 @@
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span><span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">event</span>, <span class="ident">cap_guard</span>) <span class="op">=</span> <span class="ident">receiver</span>.<span class="ident">recv</span>().<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;sender closed, processor exit&quot;</span>);
         <span class="kw">match</span> <span class="ident">event</span> {
-            <span class="ident">Incoming</span>::<span class="ident">AppendEvent</span>(<span class="ident">pending_event</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Incoming::AppendEvent</span>(<span class="ident">pending_event</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">event_segment_writer</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">pending_event</span>.<span class="ident">routing_info</span> {
-                    <span class="ident">RoutingInfo</span>::<span class="ident">RoutingKey</span>(<span class="ident">key</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">selector</span>.<span class="ident">get_segment_writer</span>(<span class="ident">key</span>),
-                    <span class="ident">RoutingInfo</span>::<span class="ident">Segment</span>(<span class="ident">segment</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">selector</span>.<span class="ident">get_segment_writer_by_key</span>(<span class="ident">segment</span>),
+                    <span class="ident">RoutingInfo::RoutingKey</span>(<span class="ident">key</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">selector</span>.<span class="ident">get_segment_writer</span>(<span class="ident">key</span>),
+                    <span class="ident">RoutingInfo::Segment</span>(<span class="ident">segment</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">selector</span>.<span class="ident">get_segment_writer_by_key</span>(<span class="ident">segment</span>),
                 };
 
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">event_segment_writer</span>.<span class="ident">write</span>(<span class="ident">pending_event</span>, <span class="ident">cap_guard</span>).<span class="kw">await</span> {
-                    <span class="macro">warn</span><span class="macro">!</span>(<span class="string">&quot;failed to write append to segment due to {:?}, reconnecting&quot;</span>, <span class="ident">e</span>);
+                    <span class="macro">warn!</span>(<span class="string">&quot;failed to write append to segment due to {:?}, reconnecting&quot;</span>, <span class="ident">e</span>);
                     <span class="ident">event_segment_writer</span>.<span class="ident">reconnect</span>(<span class="ident">factory</span>).<span class="kw">await</span>;
                 }
                 <span class="prelude-val">Ok</span>(())
             }
-            <span class="ident">Incoming</span>::<span class="ident">ServerReply</span>(<span class="ident">server_reply</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">Reactor</span>::<span class="ident">process_server_reply</span>(<span class="ident">server_reply</span>, <span class="ident">selector</span>, <span class="ident">factory</span>).<span class="kw">await</span> {
-                    <span class="macro">error</span><span class="macro">!</span>(<span class="string">&quot;failed to process server reply due to {:?}&quot;</span>, <span class="ident">e</span>);
+            <span class="ident">Incoming::ServerReply</span>(<span class="ident">server_reply</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">Reactor::process_server_reply</span>(<span class="ident">server_reply</span>, <span class="ident">selector</span>, <span class="ident">factory</span>).<span class="kw">await</span> {
+                    <span class="macro">error!</span>(<span class="string">&quot;failed to process server reply due to {:?}&quot;</span>, <span class="ident">e</span>);
                     <span class="prelude-val">Err</span>(<span class="ident">e</span>)
                 } <span class="kw">else</span> {
                     <span class="prelude-val">Ok</span>(())
                 }
             }
-            <span class="ident">Incoming</span>::<span class="ident">Reconnect</span>(<span class="ident">writer_info</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Incoming::Reconnect</span>(<span class="ident">writer_info</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">option</span> <span class="op">=</span> <span class="ident">selector</span>.<span class="ident">writers</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">writer_info</span>.<span class="ident">segment</span>);
                 <span class="kw">if</span> <span class="ident">option</span>.<span class="ident">is_none</span>() {
                     <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
@@ -372,16 +372,16 @@
                     <span class="comment">// cause InvalidEventNumber error.</span>
                     <span class="kw">if</span> <span class="ident">write_half</span>.<span class="ident">get_id</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">writer_info</span>.<span class="ident">connection_id</span> <span class="op">&amp;&amp;</span> <span class="ident">writer_info</span>.<span class="ident">writer_id</span> <span class="op">=</span><span class="op">=</span> <span class="ident">writer</span>.<span class="ident">id</span>
                     {
-                        <span class="macro">warn</span><span class="macro">!</span>(<span class="string">&quot;reconnect for writer {:?}&quot;</span>, <span class="ident">writer_info</span>);
+                        <span class="macro">warn!</span>(<span class="string">&quot;reconnect for writer {:?}&quot;</span>, <span class="ident">writer_info</span>);
                         <span class="ident">writer</span>.<span class="ident">reconnect</span>(<span class="ident">factory</span>).<span class="kw">await</span>;
                     } <span class="kw">else</span> {
-                        <span class="macro">info</span><span class="macro">!</span>(<span class="string">&quot;reconnect signal received for writer: {:?}, but does not match current writer: id {}, connection id {}, ignore&quot;</span>, <span class="ident">writer_info</span>, <span class="ident">writer</span>.<span class="ident">id</span>, <span class="ident">write_half</span>.<span class="ident">get_id</span>());
+                        <span class="macro">info!</span>(<span class="string">&quot;reconnect signal received for writer: {:?}, but does not match current writer: id {}, connection id {}, ignore&quot;</span>, <span class="ident">writer_info</span>, <span class="ident">writer</span>.<span class="ident">id</span>, <span class="ident">write_half</span>.<span class="ident">get_id</span>());
                     }
                 }
                 <span class="prelude-val">Ok</span>(())
             }
-            <span class="ident">Incoming</span>::<span class="ident">Close</span>() <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">info</span><span class="macro">!</span>(<span class="string">&quot;receive signal to close reactor&quot;</span>);
+            <span class="ident">Incoming::Close</span>() <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">info!</span>(<span class="string">&quot;receive signal to close reactor&quot;</span>);
                 <span class="prelude-val">Err</span>(<span class="string">&quot;close&quot;</span>)
             }
         }
@@ -399,8 +399,8 @@
             .<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">server_reply</span>.<span class="ident">segment</span>)
             .<span class="ident">expect</span>(<span class="string">&quot;should always be able to get event segment writer&quot;</span>);
         <span class="kw">match</span> <span class="ident">server_reply</span>.<span class="ident">reply</span> {
-            <span class="ident">Replies</span>::<span class="ident">DataAppended</span>(<span class="ident">cmd</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">debug</span><span class="macro">!</span>(
+            <span class="ident">Replies::DataAppended</span>(<span class="ident">cmd</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">debug!</span>(
                     <span class="string">&quot;data appended for writer {:?}, latest event id is: {:?}&quot;</span>,
                     <span class="ident">writer</span>.<span class="ident">id</span>, <span class="ident">cmd</span>.<span class="ident">event_number</span>
                 );
@@ -408,7 +408,7 @@
                 <span class="ident">writer</span>.<span class="ident">reconnection</span> <span class="op">=</span> <span class="number">0</span>;
                 <span class="ident">writer</span>.<span class="ident">ack</span>(<span class="ident">cmd</span>.<span class="ident">event_number</span>);
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">writer</span>.<span class="ident">write_pending_events</span>().<span class="kw">await</span> {
-                    <span class="macro">warn</span><span class="macro">!</span>(
+                    <span class="macro">warn!</span>(
                         <span class="string">&quot;writer {:?} failed to flush data to segment {:?} due to {:?}, reconnecting&quot;</span>,
                         <span class="ident">writer</span>.<span class="ident">id</span>, <span class="ident">writer</span>.<span class="ident">segment</span>, <span class="ident">e</span>
                     );
@@ -417,12 +417,12 @@
                 <span class="prelude-val">Ok</span>(())
             }
 
-            <span class="ident">Replies</span>::<span class="ident">SegmentIsSealed</span>(<span class="ident">cmd</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">debug</span><span class="macro">!</span>(
+            <span class="ident">Replies::SegmentIsSealed</span>(<span class="ident">cmd</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">debug!</span>(
                     <span class="string">&quot;segment {:?} sealed: stack trace {}&quot;</span>,
                     <span class="ident">cmd</span>.<span class="ident">segment</span>, <span class="ident">cmd</span>.<span class="ident">server_stack_trace</span>
                 );
-                <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="ident">ScopedSegment</span>::<span class="ident">from</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">cmd</span>.<span class="ident">segment</span>);
+                <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="ident">ScopedSegment::from</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">cmd</span>.<span class="ident">segment</span>);
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">inflight</span>) <span class="op">=</span> <span class="ident">selector</span>.<span class="ident">refresh_segment_event_writers_upon_sealed</span>(<span class="kw-2">&amp;</span><span class="ident">segment</span>).<span class="kw">await</span> {
                     <span class="ident">selector</span>.<span class="ident">resend</span>(<span class="ident">inflight</span>).<span class="kw">await</span>;
                     <span class="ident">selector</span>.<span class="ident">remove_segment_writer</span>(<span class="kw-2">&amp;</span><span class="ident">segment</span>);
@@ -432,12 +432,12 @@
                 }
             }
 
-            <span class="ident">Replies</span>::<span class="ident">NoSuchSegment</span>(<span class="ident">cmd</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">debug</span><span class="macro">!</span>(
+            <span class="ident">Replies::NoSuchSegment</span>(<span class="ident">cmd</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">debug!</span>(
                     <span class="string">&quot;no such segment {:?} due to segment truncation: stack trace {}&quot;</span>,
                     <span class="ident">cmd</span>.<span class="ident">segment</span>, <span class="ident">cmd</span>.<span class="ident">server_stack_trace</span>
                 );
-                <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="ident">ScopedSegment</span>::<span class="ident">from</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">cmd</span>.<span class="ident">segment</span>);
+                <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="ident">ScopedSegment::from</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">cmd</span>.<span class="ident">segment</span>);
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">inflight</span>) <span class="op">=</span> <span class="ident">selector</span>.<span class="ident">refresh_segment_event_writers_upon_sealed</span>(<span class="kw-2">&amp;</span><span class="ident">segment</span>).<span class="kw">await</span> {
                     <span class="ident">selector</span>.<span class="ident">resend</span>(<span class="ident">inflight</span>).<span class="kw">await</span>;
                     <span class="ident">selector</span>.<span class="ident">remove_segment_writer</span>(<span class="kw-2">&amp;</span><span class="ident">segment</span>);
@@ -447,8 +447,8 @@
                 }
             }
 
-            <span class="ident">Replies</span>::<span class="ident">WrongHost</span>(<span class="ident">cmd</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">warn</span><span class="macro">!</span>(
+            <span class="ident">Replies::WrongHost</span>(<span class="ident">cmd</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">warn!</span>(
                     <span class="string">&quot;wrong host {:?} : stack trace {}&quot;</span>,
                     <span class="ident">cmd</span>.<span class="ident">segment</span>, <span class="ident">cmd</span>.<span class="ident">server_stack_trace</span>
                 );
@@ -457,14 +457,14 @@
                 <span class="prelude-val">Ok</span>(())
             }
 
-            <span class="ident">Replies</span>::<span class="ident">ConditionalCheckFailed</span>(<span class="ident">cmd</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Replies::ConditionalCheckFailed</span>(<span class="ident">cmd</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">if</span> <span class="ident">writer</span>.<span class="ident">id</span>.<span class="number">0</span> <span class="op">=</span><span class="op">=</span> <span class="ident">cmd</span>.<span class="ident">writer_id</span> {
                     <span class="kw">if</span> <span class="ident">writer</span>.<span class="ident">reconnection</span> <span class="op">&gt;</span> <span class="number">0</span>
                         <span class="op">&amp;&amp;</span> <span class="ident">writer</span>.<span class="ident">reconnection</span> <span class="op">&lt;</span> <span class="ident">MAX_RECONNECTION_ALLOWED_FOR_CONDITIONAL_CHECK</span>
                     {
                         <span class="comment">// Conditional check failed, but it could be caused by reconnection.</span>
                         <span class="comment">// Reconnect again to fetch the latest event number from server.</span>
-                        <span class="macro">warn</span><span class="macro">!</span>(
+                        <span class="macro">warn!</span>(
                             <span class="string">&quot;conditional check failed {:?}, probably a false alarm caused by reconnection&quot;</span>,
                             <span class="ident">cmd</span>
                         );
@@ -472,14 +472,14 @@
                     } <span class="kw">else</span> {
                         <span class="comment">// reconnection did not happen, conditional check failed must</span>
                         <span class="comment">// be caused by interleaved data.</span>
-                        <span class="macro">warn</span><span class="macro">!</span>(<span class="string">&quot;conditional check failed {:?}&quot;</span>, <span class="ident">cmd</span>);
+                        <span class="macro">warn!</span>(<span class="string">&quot;conditional check failed {:?}&quot;</span>, <span class="ident">cmd</span>);
                         <span class="ident">writer</span>.<span class="ident">fail_events_upon_conditional_check_failure</span>(<span class="ident">cmd</span>.<span class="ident">event_number</span>);
                     }
                 }
                 <span class="prelude-val">Ok</span>(())
             }
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">info</span><span class="macro">!</span>(
+                <span class="macro">info!</span>(
                     <span class="string">&quot;receive unexpected reply {:?}, probably because of the stale message in a reused connection&quot;</span>,
                     <span class="ident">server_reply</span>.<span class="ident">reply</span>
                 );
@@ -492,86 +492,86 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">test</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment</span>::<span class="ident">event</span>::{<span class="ident">PendingEvent</span>, <span class="ident">RoutingInfo</span>};
-    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">segment</span>::<span class="ident">selector</span>::<span class="ident">test</span>::<span class="ident">create_segment_selector</span>;
-    <span class="kw">use</span> <span class="ident">pravega_client_channel</span>::<span class="ident">ChannelSender</span>;
-    <span class="kw">use</span> <span class="ident">pravega_client_config</span>::<span class="ident">connection_type</span>::<span class="ident">MockType</span>;
-    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">Error</span>;
-    <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">sync</span>::<span class="ident">oneshot</span>;
+    <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::segment::event</span>::{<span class="ident">PendingEvent</span>, <span class="ident">RoutingInfo</span>};
+    <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::segment::selector::test::create_segment_selector</span>;
+    <span class="kw">use</span> <span class="ident">pravega_client_channel::ChannelSender</span>;
+    <span class="kw">use</span> <span class="ident">pravega_client_config::connection_type::MockType</span>;
+    <span class="kw">use</span> <span class="ident">std::io::Error</span>;
+    <span class="kw">use</span> <span class="ident">tokio::sync::oneshot</span>;
 
-    <span class="kw">type</span> <span class="ident">EventHandle</span> <span class="op">=</span> <span class="ident">oneshot</span>::<span class="ident">Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="kw">type</span> <span class="ident">EventHandle</span> <span class="op">=</span> <span class="ident">oneshot::Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_reactor_happy_run</span>() {
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">tokio</span>::<span class="ident">runtime</span>::<span class="ident">Runtime</span>::<span class="ident">new</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">tokio::runtime::Runtime::new</span>().<span class="ident">unwrap</span>();
         <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">mut</span> <span class="ident">sender</span>, <span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="ident">factory</span>) <span class="op">=</span>
-            <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">create_segment_selector</span>(<span class="ident">MockType</span>::<span class="ident">Happy</span>));
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">selector</span>.<span class="ident">writers</span>.<span class="ident">len</span>(), <span class="number">2</span>);
+            <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">create_segment_selector</span>(<span class="ident">MockType::Happy</span>));
+        <span class="macro">assert_eq!</span>(<span class="ident">selector</span>.<span class="ident">writers</span>.<span class="ident">len</span>(), <span class="number">2</span>);
 
         <span class="comment">// write data once and reactor should ack</span>
         <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">write_once_for_selector</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">sender</span>, <span class="number">512</span>));
         <span class="comment">// accept the append</span>
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Reactor</span>::<span class="ident">run_once</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="kw-2">&amp;</span><span class="ident">factory</span>));
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">sender</span>.<span class="ident">remain</span>(), <span class="number">512</span>);
+        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Reactor::run_once</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="kw-2">&amp;</span><span class="ident">factory</span>));
+        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">sender</span>.<span class="ident">remain</span>(), <span class="number">512</span>);
 
         <span class="comment">// process the server response</span>
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Reactor</span>::<span class="ident">run_once</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="kw-2">&amp;</span><span class="ident">factory</span>));
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">sender</span>.<span class="ident">remain</span>(), <span class="number">1024</span>);
+        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Reactor::run_once</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="kw-2">&amp;</span><span class="ident">factory</span>));
+        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">sender</span>.<span class="ident">remain</span>(), <span class="number">1024</span>);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_reactor_wrong_host</span>() {
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">tokio</span>::<span class="ident">runtime</span>::<span class="ident">Runtime</span>::<span class="ident">new</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">tokio::runtime::Runtime::new</span>().<span class="ident">unwrap</span>();
         <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">mut</span> <span class="ident">sender</span>, <span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="ident">factory</span>) <span class="op">=</span>
-            <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">create_segment_selector</span>(<span class="ident">MockType</span>::<span class="ident">WrongHost</span>));
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">selector</span>.<span class="ident">writers</span>.<span class="ident">len</span>(), <span class="number">2</span>);
+            <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">create_segment_selector</span>(<span class="ident">MockType::WrongHost</span>));
+        <span class="macro">assert_eq!</span>(<span class="ident">selector</span>.<span class="ident">writers</span>.<span class="ident">len</span>(), <span class="number">2</span>);
 
         <span class="comment">// write data once</span>
         <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">write_once_for_selector</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">sender</span>, <span class="number">512</span>));
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Reactor</span>::<span class="ident">run_once</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="kw-2">&amp;</span><span class="ident">factory</span>));
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">sender</span>.<span class="ident">remain</span>(), <span class="number">512</span>);
+        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Reactor::run_once</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="kw-2">&amp;</span><span class="ident">factory</span>));
+        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">sender</span>.<span class="ident">remain</span>(), <span class="number">512</span>);
 
         <span class="comment">// get wrong host reply and writer should retry</span>
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Reactor</span>::<span class="ident">run_once</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="kw-2">&amp;</span><span class="ident">factory</span>));
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">sender</span>.<span class="ident">remain</span>(), <span class="number">512</span>);
+        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Reactor::run_once</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="kw-2">&amp;</span><span class="ident">factory</span>));
+        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">sender</span>.<span class="ident">remain</span>(), <span class="number">512</span>);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_reactor_stream_is_sealed</span>() {
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">tokio</span>::<span class="ident">runtime</span>::<span class="ident">Runtime</span>::<span class="ident">new</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">tokio::runtime::Runtime::new</span>().<span class="ident">unwrap</span>();
         <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">mut</span> <span class="ident">sender</span>, <span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="ident">factory</span>) <span class="op">=</span>
-            <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">create_segment_selector</span>(<span class="ident">MockType</span>::<span class="ident">SegmentIsSealed</span>));
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">selector</span>.<span class="ident">writers</span>.<span class="ident">len</span>(), <span class="number">2</span>);
+            <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">create_segment_selector</span>(<span class="ident">MockType::SegmentIsSealed</span>));
+        <span class="macro">assert_eq!</span>(<span class="ident">selector</span>.<span class="ident">writers</span>.<span class="ident">len</span>(), <span class="number">2</span>);
 
         <span class="comment">// write data once</span>
         <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">write_once_for_selector</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">sender</span>, <span class="number">512</span>));
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Reactor</span>::<span class="ident">run_once</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="kw-2">&amp;</span><span class="ident">factory</span>));
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">sender</span>.<span class="ident">remain</span>(), <span class="number">512</span>);
+        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Reactor::run_once</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="kw-2">&amp;</span><span class="ident">factory</span>));
+        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">sender</span>.<span class="ident">remain</span>(), <span class="number">512</span>);
 
         <span class="comment">// should get segment sealed and reactor will fetch successors</span>
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Reactor</span>::<span class="ident">run_once</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="kw-2">&amp;</span><span class="ident">factory</span>));
+        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Reactor::run_once</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="kw-2">&amp;</span><span class="ident">factory</span>));
         <span class="comment">// returns empty successors meaning stream is sealed</span>
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">result</span>.<span class="ident">is_err</span>());
+        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_err</span>());
     }
 
     <span class="comment">// helper function section</span>
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">write_once_for_selector</span>(
         <span class="ident">sender</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">ChannelSender</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
         <span class="ident">size</span>: <span class="ident">usize</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">oneshot</span>::<span class="ident">Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> (<span class="ident">oneshot_sender</span>, <span class="ident">oneshot_receiver</span>) <span class="op">=</span> <span class="ident">tokio</span>::<span class="ident">sync</span>::<span class="ident">oneshot</span>::<span class="ident">channel</span>();
-        <span class="kw">let</span> <span class="ident">routing_info</span> <span class="op">=</span> <span class="ident">RoutingInfo</span>::<span class="ident">RoutingKey</span>(<span class="prelude-val">Some</span>(<span class="string">&quot;routing_key&quot;</span>.<span class="ident">to_string</span>()));
-        <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">PendingEvent</span>::<span class="ident">new</span>(<span class="ident">routing_info</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="number">1</span>; <span class="ident">size</span>], <span class="prelude-val">None</span>, <span class="ident">oneshot_sender</span>)
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">oneshot::Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> (<span class="ident">oneshot_sender</span>, <span class="ident">oneshot_receiver</span>) <span class="op">=</span> <span class="ident">tokio::sync::oneshot::channel</span>();
+        <span class="kw">let</span> <span class="ident">routing_info</span> <span class="op">=</span> <span class="ident">RoutingInfo::RoutingKey</span>(<span class="prelude-val">Some</span>(<span class="string">&quot;routing_key&quot;</span>.<span class="ident">to_string</span>()));
+        <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">PendingEvent::new</span>(<span class="ident">routing_info</span>, <span class="macro">vec!</span>[<span class="number">1</span>; <span class="ident">size</span>], <span class="prelude-val">None</span>, <span class="ident">oneshot_sender</span>)
             .<span class="ident">expect</span>(<span class="string">&quot;create pending event&quot;</span>);
-        <span class="ident">sender</span>.<span class="ident">send</span>((<span class="ident">Incoming</span>::<span class="ident">AppendEvent</span>(<span class="ident">event</span>), <span class="ident">size</span>)).<span class="kw">await</span>.<span class="ident">unwrap</span>();
+        <span class="ident">sender</span>.<span class="ident">send</span>((<span class="ident">Incoming::AppendEvent</span>(<span class="ident">event</span>), <span class="ident">size</span>)).<span class="kw">await</span>.<span class="ident">unwrap</span>();
         <span class="ident">oneshot_receiver</span>
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-search-js="../../../search-index.js"></div>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
     <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script></body></html>
