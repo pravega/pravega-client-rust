@@ -34,7 +34,8 @@ members = [
     "python_binding",
     "auth",
     "config",
-    "examples"
+    "examples",
+    "macros",
 ]
 
 [dependencies]
@@ -46,6 +47,7 @@ pravega-connection-pool = {path = "./connection_pool", version = "0.2" }
 pravega-client-channel = {path = "./channel", version = "0.2"}
 pravega-client-auth = {path = "./auth", version = "0.2"}
 pravega-client-config = {path = "./config", version = "0.2"}
+pravega-client-macros = {path = "./macros", version = "0.2"}
 async-trait = "0.1"
 futures = "0.3"
 snafu = "0.6"

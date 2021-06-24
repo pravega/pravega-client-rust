@@ -46,7 +46,6 @@
 pub mod byte;
 pub mod client_factory;
 pub mod event;
-#[macro_use]
 pub mod index;
 pub mod sync;
 

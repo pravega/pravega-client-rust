@@ -20,6 +20,7 @@ pravega-client-shared = { path = "../shared"}
 pravega-client-retry = {path = "../retry"}
 pravega-connection-pool = {path= "../connection_pool" }
 pravega-client-config = {path = "../config"}
+pravega-client-macros = {path = "../macros"}
 tokio = { version = "1.1", features = ["full"] }
 lazy_static = "1.4"
 uuid = {version = "0.8", features = ["v4"]}

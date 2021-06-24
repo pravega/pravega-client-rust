@@ -1071,11 +1071,21 @@ impl Default for SliceMetadata {
 }
 
 // Structure to track the offset and byte array.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct SegmentDataBuffer {
     pub(crate) segment: String,
     pub(crate) offset_in_segment: i64,
     pub(crate) value: BytesMut,
+}
+
+impl fmt::Debug for SegmentDataBuffer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SegmentDataBuffer")
+            .field("segment", &self.segment)
+            .field("offset in segment", &self.offset_in_segment)
+            .field("buffer length", &self.value.len())
+            .finish()
+    }
 }
 
 impl SegmentDataBuffer {

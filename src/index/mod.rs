@@ -24,6 +24,7 @@ use bincode2::Config;
 use bincode2::Error as BincodeError;
 use bincode2::LengthOption;
 use lazy_static::*;
+use pravega_wire_protocol::commands::{Command, EventCommand};
 use serde::{Deserialize, Serialize};
 use tiny_keccak::{Hasher, Shake};
 
@@ -38,18 +39,6 @@ lazy_static! {
         config.array_length(LengthOption::U32);
         config.string_length(LengthOption::U16);
         config
-    };
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! label {
-    ($($x:expr),*) => {
-        {
-            let mut _temp = Label{entries: vec!{}};
-            $(_temp.entries.push($x);)*
-            _temp
-        }
     };
 }
 
@@ -77,14 +66,19 @@ impl Record {
     }
 
     fn write_fields(&self) -> Result<Vec<u8>, BincodeError> {
-        let mut encoded = CONFIG.serialize(&self)?;
-        let padding = vec![0u8; RECORD_SIZE as usize - encoded.len()];
-        encoded.extend(padding);
-        Ok(encoded)
+        let mut res = vec![];
+        res.extend_from_slice(&EventCommand::TYPE_CODE.to_be_bytes());
+        res.extend_from_slice(&((RECORD_SIZE - 8) as i32).to_be_bytes());
+        let encoded = CONFIG.serialize(&self)?;
+        let length = encoded.len();
+        res.extend(encoded);
+        let padding = vec![0u8; RECORD_SIZE as usize - length - 8];
+        res.extend(padding);
+        Ok(res)
     }
 
     fn read_from(input: &[u8]) -> Result<Self, BincodeError> {
-        let decoded: Record = CONFIG.deserialize(input)?;
+        let decoded: Record = CONFIG.deserialize(&input[8..])?;
         Ok(decoded)
     }
 }
@@ -97,26 +91,41 @@ pub(crate) fn hash_key_to_u128(key: &'static str) -> u128 {
     u128::from_be_bytes(buf)
 }
 
-#[derive(Clone)]
-pub struct Label {
-    pub entries: Vec<(&'static str, u64)>,
+pub trait Label {
+    fn to_key_value_pairs(&self) -> Vec<(&'static str, u64)>;
+}
+
+pub trait Value {
+    fn value(&self) -> u64;
+}
+
+impl Value for u64 {
+    fn value(&self) -> u64 {
+        self.to_owned()
+    }
 }
 
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
+    use crate as pravega_client;
+
+    use pravega_client_macros::Label;
+
+    #[derive(Label, Debug, PartialOrd, PartialEq)]
+    struct LabelTest {
+        time: u64,
+        id: u64,
+    }
 
     #[test]
     fn test_label_macro() {
-        let label = label! {("timestamp", 0), ("id", 0)};
-        assert_eq!(label.entries.len(), 2);
-        let label = label! {};
-        assert_eq!(label.entries.len(), 0);
+        let label = LabelTest { time: 0, id: 0 };
+        assert_eq!(label.to_key_value_pairs(), vec! {("time", 0), ("id", 0)});
     }
 
     #[test]
     fn test_record_serde() {
-        let label = label! {("timestamp", 0), ("id", 0)};
         let data = vec![1, 2, 3, 4];
         let entries = vec![(0, 0), (1, 1), (2, 2)];
         let record = Record::new(entries, data.clone());
