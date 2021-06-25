@@ -258,6 +258,14 @@
 <span id="255">255</span>
 <span id="256">256</span>
 <span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -398,8 +406,16 @@
         <span class="ident">ByteWriter::new</span>(<span class="ident">segment</span>, <span class="self">self</span>.<span class="ident">clone</span>())
     }
 
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_byte_writer_async</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">segment</span>: <span class="ident">ScopedSegment</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ByteWriter</span> {
+        <span class="ident">ByteWriter::new_async</span>(<span class="ident">segment</span>, <span class="self">self</span>.<span class="ident">clone</span>()).<span class="kw">await</span>
+    }
+
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create_byte_reader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">segment</span>: <span class="ident">ScopedSegment</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ByteReader</span> {
         <span class="ident">ByteReader::new</span>(<span class="ident">segment</span>, <span class="self">self</span>.<span class="ident">clone</span>(), <span class="self">self</span>.<span class="ident">config</span>().<span class="ident">reader_wrapper_buffer_size</span>())
+    }
+
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_byte_reader_async</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">segment</span>: <span class="ident">ScopedSegment</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ByteReader</span> {
+        <span class="ident">ByteReader::new_async</span>(<span class="ident">segment</span>, <span class="self">self</span>.<span class="ident">clone</span>(), <span class="self">self</span>.<span class="ident">config</span>().<span class="ident">reader_wrapper_buffer_size</span>()).<span class="kw">await</span>
     }
 
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_table</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">scope</span>: <span class="ident">Scope</span>, <span class="ident">name</span>: <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Table</span> {
