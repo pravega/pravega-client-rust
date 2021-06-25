@@ -34,4 +34,4 @@ tracing = "0.1"
 flate2 = "1.0"
 tar = "0.4"
 pkg-config = "0.3"
-reqwest = {version = "0.11", features = ["blocking"]}
+reqwest = {version = "0.11", default-features = false, features = ["blocking", "rustls-tls"]}
