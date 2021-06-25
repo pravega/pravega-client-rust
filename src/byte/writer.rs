@@ -133,9 +133,15 @@ impl ByteWriter {
     const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
     pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
+        factory
+            .runtime()
+            .block_on(ByteWriter::new_async(segment, factory.clone()))
+    }
+
+    pub(crate) async fn new_async(segment: ScopedSegment, factory: ClientFactory) -> Self {
         let rt = factory.runtime();
         let (sender, receiver) = create_channel(Self::CHANNEL_CAPACITY);
-        let metadata_client = rt.block_on(factory.create_segment_metadata_client(segment.clone()));
+        let metadata_client = factory.create_segment_metadata_client(segment.clone()).await;
         let writer_id = WriterId(get_random_u128());
         let stream = ScopedStream::from(&segment);
         let span = info_span!("Reactor", byte_stream_writer = %writer_id);
@@ -152,11 +158,46 @@ impl ByteWriter {
         }
     }
 
+    /// Write data asynchronously.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// let mut byte_writer = client_factory.create_byte_writer_async(segment).await;
+    /// let payload = vec![0; 8];
+    /// let (size, handle) = byte_writer.write_async(&payload).await;
+    /// assert!(handle.await.is_ok());
+    /// ```
+    pub async fn write_async(&mut self, buf: &[u8]) -> usize {
+        let bytes_to_write = std::cmp::min(buf.len(), EventWriter::MAX_EVENT_SIZE);
+        let payload = buf[0..bytes_to_write].to_vec();
+        let event_handle = self.write_internal(self.sender.clone(), payload).await;
+        self.write_offset += bytes_to_write as i64;
+        self.event_handle = Some(event_handle);
+        bytes_to_write
+    }
+
+    /// Flush data asynchronously.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// let mut byte_writer = client_factory.create_byte_writer_async(segment).await;
+    /// let payload = vec![0; 8];
+    /// let size = byte_writer.write_async(&payload).await;
+    /// byte_writer.flush().await;
+    /// ```
+    pub async fn flush_async(&mut self) -> Result<(), Error> {
+        if let Some(event_handle) = self.event_handle.take() {
+            self.flush_internal(event_handle).await
+        } else {
+            Ok(())
+        }
+    }
+
     /// Seal the segment and no further writes are allowed.
     ///
     /// # Examples
     /// ```ignore
-    /// let mut byte_writer = client_factory.create_byte_writer(segment);
+    /// let mut byte_writer = client_factory.create_byte_writer_async(segment).await;
     /// byte_writer.seal().await.expect("seal segment");
     /// ```
     pub async fn seal(&mut self) -> Result<(), Error> {
@@ -174,7 +215,7 @@ impl ByteWriter {
     ///
     /// # Examples
     /// ```ignore
-    /// let byte_writer = client_factory.create_byte_writer(segment);
+    /// let byte_writer = client_factory.create_byte_writer_async(segment).await;
     /// byte_writer.truncate_data_before(1024).await.expect("truncate segment");
     /// ```
     pub async fn truncate_data_before(&self, offset: i64) -> Result<(), Error> {
@@ -200,7 +241,7 @@ impl ByteWriter {
     /// This method is useful for tail reads.
     /// # Examples
     /// ```ignore
-    /// let mut byte_writer = client_factory.create_byte_writer(segment);
+    /// let mut byte_writer = client_factory.create_byte_writer_async(segment);
     /// byte_writer.seek_to_tail();
     /// ```
     pub fn seek_to_tail(&mut self) {
@@ -208,6 +249,23 @@ impl ByteWriter {
             .factory
             .runtime()
             .block_on(self.metadata_client.get_segment_info())
+            .expect("failed to get segment info");
+        self.write_offset = segment_info.write_offset;
+    }
+
+    /// Seek to the tail of the segment.
+    ///
+    /// This method is useful for tail reads.
+    /// # Examples
+    /// ```ignore
+    /// let mut byte_writer = client_factory.create_byte_writer_async(segment).await;
+    /// byte_writer.seek_to_tail_async().await;
+    /// ```
+    pub async fn seek_to_tail_async(&mut self) {
+        let segment_info = self
+            .metadata_client
+            .get_segment_info()
+            .await
             .expect("failed to get segment info");
         self.write_offset = segment_info.write_offset;
     }
