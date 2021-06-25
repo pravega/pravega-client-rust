@@ -348,6 +348,7 @@ impl From<&str> for ScopedSegment {
             let mut tokens = NameUtils::extract_segment_tokens(qualified_name.to_owned());
             let segment_id = tokens.pop().expect("get segment id from tokens");
             let stream_name = tokens.pop().expect("get stream name from tokens");
+
             if tokens.is_empty() {
                 // scope not present
                 ScopedSegment {
