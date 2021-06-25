@@ -99,7 +99,7 @@ mod test {
         let config = PravegaStandaloneServiceConfig::new(false, true, true);
         run_tests(config);
 
-        let config = PravegaStandaloneServiceConfig::new(false, false, false);
+        let config = PravegaStandaloneServiceConfig::new(true, false, false);
         run_tests(config);
 
         // disconnection test will start its own Pravega Standalone.

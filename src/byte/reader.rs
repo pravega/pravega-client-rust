@@ -109,6 +109,12 @@ impl ByteReader {
     }
 
     /// Read data asynchronously.
+    ///
+    /// ```ignore
+    /// let mut byte_reader = client_factory.create_byte_reader_async(segment).await;
+    /// let mut buf: Vec<u8> = vec![0; 4];
+    /// let size = byte_reader.read_async(&mut buf).expect("read");
+    /// ```
     pub async fn read_async(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
         self.reader
             .as_mut()
@@ -124,8 +130,8 @@ impl ByteReader {
     /// encounter the SegmentIsTruncated error due to the segment has been truncated. In this case,
     /// application should call this method to get the current readable head and read from it.
     /// ```ignore
-    /// let mut byte_reader = client_factory.create_byte_reader(segment);
-    /// let offset = byte_reader.current_head().expect("get current head offset");
+    /// let mut byte_reader = client_factory.create_byte_reader_async(segment).await;
+    /// let offset = byte_reader.current_head().await.expect("get current head offset");
     /// ```
     pub async fn current_head(&self) -> std::io::Result<u64> {
         self.metadata_client
@@ -135,6 +141,12 @@ impl ByteReader {
             .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
     }
 
+    /// Return the tail offset of the segment.
+    ///
+    /// ```ignore
+    /// let mut byte_reader = client_factory.create_byte_reader_async(segment).await;
+    /// let offset = byte_reader.current_tail().await.expect("get current tail offset");
+    /// ```
     pub async fn current_tail(&self) -> std::io::Result<u64> {
         self.metadata_client
             .fetch_current_segment_length()
@@ -149,8 +161,8 @@ impl ByteReader {
     /// let mut byte_reader = client_factory.create_byte_reader(segment);
     /// let offset = byte_reader.current_offset();
     /// ```
-    pub fn current_offset(&self) -> i64 {
-        self.reader.as_ref().unwrap().offset
+    pub fn current_offset(&self) -> u64 {
+        self.reader.as_ref().unwrap().offset as u64
     }
 
     /// Return the bytes that are available to read instantly without fetching from server.

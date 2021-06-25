@@ -26,7 +26,7 @@ The users can also choose to generate the bindings using the commands specified 
 ```python
 import pravega_client
 # assuming Pravega controller is listening at 127.0.0.1:9090
-stream_manager = pravega_client.StreamManager("127.0.0.1:9090")
+stream_manager = pravega_client.StreamManager("tcp://127.0.0.1:9090")
 
 scope_result = stream_manager.create_scope("scope_foo")
 self.assertEqual(True, scope_result, "Scope creation status")
@@ -41,7 +41,7 @@ writer.write_event("hello world")
 ```python
 import pravega_client
 # assuming Pravega controller is listening at 127.0.0.1:9090
-stream_manager = pravega_client.StreamManager("127.0.0.1:9090")
+stream_manager = pravega_client.StreamManager("tcp://127.0.0.1:9090")
 
 reader_group = stream_manager.create_reader_group("my_reader_group", "scope_foo", "stream_bar")
 
