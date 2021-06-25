@@ -115,11 +115,10 @@ fn test_simple_write_and_read(writer: &mut ByteWriter, reader: &mut ByteReader) 
     info!("test byte stream write and read");
     let payload1 = vec![1; 4];
     let payload2 = vec![2; 4];
-    // writer.seek_to_tail();
+
     let size1 = writer.write(&payload1).expect("write payload1 to byte stream");
     assert_eq!(size1, 4);
     writer.flush().expect("flush byte stream writer");
-    // writer.seek_to_tail();
     assert_eq!(writer.current_write_offset(), 4);
 
     let size2 = writer.write(&payload2).expect("write payload2 to byte stream");
