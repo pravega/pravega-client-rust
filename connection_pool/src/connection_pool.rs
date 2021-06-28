@@ -67,7 +67,7 @@ pub enum ConnectionPoolError {
 /// let mut rt = Runtime::new().unwrap();
 /// let manager = FooManager{};
 /// let pool = ConnectionPool::new(manager);
-/// let endpoint = PravegaNodeUri::from("127.0.0.1:12345");
+/// let endpoint = PravegaNodeUri::from("tcp://127.0.0.1:12345");
 /// let connection = rt.block_on(pool.get_connection(endpoint));
 /// ```
 #[async_trait]

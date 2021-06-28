@@ -53,11 +53,13 @@ use pravega_client_retry::wrap_with_async_retry;
 use pravega_client_shared::*;
 use snafu::Snafu;
 use std::convert::{From, Into};
+use std::io::BufReader;
 use std::str::FromStr;
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
+use tokio_rustls::rustls::ClientConfig as RustlsClientConfig;
 use tonic::codegen::http::uri::InvalidUri;
-use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Uri};
+use tonic::transport::{Channel, ClientTlsConfig, Endpoint, Uri};
 use tonic::{metadata::MetadataValue, Code, Request, Status};
 use tracing::{debug, info, warn};
 
@@ -294,9 +296,19 @@ async fn get_channel(config: &ClientConfig) -> Channel {
 
     // Placeholder to add authentication headers.
     let s = if config.is_tls_enabled {
-        format!("{}{}", HTTPS_PREFIX, &config.controller_uri.to_string())
+        format!(
+            "{}{}:{}",
+            HTTPS_PREFIX,
+            &config.controller_uri.domain_name(),
+            config.controller_uri.port()
+        )
     } else {
-        format!("{}{}", HTTP_PREFIX, &config.controller_uri.to_string())
+        format!(
+            "{}{}:{}",
+            HTTP_PREFIX,
+            &config.controller_uri.domain_name(),
+            config.controller_uri.port()
+        )
     };
     let uri_result = Uri::from_str(s.as_str())
         .map_err(|e1: InvalidUri| ControllerError::InvalidConfiguration {
@@ -310,10 +322,26 @@ async fn get_channel(config: &ClientConfig) -> Channel {
             "getting channel for uri {:?} with controller TLS enabled",
             uri_result
         );
-        let pem = std::fs::read(&config.trustcert).expect("read truststore");
-        let ca = Certificate::from_pem(pem);
+        let mut rustls_client_config = RustlsClientConfig::new();
+        rustls_client_config.alpn_protocols.push(Vec::from("h2"));
+        for cert in &config.trustcerts {
+            let mut wrapper = BufReader::new(cert.as_bytes());
+            let res = rustls_client_config.root_store.add_pem_file(&mut wrapper);
+            match res {
+                Ok((valid, invalid)) => {
+                    debug!(
+                        "pem file contains {} valid certs and {} invalid certs",
+                        valid, invalid
+                    );
+                }
+                Err(_e) => {
+                    debug!("failed to add cert files {}", cert);
+                }
+            }
+        }
+        debug!("{} cert files added", rustls_client_config.root_store.len());
         let tls = ClientTlsConfig::new()
-            .ca_certificate(ca)
+            .rustls_client_config(rustls_client_config)
             .domain_name(config.controller_uri.domain_name());
         (0..config.max_controller_connections)
             .map(|_a| {

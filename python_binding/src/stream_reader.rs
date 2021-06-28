@@ -49,7 +49,7 @@ impl StreamReader {
     ///
     /// ```
     /// import pravega_client;
-    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
+    /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
     /// // lets assume the Pravega scope and stream are already created.
     /// reader=manager.create_reader("scope", "stream");
     /// slice=await reader.get_segment_slice_async()

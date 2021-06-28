@@ -33,8 +33,9 @@ use getset::{CopyGetters, Getters};
 use pravega_client_retry::retry_policy::RetryWithBackoff;
 use pravega_client_shared::PravegaNodeUri;
 use std::collections::HashMap;
-use std::env;
 use std::time::Duration;
+use std::{env, fs};
+use tracing::debug;
 
 pub const MOCK_CONTROLLER_URI: (&str, u16) = ("localhost", 9090);
 const AUTH_METHOD: &str = "method";
@@ -44,10 +45,12 @@ const AUTH_TOKEN: &str = "token";
 const AUTH_KEYCLOAK_PATH: &str = "keycloak";
 const AUTH_PROPS_PREFIX_ENV: &str = "pravega_client_auth_";
 
-const TLS_CERT_PATH: &str = "pravega_client_tls_cert_path";
+const TLS_CERT_PATH_ENV: &str = "pravega_client_tls_cert_path";
+const DEFAULT_TLS_CERT_PATH: &str = "./certs";
+const TLS_SCHEMES: [&str; 4] = ["tls", "ssl", "tcps", "pravegas"];
 
 #[derive(Builder, Debug, Getters, CopyGetters, Clone)]
-#[builder(setter(into))]
+#[builder(setter(into), build_fn(validate = "Self::validate"))]
 pub struct ClientConfig {
     #[get_copy = "pub"]
     #[builder(default = "u32::max_value()")]
@@ -66,7 +69,6 @@ pub struct ClientConfig {
     pub retry_policy: RetryWithBackoff,
 
     #[get]
-    #[builder(setter(into))]
     pub controller_uri: PravegaNodeUri,
 
     #[get_copy = "pub"]
@@ -77,12 +79,12 @@ pub struct ClientConfig {
     #[builder(default = "false")]
     pub mock: bool,
 
-    #[builder(default = "self.extract_trustcert()")]
-    pub trustcert: String,
-
     #[get_copy = "pub"]
-    #[builder(default = "false")]
+    #[builder(default = "self.default_is_tls_enabled()")]
     pub is_tls_enabled: bool,
+
+    #[builder(default = "self.extract_trustcerts()")]
+    pub trustcerts: Vec<String>,
 
     #[builder(default = "self.extract_credentials()")]
     pub credentials: Credentials,
@@ -101,15 +103,32 @@ pub struct ClientConfig {
 }
 
 impl ClientConfigBuilder {
-    fn extract_trustcert(&self) -> String {
-        let ret_val = env::vars()
-            .filter(|(k, _v)| k.starts_with(TLS_CERT_PATH))
-            .collect::<HashMap<String, String>>();
-        if ret_val.contains_key(TLS_CERT_PATH) {
-            let cert_path = ret_val.get(TLS_CERT_PATH).expect("get tls cert path").to_owned();
-            return cert_path;
+    fn extract_trustcerts(&self) -> Vec<String> {
+        if let Some(enable) = self.is_tls_enabled {
+            if !enable {
+                return vec![];
+            }
+        } else if !self.default_is_tls_enabled() {
+            return vec![];
+        } else {
+            // fall through to parsing certs path
         }
-        "./ca-cert.crt".to_owned()
+        let ret_val = env::vars()
+            .filter(|(k, _v)| k.starts_with(TLS_CERT_PATH_ENV))
+            .collect::<HashMap<String, String>>();
+        let cert_path = if ret_val.contains_key(TLS_CERT_PATH_ENV) {
+            ret_val.get(TLS_CERT_PATH_ENV).expect("get tls cert path")
+        } else {
+            DEFAULT_TLS_CERT_PATH
+        };
+        let mut certs = vec![];
+        let cert_paths = std::fs::read_dir(cert_path).expect("cannot read from the provided cert directory");
+        for entry in cert_paths {
+            let path = entry.expect("get the cert file").path();
+            debug!("reading cert file {}", path.display());
+            certs.push(fs::read_to_string(path.clone()).expect("read cert file"));
+        }
+        certs
     }
 
     fn extract_credentials(&self) -> Credentials {
@@ -140,6 +159,48 @@ impl ClientConfigBuilder {
 
     fn default_timeout(&self) -> Duration {
         Duration::from_secs(30)
+    }
+
+    fn default_is_tls_enabled(&self) -> bool {
+        if let Some(controller_uri) = &self.controller_uri {
+            return match controller_uri.scheme() {
+                Ok(scheme) => TLS_SCHEMES.contains(&&*scheme),
+                Err(_) => false,
+            };
+        }
+        false
+    }
+    /// validate the builder before returning it
+    ///
+    /// if is_tls_enabled, controller_uri have been set and if controller_uri
+    /// contains a scheme, then verify that the uri scheme matches the is_tls_enabled
+    /// value.
+    fn validate(&self) -> Result<(), String> {
+        if self.is_tls_enabled.is_none()    // is_tls_enabled not specified
+            || self.controller_uri.is_none()    // controller_uri not specified
+            || self
+                .controller_uri
+                .as_ref()
+                .unwrap()
+                .scheme()
+                .unwrap_or_default()
+                .is_empty()
+        {
+            // at least one option has not been specified or uri has no scheme,
+            // therefore cannot have a conflict with is_tls_enabled
+            return Ok(());
+        }
+        let is_tls_enabled = self.is_tls_enabled.unwrap();
+        let scheme_is_type_tls = self.default_is_tls_enabled();
+        if is_tls_enabled != scheme_is_type_tls {
+            Err(format!(
+                "is_tls_enabled option {} does not match scheme in uri {}",
+                is_tls_enabled,
+                self.controller_uri.as_ref().unwrap().to_string()
+            ))
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -232,19 +293,56 @@ mod tests {
     #[test]
     fn test_extract_tls_cert_path() {
         // test default
+        fs::create_dir_all(DEFAULT_TLS_CERT_PATH).expect("create default cert path");
+        fs::File::create(format!("{}/foo.crt", DEFAULT_TLS_CERT_PATH)).expect("create crt");
         let config = ClientConfigBuilder::default()
             .controller_uri("127.0.0.2:9091".to_string())
+            .is_tls_enabled(true)
             .build()
             .unwrap();
-        assert_eq!(config.trustcert, "./ca-cert.crt");
+        assert_eq!(config.trustcerts.len(), 1);
 
-        // test with env var set
-        env::set_var("pravega_client_tls_cert_path", "/");
+        // test w/ tls uri prefix
         let config = ClientConfigBuilder::default()
-            .controller_uri("127.0.0.2:9091".to_string())
+            .controller_uri("tls://127.0.0.2:9091")
             .build()
             .unwrap();
-        assert_eq!(config.trustcert, "/");
+        assert_eq!(config.trustcerts.len(), 1);
+
+        // test w/o tls uri prefix
+        let config = ClientConfigBuilder::default()
+            .controller_uri("tcp://127.0.0.2:9091".to_string())
+            .build()
+            .unwrap();
+        assert_eq!(config.trustcerts.len(), 0);
+
+        // test conflicting tls setting vs scheme
+        let conflicted_config1 = ClientConfigBuilder::default()
+            .controller_uri("pravegas://127.0.0.2:9091")
+            .is_tls_enabled(false)
+            .build();
+        assert!(conflicted_config1.is_err());
+
+        // test alternate conflicting tlst setting vs scheme
+        let conflicted_config2 = ClientConfigBuilder::default()
+            .controller_uri("tcp://127.0.0.2:9091".to_string())
+            .is_tls_enabled(true)
+            .build();
+
+        assert!(conflicted_config2.is_err());
+
+        fs::remove_dir_all(DEFAULT_TLS_CERT_PATH).expect("remove dir");
+        // test with env var set
+        fs::create_dir_all("./bar").expect("create default cert path");
+        fs::File::create(format!("./bar/foo.crt")).expect("create crt");
+        env::set_var("pravega_client_tls_cert_path", "./bar");
+        let config = ClientConfigBuilder::default()
+            .controller_uri("127.0.0.2:9091".to_string())
+            .is_tls_enabled(true)
+            .build()
+            .unwrap();
+        assert_eq!(config.trustcerts.len(), 1);
+        fs::remove_dir_all("./bar").expect("remove dir");
         env::remove_var("pravega_client_tls_cert_path");
     }
 }
