@@ -137,7 +137,7 @@ impl ConnectionFactory for TokioConnectionFactory {
                 uuid,
                 endpoint: endpoint.clone(),
                 stream: Some(stream),
-                is_valid: false,
+                can_recycle: false,
             }) as Box<dyn Connection>
         };
         verify_connection(&mut *tokio_connection)
