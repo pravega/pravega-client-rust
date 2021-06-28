@@ -45,8 +45,8 @@ lazy_static! {
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Record {
     type_code: i32,
-    entries_len: usize,
-    data_len: usize,
+    entries_len: u32,
+    data_len: u32,
     entries: Vec<(u128, u64)>,
     data: Vec<u8>,
 }
@@ -58,8 +58,8 @@ impl Record {
         Record {
             type_code: Record::TYPE_CODE,
             // u128 is 16 bytes and u64 is 8 bytes
-            entries_len: entries.len() * 24,
-            data_len: data.len(),
+            entries_len: entries.len() as u32 * 24,
+            data_len: data.len() as u32,
             entries,
             data,
         }

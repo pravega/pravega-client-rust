@@ -17,9 +17,7 @@ use pravega_client_shared::ScopedSegment;
 use bincode2::Error as BincodeError;
 use snafu::{ensure, Backtrace, ResultExt, Snafu};
 use std::fmt::Debug;
-use std::io::Error;
 use std::marker::PhantomData;
-use tokio::sync::oneshot;
 
 const MAX_ENTRY_SIZE: usize = 100;
 
@@ -42,7 +40,7 @@ pub enum IndexWriterError {
     Internal { msg: String },
 }
 
-/// Index Writer writes a fixed size of record to the stream.
+/// Index Writer writes a fixed size record to the stream.
 ///
 /// Write takes a byte array and a Label. It hashes the Label entry key and construct a Record. Then
 /// it serializes the Record and writes to the stream.
@@ -50,7 +48,6 @@ pub struct IndexWriter<T: Label + PartialOrd + PartialEq + Debug> {
     byte_writer: ByteWriter,
     entries: Option<Vec<(u128, u64)>>,
     label: Option<T>,
-    event_handle: Option<oneshot::Receiver<Result<(), Error>>>,
     _label_type: PhantomData<T>,
 }
 
@@ -76,7 +73,6 @@ impl<T: Label + PartialOrd + PartialEq + Debug> IndexWriter<T> {
                 byte_writer,
                 entries: Some(record.entries),
                 label: None,
-                event_handle: None,
                 _label_type: PhantomData,
             };
         }
@@ -84,7 +80,6 @@ impl<T: Label + PartialOrd + PartialEq + Debug> IndexWriter<T> {
             byte_writer,
             entries: None,
             label: None,
-            event_handle: None,
             _label_type: PhantomData,
         }
     }
@@ -113,23 +108,12 @@ impl<T: Label + PartialOrd + PartialEq + Debug> IndexWriter<T> {
 
     /// Flush data.
     pub async fn flush(&mut self) -> Result<(), IndexWriterError> {
-        if let Some(handle) = self.event_handle.take() {
-            match handle.await {
-                Ok(res) => {
-                    if let Err(e) = res {
-                        return Err(IndexWriterError::Internal {
-                            msg: format!("{:?}", e),
-                        });
-                    }
-                }
-                Err(e) => {
-                    return Err(IndexWriterError::Internal {
-                        msg: format!("{:?}", e),
-                    })
-                }
-            }
-        }
-        Ok(())
+        self.byte_writer
+            .flush_async()
+            .await
+            .map_err(|e| IndexWriterError::Internal {
+                msg: format!("failed to flush data {:?}", e),
+            })
     }
 
     /// Truncate data to a given offset.
@@ -147,8 +131,7 @@ impl<T: Label + PartialOrd + PartialEq + Debug> IndexWriter<T> {
         let entries_hash = self.hash_keys(entries);
         let record = Record::new(entries_hash, data);
         let encoded = record.write_fields().context(InvalidData {})?;
-        let (_size, handle) = self.byte_writer.write_async(&encoded).await;
-        self.event_handle = Some(handle);
+        let _size = self.byte_writer.write_async(&encoded).await;
         Ok(())
     }
 
