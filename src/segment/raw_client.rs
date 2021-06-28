@@ -116,7 +116,7 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
             .context(RequestTimeout {})?;
         let reply = result.context(ReadReply {})?;
         if reply.get_request_id() != request.get_request_id() {
-            client_connection.connection.as_mut().set_validity(false);
+            client_connection.connection.as_mut().can_recycle(false);
             return Err(RawClientError::WrongReplyId {
                 reply_id: reply.get_request_id(),
                 request_id: request.get_request_id(),
@@ -143,7 +143,7 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
             .context(RequestTimeout {})?;
         let reply = result.context(ReadReply {})?;
         if reply.get_request_id() != request.get_request_id() {
-            client_connection.connection.as_mut().set_validity(false);
+            client_connection.connection.as_mut().can_recycle(false);
             return Err(RawClientError::WrongReplyId {
                 reply_id: reply.get_request_id(),
                 request_id: request.get_request_id(),
