@@ -131,7 +131,7 @@ impl ConnectionFactory for TokioConnectionFactory {
                 uuid,
                 endpoint: endpoint.clone(),
                 stream: Some(stream),
-                is_valid: false,
+                can_recycle: false,
             }) as Box<dyn Connection>
         } else {
             let stream = TcpStream::connect(endpoint.to_socket_addr())
