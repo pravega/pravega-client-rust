@@ -12,6 +12,7 @@ use crate::controller::*;
 use ordered_float::OrderedFloat;
 use pravega_client_shared::*;
 use std::collections::{BTreeMap, HashMap};
+use stream_info::AccessOperation;
 
 impl From<NodeUri> for PravegaNodeUri {
     fn from(value: NodeUri) -> PravegaNodeUri {
@@ -36,6 +37,7 @@ impl From<ScopedSegment> for SegmentId {
             stream_info: Some(StreamInfo {
                 scope: segment.scope.name,
                 stream: segment.stream.name,
+                access_operation: AccessOperation::Unspecified as i32,
             }),
             segment_id: segment.segment.number,
         }
@@ -48,6 +50,7 @@ impl<'a> From<&'a ScopedSegment> for SegmentId {
             stream_info: Some(StreamInfo {
                 scope: value.scope.name.to_owned(),
                 stream: value.stream.name.to_owned(),
+                access_operation: AccessOperation::Unspecified as i32,
             }),
             segment_id: value.segment.number,
         }
@@ -58,6 +61,7 @@ impl From<ScopedStream> for StreamInfo {
         StreamInfo {
             scope: stream.scope.name,
             stream: stream.stream.name,
+            access_operation: AccessOperation::Unspecified as i32,
         }
     }
 }
@@ -67,6 +71,7 @@ impl<'a> From<&'a ScopedStream> for StreamInfo {
         StreamInfo {
             scope: value.scope.name.to_owned(),
             stream: value.stream.name.to_owned(),
+            access_operation: AccessOperation::Unspecified as i32,
         }
     }
 }
@@ -109,7 +114,9 @@ impl<'a> From<&'a StreamConfiguration> for StreamConfig {
             retention_policy: Some(RetentionPolicy {
                 retention_type: value.retention.retention_type.to_owned() as i32,
                 retention_param: value.retention.retention_param,
+                retention_max: i64::MAX,
             }),
+            tags: value.tags.as_ref().map(|tags| Tags { tag: tags.to_owned() }),
         }
     }
 }
@@ -126,7 +133,35 @@ impl From<StreamConfiguration> for StreamConfig {
             retention_policy: Some(RetentionPolicy {
                 retention_type: config.retention.retention_type as i32,
                 retention_param: config.retention.retention_param,
+                retention_max: i64::MAX,
             }),
+            tags: config.tags.map(|tags| Tags { tag: tags }),
+        }
+    }
+}
+impl From<StreamConfig> for StreamConfiguration {
+    fn from(config: StreamConfig) -> StreamConfiguration {
+        // StreamInfo is mandatory, panic if not present.
+        let info: StreamInfo = config.stream_info.unwrap();
+        // Scaling policy is mandatory, panic if not present.
+        let scaling_policy = config.scaling_policy.unwrap();
+
+        StreamConfiguration {
+            scoped_stream: ScopedStream::from(info),
+            scaling: Scaling {
+                scale_type: num::FromPrimitive::from_i32(scaling_policy.scale_type).unwrap(),
+                target_rate: scaling_policy.target_rate,
+                scale_factor: scaling_policy.scale_factor,
+                min_num_segments: scaling_policy.min_num_segments,
+            },
+            retention: config
+                .retention_policy
+                .map(|ret| Retention {
+                    retention_type: num::FromPrimitive::from_i32(ret.retention_type).unwrap(),
+                    retention_param: ret.retention_param,
+                })
+                .unwrap_or_default(),
+            tags: config.tags.map(|tags| tags.tag),
         }
     }
 }

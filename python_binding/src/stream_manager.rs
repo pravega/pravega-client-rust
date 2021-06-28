@@ -151,6 +151,7 @@ impl StreamManager {
                 retention_type: RetentionType::None,
                 retention_param: 0,
             },
+            tags: None,
         };
         let controller = self.cf.controller_client();
 
