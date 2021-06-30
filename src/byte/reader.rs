@@ -272,7 +272,6 @@ mod test {
         }
         assert_eq!(read, 200);
         assert_eq!(buf, vec![1; 200]);
-
         // seek to head
         reader.seek(SeekFrom::Start(0)).expect("seek to head");
         assert_eq!(reader.current_offset(), 0);

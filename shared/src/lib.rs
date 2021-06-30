@@ -54,6 +54,9 @@ extern crate shrinkwraprs;
 #[macro_use]
 extern crate derive_new;
 
+#[macro_use]
+extern crate num_derive;
+
 type PravegaNodeUriParseResult<T> = std::result::Result<T, PravegaNodeUriParseError>;
 
 #[derive(Debug, Snafu)]
@@ -435,7 +438,7 @@ impl Display for WriterId {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, FromPrimitive)]
 pub enum ScaleType {
     FixedNumSegments = 0,
     ByRateInKbytesPerSec = 1,
@@ -461,7 +464,7 @@ impl Default for Scaling {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, FromPrimitive)]
 pub enum RetentionType {
     None = 0,
     Time = 1,
@@ -504,6 +507,7 @@ pub struct StreamConfiguration {
     pub scoped_stream: ScopedStream,
     pub scaling: Scaling,
     pub retention: Retention,
+    pub tags: Option<Vec<String>>,
 }
 
 #[derive(new, Debug, Clone)]

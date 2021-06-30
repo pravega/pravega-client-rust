@@ -82,6 +82,9 @@ pub trait Connection: Send + Sync + Debug {
     /// Checks if this connection is valid. A Connection is considered to be invalid after
     /// split so it can be discarded when returning to the connection pol.
     fn is_valid(&self) -> bool;
+
+    /// Set true if the connection can be recycled.
+    fn can_recycle(&mut self, recycle: bool);
 }
 
 /// The underlying connection is using Tokio TcpStream.
@@ -89,6 +92,7 @@ pub struct TokioConnection {
     pub uuid: Uuid,
     pub endpoint: PravegaNodeUri,
     pub stream: Option<TcpStream>,
+    pub can_recycle: bool,
 }
 
 #[async_trait]
@@ -145,7 +149,13 @@ impl Connection for TokioConnection {
     }
 
     fn is_valid(&self) -> bool {
-        self.stream.as_ref().expect("get connection").is_valid()
+        self.can_recycle
+            && self.stream.as_ref().is_some()
+            && self.stream.as_ref().expect("get connection").is_valid()
+    }
+
+    fn can_recycle(&mut self, can_recycle: bool) {
+        self.can_recycle = can_recycle
     }
 }
 
@@ -162,6 +172,7 @@ pub struct TlsConnection {
     pub uuid: Uuid,
     pub endpoint: PravegaNodeUri,
     pub stream: Option<TlsStream<TcpStream>>,
+    pub can_recycle: bool,
 }
 
 #[async_trait]
@@ -227,7 +238,13 @@ impl Connection for TlsConnection {
     }
 
     fn is_valid(&self) -> bool {
-        self.stream.as_ref().expect("get connection").is_valid()
+        self.can_recycle
+            && self.stream.as_ref().is_some()
+            && self.stream.as_ref().expect("get connection").is_valid()
+    }
+
+    fn can_recycle(&mut self, can_recycle: bool) {
+        self.can_recycle = can_recycle;
     }
 }
 
@@ -366,10 +383,4 @@ impl Validate for TlsStream<TcpStream> {
         let (io, _session) = self.get_ref();
         io.peer_addr().map_or_else(|_e| false, |_addr| true)
     }
-}
-
-#[cfg(test)]
-mod test {
-    #[test]
-    fn test() {}
 }

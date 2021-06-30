@@ -82,6 +82,7 @@ pub(crate) async fn create_stream(factory: &ClientFactory, scope: &str, stream: 
                 retention_type: RetentionType::None,
                 retention_param: 0,
             },
+            tags: None,
         })
         .await
         .unwrap();
