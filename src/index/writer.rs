@@ -207,10 +207,10 @@ impl<T: Label + PartialOrd + PartialEq + Debug> IndexWriter<T> {
 
         if let Some(ref prev_entries_hash) = self.entries {
             let entries_hash = self.hash_keys(label.to_key_value_pairs());
-            let matching = entries_hash
+            let matching = prev_entries_hash
                 .iter()
                 .zip(entries_hash.iter())
-                .filter(|&(a, b)| a.0 == b.0 && a.1 >= b.1)
+                .filter(|&(a, b)| a.0 == b.0 && a.1 <= b.1)
                 .count();
             ensure!(
                 matching == prev_entries_hash.len(),

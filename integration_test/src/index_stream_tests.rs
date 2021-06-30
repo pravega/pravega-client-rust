@@ -38,16 +38,23 @@ use tokio::runtime::{Handle, Runtime};
 use tracing::{error, info};
 
 #[derive(Label, Debug, PartialOrd, PartialEq)]
-struct TestFrame0 {
+struct TestRecord0 {
     id: u64,
     timestamp: u64,
 }
 
 #[derive(Label, Debug, PartialOrd, PartialEq)]
-struct TestFrame1 {
+struct TestRecord1 {
     id: u64,
     timestamp: u64,
     pos: u64,
+}
+
+#[derive(Label, Debug, PartialOrd, PartialEq)]
+struct TestRecord2 {
+    pos: u64,
+    id: u64,
+    timestamp: u64,
 }
 
 pub fn test_index_stream(config: PravegaStandaloneServiceConfig) {
@@ -84,13 +91,16 @@ pub fn test_index_stream(config: PravegaStandaloneServiceConfig) {
     handle.block_on(test_write_and_read(&mut writer, &mut reader, &mut event_reader));
 
     let mut writer = handle.block_on(client_factory.create_index_writer(scoped_segment.clone()));
-    let mut reader = handle.block_on(client_factory.create_index_reader(scoped_segment));
-    handle.block_on(test_new_frame(&mut writer, &mut reader));
+    let mut reader = handle.block_on(client_factory.create_index_reader(scoped_segment.clone()));
+    handle.block_on(test_new_record(&mut writer, &mut reader));
     handle.block_on(test_condition_append(&mut writer));
+
+    let mut writer = handle.block_on(client_factory.create_index_writer(scoped_segment.clone()));
+    handle.block_on(test_new_record_out_of_order(&mut writer));
 }
 
 async fn test_write_and_read(
-    writer: &mut IndexWriter<TestFrame0>,
+    writer: &mut IndexWriter<TestRecord0>,
     reader: &mut IndexReader,
     event_reader: &mut EventReader,
 ) {
@@ -99,7 +109,7 @@ async fn test_write_and_read(
 
     // test normal append
     for i in 1..EVENT_NUM {
-        let label = TestFrame0 { id: i, timestamp: i };
+        let label = TestRecord0 { id: i, timestamp: i };
         let data = vec![1; i as usize];
         writer
             .append(data, label)
@@ -109,7 +119,7 @@ async fn test_write_and_read(
     }
 
     // test append with invalid label
-    let label = TestFrame0 { id: 1, timestamp: 1 };
+    let label = TestRecord0 { id: 1, timestamp: 1 };
     let data = vec![1; 10];
     let res = writer.append(data, label).await;
     assert!(
@@ -150,12 +160,12 @@ async fn test_write_and_read(
     info!("test index stream write and read passed");
 }
 
-async fn test_new_frame(writer: &mut IndexWriter<TestFrame1>, reader: &mut IndexReader) {
+async fn test_new_record(writer: &mut IndexWriter<TestRecord1>, reader: &mut IndexReader) {
     info!("test index stream new frame");
 
     // append
     for i in 10..20 {
-        let label = TestFrame1 {
+        let label = TestRecord1 {
             id: i,
             timestamp: i,
             pos: i,
@@ -190,15 +200,15 @@ async fn test_new_frame(writer: &mut IndexWriter<TestFrame1>, reader: &mut Index
     info!("test index stream new frame passed");
 }
 
-async fn test_condition_append(writer: &mut IndexWriter<TestFrame1>) {
+async fn test_condition_append(writer: &mut IndexWriter<TestRecord1>) {
     info!("test index stream condition append");
     // valid conditional append
-    let condition_on = TestFrame1 {
+    let condition_on = TestRecord1 {
         id: 19,
         timestamp: 19,
         pos: 19,
     };
-    let label = TestFrame1 {
+    let label = TestRecord1 {
         id: 20,
         timestamp: 20,
         pos: 20,
@@ -211,13 +221,13 @@ async fn test_condition_append(writer: &mut IndexWriter<TestFrame1>) {
     writer.flush().await.expect("flush data");
 
     // invalid conditional append
-    let condition_on = TestFrame1 {
+    let condition_on = TestRecord1 {
         id: 19,
         timestamp: 19,
         pos: 19,
     };
 
-    let label = TestFrame1 {
+    let label = TestRecord1 {
         id: 21,
         timestamp: 21,
         pos: 21,
@@ -228,4 +238,17 @@ async fn test_condition_append(writer: &mut IndexWriter<TestFrame1>) {
         matches! {res.err().expect("should have conditional append error"), IndexWriterError::InvalidCondition{..}}
     );
     info!("test index stream condition append passed");
+}
+
+async fn test_new_record_out_of_order(writer: &mut IndexWriter<TestRecord2>) {
+    info!("test index stream new record out of order");
+    let data = vec![1; 20];
+    let label = TestRecord2 {
+        pos: 20,
+        id: 20,
+        timestamp: 20,
+    };
+    let res = writer.append(data, label).await;
+    assert!(matches! {res.err().expect("should have append error"), IndexWriterError::InvalidLabel{..}});
+    info!("test index stream new record out of order passed");
 }
