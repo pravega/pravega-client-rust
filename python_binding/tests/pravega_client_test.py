@@ -13,8 +13,45 @@ import secrets
 import string
 import pravega_client
 from pravega_client import TxnFailedException
+from pravega_client import StreamScalingPolicy
+from pravega_client import StreamRetentionPolicy
 
 class PravegaTest(unittest.TestCase):
+
+    def test_tags(self):
+        scope = ''.join(secrets.choice(string.ascii_lowercase + string.digits)
+                        for i in range(10))
+        print("Creating a Stream Manager, ensure Pravega is running")
+        stream_manager=pravega_client.StreamManager("tcp://127.0.0.1:9090", False, False)
+
+        print("Creating a scope")
+        scope_result=stream_manager.create_scope(scope)
+        self.assertEqual(True, scope_result, "Scope creation status")
+        print("Creating a stream")
+        stream_result=stream_manager.create_stream(scope, "testStream", 1)
+        self.assertTrue(stream_result, "Stream creation status")
+        stream_update=stream_manager.update_stream_with_policy(scope_name=scope, stream_name="testStream", tags=["t1"])
+        self.assertTrue(stream_update, "Stream update status")
+        tags = stream_manager.get_stream_tags(scope, "testStream")
+        self.assertEqual(["t1"], tags)
+
+        # create a stream with stream scaling is enabled with data rate as 10kbps, scaling factor as 2 and initial segments as 1
+        policy = StreamScalingPolicy.auto_scaling_policy_by_data_rate(10, 2, 1)
+        stream_result=stream_manager.create_stream_with_policy(scope_name=scope, stream_name="testStream1", scaling_policy=policy)
+        self.assertTrue(stream_result, "Stream creation status")
+        # add tags
+        stream_update=stream_manager.update_stream_with_policy(scope_name=scope, stream_name="testStream1", scaling_policy=policy, tags=['t1', 't2'])
+        self.assertTrue(stream_update, "Stream update status")
+        tags = stream_manager.get_stream_tags(scope, "testStream1")
+        self.assertEqual(['t1', 't2'], tags)
+
+        # update retention policy
+        # retention policy of 10GB
+        retention = StreamRetentionPolicy.by_size(10*1024*1024 * 1024)
+        stream_update=stream_manager.update_stream_with_policy(scope, "testStream1", policy, retention, tags=["t4", "t5"])
+        self.assertTrue(stream_update, "Stream update status")
+        tags = stream_manager.get_stream_tags(scope, "testStream1")
+        self.assertEqual(["t4", "t5"], tags)
 
     def test_writeEvent(self):
         scope = ''.join(secrets.choice(string.ascii_lowercase + string.digits)

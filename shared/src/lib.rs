@@ -458,8 +458,8 @@ impl Default for Scaling {
         Scaling {
             scale_type: ScaleType::FixedNumSegments,
             min_num_segments: 1,
-            scale_factor: 1,
-            target_rate: 1000,
+            scale_factor: 0,
+            target_rate: 0,
         }
     }
 }
@@ -497,7 +497,7 @@ impl Default for Retention {
     fn default() -> Self {
         Retention {
             retention_type: RetentionType::None,
-            retention_param: std::i64::MAX,
+            retention_param: 0,
         }
     }
 }

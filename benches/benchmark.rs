@@ -408,10 +408,8 @@ async fn create_scope_stream(
             scale_factor: 0,
             min_num_segments: segment_number,
         },
-        retention: Retention {
-            retention_type: RetentionType::None,
-            retention_param: 0,
-        },
+        retention: Default::default(),
+        tags: None,
     };
     controller_client
         .create_stream(&request)
