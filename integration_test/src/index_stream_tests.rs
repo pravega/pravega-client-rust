@@ -125,10 +125,10 @@ async fn test_write_and_read(
 
     // test search offset
     let offset = reader.search_offset(("id", 5)).await.expect("get offset");
-    assert_eq!(offset, 1024 * 4 * 4);
+    assert_eq!(offset, SeekFrom::Start(1024 * 4 * 4));
 
     let offset = reader.search_offset(("id", 0)).await.expect("get offset");
-    assert_eq!(offset, 0);
+    assert_eq!(offset, SeekFrom::Start(0));
 
     let res = reader.search_offset(("uuid", 11)).await;
     assert!(
@@ -177,10 +177,10 @@ async fn test_new_frame(writer: &mut IndexWriter<TestFrame1>, reader: &mut Index
 
     // test search offset
     let offset = reader.search_offset(("pos", 10)).await.expect("get offset");
-    assert_eq!(offset, 1024 * 4 * 9);
+    assert_eq!(offset, SeekFrom::Start(1024 * 4 * 9));
 
     let offset = reader.search_offset(("pos", 15)).await.expect("get offset");
-    assert_eq!(offset, 1024 * 4 * 14);
+    assert_eq!(offset, SeekFrom::Start(1024 * 4 * 14));
 
     let res = reader.search_offset(("id", 21)).await;
     assert!(

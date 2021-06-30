@@ -28,6 +28,47 @@ pub enum IndexReaderError {
     Internal { msg: String },
 }
 
+/// Index Reader reads the Record from stream.
+///
+/// Write takes a byte array as data and a Label. It hashes the Label entry key and construct a Record. Then
+/// it serializes the Record and writes to the stream.
+///
+/// # Examples
+/// ```no_run
+/// use pravega_client_config::ClientConfigBuilder;
+/// use pravega_client::client_factory::ClientFactory;
+/// use pravega_client_shared::ScopedSegment;
+/// use std::io::Write;
+/// use tokio;
+///
+/// // Suppose the existing Label in the stream is like below.
+/// // #[derive(Label, Debug, PartialOrd, PartialEq)]
+/// // struct MyLabel {
+/// //    id: u64,
+/// //    timestamp: u64,
+/// // }
+///
+/// #[tokio::main]
+/// async fn main() {
+///     // assuming Pravega controller is running at endpoint `localhost:9090`
+///     let config = ClientConfigBuilder::default()
+///         .controller_uri("localhost:9090")
+///         .build()
+///         .expect("creating config");
+///
+///     let client_factory = ClientFactory::new(config);
+///
+///     // assuming scope:myscope, stream:mystream and segment 0 do exist.
+///     let segment = ScopedSegment::from("myscope/mystream/0");
+///
+///     let mut index_reader = client_factory.create_index_reader(segment).await;
+///
+///     // search data
+///     let offset = index_reader.search_offset(("id", 10)).await.expect("get offset");
+///     index_reader.seek()
+///     index_writer.flush().await.expect("flush");
+/// }
+/// ```
 pub struct IndexReader {
     byte_reader: ByteReader,
     current_offset: u64,
@@ -52,9 +93,9 @@ impl IndexReader {
     /// Given an entry (key, x), find the offset of the first record that contains the given entry key
     /// and value >= x.
     ///
-    /// Note that if there are multiple entries that have same entry key and value, this method will find and return
+    /// Note that if there are multiple entries that have the same entry key and value, this method will find and return
     /// the first one.
-    pub async fn search_offset(&mut self, entry: (&'static str, u64)) -> Result<u64, IndexReaderError> {
+    pub async fn search_offset(&mut self, entry: (&'static str, u64)) -> Result<SeekFrom, IndexReaderError> {
         const RECORD_SIZE_SIGNED: i64 = RECORD_SIZE as i64;
 
         let target_key = hash_key_to_u128(entry.0);
@@ -97,7 +138,7 @@ impl IndexReader {
                 msg: format!("key/value: {}/{}", entry.0, entry.1),
             })
         } else {
-            Ok((head + start * RECORD_SIZE_SIGNED) as u64)
+            Ok(SeekFrom::Start((start * RECORD_SIZE_SIGNED) as u64))
         }
     }
 
@@ -169,17 +210,5 @@ impl IndexReader {
             msg: format!("record deserialization error: {:?}", e),
         })?;
         Ok(record)
-    }
-
-    // sort the entry by key alphabetically and hash the entry key
-    fn preprocess_entry(&self, mut entries: Vec<&'static str>) -> Vec<u128> {
-        entries.sort_by_key(|k| *k);
-
-        let mut entries_hash: Vec<u128> = vec![];
-        for e in entries {
-            let num = hash_key_to_u128(e);
-            entries_hash.push(num);
-        }
-        entries_hash
     }
 }

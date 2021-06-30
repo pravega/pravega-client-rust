@@ -40,10 +40,48 @@ pub enum IndexWriterError {
     Internal { msg: String },
 }
 
-/// Index Writer writes a fixed size record to the stream.
+/// Index Writer writes a fixed size Record to the stream.
 ///
-/// Write takes a byte array and a Label. It hashes the Label entry key and construct a Record. Then
+/// Write takes a byte array as data and a Label. It hashes the Label entry key and construct a Record. Then
 /// it serializes the Record and writes to the stream.
+///
+/// # Examples
+/// ```no_run
+/// use pravega_client_config::ClientConfigBuilder;
+/// use pravega_client::client_factory::ClientFactory;
+/// use pravega_client_shared::ScopedSegment;
+/// use pravega_client_macros::Label;
+/// use std::io::Write;
+/// use tokio;
+///
+/// #[derive(Label, Debug, PartialOrd, PartialEq)]
+/// struct MyLabel {
+///     id: u64,
+///     timestamp: u64,
+/// }
+///
+/// #[tokio::main]
+/// async fn main() {
+///     // assuming Pravega controller is running at endpoint `localhost:9090`
+///     let config = ClientConfigBuilder::default()
+///         .controller_uri("localhost:9090")
+///         .build()
+///         .expect("creating config");
+///
+///     let client_factory = ClientFactory::new(config);
+///
+///     // assuming scope:myscope, stream:mystream and segment 0 do exist.
+///     let segment = ScopedSegment::from("myscope/mystream/0");
+///
+///     let mut index_writer = client_factory.create_index_writer(segment).await;
+///
+///     let label = MyLabel{id: 1, timestamp: 1000};
+///     let data = vec!{1; 10};
+///
+///     index_writer.append(data, label).await.expect("append data with label");
+///     index_writer.flush().await.expect("flush");
+/// }
+/// ```
 pub struct IndexWriter<T: Label + PartialOrd + PartialEq + Debug> {
     byte_writer: ByteWriter,
     entries: Option<Vec<(u128, u64)>>,
@@ -92,7 +130,7 @@ impl<T: Label + PartialOrd + PartialEq + Debug> IndexWriter<T> {
         self.append_internal(data).await
     }
 
-    /// Append data with a given label conditioned on a label.
+    /// Append data with a given label and conditioned on a label.
     pub async fn append_conditionally(
         &mut self,
         data: Vec<u8>,
@@ -171,7 +209,7 @@ impl<T: Label + PartialOrd + PartialEq + Debug> IndexWriter<T> {
             let entries_hash = self.hash_keys(label.to_key_value_pairs());
             let matching = entries_hash
                 .iter()
-                .zip(prev_entries_hash.iter())
+                .zip(entries_hash.iter())
                 .filter(|&(a, b)| a.0 == b.0 && a.1 >= b.1)
                 .count();
             ensure!(

@@ -8,9 +8,32 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-//! The Index API for writing and reading data to a segment in fixed sized frame.
+//! The Index API provides a way to efficiently search data in the stream.
 //!
+//! The index API writes a fixed sized [`Record`] to the stream. Each [`Record`] contains the user data
+//! and a number of user defined key-value pairs, a key-value pair is called `Entry`.
+//! A set of `Entry` is called `Label` and an example of the `Label` is showed as below:
+//! ```no_run
+//! use pravega_client_macros::Label;
 //!
+//! #[derive(Label, Debug, PartialOrd, PartialEq)]
+//! struct MyLabel {
+//!     time: u64,
+//!     id: u64,
+//! }
+//!
+//! ```
+//! The `Label` procedural marco will convert the `MyLabel` struct to a list of key-value pairs.
+//! Notice that we only accept u64 as the `Entry` value type.
+//!
+//! To ensure the searching efficiency, we impose some constraints to the `Label`:
+//! * The `Entry` value in the `Label` must be monotonically increasing.
+//! * Deletion of the `Entry` in the `Label` is not permitted.
+//! * Adding a new `Entry` is possible, but the `Entry` has to be appended at the tail.
+//! * The Index Writer is generic over the `Label` struct, meaning if a new `Entry` is appended, it needs
+//! to create a new Index Writer for the new `Label`.
+//!
+//! [`Record`]: crate::index::Record
 
 pub mod writer;
 #[doc(inline)]
@@ -43,7 +66,7 @@ lazy_static! {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct Record {
+pub struct Record {
     type_code: i32,
     entries_len: u32,
     data_len: u32,
