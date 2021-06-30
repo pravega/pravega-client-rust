@@ -17,7 +17,7 @@ use crate::wire_commands::{Replies, Requests};
 use async_trait::async_trait;
 use pravega_client_config::connection_type::MockType;
 use pravega_client_config::{connection_type::ConnectionType, ClientConfig};
-use pravega_client_shared::{PravegaNodeUri, SegmentInfo};
+use pravega_client_shared::{NoVerifier, PravegaNodeUri, SegmentInfo};
 use pravega_connection_pool::connection_pool::{ConnectionPoolError, Manager};
 use snafu::ResultExt;
 use std::collections::HashMap;
@@ -61,9 +61,11 @@ pub trait ConnectionFactory: Send + Sync {
 impl dyn ConnectionFactory {
     pub fn create(config: ConnectionFactoryConfig) -> Box<dyn ConnectionFactory> {
         match config.connection_type {
-            ConnectionType::Tokio => {
-                Box::new(TokioConnectionFactory::new(config.is_tls_enabled, config.certs))
-            }
+            ConnectionType::Tokio => Box::new(TokioConnectionFactory::new(
+                config.is_tls_enabled,
+                config.certs,
+                config.skip_cert_verification,
+            )),
             ConnectionType::Mock(mock_type) => Box::new(MockConnectionFactory::new(mock_type)),
         }
     }
@@ -72,11 +74,16 @@ impl dyn ConnectionFactory {
 struct TokioConnectionFactory {
     tls_enabled: bool,
     certs: Vec<String>,
+    skip_cert_verification: bool,
 }
 
 impl TokioConnectionFactory {
-    fn new(tls_enabled: bool, certs: Vec<String>) -> Self {
-        TokioConnectionFactory { tls_enabled, certs }
+    fn new(tls_enabled: bool, certs: Vec<String>, skip_cert_verification: bool) -> Self {
+        TokioConnectionFactory {
+            tls_enabled,
+            certs,
+            skip_cert_verification,
+        }
     }
 }
 
@@ -94,6 +101,9 @@ impl ConnectionFactory for TokioConnectionFactory {
                 endpoint
             );
             let mut config = rustls::ClientConfig::new();
+            if self.skip_cert_verification {
+                config.dangerous().set_certificate_verifier(Arc::new(NoVerifier));
+            }
             for cert in &self.certs {
                 let mut pem = BufReader::new(cert.as_bytes());
 
@@ -292,6 +302,8 @@ pub struct ConnectionFactoryConfig {
     is_tls_enabled: bool,
     #[new(default)]
     certs: Vec<String>,
+    #[new(value = "false")]
+    skip_cert_verification: bool,
 }
 
 /// ConnectionFactoryConfig can be built from ClientConfig.
@@ -301,6 +313,7 @@ impl From<&ClientConfig> for ConnectionFactoryConfig {
             connection_type: client_config.connection_type,
             is_tls_enabled: client_config.is_tls_enabled,
             certs: client_config.trustcerts.clone(),
+            skip_cert_verification: client_config.skip_cert_verification,
         }
     }
 }
