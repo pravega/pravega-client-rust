@@ -271,6 +271,106 @@
 <span id="268">268</span>
 <span id="269">269</span>
 <span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -390,7 +490,7 @@
             .<span class="ident">context</span>(<span class="ident">RequestTimeout</span> {})<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">result</span>.<span class="ident">context</span>(<span class="ident">ReadReply</span> {})<span class="question-mark">?</span>;
         <span class="kw">if</span> <span class="ident">reply</span>.<span class="ident">get_request_id</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">request</span>.<span class="ident">get_request_id</span>() {
-            <span class="ident">client_connection</span>.<span class="ident">connection</span>.<span class="ident">invalidate</span>();
+            <span class="ident">client_connection</span>.<span class="ident">connection</span>.<span class="ident">as_mut</span>().<span class="ident">can_recycle</span>(<span class="bool-val">false</span>);
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RawClientError::WrongReplyId</span> {
                 <span class="ident">reply_id</span>: <span class="ident">reply</span>.<span class="ident">get_request_id</span>(),
                 <span class="ident">request_id</span>: <span class="ident">request</span>.<span class="ident">get_request_id</span>(),
@@ -417,7 +517,7 @@
             .<span class="ident">context</span>(<span class="ident">RequestTimeout</span> {})<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">result</span>.<span class="ident">context</span>(<span class="ident">ReadReply</span> {})<span class="question-mark">?</span>;
         <span class="kw">if</span> <span class="ident">reply</span>.<span class="ident">get_request_id</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">request</span>.<span class="ident">get_request_id</span>() {
-            <span class="ident">client_connection</span>.<span class="ident">connection</span>.<span class="ident">invalidate</span>();
+            <span class="ident">client_connection</span>.<span class="ident">connection</span>.<span class="ident">as_mut</span>().<span class="ident">can_recycle</span>(<span class="bool-val">false</span>);
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RawClientError::WrongReplyId</span> {
                 <span class="ident">reply_id</span>: <span class="ident">reply</span>.<span class="ident">get_request_id</span>(),
                 <span class="ident">request_id</span>: <span class="ident">request</span>.<span class="ident">get_request_id</span>(),
@@ -441,10 +541,10 @@
 <span class="kw">mod</span> <span class="ident">tests</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
     <span class="kw">use</span> <span class="ident">pravega_client_config::connection_type::ConnectionType</span>;
-    <span class="kw">use</span> <span class="ident">pravega_wire_protocol::commands::HelloCommand</span>;
+    <span class="kw">use</span> <span class="ident">pravega_wire_protocol::commands</span>::{<span class="ident">HelloCommand</span>, <span class="ident">ReadSegmentCommand</span>, <span class="ident">SegmentReadCommand</span>};
     <span class="kw">use</span> <span class="ident">pravega_wire_protocol::connection_factory</span>::{<span class="ident">ConnectionFactory</span>, <span class="ident">ConnectionFactoryConfig</span>};
     <span class="kw">use</span> <span class="ident">pravega_wire_protocol::wire_commands::Encode</span>;
-    <span class="kw">use</span> <span class="ident">std::io::Write</span>;
+    <span class="kw">use</span> <span class="ident">std::io</span>::{<span class="ident">Read</span>, <span class="ident">Write</span>};
     <span class="kw">use</span> <span class="ident">std::net</span>::{<span class="ident">SocketAddr</span>, <span class="ident">TcpListener</span>};
     <span class="kw">use</span> <span class="ident">std::thread</span>;
     <span class="kw">use</span> <span class="ident">tokio::runtime::Runtime</span>;
@@ -459,7 +559,7 @@
             <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">Runtime::new</span>().<span class="ident">expect</span>(<span class="string">&quot;create tokio Runtime&quot;</span>);
             <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">ConnectionFactoryConfig::new</span>(<span class="ident">ConnectionType::Tokio</span>);
             <span class="kw">let</span> <span class="ident">connection_factory</span> <span class="op">=</span> <span class="ident">ConnectionFactory::create</span>(<span class="ident">config</span>);
-            <span class="kw">let</span> <span class="ident">manager</span> <span class="op">=</span> <span class="ident">SegmentConnectionManager::new</span>(<span class="ident">connection_factory</span>, <span class="number">2</span>);
+            <span class="kw">let</span> <span class="ident">manager</span> <span class="op">=</span> <span class="ident">SegmentConnectionManager::new</span>(<span class="ident">connection_factory</span>, <span class="number">1</span>);
             <span class="kw">let</span> <span class="ident">pool</span> <span class="op">=</span> <span class="ident">ConnectionPool::new</span>(<span class="ident">manager</span>);
             <span class="ident">Common</span> { <span class="ident">rt</span>, <span class="ident">pool</span> }
         }
@@ -537,6 +637,106 @@
             <span class="ident">Replies::Hello</span>(<span class="ident">HelloCommand</span> {
                 <span class="ident">high_version</span>: <span class="number">9</span>,
                 <span class="ident">low_version</span>: <span class="number">5</span>,
+            })
+        );
+        <span class="ident">h</span>.<span class="ident">join</span>().<span class="ident">expect</span>(<span class="string">&quot;thread finished&quot;</span>);
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">test_invalid_connection</span>() {
+        <span class="kw">let</span> <span class="ident">common</span> <span class="op">=</span> <span class="ident">Common::new</span>();
+        <span class="kw">let</span> <span class="ident">server</span> <span class="op">=</span> <span class="ident">Server::new</span>();
+
+        <span class="kw">let</span> <span class="ident">raw_client</span> <span class="op">=</span> <span class="ident">RawClientImpl::new</span>(
+            <span class="kw-2">&amp;</span><span class="ident">common</span>.<span class="ident">pool</span>,
+            <span class="ident">PravegaNodeUri::from</span>(<span class="ident">server</span>.<span class="ident">address</span>),
+            <span class="ident">Duration::from_secs</span>(<span class="number">30</span>),
+        );
+
+        <span class="kw">let</span> <span class="ident">h</span> <span class="op">=</span> <span class="ident">thread::spawn</span>(<span class="kw">move</span> <span class="op">|</span><span class="op">|</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">conn</span> <span class="op">=</span> <span class="number">0</span>;
+            <span class="kw">for</span> <span class="ident">stream</span> <span class="kw">in</span> <span class="ident">server</span>.<span class="ident">listener</span>.<span class="ident">incoming</span>() {
+                <span class="ident">conn</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">stream</span>) <span class="op">=</span> <span class="ident">stream</span> {
+                    <span class="kw">if</span> <span class="ident">conn</span> <span class="op">=</span><span class="op">=</span> <span class="number">1</span> {
+                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cnt</span> <span class="op">=</span> <span class="number">0</span>;
+                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">8</span>];
+                        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">_size</span>) <span class="op">=</span> <span class="ident">stream</span>.<span class="ident">read_exact</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buf</span>) {
+                            <span class="ident">cnt</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+                            <span class="kw">if</span> <span class="ident">cnt</span> <span class="op">=</span><span class="op">=</span> <span class="number">1</span> {
+                                <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">Replies::Hello</span>(<span class="ident">HelloCommand</span> {
+                                    <span class="ident">high_version</span>: <span class="number">11</span>,
+                                    <span class="ident">low_version</span>: <span class="number">5</span>,
+                                });
+                                <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">reply</span>.<span class="ident">write_fields</span>().<span class="ident">expect</span>(<span class="string">&quot;serialize reply&quot;</span>);
+                                <span class="ident">stream</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="ident">bytes</span>).<span class="ident">expect</span>(<span class="string">&quot;send hello&quot;</span>);
+                            } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">cnt</span> <span class="op">=</span><span class="op">=</span> <span class="number">2</span> {
+                                <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span>
+                                    <span class="macro">vec!</span>[<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>];
+                                <span class="ident">stream</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="ident">buf</span>).<span class="ident">expect</span>(<span class="string">&quot;send invalid payload&quot;</span>);
+                                <span class="kw">break</span>;
+                            }
+                        }
+                    } <span class="kw">else</span> {
+                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cnt</span> <span class="op">=</span> <span class="number">0</span>;
+                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">8</span>];
+                        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">_size</span>) <span class="op">=</span> <span class="ident">stream</span>.<span class="ident">read_exact</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buf</span>) {
+                            <span class="ident">cnt</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+                            <span class="kw">if</span> <span class="ident">cnt</span> <span class="op">=</span><span class="op">=</span> <span class="number">1</span> {
+                                <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">Replies::Hello</span>(<span class="ident">HelloCommand</span> {
+                                    <span class="ident">high_version</span>: <span class="number">11</span>,
+                                    <span class="ident">low_version</span>: <span class="number">5</span>,
+                                });
+                                <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">reply</span>.<span class="ident">write_fields</span>().<span class="ident">expect</span>(<span class="string">&quot;serialize reply&quot;</span>);
+                                <span class="ident">stream</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="ident">bytes</span>).<span class="ident">expect</span>(<span class="string">&quot;send valid payload&quot;</span>);
+                            } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">cnt</span> <span class="op">=</span><span class="op">=</span> <span class="number">2</span> {
+                                <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">Replies::SegmentRead</span>(<span class="ident">SegmentReadCommand</span> {
+                                    <span class="ident">segment</span>: <span class="string">&quot;foo&quot;</span>.<span class="ident">to_string</span>(),
+                                    <span class="ident">offset</span>: <span class="number">0</span>,
+                                    <span class="ident">at_tail</span>: <span class="bool-val">false</span>,
+                                    <span class="ident">end_of_segment</span>: <span class="bool-val">false</span>,
+                                    <span class="ident">data</span>: <span class="macro">vec!</span>[<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>],
+                                    <span class="ident">request_id</span>: <span class="number">0</span>,
+                                });
+                                <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">reply</span>.<span class="ident">write_fields</span>().<span class="ident">expect</span>(<span class="string">&quot;serialize reply&quot;</span>);
+                                <span class="ident">stream</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="ident">bytes</span>).<span class="ident">expect</span>(<span class="string">&quot;send valid payload&quot;</span>);
+                                <span class="kw">break</span>;
+                            }
+                        }
+                    }
+                }
+                <span class="kw">if</span> <span class="ident">conn</span> <span class="op">=</span><span class="op">=</span> <span class="number">2</span> {
+                    <span class="kw">break</span>;
+                }
+            }
+        });
+        <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">Requests::ReadSegment</span>(<span class="ident">ReadSegmentCommand</span> {
+            <span class="ident">segment</span>: <span class="string">&quot;foo&quot;</span>.<span class="ident">to_string</span>(),
+            <span class="ident">offset</span>: <span class="number">0</span>,
+            <span class="ident">suggested_length</span>: <span class="number">0</span>,
+            <span class="ident">delegation_token</span>: <span class="string">&quot;&quot;</span>.<span class="ident">to_string</span>(),
+            <span class="ident">request_id</span>: <span class="number">0</span>,
+        });
+
+        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">common</span>.<span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>));
+        <span class="comment">// payload length too long</span>
+        <span class="macro">assert!</span>(<span class="ident">res</span>.<span class="ident">is_err</span>());
+
+        <span class="comment">// retry</span>
+        <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="ident">common</span>
+            .<span class="ident">rt</span>
+            .<span class="ident">block_on</span>(<span class="ident">raw_client</span>.<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>))
+            .<span class="ident">expect</span>(<span class="string">&quot;get reply&quot;</span>);
+
+        <span class="macro">assert_eq!</span>(
+            <span class="ident">reply</span>,
+            <span class="ident">Replies::SegmentRead</span>(<span class="ident">SegmentReadCommand</span> {
+                <span class="ident">segment</span>: <span class="string">&quot;foo&quot;</span>.<span class="ident">to_string</span>(),
+                <span class="ident">offset</span>: <span class="number">0</span>,
+                <span class="ident">at_tail</span>: <span class="bool-val">false</span>,
+                <span class="ident">end_of_segment</span>: <span class="bool-val">false</span>,
+                <span class="ident">data</span>: <span class="macro">vec!</span>[<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>],
+                <span class="ident">request_id</span>: <span class="number">0</span>
             })
         );
         <span class="ident">h</span>.<span class="ident">join</span>().<span class="ident">expect</span>(<span class="string">&quot;thread finished&quot;</span>);

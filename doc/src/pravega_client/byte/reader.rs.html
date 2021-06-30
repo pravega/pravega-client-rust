@@ -375,7 +375,6 @@
 <span id="372">372</span>
 <span id="373">373</span>
 <span id="374">374</span>
-<span id="375">375</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -650,7 +649,6 @@
         }
         <span class="macro">assert_eq!</span>(<span class="ident">read</span>, <span class="number">200</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">buf</span>, <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">200</span>]);
-
         <span class="comment">// seek to head</span>
         <span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Start</span>(<span class="number">0</span>)).<span class="ident">expect</span>(<span class="string">&quot;seek to head&quot;</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">reader</span>.<span class="ident">current_offset</span>(), <span class="number">0</span>);
