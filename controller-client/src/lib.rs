@@ -37,10 +37,10 @@ use controller::{
     scale_status_response, txn_state, txn_status, update_stream_status, ContinuationToken, CreateScopeStatus,
     CreateStreamStatus, CreateTxnRequest, CreateTxnResponse, DelegationToken, DeleteScopeStatus,
     DeleteStreamStatus, GetEpochSegmentsRequest, GetSegmentsRequest, NodeUri, PingTxnRequest, PingTxnStatus,
-    ScaleRequest, ScaleResponse, ScaleStatusRequest, ScaleStatusResponse, ScopeInfo, SegmentId,
-    SegmentRanges, SegmentsAtTime, StreamConfig, StreamInfo, StreamsInScopeRequest, StreamsInScopeResponse,
-    StreamsInScopeWithTagRequest, SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus,
-    UpdateStreamStatus,
+    ScaleRequest, ScaleResponse, ScaleStatusRequest, ScaleStatusResponse, ScopeInfo, ScopesRequest,
+    ScopesResponse, SegmentId, SegmentRanges, SegmentsAtTime, StreamConfig, StreamInfo,
+    StreamsInScopeRequest, StreamsInScopeResponse, StreamsInScopeWithTagRequest, SuccessorResponse, TxnId,
+    TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
 };
 use im::{HashMap as ImHashMap, OrdMap};
 use ordered_float::OrderedFloat;
@@ -136,6 +136,12 @@ pub trait ControllerClient: Send + Sync {
      * controller executed the operation.
      */
     async fn create_scope(&self, scope: &Scope) -> ResultRetry<bool>;
+
+    /**
+     * API to list scopes given a continuation token..
+     * Use the pravega_controller_client::paginator::list_scopes to paginate over all the scopes.
+     */
+    async fn list_scopes(&self, token: &CToken) -> ResultRetry<Option<(Vec<Scope>, CToken)>>;
 
     /**
      * API to list streams under a given scope and continuation token.
@@ -387,6 +393,13 @@ impl ControllerClient for ControllerClientImpl {
         wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_create_scope(scope)
+        )
+    }
+
+    async fn list_scopes(&self, token: &CToken) -> ResultRetry<Option<(Vec<Scope>, CToken)>> {
+        wrap_with_async_retry!(
+            self.config.retry_policy.max_tries(MAX_RETRIES),
+            self.call_list_scopes(token)
         )
     }
 
@@ -721,6 +734,48 @@ impl ControllerClientImpl {
             operation: operation_name.to_string(),
             error_msg: format!("{:?}", retry_error),
         })
+    }
+
+    async fn call_list_scopes(&self, token: &CToken) -> Result<Option<(Vec<Scope>, CToken)>> {
+        let operation_name = "ListScopes";
+        let request: ScopesRequest = ScopesRequest {
+            continuation_token: Some(ContinuationToken::from(token)),
+        };
+        debug!("Triggering a request to the controller to list scopes");
+
+        let op_status: StdResult<tonic::Response<ScopesResponse>, tonic::Status> =
+            self.get_controller_client().await.list_scopes(request).await;
+        match op_status {
+            Ok(scopes_with_token) => {
+                let result = scopes_with_token.into_inner();
+                let mut t: Vec<String> = result.scopes;
+                if t.is_empty() {
+                    // Empty result from the controller implies no further streams present.
+                    Ok(None)
+                } else {
+                    // update state with the new set of scopes.
+                    let scopes_list: Vec<Scope> = t.drain(..).map(|i| Scope::from(i)).collect();
+                    let token: Option<ContinuationToken> = result.continuation_token;
+                    match token.map(|t| t.token) {
+                        None => {
+                            warn!("None returned for continuation token list scopes API");
+                            Err(ControllerError::InvalidResponse {
+                                can_retry: false,
+                                error_msg: "No continuation token received from Controller".to_string(),
+                            })
+                        }
+                        Some(ct) => {
+                            debug!("Returned token {} for list scopes API", ct);
+                            Ok(Some((scopes_list, CToken::from(ct.as_str()))))
+                        }
+                    }
+                }
+            }
+            Err(status) => {
+                debug!("Error {} while listing scopes", status);
+                Err(self.map_grpc_error(operation_name, status).await)
+            }
+        }
     }
 
     async fn call_list_streams(

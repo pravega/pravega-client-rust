@@ -77,6 +77,19 @@ impl ControllerClient for MockController {
         Ok(true)
     }
 
+    async fn list_scopes(
+        &self,
+        _token: &CToken,
+    ) -> Result<Option<(Vec<Scope>, CToken)>, RetryError<ControllerError>> {
+        let map_guard = self.created_scopes.read().await;
+        let scopes = map_guard.keys();
+        let mut result = Vec::new();
+        for scope in scopes {
+            result.push(Scope::from(scope.clone()));
+        }
+        Ok(Some((result, CToken::from("mock_token"))))
+    }
+
     async fn list_streams(
         &self,
         scope: &Scope,
