@@ -26,7 +26,6 @@
 #![allow(clippy::multiple_crate_versions)]
 #![allow(dead_code)]
 #![allow(clippy::similar_names)]
-#![allow(clippy::upper_case_acronyms)]
 
 use std::result::Result as StdResult;
 use std::time::{Duration, Instant};
@@ -40,7 +39,8 @@ use controller::{
     DeleteStreamStatus, GetEpochSegmentsRequest, GetSegmentsRequest, NodeUri, PingTxnRequest, PingTxnStatus,
     ScaleRequest, ScaleResponse, ScaleStatusRequest, ScaleStatusResponse, ScopeInfo, SegmentId,
     SegmentRanges, SegmentsAtTime, StreamConfig, StreamInfo, StreamsInScopeRequest, StreamsInScopeResponse,
-    SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
+    StreamsInScopeWithTagRequest, SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus,
+    UpdateStreamStatus,
 };
 use im::{HashMap as ImHashMap, OrdMap};
 use ordered_float::OrderedFloat;
@@ -148,6 +148,17 @@ pub trait ControllerClient: Send + Sync {
     ) -> ResultRetry<Option<(Vec<ScopedStream>, CToken)>>;
 
     /**
+     * API to list streams associated with the given tag under a given scope and continuation token.
+     * Use the pravega_controller_client::paginator::list_streams_for_tag to paginate over all the streams.
+     */
+    async fn list_streams_for_tag(
+        &self,
+        scope: &Scope,
+        tag: &str,
+        token: &CToken,
+    ) -> ResultRetry<Option<(Vec<ScopedStream>, CToken)>>;
+
+    /**
      * API to delete a scope. Note that a scope can only be deleted in the case is it empty. If
      * the scope contains at least one stream, then the delete request will fail.
      */
@@ -165,6 +176,16 @@ pub trait ControllerClient: Send + Sync {
      * API to update the configuration of a Stream.
      */
     async fn update_stream(&self, stream_config: &StreamConfiguration) -> ResultRetry<bool>;
+
+    /**
+     * API to fetch the Stream Configuration of a Stream.
+     */
+    async fn get_stream_configuration(&self, stream: &ScopedStream) -> ResultRetry<StreamConfiguration>;
+
+    /**
+     * API to fetch the Tags for a Stream.
+     */
+    async fn get_stream_tags(&self, stream: &ScopedStream) -> ResultRetry<Option<Vec<String>>>;
 
     /**
      * API to Truncate stream. This api takes a stream cut point which corresponds to a cut in
@@ -296,9 +317,19 @@ async fn get_channel(config: &ClientConfig) -> Channel {
 
     // Placeholder to add authentication headers.
     let s = if config.is_tls_enabled {
-        format!("{}{}", HTTPS_PREFIX, &config.controller_uri.to_string())
+        format!(
+            "{}{}:{}",
+            HTTPS_PREFIX,
+            &config.controller_uri.domain_name(),
+            config.controller_uri.port()
+        )
     } else {
-        format!("{}{}", HTTP_PREFIX, &config.controller_uri.to_string())
+        format!(
+            "{}{}:{}",
+            HTTP_PREFIX,
+            &config.controller_uri.domain_name(),
+            config.controller_uri.port()
+        )
     };
     let uri_result = Uri::from_str(s.as_str())
         .map_err(|e1: InvalidUri| ControllerError::InvalidConfiguration {
@@ -370,6 +401,18 @@ impl ControllerClient for ControllerClientImpl {
         )
     }
 
+    async fn list_streams_for_tag(
+        &self,
+        scope: &Scope,
+        tag: &str,
+        token: &CToken,
+    ) -> ResultRetry<Option<(Vec<ScopedStream>, CToken)>> {
+        wrap_with_async_retry!(
+            self.config.retry_policy.max_tries(MAX_RETRIES),
+            self.call_list_streams_for_tag(scope, tag, token)
+        )
+    }
+
     async fn delete_scope(&self, scope: &Scope) -> ResultRetry<bool> {
         wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
@@ -388,6 +431,20 @@ impl ControllerClient for ControllerClientImpl {
         wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_update_stream(stream_config)
+        )
+    }
+
+    async fn get_stream_configuration(&self, stream: &ScopedStream) -> ResultRetry<StreamConfiguration> {
+        wrap_with_async_retry!(
+            self.config.retry_policy.max_tries(MAX_RETRIES),
+            self.call_get_stream_configuration(stream)
+        )
+    }
+
+    async fn get_stream_tags(&self, stream: &ScopedStream) -> ResultRetry<Option<Vec<String>>> {
+        wrap_with_async_retry!(
+            self.config.retry_policy.max_tries(MAX_RETRIES),
+            self.call_get_stream_tags(stream)
         )
     }
 
@@ -722,6 +779,64 @@ impl ControllerClientImpl {
         }
     }
 
+    async fn call_list_streams_for_tag(
+        &self,
+        scope: &Scope,
+        tag: &str,
+        token: &CToken,
+    ) -> Result<Option<(Vec<ScopedStream>, CToken)>> {
+        let operation_name = "ListStreamsForTag";
+        let request: StreamsInScopeWithTagRequest = StreamsInScopeWithTagRequest {
+            scope: Some(ScopeInfo::from(scope)),
+            tag: tag.to_string(),
+            continuation_token: Some(ContinuationToken::from(token)),
+        };
+        debug!(
+            "Triggering a request to the controller to list streams with tag {} under scope {}",
+            tag, scope
+        );
+
+        let op_status: StdResult<tonic::Response<StreamsInScopeResponse>, tonic::Status> = self
+            .get_controller_client()
+            .await
+            .list_streams_in_scope_for_tag(request)
+            .await;
+        match op_status {
+            Ok(streams_with_token) => {
+                let result = streams_with_token.into_inner();
+                let mut t: Vec<StreamInfo> = result.streams;
+                if t.is_empty() {
+                    // Empty result from the controller implies no further streams present.
+                    Ok(None)
+                } else {
+                    // update state with the new set of streams.
+                    let stream_list: Vec<ScopedStream> = t.drain(..).map(|i| i.into()).collect();
+                    let token: Option<ContinuationToken> = result.continuation_token;
+                    match token.map(|t| t.token) {
+                        None => {
+                            warn!(
+                                "None returned for continuation token list streams API for scope {}",
+                                scope
+                            );
+                            Err(ControllerError::InvalidResponse {
+                                can_retry: false,
+                                error_msg: "No continuation token received from Controller".to_string(),
+                            })
+                        }
+                        Some(ct) => {
+                            debug!("Returned token {} for list streams API under scope {}", ct, scope);
+                            Ok(Some((stream_list, CToken::from(ct.as_str()))))
+                        }
+                    }
+                }
+            }
+            Err(status) => {
+                debug!("Error {} while listing streams under scope {}", status, scope);
+                Err(self.map_grpc_error(operation_name, status).await)
+            }
+        }
+    }
+
     async fn call_create_scope(&self, scope: &Scope) -> Result<bool> {
         use create_scope_status::Status;
         let operation_name = "CreateScope";
@@ -838,6 +953,27 @@ impl ControllerClientImpl {
             },
             Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
+    }
+
+    async fn call_get_stream_configuration(&self, stream: &ScopedStream) -> Result<StreamConfiguration> {
+        let request: StreamInfo = StreamInfo::from(stream);
+        let op_status: StdResult<tonic::Response<StreamConfig>, tonic::Status> = self
+            .get_controller_client()
+            .await
+            .get_stream_configuration(tonic::Request::new(request))
+            .await;
+        let operation_name = "get_stream_configuration";
+
+        match op_status {
+            Ok(config) => Ok(StreamConfiguration::from(config.into_inner())),
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
+        }
+    }
+
+    async fn call_get_stream_tags(&self, stream: &ScopedStream) -> Result<Option<Vec<String>>> {
+        self.call_get_stream_configuration(stream)
+            .await
+            .map(|cfg| cfg.tags)
     }
 
     async fn call_truncate_stream(&self, stream_cut: &StreamCut) -> Result<bool> {
@@ -1387,6 +1523,7 @@ mod test {
                 retention_type: RetentionType::None,
                 retention_param: 0,
             },
+            tags: None,
         };
         let res = rt
             .block_on(controller.create_stream(&stream_config))
@@ -1826,6 +1963,104 @@ mod test {
                 result: controller::timestamp_response::Status::Success as i32,
             };
             Ok(Response::new(reply))
+        }
+        async fn list_scopes(
+            &self,
+            _request: tonic::Request<controller::ScopesRequest>,
+        ) -> std::result::Result<Response<controller::ScopesResponse>, tonic::Status> {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+
+        async fn check_scope_exists(
+            &self,
+            _request: tonic::Request<controller::ScopeInfo>,
+        ) -> std::result::Result<tonic::Response<controller::ExistsResponse>, tonic::Status> {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn check_stream_exists(
+            &self,
+            _request: tonic::Request<controller::StreamInfo>,
+        ) -> std::result::Result<tonic::Response<controller::ExistsResponse>, tonic::Status> {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+
+        async fn create_key_value_table(
+            &self,
+            _request: tonic::Request<controller::KeyValueTableConfig>,
+        ) -> std::result::Result<tonic::Response<controller::CreateKeyValueTableStatus>, tonic::Status>
+        {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn get_current_segments_key_value_table(
+            &self,
+            _request: tonic::Request<controller::KeyValueTableInfo>,
+        ) -> std::result::Result<tonic::Response<controller::SegmentRanges>, tonic::Status> {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn list_key_value_tables_in_scope(
+            &self,
+            _request: tonic::Request<controller::KvTablesInScopeRequest>,
+        ) -> std::result::Result<tonic::Response<controller::KvTablesInScopeResponse>, tonic::Status>
+        {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn delete_key_value_table(
+            &self,
+            _request: tonic::Request<controller::KeyValueTableInfo>,
+        ) -> std::result::Result<tonic::Response<controller::DeleteKvTableStatus>, tonic::Status> {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn list_subscribers(
+            &self,
+            _request: tonic::Request<controller::StreamInfo>,
+        ) -> std::result::Result<tonic::Response<controller::SubscribersResponse>, tonic::Status> {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn update_subscriber_stream_cut(
+            &self,
+            _request: tonic::Request<controller::SubscriberStreamCut>,
+        ) -> std::result::Result<tonic::Response<controller::UpdateSubscriberStatus>, tonic::Status> {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn create_reader_group(
+            &self,
+            _request: tonic::Request<controller::ReaderGroupConfiguration>,
+        ) -> std::result::Result<tonic::Response<controller::CreateReaderGroupResponse>, tonic::Status>
+        {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn get_reader_group_config(
+            &self,
+            _request: tonic::Request<controller::ReaderGroupInfo>,
+        ) -> std::result::Result<tonic::Response<controller::ReaderGroupConfigResponse>, tonic::Status>
+        {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn delete_reader_group(
+            &self,
+            _request: tonic::Request<controller::ReaderGroupInfo>,
+        ) -> std::result::Result<tonic::Response<controller::DeleteReaderGroupStatus>, tonic::Status>
+        {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn update_reader_group(
+            &self,
+            _request: tonic::Request<controller::ReaderGroupConfiguration>,
+        ) -> std::result::Result<tonic::Response<controller::UpdateReaderGroupResponse>, tonic::Status>
+        {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn get_stream_configuration(
+            &self,
+            _request: tonic::Request<controller::StreamInfo>,
+        ) -> std::result::Result<tonic::Response<controller::StreamConfig>, tonic::Status> {
+            Err(tonic::Status::unimplemented("Not Implemented"))
+        }
+        async fn list_streams_in_scope_for_tag(
+            &self,
+            _request: tonic::Request<controller::StreamsInScopeWithTagRequest>,
+        ) -> std::result::Result<tonic::Response<controller::StreamsInScopeResponse>, tonic::Status> {
+            Err(tonic::Status::unimplemented("Not Implemented"))
         }
     }
 

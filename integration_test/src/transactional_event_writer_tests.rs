@@ -196,6 +196,7 @@ async fn setup_test(scope_name: &Scope, stream_name: &Stream, controller_client:
             retention_type: RetentionType::None,
             retention_param: 0,
         },
+        tags: None,
     };
     controller_client
         .create_stream(&request)

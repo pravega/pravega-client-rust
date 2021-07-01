@@ -27,9 +27,12 @@ cfg_if! {
 /// Create a StreamManager by providing a controller uri.
 /// ```
 /// import pravega_client;
-/// manager=pravega_client.StreamManager("127.0.0.1:9090")
+/// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
 /// // this manager can be used to create scopes, streams, writers and readers against Pravega.
 /// manager.create_scope("scope")
+///
+/// // optionally enable tls support using tls:// scheme
+/// manager=pravega_client.StreamManager("tls://127.0.0.1:9090")
 /// ```
 ///
 #[cfg(feature = "python_binding")]
@@ -45,9 +48,12 @@ pub(crate) struct StreamManager {
 /// Create a StreamManager by providing a controller uri.
 /// ```
 /// import pravega_client;
-/// manager=pravega_client.StreamManager("127.0.0.1:9090")
+/// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
 /// // this manager can be used to create scopes, streams, writers and readers against Pravega.
 /// manager.create_scope("scope")
+///
+/// // optionally enable tls support using tls:// scheme
+/// manager=pravega_client.StreamManager("tls://127.0.0.1:9090")
 /// ```
 ///
 #[cfg(feature = "python_binding")]
@@ -56,12 +62,17 @@ impl StreamManager {
     #[new]
     #[args(auth_enabled = "false", tls_enabled = "false")]
     fn new(controller_uri: &str, auth_enabled: bool, tls_enabled: bool) -> Self {
-        let config = ClientConfigBuilder::default()
+        let mut builder = ClientConfigBuilder::default();
+
+        builder
             .controller_uri(controller_uri)
-            .is_auth_enabled(auth_enabled)
-            .is_tls_enabled(tls_enabled)
-            .build()
-            .expect("creating config");
+            .is_auth_enabled(auth_enabled);
+        if tls_enabled {
+            // would be better to have tls_enabled be &PyAny
+            // and args tls_enabled = None or sentinel e.g. missing=object()
+            builder.is_tls_enabled(tls_enabled);
+        }
+        let config = builder.build().expect("creating config");
         let client_factory = ClientFactory::new(config.clone());
 
         StreamManager {
@@ -140,6 +151,7 @@ impl StreamManager {
                 retention_type: RetentionType::None,
                 retention_param: 0,
             },
+            tags: None,
         };
         let controller = self.cf.controller_client();
 
@@ -199,7 +211,7 @@ impl StreamManager {
     ///
     /// ```
     /// import pravega_client;
-    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
+    /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
     /// // Create a writer against an already created Pravega scope and Stream.
     /// writer=manager.create_writer("scope", "stream")
     /// ```
@@ -223,7 +235,7 @@ impl StreamManager {
     ///
     /// ```
     /// import pravega_client;
-    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
+    /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
     /// // Create a transactional writer against an already created Pravega scope and Stream.
     /// writer=manager.create_transaction_writer("scope", "stream", "123")
     /// ```
@@ -253,7 +265,7 @@ impl StreamManager {
     ///
     /// ```
     /// import pravega_client;
-    /// manager=pravega_client.StreamManager("127.0.0.1:9090")
+    /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
     /// // Create a ReaderGroup against an already created Pravega scope and Stream.
     /// event.reader_group=manager.create_reader_group("rg1", "scope", "stream")
     /// ```

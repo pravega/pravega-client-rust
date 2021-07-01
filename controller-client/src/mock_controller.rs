@@ -99,6 +99,47 @@ impl ControllerClient for MockController {
         Ok(Some((result, CToken::from("mock_token"))))
     }
 
+    async fn list_streams_for_tag(
+        &self,
+        scope: &Scope,
+        tag: &str,
+        _token: &CToken,
+    ) -> Result<Option<(Vec<ScopedStream>, CToken)>, RetryError<ControllerError>> {
+        let scope_gaurd = self.created_scopes.read().await;
+        let stream_gaurd = self.created_streams.read().await;
+
+        let streams_set = scope_gaurd.get(&scope.name).ok_or(RetryError {
+            error: ControllerError::OperationError {
+                can_retry: false,
+                operation: "listStreams".into(),
+                error_msg: "Scope not exist".into(),
+            },
+            total_delay: Duration::from_millis(1),
+            tries: 0,
+        })?;
+        let mut result = Vec::new();
+        for stream in streams_set {
+            let cfg = stream_gaurd.get(stream).ok_or(RetryError {
+                error: ControllerError::OperationError {
+                    can_retry: false,
+                    operation: "listStreamsForTag".into(),
+                    error_msg: "Stream does not exist".into(),
+                },
+                total_delay: Duration::from_millis(1),
+                tries: 0,
+            })?;
+            match &cfg.tags {
+                None => {}
+                Some(tag_list) => {
+                    if tag_list.contains(&tag.to_string()) {
+                        result.push(stream.clone())
+                    }
+                }
+            };
+        }
+        Ok(Some((result, CToken::from("mock_token"))))
+    }
+
     async fn delete_scope(&self, scope: &Scope) -> Result<bool, RetryError<ControllerError>> {
         let scope_name = scope.name.clone();
         if self.created_scopes.read().await.get(&scope_name).is_none() {
@@ -174,6 +215,30 @@ impl ControllerClient for MockController {
             error: ControllerError::OperationError {
                 can_retry: false,
                 operation: "update stream".into(),
+                error_msg: "unsupported operation.".into(),
+            },
+            total_delay: Duration::from_millis(1),
+            tries: 0,
+        })
+    }
+
+    async fn get_stream_configuration(&self, _stream: &ScopedStream) -> ResultRetry<StreamConfiguration> {
+        Err(RetryError {
+            error: ControllerError::OperationError {
+                can_retry: false,
+                operation: "get stream configuration".into(),
+                error_msg: "unsupported operation.".into(),
+            },
+            total_delay: Duration::from_millis(1),
+            tries: 0,
+        })
+    }
+
+    async fn get_stream_tags(&self, _stream: &ScopedStream) -> ResultRetry<Option<Vec<String>>> {
+        Err(RetryError {
+            error: ControllerError::OperationError {
+                can_retry: false,
+                operation: "get stream tags".into(),
                 error_msg: "unsupported operation.".into(),
             },
             total_delay: Duration::from_millis(1),

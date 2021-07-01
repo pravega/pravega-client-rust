@@ -298,7 +298,7 @@ async fn test_iterators(client_factory: &ClientFactory) {
             Ok(t) => {
                 let k: String = t.0;
                 info!("key {:?} version {:?}", k, t.1);
-                assert_eq!(false, k.is_empty());
+                assert!(!k.is_empty());
                 key_count += 1;
             }
             _ => panic!("Failed fetch keys."),
@@ -317,8 +317,8 @@ async fn test_iterators(client_factory: &ClientFactory) {
                 let v: String = t.1;
 
                 info!("key {:?} value {:?} version {:?}", k, v, t.2);
-                assert_eq!(false, k.is_empty());
-                assert_eq!(false, v.is_empty());
+                assert!(!k.is_empty());
+                assert!(!v.is_empty());
                 entry_count += 1;
             }
             _ => panic!("Failed fetch entries."),

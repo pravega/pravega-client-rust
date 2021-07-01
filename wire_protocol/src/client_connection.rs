@@ -105,7 +105,6 @@ impl ClientConnection for ClientConnectionImpl<'_> {
 
     fn split(&mut self) -> (ClientConnectionReadHalf, ClientConnectionWriteHalf) {
         let (r, w) = self.connection.split();
-        self.connection.invalidate();
         let reader = ClientConnectionReadHalf { read_half: r };
         let writer = ClientConnectionWriteHalf { write_half: w };
         (reader, writer)
@@ -117,6 +116,7 @@ impl ClientConnection for ClientConnectionImpl<'_> {
 }
 
 pub async fn read_wirecommand(connection: &mut dyn Connection) -> Result<Replies, ClientConnectionError> {
+    connection.can_recycle(false);
     let mut header: Vec<u8> = vec![0; LENGTH_FIELD_OFFSET as usize + LENGTH_FIELD_LENGTH as usize];
     connection.read_async(&mut header[..]).await.context(Read {
         part: "header".to_string(),
@@ -136,6 +136,7 @@ pub async fn read_wirecommand(connection: &mut dyn Connection) -> Result<Replies
     })?;
     let concatenated = [&header[..], &payload[..]].concat();
     let reply: Replies = Replies::read_from(&concatenated).context(DecodeCommand {})?;
+    connection.can_recycle(true);
     Ok(reply)
 }
 
@@ -143,8 +144,14 @@ pub async fn write_wirecommand(
     connection: &mut dyn Connection,
     request: &Requests,
 ) -> Result<(), ClientConnectionError> {
+    connection.can_recycle(false);
     let payload = request.write_fields().context(EncodeCommand {})?;
-    connection.send_async(&payload).await.context(Write {})
+    if let Err(e) = connection.send_async(&payload).await.context(Write {}) {
+        return Err(e);
+    } else {
+        connection.can_recycle(true);
+    }
+    Ok(())
 }
 
 #[cfg(test)]

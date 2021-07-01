@@ -156,8 +156,10 @@ impl Connection for MockConnection {
     }
 
     fn is_valid(&self) -> bool {
-        true
+        false
     }
+
+    fn can_recycle(&mut self, _is_valid: bool) {}
 }
 
 impl Debug for MockConnection {

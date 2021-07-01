@@ -110,7 +110,7 @@ async fn test_simple_write(writer: &mut EventWriter) {
 
     for rx in receivers {
         let reply: Result<(), Error> = rx.await.expect("wait for result from oneshot");
-        assert_eq!(reply.is_ok(), true);
+        assert!(reply.is_ok());
     }
     info!("test simple write passed");
 }
@@ -150,7 +150,7 @@ async fn test_segment_scaling_up(writer: &mut EventWriter, factory: &ClientFacto
 
     for rx in receivers {
         let reply: Result<(), Error> = rx.await.expect("wait for result from oneshot");
-        assert_eq!(reply.is_ok(), true);
+        assert!(reply.is_ok());
     }
 
     info!("test event stream writer with segment scaled up passed");
@@ -189,7 +189,7 @@ async fn test_segment_scaling_down(writer: &mut EventWriter, factory: &ClientFac
 
     for rx in receivers {
         let reply: Result<(), Error> = rx.await.expect("wait for result from oneshot");
-        assert_eq!(reply.is_ok(), true);
+        assert!(reply.is_ok());
     }
     info!("test event stream writer with segment sealed passed");
 }
@@ -198,7 +198,7 @@ async fn test_write_correctness(writer: &mut EventWriter, factory: &ClientFactor
     info!("test read and write");
     let rx = writer.write_event(String::from("event0").into_bytes()).await;
     let reply: Result<(), Error> = rx.await.expect("wait for result from oneshot");
-    assert_eq!(reply.is_ok(), true);
+    assert!(reply.is_ok());
     let scope_name = Scope::from("testScopeWriter2".to_owned());
     let stream_name = Stream::from("testStreamWriter2".to_owned());
     let segment_name = ScopedSegment {
@@ -253,8 +253,8 @@ async fn test_write_correctness_while_scaling(writer: &mut EventWriter, factory:
             assert_eq!(2, current_segments_result.unwrap().key_segment_map.len());
         }
 
+        let data = format!("event{}", i);
         if i % 2 == 0 {
-            let data = format!("event{}", i);
             // Routing key "even" and "odd" works is because their hashed value are in
             // 0~0.5 and 0.5~1.0 respectively. If the routing key hashing algorithm changed, this
             // test might fail.
@@ -263,7 +263,6 @@ async fn test_write_correctness_while_scaling(writer: &mut EventWriter, factory:
                 .await;
             receivers.push(rx);
         } else {
-            let data = format!("event{}", i);
             let rx = writer
                 .write_event_by_routing_key(String::from("odd"), data.into_bytes())
                 .await;
@@ -274,7 +273,7 @@ async fn test_write_correctness_while_scaling(writer: &mut EventWriter, factory:
     // the data should write successfully.
     for rx in receivers {
         let reply: Result<(), Error> = rx.await.expect("wait for result from oneshot");
-        assert_eq!(reply.is_ok(), true);
+        assert!(reply.is_ok());
     }
 
     let segment_name = ScopedSegment {
@@ -351,14 +350,13 @@ async fn test_write_correctness_with_routing_key(writer: &mut EventWriter, facto
     let stream_name = Stream::from("testStreamWriter3".to_owned());
     let mut receivers = vec![];
     while i < count {
+        let data = format!("event{}", i);
         if i % 2 == 0 {
-            let data = format!("event{}", i);
             let rx = writer
                 .write_event_by_routing_key(String::from("even"), data.into_bytes())
                 .await;
             receivers.push(rx);
         } else {
-            let data = format!("event{}", i);
             let rx = writer
                 .write_event_by_routing_key(String::from("odd"), data.into_bytes())
                 .await;

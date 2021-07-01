@@ -12,9 +12,12 @@ use crate::pravega_service::PravegaStandaloneServiceConfig;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_client_shared::*;
+use pravega_controller_client::paginator::{list_streams, list_streams_for_tag};
 use pravega_controller_client::ControllerClient;
 use std::sync::Arc;
 use tracing::info;
+
+const SCOPE: &str = "testScope123";
 
 pub fn test_controller_apis(config: PravegaStandaloneServiceConfig) {
     let config = ClientConfigBuilder::default()
@@ -26,41 +29,143 @@ pub fn test_controller_apis(config: PravegaStandaloneServiceConfig) {
     let client_factory = ClientFactory::new(config);
 
     let controller = client_factory.controller_client();
-    let scope_name = Scope::from("testScope123".to_owned());
-    let stream_name = Stream::from("testStream".to_owned());
     let handle = client_factory.runtime();
-
-    let scope_result = handle.block_on(controller.create_scope(&scope_name));
+    // Create a Scope that is used by all the tests.
+    let scope_result = handle.block_on(controller.create_scope(&Scope::from(SCOPE.to_owned())));
     info!("Response for create_scope is {:?}", scope_result);
+    // Inovke the tests.
+    handle.block_on(test_stream_tags(controller));
+    //handle.block_on(test_scale_stream(controller));
+}
+
+pub async fn test_stream_tags(controller: &dyn ControllerClient) {
+    let scope_name = Scope::from(SCOPE.to_string());
+    let stream_name = Stream::from("testTags".to_owned());
+    let scoped_stream1 = ScopedStream {
+        scope: scope_name.clone(),
+        stream: stream_name,
+    };
 
     let stream_cfg = StreamConfiguration {
-        scoped_stream: ScopedStream {
-            scope: scope_name,
-            stream: stream_name,
-        },
+        scoped_stream: scoped_stream1.clone(),
         scaling: Scaling {
             scale_type: ScaleType::FixedNumSegments,
             target_rate: 0,
             scale_factor: 0,
             min_num_segments: 1,
         },
-        retention: Retention {
-            retention_type: RetentionType::None,
-            retention_param: 0,
-        },
+        retention: Default::default(),
+        tags: Some(vec!["tag1".to_string(), "tag2".to_string()]),
     };
 
-    let stream_result = handle.block_on(controller.create_stream(&stream_cfg));
+    let stream_result = controller.create_stream(&stream_cfg).await;
     info!("Response for create_stream is {:?}", stream_result);
+    let config_result = controller
+        .get_stream_configuration(&scoped_stream1)
+        .await
+        .unwrap();
+    assert_eq!(config_result, stream_cfg);
+    info!("Response of get Stream Configuration is {:?}", config_result);
 
-    handle.block_on(test_scale_stream(controller));
+    let tags = controller.get_stream_tags(&scoped_stream1).await.unwrap();
+    assert_eq!(tags, stream_cfg.tags);
+    info!("Response for getTags is {:?}", tags);
+
+    let scoped_stream2 = ScopedStream {
+        scope: scope_name.clone(),
+        stream: Stream {
+            name: "testTags2".to_string(),
+        },
+    };
+    let stream_cfg = StreamConfiguration {
+        scoped_stream: scoped_stream2.clone(),
+        scaling: Scaling {
+            scale_type: ScaleType::ByRateInEventsPerSec,
+            target_rate: 10,
+            scale_factor: 2,
+            min_num_segments: 1,
+        },
+        retention: Retention {
+            retention_type: RetentionType::Size,
+            retention_param: 1024 * 1024,
+        },
+        tags: Some(vec!["tag2".to_string(), "tag3".to_string()]),
+    };
+    let stream_result = controller.create_stream(&stream_cfg).await;
+    info!("Response for create_stream is {:?}", stream_result);
+    let config_result = controller
+        .get_stream_configuration(&scoped_stream2)
+        .await
+        .unwrap();
+    assert_eq!(config_result, stream_cfg);
+    info!("Response of get Stream Configuration is {:?}", config_result);
+
+    let tags = controller.get_stream_tags(&scoped_stream2).await.unwrap();
+    assert_eq!(tags, stream_cfg.tags);
+    info!("Response for getTags is {:?}", tags);
+
+    // Verify listStreams for the specified tag.
+    let stream_list = get_all_streams_for_tag(controller, &scope_name, "tag2").await;
+
+    assert_eq!(2, stream_list.len());
+    assert!(stream_list.contains(&scoped_stream1));
+    assert!(stream_list.contains(&scoped_stream2));
+
+    let stream_list = get_all_streams_for_tag(controller, &scope_name, "tag1").await;
+
+    assert_eq!(1, stream_list.len());
+    assert!(stream_list.contains(&scoped_stream1));
+
+    use futures::StreamExt;
+    let stream = list_streams_for_tag(scope_name, "tag2".to_string(), controller);
+    futures::pin_mut!(stream);
+    let stream_list: Vec<ScopedStream> = stream
+        .map(|str| str.unwrap())
+        .collect::<Vec<ScopedStream>>()
+        .await;
+    assert_eq!(2, stream_list.len());
+    assert!(stream_list.contains(&scoped_stream1));
+    assert!(stream_list.contains(&scoped_stream2));
+}
+
+// Helper method to fetch all the streams for a tag.
+async fn get_all_streams_for_tag(
+    controller: &dyn ControllerClient,
+    scope_name: &Scope,
+    tag: &str,
+) -> Vec<ScopedStream> {
+    let mut result: Vec<ScopedStream> = Vec::new();
+
+    let mut token = CToken::empty();
+    while let Some((mut res, next_token)) = controller
+        .list_streams_for_tag(&scope_name, tag, &token)
+        .await
+        .unwrap()
+    {
+        result.append(&mut res);
+        token = next_token;
+    }
+    result
 }
 
 pub async fn test_scale_stream(controller: &dyn ControllerClient) {
     let scoped_stream = ScopedStream {
         scope: Scope::from("testScope123".to_owned()),
-        stream: Stream::from("testStream".to_owned()),
+        stream: Stream::from("testStreamScale".to_owned()),
     };
+    let stream_cfg = StreamConfiguration {
+        scoped_stream: scoped_stream.clone(),
+        scaling: Scaling {
+            scale_type: ScaleType::FixedNumSegments,
+            target_rate: 0,
+            scale_factor: 0,
+            min_num_segments: 1,
+        },
+        retention: Default::default(),
+        tags: Some(vec!["tag1".to_string(), "tag2".to_string()]),
+    };
+    let stream_result = controller.create_stream(&stream_cfg).await;
+    info!("Response of create stream is {:?}", stream_result);
 
     let current_segments_result = controller.get_current_segments(&scoped_stream).await;
     info!(

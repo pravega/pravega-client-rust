@@ -137,8 +137,16 @@ impl ClientFactory {
         ByteWriter::new(segment, self.clone())
     }
 
+    pub async fn create_byte_writer_async(&self, segment: ScopedSegment) -> ByteWriter {
+        ByteWriter::new_async(segment, self.clone()).await
+    }
+
     pub fn create_byte_reader(&self, segment: ScopedSegment) -> ByteReader {
         ByteReader::new(segment, self.clone(), self.config().reader_wrapper_buffer_size())
+    }
+
+    pub async fn create_byte_reader_async(&self, segment: ScopedSegment) -> ByteReader {
+        ByteReader::new_async(segment, self.clone(), self.config().reader_wrapper_buffer_size()).await
     }
 
     pub async fn create_table(&self, scope: Scope, name: String) -> Table {
@@ -226,13 +234,11 @@ impl ClientFactoryInternal {
         stream: ScopedStream,
     ) -> DelegationTokenProvider {
         let token_provider = DelegationTokenProvider::new(stream);
-        if self.config.is_auth_enabled {
-            token_provider
-        } else {
+        if !self.config.is_auth_enabled {
             let empty_token = DelegationToken::new("".to_string(), None);
             token_provider.populate(empty_token).await;
-            token_provider
         }
+        token_provider
     }
 
     pub(crate) fn get_connection_pool(&self) -> &ConnectionPool<SegmentConnectionManager> {

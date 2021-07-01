@@ -23,54 +23,49 @@ use tracing::info;
 ///
 /// The below snippets show case the example uses.
 /// Sample 1:
-///```ignore
-/// # futures::executor::block_on(async {
+///```
+/// # use tonic::transport::Channel;
+/// # use pravega_controller_client::controller::controller_service_client::ControllerServiceClient;
+/// use pravega_controller_client::ControllerClient;
+/// # async fn call_list_stream(controller_client: &dyn ControllerClient) {
 /// use pravega_client_shared::Scope;
 /// use pravega_client_shared::ScopedStream;
+/// use futures::future;
+/// use futures::stream::StreamExt;
 /// use pravega_controller_client::paginator::list_streams;
-/// use pravega_client::client_factory::ClientFactory;
-/// use pravega_client_config::ClientConfigBuilder;
-/// use pravega_client_config::MOCK_CONTROLLER_URI;
-///     let config = ClientConfigBuilder::default()
-///         .controller_uri(MOCK_CONTROLLER_URI)
-///         .build()
-///         .expect("creating config");
-///     let controller_client = ClientFactory::new(config).get_controller_client();
-///     let stream = list_streams(
-///         Scope {
-///             name: "testScope".to_string(),
-///         },
-///         controller_client,
-///     );
-///     // collect all the Streams in a single vector
-///     let stream_list:Vec<ScopedStream> = stream.map(|str| str.unwrap()).collect::<Vec<ScopedStream>>().await;
-///  # });
+/// let stream = list_streams(
+///     Scope {
+///         name: "testScope".to_string(),
+///     },
+///     controller_client,
+/// );
+/// // collect all the Streams in a single vector
+/// let stream_list:Vec<ScopedStream> = stream.map(|str| str.unwrap()).collect::<Vec<ScopedStream>>().await;
+/// # }
 /// ```
 ///
 /// Sample 2:
-/// ```ignore
-/// # futures::executor::block_on(async {
+/// ```
+/// # use tonic::transport::Channel;
+/// # use pravega_controller_client::controller::controller_service_client::ControllerServiceClient;
+/// use pravega_controller_client::ControllerClient;
+/// # async fn call_list_stream(controller_client: &dyn ControllerClient) {
 /// use pravega_client_shared::Scope;
+/// use pravega_client_shared::ScopedStream;
+/// use futures::future;
+/// use futures::stream::StreamExt;
 /// use pravega_controller_client::paginator::list_streams;
-/// use pravega_client::client_factory::ClientFactory;
-/// use pravega_client_config::ClientConfigBuilder;
-/// use pravega_client_config::MOCK_CONTROLLER_URI;
-/// use futures::StreamExt;
-///     let config = ClientConfigBuilder::default()
-///         .controller_uri(MOCK_CONTROLLER_URI)
-///         .build()
-///         .expect("creating config");
-///     let controller_client = ClientFactory::new(config).get_controller_client();
-///     let mut stream = list_streams(
-///         Scope {
-///             name: "testScope".to_string(),
-///         },
-///         controller_client,
-///     );
+/// let stream = list_streams(
+///     Scope {
+///         name: "testScope".to_string(),
+///     },
+///     controller_client,
+/// );
+/// futures::pin_mut!(stream);
 /// let pravega_stream_1 = stream.next().await;
 /// let pravega_stream_2 = stream.next().await;
 /// // A None is returned at the end of the stream.
-///  # });
+/// # }
 /// ```
 ///
 pub fn list_streams(
@@ -124,6 +119,122 @@ pub fn list_streams(
         State {
             streams: Vec::new().into_iter(),
             scope,
+            token: CToken::empty(),
+        },
+        get_next_stream_async,
+    )
+}
+
+///
+///Helper method to iterated over the all the Pravega streams under the provided Scope.
+///This method returns a stream of values,Pravega streams, produced asynchronously.
+///
+/// The below snippets show case the example uses.
+///
+/// Sample 1:
+/// ```
+/// # use tonic::transport::Channel;
+/// # use pravega_controller_client::controller::controller_service_client::ControllerServiceClient;
+/// use pravega_controller_client::ControllerClient;
+/// # async fn call_list_stream(controller_client: &dyn ControllerClient) {
+/// use pravega_client_shared::Scope;
+/// use pravega_client_shared::ScopedStream;
+/// use futures::future;
+/// use futures::stream::StreamExt;
+/// use pravega_controller_client::paginator::list_streams_for_tag;
+/// let stream = list_streams_for_tag(
+///     Scope {
+///         name: "testScope".to_string(),
+///     },
+///     "tagx".to_string(),
+///     controller_client,
+/// );
+/// // collect all the Streams in a single vector
+/// let stream_list:Vec<ScopedStream> = stream.map(|str| str.unwrap()).collect::<Vec<ScopedStream>>().await;
+/// # }
+/// ```
+///
+/// Sample 2:
+/// ```
+/// # use tonic::transport::Channel;
+/// # use pravega_controller_client::controller::controller_service_client::ControllerServiceClient;
+/// use pravega_controller_client::ControllerClient;
+/// # async fn call_list_stream(controller_client: &dyn ControllerClient) {
+/// use pravega_client_shared::Scope;
+/// use pravega_client_shared::ScopedStream;
+/// use futures::future;
+/// use futures::stream::StreamExt;
+/// use pravega_controller_client::paginator::list_streams_for_tag;
+/// let stream = list_streams_for_tag(
+///      Scope {
+///         name: "testScope".to_string(),
+///      },
+///     "tagx".to_string(),
+///     controller_client,
+/// );
+/// futures::pin_mut!(stream);
+/// let pravega_stream_1 = stream.next().await;
+/// let pravega_stream_2 = stream.next().await;
+/// // A None is returned at the end of the stream.
+/// # }
+/// ```
+///
+pub fn list_streams_for_tag(
+    scope: Scope,
+    tag: String,
+    client: &dyn ControllerClient,
+) -> impl Stream<Item = Result<ScopedStream, RetryError<ControllerError>>> + '_ {
+    struct State {
+        streams: IntoIter<ScopedStream>,
+        scope: Scope,
+        tag: String,
+        token: CToken,
+    }
+
+    // Initial state with an empty Continuation token.
+    let get_next_stream_async = move |mut state: State| async move {
+        if let Some(element) = state.streams.next() {
+            Some((Ok(element), state))
+        } else {
+            // execute a request to the controller.
+            info!(
+                "Fetch the next set of streams with tag {} under scope {} using the provided token",
+                state.tag, state.scope
+            );
+            let res: ResultRetry<Option<(Vec<ScopedStream>, CToken)>> = client
+                .list_streams_for_tag(&state.scope, &state.tag, &state.token)
+                .await;
+            match res {
+                Ok(None) => None,
+                Ok(Some((list, ct))) => {
+                    // create a consuming iterator
+                    let mut stream_iter = list.into_iter();
+                    Some((
+                        Ok(stream_iter.next()?),
+                        State {
+                            streams: stream_iter,
+                            scope: state.scope.clone(),
+                            tag: state.tag.clone(),
+                            token: ct,
+                        },
+                    ))
+                }
+                Err(e) => {
+                    //log an error and return None to indicate end of stream.
+                    error!(
+                        "Error while attempting to list streams with tag {} under scope {}. Error: {:?}",
+                        state.tag, state.scope, e
+                    );
+                    None
+                }
+            }
+        }
+    };
+    stream::unfold(
+        State {
+            streams: Vec::new().into_iter(),
+            scope,
+            tag,
             token: CToken::empty(),
         },
         get_next_stream_async,

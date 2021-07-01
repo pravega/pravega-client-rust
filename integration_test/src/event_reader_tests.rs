@@ -727,6 +727,7 @@ async fn create_scope_stream(
             retention_type: RetentionType::None,
             retention_param: 0,
         },
+        tags: None,
     };
     controller_client
         .create_stream(&request)
