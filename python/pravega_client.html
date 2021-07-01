@@ -72,6 +72,12 @@ event.reader_group=manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot
 <dd>
 <div class="desc"><p>Create a Stream in Pravega.</p></div>
 </dd>
+<dt id="pravega_client.StreamManager.create_stream_with_policy"><code class="name flex">
+<span>def <span class="ident">create_stream_with_policy</span></span>(<span>self, /, scope_name, stream_name, scaling_policy, retention_policy, tags)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Create a Stream in Pravega</p></div>
+</dd>
 <dt id="pravega_client.StreamManager.create_transaction_writer"><code class="name flex">
 <span>def <span class="ident">create_transaction_writer</span></span>(<span>self, /, scope_name, stream_name, writer_id)</span>
 </code></dt>
@@ -106,6 +112,12 @@ writer=manager.create_writer(&quot;scope&quot;, &quot;stream&quot;)
 <dd>
 <div class="desc"><p>Delete a Stream in Pravega.</p></div>
 </dd>
+<dt id="pravega_client.StreamManager.get_stream_tags"><code class="name flex">
+<span>def <span class="ident">get_stream_tags</span></span>(<span>self, /, scope_name, stream_name, scaling_policy, retention_policy, tags)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get Stream tags from Pravega</p></div>
+</dd>
 <dt id="pravega_client.StreamManager.seal_stream"><code class="name flex">
 <span>def <span class="ident">seal_stream</span></span>(<span>self, /, scope_name, stream_name)</span>
 </code></dt>
@@ -117,6 +129,12 @@ writer=manager.create_writer(&quot;scope&quot;, &quot;stream&quot;)
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the string representation.</p></div>
+</dd>
+<dt id="pravega_client.StreamManager.update_stream_with_policy"><code class="name flex">
+<span>def <span class="ident">update_stream_with_policy</span></span>(<span>self, /, scope_name, stream_name, scaling_policy, retention_policy, tags)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Update Stream Configuration in Pravega</p></div>
 </dd>
 </dl>
 </dd>
@@ -200,6 +218,62 @@ for event in slice:
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the string representation.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="pravega_client.StreamRetentionPolicy"><code class="flex name class">
+<span>class <span class="ident">StreamRetentionPolicy</span></span>
+<span>(</span><span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<h3>Static methods</h3>
+<dl>
+<dt id="pravega_client.StreamRetentionPolicy.by_size"><code class="name flex">
+<span>def <span class="ident">by_size</span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pravega_client.StreamRetentionPolicy.by_time"><code class="name flex">
+<span>def <span class="ident">by_time</span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pravega_client.StreamRetentionPolicy.none"><code class="name flex">
+<span>def <span class="ident">none</span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="pravega_client.StreamScalingPolicy"><code class="flex name class">
+<span>class <span class="ident">StreamScalingPolicy</span></span>
+<span>(</span><span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<h3>Static methods</h3>
+<dl>
+<dt id="pravega_client.StreamScalingPolicy.auto_scaling_policy_by_data_rate"><code class="name flex">
+<span>def <span class="ident">auto_scaling_policy_by_data_rate</span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pravega_client.StreamScalingPolicy.auto_scaling_policy_by_event_rate"><code class="name flex">
+<span>def <span class="ident">auto_scaling_policy_by_event_rate</span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pravega_client.StreamScalingPolicy.fixed_scaling_policy"><code class="name flex">
+<span>def <span class="ident">fixed_scaling_policy</span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
 </dd>
 </dl>
 </dd>
@@ -390,12 +464,15 @@ writer.write_event_bytes(e_bytes, &quot;key1&quot;)
 <li><code><a title="pravega_client.StreamManager.create_reader_group" href="#pravega_client.StreamManager.create_reader_group">create_reader_group</a></code></li>
 <li><code><a title="pravega_client.StreamManager.create_scope" href="#pravega_client.StreamManager.create_scope">create_scope</a></code></li>
 <li><code><a title="pravega_client.StreamManager.create_stream" href="#pravega_client.StreamManager.create_stream">create_stream</a></code></li>
+<li><code><a title="pravega_client.StreamManager.create_stream_with_policy" href="#pravega_client.StreamManager.create_stream_with_policy">create_stream_with_policy</a></code></li>
 <li><code><a title="pravega_client.StreamManager.create_transaction_writer" href="#pravega_client.StreamManager.create_transaction_writer">create_transaction_writer</a></code></li>
 <li><code><a title="pravega_client.StreamManager.create_writer" href="#pravega_client.StreamManager.create_writer">create_writer</a></code></li>
 <li><code><a title="pravega_client.StreamManager.delete_scope" href="#pravega_client.StreamManager.delete_scope">delete_scope</a></code></li>
 <li><code><a title="pravega_client.StreamManager.delete_stream" href="#pravega_client.StreamManager.delete_stream">delete_stream</a></code></li>
+<li><code><a title="pravega_client.StreamManager.get_stream_tags" href="#pravega_client.StreamManager.get_stream_tags">get_stream_tags</a></code></li>
 <li><code><a title="pravega_client.StreamManager.seal_stream" href="#pravega_client.StreamManager.seal_stream">seal_stream</a></code></li>
 <li><code><a title="pravega_client.StreamManager.to_str" href="#pravega_client.StreamManager.to_str">to_str</a></code></li>
+<li><code><a title="pravega_client.StreamManager.update_stream_with_policy" href="#pravega_client.StreamManager.update_stream_with_policy">update_stream_with_policy</a></code></li>
 </ul>
 </li>
 <li>
@@ -412,6 +489,22 @@ writer.write_event_bytes(e_bytes, &quot;key1&quot;)
 <ul class="">
 <li><code><a title="pravega_client.StreamReaderGroup.create_reader" href="#pravega_client.StreamReaderGroup.create_reader">create_reader</a></code></li>
 <li><code><a title="pravega_client.StreamReaderGroup.to_str" href="#pravega_client.StreamReaderGroup.to_str">to_str</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="pravega_client.StreamRetentionPolicy" href="#pravega_client.StreamRetentionPolicy">StreamRetentionPolicy</a></code></h4>
+<ul class="">
+<li><code><a title="pravega_client.StreamRetentionPolicy.by_size" href="#pravega_client.StreamRetentionPolicy.by_size">by_size</a></code></li>
+<li><code><a title="pravega_client.StreamRetentionPolicy.by_time" href="#pravega_client.StreamRetentionPolicy.by_time">by_time</a></code></li>
+<li><code><a title="pravega_client.StreamRetentionPolicy.none" href="#pravega_client.StreamRetentionPolicy.none">none</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="pravega_client.StreamScalingPolicy" href="#pravega_client.StreamScalingPolicy">StreamScalingPolicy</a></code></h4>
+<ul class="">
+<li><code><a title="pravega_client.StreamScalingPolicy.auto_scaling_policy_by_data_rate" href="#pravega_client.StreamScalingPolicy.auto_scaling_policy_by_data_rate">auto_scaling_policy_by_data_rate</a></code></li>
+<li><code><a title="pravega_client.StreamScalingPolicy.auto_scaling_policy_by_event_rate" href="#pravega_client.StreamScalingPolicy.auto_scaling_policy_by_event_rate">auto_scaling_policy_by_event_rate</a></code></li>
+<li><code><a title="pravega_client.StreamScalingPolicy.fixed_scaling_policy" href="#pravega_client.StreamScalingPolicy.fixed_scaling_policy">fixed_scaling_policy</a></code></li>
 </ul>
 </li>
 <li>
