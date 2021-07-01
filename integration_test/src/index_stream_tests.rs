@@ -31,7 +31,7 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use pravega_client::event::EventReader;
 use pravega_client::index::reader::IndexReaderError;
 use pravega_client::index::writer::IndexWriterError;
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Read, Write};
 use std::net::SocketAddr;
 use std::sync::atomic::Ordering;
 use tokio::runtime::{Handle, Runtime};
@@ -95,7 +95,7 @@ pub fn test_index_stream(config: PravegaStandaloneServiceConfig) {
     handle.block_on(test_new_record(&mut writer, &mut reader));
     handle.block_on(test_condition_append(&mut writer));
 
-    let mut writer = handle.block_on(client_factory.create_index_writer(scoped_segment.clone()));
+    let mut writer = handle.block_on(client_factory.create_index_writer(scoped_segment));
     handle.block_on(test_new_record_out_of_order(&mut writer));
 }
 
@@ -135,10 +135,10 @@ async fn test_write_and_read(
 
     // test search offset
     let offset = reader.search_offset(("id", 5)).await.expect("get offset");
-    assert_eq!(offset, SeekFrom::Start(1024 * 4 * 4));
+    assert_eq!(offset, 1024 * 4 * 4);
 
     let offset = reader.search_offset(("id", 0)).await.expect("get offset");
-    assert_eq!(offset, SeekFrom::Start(0));
+    assert_eq!(offset, 0);
 
     let res = reader.search_offset(("uuid", 11)).await;
     assert!(
@@ -187,10 +187,10 @@ async fn test_new_record(writer: &mut IndexWriter<TestRecord1>, reader: &mut Ind
 
     // test search offset
     let offset = reader.search_offset(("pos", 10)).await.expect("get offset");
-    assert_eq!(offset, SeekFrom::Start(1024 * 4 * 9));
+    assert_eq!(offset, 1024 * 4 * 9);
 
     let offset = reader.search_offset(("pos", 15)).await.expect("get offset");
-    assert_eq!(offset, SeekFrom::Start(1024 * 4 * 14));
+    assert_eq!(offset, 1024 * 4 * 14);
 
     let res = reader.search_offset(("id", 21)).await;
     assert!(
