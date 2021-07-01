@@ -28,8 +28,12 @@ class PravegaTest(unittest.TestCase):
         scope_result=stream_manager.create_scope(scope)
         self.assertEqual(True, scope_result, "Scope creation status")
         print("Creating a stream")
+        # stream is created using a fixed scaling policy.
         stream_result=stream_manager.create_stream(scope, "testStream", 1)
         self.assertTrue(stream_result, "Stream creation status")
+        tags = stream_manager.get_stream_tags(scope, "testStream")
+        # verify empty tags.
+        self.assertTrue(len(tags)==0)
         stream_update=stream_manager.update_stream_with_policy(scope_name=scope, stream_name="testStream", tags=["t1"])
         self.assertTrue(stream_update, "Stream update status")
         tags = stream_manager.get_stream_tags(scope, "testStream")

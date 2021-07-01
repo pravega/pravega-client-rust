@@ -458,7 +458,7 @@ impl Default for Scaling {
         Scaling {
             scale_type: ScaleType::FixedNumSegments,
             min_num_segments: 1,
-            scale_factor: 0,
+            scale_factor: 1,
             target_rate: 0,
         }
     }
