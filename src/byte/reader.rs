@@ -61,10 +61,11 @@ use uuid::Uuid;
 /// ```
 pub struct ByteReader {
     reader_id: Uuid,
+    pub segment: ScopedSegment,
     reader: Option<PrefetchingAsyncSegmentReader>,
     reader_buffer_size: usize,
     metadata_client: SegmentMetadataClient,
-    factory: ClientFactory,
+    pub factory: ClientFactory,
 }
 
 impl Read for ByteReader {
@@ -89,16 +90,17 @@ impl ByteReader {
         factory: ClientFactory,
         buffer_size: usize,
     ) -> Self {
-        let async_reader = factory.create_async_event_reader(segment.clone()).await;
+        let async_reader = factory.create_async_segment_reader(segment.clone()).await;
         let async_reader_wrapper = PrefetchingAsyncSegmentReader::new(
             factory.runtime().handle().clone(),
             Arc::new(Box::new(async_reader)),
             0,
             buffer_size,
         );
-        let metadata_client = factory.create_segment_metadata_client(segment).await;
+        let metadata_client = factory.create_segment_metadata_client(segment.clone()).await;
         ByteReader {
             reader_id: Uuid::new_v4(),
+            segment,
             reader: Some(async_reader_wrapper),
             reader_buffer_size: buffer_size,
             metadata_client,
@@ -218,7 +220,6 @@ impl ByteReader {
             }
         }
     }
-
     fn recreate_reader_wrapper(&mut self, offset: i64) {
         let internal_reader = self.reader.take().unwrap().extract_reader();
         let new_reader_wrapper = PrefetchingAsyncSegmentReader::new(

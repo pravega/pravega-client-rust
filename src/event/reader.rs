@@ -74,13 +74,12 @@ cfg_if::cfg_if! {
 ///         .build()
 ///         .expect("creating config");
 ///     let client_factory = ClientFactory::new(config);
-///     let scope = Scope::from("scope".to_string());
 ///     let stream = ScopedStream {
-///         scope: scope.clone(),
+///         scope: Scope::from("scope".to_string()),
 ///         stream: Stream::from("stream".to_string()),
 ///     };
 ///     // Create a reader group to read data from the Pravega stream.
-///     let rg = client_factory.create_reader_group(scope, "rg".to_string(), stream).await;
+///     let rg = client_factory.create_reader_group("rg".to_string(), stream).await;
 ///     // Create a reader under the reader group. The segments of the stream are assigned among the
 ///     // readers which are part of the reader group.
 ///     let mut reader1 = rg.create_reader("r1".to_string()).await;
@@ -825,7 +824,7 @@ impl SegmentSlice {
         factory: ClientFactory,
     ) {
         let mut offset: i64 = start_offset;
-        let segment_reader = factory.create_async_event_reader(segment.clone()).await;
+        let segment_reader = factory.create_async_segment_reader(segment.clone()).await;
         loop {
             if let Ok(_) | Err(TryRecvError::Closed) = drop_fetch.try_recv() {
                 info!("Stop reading from the segment");
@@ -1071,11 +1070,21 @@ impl Default for SliceMetadata {
 }
 
 // Structure to track the offset and byte array.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct SegmentDataBuffer {
     pub(crate) segment: String,
     pub(crate) offset_in_segment: i64,
     pub(crate) value: BytesMut,
+}
+
+impl fmt::Debug for SegmentDataBuffer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SegmentDataBuffer")
+            .field("segment", &self.segment)
+            .field("offset in segment", &self.offset_in_segment)
+            .field("buffer length", &self.value.len())
+            .finish()
+    }
 }
 
 impl SegmentDataBuffer {

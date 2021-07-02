@@ -46,6 +46,7 @@
 pub mod byte;
 pub mod client_factory;
 pub mod event;
+pub mod index;
 pub mod sync;
 
 #[cfg(feature = "cli")]

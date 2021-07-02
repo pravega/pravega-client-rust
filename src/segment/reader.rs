@@ -638,7 +638,7 @@ mod tests {
                     request_id: 1,
                 })),
             });
-        let async_segment_reader = runtime.block_on(factory.create_async_event_reader(segment_name));
+        let async_segment_reader = runtime.block_on(factory.create_async_segment_reader(segment_name));
         let data = runtime.block_on(async_segment_reader.read_inner(0, 11, &raw_client));
         let segment_read_result: SegmentReadCommand = data.unwrap();
         assert_eq!(
