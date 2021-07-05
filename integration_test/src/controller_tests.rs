@@ -48,6 +48,15 @@ pub async fn test_scope_stream(controller: &dyn ControllerClient) {
     assert!(scopes.contains(&scope1));
     assert!(scopes.contains(&scope2));
 
+    assert!(controller
+        .check_scope_exists(&scope1)
+        .await
+        .expect("check scope exists"));
+    assert!(!controller
+        .check_scope_exists(&Scope::from("dummy".to_string()))
+        .await
+        .expect("check scope exists"));
+
     controller
         .create_scope(&scope3)
         .await
@@ -72,6 +81,10 @@ pub async fn test_scope_stream(controller: &dyn ControllerClient) {
         scope: scope3.clone(),
         stream: Stream::from("st1".to_string()),
     };
+    assert!(!controller
+        .check_stream_exists(&st1)
+        .await
+        .expect("Check stream exists"));
     let stream_cfg = StreamConfiguration {
         scoped_stream: st1.clone(),
         scaling: Default::default(),
@@ -80,6 +93,10 @@ pub async fn test_scope_stream(controller: &dyn ControllerClient) {
     };
 
     let _stream_result = controller.create_stream(&stream_cfg).await;
+    assert!(controller
+        .check_stream_exists(&st1)
+        .await
+        .expect("Check stream exists"));
     let streams = get_all_streams(controller, &scope3).await;
     // _Mark stream is also created.
     assert_eq!(streams.len(), 2);
