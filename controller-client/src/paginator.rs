@@ -36,7 +36,7 @@ use tracing::info;
 /// let stream = list_scopes(
 ///     controller_client,
 /// );
-/// // collect all the Streams in a single vector
+/// // collect all the Scopes in a single vector
 /// let scope_list:Vec<Scope> = stream.map(|str| str.unwrap()).collect::<Vec<Scope>>().await;
 /// # }
 /// ```
