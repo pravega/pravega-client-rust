@@ -146,11 +146,11 @@ fn main() {
 
             let stream = list_scopes(&controller_client);
             println!("Listing scopes");
-            rt.block_on(stream.for_each(|stream| {
-                if stream.is_ok() {
-                    println!("{:?}", stream.unwrap());
+            rt.block_on(stream.for_each(|scope| {
+                if scope.is_ok() {
+                    println!("{:?}", scope.unwrap());
                 } else {
-                    println!("Error while fetching data from Controller. Details: {:?}", stream);
+                    println!("Error while fetching data from Controller. Details: {:?}", scope);
                 }
                 future::ready(())
             }));
