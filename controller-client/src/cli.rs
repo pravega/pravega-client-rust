@@ -70,7 +70,7 @@ enum Command {
 #[structopt(
     name = "Controller CLI",
     about = "Command line used to perform operations on the Pravega controller",
-    version = "0.1"
+    version = "0.2"
 )]
 struct Opt {
     /// Used to configure controller grpc, default uri tcp://127.0.0.1:9090
