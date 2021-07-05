@@ -18,6 +18,97 @@ use tracing::error;
 use tracing::info;
 
 ///
+///Helper method to iterate over the all the Pravega Scopes.
+///This method returns a stream of values, Pravega scopes, produced asynchronously.
+///
+/// The below snippets show case the example uses.
+/// Sample 1:
+///```
+/// # use tonic::transport::Channel;
+/// # use pravega_controller_client::controller::controller_service_client::ControllerServiceClient;
+/// use pravega_controller_client::ControllerClient;
+/// # async fn call_list_scope(controller_client: &dyn ControllerClient) {
+/// use pravega_client_shared::Scope;
+/// use pravega_client_shared::ScopedStream;
+/// use futures::future;
+/// use futures::stream::StreamExt;
+/// use pravega_controller_client::paginator::list_scopes;
+/// let stream = list_scopes(
+///     controller_client,
+/// );
+/// // collect all the Streams in a single vector
+/// let scope_list:Vec<Scope> = stream.map(|str| str.unwrap()).collect::<Vec<Scope>>().await;
+/// # }
+/// ```
+///
+/// Sample 2:
+/// ```
+/// # use tonic::transport::Channel;
+/// # use pravega_controller_client::controller::controller_service_client::ControllerServiceClient;
+/// use pravega_controller_client::ControllerClient;
+/// # async fn call_list_scope(controller_client: &dyn ControllerClient) {
+/// use pravega_client_shared::Scope;
+/// use pravega_client_shared::ScopedStream;
+/// use futures::future;
+/// use futures::stream::StreamExt;
+/// use pravega_controller_client::paginator::list_scopes;
+/// let stream = list_scopes(
+///     controller_client,
+/// );
+/// futures::pin_mut!(stream);
+/// let pravega_scope_1 = stream.next().await;
+/// let pravega_scope_1 = stream.next().await;
+/// // A None is returned at the end of the stream.
+/// # }
+/// ```
+///
+pub fn list_scopes(
+    client: &dyn ControllerClient,
+) -> impl Stream<Item = Result<Scope, RetryError<ControllerError>>> + '_ {
+    struct State {
+        scopes: IntoIter<Scope>,
+        token: CToken,
+    }
+
+    // Initial state with an empty Continuation token.
+    let get_next_stream_async = move |mut state: State| async move {
+        if let Some(element) = state.scopes.next() {
+            Some((Ok(element), state))
+        } else {
+            // execute a request to the controller.
+            info!("Fetch the next set of scopes  using the provided token",);
+            let res: ResultRetry<Option<(Vec<Scope>, CToken)>> = client.list_scopes(&state.token).await;
+            match res {
+                Ok(None) => None,
+                Ok(Some((list, ct))) => {
+                    // create a consuming iterator
+                    let mut scope_iter = list.into_iter();
+                    Some((
+                        Ok(scope_iter.next()?),
+                        State {
+                            scopes: scope_iter,
+                            token: ct,
+                        },
+                    ))
+                }
+                Err(e) => {
+                    //log an error and return None to indicate end of stream.
+                    error!("Error while attempting to list scopes. Error: {:?}", e);
+                    None
+                }
+            }
+        }
+    };
+    stream::unfold(
+        State {
+            scopes: Vec::new().into_iter(),
+            token: CToken::empty(),
+        },
+        get_next_stream_async,
+    )
+}
+
+///
 ///Helper method to iterated over the all the Pravega streams under the provided Scope.
 ///This method returns a stream of values,Pravega streams, produced asynchronously.
 ///
