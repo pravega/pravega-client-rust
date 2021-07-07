@@ -32,7 +32,6 @@ use tracing::{error, info};
 
 pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     // spin up Pravega standalone
-    let mut rt = Runtime::new().unwrap();
     let scope_name = Scope::from("testScopeByteStream".to_owned());
     let stream_name = Stream::from("testStreamByteStream".to_owned());
     let config = ClientConfigBuilder::default()
@@ -42,6 +41,7 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
+    let rt = client_factory.runtime();
     let handle = client_factory.runtime();
     handle.block_on(utils::create_scope_stream(
         client_factory.controller_client(),
@@ -60,8 +60,8 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
 
     test_simple_write_and_read(&mut writer, &mut reader);
     test_seek(&mut reader);
-    test_truncation(&mut writer, &mut reader, &mut rt);
-    test_seal(&mut writer, &mut reader, &mut rt);
+    test_truncation(&mut writer, &mut reader, rt);
+    test_seal(&mut writer, &mut reader, rt);
 
     let scope_name = Scope::from("testScopeByteStreamPrefetch".to_owned());
     let stream_name = Stream::from("testStreamByteStreamPrefetch".to_owned());
@@ -160,7 +160,7 @@ fn test_seek(reader: &mut ByteReader) {
     info!("test byte stream seek passed");
 }
 
-fn test_truncation(writer: &mut ByteWriter, reader: &mut ByteReader, rt: &mut Runtime) {
+fn test_truncation(writer: &mut ByteWriter, reader: &mut ByteReader, rt: &Runtime) {
     info!("test byte stream truncate");
     // truncate
     rt.block_on(writer.truncate_data_before(4)).expect("truncate");
@@ -185,7 +185,7 @@ fn test_truncation(writer: &mut ByteWriter, reader: &mut ByteReader, rt: &mut Ru
     info!("test byte stream truncate passed");
 }
 
-fn test_seal(writer: &mut ByteWriter, reader: &mut ByteReader, rt: &mut Runtime) {
+fn test_seal(writer: &mut ByteWriter, reader: &mut ByteReader, rt: &Runtime) {
     info!("test byte stream seal");
     // seal
     rt.block_on(writer.seal()).expect("seal");
