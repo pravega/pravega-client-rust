@@ -125,11 +125,19 @@ impl ClientConfigBuilder {
             DEFAULT_TLS_CERT_PATH
         };
         let mut certs = vec![];
-        let cert_paths = std::fs::read_dir(cert_path).expect("cannot read from the provided cert directory");
-        for entry in cert_paths {
-            let path = entry.expect("get the cert file").path();
-            debug!("reading cert file {}", path.display());
-            certs.push(fs::read_to_string(path.clone()).expect("read cert file"));
+        let meta = std::fs::metadata(cert_path).expect("should be valid path");
+        if meta.is_dir() {
+            let cert_paths =
+                std::fs::read_dir(cert_path).expect("cannot read from the provided cert directory");
+            for entry in cert_paths {
+                let path = entry.expect("get the cert file").path();
+                debug!("reading cert file {}", path.display());
+                certs.push(fs::read_to_string(path.clone()).expect("read cert file"));
+            }
+        } else if meta.is_file() {
+            certs.push(fs::read_to_string(cert_path).expect("read cert file"));
+        } else {
+            panic!("invalid cert path");
         }
         certs
     }
@@ -349,6 +357,24 @@ mod tests {
             .build()
             .unwrap();
         assert_eq!(config.trustcerts.len(), 1);
+        // test with file path
+        env::set_var("pravega_client_tls_cert_path", "./bar/foo.crt");
+        let config = ClientConfigBuilder::default()
+            .controller_uri("127.0.0.2:9091".to_string())
+            .is_tls_enabled(true)
+            .build()
+            .unwrap();
+        assert_eq!(config.trustcerts.len(), 1);
+        env::set_var("pravega_client_tls_cert_path", "./wrong/path");
+        // test with invalid path
+        let result = std::panic::catch_unwind(|| {
+            ClientConfigBuilder::default()
+                .controller_uri("127.0.0.2:9091".to_string())
+                .is_tls_enabled(true)
+                .build()
+                .unwrap()
+        });
+        assert!(result.is_err());
         fs::remove_dir_all("./bar").expect("remove dir");
         env::remove_var("pravega_client_tls_cert_path");
     }
