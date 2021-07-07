@@ -63,7 +63,7 @@ type EventHandle = oneshot::Receiver<Result<(), Error>>;
 /// ```no_run
 /// use pravega_client_config::ClientConfigBuilder;
 /// use pravega_client::client_factory::ClientFactory;
-/// use pravega_client_shared::ScopedSegment;
+/// use pravega_client_shared::ScopedStream;
 /// use std::io::Write;
 ///
 /// fn main() {
@@ -76,9 +76,9 @@ type EventHandle = oneshot::Receiver<Result<(), Error>>;
 ///     let client_factory = ClientFactory::new(config);
 ///
 ///     // assuming scope:myscope, stream:mystream and segment 0 do exist.
-///     let segment = ScopedSegment::from("myscope/mystream/0");
+///     let stream = ScopedStream::from("myscope/mystream");
 ///
-///     let mut byte_writer = client_factory.create_byte_writer(segment);
+///     let mut byte_writer = client_factory.create_byte_writer(stream);
 ///
 ///     let payload = "hello world".to_string().into_bytes();
 ///

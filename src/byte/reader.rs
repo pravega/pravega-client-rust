@@ -39,7 +39,7 @@ use uuid::Uuid;
 /// ```no_run
 /// use pravega_client_config::ClientConfigBuilder;
 /// use pravega_client::client_factory::ClientFactory;
-/// use pravega_client_shared::ScopedSegment;
+/// use pravega_client_shared::ScopedStream;
 /// use std::io::Read;
 ///
 /// fn main() {
@@ -52,9 +52,9 @@ use uuid::Uuid;
 ///     let client_factory = ClientFactory::new(config);
 ///
 ///     // assuming scope:myscope, stream:mystream and segment with id 0 do exist.
-///     let segment = ScopedSegment::from("myscope/mystream/0");
+///     let stream = ScopedStream::from("myscope/mystream");
 ///
-///     let mut byte_reader = client_factory.create_byte_reader(segment);
+///     let mut byte_reader = client_factory.create_byte_reader(stream);
 ///     let mut buf: Vec<u8> = vec![0; 4];
 ///     let size = byte_reader.read(&mut buf).expect("read from byte stream");
 /// }
@@ -378,9 +378,9 @@ mod test {
             .unwrap();
         let factory = ClientFactory::new(config);
         runtime.block_on(create_stream(&factory, "testScope", "testStream"));
-        let segment = ScopedSegment::from("testScope/testStream/0.#epoch.0");
-        let writer = factory.create_byte_writer(segment.clone());
-        let reader = factory.create_byte_reader(segment);
+        let stream = ScopedStream::from("testScope/testStream");
+        let writer = factory.create_byte_writer(stream.clone());
+        let reader = factory.create_byte_reader(stream);
         (writer, reader)
     }
 }
