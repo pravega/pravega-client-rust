@@ -133,20 +133,20 @@ impl ClientFactory {
         TransactionalEventWriter::new(stream, writer_id, self.clone()).await
     }
 
-    pub fn create_byte_writer(&self, segment: ScopedSegment) -> ByteWriter {
-        ByteWriter::new(segment, self.clone())
+    pub fn create_byte_writer(&self, stream: ScopedStream) -> ByteWriter {
+        ByteWriter::new(stream, self.clone())
     }
 
-    pub async fn create_byte_writer_async(&self, segment: ScopedSegment) -> ByteWriter {
-        ByteWriter::new_async(segment, self.clone()).await
+    pub async fn create_byte_writer_async(&self, stream: ScopedStream) -> ByteWriter {
+        ByteWriter::new_async(stream, self.clone()).await
     }
 
-    pub fn create_byte_reader(&self, segment: ScopedSegment) -> ByteReader {
-        ByteReader::new(segment, self.clone(), self.config().reader_wrapper_buffer_size())
+    pub fn create_byte_reader(&self, stream: ScopedStream) -> ByteReader {
+        ByteReader::new(stream, self.clone(), self.config().reader_wrapper_buffer_size())
     }
 
-    pub async fn create_byte_reader_async(&self, segment: ScopedSegment) -> ByteReader {
-        ByteReader::new_async(segment, self.clone(), self.config().reader_wrapper_buffer_size()).await
+    pub async fn create_byte_reader_async(&self, stream: ScopedStream) -> ByteReader {
+        ByteReader::new_async(stream, self.clone(), self.config().reader_wrapper_buffer_size()).await
     }
 
     pub async fn create_table(&self, scope: Scope, name: String) -> Table {

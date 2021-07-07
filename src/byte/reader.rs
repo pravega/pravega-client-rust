@@ -12,7 +12,7 @@ use crate::client_factory::ClientFactory;
 use crate::segment::metadata::SegmentMetadataClient;
 use crate::segment::reader::PrefetchingAsyncSegmentReader;
 
-use pravega_client_shared::ScopedSegment;
+use pravega_client_shared::{ScopedSegment, ScopedStream};
 
 use std::convert::TryInto;
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom};
@@ -78,25 +78,37 @@ impl Read for ByteReader {
 }
 
 impl ByteReader {
-    pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory, buffer_size: usize) -> Self {
+    pub(crate) fn new(stream: ScopedStream, factory: ClientFactory, buffer_size: usize) -> Self {
         factory
             .runtime()
-            .block_on(ByteReader::new_async(segment, factory.clone(), buffer_size))
+            .block_on(ByteReader::new_async(stream, factory.clone(), buffer_size))
     }
 
-    pub(crate) async fn new_async(
-        segment: ScopedSegment,
-        factory: ClientFactory,
-        buffer_size: usize,
-    ) -> Self {
-        let async_reader = factory.create_async_event_reader(segment.clone()).await;
+    pub(crate) async fn new_async(stream: ScopedStream, factory: ClientFactory, buffer_size: usize) -> Self {
+        let segments = factory
+            .controller_client()
+            .get_head_segments(&stream)
+            .await
+            .expect("get head segments");
+        assert_eq!(
+            segments.len(),
+            1,
+            "Byte stream is configured with more than one segment"
+        );
+        let segment = segments.iter().next().unwrap().0.clone();
+        let scoped_segment = ScopedSegment {
+            scope: stream.scope.clone(),
+            stream: stream.stream.clone(),
+            segment,
+        };
+        let async_reader = factory.create_async_event_reader(scoped_segment.clone()).await;
         let async_reader_wrapper = PrefetchingAsyncSegmentReader::new(
             factory.runtime().handle().clone(),
             Arc::new(Box::new(async_reader)),
             0,
             buffer_size,
         );
-        let metadata_client = factory.create_segment_metadata_client(segment).await;
+        let metadata_client = factory.create_segment_metadata_client(scoped_segment).await;
         ByteReader {
             reader_id: Uuid::new_v4(),
             reader: Some(async_reader_wrapper),

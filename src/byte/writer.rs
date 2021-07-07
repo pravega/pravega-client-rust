@@ -132,31 +132,42 @@ impl ByteWriter {
     // maximum 16 MB total size of events could be held in memory
     const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
-    pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
+    pub(crate) fn new(stream: ScopedStream, factory: ClientFactory) -> Self {
         factory
             .runtime()
-            .block_on(ByteWriter::new_async(segment, factory.clone()))
+            .block_on(ByteWriter::new_async(stream, factory.clone()))
     }
 
-    pub(crate) async fn new_async(segment: ScopedSegment, factory: ClientFactory) -> Self {
-        let rt = factory.runtime();
+    pub(crate) async fn new_async(stream: ScopedStream, factory: ClientFactory) -> Self {
         let (sender, receiver) = create_channel(Self::CHANNEL_CAPACITY);
-        let metadata_client = factory.create_segment_metadata_client(segment.clone()).await;
         let writer_id = WriterId(get_random_u128());
-        let stream = ScopedStream::from(&segment);
-        let segment_index = segment.segment.number as usize;
-        let stream_segments = rt
-            .block_on(factory.controller_client().get_current_segments(&stream))
-            .expect("get current segments in stream");
-        let mut segments = stream_segments.get_segments();
-        segments.sort_by_key(|i| i.segment.number);
-        let adjusted_segment = segments.get(segment_index).expect("get correct segment").clone();
+        let segments = factory
+            .controller_client()
+            .get_head_segments(&stream)
+            .await
+            .expect("get head segments");
+        assert_eq!(
+            segments.len(),
+            1,
+            "Byte stream is configured with more than one segment"
+        );
+        let segment = segments.iter().next().unwrap().0.clone();
+        let scoped_segment = ScopedSegment {
+            scope: stream.scope.clone(),
+            stream: stream.stream.clone(),
+            segment,
+        };
+        let metadata_client = factory
+            .create_segment_metadata_client(scoped_segment.clone())
+            .await;
         let span = info_span!("Reactor", byte_stream_writer = %writer_id);
         // spawn is tied to the factory runtime.
-        rt.spawn(Reactor::run(stream, sender.clone(), receiver, factory.clone(), None).instrument(span));
+        factory
+            .runtime()
+            .spawn(Reactor::run(stream, sender.clone(), receiver, factory.clone(), None).instrument(span));
         ByteWriter {
             writer_id,
-            scoped_segment: adjusted_segment,
+            scoped_segment,
             sender,
             metadata_client,
             factory,
