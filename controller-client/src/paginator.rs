@@ -26,7 +26,7 @@ use tracing::info;
 ///```
 /// # use tonic::transport::Channel;
 /// # use pravega_controller_client::controller::controller_service_client::ControllerServiceClient;
-/// use pravega_controller_client::ControllerClient;
+/// # use pravega_controller_client::ControllerClient;
 /// # async fn call_list_scope(controller_client: &dyn ControllerClient) {
 /// use pravega_client_shared::Scope;
 /// use pravega_client_shared::ScopedStream;
@@ -45,7 +45,7 @@ use tracing::info;
 /// ```
 /// # use tonic::transport::Channel;
 /// # use pravega_controller_client::controller::controller_service_client::ControllerServiceClient;
-/// use pravega_controller_client::ControllerClient;
+/// # use pravega_controller_client::ControllerClient;
 /// # async fn call_list_scope(controller_client: &dyn ControllerClient) {
 /// use pravega_client_shared::Scope;
 /// use pravega_client_shared::ScopedStream;
@@ -117,7 +117,7 @@ pub fn list_scopes(
 ///```
 /// # use tonic::transport::Channel;
 /// # use pravega_controller_client::controller::controller_service_client::ControllerServiceClient;
-/// use pravega_controller_client::ControllerClient;
+/// # use pravega_controller_client::ControllerClient;
 /// # async fn call_list_stream(controller_client: &dyn ControllerClient) {
 /// use pravega_client_shared::Scope;
 /// use pravega_client_shared::ScopedStream;
@@ -139,7 +139,7 @@ pub fn list_scopes(
 /// ```
 /// # use tonic::transport::Channel;
 /// # use pravega_controller_client::controller::controller_service_client::ControllerServiceClient;
-/// use pravega_controller_client::ControllerClient;
+/// # use pravega_controller_client::ControllerClient;
 /// # async fn call_list_stream(controller_client: &dyn ControllerClient) {
 /// use pravega_client_shared::Scope;
 /// use pravega_client_shared::ScopedStream;
@@ -226,8 +226,8 @@ pub fn list_streams(
 /// ```
 /// # use tonic::transport::Channel;
 /// # use pravega_controller_client::controller::controller_service_client::ControllerServiceClient;
-/// use pravega_controller_client::ControllerClient;
-/// # async fn call_list_stream(controller_client: &dyn ControllerClient) {
+/// # use pravega_controller_client::ControllerClient;
+/// # async fn call_list_stream_for_tag(controller_client: &dyn ControllerClient) {
 /// use pravega_client_shared::Scope;
 /// use pravega_client_shared::ScopedStream;
 /// use futures::future;
@@ -249,8 +249,8 @@ pub fn list_streams(
 /// ```
 /// # use tonic::transport::Channel;
 /// # use pravega_controller_client::controller::controller_service_client::ControllerServiceClient;
-/// use pravega_controller_client::ControllerClient;
-/// # async fn call_list_stream(controller_client: &dyn ControllerClient) {
+/// # use pravega_controller_client::ControllerClient;
+/// # async fn call_list_stream_for_tag(controller_client: &dyn ControllerClient) {
 /// use pravega_client_shared::Scope;
 /// use pravega_client_shared::ScopedStream;
 /// use futures::future;
