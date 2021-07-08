@@ -393,14 +393,14 @@ impl SegmentWriter {
         ret
     }
 
-    /// Reconnect will not exist until this writer has been successfully connected to the right host.
+    /// Reconnection will not exit until this writer has been successfully connected to the right host.
     ///
     /// It does the following steps:
     /// 1. sets up a new connection
     /// 2. puts inflight events back to the pending list
     /// 3. writes pending data to the server
     ///
-    /// If error occurs during any one of the steps above, redo the reconnect from step 1.
+    /// If error occurs during any one of the steps above, redo the reconnection from step 1.
     pub(crate) async fn reconnect(&mut self, factory: &ClientFactory) {
         debug!("Reconnecting segment writer {:?}", self.id);
         let connection_id = if let Some(ref write_half) = self.connection {
