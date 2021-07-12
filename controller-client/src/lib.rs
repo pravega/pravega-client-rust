@@ -346,7 +346,7 @@ async fn get_channel(config: &ClientConfig) -> Channel {
         );
         let mut rustls_client_config = RustlsClientConfig::new();
         rustls_client_config.alpn_protocols.push(Vec::from("h2"));
-        if config.skip_cert_verification {
+        if config.disable_cert_verification {
             rustls_client_config
                 .dangerous()
                 .set_certificate_verifier(Arc::new(NoVerifier));
