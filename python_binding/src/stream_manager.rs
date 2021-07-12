@@ -63,7 +63,7 @@ impl StreamManager {
     #[args(
         auth_enabled = "false",
         tls_enabled = "false",
-        skip_cert_verification = "false"
+        disable_cert_verification = "false"
     )]
     fn new(
         controller_uri: &str,
