@@ -69,7 +69,7 @@ impl StreamManager {
         controller_uri: &str,
         auth_enabled: bool,
         tls_enabled: bool,
-        skip_cert_verification: bool,
+        disable_cert_verification: bool,
     ) -> Self {
         let mut builder = ClientConfigBuilder::default();
 
@@ -80,7 +80,7 @@ impl StreamManager {
             // would be better to have tls_enabled be &PyAny
             // and args tls_enabled = None or sentinel e.g. missing=object()
             builder.is_tls_enabled(tls_enabled);
-            builder.skip_cert_verification(skip_cert_verification);
+            builder.disable_cert_verification(disable_cert_verification);
         }
         let config = builder.build().expect("creating config");
         let client_factory = ClientFactory::new(config.clone());

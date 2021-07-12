@@ -64,7 +64,7 @@ impl dyn ConnectionFactory {
             ConnectionType::Tokio => Box::new(TokioConnectionFactory::new(
                 config.is_tls_enabled,
                 config.certs,
-                config.skip_cert_verification,
+                config.disable_cert_verification,
             )),
             ConnectionType::Mock(mock_type) => Box::new(MockConnectionFactory::new(mock_type)),
         }
@@ -74,15 +74,15 @@ impl dyn ConnectionFactory {
 struct TokioConnectionFactory {
     tls_enabled: bool,
     certs: Vec<String>,
-    skip_cert_verification: bool,
+    disable_cert_verification: bool,
 }
 
 impl TokioConnectionFactory {
-    fn new(tls_enabled: bool, certs: Vec<String>, skip_cert_verification: bool) -> Self {
+    fn new(tls_enabled: bool, certs: Vec<String>, disable_cert_verification: bool) -> Self {
         TokioConnectionFactory {
             tls_enabled,
             certs,
-            skip_cert_verification,
+            disable_cert_verification,
         }
     }
 }
@@ -101,7 +101,7 @@ impl ConnectionFactory for TokioConnectionFactory {
                 endpoint
             );
             let mut config = rustls::ClientConfig::new();
-            if self.skip_cert_verification {
+            if self.disable_cert_verification {
                 config.dangerous().set_certificate_verifier(Arc::new(NoVerifier));
             }
             for cert in &self.certs {
@@ -303,7 +303,7 @@ pub struct ConnectionFactoryConfig {
     #[new(default)]
     certs: Vec<String>,
     #[new(value = "false")]
-    skip_cert_verification: bool,
+    disable_cert_verification: bool,
 }
 
 /// ConnectionFactoryConfig can be built from ClientConfig.
@@ -313,7 +313,7 @@ impl From<&ClientConfig> for ConnectionFactoryConfig {
             connection_type: client_config.connection_type,
             is_tls_enabled: client_config.is_tls_enabled,
             certs: client_config.trustcerts.clone(),
-            skip_cert_verification: client_config.skip_cert_verification,
+            disable_cert_verification: client_config.disable_cert_verification,
         }
     }
 }
