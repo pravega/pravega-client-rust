@@ -57,11 +57,12 @@ pub fn test_transactional_event_stream_writer(config: PravegaStandaloneServiceCo
     ));
 
     let mut writer =
-        handle.block_on(client_factory.create_transactional_event_writer(scoped_stream, WriterId(0)));
+        handle.block_on(client_factory.create_transactional_event_writer(scoped_stream.clone(), WriterId(0)));
 
     handle.block_on(test_commit_transaction(&mut writer));
     handle.block_on(test_abort_transaction(&mut writer));
     handle.block_on(test_write_and_read_transaction(&mut writer, &client_factory));
+    handle.block_on(test_multiple_transactions(&client_factory, scoped_stream));
 
     info!("test TransactionalEventStreamWriter passed");
 }
