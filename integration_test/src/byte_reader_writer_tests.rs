@@ -176,7 +176,7 @@ fn test_truncation(writer: &mut ByteWriter, reader: &mut ByteReader, rt: &mut Ru
     assert!(result.is_err());
 
     // get current head
-    let head = rt.block_on(reader.current_head()).expect("get current head");
+    let head = reader.current_head().expect("get current head");
     assert_eq!(head, 4);
 
     // read from current head

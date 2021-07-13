@@ -128,10 +128,27 @@ impl ByteReader {
     /// encounter the SegmentIsTruncated error due to the segment has been truncated. In this case,
     /// application should call this method to get the current readable head and read from it.
     /// ```ignore
+    /// let mut byte_reader = client_factory.create_byte_reader(segment);
+    /// let offset = byte_reader.current_head().expect("get current head offset");
+    /// ```
+    pub fn current_head(&self) -> std::io::Result<u64> {
+        self.factory
+            .runtime()
+            .block_on(self.metadata_client.fetch_current_starting_head())
+            .map(|i| i as u64)
+            .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
+    }
+
+    /// Return the head of current readable data in the segment asynchronously.
+    ///
+    /// The ByteReader is initialized to read from the segment at offset 0. However, it might
+    /// encounter the SegmentIsTruncated error due to the segment has been truncated. In this case,
+    /// application should call this method to get the current readable head and read from it.
+    /// ```ignore
     /// let mut byte_reader = client_factory.create_byte_reader_async(segment).await;
     /// let offset = byte_reader.current_head().await.expect("get current head offset");
     /// ```
-    pub async fn current_head(&self) -> std::io::Result<u64> {
+    pub async fn current_head_async(&self) -> std::io::Result<u64> {
         self.metadata_client
             .fetch_current_starting_head()
             .await
@@ -142,10 +159,24 @@ impl ByteReader {
     /// Return the tail offset of the segment.
     ///
     /// ```ignore
+    /// let mut byte_reader = client_factory.create_byte_reader(segment);
+    /// let offset = byte_reader.current_tail().expect("get current tail offset");
+    /// ```
+    pub fn current_tail(&self) -> std::io::Result<u64> {
+        self.factory
+            .runtime()
+            .block_on(self.metadata_client.fetch_current_segment_length())
+            .map(|i| i as u64)
+            .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
+    }
+
+    /// Return the tail offset of the segment asynchronously.
+    ///
+    /// ```ignore
     /// let mut byte_reader = client_factory.create_byte_reader_async(segment).await;
     /// let offset = byte_reader.current_tail().await.expect("get current tail offset");
     /// ```
-    pub async fn current_tail(&self) -> std::io::Result<u64> {
+    pub async fn current_tail_async(&self) -> std::io::Result<u64> {
         self.metadata_client
             .fetch_current_segment_length()
             .await
