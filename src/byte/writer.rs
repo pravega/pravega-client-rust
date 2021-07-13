@@ -63,7 +63,7 @@ type EventHandle = oneshot::Receiver<Result<(), Error>>;
 /// ```no_run
 /// use pravega_client_config::ClientConfigBuilder;
 /// use pravega_client::client_factory::ClientFactory;
-/// use pravega_client_shared::ScopedSegment;
+/// use pravega_client_shared::ScopedStream;
 /// use std::io::Write;
 ///
 /// fn main() {
@@ -76,9 +76,9 @@ type EventHandle = oneshot::Receiver<Result<(), Error>>;
 ///     let client_factory = ClientFactory::new(config);
 ///
 ///     // assuming scope:myscope, stream:mystream and segment 0 do exist.
-///     let segment = ScopedSegment::from("myscope/mystream/0");
+///     let stream = ScopedStream::from("myscope/mystream");
 ///
-///     let mut byte_writer = client_factory.create_byte_writer(segment);
+///     let mut byte_writer = client_factory.create_byte_writer(stream);
 ///
 ///     let payload = "hello world".to_string().into_bytes();
 ///
@@ -132,24 +132,42 @@ impl ByteWriter {
     // maximum 16 MB total size of events could be held in memory
     const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
-    pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
+    pub(crate) fn new(stream: ScopedStream, factory: ClientFactory) -> Self {
         factory
             .runtime()
-            .block_on(ByteWriter::new_async(segment, factory.clone()))
+            .block_on(ByteWriter::new_async(stream, factory.clone()))
     }
 
-    pub(crate) async fn new_async(segment: ScopedSegment, factory: ClientFactory) -> Self {
-        let rt = factory.runtime();
+    pub(crate) async fn new_async(stream: ScopedStream, factory: ClientFactory) -> Self {
         let (sender, receiver) = create_channel(Self::CHANNEL_CAPACITY);
-        let metadata_client = factory.create_segment_metadata_client(segment.clone()).await;
         let writer_id = WriterId(get_random_u128());
-        let stream = ScopedStream::from(&segment);
+        let segments = factory
+            .controller_client()
+            .get_head_segments(&stream)
+            .await
+            .expect("get head segments");
+        assert_eq!(
+            segments.len(),
+            1,
+            "Byte stream is configured with more than one segment"
+        );
+        let segment = segments.iter().next().unwrap().0.clone();
+        let scoped_segment = ScopedSegment {
+            scope: stream.scope.clone(),
+            stream: stream.stream.clone(),
+            segment,
+        };
+        let metadata_client = factory
+            .create_segment_metadata_client(scoped_segment.clone())
+            .await;
         let span = info_span!("Reactor", byte_stream_writer = %writer_id);
         // spawn is tied to the factory runtime.
-        rt.spawn(Reactor::run(stream, sender.clone(), receiver, factory.clone(), None).instrument(span));
+        factory
+            .runtime()
+            .spawn(Reactor::run(stream, sender.clone(), receiver, factory.clone(), None).instrument(span));
         ByteWriter {
             writer_id,
-            scoped_segment: segment,
+            scoped_segment,
             sender,
             metadata_client,
             factory,
@@ -308,5 +326,36 @@ impl ByteWriter {
 impl Drop for ByteWriter {
     fn drop(&mut self) {
         let _res = self.sender.send_without_bp(Incoming::Close());
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::util::create_stream;
+    use pravega_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_client_config::ClientConfigBuilder;
+    use pravega_client_shared::PravegaNodeUri;
+    use std::io::Write;
+    use tokio::runtime::Runtime;
+
+    #[test]
+    #[should_panic(expected = "Byte stream is configured with more than one segment")]
+    fn test_invalid_stream_config() {
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(MockType::Happy))
+            .mock(true)
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        factory.runtime().block_on(create_stream(
+            &factory,
+            "testScopeInvalid",
+            "testStreamInvalid",
+            2,
+        ));
+        let stream = ScopedStream::from("testScopeInvalid/testStreamInvalid");
+        factory.create_byte_writer(stream);
     }
 }

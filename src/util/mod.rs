@@ -53,7 +53,7 @@ pub(crate) fn current_span() -> span::Span {
     span::Span::current()
 }
 
-pub(crate) async fn create_stream(factory: &ClientFactory, scope: &str, stream: &str) {
+pub(crate) async fn create_stream(factory: &ClientFactory, scope: &str, stream: &str, num_segments: i32) {
     factory
         .controller_client()
         .create_scope(&Scope {
@@ -76,7 +76,7 @@ pub(crate) async fn create_stream(factory: &ClientFactory, scope: &str, stream: 
                 scale_type: ScaleType::FixedNumSegments,
                 target_rate: 0,
                 scale_factor: 0,
-                min_num_segments: 1,
+                min_num_segments: num_segments,
             },
             retention: Retention {
                 retention_type: RetentionType::None,

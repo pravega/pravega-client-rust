@@ -42,13 +42,19 @@ pub fn disconnection_test_wrapper() {
 
     let config = PravegaStandaloneServiceConfig::new(false, false, false);
     let mut pravega = PravegaStandaloneService::start(config);
-    test_retry_while_start_pravega();
+    let config = ClientConfigBuilder::default()
+        .controller_uri(PravegaNodeUri::from("127.0.0.1:9090"))
+        .connection_type(ConnectionType::Tokio)
+        .build()
+        .expect("build client config");
+    let cf = ClientFactory::new(config);
+    let rt = cf.runtime();
+    test_retry_while_start_pravega(&cf);
     assert_eq!(check_standalone_status(), true);
-    test_retry_with_unexpected_reply();
+    test_retry_with_unexpected_reply(&cf);
     pravega.stop().unwrap();
     wait_for_standalone_with_timeout(false, 10);
 
-    let rt = tokio::runtime::Runtime::new().expect("create runtime");
     rt.block_on(test_with_mock_server());
 }
 
@@ -82,14 +88,8 @@ async fn test_retry_with_no_connection() {
     }
 }
 
-fn test_retry_while_start_pravega() {
-    let config = ClientConfigBuilder::default()
-        .controller_uri(PravegaNodeUri::from("127.0.0.1:9090"))
-        .build()
-        .expect("build client config");
-    let cf = ClientFactory::new(config);
+fn test_retry_while_start_pravega(cf: &ClientFactory) {
     let controller_client = cf.controller_client();
-
     cf.runtime().block_on(create_scope_stream(controller_client));
 }
 
@@ -139,16 +139,10 @@ async fn create_scope_stream(controller_client: &dyn ControllerClient) {
     assert!(result);
 }
 
-fn test_retry_with_unexpected_reply() {
+fn test_retry_with_unexpected_reply(cf: &ClientFactory) {
     let retry_policy = RetryWithBackoff::default().max_tries(4);
     let scope_name = Scope::from("retryScope".to_owned());
     let stream_name = Stream::from("retryStream".to_owned());
-    let config = ClientConfigBuilder::default()
-        .controller_uri(PravegaNodeUri::from("127.0.0.1:9090"))
-        .connection_type(ConnectionType::Tokio)
-        .build()
-        .expect("build client config");
-    let cf = ClientFactory::new(config.clone());
     let controller_client = cf.controller_client();
 
     //Get the endpoint.
@@ -165,7 +159,7 @@ fn test_retry_with_unexpected_reply() {
         .block_on(controller_client.get_endpoint_for_segment(&segment_name))
         .expect("get endpoint for segment");
 
-    let connection_factory = ConnectionFactory::create(ConnectionFactoryConfig::from(&config));
+    let connection_factory = ConnectionFactory::create(ConnectionFactoryConfig::from(cf.config()));
     let manager = SegmentConnectionManager::new(connection_factory, 1);
     let pool = ConnectionPool::new(manager);
     let raw_client = RawClientWrapper::new(&pool, endpoint, Duration::from_secs(3600));
