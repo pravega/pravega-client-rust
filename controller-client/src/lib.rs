@@ -55,6 +55,7 @@ use snafu::Snafu;
 use std::convert::{From, Into};
 use std::io::BufReader;
 use std::str::FromStr;
+use std::sync::Arc;
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
 use tokio_rustls::rustls::ClientConfig as RustlsClientConfig;
@@ -345,6 +346,11 @@ async fn get_channel(config: &ClientConfig) -> Channel {
         );
         let mut rustls_client_config = RustlsClientConfig::new();
         rustls_client_config.alpn_protocols.push(Vec::from("h2"));
+        if config.disable_cert_verification {
+            rustls_client_config
+                .dangerous()
+                .set_certificate_verifier(Arc::new(NoVerifier));
+        }
         for cert in &config.trustcerts {
             let mut wrapper = BufReader::new(cert.as_bytes());
             let res = rustls_client_config.root_store.add_pem_file(&mut wrapper);

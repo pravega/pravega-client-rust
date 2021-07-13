@@ -46,6 +46,9 @@ use std::fmt::{Display, Formatter};
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::ops::Index;
 use std::vec;
+use tokio_rustls::rustls;
+use tokio_rustls::rustls::{RootCertStore, ServerCertVerified, ServerCertVerifier, TLSError};
+use tokio_rustls::webpki::DNSNameRef;
 use uuid::Uuid;
 
 #[macro_use]
@@ -784,6 +787,21 @@ pub struct SegmentInfo {
 
     /// The last time the segment was written to in milliseconds.
     pub last_modified_time: i64,
+}
+
+/// This struct is used to to skip cert verifications.
+pub struct NoVerifier;
+
+impl ServerCertVerifier for NoVerifier {
+    fn verify_server_cert(
+        &self,
+        _roots: &RootCertStore,
+        _presented_certs: &[rustls::Certificate],
+        _dns_name: DNSNameRef,
+        _ocsp_response: &[u8],
+    ) -> Result<ServerCertVerified, TLSError> {
+        Ok(ServerCertVerified::assertion())
+    }
 }
 
 #[cfg(test)]

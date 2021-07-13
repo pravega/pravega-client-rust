@@ -169,8 +169,17 @@ impl StreamScalingPolicy {
 #[pymethods]
 impl StreamManager {
     #[new]
-    #[args(auth_enabled = "false", tls_enabled = "false")]
-    fn new(controller_uri: &str, auth_enabled: bool, tls_enabled: bool) -> Self {
+    #[args(
+        auth_enabled = "false",
+        tls_enabled = "false",
+        disable_cert_verification = "false"
+    )]
+    fn new(
+        controller_uri: &str,
+        auth_enabled: bool,
+        tls_enabled: bool,
+        disable_cert_verification: bool,
+    ) -> Self {
         let mut builder = ClientConfigBuilder::default();
 
         builder
@@ -180,6 +189,7 @@ impl StreamManager {
             // would be better to have tls_enabled be &PyAny
             // and args tls_enabled = None or sentinel e.g. missing=object()
             builder.is_tls_enabled(tls_enabled);
+            builder.disable_cert_verification(disable_cert_verification);
         }
         let config = builder.build().expect("creating config");
         let client_factory = ClientFactory::new(config.clone());

@@ -83,6 +83,9 @@ pub struct ClientConfig {
     #[builder(default = "self.default_is_tls_enabled()")]
     pub is_tls_enabled: bool,
 
+    #[builder(default = "false")]
+    pub disable_cert_verification: bool,
+
     #[builder(default = "self.extract_trustcerts()")]
     pub trustcerts: Vec<String>,
 
@@ -151,7 +154,11 @@ impl ClientConfigBuilder {
             }
             if method == credentials::BEARER {
                 let path = ret_val.get(AUTH_KEYCLOAK_PATH).expect("get keycloak json file");
-                return Credentials::keycloak(path);
+                let mut disable_cert_verification = false;
+                if self.disable_cert_verification.is_some() && self.disable_cert_verification.unwrap() {
+                    disable_cert_verification = true;
+                }
+                return Credentials::keycloak(path, disable_cert_verification);
             }
         }
         Credentials::basic("".into(), "".into())
