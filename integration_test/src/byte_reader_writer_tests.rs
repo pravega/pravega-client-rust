@@ -69,7 +69,7 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
         client_factory.controller_client(),
         &scope_name,
         &stream_name,
-        0,
+        1,
     ));
     let scoped_stream = ScopedStream {
         scope: scope_name,
@@ -89,7 +89,7 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
         client_factory.controller_client(),
         &scope_name,
         &stream_name,
-        0,
+        1,
     ));
     test_multiple_writers_conditional_append(&client_factory, scoped_stream);
     let scope_name = Scope::from("testScopeAsyncByteStream".to_owned());
@@ -102,7 +102,7 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
         client_factory.controller_client(),
         &scope_name,
         &stream_name,
-        0,
+        1,
     ));
     handle.block_on(test_async_write_and_read(&client_factory, scoped_stream));
 }
