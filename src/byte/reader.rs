@@ -369,6 +369,26 @@ mod test {
         assert!(write_result.is_err() || flush_result.is_err());
     }
 
+    #[test]
+    #[should_panic(expected = "Byte stream is configured with more than one segment")]
+    fn test_invalid_stream_config() {
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(MockType::Happy))
+            .mock(true)
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        factory.runtime().block_on(create_stream(
+            &factory,
+            "testScopeInvalid",
+            "testStreamInvalid",
+            2,
+        ));
+        let stream = ScopedStream::from("testScopeInvalid/testStreamInvalid");
+        factory.create_byte_reader(stream);
+    }
+
     fn create_reader_and_writer(runtime: &Runtime) -> (ByteWriter, ByteReader) {
         let config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(MockType::Happy))
@@ -377,7 +397,7 @@ mod test {
             .build()
             .unwrap();
         let factory = ClientFactory::new(config);
-        runtime.block_on(create_stream(&factory, "testScope", "testStream"));
+        runtime.block_on(create_stream(&factory, "testScope", "testStream", 1));
         let stream = ScopedStream::from("testScope/testStream");
         let writer = factory.create_byte_writer(stream.clone());
         let reader = factory.create_byte_reader(stream);

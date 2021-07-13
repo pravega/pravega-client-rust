@@ -328,3 +328,34 @@ impl Drop for ByteWriter {
         let _res = self.sender.send_without_bp(Incoming::Close());
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::util::create_stream;
+    use pravega_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_client_config::ClientConfigBuilder;
+    use pravega_client_shared::PravegaNodeUri;
+    use std::io::Write;
+    use tokio::runtime::Runtime;
+
+    #[test]
+    #[should_panic(expected = "Byte stream is configured with more than one segment")]
+    fn test_invalid_stream_config() {
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(MockType::Happy))
+            .mock(true)
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        factory.runtime().block_on(create_stream(
+            &factory,
+            "testScopeInvalid",
+            "testStreamInvalid",
+            2,
+        ));
+        let stream = ScopedStream::from("testScopeInvalid/testStreamInvalid");
+        factory.create_byte_writer(stream);
+    }
+}

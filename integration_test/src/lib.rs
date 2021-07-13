@@ -94,12 +94,12 @@ mod test {
             .unwrap();
 
         // metric::metric_init(PROMETHEUS_SCRAPE_PORT.parse::<SocketAddr>().unwrap());
-        // info!("Running integration test");
-        // let config = PravegaStandaloneServiceConfig::new(false, true, true);
-        // run_tests(config);
-        //
-        // let config = PravegaStandaloneServiceConfig::new(true, false, false);
-        // run_tests(config);
+        info!("Running integration test");
+        let config = PravegaStandaloneServiceConfig::new(false, true, true);
+        run_tests(config);
+
+        let config = PravegaStandaloneServiceConfig::new(true, false, false);
+        run_tests(config);
 
         // disconnection test will start its own Pravega Standalone.
         disconnection_tests::disconnection_test_wrapper();

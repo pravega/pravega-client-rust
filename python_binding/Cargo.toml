@@ -31,7 +31,7 @@ python_binding = ["pyo3"]
 tracing = "0.1.17"
 tracing-futures = "0.2.4"
 tracing-subscriber = "0.2.2"
-pravega-client = { path = "../", version = "0.2"}
+pravega-client = { path = "../", version = "0.3"}
 pravega-client-shared = { path = "../shared", version = "0.2"}
 pravega-controller-client = { path = "../controller-client", version = "0.2"}
 pravega-wire-protocol = { path = "../wire_protocol", version = "0.2"}
