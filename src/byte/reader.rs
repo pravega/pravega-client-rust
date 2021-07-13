@@ -356,7 +356,7 @@ mod test {
         assert!(reader.read(&mut buf).is_err());
 
         // read from current head
-        let offset = rt.block_on(reader.current_head()).expect("get current head");
+        let offset = reader.current_head().expect("get current head");
         reader.seek(SeekFrom::Start(offset)).expect("seek to new head");
         let mut buf = vec![0; 100];
         assert!(reader.read(&mut buf).is_ok());
