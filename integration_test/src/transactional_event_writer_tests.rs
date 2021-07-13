@@ -57,11 +57,12 @@ pub fn test_transactional_event_stream_writer(config: PravegaStandaloneServiceCo
     ));
 
     let mut writer =
-        handle.block_on(client_factory.create_transactional_event_writer(scoped_stream, WriterId(0)));
+        handle.block_on(client_factory.create_transactional_event_writer(scoped_stream.clone(), WriterId(0)));
 
     handle.block_on(test_commit_transaction(&mut writer));
     handle.block_on(test_abort_transaction(&mut writer));
     handle.block_on(test_write_and_read_transaction(&mut writer, &client_factory));
+    handle.block_on(test_multiple_transactions(&client_factory, scoped_stream));
 
     info!("test TransactionalEventStreamWriter passed");
 }
@@ -172,6 +173,44 @@ async fn test_write_and_read_transaction(writer: &mut TransactionalEventWriter, 
 
     assert_eq!(count, num_events);
     info!("test write transaction passed");
+}
+
+async fn test_multiple_transactions(factory: &ClientFactory, stream: ScopedStream) {
+    // multiple transaction writers
+    let mut transactions = vec![];
+    let mut transaction_writers = vec![];
+    for writer_id in 1..100 {
+        let mut transaction_writer = factory
+            .create_transactional_event_writer(stream.clone(), WriterId(writer_id as u128))
+            .await;
+        let transaction = transaction_writer.begin().await.expect("begin transaction");
+        transaction_writers.push(transaction_writer);
+        transactions.push(transaction);
+    }
+
+    for mut transaction in transactions {
+        let event = vec![1; 100];
+        transaction.write_event(None, event).await.expect("write event");
+        let timestamp = Timestamp { 0: 0 };
+        transaction.commit(timestamp).await.expect("commit");
+    }
+
+    // one transaction writer with multiple transactions
+    let mut transactions = vec![];
+    let mut transaction_writer = factory
+        .create_transactional_event_writer(stream.clone(), WriterId(100))
+        .await;
+    for _i in 0..100 {
+        let transaction = transaction_writer.begin().await.expect("begin transaction");
+        transactions.push(transaction);
+    }
+
+    for mut transaction in transactions {
+        let event = vec![1; 100];
+        transaction.write_event(None, event).await.expect("write event");
+        let timestamp = Timestamp { 0: 0 };
+        transaction.commit(timestamp).await.expect("commit");
+    }
 }
 
 // helper function

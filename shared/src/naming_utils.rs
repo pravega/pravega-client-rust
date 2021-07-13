@@ -42,8 +42,8 @@ impl NameUtils {
                 "{}{}{}{}",
                 segment_name,
                 TRANSACTION_DELIMITER,
-                format!("{:016X}", (transaction_id.0 >> 64) as i64),
-                format!("{:016X}", transaction_id.0 as i64)
+                format!("{:016x}", (transaction_id.0 >> 64) as i64),
+                format!("{:016x}", transaction_id.0 as i64)
             )
         } else {
             segment_name
