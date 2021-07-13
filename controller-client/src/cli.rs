@@ -115,10 +115,7 @@ fn main() {
                     scale_factor: 0,
                     min_num_segments: segment_count,
                 },
-                retention: Retention {
-                    retention_type: RetentionType::None,
-                    retention_param: 0,
-                },
+                retention: Default::default(),
                 tags: if tags.is_empty() { None } else { Some(tags) },
             };
             let result = rt.block_on(controller_client.create_stream(&stream_cfg));
