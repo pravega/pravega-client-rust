@@ -33,9 +33,74 @@ pub fn test_controller_apis(config: PravegaStandaloneServiceConfig) {
     // Create a Scope that is used by all the tests.
     let scope_result = handle.block_on(controller.create_scope(&Scope::from(SCOPE.to_owned())));
     info!("Response for create_scope is {:?}", scope_result);
-    // Inovke the tests.
+    // Invoke the tests.
+    handle.block_on(test_scope_stream(controller));
     handle.block_on(test_stream_tags(controller));
-    //handle.block_on(test_scale_stream(controller));
+    handle.block_on(test_scale_stream(controller));
+}
+
+pub async fn test_scope_stream(controller: &dyn ControllerClient) {
+    let scopes = get_all_scopes(controller).await;
+    let scope1 = Scope::from(SCOPE.to_string());
+    let scope2 = Scope::from("_system".to_string());
+    let scope3 = Scope::from("sc1".to_string());
+    let scope4 = Scope::from("sc2".to_string());
+    assert!(scopes.contains(&scope1));
+    assert!(scopes.contains(&scope2));
+
+    assert!(controller
+        .check_scope_exists(&scope1)
+        .await
+        .expect("check scope exists"));
+    assert!(!controller
+        .check_scope_exists(&Scope::from("dummy".to_string()))
+        .await
+        .expect("check scope exists"));
+
+    controller
+        .create_scope(&scope3)
+        .await
+        .expect("Creating scope sc1");
+
+    controller
+        .create_scope(&scope4)
+        .await
+        .expect("Creating scope sc2");
+
+    let scopes = get_all_scopes(controller).await;
+    assert_eq!(scopes.len(), 4);
+    assert!(scopes.contains(&scope1));
+    assert!(scopes.contains(&scope2));
+    assert!(scopes.contains(&scope3));
+    assert!(scopes.contains(&scope4));
+
+    let streams = get_all_streams(controller, &scope3).await;
+    assert_eq!(streams.len(), 0);
+
+    let st1 = ScopedStream {
+        scope: scope3.clone(),
+        stream: Stream::from("st1".to_string()),
+    };
+    assert!(!controller
+        .check_stream_exists(&st1)
+        .await
+        .expect("Check stream exists"));
+    let stream_cfg = StreamConfiguration {
+        scoped_stream: st1.clone(),
+        scaling: Default::default(),
+        retention: Default::default(),
+        tags: Some(vec!["tag1".to_string(), "tag2".to_string()]),
+    };
+
+    let _stream_result = controller.create_stream(&stream_cfg).await;
+    assert!(controller
+        .check_stream_exists(&st1)
+        .await
+        .expect("Check stream exists"));
+    let streams = get_all_streams(controller, &scope3).await;
+    // _Mark stream is also created.
+    assert_eq!(streams.len(), 2);
+    assert!(streams.contains(&st1));
 }
 
 pub async fn test_stream_tags(controller: &dyn ControllerClient) {
@@ -142,6 +207,30 @@ async fn get_all_streams_for_tag(
         .await
         .unwrap()
     {
+        result.append(&mut res);
+        token = next_token;
+    }
+    result
+}
+
+// Helper method to fetch all the scopes.
+async fn get_all_scopes(controller: &dyn ControllerClient) -> Vec<Scope> {
+    let mut result: Vec<Scope> = Vec::new();
+
+    let mut token = CToken::empty();
+    while let Some((mut res, next_token)) = controller.list_scopes(&token).await.unwrap() {
+        result.append(&mut res);
+        token = next_token;
+    }
+    result
+}
+
+// Helper method to fetch all the streams for a tag.
+async fn get_all_streams(controller: &dyn ControllerClient, scope_name: &Scope) -> Vec<ScopedStream> {
+    let mut result: Vec<ScopedStream> = Vec::new();
+
+    let mut token = CToken::empty();
+    while let Some((mut res, next_token)) = controller.list_streams(&scope_name, &token).await.unwrap() {
         result.append(&mut res);
         token = next_token;
     }

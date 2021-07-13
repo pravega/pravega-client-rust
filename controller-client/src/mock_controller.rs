@@ -77,6 +77,27 @@ impl ControllerClient for MockController {
         Ok(true)
     }
 
+    async fn check_scope_exists(&self, scope: &Scope) -> Result<bool, RetryError<ControllerError>> {
+        let scope_name = scope.name.clone();
+        if self.created_scopes.read().await.contains_key(&scope_name) {
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    async fn list_scopes(
+        &self,
+        _token: &CToken,
+    ) -> Result<Option<(Vec<Scope>, CToken)>, RetryError<ControllerError>> {
+        let map_guard = self.created_scopes.read().await;
+        let scopes = map_guard.keys();
+        let mut result = Vec::new();
+        for scope in scopes {
+            result.push(Scope::from(scope.clone()));
+        }
+        Ok(Some((result, CToken::from("mock_token"))))
+    }
+
     async fn list_streams(
         &self,
         scope: &Scope,
@@ -205,6 +226,13 @@ impl ControllerClient for MockController {
             create_segment(segment_name, self, false).await?;
         }
         Ok(true)
+    }
+
+    async fn check_stream_exists(&self, stream: &ScopedStream) -> Result<bool, RetryError<ControllerError>> {
+        if self.created_streams.read().await.contains_key(stream) {
+            return Ok(true);
+        }
+        Ok(false)
     }
 
     async fn update_stream(
