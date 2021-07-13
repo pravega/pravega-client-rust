@@ -12,16 +12,12 @@ ROOT = Path(__file__).parent.parent.parent
 # this script.
 # Note the docker image konstin2/maturin:master does not work.
 
-# manylinux is set to unchecked due to the below error
-# Your library is not manylinux compliant because it links the following forbidden libraries: ["libssl.so.1.1", "libcrypto.so.1.1"]
 os.chdir("./python_binding")
 command = [
     "maturin",
     "build",
     "--release",
     "--no-sdist",
-    "--manylinux",
-    "1-unchecked",
     "--interpreter",
     sys.executable,
 ]
