@@ -32,7 +32,6 @@ use tracing::{error, info};
 
 pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
     // spin up Pravega standalone
-    let mut rt = Runtime::new().unwrap();
     let scope_name = Scope::from("testScopeByteStream".to_owned());
     let stream_name = Stream::from("testStreamByteStream".to_owned());
     let config = ClientConfigBuilder::default()
@@ -42,27 +41,27 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
+    let rt = client_factory.runtime();
     let handle = client_factory.runtime();
     handle.block_on(utils::create_scope_stream(
         client_factory.controller_client(),
         &scope_name,
         &stream_name,
-        2,
+        1,
     ));
 
-    let scoped_segment = ScopedSegment {
+    let scoped_stream = ScopedStream {
         scope: scope_name,
         stream: stream_name,
-        segment: Segment::from(0),
     };
 
-    let mut writer = client_factory.create_byte_writer(scoped_segment.clone());
-    let mut reader = client_factory.create_byte_reader(scoped_segment);
+    let mut writer = client_factory.create_byte_writer(scoped_stream.clone());
+    let mut reader = client_factory.create_byte_reader(scoped_stream);
 
     test_simple_write_and_read(&mut writer, &mut reader);
     test_seek(&mut reader);
-    test_truncation(&mut writer, &mut reader, &mut rt);
-    test_seal(&mut writer, &mut reader, &mut rt);
+    test_truncation(&mut writer, &mut reader, rt);
+    test_seal(&mut writer, &mut reader, rt);
 
     let scope_name = Scope::from("testScopeByteStreamPrefetch".to_owned());
     let stream_name = Stream::from("testStreamByteStreamPrefetch".to_owned());
@@ -72,21 +71,19 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
         &stream_name,
         1,
     ));
-    let scoped_segment = ScopedSegment {
+    let scoped_stream = ScopedStream {
         scope: scope_name,
         stream: stream_name,
-        segment: Segment::from(0),
     };
-    let mut writer = client_factory.create_byte_writer(scoped_segment.clone());
-    let mut reader = client_factory.create_byte_reader(scoped_segment);
+    let mut writer = client_factory.create_byte_writer(scoped_stream.clone());
+    let mut reader = client_factory.create_byte_reader(scoped_stream);
     test_write_and_read_with_workload(&mut writer, &mut reader);
 
     let scope_name = Scope::from("testScopeByteStreamConditionalAppend".to_owned());
     let stream_name = Stream::from("testStreamByteStreamConditionalAppend".to_owned());
-    let segment = ScopedSegment {
+    let scoped_stream = ScopedStream {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment::from(0),
     };
     handle.block_on(utils::create_scope_stream(
         client_factory.controller_client(),
@@ -94,13 +91,12 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
         &stream_name,
         1,
     ));
-    test_multiple_writers_conditional_append(&client_factory, segment);
+    test_multiple_writers_conditional_append(&client_factory, scoped_stream);
     let scope_name = Scope::from("testScopeAsyncByteStream".to_owned());
     let stream_name = Stream::from("testStreamAsyncByteStream".to_owned());
-    let segment = ScopedSegment {
+    let scoped_stream = ScopedStream {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
-        segment: Segment::from(0),
     };
     handle.block_on(utils::create_scope_stream(
         client_factory.controller_client(),
@@ -108,7 +104,7 @@ pub fn test_byte_stream(config: PravegaStandaloneServiceConfig) {
         &stream_name,
         1,
     ));
-    handle.block_on(test_async_write_and_read(&client_factory, segment));
+    handle.block_on(test_async_write_and_read(&client_factory, scoped_stream));
 }
 
 fn test_simple_write_and_read(writer: &mut ByteWriter, reader: &mut ByteReader) {
@@ -164,7 +160,7 @@ fn test_seek(reader: &mut ByteReader) {
     info!("test byte stream seek passed");
 }
 
-fn test_truncation(writer: &mut ByteWriter, reader: &mut ByteReader, rt: &mut Runtime) {
+fn test_truncation(writer: &mut ByteWriter, reader: &mut ByteReader, rt: &Runtime) {
     info!("test byte stream truncate");
     // truncate
     rt.block_on(writer.truncate_data_before(4)).expect("truncate");
@@ -189,7 +185,7 @@ fn test_truncation(writer: &mut ByteWriter, reader: &mut ByteReader, rt: &mut Ru
     info!("test byte stream truncate passed");
 }
 
-fn test_seal(writer: &mut ByteWriter, reader: &mut ByteReader, rt: &mut Runtime) {
+fn test_seal(writer: &mut ByteWriter, reader: &mut ByteReader, rt: &Runtime) {
     info!("test byte stream seal");
     // seal
     rt.block_on(writer.seal()).expect("seal");
@@ -235,9 +231,9 @@ fn test_write_and_read_with_workload(writer: &mut ByteWriter, reader: &mut ByteR
     info!("test write and read with workload passed");
 }
 
-fn test_multiple_writers_conditional_append(factory: &ClientFactory, segment: ScopedSegment) {
+fn test_multiple_writers_conditional_append(factory: &ClientFactory, stream: ScopedStream) {
     info!("test byte stream multiple writers concurrent append");
-    let mut writer1 = factory.create_byte_writer(segment.clone());
+    let mut writer1 = factory.create_byte_writer(stream.clone());
     let payload = vec![1; 1024];
     let _num = writer1.write(&payload).expect("writer1 write payload");
     assert_eq!(writer1.current_write_offset(), 1024);
@@ -245,7 +241,7 @@ fn test_multiple_writers_conditional_append(factory: &ClientFactory, segment: Sc
     writer1.seek_to_tail();
     assert_eq!(writer1.current_write_offset(), 1024);
 
-    let mut writer2 = factory.create_byte_writer(segment);
+    let mut writer2 = factory.create_byte_writer(stream);
     writer2.seek_to_tail();
     let _num = writer2.write(&payload).expect("writer2 write payload");
     assert_eq!(writer2.current_write_offset(), 2048);
@@ -264,9 +260,9 @@ fn test_multiple_writers_conditional_append(factory: &ClientFactory, segment: Sc
     info!("test byte stream multiple writers concurrent append passed");
 }
 
-async fn test_async_write_and_read(factory: &ClientFactory, segment: ScopedSegment) {
+async fn test_async_write_and_read(factory: &ClientFactory, stream: ScopedStream) {
     info!("test byte stream async write and read");
-    let mut writer = factory.create_byte_writer_async(segment.clone()).await;
+    let mut writer = factory.create_byte_writer_async(stream.clone()).await;
     for _i in 0i32..10 {
         for _j in 0i32..1000 {
             let buf = vec![1; 1024];
@@ -277,7 +273,7 @@ async fn test_async_write_and_read(factory: &ClientFactory, segment: ScopedSegme
         writer.seek_to_tail_async().await;
     }
 
-    let mut reader = factory.create_byte_reader_async(segment.clone()).await;
+    let mut reader = factory.create_byte_reader_async(stream.clone()).await;
     assert!(reader.seek_async(SeekFrom::Start(0)).await.is_ok());
     let mut read = 0;
     loop {
