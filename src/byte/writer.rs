@@ -18,6 +18,7 @@ use crate::util::get_random_u128;
 use pravega_client_channel::{create_channel, ChannelSender};
 use pravega_client_shared::{ScopedSegment, ScopedStream, WriterId};
 
+use std::collections::VecDeque;
 use std::io::{Error, ErrorKind, Write};
 use tokio::sync::oneshot;
 use tracing::info_span;
@@ -95,7 +96,7 @@ pub struct ByteWriter {
     sender: ChannelSender<Incoming>,
     metadata_client: SegmentMetadataClient,
     factory: ClientFactory,
-    event_handle: Option<EventHandle>,
+    event_handles: Option<VecDeque<EventHandle>>,
     write_offset: i64,
 }
 
@@ -114,14 +115,32 @@ impl Write for ByteWriter {
             .block_on(self.write_internal(self.sender.clone(), payload));
 
         self.write_offset += bytes_to_write as i64;
-        self.event_handle = Some(oneshot_receiver);
+
+        if let Some(ref mut event_handles) = self.event_handles {
+            event_handles.push_back(oneshot_receiver);
+        } else {
+            let mut event_handles = VecDeque::new();
+            event_handles.push_back(oneshot_receiver);
+            self.event_handles = Some(event_handles);
+        }
+
+        let mut index = 0;
+        for handle in self.event_handles.as_mut().unwrap().iter_mut() {
+            if let Ok(res) = handle.try_recv() {
+                res.map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))?;
+            }
+            index += 1;
+        }
+        self.event_handles.as_mut().unwrap().drain(0..index);
         Ok(bytes_to_write)
     }
 
     /// This is a blocking call that will wait for data to be persisted on the server side.
     fn flush(&mut self) -> Result<(), Error> {
-        if let Some(event_handle) = self.event_handle.take() {
-            self.factory.runtime().block_on(self.flush_internal(event_handle))
+        if let Some(event_handles) = self.event_handles.take() {
+            self.factory
+                .runtime()
+                .block_on(self.flush_internal(event_handles))
         } else {
             Ok(())
         }
@@ -171,7 +190,7 @@ impl ByteWriter {
             sender,
             metadata_client,
             factory,
-            event_handle: None,
+            event_handles: Some(VecDeque::new()),
             write_offset: 0,
         }
     }
@@ -190,7 +209,13 @@ impl ByteWriter {
         let payload = buf[0..bytes_to_write].to_vec();
         let event_handle = self.write_internal(self.sender.clone(), payload).await;
         self.write_offset += bytes_to_write as i64;
-        self.event_handle = Some(event_handle);
+        if let Some(ref mut event_handles) = self.event_handles {
+            event_handles.push_back(event_handle);
+        } else {
+            let mut event_handles = VecDeque::new();
+            event_handles.push_back(event_handle);
+            self.event_handles = Some(event_handles);
+        }
         bytes_to_write
     }
 
@@ -204,8 +229,8 @@ impl ByteWriter {
     /// byte_writer.flush().await;
     /// ```
     pub async fn flush_async(&mut self) -> Result<(), Error> {
-        if let Some(event_handle) = self.event_handle.take() {
-            self.flush_internal(event_handle).await
+        if let Some(event_handles) = self.event_handles.take() {
+            self.flush_internal(event_handles).await
         } else {
             Ok(())
         }
@@ -219,8 +244,8 @@ impl ByteWriter {
     /// byte_writer.seal().await.expect("seal segment");
     /// ```
     pub async fn seal(&mut self) -> Result<(), Error> {
-        if let Some(event_handle) = self.event_handle.take() {
-            self.flush_internal(event_handle).await?;
+        if let Some(event_handles) = self.event_handles.take() {
+            self.flush_internal(event_handles).await?;
         }
         self.metadata_client
             .seal_segment()
@@ -314,12 +339,13 @@ impl ByteWriter {
         rx
     }
 
-    async fn flush_internal(&self, event_handle: EventHandle) -> Result<(), Error> {
-        let result = event_handle
-            .await
-            .map_err(|e| Error::new(ErrorKind::Other, format!("oneshot error {:?}", e)))?;
-
-        result.map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
+    async fn flush_internal(&self, event_handles: VecDeque<EventHandle>) -> Result<(), Error> {
+        for handle in event_handles.into_iter() {
+            if let Ok(res) = handle.await {
+                res.map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))?;
+            }
+        }
+        Ok(())
     }
 }
 
