@@ -140,10 +140,10 @@ impl Write for ByteWriter {
     /// This is a blocking call that will wait for data to be persisted on the server side.
     fn flush(&mut self) -> Result<(), Error> {
         let event_handles = self.event_handles.take().expect("get event handles");
+        self.event_handles = Some(VecDeque::new());
         self.factory
             .runtime()
             .block_on(self.flush_internal(event_handles))?;
-        self.event_handles = Some(VecDeque::new());
         Ok(())
     }
 }
