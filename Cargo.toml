@@ -34,7 +34,8 @@ members = [
     "python_binding",
     "auth",
     "config",
-    "examples"
+    "examples",
+    "praveglet"
 ]
 
 [dependencies]
