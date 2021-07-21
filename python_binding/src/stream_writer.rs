@@ -21,7 +21,6 @@ cfg_if! {
         use tracing::trace;
         use std::time::Duration;
         use tokio::time::timeout;
-        use tokio::sync::oneshot::error::RecvError;
     }
 }
 
@@ -62,6 +61,8 @@ impl StreamWriter {
     /// writer.write_event("e1")
     /// // write into Pravega stream by specifying the routing key.
     /// writer.write_event("e2", "key1")
+    /// // flush to server
+    /// writer.flush()
     /// ```
     ///
     #[text_signature = "($self, event, routing_key=None)"]
@@ -76,7 +77,7 @@ impl StreamWriter {
     ///
     /// Write a byte array into the Pravega Stream. This is similar to `write_event(...)` api except
     /// that the the event to be written is a byte array. The user can optionally specify the
-    ///  routing key.
+    /// routing key.
     ///
     /// ```
     /// import pravega_client;
@@ -91,13 +92,15 @@ impl StreamWriter {
     /// writer.write_event_bytes(e_bytes)
     /// // write into Pravega stream by specifying the routing key.
     /// writer.write_event_bytes(e_bytes, "key1")
+    /// // flush to server
+    /// writer.flush()
     /// ```
     ///
     #[text_signature = "($self, event, routing_key=None)"]
     #[args(event, routing_key = "None", "*")]
     pub fn write_event_bytes(&mut self, event: &[u8], routing_key: Option<&str>) -> PyResult<()> {
         // to_vec creates an owned copy of the python byte array object.
-        let write_future: tokio::sync::oneshot::Receiver<Result<(), Error>> = match routing_key {
+        match routing_key {
             Option::None => {
                 trace!("Writing a single event with no routing key");
                 self.factory
@@ -111,21 +114,18 @@ impl StreamWriter {
                     .block_on(self.writer.write_event_by_routing_key(key.into(), event.to_vec()))
             }
         };
+        Ok(())
+    }
 
+    #[text_signature = "($self)"]
+    pub fn flush(&mut self) -> PyResult<()> {
         let _guard = self.factory.runtime().enter();
-        let timeout_fut = timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), write_future);
+        let timeout_fut = timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), self.writer.flush());
 
-        let result: Result<Result<Result<(), Error>, RecvError>, _> =
-            self.factory.runtime().block_on(timeout_fut);
+        let result: Result<Result<(), Error>, _> = self.factory.runtime().block_on(timeout_fut);
         match result {
             Ok(t) => match t {
-                Ok(t1) => match t1 {
-                    Ok(_) => Ok(()),
-                    Err(e) => Err(exceptions::PyValueError::new_err(format!(
-                        "Error observed while writing an event {:?}",
-                        e
-                    ))),
-                },
+                Ok(_) => Ok(()),
                 Err(e) => Err(exceptions::PyValueError::new_err(format!(
                     "Error observed while writing an event {:?}",
                     e

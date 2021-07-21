@@ -71,7 +71,9 @@ e_bytes=e.encode("utf-8")
 # write into Pravega stream without specifying the routing key.    
 writer.write_event_bytes(e_bytes)                                    
 # write into Pravega stream by specifying the routing key.       
-writer.write_event_bytes(e_bytes, "key1")    
+writer.write_event_bytes(e_bytes, "key1")
+# flush data to Pravega
+writer.flush()
 ```
 
 ## TransactionWriter

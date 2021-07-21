@@ -662,8 +662,8 @@ async fn write_events(
     };
     let mut writer = client_factory.create_event_writer(scoped_stream);
     for x in 0..num_events {
-        let rx = writer.write_event(vec![1; event_size]).await;
-        rx.await.expect("Failed to write Event").unwrap();
+        writer.write_event(vec![1; event_size]).await;
+        writer.flush().await.expect("flush");
         info!("write count {}", x);
     }
 }

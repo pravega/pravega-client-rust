@@ -21,6 +21,8 @@ use tokio::sync::oneshot;
 use tracing::info_span;
 use tracing_futures::Instrument;
 
+type EventHandle = oneshot::Receiver<Result<(), Error>>;
+
 /// Write events exactly once to a given stream.
 ///
 /// EventWriter spawns a `Reactor` that runs in the background for processing incoming events.
@@ -75,6 +77,7 @@ use tracing_futures::Instrument;
 pub struct EventWriter {
     writer_id: WriterId,
     sender: ChannelSender<Incoming>,
+    event_handle: Option<EventHandle>,
 }
 
 impl EventWriter {
@@ -93,6 +96,7 @@ impl EventWriter {
         EventWriter {
             writer_id,
             sender: tx,
+            event_handle: None,
         }
     }
 
@@ -112,37 +116,50 @@ impl EventWriter {
     /// ```ignore
     /// let mut event_writer = client_factory.create_event_writer(stream);
     /// // result is a tokio oneshot
-    /// let result = event_writer.write_event(payload).await;
-    /// result.await.expect("flush to server");
+    /// event_writer.write_event(payload).await;
+    /// event_writer.flush().await.expect("flush to server");
     /// ```
-    pub async fn write_event(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), Error>> {
+    pub async fn write_event(&mut self, event: Vec<u8>) {
         let size = event.len();
         let (tx, rx) = oneshot::channel();
         let routing_info = RoutingInfo::RoutingKey(None);
-        if let Some(pending_event) = PendingEvent::with_header(routing_info, event, None, tx) {
-            let append_event = Incoming::AppendEvent(pending_event);
-            self.writer_event_internal(append_event, size, rx).await
-        } else {
-            rx
-        }
+        let event_handle =
+            if let Some(pending_event) = PendingEvent::with_header(routing_info, event, None, tx) {
+                let append_event = Incoming::AppendEvent(pending_event);
+                self.writer_event_internal(append_event, size, rx).await
+            } else {
+                rx
+            };
+        self.event_handle = Some(event_handle);
     }
 
     /// Writes an event with a routing key.
     ///
     /// Same as the write_event.
-    pub async fn write_event_by_routing_key(
-        &mut self,
-        routing_key: String,
-        event: Vec<u8>,
-    ) -> oneshot::Receiver<Result<(), Error>> {
+    pub async fn write_event_by_routing_key(&mut self, routing_key: String, event: Vec<u8>) {
         let size = event.len();
         let (tx, rx) = oneshot::channel();
         let routing_info = RoutingInfo::RoutingKey(Some(routing_key));
-        if let Some(pending_event) = PendingEvent::with_header(routing_info, event, None, tx) {
-            let append_event = Incoming::AppendEvent(pending_event);
-            self.writer_event_internal(append_event, size, rx).await
+        let event_handle =
+            if let Some(pending_event) = PendingEvent::with_header(routing_info, event, None, tx) {
+                let append_event = Incoming::AppendEvent(pending_event);
+                self.writer_event_internal(append_event, size, rx).await
+            } else {
+                rx
+            };
+        self.event_handle = Some(event_handle);
+    }
+
+    /// Flushes events to the server.
+    ///
+    /// Making sure events are persisted on the server side.
+    pub async fn flush(&mut self) -> Result<(), Error> {
+        if let Some(event_handle) = self.event_handle.take() {
+            event_handle
+                .await
+                .map_err(|e| Error::new(ErrorKind::Other, format!("oneshot error {:?}", e)))?
         } else {
-            rx
+            Ok(())
         }
     }
 

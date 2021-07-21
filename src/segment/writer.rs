@@ -203,7 +203,7 @@ impl SegmentWriter {
                         let reply = match result {
                             Ok(reply) => reply,
                             Err(e) => {
-                                warn!("connection failed to read data back from segmentstore due to {:?}, closing listener task {:?}", e, listener_id);
+                                info!("connection failed to read data back from segmentstore due to {:?}, closing listener task {:?}", e, listener_id);
                                 let result = sender
                                     .send((Incoming::Reconnect(WriterInfo {
                                         segment: segment.clone(),

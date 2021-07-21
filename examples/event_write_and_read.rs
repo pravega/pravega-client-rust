@@ -68,8 +68,8 @@ fn main() {
 
         // write payload
         let payload = "hello world".to_string().into_bytes();
-        let result = event_writer.write_event(payload).await;
-        assert!(result.await.is_ok());
+        event_writer.write_event(payload).await;
+        event_writer.flush().await.expect("flush");
         println!("event writer sent and flushed data");
 
         // create event stream reader

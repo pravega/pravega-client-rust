@@ -98,19 +98,12 @@ pub fn test_event_stream_writer(config: PravegaStandaloneServiceConfig) {
 
 async fn test_simple_write(writer: &mut EventWriter) {
     info!("test simple write");
-    let mut receivers = vec![];
     let count = 10;
     let mut i = 0;
     while i < count {
-        let rx = writer.write_event(String::from("hello").into_bytes()).await;
-        receivers.push(rx);
+        writer.write_event(String::from("hello").into_bytes()).await;
+        writer.flush().await.expect("flush");
         i += 1;
-    }
-    assert_eq!(receivers.len(), count);
-
-    for rx in receivers {
-        let reply: Result<(), Error> = rx.await.expect("wait for result from oneshot");
-        assert!(reply.is_ok());
     }
     info!("test simple write passed");
 }
@@ -118,7 +111,6 @@ async fn test_simple_write(writer: &mut EventWriter) {
 async fn test_segment_scaling_up(writer: &mut EventWriter, factory: &ClientFactory) {
     info!("test event stream writer with segment scaled up");
 
-    let mut receivers = vec![];
     let count = 1000;
     let mut i = 0;
     while i < count {
@@ -142,15 +134,9 @@ async fn test_segment_scaling_up(writer: &mut EventWriter, factory: &ClientFacto
                 .await;
             assert_eq!(2, current_segments_result.unwrap().key_segment_map.len());
         }
-        let rx = writer.write_event(String::from("hello").into_bytes()).await;
-        receivers.push(rx);
+        writer.write_event(String::from("hello").into_bytes()).await;
+        writer.flush().await.expect("flush");
         i += 1;
-    }
-    assert_eq!(receivers.len(), count);
-
-    for rx in receivers {
-        let reply: Result<(), Error> = rx.await.expect("wait for result from oneshot");
-        assert!(reply.is_ok());
     }
 
     info!("test event stream writer with segment scaled up passed");
@@ -159,7 +145,6 @@ async fn test_segment_scaling_up(writer: &mut EventWriter, factory: &ClientFacto
 async fn test_segment_scaling_down(writer: &mut EventWriter, factory: &ClientFactory) {
     info!("test event stream writer with segment sealed");
 
-    let mut receivers = vec![];
     let count = 1000;
     let mut i = 0;
     while i < count {
@@ -181,24 +166,18 @@ async fn test_segment_scaling_down(writer: &mut EventWriter, factory: &ClientFac
                 .await;
             assert_eq!(1, current_segments_result.unwrap().key_segment_map.len());
         }
-        let rx = writer.write_event(String::from("hello").into_bytes()).await;
-        receivers.push(rx);
+        writer.write_event(String::from("hello").into_bytes()).await;
+        writer.flush().await.expect("flush");
         i += 1;
-    }
-    assert_eq!(receivers.len(), count);
-
-    for rx in receivers {
-        let reply: Result<(), Error> = rx.await.expect("wait for result from oneshot");
-        assert!(reply.is_ok());
     }
     info!("test event stream writer with segment sealed passed");
 }
 
 async fn test_write_correctness(writer: &mut EventWriter, factory: &ClientFactory) {
     info!("test read and write");
-    let rx = writer.write_event(String::from("event0").into_bytes()).await;
-    let reply: Result<(), Error> = rx.await.expect("wait for result from oneshot");
-    assert!(reply.is_ok());
+    writer.write_event(String::from("event0").into_bytes()).await;
+    writer.flush().await.expect("flush");
+
     let scope_name = Scope::from("testScopeWriter2".to_owned());
     let stream_name = Stream::from("testStreamWriter2".to_owned());
     let segment_name = ScopedSegment {
@@ -228,7 +207,6 @@ async fn test_write_correctness_while_scaling(writer: &mut EventWriter, factory:
     let scope_name = Scope::from("testScopeWriter2".to_owned());
     let stream_name = Stream::from("testStreamWriter2".to_owned());
 
-    let mut receivers = vec![];
     info!("writing to two segments");
     while i < count {
         if i == count / 2 {
@@ -258,22 +236,17 @@ async fn test_write_correctness_while_scaling(writer: &mut EventWriter, factory:
             // Routing key "even" and "odd" works is because their hashed value are in
             // 0~0.5 and 0.5~1.0 respectively. If the routing key hashing algorithm changed, this
             // test might fail.
-            let rx = writer
+            writer
                 .write_event_by_routing_key(String::from("even"), data.into_bytes())
                 .await;
-            receivers.push(rx);
+            writer.flush().await.expect("flush");
         } else {
-            let rx = writer
+            writer
                 .write_event_by_routing_key(String::from("odd"), data.into_bytes())
                 .await;
-            receivers.push(rx);
+            writer.flush().await.expect("flush");
         }
         i += 1;
-    }
-    // the data should write successfully.
-    for rx in receivers {
-        let reply: Result<(), Error> = rx.await.expect("wait for result from oneshot");
-        assert!(reply.is_ok());
     }
 
     let segment_name = ScopedSegment {
@@ -348,19 +321,19 @@ async fn test_write_correctness_with_routing_key(writer: &mut EventWriter, facto
     let mut i: i32 = 0;
     let scope_name = Scope::from("testScopeWriter3".to_owned());
     let stream_name = Stream::from("testStreamWriter3".to_owned());
-    let mut receivers = vec![];
+
     while i < count {
         let data = format!("event{}", i);
         if i % 2 == 0 {
-            let rx = writer
+            writer
                 .write_event_by_routing_key(String::from("even"), data.into_bytes())
                 .await;
-            receivers.push(rx);
+            writer.flush().await.expect("flush");
         } else {
-            let rx = writer
+            writer
                 .write_event_by_routing_key(String::from("odd"), data.into_bytes())
                 .await;
-            receivers.push(rx);
+            writer.flush().await.expect("flush");
         }
         i += 1;
     }
@@ -411,7 +384,6 @@ async fn test_write_correctness_with_routing_key(writer: &mut EventWriter, facto
 async fn test_write_with_stream_sealed(writer: &mut EventWriter, factory: &ClientFactory) {
     info!("test event stream writer with stream sealed");
 
-    let mut receivers = vec![];
     let count = 1000;
     let mut i = 0;
     while i < count {
@@ -423,19 +395,13 @@ async fn test_write_with_stream_sealed(writer: &mut EventWriter, factory: &Clien
             let seal_result = factory.controller_client().seal_stream(&scoped_stream).await;
             assert!(seal_result.is_ok());
         }
-        let rx = writer.write_event(String::from("hello").into_bytes()).await;
-        receivers.push(rx);
-        i += 1;
-    }
-    assert_eq!(receivers.len(), count);
-
-    for (i, rx) in receivers.into_iter().enumerate() {
-        let reply: Result<(), Error> = rx.await.expect("wait for result from oneshot");
+        writer.write_event(String::from("hello").into_bytes()).await;
         if i < 500 {
-            assert!(reply.is_ok());
+            writer.flush().await.expect("flush");
         } else {
-            assert!(reply.is_err());
+            assert!(writer.flush().await.is_err());
         }
+        i += 1;
     }
 
     info!("test event stream writer with stream sealed passed");

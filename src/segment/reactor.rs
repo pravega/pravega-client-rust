@@ -83,7 +83,7 @@ impl Reactor {
                     // cause InvalidEventNumber error.
                     if write_half.get_id() == writer_info.connection_id && writer_info.writer_id == writer.id
                     {
-                        warn!("reconnect for writer {:?}", writer_info);
+                        info!("reconnect for writer {:?}", writer_info);
                         writer.reconnect(factory).await;
                     } else {
                         info!("reconnect signal received for writer: {:?}, but does not match current writer: id {}, connection id {}, ignore", writer_info, writer.id, write_half.get_id());
