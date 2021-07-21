@@ -362,8 +362,6 @@ mod test {
     use pravega_client_config::connection_type::{ConnectionType, MockType};
     use pravega_client_config::ClientConfigBuilder;
     use pravega_client_shared::PravegaNodeUri;
-    use std::io::Write;
-    use tokio::runtime::Runtime;
 
     #[test]
     #[should_panic(expected = "Byte stream is configured with more than one segment")]

@@ -470,7 +470,7 @@ criterion_group! {
     targets = byte_stream_reader_mock_server
 }
 criterion_main!(
-    // event_writer_performance,
-    // event_reader_performance,
+    event_writer_performance,
+    event_reader_performance,
     byte_reader_performance
 );
