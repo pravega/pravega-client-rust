@@ -293,12 +293,10 @@ mod test {
     use pravega_client_config::ClientConfigBuilder;
     use pravega_client_shared::PravegaNodeUri;
     use std::io::Write;
-    use tokio::runtime::Runtime;
 
     #[test]
     fn test_byte_seek() {
-        let rt = Runtime::new().unwrap();
-        let (mut writer, mut reader) = create_reader_and_writer(&rt);
+        let (mut writer, mut reader, _factory) = create_reader_and_writer();
 
         // write 200 bytes
         let payload = vec![1; 200];
@@ -351,8 +349,7 @@ mod test {
 
     #[test]
     fn test_byte_stream_truncate() {
-        let rt = Runtime::new().unwrap();
-        let (mut writer, mut reader) = create_reader_and_writer(&rt);
+        let (mut writer, mut reader, factory) = create_reader_and_writer();
 
         // write 200 bytes
         let payload = vec![1; 200];
@@ -360,7 +357,10 @@ mod test {
         writer.flush().expect("flush");
 
         // truncate to offset 100
-        rt.block_on(writer.truncate_data_before(100)).expect("truncate");
+        factory
+            .runtime()
+            .block_on(writer.truncate_data_before(100))
+            .expect("truncate");
 
         // read truncated offset
         reader.seek(SeekFrom::Start(0)).expect("seek to head");
@@ -377,8 +377,7 @@ mod test {
 
     #[test]
     fn test_byte_stream_seal() {
-        let rt = Runtime::new().unwrap();
-        let (mut writer, mut reader) = create_reader_and_writer(&rt);
+        let (mut writer, mut reader, factory) = create_reader_and_writer();
 
         // write 200 bytes
         let payload = vec![1; 200];
@@ -386,7 +385,7 @@ mod test {
         writer.flush().expect("flush");
 
         // seal the segment
-        rt.block_on(writer.seal()).expect("seal");
+        factory.runtime().block_on(writer.seal()).expect("seal");
 
         // read sealed stream
         reader.seek(SeekFrom::Start(0)).expect("seek to new head");
@@ -420,7 +419,7 @@ mod test {
         factory.create_byte_reader(stream);
     }
 
-    fn create_reader_and_writer(runtime: &Runtime) -> (ByteWriter, ByteReader) {
+    fn create_reader_and_writer() -> (ByteWriter, ByteReader, ClientFactory) {
         let config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(MockType::Happy))
             .mock(true)
@@ -428,10 +427,12 @@ mod test {
             .build()
             .unwrap();
         let factory = ClientFactory::new(config);
-        runtime.block_on(create_stream(&factory, "testScope", "testStream", 1));
+        factory
+            .runtime()
+            .block_on(create_stream(&factory, "testScope", "testStream", 1));
         let stream = ScopedStream::from("testScope/testStream");
         let writer = factory.create_byte_writer(stream.clone());
         let reader = factory.create_byte_reader(stream);
-        (writer, reader)
+        (writer, reader, factory)
     }
 }

@@ -116,34 +116,35 @@ impl Write for ByteWriter {
 
         self.write_offset += bytes_to_write as i64;
 
-        if let Some(ref mut event_handles) = self.event_handles {
-            event_handles.push_back(oneshot_receiver);
-        } else {
-            let mut event_handles = VecDeque::new();
-            event_handles.push_back(oneshot_receiver);
-            self.event_handles = Some(event_handles);
-        }
+        self.event_handles
+            .as_mut()
+            .expect("get event handles")
+            .push_back(oneshot_receiver);
 
         let mut index = 0;
         for handle in self.event_handles.as_mut().unwrap().iter_mut() {
             if let Ok(res) = handle.try_recv() {
                 res.map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))?;
+                index += 1;
+            } else {
+                break;
             }
-            index += 1;
         }
-        self.event_handles.as_mut().unwrap().drain(0..index);
+        self.event_handles
+            .as_mut()
+            .expect("get event handles")
+            .drain(0..index);
         Ok(bytes_to_write)
     }
 
     /// This is a blocking call that will wait for data to be persisted on the server side.
     fn flush(&mut self) -> Result<(), Error> {
-        if let Some(event_handles) = self.event_handles.take() {
-            self.factory
-                .runtime()
-                .block_on(self.flush_internal(event_handles))
-        } else {
-            Ok(())
-        }
+        let event_handles = self.event_handles.take().expect("get event handles");
+        self.factory
+            .runtime()
+            .block_on(self.flush_internal(event_handles))?;
+        self.event_handles = Some(VecDeque::new());
+        Ok(())
     }
 }
 
@@ -341,8 +342,13 @@ impl ByteWriter {
 
     async fn flush_internal(&self, event_handles: VecDeque<EventHandle>) -> Result<(), Error> {
         for handle in event_handles.into_iter() {
-            if let Ok(res) = handle.await {
-                res.map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))?;
+            match handle.await {
+                Ok(res) => {
+                    res.map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))?;
+                }
+                Err(e) => {
+                    return Err(Error::new(ErrorKind::Other, format!("oneshot error {:?}", e)));
+                }
             }
         }
         Ok(())
