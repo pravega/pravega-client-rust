@@ -208,15 +208,12 @@ impl ByteWriter {
     pub async fn write_async(&mut self, buf: &[u8]) -> usize {
         let bytes_to_write = std::cmp::min(buf.len(), EventWriter::MAX_EVENT_SIZE);
         let payload = buf[0..bytes_to_write].to_vec();
-        let event_handle = self.write_internal(self.sender.clone(), payload).await;
+        let oneshot_receiver = self.write_internal(self.sender.clone(), payload).await;
         self.write_offset += bytes_to_write as i64;
-        if let Some(ref mut event_handles) = self.event_handles {
-            event_handles.push_back(event_handle);
-        } else {
-            let mut event_handles = VecDeque::new();
-            event_handles.push_back(event_handle);
-            self.event_handles = Some(event_handles);
-        }
+        self.event_handles
+            .as_mut()
+            .expect("get event handles")
+            .push_back(oneshot_receiver);
         bytes_to_write
     }
 
@@ -230,11 +227,10 @@ impl ByteWriter {
     /// byte_writer.flush().await;
     /// ```
     pub async fn flush_async(&mut self) -> Result<(), Error> {
-        if let Some(event_handles) = self.event_handles.take() {
-            self.flush_internal(event_handles).await
-        } else {
-            Ok(())
-        }
+        let event_handles = self.event_handles.take().expect("get event handles");
+        self.event_handles = Some(VecDeque::new());
+        self.flush_internal(event_handles).await?;
+        Ok(())
     }
 
     /// Seal the segment and no further writes are allowed.
@@ -245,9 +241,9 @@ impl ByteWriter {
     /// byte_writer.seal().await.expect("seal segment");
     /// ```
     pub async fn seal(&mut self) -> Result<(), Error> {
-        if let Some(event_handles) = self.event_handles.take() {
-            self.flush_internal(event_handles).await?;
-        }
+        let event_handles = self.event_handles.take().expect("get event handles");
+        self.event_handles = Some(VecDeque::new());
+        self.flush_internal(event_handles).await?;
         self.metadata_client
             .seal_segment()
             .await
