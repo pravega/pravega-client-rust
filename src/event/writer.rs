@@ -69,9 +69,9 @@ type EventHandle = oneshot::Receiver<Result<(), Error>>;
 ///     let mut event_writer = client_factory.create_event_writer(stream);
 ///
 ///     let payload = "hello world".to_string().into_bytes();
-///     let result = event_writer.write_event(payload).await;
+///     event_writer.write_event(payload).await;
+///     event_writer.flush().await.expect("flush");
 ///
-///     assert!(result.await.is_ok())
 /// }
 /// ```
 pub struct EventWriter {
