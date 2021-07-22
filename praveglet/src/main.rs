@@ -12,7 +12,7 @@ use pravega_client_config::ClientConfigBuilder;
 use pravega_client_shared::{PravegaNodeUri, ScaleType, Scaling, Scope, ScopedStream, StreamConfiguration};
 use std::io::{self, BufRead};
 use structopt::StructOpt;
-use tracing::{info, warn};
+use tracing::info;
 
 #[derive(StructOpt, Debug)]
 enum Command {
@@ -38,6 +38,20 @@ enum Command {
         scope_name: String,
         #[structopt(help = "Stream Name")]
         stream_name: String,
+    },
+    /// List Scopes
+    ListScopes,
+    /// List Streams under a scope
+    ListStreams {
+        #[structopt(help = "Scope Name")]
+        scope_name: String,
+    },
+    /// List Streams for a tag, under a scope
+    ListStreamsForTag {
+        #[structopt(help = "Scope Name")]
+        scope_name: String,
+        #[structopt(help = "Tag Name")]
+        tag: String,
     },
 }
 
@@ -118,17 +132,69 @@ fn main() {
             // create event stream writer
             let stream = ScopedStream::new(scope_name.into(), stream_name.into());
             let mut event_writer = client_factory.create_event_writer(stream.clone());
-            info!("event writer created");
+            info!("Event writer created");
             rt.block_on(async {
-                info!("event writer sent and flushed data");
                 let stdin = io::stdin();
+                let mut event_count = 0;
                 for line in stdin.lock().lines() {
                     let line = line.expect("Could not read line from standard in");
                     let result = event_writer.write_event(line.into_bytes()).await;
                     assert!(result.await.is_ok());
+                    event_count = event_count + 1;
                 }
+                info!("Wrote {:?} events", event_count);
             });
-            info!("writes completed");
+            info!("Writes operation completed");
+        }
+        Command::ListScopes => {
+            use futures::future;
+            use futures::stream::StreamExt;
+            use pravega_controller_client::paginator::list_scopes;
+
+            let stream = list_scopes(controller_client);
+            info!("Listing scopes");
+            rt.block_on(stream.for_each(|scope| {
+                if scope.is_ok() {
+                    println!("{:?}", scope.unwrap());
+                } else {
+                    println!("Error while fetching data from Controller. Details: {:?}", scope);
+                }
+                future::ready(())
+            }));
+        }
+        Command::ListStreams { scope_name } => {
+            use futures::future;
+            use futures::stream::StreamExt;
+            use pravega_controller_client::paginator::list_streams;
+
+            let scope = Scope::from(scope_name.clone());
+            let stream = list_streams(scope, controller_client);
+            info!("Listing streams under scope {:?}", scope_name);
+            rt.block_on(stream.for_each(|stream| {
+                if stream.is_ok() {
+                    println!("{:?}", stream.unwrap());
+                } else {
+                    println!("Error while fetching data from Controller. Details: {:?}", stream);
+                }
+                future::ready(())
+            }));
+        }
+        Command::ListStreamsForTag { scope_name, tag } => {
+            use futures::future;
+            use futures::stream::StreamExt;
+            use pravega_controller_client::paginator::list_streams_for_tag;
+
+            let scope = Scope::from(scope_name.clone());
+            let stream = list_streams_for_tag(scope, tag.clone(), controller_client);
+            info!("Listing streams with tag {:?} under scope {:?}", tag, scope_name);
+            rt.block_on(stream.for_each(|stream| {
+                if stream.is_ok() {
+                    println!("{:?}", stream.unwrap());
+                } else {
+                    println!("Error while fetching data from Controller. Details: {:?}", stream);
+                }
+                future::ready(())
+            }));
         }
     }
 }
