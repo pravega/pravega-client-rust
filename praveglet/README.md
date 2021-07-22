@@ -9,7 +9,7 @@ Praveglet is an app that can be used to interact with Pravega. This utility can 
 * List Streams
 * List Streams for the provided Tag.
 
-###Usage documentation:
+### Usage documentation:
 ```
 Praveglet 0.0.1
 Utility to interact with Pravega
