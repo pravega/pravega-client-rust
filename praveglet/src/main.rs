@@ -32,7 +32,7 @@ enum Command {
         #[structopt(help = "tag", value_name = "Tag,", use_delimiter = true, min_values = 0)]
         tags: Vec<String>,
     },
-    /// Write events from a file.
+    /// Write events from STDIN.
     Write {
         #[structopt(help = "Scope Name")]
         scope_name: String,
@@ -62,7 +62,6 @@ enum Command {
     version = "0.0.1"
 )]
 struct Opt {
-    /// Used to configure controller grpc, default uri tcp://127.0.0.1:9090
     /// To enable TLS use uri of the format tls://ip:port
     #[structopt(short = "uri", long, default_value = "tcp://127.0.0.1:9090")]
     controller_uri: String,
@@ -131,7 +130,7 @@ fn main() {
             );
             // create event stream writer
             let stream = ScopedStream::new(scope_name.into(), stream_name.into());
-            let mut event_writer = client_factory.create_event_writer(stream.clone());
+            let mut event_writer = client_factory.create_event_writer(stream);
             info!("Event writer created");
             rt.block_on(async {
                 let stdin = io::stdin();
@@ -140,7 +139,7 @@ fn main() {
                     let line = line.expect("Could not read line from standard in");
                     let result = event_writer.write_event(line.into_bytes()).await;
                     assert!(result.await.is_ok());
-                    event_count = event_count + 1;
+                    event_count += 1;
                 }
                 info!("Wrote {:?} events", event_count);
             });
