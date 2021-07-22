@@ -16,7 +16,7 @@ use tar::Archive;
 use tracing::info;
 
 const LIBRARY: &str = "pravega";
-const VERSION: &str = "0.10.0-2963.58a1a10-SNAPSHOT";
+const VERSION: &str = "0.10.0-2963.58a1a10-TLS13Strict.tgz";
 const TAG: &str = "v0.9.0";
 const BASE: &str = "./";
 
