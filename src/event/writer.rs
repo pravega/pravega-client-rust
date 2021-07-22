@@ -155,9 +155,10 @@ impl EventWriter {
     /// Making sure events are persisted on the server side.
     pub async fn flush(&mut self) -> Result<(), Error> {
         if let Some(event_handle) = self.event_handle.take() {
-            event_handle
+            let res = event_handle
                 .await
-                .map_err(|e| Error::new(ErrorKind::Other, format!("oneshot error {:?}", e)))?
+                .map_err(|e| Error::new(ErrorKind::Other, format!("oneshot error {:?}", e)))?;
+            res
         } else {
             Ok(())
         }
