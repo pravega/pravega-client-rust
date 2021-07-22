@@ -16,8 +16,8 @@ use tar::Archive;
 use tracing::info;
 
 const LIBRARY: &str = "pravega";
-const VERSION: &str = "0.10.0-2906.6a34e64-SNAPSHOT";
-const TAG: &str = "stream-tags";
+const VERSION: &str = "0.10.0-2963.58a1a10-SNAPSHOT";
+const TAG: &str = "v0.9.0";
 const BASE: &str = "./";
 
 fn main() {
@@ -43,11 +43,11 @@ fn remove_suffix(value: &mut String, suffix: &str) {
         value.truncate(n - suffix.len());
     }
 }
-
+/// https://github.com/sarlaccpit/pravega/releases/download/v0.9.0/pravega-0.10.0-2963.58a1a10-SNAPSHOT.tgz
 /// Downloads and unpacks a prebuilt binary. Only works for certain platforms.
 fn install_prebuilt() {
     let url = format!(
-        "https://github.com/shrids/pravega/releases/download/{}/pravega-{}.tgz",
+        "https://github.com/sarlaccpit/pravega/releases/download/{}/pravega-{}.tgz",
         TAG, VERSION
     );
     let short_file_name = url.split('/').last().unwrap();
