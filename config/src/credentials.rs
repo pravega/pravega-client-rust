@@ -10,6 +10,7 @@
 use async_trait::async_trait;
 use base64::encode;
 use reqwest::header::{HeaderMap, CONTENT_TYPE};
+use reqwest::Certificate;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::fs::File;
@@ -57,7 +58,7 @@ impl Credentials {
         }
     }
 
-    pub fn keycloak(path: &str, disable_cert_verification: bool) -> Self {
+    pub fn keycloak(path: &str, tls_certs: String, disable_cert_verification: bool) -> Self {
         // read keycloak json
         let file = File::open(path.to_string()).expect("open keycloak.json");
         let mut buf_reader = BufReader::new(file);
@@ -66,6 +67,7 @@ impl Credentials {
 
         // decode json string to struct
         let key_cloak_json: KeyCloakJson = serde_json::from_slice(&buffer).expect("decode slice to struct");
+        let certs_bytes = tls_certs.into_bytes();
 
         let keycloak = KeyCloak {
             method: BEARER.to_string(),
@@ -73,21 +75,24 @@ impl Credentials {
             json: key_cloak_json,
             expires_at: Arc::new(AtomicU64::new(0)),
             disable_cert_verification,
+            tls_certs: certs_bytes,
         };
         Credentials {
             inner: Box::new(keycloak) as Box<dyn Cred>,
         }
     }
 
-    pub fn keycloak_from_json_string(json: &str, disable_cert_verification: bool) -> Self {
+    pub fn keycloak_from_json_string(json: &str, tls_certs: String, disable_cert_verification: bool) -> Self {
         // decode json string to struct
         let key_cloak_json: KeyCloakJson = serde_json::from_str(json).expect("decode slice to struct");
+        let certs_bytes = tls_certs.into_bytes();
         let keycloak = KeyCloak {
             method: BEARER.to_string(),
             token: Arc::new(Mutex::new("".to_string())),
             json: key_cloak_json,
             expires_at: Arc::new(AtomicU64::new(0)),
             disable_cert_verification,
+            tls_certs: certs_bytes,
         };
         Credentials {
             inner: Box::new(keycloak) as Box<dyn Cred>,
@@ -154,6 +159,7 @@ struct KeyCloak {
     json: KeyCloakJson,
     expires_at: Arc<AtomicU64>,
     disable_cert_verification: bool,
+    tls_certs: Vec<u8>,
 }
 
 #[async_trait]
@@ -182,6 +188,7 @@ impl KeyCloak {
             &self.json.resource,
             &self.json.credentials.secret,
             self.disable_cert_verification,
+            &self.tls_certs,
         )
         .await
         .expect("obtain access token");
@@ -192,6 +199,7 @@ impl KeyCloak {
             &self.json.realm,
             &access_token,
             self.disable_cert_verification,
+            &self.tls_certs,
         )
         .await
         .expect("get rpt");
@@ -226,6 +234,7 @@ async fn obtain_access_token(
     client_id: &str,
     client_secret: &str,
     disable_cert_verification: bool,
+    tls_certs: &[u8],
 ) -> Result<String, reqwest::Error> {
     let url = URL_TOKEN.replace("{realm-name}", realm);
 
@@ -239,7 +248,7 @@ async fn obtain_access_token(
 
     let mut header_map = HeaderMap::new();
     header_map.insert(CONTENT_TYPE, "application/json".parse().unwrap());
-    let token = send_http_request(&path, payload, header_map, disable_cert_verification).await?;
+    let token = send_http_request(&path, payload, header_map, disable_cert_verification, tls_certs).await?;
     Ok(token.access_token)
 }
 
@@ -248,6 +257,7 @@ async fn authorize(
     realm: &str,
     token: &str,
     disable_cert_verification: bool,
+    tls_certs: &[u8],
 ) -> Result<Token, reqwest::Error> {
     let url = URL_TOKEN.replace("{realm-name}", realm);
 
@@ -261,7 +271,7 @@ async fn authorize(
     let mut header_map = HeaderMap::new();
     let bearer = format!("{} {}", BEARER, token);
     header_map.insert(AUTHORIZATION, bearer.parse().unwrap());
-    let rpt = send_http_request(&path, payload, header_map, disable_cert_verification).await?;
+    let rpt = send_http_request(&path, payload, header_map, disable_cert_verification, tls_certs).await?;
     Ok(rpt)
 }
 
@@ -276,10 +286,14 @@ async fn send_http_request(
     payload: serde_json::Value,
     header_map: HeaderMap,
     disable_cert_verification: bool,
+    tls_certs: &[u8],
 ) -> Result<Token, reqwest::Error> {
+    let cert = Certificate::from_pem(tls_certs).expect("parse pem file");
     let client = reqwest::Client::builder()
+        .add_root_certificate(cert)
         .danger_accept_invalid_certs(disable_cert_verification)
-        .build()?;
+        .build()
+        .expect("build client");
     let response = client
         .post(path)
         .headers(header_map)
@@ -302,5 +316,14 @@ mod test {
         assert_eq!(v.auth_server_url, "http://localhost");
         assert_eq!(v.resource, "pravega-controller");
         assert_eq!(v.credentials.secret, "123456");
+    }
+
+    #[tokio::test]
+    async fn test_empty_cert() {
+        let cert = Certificate::from_pem(&vec![]).expect("parse pem file");
+        let _client = reqwest::Client::builder()
+            .add_root_certificate(cert)
+            .build()
+            .expect("build client");
     }
 }

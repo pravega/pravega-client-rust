@@ -163,10 +163,14 @@ impl ClientConfigBuilder {
             if method == credentials::BEARER {
                 let path = ret_val.get(AUTH_KEYCLOAK_PATH).expect("get keycloak json file");
                 let mut disable_cert_verification = false;
+                let mut certs = String::new();
                 if self.disable_cert_verification.is_some() && self.disable_cert_verification.unwrap() {
                     disable_cert_verification = true;
                 }
-                return Credentials::keycloak(path, disable_cert_verification);
+                if self.trustcerts.is_some() {
+                    certs = self.trustcerts.as_ref().unwrap().to_owned().concat();
+                }
+                return Credentials::keycloak(path, certs, disable_cert_verification);
             }
         }
         Credentials::basic("".into(), "".into())
