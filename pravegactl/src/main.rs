@@ -32,12 +32,10 @@ enum Command {
         #[structopt(help = "tag", value_name = "Tag,", use_delimiter = true, min_values = 0)]
         tags: Vec<String>,
     },
-    /// Write events from STDIN.
+    /// Write events from STDIN. Each line is treated as an individual event.
     Write {
-        #[structopt(help = "Scope Name")]
-        scope_name: String,
-        #[structopt(help = "Stream Name")]
-        stream_name: String,
+        #[structopt(help = "Scoped Stream name. e.g: scope1/stream1 ")]
+        scoped_stream: String,
     },
     /// List Scopes
     ListScopes,
@@ -120,21 +118,18 @@ fn main() {
             let result = rt.block_on(controller_client.create_stream(&stream_cfg));
             info!("Stream creation status {:?}", result);
         }
-        Command::Write {
-            scope_name,
-            stream_name,
-        } => {
+        Command::Write { scoped_stream } => {
             info!(
-                "Attempting to read from FIFO and writing it to Scope {:?} Stream {:?}",
-                scope_name, stream_name
+                "Attempting to read from FIFO and writing it to Scope/Stream {:?} ",
+                scoped_stream,
             );
             // create event stream writer
-            let stream = ScopedStream::new(scope_name.into(), stream_name.into());
+            let stream = ScopedStream::from(scoped_stream.as_str());
             let mut event_writer = client_factory.create_event_writer(stream);
             info!("Event writer created");
             rt.block_on(async {
                 let stdin = io::stdin();
-                let mut event_count = 0;
+                let mut event_count: i32 = 0;
                 for line in stdin.lock().lines() {
                     let line = line.expect("Could not read line from standard in");
                     let result = event_writer.write_event(line.into_bytes()).await;

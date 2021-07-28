@@ -33,7 +33,7 @@ help                    Prints this message or the help of the given subcommand(
 list-scopes             List Scopes
 list-streams            List Streams under a scope
 list-streams-for-tag    List Streams for a tag, under a scope
-write                   Write events from a file
+write                   Write events from STDIN
 ```
 
 ### Building
