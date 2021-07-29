@@ -202,7 +202,7 @@ jobs:
 
   build-release:
     name: build-release
-    needs: ['clippy', 'fmt', 'check']
+    #    needs: ['clippy', 'fmt', 'check']
     runs-on: ${{ matrix.os }}
     env:
       # For some builds, we use cross to test on 32-bit and big-endian
