@@ -252,7 +252,7 @@ jobs:
       - name: Install packages (Ubuntu)
         if: matrix.os == 'ubuntu-18.04'
         run: |
-          ci/ubuntu-install-packages
+          .github/workflows/ubuntu-install-packages
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
