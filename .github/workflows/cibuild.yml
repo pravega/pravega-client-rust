@@ -275,7 +275,6 @@ jobs:
           echo "target flag is: ${{ env.TARGET_FLAGS }}"
           echo "target dir is: ${{ env.TARGET_DIR }}"
       - name: Build release binary
-        working-directory: ./pravegactl
         run: ${{ env.CARGO }} build --manifest-path=./pravegactl/Cargo.toml --verbose --release ${{ env.TARGET_FLAGS }}
 
       - name: Strip release binary (linux and macos)
