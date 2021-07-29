@@ -258,9 +258,9 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
-          profile: minimal
           override: true
           target: ${{ matrix.target }}
+          components: rustfmt, clippy
 
       - name: Use Cross
         shell: bash
