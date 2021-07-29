@@ -306,8 +306,9 @@ jobs:
             tar czf "$staging.tar.gz" "$staging"
             echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
           fi
-      - name: Upload pravegactl artifact
-          uses: actions/upload-artifact@v2
-          with:
-            path: ${{ env.ASSET }}
-            retention-days: 5
+      - name: Upload Pravega standalone logs
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ env.ASSET }}
+          path: ${{ env.ASSET }}
+          retention-days: 5
