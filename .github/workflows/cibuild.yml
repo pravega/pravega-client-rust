@@ -275,7 +275,7 @@ jobs:
           echo "target flag is: ${{ env.TARGET_FLAGS }}"
           echo "target dir is: ${{ env.TARGET_DIR }}"
       - name: Build release binary
-        run: ${{ env.CARGO }} build --manifest-path=./pravegactl/Cargo.toml --verbose --release ${{ env.TARGET_FLAGS }}
+        run: ${{ env.CARGO }} build --manifest-path=pravegactl/Cargo.toml --verbose --release ${{ env.TARGET_FLAGS }}
 
       - name: Strip release binary (linux and macos)
         if: matrix.build == 'linux' || matrix.build == 'macos'
@@ -305,7 +305,7 @@ jobs:
             tar czf "$staging.tar.gz" "$staging"
             echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
           fi
-      - name: Upload Pravega standalone logs
+      - name: Upload pravegactl artifacts
         uses: actions/upload-artifact@v2
         with:
           name: ${{ env.ASSET }}
