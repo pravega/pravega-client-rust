@@ -2,4 +2,4 @@
 
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
-  musl-tools
+  musl-tools libprotobuf-dev protobuf-compiler
