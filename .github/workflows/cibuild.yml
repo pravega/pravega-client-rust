@@ -276,7 +276,7 @@ jobs:
           echo "target dir is: ${{ env.TARGET_DIR }}"
       - name: Build release binary
         working-directory: ./pravegactl
-        run: ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }}
+        run: ${{ env.CARGO }} build --manifest-path=./pravegactl/Cargo.toml --verbose --release ${{ env.TARGET_FLAGS }}
 
       - name: Strip release binary (linux and macos)
         if: matrix.build == 'linux' || matrix.build == 'macos'
