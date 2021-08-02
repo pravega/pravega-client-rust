@@ -149,7 +149,7 @@ fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactory, rt
         while read_count1.load(Ordering::Relaxed) < NUM_EVENTS {
             if let Some(mut slice) = reader1.acquire_segment().await {
                 info!("acquire segment for reader r1, {:?}", slice);
-                while let Some(event) = slice.next() {
+                for event in &mut slice {
                     assert_eq!(
                         vec![1; EVENT_SIZE],
                         event.value.as_slice(),

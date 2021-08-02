@@ -202,7 +202,7 @@ jobs:
 
   build-release:
     name: build-release
-    #    needs: ['clippy', 'fmt', 'check']
+    needs: ['clippy', 'fmt', 'check', 'test']
     runs-on: ${{ matrix.os }}
     env:
       # For some builds, we use cross to test on 32-bit and big-endian
@@ -214,6 +214,7 @@ jobs:
       TARGET_DIR: ./target
       # Emit backtraces on panics.
       RUST_BACKTRACE: 1
+      # This corresponds to the pravegactl version.
       VERSION: 0.0.1
 
     strategy:
@@ -293,7 +294,7 @@ jobs:
         shell: bash
         run: |
           staging="pravegactl-${{ env.VERSION }}-${{ matrix.target }}"
-          echo $staging
+          echo "Staging dir is ${staging}"
           mkdir "$staging"
           echo "currentdir is :"
           pwd
