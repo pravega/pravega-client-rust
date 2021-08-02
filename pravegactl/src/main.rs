@@ -55,7 +55,7 @@ enum Command {
 
 #[derive(StructOpt, Debug)]
 #[structopt(
-    name = "Praveglet",
+    name = "PravegaCtl",
     about = "Utility to interact with Pravega",
     version = "0.0.1"
 )]
