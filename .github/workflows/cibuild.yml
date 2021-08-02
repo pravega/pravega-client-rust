@@ -293,6 +293,8 @@ jobs:
         shell: bash
         run: |
           staging="pravegactl-${{ env.VERSION }}-${{ matrix.target }}"
+          echo $staging
+          mkdir "$staging"
           echo "currentdir is :"
           pwd
           if [ "${{ matrix.os }}" = "windows-2019" ]; then
