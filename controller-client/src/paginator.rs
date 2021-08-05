@@ -76,7 +76,7 @@ pub fn list_scopes(
             Some((Ok(element), state))
         } else {
             // execute a request to the controller.
-            info!("Fetch the next set of scopes  using the provided token",);
+            info!("Fetch the next set of scopes using the provided token",);
             let res: ResultRetry<Option<(Vec<Scope>, CToken)>> = client.list_scopes(&state.token).await;
             match res {
                 Ok(None) => None,
