@@ -37,8 +37,8 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
     let client_factory = ClientFactory::new(config);
 
     let runtime = client_factory.runtime();
-    test_read_large_events(&client_factory, &runtime);
-    test_multi_reader_multi_segments_tail_read(&client_factory, &runtime);
+    test_read_large_events(&client_factory, runtime);
+    test_multi_reader_multi_segments_tail_read(&client_factory, runtime);
     runtime.block_on(test_read_api(&client_factory));
     runtime.block_on(test_stream_scaling(&client_factory));
     runtime.block_on(test_release_segment(&client_factory));
@@ -85,7 +85,7 @@ fn test_read_large_events(client_factory: &ClientFactory, rt: &Runtime) {
     let mut event_count = 0;
     while event_count < NUM_EVENTS {
         if let Some(mut slice) = rt.block_on(reader.acquire_segment()) {
-            while let Some(event) = slice.next() {
+            for event in &mut slice {
                 assert_eq!(
                     vec![1; EVENT_SIZE],
                     event.value.as_slice(),
@@ -149,7 +149,7 @@ fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactory, rt
         while read_count1.load(Ordering::Relaxed) < NUM_EVENTS {
             if let Some(mut slice) = reader1.acquire_segment().await {
                 info!("acquire segment for reader r1, {:?}", slice);
-                while let Some(event) = slice.next() {
+                for event in &mut slice {
                     assert_eq!(
                         vec![1; EVENT_SIZE],
                         event.value.as_slice(),
@@ -166,7 +166,7 @@ fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactory, rt
         while read_count2.load(Ordering::Relaxed) < NUM_EVENTS {
             if let Some(mut slice) = reader2.acquire_segment().await {
                 info!("acquire segment for reader r2 {:?}", slice);
-                while let Some(event) = slice.next() {
+                for event in &mut slice {
                     assert_eq!(
                         vec![1; EVENT_SIZE],
                         event.value.as_slice(),

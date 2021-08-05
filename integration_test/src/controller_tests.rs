@@ -203,7 +203,7 @@ async fn get_all_streams_for_tag(
 
     let mut token = CToken::empty();
     while let Some((mut res, next_token)) = controller
-        .list_streams_for_tag(&scope_name, tag, &token)
+        .list_streams_for_tag(scope_name, tag, &token)
         .await
         .unwrap()
     {
@@ -230,7 +230,7 @@ async fn get_all_streams(controller: &dyn ControllerClient, scope_name: &Scope) 
     let mut result: Vec<ScopedStream> = Vec::new();
 
     let mut token = CToken::empty();
-    while let Some((mut res, next_token)) = controller.list_streams(&scope_name, &token).await.unwrap() {
+    while let Some((mut res, next_token)) = controller.list_streams(scope_name, &token).await.unwrap() {
         result.append(&mut res);
         token = next_token;
     }
