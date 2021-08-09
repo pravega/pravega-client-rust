@@ -24,7 +24,7 @@ snafu = "0.6"
 tokio = { version = "1.1", features = ["full"] }
 tonic = { version = "0.4", features = ["tls"] }
 derive_more = "0.99.9"
-ordered-float = "1.0"
+ordered-float = "2.7"
 uuid = {version = "0.8", features = ["v4"]}
 clap = {version = "2.33", optional = true}
 structopt = {version = "0.3", optional = true}
