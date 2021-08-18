@@ -150,13 +150,13 @@ impl ClientFactory {
 
     pub async fn create_index_writer<T: Label + PartialOrd + PartialEq + Debug>(
         &self,
-        segment: ScopedSegment,
+        stream: ScopedStream,
     ) -> IndexWriter<T> {
-        IndexWriter::new(self.clone(), segment).await
+        IndexWriter::new(self.clone(), stream).await
     }
 
-    pub async fn create_index_reader(&self, segment: ScopedSegment) -> IndexReader {
-        IndexReader::new(self.clone(), segment).await
+    pub async fn create_index_reader(&self, stream: ScopedStream) -> IndexReader {
+        IndexReader::new(self.clone(), stream).await
     }
 
     pub async fn create_table(&self, scope: Scope, name: String) -> Table {

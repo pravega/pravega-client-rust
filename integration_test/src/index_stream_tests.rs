@@ -78,26 +78,22 @@ pub fn test_index_stream(config: PravegaStandaloneServiceConfig) {
         1,
     ));
 
-    let scoped_segment = ScopedSegment {
-        scope: scope.clone(),
-        stream: stream.clone(),
-        segment: Segment::from(0),
-    };
-
-    let mut writer = handle.block_on(client_factory.create_index_writer(scoped_segment.clone()));
-    let mut reader = handle.block_on(client_factory.create_index_reader(scoped_segment.clone()));
     let scoped_stream = ScopedStream { scope, stream };
-    let reader_group = handle.block_on(client_factory.create_reader_group("rg".to_string(), scoped_stream));
+
+    let mut writer = handle.block_on(client_factory.create_index_writer(scoped_stream.clone()));
+    let mut reader = handle.block_on(client_factory.create_index_reader(scoped_stream.clone()));
+    let reader_group =
+        handle.block_on(client_factory.create_reader_group("rg".to_string(), scoped_stream.clone()));
     let mut event_reader = handle.block_on(reader_group.create_reader("my_reader".to_string()));
 
     handle.block_on(test_write_and_read(&mut writer, &mut reader, &mut event_reader));
 
-    let mut writer = handle.block_on(client_factory.create_index_writer(scoped_segment.clone()));
-    let mut reader = handle.block_on(client_factory.create_index_reader(scoped_segment.clone()));
+    let mut writer = handle.block_on(client_factory.create_index_writer(scoped_stream.clone()));
+    let mut reader = handle.block_on(client_factory.create_index_reader(scoped_stream.clone()));
     handle.block_on(test_new_record(&mut writer, &mut reader));
     handle.block_on(test_condition_append(&mut writer));
 
-    let mut writer = handle.block_on(client_factory.create_index_writer(scoped_segment));
+    let mut writer = handle.block_on(client_factory.create_index_writer(scoped_stream));
     handle.block_on(test_new_record_out_of_order(&mut writer));
 }
 

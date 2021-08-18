@@ -51,7 +51,8 @@ use uuid::Uuid;
 ///
 ///     let client_factory = ClientFactory::new(config);
 ///
-///     // assuming scope:myscope, stream:mystream and segment with id 0 do exist.
+///     // assuming scope:myscope, stream:mystream exist.
+///     // notice that this stream should be a fixed sized single segment stream
 ///     let stream = ScopedStream::from("myscope/mystream");
 ///
 ///     let mut byte_reader = client_factory.create_byte_reader(stream);
@@ -102,17 +103,19 @@ impl ByteReader {
             stream: stream.stream.clone(),
             segment,
         };
-        let async_reader = factory.create_async_event_reader(scoped_segment.clone()).await;
+        let async_reader = factory.create_async_segment_reader(scoped_segment.clone()).await;
         let async_reader_wrapper = PrefetchingAsyncSegmentReader::new(
             factory.runtime().handle().clone(),
             Arc::new(Box::new(async_reader)),
             0,
             buffer_size,
         );
-        let metadata_client = factory.create_segment_metadata_client(scoped_segment).await;
+        let metadata_client = factory
+            .create_segment_metadata_client(scoped_segment.clone())
+            .await;
         ByteReader {
             reader_id: Uuid::new_v4(),
-            segment,
+            segment: scoped_segment,
             reader: Some(async_reader_wrapper),
             reader_buffer_size: buffer_size,
             metadata_client,

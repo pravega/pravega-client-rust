@@ -12,7 +12,7 @@ use crate::client_factory::ClientFactory;
 use crate::index::{Record, RECORD_SIZE};
 use crate::segment::reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 
-use pravega_client_shared::ScopedSegment;
+use pravega_client_shared::{ScopedSegment, ScopedStream};
 
 use crate::segment::metadata::SegmentMetadataClient;
 use async_stream::try_stream;
@@ -40,7 +40,7 @@ pub enum IndexReaderError {
 /// ```no_run
 /// use pravega_client_config::ClientConfigBuilder;
 /// use pravega_client::client_factory::ClientFactory;
-/// use pravega_client_shared::ScopedSegment;
+/// use pravega_client_shared::ScopedStream;
 /// use std::io::Write;
 /// use tokio;
 ///
@@ -61,10 +61,10 @@ pub enum IndexReaderError {
 ///
 ///     let client_factory = ClientFactory::new(config);
 ///
-///     // assuming scope:myscope, stream:mystream and segment 0 do exist.
-///     let segment = ScopedSegment::from("myscope/mystream/0");
+///     // assuming scope:myscope, stream:mystream exist.
+///     let stream = ScopedSegment::from("myscope/mystream");
 ///
-///     let mut index_reader = client_factory.create_index_reader(segment).await;
+///     let mut index_reader = client_factory.create_index_reader(stream).await;
 ///
 ///     // search data
 ///     let offset = index_reader.search_offset(("id", 10)).await.expect("get offset");
@@ -78,18 +78,36 @@ pub enum IndexReaderError {
 /// }
 /// ```
 pub struct IndexReader {
-    segment: ScopedSegment,
+    stream: ScopedStream,
     factory: ClientFactory,
     meta: SegmentMetadataClient,
     segment_reader: AsyncSegmentReaderImpl,
 }
 
 impl IndexReader {
-    pub(crate) async fn new(factory: ClientFactory, segment: ScopedSegment) -> Self {
-        let segment_reader = factory.create_async_segment_reader(segment.clone()).await;
-        let meta = factory.create_segment_metadata_client(segment.clone()).await;
-        IndexReader {
+    pub(crate) async fn new(factory: ClientFactory, stream: ScopedStream) -> Self {
+        let segments = factory
+            .controller_client()
+            .get_head_segments(&stream)
+            .await
+            .expect("get head segments");
+        assert_eq!(
+            segments.len(),
+            1,
+            "Index stream is configured with more than one segment"
+        );
+        let segment = segments.iter().next().unwrap().0.clone();
+        let scoped_segment = ScopedSegment {
+            scope: stream.scope.clone(),
+            stream: stream.stream.clone(),
             segment,
+        };
+        let segment_reader = factory.create_async_segment_reader(scoped_segment.clone()).await;
+        let meta = factory
+            .create_segment_metadata_client(scoped_segment.clone())
+            .await;
+        IndexReader {
+            stream,
             factory,
             meta,
             segment_reader,
@@ -154,8 +172,8 @@ impl IndexReader {
         pos: SeekFrom,
     ) -> impl Stream<Item = Result<Vec<u8>, IndexReaderError>> + 'stream {
         try_stream! {
-            let segment = self.segment.clone();
-            let mut byte_reader = self.factory.create_byte_reader_async(segment).await;
+            let stream = self.stream.clone();
+            let mut byte_reader = self.factory.create_byte_reader_async(stream).await;
             byte_reader.seek_async(pos)
                 .await
                 .map_err(|e| IndexReaderError::InvalidOffset {

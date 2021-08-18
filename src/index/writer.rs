@@ -12,7 +12,7 @@ use crate::byte::ByteWriter;
 use crate::client_factory::ClientFactory;
 use crate::index::{Label, Record, RECORD_SIZE};
 
-use pravega_client_shared::ScopedSegment;
+use pravega_client_shared::ScopedStream;
 
 use bincode2::Error as BincodeError;
 use snafu::{ensure, Backtrace, ResultExt, Snafu};
@@ -49,7 +49,7 @@ pub enum IndexWriterError {
 /// ```no_run
 /// use pravega_client_config::ClientConfigBuilder;
 /// use pravega_client::client_factory::ClientFactory;
-/// use pravega_client_shared::ScopedSegment;
+/// use pravega_client_shared::ScopedStream;
 /// use pravega_client_macros::Label;
 /// use std::io::Write;
 /// use tokio;
@@ -70,10 +70,11 @@ pub enum IndexWriterError {
 ///
 ///     let client_factory = ClientFactory::new(config);
 ///
-///     // assuming scope:myscope, stream:mystream and segment 0 do exist.
-///     let segment = ScopedSegment::from("myscope/mystream/0");
+///     // assuming scope:myscope, stream:mystream exist.
+///     // notice that this stream should be a fixed sized single segment stream
+///     let stream = ScopedStream::from("myscope/mystream");
 ///
-///     let mut index_writer = client_factory.create_index_writer(segment).await;
+///     let mut index_writer = client_factory.create_index_writer(stream).await;
 ///
 ///     let label = MyLabel{id: 1, timestamp: 1000};
 ///     let data = vec!{1; 10};
@@ -90,11 +91,11 @@ pub struct IndexWriter<T: Label + PartialOrd + PartialEq + Debug> {
 }
 
 impl<T: Label + PartialOrd + PartialEq + Debug> IndexWriter<T> {
-    pub(crate) async fn new(factory: ClientFactory, segment: ScopedSegment) -> Self {
-        let mut byte_writer = factory.create_byte_writer_async(segment.clone()).await;
+    pub(crate) async fn new(factory: ClientFactory, stream: ScopedStream) -> Self {
+        let mut byte_writer = factory.create_byte_writer_async(stream.clone()).await;
         byte_writer.seek_to_tail_async().await;
 
-        let index_reader = factory.create_index_reader(segment.clone()).await;
+        let index_reader = factory.create_index_reader(stream.clone()).await;
         let tail_offset = index_reader.tail_offset().await.expect("get tail offset");
         let head_offset = index_reader
             .head_offset()
