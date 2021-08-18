@@ -628,7 +628,7 @@ pub(crate) mod test {
             .build()
             .unwrap();
         let factory = ClientFactory::new(config);
-        create_stream(&factory, "scope", "stream").await;
+        create_stream(&factory, "scope", "stream", 1).await;
         factory
             .create_transactional_event_writer(ScopedStream::from(&txn_segment), writer_id)
             .await

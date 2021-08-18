@@ -22,6 +22,7 @@ cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pyo3::prelude::*;
         use stream_manager::StreamManager;
+        use stream_manager::{StreamScalingPolicy, StreamRetentionPolicy};
         #[macro_use]
         extern crate derive_new;
         use stream_writer::StreamWriter;
@@ -49,6 +50,8 @@ fn pravega_client(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<StreamTransaction>()?;
     m.add_class::<StreamReader>()?;
     m.add_class::<StreamReaderGroup>()?;
+    m.add_class::<StreamScalingPolicy>()?;
+    m.add_class::<StreamRetentionPolicy>()?;
     let txn_exception = py.get_type::<TxnFailedException>();
     txn_exception.setattr("__doc__", TXNFAILED_EXCEPTION_DOCSTRING)?;
     m.add("TxnFailedException", txn_exception)?;

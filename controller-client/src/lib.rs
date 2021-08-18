@@ -36,11 +36,11 @@ use controller::{
     delete_scope_status, delete_stream_status, ping_txn_status, scale_request, scale_response,
     scale_status_response, txn_state, txn_status, update_stream_status, ContinuationToken, CreateScopeStatus,
     CreateStreamStatus, CreateTxnRequest, CreateTxnResponse, DelegationToken, DeleteScopeStatus,
-    DeleteStreamStatus, GetEpochSegmentsRequest, GetSegmentsRequest, NodeUri, PingTxnRequest, PingTxnStatus,
-    ScaleRequest, ScaleResponse, ScaleStatusRequest, ScaleStatusResponse, ScopeInfo, SegmentId,
-    SegmentRanges, SegmentsAtTime, StreamConfig, StreamInfo, StreamsInScopeRequest, StreamsInScopeResponse,
-    StreamsInScopeWithTagRequest, SuccessorResponse, TxnId, TxnRequest, TxnState, TxnStatus,
-    UpdateStreamStatus,
+    DeleteStreamStatus, ExistsResponse, GetEpochSegmentsRequest, GetSegmentsRequest, NodeUri, PingTxnRequest,
+    PingTxnStatus, ScaleRequest, ScaleResponse, ScaleStatusRequest, ScaleStatusResponse, ScopeInfo,
+    ScopesRequest, ScopesResponse, SegmentId, SegmentRanges, SegmentsAtTime, StreamConfig, StreamInfo,
+    StreamsInScopeRequest, StreamsInScopeResponse, StreamsInScopeWithTagRequest, SuccessorResponse, TxnId,
+    TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
 };
 use im::{HashMap as ImHashMap, OrdMap};
 use ordered_float::OrderedFloat;
@@ -55,6 +55,7 @@ use snafu::Snafu;
 use std::convert::{From, Into};
 use std::io::BufReader;
 use std::str::FromStr;
+use std::sync::Arc;
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
 use tokio_rustls::rustls::ClientConfig as RustlsClientConfig;
@@ -138,6 +139,18 @@ pub trait ControllerClient: Send + Sync {
     async fn create_scope(&self, scope: &Scope) -> ResultRetry<bool>;
 
     /**
+     * API to check if the scope exists. The future completes with true in case the scope exists
+     * and a false if it does not exist.
+     */
+    async fn check_scope_exists(&self, scope: &Scope) -> ResultRetry<bool>;
+
+    /**
+     * API to list scopes given a continuation token..
+     * Use the pravega_controller_client::paginator::list_scopes to paginate over all the scopes.
+     */
+    async fn list_scopes(&self, token: &CToken) -> ResultRetry<Option<(Vec<Scope>, CToken)>>;
+
+    /**
      * API to list streams under a given scope and continuation token.
      * Use the pravega_controller_client::paginator::list_streams to paginate over all the streams.
      */
@@ -171,6 +184,12 @@ pub trait ControllerClient: Send + Sync {
      * the controller executed the operation.
      */
     async fn create_stream(&self, stream_config: &StreamConfiguration) -> ResultRetry<bool>;
+
+    /**
+     * API to check if the stream exists. The future completes with true in case the stream exists
+     * and a false if it does not exist.
+     */
+    async fn check_stream_exists(&self, stream: &ScopedStream) -> ResultRetry<bool>;
 
     /**
      * API to update the configuration of a Stream.
@@ -345,6 +364,11 @@ async fn get_channel(config: &ClientConfig) -> Channel {
         );
         let mut rustls_client_config = RustlsClientConfig::new();
         rustls_client_config.alpn_protocols.push(Vec::from("h2"));
+        if config.disable_cert_verification {
+            rustls_client_config
+                .dangerous()
+                .set_certificate_verifier(Arc::new(NoVerifier));
+        }
         for cert in &config.trustcerts {
             let mut wrapper = BufReader::new(cert.as_bytes());
             let res = rustls_client_config.root_store.add_pem_file(&mut wrapper);
@@ -390,6 +414,20 @@ impl ControllerClient for ControllerClientImpl {
         )
     }
 
+    async fn check_scope_exists(&self, scope: &Scope) -> ResultRetry<bool> {
+        wrap_with_async_retry!(
+            self.config.retry_policy.max_tries(MAX_RETRIES),
+            self.call_check_scope_exists(scope)
+        )
+    }
+
+    async fn list_scopes(&self, token: &CToken) -> ResultRetry<Option<(Vec<Scope>, CToken)>> {
+        wrap_with_async_retry!(
+            self.config.retry_policy.max_tries(MAX_RETRIES),
+            self.call_list_scopes(token)
+        )
+    }
+
     async fn list_streams(
         &self,
         scope: &Scope,
@@ -424,6 +462,13 @@ impl ControllerClient for ControllerClientImpl {
         wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_create_stream(stream_config)
+        )
+    }
+
+    async fn check_stream_exists(&self, stream: &ScopedStream) -> ResultRetry<bool> {
+        wrap_with_async_retry!(
+            self.config.retry_policy.max_tries(MAX_RETRIES),
+            self.call_check_stream_exists(stream)
         )
     }
 
@@ -723,6 +768,48 @@ impl ControllerClientImpl {
         })
     }
 
+    async fn call_list_scopes(&self, token: &CToken) -> Result<Option<(Vec<Scope>, CToken)>> {
+        let operation_name = "ListScopes";
+        let request: ScopesRequest = ScopesRequest {
+            continuation_token: Some(ContinuationToken::from(token)),
+        };
+        debug!("Triggering a request to the controller to list scopes");
+
+        let op_status: StdResult<tonic::Response<ScopesResponse>, tonic::Status> =
+            self.get_controller_client().await.list_scopes(request).await;
+        match op_status {
+            Ok(scopes_with_token) => {
+                let result = scopes_with_token.into_inner();
+                let mut t: Vec<String> = result.scopes;
+                if t.is_empty() {
+                    // Empty result from the controller implies no further streams present.
+                    Ok(None)
+                } else {
+                    // update state with the new set of scopes.
+                    let scopes_list: Vec<Scope> = t.drain(..).map(Scope::from).collect();
+                    let token: Option<ContinuationToken> = result.continuation_token;
+                    match token.map(|t| t.token) {
+                        None => {
+                            warn!("None returned for continuation token list scopes API");
+                            Err(ControllerError::InvalidResponse {
+                                can_retry: false,
+                                error_msg: "No continuation token received from Controller".to_string(),
+                            })
+                        }
+                        Some(ct) => {
+                            debug!("Returned token {} for list scopes API", ct);
+                            Ok(Some((scopes_list, CToken::from(ct.as_str()))))
+                        }
+                    }
+                }
+            }
+            Err(status) => {
+                debug!("Error {} while listing scopes", status);
+                Err(self.map_grpc_error(operation_name, status).await)
+            }
+        }
+    }
+
     async fn call_list_streams(
         &self,
         scope: &Scope,
@@ -866,6 +953,21 @@ impl ControllerClientImpl {
         }
     }
 
+    async fn call_check_scope_exists(&self, scope: &Scope) -> Result<bool> {
+        let operation_name = "CheckScopeExists";
+        let request: ScopeInfo = ScopeInfo::from(scope);
+
+        let op_status: StdResult<tonic::Response<ExistsResponse>, tonic::Status> = self
+            .get_controller_client()
+            .await
+            .check_scope_exists(tonic::Request::new(request))
+            .await;
+        match op_status {
+            Ok(code) => Ok(code.into_inner().exists),
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
+        }
+    }
+
     async fn call_delete_scope(&self, scope: &Scope) -> Result<bool> {
         use delete_scope_status::Status;
 
@@ -921,6 +1023,20 @@ impl ControllerClientImpl {
                     error_msg: "Operation failed".into(),
                 }),
             },
+            Err(status) => Err(self.map_grpc_error(operation_name, status).await),
+        }
+    }
+
+    async fn call_check_stream_exists(&self, stream: &ScopedStream) -> Result<bool> {
+        let request: StreamInfo = StreamInfo::from(stream);
+        let op_status: StdResult<tonic::Response<ExistsResponse>, tonic::Status> = self
+            .get_controller_client()
+            .await
+            .check_stream_exists(tonic::Request::new(request))
+            .await;
+        let operation_name = "CheckStreamExists";
+        match op_status {
+            Ok(code) => Ok(code.into_inner().exists),
             Err(status) => Err(self.map_grpc_error(operation_name, status).await),
         }
     }

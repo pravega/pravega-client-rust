@@ -35,7 +35,7 @@ jobs:
           components: rustfmt, clippy
       - run: rustup set default-host ${{ matrix.platform.rust-target }}
       - name: install maturin
-        run: pip install 'maturin==0.8.3'
+        run: pip install 'maturin>=0.11,<0.12'
       - name: build wheel
         id: build_wheel
         run: python -u .github/workflows/build_wheel.py

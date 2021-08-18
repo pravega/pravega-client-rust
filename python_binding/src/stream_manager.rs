@@ -44,6 +44,115 @@ pub(crate) struct StreamManager {
     config: ClientConfig,
 }
 
+#[cfg(feature = "python_binding")]
+#[pyclass]
+#[derive(Clone)]
+pub(crate) struct StreamRetentionPolicy {
+    retention: Retention,
+}
+
+impl Default for StreamRetentionPolicy {
+    fn default() -> Self {
+        StreamRetentionPolicy {
+            retention: Default::default(),
+        }
+    }
+}
+
+#[cfg(feature = "python_binding")]
+#[pymethods]
+impl StreamRetentionPolicy {
+    #[staticmethod]
+    pub fn none() -> StreamRetentionPolicy {
+        StreamRetentionPolicy {
+            retention: Default::default(),
+        }
+    }
+
+    #[staticmethod]
+    pub fn by_size(size_in_bytes: i64) -> StreamRetentionPolicy {
+        StreamRetentionPolicy {
+            retention: Retention {
+                retention_type: RetentionType::Size,
+                retention_param: size_in_bytes,
+            },
+        }
+    }
+
+    #[staticmethod]
+    pub fn by_time(time_in_millis: i64) -> StreamRetentionPolicy {
+        StreamRetentionPolicy {
+            retention: Retention {
+                retention_type: RetentionType::Size,
+                retention_param: time_in_millis,
+            },
+        }
+    }
+}
+
+#[cfg(feature = "python_binding")]
+#[pyclass]
+#[derive(Clone)]
+pub(crate) struct StreamScalingPolicy {
+    scaling: Scaling,
+}
+
+impl Default for StreamScalingPolicy {
+    fn default() -> Self {
+        StreamScalingPolicy {
+            scaling: Default::default(),
+        }
+    }
+}
+
+#[cfg(feature = "python_binding")]
+#[pymethods]
+impl StreamScalingPolicy {
+    #[staticmethod]
+    pub fn fixed_scaling_policy(initial_segments: i32) -> StreamScalingPolicy {
+        StreamScalingPolicy {
+            scaling: Scaling {
+                scale_type: ScaleType::FixedNumSegments,
+                target_rate: 0,
+                scale_factor: 0,
+                min_num_segments: initial_segments,
+            },
+        }
+    }
+
+    #[staticmethod]
+    pub fn auto_scaling_policy_by_data_rate(
+        target_rate_kbytes_per_sec: i32,
+        scale_factor: i32,
+        initial_segments: i32,
+    ) -> StreamScalingPolicy {
+        StreamScalingPolicy {
+            scaling: Scaling {
+                scale_type: ScaleType::ByRateInKbytesPerSec,
+                target_rate: target_rate_kbytes_per_sec,
+                scale_factor,
+                min_num_segments: initial_segments,
+            },
+        }
+    }
+
+    #[staticmethod]
+    pub fn auto_scaling_policy_by_event_rate(
+        target_events_per_sec: i32,
+        scale_factor: i32,
+        initial_segments: i32,
+    ) -> StreamScalingPolicy {
+        StreamScalingPolicy {
+            scaling: Scaling {
+                scale_type: ScaleType::ByRateInEventsPerSec,
+                target_rate: target_events_per_sec,
+                scale_factor,
+                min_num_segments: initial_segments,
+            },
+        }
+    }
+}
+
 ///
 /// Create a StreamManager by providing a controller uri.
 /// ```
@@ -60,8 +169,17 @@ pub(crate) struct StreamManager {
 #[pymethods]
 impl StreamManager {
     #[new]
-    #[args(auth_enabled = "false", tls_enabled = "false")]
-    fn new(controller_uri: &str, auth_enabled: bool, tls_enabled: bool) -> Self {
+    #[args(
+        auth_enabled = "false",
+        tls_enabled = "false",
+        disable_cert_verification = "false"
+    )]
+    fn new(
+        controller_uri: &str,
+        auth_enabled: bool,
+        tls_enabled: bool,
+        disable_cert_verification: bool,
+    ) -> Self {
         let mut builder = ClientConfigBuilder::default();
 
         builder
@@ -71,6 +189,7 @@ impl StreamManager {
             // would be better to have tls_enabled be &PyAny
             // and args tls_enabled = None or sentinel e.g. missing=object()
             builder.is_tls_enabled(tls_enabled);
+            builder.disable_cert_verification(disable_cert_verification);
         }
         let config = builder.build().expect("creating config");
         let client_factory = ClientFactory::new(config.clone());
@@ -122,6 +241,47 @@ impl StreamManager {
     }
 
     ///
+    /// Create a Stream in Pravega
+    ///
+    #[text_signature = "($self, scope_name, stream_name, scaling_policy, retention_policy, tags)"]
+    #[args(
+        scaling_policy = "Default::default()",
+        retention_policy = "Default::default()",
+        tags = "None"
+    )]
+    pub fn create_stream_with_policy(
+        &self,
+        scope_name: &str,
+        stream_name: &str,
+        scaling_policy: StreamScalingPolicy,
+        retention_policy: StreamRetentionPolicy,
+        tags: Option<Vec<String>>,
+    ) -> PyResult<bool> {
+        let handle = self.cf.runtime();
+        info!(
+            "creating stream {:?} under scope {:?} with scaling policy {:?}, retention policy {:?} and tags {:?}",
+            stream_name, scope_name, scaling_policy.scaling, retention_policy.retention, tags
+        );
+        let stream_cfg = StreamConfiguration {
+            scoped_stream: ScopedStream {
+                scope: Scope::from(scope_name.to_string()),
+                stream: Stream::from(stream_name.to_string()),
+            },
+            scaling: scaling_policy.scaling,
+            retention: retention_policy.retention,
+            tags,
+        };
+        let controller = self.cf.controller_client();
+
+        let stream_result = handle.block_on(controller.create_stream(&stream_cfg));
+        info!("Stream creation status {:?}", stream_result);
+        match stream_result {
+            Ok(t) => Ok(t),
+            Err(e) => Err(exceptions::PyValueError::new_err(format!("{:?}", e))),
+        }
+    }
+
+    ///
     /// Create a Stream in Pravega.
     ///
     #[text_signature = "($self, scope_name, stream_name, initial_segments)"]
@@ -131,34 +291,76 @@ impl StreamManager {
         stream_name: &str,
         initial_segments: i32,
     ) -> PyResult<bool> {
+        self.create_stream_with_policy(
+            scope_name,
+            stream_name,
+            StreamScalingPolicy::fixed_scaling_policy(initial_segments),
+            Default::default(),
+            None,
+        )
+    }
+
+    ///
+    /// Update Stream Configuration in Pravega
+    ///
+    #[text_signature = "($self, scope_name, stream_name, scaling_policy, retention_policy, tags)"]
+    #[args(
+        scaling_policy = "Default::default()",
+        retention_policy = "Default::default()",
+        tags = "None"
+    )]
+    pub fn update_stream_with_policy(
+        &self,
+        scope_name: &str,
+        stream_name: &str,
+        scaling_policy: StreamScalingPolicy,
+        retention_policy: StreamRetentionPolicy,
+        tags: Option<Vec<String>>,
+    ) -> PyResult<bool> {
         let handle = self.cf.runtime();
         info!(
-            "creating stream {:?} under scope {:?} with segment count {:?}",
-            stream_name, scope_name, initial_segments
+            "updating stream {:?} under scope {:?} with scaling policy {:?}, retention policy {:?} and tags {:?}",
+            stream_name, scope_name, scaling_policy.scaling, retention_policy.retention, tags
         );
         let stream_cfg = StreamConfiguration {
             scoped_stream: ScopedStream {
                 scope: Scope::from(scope_name.to_string()),
                 stream: Stream::from(stream_name.to_string()),
             },
-            scaling: Scaling {
-                scale_type: ScaleType::FixedNumSegments,
-                target_rate: 0,
-                scale_factor: 0,
-                min_num_segments: initial_segments,
-            },
-            retention: Retention {
-                retention_type: RetentionType::None,
-                retention_param: 0,
-            },
-            tags: None,
+            scaling: scaling_policy.scaling,
+            retention: retention_policy.retention,
+            tags,
         };
         let controller = self.cf.controller_client();
 
-        let stream_result = handle.block_on(controller.create_stream(&stream_cfg));
-        info!("Stream creation status {:?}", stream_result);
+        let stream_result = handle.block_on(controller.update_stream(&stream_cfg));
+        info!("Stream updation status {:?}", stream_result);
         match stream_result {
             Ok(t) => Ok(t),
+            Err(e) => Err(exceptions::PyValueError::new_err(format!("{:?}", e))),
+        }
+    }
+
+    ///
+    /// Get Stream tags from Pravega
+    ///
+    #[text_signature = "($self, scope_name, stream_name, scaling_policy, retention_policy, tags)"]
+    pub fn get_stream_tags(&self, scope_name: &str, stream_name: &str) -> PyResult<Option<Vec<String>>> {
+        let handle = self.cf.runtime();
+        info!(
+            "fetch tags for stream {:?} under scope {:?}",
+            stream_name, scope_name,
+        );
+        let stream = ScopedStream {
+            scope: Scope::from(scope_name.to_string()),
+            stream: Stream::from(stream_name.to_string()),
+        };
+        let controller = self.cf.controller_client();
+
+        let stream_configuration = handle.block_on(controller.get_stream_configuration(&stream));
+        info!("Stream configuration is {:?}", stream_configuration);
+        match stream_configuration {
+            Ok(t) => Ok(t.tags),
             Err(e) => Err(exceptions::PyValueError::new_err(format!("{:?}", e))),
         }
     }

@@ -7,22 +7,18 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
+use pravega_client::client_factory::ClientFactory;
 use pravega_client_config::ClientConfigBuilder;
-use pravega_client_shared::*;
-use pravega_controller_client::*;
+use pravega_client_shared::{PravegaNodeUri, ScaleType, Scaling, Scope, ScopedStream, StreamConfiguration};
+use std::io::{self, BufRead};
 use structopt::StructOpt;
-use tokio::runtime::Runtime;
+use tracing::info;
 
 #[derive(StructOpt, Debug)]
 enum Command {
     /// Create Scope    
     CreateScope {
         #[structopt(help = "controller-cli create-scope scope-name")]
-        scope_name: String,
-    },
-    /// Delete Scope    
-    DeleteScope {
-        #[structopt(help = "controller-cli delete-scope scope-name")]
         scope_name: String,
     },
     /// Create Stream with a fixed segment count.
@@ -36,19 +32,10 @@ enum Command {
         #[structopt(help = "tag", value_name = "Tag,", use_delimiter = true, min_values = 0)]
         tags: Vec<String>,
     },
-    /// Seal a Stream.
-    SealStream {
-        #[structopt(help = "Scope Name")]
-        scope_name: String,
-        #[structopt(help = "Stream Name")]
-        stream_name: String,
-    },
-    /// Delete a Stream.
-    DeleteStream {
-        #[structopt(help = "Scope Name")]
-        scope_name: String,
-        #[structopt(help = "Stream Name")]
-        stream_name: String,
+    /// Write events from STDIN. Each line is treated as an individual event.
+    Write {
+        #[structopt(help = "Scoped Stream name. e.g: scope1/stream1 ")]
+        scoped_stream: String,
     },
     /// List Scopes
     ListScopes,
@@ -68,37 +55,45 @@ enum Command {
 
 #[derive(StructOpt, Debug)]
 #[structopt(
-    name = "Controller CLI",
-    about = "Command line used to perform operations on the Pravega controller",
-    version = "0.2"
+    name = "PravegaCtl",
+    about = "Utility to interact with Pravega",
+    version = "0.0.1"
 )]
 struct Opt {
-    /// Used to configure controller grpc, default uri tcp://127.0.0.1:9090
+    /// To enable TLS use uri of the format tls://ip:port
     #[structopt(short = "uri", long, default_value = "tcp://127.0.0.1:9090")]
     controller_uri: String,
 
-    #[structopt(subcommand)] // Note that we mark a field as a subcommand
+    /// Enable authorization, default is false
+    #[structopt(short = "auth", long)]
+    enable_auth: bool,
+
+    #[structopt(subcommand)]
     cmd: Command,
 }
 
+///
+/// To enable logs set the env variable with RUST_LOG.
+///  export RUST_LOG=info
+///
 fn main() {
+    let _ = tracing_subscriber::fmt::try_init();
     let opt = Opt::from_args();
-    let rt = Runtime::new().unwrap();
     let controller_addr = opt.controller_uri;
     let config = ClientConfigBuilder::default()
         .controller_uri(PravegaNodeUri::from(controller_addr))
+        .is_auth_enabled(opt.enable_auth)
         .build()
         .expect("creating config");
+
+    let client_factory = ClientFactory::new(config);
     // create a controller client.
-    let controller_client = ControllerClientImpl::new(config, &rt);
+    let controller_client = client_factory.controller_client();
+    let rt = client_factory.runtime();
     match opt.cmd {
         Command::CreateScope { scope_name } => {
             let scope_result = rt.block_on(controller_client.create_scope(&Scope::from(scope_name)));
-            println!("Scope creation status {:?}", scope_result);
-        }
-        Command::DeleteScope { scope_name } => {
-            let scope_result = rt.block_on(controller_client.delete_scope(&Scope::from(scope_name)));
-            println!("Scope deletion status {:?}", scope_result);
+            info!("Scope creation status {:?}", scope_result);
         }
         Command::CreateStream {
             scope_name,
@@ -121,31 +116,37 @@ fn main() {
                 tags: if tags.is_empty() { None } else { Some(tags) },
             };
             let result = rt.block_on(controller_client.create_stream(&stream_cfg));
-            println!("Stream creation status {:?}", result);
+            info!("Stream creation status {:?}", result);
         }
-        Command::SealStream {
-            scope_name,
-            stream_name,
-        } => {
-            let scoped_stream = ScopedStream::new(scope_name.into(), stream_name.into());
-            let result = rt.block_on(controller_client.seal_stream(&scoped_stream));
-            println!("Seal stream status {:?}", result);
-        }
-        Command::DeleteStream {
-            scope_name,
-            stream_name,
-        } => {
-            let scoped_stream = ScopedStream::new(scope_name.into(), stream_name.into());
-            let result = rt.block_on(controller_client.delete_stream(&scoped_stream));
-            println!("Delete stream status {:?}", result);
+        Command::Write { scoped_stream } => {
+            info!(
+                "Attempting to read from FIFO and writing it to Scope/Stream {:?} ",
+                scoped_stream,
+            );
+            // create event stream writer
+            let stream = ScopedStream::from(scoped_stream.as_str());
+            let mut event_writer = client_factory.create_event_writer(stream);
+            info!("Event writer created");
+            rt.block_on(async {
+                let stdin = io::stdin();
+                let mut event_count: i32 = 0;
+                for line in stdin.lock().lines() {
+                    let line = line.expect("Could not read line from standard in");
+                    let result = event_writer.write_event(line.into_bytes()).await;
+                    assert!(result.await.is_ok());
+                    event_count += 1;
+                }
+                info!("Wrote {:?} events", event_count);
+            });
+            info!("Writes operation completed");
         }
         Command::ListScopes => {
             use futures::future;
             use futures::stream::StreamExt;
             use pravega_controller_client::paginator::list_scopes;
 
-            let stream = list_scopes(&controller_client);
-            println!("Listing scopes");
+            let stream = list_scopes(controller_client);
+            info!("Listing scopes");
             rt.block_on(stream.for_each(|scope| {
                 if scope.is_ok() {
                     println!("{:?}", scope.unwrap());
@@ -161,8 +162,8 @@ fn main() {
             use pravega_controller_client::paginator::list_streams;
 
             let scope = Scope::from(scope_name.clone());
-            let stream = list_streams(scope, &controller_client);
-            println!("Listing streams under scope {:?}", scope_name);
+            let stream = list_streams(scope, controller_client);
+            info!("Listing streams under scope {:?}", scope_name);
             rt.block_on(stream.for_each(|stream| {
                 if stream.is_ok() {
                     println!("{:?}", stream.unwrap());
@@ -178,8 +179,8 @@ fn main() {
             use pravega_controller_client::paginator::list_streams_for_tag;
 
             let scope = Scope::from(scope_name.clone());
-            let stream = list_streams_for_tag(scope, tag.clone(), &controller_client);
-            println!("Listing streams with tag {:?} under scope {:?}", tag, scope_name);
+            let stream = list_streams_for_tag(scope, tag.clone(), controller_client);
+            info!("Listing streams with tag {:?} under scope {:?}", tag, scope_name);
             rt.block_on(stream.for_each(|stream| {
                 if stream.is_ok() {
                     println!("{:?}", stream.unwrap());

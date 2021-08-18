@@ -7,7 +7,7 @@ name = "pravega-client"
 #   - README.md
 # - Update CHANGELOG.md.
 # - Create git tag.
-version = "0.2.0"
+version = "0.3.0"
 edition = "2018"
 categories = ["network-programming"]
 keywords = ["streaming", "client", "pravega"]
@@ -36,6 +36,7 @@ members = [
     "config",
     "examples",
     "macros",
+    "pravegactl"
 ]
 
 [dependencies]
@@ -82,7 +83,7 @@ tiny-keccak = { version = "2.0.0", features = ["shake"] }
 [dev-dependencies]
 pravega-client-integration-test = { path = "integration_test" }
 mockall = "0.8"
-ordered-float = { version= "1.0.2", features = ["serde"]}
+ordered-float = { version= "2.7", features = ["serde"]}
 criterion = "0.3"
 byteorder = "1.3"
 lazy_static = "1.4"

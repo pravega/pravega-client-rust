@@ -12,7 +12,7 @@ use crate::client_factory::ClientFactory;
 use crate::segment::metadata::SegmentMetadataClient;
 use crate::segment::reader::PrefetchingAsyncSegmentReader;
 
-use pravega_client_shared::ScopedSegment;
+use pravega_client_shared::{ScopedSegment, ScopedStream};
 
 use std::convert::TryInto;
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom};
@@ -39,7 +39,7 @@ use uuid::Uuid;
 /// ```no_run
 /// use pravega_client_config::ClientConfigBuilder;
 /// use pravega_client::client_factory::ClientFactory;
-/// use pravega_client_shared::ScopedSegment;
+/// use pravega_client_shared::ScopedStream;
 /// use std::io::Read;
 ///
 /// fn main() {
@@ -52,9 +52,9 @@ use uuid::Uuid;
 ///     let client_factory = ClientFactory::new(config);
 ///
 ///     // assuming scope:myscope, stream:mystream and segment with id 0 do exist.
-///     let segment = ScopedSegment::from("myscope/mystream/0");
+///     let stream = ScopedStream::from("myscope/mystream");
 ///
-///     let mut byte_reader = client_factory.create_byte_reader(segment);
+///     let mut byte_reader = client_factory.create_byte_reader(stream);
 ///     let mut buf: Vec<u8> = vec![0; 4];
 ///     let size = byte_reader.read(&mut buf).expect("read from byte stream");
 /// }
@@ -79,25 +79,37 @@ impl Read for ByteReader {
 }
 
 impl ByteReader {
-    pub(crate) fn new(segment: ScopedSegment, factory: ClientFactory, buffer_size: usize) -> Self {
+    pub(crate) fn new(stream: ScopedStream, factory: ClientFactory, buffer_size: usize) -> Self {
         factory
             .runtime()
-            .block_on(ByteReader::new_async(segment, factory.clone(), buffer_size))
+            .block_on(ByteReader::new_async(stream, factory.clone(), buffer_size))
     }
 
-    pub(crate) async fn new_async(
-        segment: ScopedSegment,
-        factory: ClientFactory,
-        buffer_size: usize,
-    ) -> Self {
-        let async_reader = factory.create_async_segment_reader(segment.clone()).await;
+    pub(crate) async fn new_async(stream: ScopedStream, factory: ClientFactory, buffer_size: usize) -> Self {
+        let segments = factory
+            .controller_client()
+            .get_head_segments(&stream)
+            .await
+            .expect("get head segments");
+        assert_eq!(
+            segments.len(),
+            1,
+            "Byte stream is configured with more than one segment"
+        );
+        let segment = segments.iter().next().unwrap().0.clone();
+        let scoped_segment = ScopedSegment {
+            scope: stream.scope.clone(),
+            stream: stream.stream.clone(),
+            segment,
+        };
+        let async_reader = factory.create_async_event_reader(scoped_segment.clone()).await;
         let async_reader_wrapper = PrefetchingAsyncSegmentReader::new(
             factory.runtime().handle().clone(),
             Arc::new(Box::new(async_reader)),
             0,
             buffer_size,
         );
-        let metadata_client = factory.create_segment_metadata_client(segment.clone()).await;
+        let metadata_client = factory.create_segment_metadata_client(scoped_segment).await;
         ByteReader {
             reader_id: Uuid::new_v4(),
             segment,
@@ -130,10 +142,27 @@ impl ByteReader {
     /// encounter the SegmentIsTruncated error due to the segment has been truncated. In this case,
     /// application should call this method to get the current readable head and read from it.
     /// ```ignore
+    /// let mut byte_reader = client_factory.create_byte_reader(segment);
+    /// let offset = byte_reader.current_head().expect("get current head offset");
+    /// ```
+    pub fn current_head(&self) -> std::io::Result<u64> {
+        self.factory
+            .runtime()
+            .block_on(self.metadata_client.fetch_current_starting_head())
+            .map(|i| i as u64)
+            .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
+    }
+
+    /// Return the head of current readable data in the segment asynchronously.
+    ///
+    /// The ByteReader is initialized to read from the segment at offset 0. However, it might
+    /// encounter the SegmentIsTruncated error due to the segment has been truncated. In this case,
+    /// application should call this method to get the current readable head and read from it.
+    /// ```ignore
     /// let mut byte_reader = client_factory.create_byte_reader_async(segment).await;
     /// let offset = byte_reader.current_head().await.expect("get current head offset");
     /// ```
-    pub async fn current_head(&self) -> std::io::Result<u64> {
+    pub async fn current_head_async(&self) -> std::io::Result<u64> {
         self.metadata_client
             .fetch_current_starting_head()
             .await
@@ -144,10 +173,24 @@ impl ByteReader {
     /// Return the tail offset of the segment.
     ///
     /// ```ignore
+    /// let mut byte_reader = client_factory.create_byte_reader(segment);
+    /// let offset = byte_reader.current_tail().expect("get current tail offset");
+    /// ```
+    pub fn current_tail(&self) -> std::io::Result<u64> {
+        self.factory
+            .runtime()
+            .block_on(self.metadata_client.fetch_current_segment_length())
+            .map(|i| i as u64)
+            .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
+    }
+
+    /// Return the tail offset of the segment asynchronously.
+    ///
+    /// ```ignore
     /// let mut byte_reader = client_factory.create_byte_reader_async(segment).await;
     /// let offset = byte_reader.current_tail().await.expect("get current tail offset");
     /// ```
-    pub async fn current_tail(&self) -> std::io::Result<u64> {
+    pub async fn current_tail_async(&self) -> std::io::Result<u64> {
         self.metadata_client
             .fetch_current_segment_length()
             .await
@@ -326,7 +369,7 @@ mod test {
         assert!(reader.read(&mut buf).is_err());
 
         // read from current head
-        let offset = rt.block_on(reader.current_head()).expect("get current head");
+        let offset = reader.current_head().expect("get current head");
         reader.seek(SeekFrom::Start(offset)).expect("seek to new head");
         let mut buf = vec![0; 100];
         assert!(reader.read(&mut buf).is_ok());
@@ -358,6 +401,26 @@ mod test {
         assert!(write_result.is_err() || flush_result.is_err());
     }
 
+    #[test]
+    #[should_panic(expected = "Byte stream is configured with more than one segment")]
+    fn test_invalid_stream_config() {
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(MockType::Happy))
+            .mock(true)
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        factory.runtime().block_on(create_stream(
+            &factory,
+            "testScopeInvalid",
+            "testStreamInvalid",
+            2,
+        ));
+        let stream = ScopedStream::from("testScopeInvalid/testStreamInvalid");
+        factory.create_byte_reader(stream);
+    }
+
     fn create_reader_and_writer(runtime: &Runtime) -> (ByteWriter, ByteReader) {
         let config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(MockType::Happy))
@@ -366,10 +429,10 @@ mod test {
             .build()
             .unwrap();
         let factory = ClientFactory::new(config);
-        runtime.block_on(create_stream(&factory, "testScope", "testStream"));
-        let segment = ScopedSegment::from("testScope/testStream/0.#epoch.0");
-        let writer = factory.create_byte_writer(segment.clone());
-        let reader = factory.create_byte_reader(segment);
+        runtime.block_on(create_stream(&factory, "testScope", "testStream", 1));
+        let stream = ScopedStream::from("testScope/testStream");
+        let writer = factory.create_byte_writer(stream.clone());
+        let reader = factory.create_byte_reader(stream);
         (writer, reader)
     }
 }

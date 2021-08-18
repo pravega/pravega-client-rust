@@ -59,10 +59,7 @@ fn test_create_stream_error() {
             scale_factor: 0,
             min_num_segments: 1,
         },
-        retention: Retention {
-            retention_type: RetentionType::None,
-            retention_param: 0,
-        },
+        retention: Default::default(),
     };
     let create_stream_result = rt.block_on(client.create_stream(&request));
     assert!(create_stream_result.is_err());

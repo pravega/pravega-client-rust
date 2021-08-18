@@ -57,7 +57,7 @@ impl Credentials {
         }
     }
 
-    pub fn keycloak(path: &str) -> Self {
+    pub fn keycloak(path: &str, disable_cert_verification: bool) -> Self {
         // read keycloak json
         let file = File::open(path.to_string()).expect("open keycloak.json");
         let mut buf_reader = BufReader::new(file);
@@ -72,13 +72,14 @@ impl Credentials {
             token: Arc::new(Mutex::new("".to_string())),
             json: key_cloak_json,
             expires_at: Arc::new(AtomicU64::new(0)),
+            disable_cert_verification,
         };
         Credentials {
             inner: Box::new(keycloak) as Box<dyn Cred>,
         }
     }
 
-    pub fn keycloak_from_json_string(json: &str) -> Self {
+    pub fn keycloak_from_json_string(json: &str, disable_cert_verification: bool) -> Self {
         // decode json string to struct
         let key_cloak_json: KeyCloakJson = serde_json::from_str(json).expect("decode slice to struct");
         let keycloak = KeyCloak {
@@ -86,6 +87,7 @@ impl Credentials {
             token: Arc::new(Mutex::new("".to_string())),
             json: key_cloak_json,
             expires_at: Arc::new(AtomicU64::new(0)),
+            disable_cert_verification,
         };
         Credentials {
             inner: Box::new(keycloak) as Box<dyn Cred>,
@@ -151,6 +153,7 @@ struct KeyCloak {
     token: Arc<Mutex<String>>,
     json: KeyCloakJson,
     expires_at: Arc<AtomicU64>,
+    disable_cert_verification: bool,
 }
 
 #[async_trait]
@@ -178,14 +181,20 @@ impl KeyCloak {
             &self.json.realm,
             &self.json.resource,
             &self.json.credentials.secret,
+            self.disable_cert_verification,
         )
         .await
         .expect("obtain access token");
 
         // second POST request for rpt
-        let rpt = authorize(&self.json.auth_server_url, &self.json.realm, &access_token)
-            .await
-            .expect("get rpt");
+        let rpt = authorize(
+            &self.json.auth_server_url,
+            &self.json.realm,
+            &access_token,
+            self.disable_cert_verification,
+        )
+        .await
+        .expect("get rpt");
 
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -216,6 +225,7 @@ async fn obtain_access_token(
     realm: &str,
     client_id: &str,
     client_secret: &str,
+    disable_cert_verification: bool,
 ) -> Result<String, reqwest::Error> {
     let url = URL_TOKEN.replace("{realm-name}", realm);
 
@@ -229,11 +239,16 @@ async fn obtain_access_token(
 
     let mut header_map = HeaderMap::new();
     header_map.insert(CONTENT_TYPE, "application/json".parse().unwrap());
-    let token = send_http_request(&path, payload, header_map).await?;
+    let token = send_http_request(&path, payload, header_map, disable_cert_verification).await?;
     Ok(token.access_token)
 }
 
-async fn authorize(base_url: &str, realm: &str, token: &str) -> Result<Token, reqwest::Error> {
+async fn authorize(
+    base_url: &str,
+    realm: &str,
+    token: &str,
+    disable_cert_verification: bool,
+) -> Result<Token, reqwest::Error> {
     let url = URL_TOKEN.replace("{realm-name}", realm);
 
     let payload = serde_json::json!({
@@ -246,7 +261,7 @@ async fn authorize(base_url: &str, realm: &str, token: &str) -> Result<Token, re
     let mut header_map = HeaderMap::new();
     let bearer = format!("{} {}", BEARER, token);
     header_map.insert(AUTHORIZATION, bearer.parse().unwrap());
-    let rpt = send_http_request(&path, payload, header_map).await?;
+    let rpt = send_http_request(&path, payload, header_map, disable_cert_verification).await?;
     Ok(rpt)
 }
 
@@ -260,8 +275,11 @@ async fn send_http_request(
     path: &str,
     payload: serde_json::Value,
     header_map: HeaderMap,
+    disable_cert_verification: bool,
 ) -> Result<Token, reqwest::Error> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(disable_cert_verification)
+        .build()?;
     let response = client
         .post(path)
         .headers(header_map)
