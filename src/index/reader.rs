@@ -8,15 +8,17 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::byte::ByteReader;
 use crate::client_factory::ClientFactory;
-use crate::index::{hash_key_to_u128, Record, RECORD_SIZE};
+use crate::index::{Record, RECORD_SIZE};
 use crate::segment::reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 
 use pravega_client_shared::ScopedSegment;
 
-use snafu::{ensure, Snafu};
-use std::io::{Error, SeekFrom};
+use crate::segment::metadata::SegmentMetadataClient;
+use async_stream::try_stream;
+use futures::stream::Stream;
+use snafu::Snafu;
+use std::io::SeekFrom;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
@@ -33,8 +35,6 @@ pub enum IndexReaderError {
 
 /// Index Reader reads the Record from stream.
 ///
-/// Write takes a byte array as data and a Label. It hashes the Label entry key and construct a Record. Then
-/// it serializes the Record and writes to the stream.
 ///
 /// # Examples
 /// ```no_run
@@ -73,20 +73,25 @@ pub enum IndexReaderError {
 ///     index_reader.seek_to_offset(offset).await.expect("seek to offset");
 ///
 ///     // read data
-///     let data = index_reader.read().await.expect("read from index stream");
+///     // let stream = index_reader.read();
+///     // pin
 /// }
 /// ```
 pub struct IndexReader {
-    byte_reader: ByteReader,
+    segment: ScopedSegment,
+    factory: ClientFactory,
+    meta: SegmentMetadataClient,
     segment_reader: AsyncSegmentReaderImpl,
 }
 
 impl IndexReader {
     pub(crate) async fn new(factory: ClientFactory, segment: ScopedSegment) -> Self {
-        let byte_reader = factory.create_byte_reader_async(segment.clone()).await;
         let segment_reader = factory.create_async_segment_reader(segment.clone()).await;
+        let meta = factory.create_segment_metadata_client(segment.clone()).await;
         IndexReader {
-            byte_reader,
+            segment,
+            factory,
+            meta,
             segment_reader,
         }
     }
@@ -96,10 +101,10 @@ impl IndexReader {
     ///
     /// Note that if there are multiple entries that have the same entry key and value, this method will find and return
     /// the first one.
-    pub async fn search_offset(&mut self, entry: (&'static str, u64)) -> Result<u64, IndexReaderError> {
+    pub async fn search_offset(&self, entry: (&'static str, u64)) -> Result<u64, IndexReaderError> {
         const RECORD_SIZE_SIGNED: i64 = RECORD_SIZE as i64;
 
-        let target_key = hash_key_to_u128(entry.0);
+        let target_key = Record::hash_key_to_u128(entry.0);
         let target_value = entry.1;
 
         let head = self.head_offset().await.map_err(|e| IndexReaderError::Internal {
@@ -143,90 +148,108 @@ impl IndexReader {
         }
     }
 
-    /// Read an record from the current offset.
-    pub async fn read(&mut self) -> Result<Vec<u8>, IndexReaderError> {
-        let mut buf = vec![0; RECORD_SIZE as usize];
-        self.byte_reader
-            .read_async(&mut buf)
-            .await
-            .map_err(|e| IndexReaderError::Internal {
-                msg: format!("byte reader read error {:?}", e),
+    /// Read records starting from the given offset.
+    pub fn read<'stream, 'reader: 'stream>(
+        &'reader self,
+        pos: SeekFrom,
+    ) -> impl Stream<Item = Result<Vec<u8>, IndexReaderError>> + 'stream {
+        try_stream! {
+            let segment = self.segment.clone();
+            let mut byte_reader = self.factory.create_byte_reader_async(segment).await;
+            byte_reader.seek_async(pos)
+                .await
+                .map_err(|e| IndexReaderError::InvalidOffset {
+                    msg: format!("invalid seeking offset {:?}", e)
             })?;
-        let record = Record::read_from(&buf).map_err(|e| IndexReaderError::Internal {
-            msg: format!("deserialize record {:?}", e),
-        })?;
-        Ok(record.data)
-    }
-
-    /// Seek to an offset given a SeekFrom.
-    ///
-    /// After calling this method, read method will start to read from the seek offset.
-    pub async fn seek(&mut self, pos: SeekFrom) -> Result<u64, IndexReaderError> {
-        self.byte_reader
-            .seek_async(pos)
-            .await
-            .map_err(|e| IndexReaderError::InvalidOffset {
-                msg: format!("seek error: {:?}", e),
-            })
-    }
-
-    /// Seek to the given offset.
-    pub async fn seek_to_offset(&mut self, pos: u64) -> Result<u64, IndexReaderError> {
-        let head = self.head_offset().await.map_err(|e| IndexReaderError::Internal {
-            msg: format!("failed to get head offset: {:?}", e),
-        })?;
-        let tail = self.tail_offset().await.map_err(|e| IndexReaderError::Internal {
-            msg: format!("failed to get tail offset: {:?}", e),
-        })?;
-        ensure!(
-            pos >= head && pos <= tail,
-            InvalidOffset {
-                msg: format!(
-                    "cannot seek to given offset {}. current head is {}, current tail is {}",
-                    pos, head, tail
-                ),
+            loop {
+                let mut buf = vec![0; RECORD_SIZE as usize];
+                byte_reader
+                    .read_async(&mut buf)
+                    .await
+                    .map_err(|e| IndexReaderError::Internal {
+                        msg: format!("byte reader read error {:?}", e),
+                    })?;
+                let record = Record::read_from(&buf).map_err(|e| IndexReaderError::Internal {
+                    msg: format!("deserialize record {:?}", e),
+                })?;
+                yield record.data;
             }
-        );
-        let seek_from = SeekFrom::Start(pos - head);
-        self.byte_reader
-            .seek_async(seek_from)
-            .await
-            .map_err(|e| IndexReaderError::InvalidOffset {
-                msg: format!("seek error: {:?}", e),
-            })
+        }
     }
 
-    pub async fn current_offset(&mut self) -> u64 {
-        self.byte_reader.current_offset()
-    }
+    // /// Seek to an offset given a SeekFrom.
+    // ///
+    // /// After calling this method, read method will start to read from the seek offset.
+    // pub async fn seek(&mut self, pos: SeekFrom) -> Result<u64, IndexReaderError> {
+    //     self.byte_reader
+    //         .seek_async(pos)
+    //         .await
+    //         .map_err(|e| IndexReaderError::InvalidOffset {
+    //             msg: format!("seek error: {:?}", e),
+    //         })
+    // }
+    //
+    // /// Seek to the given offset.
+    // pub async fn seek_to_offset(&mut self, pos: u64) -> Result<u64, IndexReaderError> {
+    //     let head = self.head_offset().await.map_err(|e| IndexReaderError::Internal {
+    //         msg: format!("failed to get head offset: {:?}", e),
+    //     })?;
+    //     let tail = self.tail_offset().await.map_err(|e| IndexReaderError::Internal {
+    //         msg: format!("failed to get tail offset: {:?}", e),
+    //     })?;
+    //     ensure!(
+    //         pos >= head && pos <= tail,
+    //         InvalidOffset {
+    //             msg: format!(
+    //                 "cannot seek to given offset {}. current head is {}, current tail is {}",
+    //                 pos, head, tail
+    //             ),
+    //         }
+    //     );
+    //     let seek_from = SeekFrom::Start(pos - head);
+    //     self.byte_reader
+    //         .seek_async(seek_from)
+    //         .await
+    //         .map_err(|e| IndexReaderError::InvalidOffset {
+    //             msg: format!("seek error: {:?}", e),
+    //         })
+    // }
 
     /// First readable record.
     pub async fn first_record(&mut self) -> Result<Vec<u8>, IndexReaderError> {
-        let head_offset = self
-            .byte_reader
-            .current_head()
-            .await
-            .expect("get current readable head");
+        let head_offset = self.head_offset().await?;
         let first_record = self.read_record_from_random_offset(head_offset).await?;
         Ok(first_record.data)
     }
 
     /// Last record.
     pub async fn last_record(&mut self) -> Result<Vec<u8>, IndexReaderError> {
-        let last_offset = self.byte_reader.current_tail().await.expect("get current tail");
+        let last_offset = self.tail_offset().await?;
         let last_record_offset = last_offset - RECORD_SIZE;
         let last_record = self.read_record_from_random_offset(last_record_offset).await?;
         Ok(last_record.data)
     }
 
     /// Get the readable head offset.
-    pub async fn head_offset(&self) -> Result<u64, Error> {
-        self.byte_reader.current_head().await
+    pub async fn head_offset(&self) -> Result<u64, IndexReaderError> {
+        self.meta
+            .fetch_current_starting_head()
+            .await
+            .map(|i| i as u64)
+            .map_err(|e| IndexReaderError::Internal {
+                msg: format!("failed to get head offset: {:?}", e),
+            })
     }
 
     /// Get the tail offset.
-    pub async fn tail_offset(&self) -> Result<u64, Error> {
-        self.byte_reader.current_tail().await
+    pub async fn tail_offset(&self) -> Result<u64, IndexReaderError> {
+        self.meta
+            .fetch_current_segment_length()
+            .await
+            .map(|i| i as u64)
+            .map_err(|e| IndexReaderError::Internal {
+                msg: format!("failed to get tail offset: {:?}", e),
+            })
     }
 
     // Read a record from a given offset.

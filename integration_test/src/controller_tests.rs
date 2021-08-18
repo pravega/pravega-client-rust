@@ -138,7 +138,7 @@ async fn get_all_streams_for_tag(
 
     let mut token = CToken::empty();
     while let Some((mut res, next_token)) = controller
-        .list_streams_for_tag(&scope_name, tag, &token)
+        .list_streams_for_tag(scope_name, tag, &token)
         .await
         .unwrap()
     {

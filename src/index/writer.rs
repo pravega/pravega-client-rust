@@ -10,7 +10,7 @@
 
 use crate::byte::ByteWriter;
 use crate::client_factory::ClientFactory;
-use crate::index::{hash_key_to_u128, Label, Record, RECORD_SIZE};
+use crate::index::{Label, Record, RECORD_SIZE};
 
 use pravega_client_shared::ScopedSegment;
 
@@ -78,7 +78,7 @@ pub enum IndexWriterError {
 ///     let label = MyLabel{id: 1, timestamp: 1000};
 ///     let data = vec!{1; 10};
 ///
-///     index_writer.append(data, label).await.expect("append data with label");
+///     index_writer.append(label, data).await.expect("append data with label");
 ///     index_writer.flush().await.expect("flush");
 /// }
 /// ```
@@ -122,8 +122,8 @@ impl<T: Label + PartialOrd + PartialEq + Debug> IndexWriter<T> {
         }
     }
 
-    /// Append data with a given label
-    pub async fn append(&mut self, data: Vec<u8>, label: T) -> Result<(), IndexWriterError> {
+    /// Append data with a given label.
+    pub async fn append(&mut self, label: T, data: Vec<u8>) -> Result<(), IndexWriterError> {
         self.validate_label(&label)?;
         self.label = Some(label);
         self.entries = None;
@@ -131,11 +131,13 @@ impl<T: Label + PartialOrd + PartialEq + Debug> IndexWriter<T> {
     }
 
     /// Append data with a given label and conditioned on a label.
+    /// The conditional label should match the latest label in the stream,
+    /// if not, then this method will fail with error.
     pub async fn append_conditionally(
         &mut self,
-        data: Vec<u8>,
         label: T,
         condition_on: T,
+        data: Vec<u8>,
     ) -> Result<(), IndexWriterError> {
         self.check_condition(condition_on)?;
         self.validate_label(&label)?;
@@ -166,8 +168,7 @@ impl<T: Label + PartialOrd + PartialEq + Debug> IndexWriter<T> {
 
     async fn append_internal(&mut self, data: Vec<u8>) -> Result<(), IndexWriterError> {
         let entries = self.label.as_ref().unwrap().to_key_value_pairs();
-        let entries_hash = self.hash_keys(entries);
-        let record = Record::new(entries_hash, data);
+        let record = Record::new(entries, data);
         let encoded = record.write_fields().context(InvalidData {})?;
         let _size = self.byte_writer.write_async(&encoded).await;
         Ok(())
@@ -189,6 +190,18 @@ impl<T: Label + PartialOrd + PartialEq + Debug> IndexWriter<T> {
 
     // check if the provided entry value is monotonically increasing.
     fn validate_label(&self, label: &T) -> Result<(), IndexWriterError> {
+        let kv_pairs = label.to_key_value_pairs();
+        ensure!(
+            kv_pairs.len() <= MAX_ENTRY_SIZE,
+            InvalidLabel {
+                msg: format!(
+                    "Label entry size {} exceeds max size allowed {}",
+                    kv_pairs.len(),
+                    MAX_ENTRY_SIZE,
+                ),
+            }
+        );
+
         if self.label.is_none() && self.entries.is_none() {
             return Ok(());
         }
@@ -206,7 +219,7 @@ impl<T: Label + PartialOrd + PartialEq + Debug> IndexWriter<T> {
         }
 
         if let Some(ref prev_entries_hash) = self.entries {
-            let entries_hash = self.hash_keys(label.to_key_value_pairs());
+            let entries_hash = Record::hash_keys(kv_pairs);
             let matching = prev_entries_hash
                 .iter()
                 .zip(entries_hash.iter())
@@ -223,13 +236,5 @@ impl<T: Label + PartialOrd + PartialEq + Debug> IndexWriter<T> {
             );
         }
         Ok(())
-    }
-
-    fn hash_keys(&self, entries: Vec<(&'static str, u64)>) -> Vec<(u128, u64)> {
-        let mut entries_hash = vec![];
-        for (key, val) in entries {
-            entries_hash.push((hash_key_to_u128(key), val))
-        }
-        entries_hash
     }
 }

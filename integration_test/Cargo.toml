@@ -29,6 +29,7 @@ serde = { version = "1.0", features = ["derive"] }
 java-properties = "1.2"
 derive-new = "0.5"
 tracing-subscriber = "0.2"
+futures-util = "0.3.16"
 
 [build-dependencies]
 tracing = "0.1"
