@@ -101,23 +101,19 @@ impl<T: Label + PartialOrd + PartialEq + Debug> IndexWriter<T> {
             .head_offset()
             .await
             .expect("get readable head offset");
-        if head_offset != tail_offset {
+        let entries = if head_offset != tail_offset {
             let prev_record_offset = tail_offset - RECORD_SIZE;
             let record = index_reader
                 .read_record_from_random_offset(prev_record_offset)
                 .await
                 .expect("read last record");
-
-            return IndexWriter {
-                byte_writer,
-                entries: Some(record.entries),
-                label: None,
-                _label_type: PhantomData,
-            };
-        }
+            Some(record.entries)
+        } else {
+            None
+        };
         IndexWriter {
             byte_writer,
-            entries: None,
+            entries,
             label: None,
             _label_type: PhantomData,
         }

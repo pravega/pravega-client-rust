@@ -33,14 +33,18 @@ pub enum IndexReaderError {
     Internal { msg: String },
 }
 
-/// Index Reader reads the Record from stream.
+/// Index Reader reads the Record from Stream.
 ///
+/// The Stream has to be fixed size single segment stream like byte stream.
 ///
 /// # Examples
 /// ```no_run
 /// use pravega_client_config::ClientConfigBuilder;
 /// use pravega_client::client_factory::ClientFactory;
 /// use pravega_client_shared::ScopedStream;
+/// use std::io::SeekFrom;
+/// use futures_util::pin_mut;
+/// use futures_util::StreamExt;
 /// use std::io::Write;
 /// use tokio;
 ///
@@ -69,12 +73,13 @@ pub enum IndexReaderError {
 ///     // search data
 ///     let offset = index_reader.search_offset(("id", 10)).await.expect("get offset");
 ///
-///     // seek to the offset
-///     index_reader.seek_to_offset(offset).await.expect("seek to offset");
-///
 ///     // read data
-///     // let stream = index_reader.read();
-///     // pin
+///     let s = index_reader.read(SeekFrom::Start(offset));
+///     pin_mut!(s);
+///     while let Some(res) = s.next().await {
+///         // do something with the read result
+///         res.expect("read next event");
+///     }
 /// }
 /// ```
 pub struct IndexReader {
@@ -167,6 +172,11 @@ impl IndexReader {
     }
 
     /// Read records starting from the given offset.
+    ///
+    /// This method returns a future Stream that implements an iterator. Application can iterate on
+    /// this future stream to get the data. When `next()` is invoked on the iterator, a read request
+    /// will be issued by the underlying reader and this read request will not block if there is no
+    /// data in the server.
     pub fn read<'stream, 'reader: 'stream>(
         &'reader self,
         pos: SeekFrom,
@@ -181,12 +191,15 @@ impl IndexReader {
             })?;
             loop {
                 let mut buf = vec![0; RECORD_SIZE as usize];
-                byte_reader
+                let size = byte_reader
                     .read_async(&mut buf)
                     .await
                     .map_err(|e| IndexReaderError::Internal {
                         msg: format!("byte reader read error {:?}", e),
                     })?;
+                if size < RECORD_SIZE as usize {
+                    break;
+                }
                 let record = Record::read_from(&buf).map_err(|e| IndexReaderError::Internal {
                     msg: format!("deserialize record {:?}", e),
                 })?;
@@ -195,53 +208,15 @@ impl IndexReader {
         }
     }
 
-    // /// Seek to an offset given a SeekFrom.
-    // ///
-    // /// After calling this method, read method will start to read from the seek offset.
-    // pub async fn seek(&mut self, pos: SeekFrom) -> Result<u64, IndexReaderError> {
-    //     self.byte_reader
-    //         .seek_async(pos)
-    //         .await
-    //         .map_err(|e| IndexReaderError::InvalidOffset {
-    //             msg: format!("seek error: {:?}", e),
-    //         })
-    // }
-    //
-    // /// Seek to the given offset.
-    // pub async fn seek_to_offset(&mut self, pos: u64) -> Result<u64, IndexReaderError> {
-    //     let head = self.head_offset().await.map_err(|e| IndexReaderError::Internal {
-    //         msg: format!("failed to get head offset: {:?}", e),
-    //     })?;
-    //     let tail = self.tail_offset().await.map_err(|e| IndexReaderError::Internal {
-    //         msg: format!("failed to get tail offset: {:?}", e),
-    //     })?;
-    //     ensure!(
-    //         pos >= head && pos <= tail,
-    //         InvalidOffset {
-    //             msg: format!(
-    //                 "cannot seek to given offset {}. current head is {}, current tail is {}",
-    //                 pos, head, tail
-    //             ),
-    //         }
-    //     );
-    //     let seek_from = SeekFrom::Start(pos - head);
-    //     self.byte_reader
-    //         .seek_async(seek_from)
-    //         .await
-    //         .map_err(|e| IndexReaderError::InvalidOffset {
-    //             msg: format!("seek error: {:?}", e),
-    //         })
-    // }
-
-    /// First readable record.
-    pub async fn first_record(&mut self) -> Result<Vec<u8>, IndexReaderError> {
+    /// Data in the first readable record.
+    pub async fn first_record_data(&self) -> Result<Vec<u8>, IndexReaderError> {
         let head_offset = self.head_offset().await?;
         let first_record = self.read_record_from_random_offset(head_offset).await?;
         Ok(first_record.data)
     }
 
-    /// Last record.
-    pub async fn last_record(&mut self) -> Result<Vec<u8>, IndexReaderError> {
+    /// Data in the last record.
+    pub async fn last_record_data(&self) -> Result<Vec<u8>, IndexReaderError> {
         let last_offset = self.tail_offset().await?;
         let last_record_offset = last_offset - RECORD_SIZE;
         let last_record = self.read_record_from_random_offset(last_record_offset).await?;

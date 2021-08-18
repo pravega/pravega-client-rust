@@ -13,6 +13,11 @@ use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, parse_quote, Data, DeriveInput, Fields, GenericParam, Generics};
 
+/// A derive marco that generates trait impls.
+///
+/// This derive macro implements Label trait for struct. The Label trait has a single
+/// method that outputs a list of key value pairs. The key is the struct field name and the value
+/// is the corresponding field value. The value has to be u64 type.
 #[proc_macro_derive(Label)]
 pub fn derive_label(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Parse the input tokens into a syntax tree.

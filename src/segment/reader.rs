@@ -392,14 +392,11 @@ impl PrefetchingAsyncSegmentReader {
         self.fill_buffer_if_available()?;
         self.issue_request_if_needed();
 
-        while self.buffer.is_empty() {
-            if self.end_of_segment {
-                // no more bytes could be read from the current offset
-                return Ok(0);
-            }
-            self.fill_buffer().await?;
-            self.issue_request_if_needed();
+        if self.buffer.is_empty() && self.end_of_segment {
+            // no more bytes could be read from the current offset
+            return Ok(0);
         }
+
         let mut need_to_read = buf.len();
         let mut copy_offset = 0;
         while let Some(cmd) = self.buffer.front() {
@@ -501,22 +498,6 @@ impl PrefetchingAsyncSegmentReader {
                     }
                     Err(e) => return Err(e),
                 },
-            }
-        }
-        Ok(())
-    }
-    async fn fill_buffer(&mut self) -> Result<(), ReaderError> {
-        if let Some(receiver) = self.receiver.take() {
-            match receiver.await {
-                Ok(res) => match res {
-                    Ok(cmd) => {
-                        self.buffer.push_back(cmd);
-                    }
-                    Err(e) => return Err(e),
-                },
-                Err(e) => {
-                    warn!("failed to receive reply from background read: {}", e);
-                }
             }
         }
         Ok(())
