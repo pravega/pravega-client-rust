@@ -15,18 +15,18 @@ use syn::{parse_macro_input, parse_quote, Data, DeriveInput, Fields, GenericPara
 
 /// A derive marco that generates trait impls.
 ///
-/// This derive macro implements Label trait for struct. The Label trait has a single
+/// This derive macro implements Fields trait for struct. The Fields trait has a single
 /// method that outputs a list of key value pairs. The key is the struct field name and the value
 /// is the corresponding field value. The value has to be u64 type.
-#[proc_macro_derive(Label)]
-pub fn derive_label(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+#[proc_macro_derive(Fields)]
+pub fn derive_fields(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Parse the input tokens into a syntax tree.
     let input = parse_macro_input!(input as DeriveInput);
 
     // Used in the quasi-quotation below as `#name`.
     let name = input.ident;
 
-    // Add a bound `T: Label` to every type parameter T.
+    // Add a bound `T: Fields` to every type parameter T.
     let generics = add_trait_bounds(input.generics);
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
@@ -34,7 +34,7 @@ pub fn derive_label(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let expr = key_value_pairs(&input.data);
     let expanded = quote! {
         // The generated impl.
-        impl #impl_generics pravega_client::index::Label for #name #ty_generics #where_clause {
+        impl #impl_generics pravega_client::index::Fields for #name #ty_generics #where_clause {
             fn to_key_value_pairs(&self) -> Vec<(&'static str, u64)> {
                 vec!{#expr}
             }
@@ -45,11 +45,11 @@ pub fn derive_label(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     proc_macro::TokenStream::from(expanded)
 }
 
-// Add a bound `T: Label` to every type parameter T.
+// Add a bound `T: Fields` to every type parameter T.
 fn add_trait_bounds(mut generics: Generics) -> Generics {
     for param in &mut generics.params {
         if let GenericParam::Type(ref mut type_param) = *param {
-            type_param.bounds.push(parse_quote!(Label));
+            type_param.bounds.push(parse_quote!(Fields));
         }
     }
     generics

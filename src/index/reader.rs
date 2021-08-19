@@ -23,8 +23,8 @@ use std::io::SeekFrom;
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
 pub enum IndexReaderError {
-    #[snafu(display("Entry {} does not exist", msg))]
-    EntryNotFound { msg: String },
+    #[snafu(display("Field {} does not exist", msg))]
+    FieldNotFound { msg: String },
 
     #[snafu(display("Invalid offset : {}", msg))]
     InvalidOffset { msg: String },
@@ -33,7 +33,7 @@ pub enum IndexReaderError {
     Internal { msg: String },
 }
 
-/// Index Reader reads the Record from Stream.
+/// Index Reader reads the Index Record from Stream.
 ///
 /// The Stream has to be fixed size single segment stream like byte stream.
 ///
@@ -47,9 +47,9 @@ pub enum IndexReaderError {
 /// use std::io::Write;
 /// use tokio;
 ///
-/// // Suppose the existing Label in the stream is like below.
-/// // #[derive(Label, Debug, PartialOrd, PartialEq)]
-/// // struct MyLabel {
+/// // Suppose the existing Fields in the stream is like below.
+/// // #[derive(Fields, Debug, PartialOrd, PartialEq)]
+/// // struct MyFields {
 /// //    id: u64,
 /// //    timestamp: u64,
 /// // }
@@ -118,16 +118,16 @@ impl IndexReader {
         }
     }
 
-    /// Given an entry (key, x), find the offset of the first record that contains the given entry key
-    /// and value >= x.
+    /// Given an Field (name, v), find the offset of the first record that contains the given Field
+    /// that has value >= v.
     ///
-    /// Note that if there are multiple entries that have the same entry key and value, this method will find and return
+    /// Note that if there are multiple entries that have the same Field name and value, this method will find and return
     /// the first one.
-    pub async fn search_offset(&self, entry: (&'static str, u64)) -> Result<u64, IndexReaderError> {
+    pub async fn search_offset(&self, field: (&'static str, u64)) -> Result<u64, IndexReaderError> {
         const RECORD_SIZE_SIGNED: i64 = RECORD_SIZE as i64;
 
-        let target_key = Record::hash_key_to_u128(entry.0);
-        let target_value = entry.1;
+        let target_key = Record::hash_key_to_u128(field.0);
+        let target_value = field.1;
 
         let head = self.head_offset().await.map_err(|e| IndexReaderError::Internal {
             msg: format!("error when fetching head offset: {:?}", e),
@@ -145,8 +145,8 @@ impl IndexReader {
                 .read_record_from_random_offset((head + mid * RECORD_SIZE_SIGNED) as u64)
                 .await?;
 
-            if let Some(e) = record.entries.iter().find(|&e| e.0 == target_key) {
-                // record contains the entry, compare value with the target value.
+            if let Some(e) = record.fields.iter().find(|&e| e.0 == target_key) {
+                // record contains the field, compare value with the target value.
                 if e.1 >= target_value {
                     // value is large than or equal to the target value, check the first half.
                     end = mid - 1;
@@ -154,7 +154,7 @@ impl IndexReader {
                     // value is smaller than the target value, check the second half.
                     start = mid + 1;
                 }
-                // entry does not exist in the current record.
+                // field does not exist in the current record.
                 // it might exist in the second half.
             } else {
                 start = mid + 1;
@@ -162,8 +162,8 @@ impl IndexReader {
         }
 
         if start == num_of_record {
-            Err(IndexReaderError::EntryNotFound {
-                msg: format!("key/value: {}/{}", entry.0, entry.1),
+            Err(IndexReaderError::FieldNotFound {
+                msg: format!("key/value: {}/{}", field.0, field.1),
             })
         } else {
             Ok((head + start * RECORD_SIZE_SIGNED) as u64)
@@ -176,34 +176,47 @@ impl IndexReader {
     /// this slice to get the data. When `next()` is invoked on the iterator, a read request
     /// will be issued by the underlying reader.
     ///
-    /// The slice that this method returns only contains data from current offset to the current tail
-    /// offset. If there are more data coming in to the server during the read time, those data will
-    /// not be included in this slice and application need to call this method again to fetch the
-    /// latest data.
+    /// If we want to do tail read instead of reading just a slice of the data, we can set end_offset
+    /// to be u64::MAX.
     pub fn read<'stream, 'reader: 'stream>(
         &'reader self,
-        pos: u64,
+        start_offset: u64,
+        end_offset: u64,
     ) -> Result<impl Stream<Item = Result<Vec<u8>, IndexReaderError>> + 'stream, IndexReaderError> {
         ensure!(
-            pos % (RECORD_SIZE as u64) == 0,
+            start_offset % (RECORD_SIZE as u64) == 0,
             InvalidOffset {
                 msg: format!(
-                    "Offset {} is invalid as it cannot be divided by the record size {}",
-                    pos, RECORD_SIZE
+                    "Start offset {} is invalid as it cannot be divided by the record size {}",
+                    start_offset, RECORD_SIZE
                 )
             }
         );
+        if end_offset != u64::MAX {
+            ensure!(
+                end_offset % (RECORD_SIZE as u64) == 0,
+                InvalidOffset {
+                    msg: format!(
+                        "End offset {} is invalid as it cannot be divided by the record size {}",
+                        end_offset, RECORD_SIZE
+                    )
+                }
+            );
+        }
         Ok(try_stream! {
             let stream = self.stream.clone();
             let mut byte_reader = self.factory.create_byte_reader_async(stream).await;
-            let tail_offset = self.tail_offset().await?;
-            let mut num_of_records = (tail_offset - pos) / (RECORD_SIZE as u64);
-            byte_reader.seek_async(SeekFrom::Start(pos))
+            let mut num_of_records_to_read = if end_offset == u64::MAX {
+                u64::MAX
+            } else {
+                (end_offset - start_offset) / (RECORD_SIZE as u64)
+            };
+            byte_reader.seek_async(SeekFrom::Start(start_offset))
                 .await
                 .map_err(|e| IndexReaderError::InvalidOffset {
                     msg: format!("invalid seeking offset {:?}", e)
             })?;
-            while num_of_records > 0 {
+            loop {
                 let mut buf = vec!{};
                 let mut size_to_read = RECORD_SIZE as usize;
                 while size_to_read != 0 {
@@ -220,8 +233,13 @@ impl IndexReader {
                 let record = Record::read_from(&buf).map_err(|e| IndexReaderError::Internal {
                     msg: format!("deserialize record {:?}", e),
                 })?;
-                num_of_records -= 1;
                 yield record.data;
+                if num_of_records_to_read != u64::MAX {
+                    num_of_records_to_read -= 1;
+                }
+                if num_of_records_to_read == 0 {
+                    break;
+                }
             }
         })
     }

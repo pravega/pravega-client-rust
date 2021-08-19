@@ -10,28 +10,27 @@
 
 //! The Index API provides a way to efficiently search data in the stream.
 //!
-//! The index API writes a fixed sized [`Record`] to the stream. Each [`Record`] contains the user data
-//! and a number of user defined key-value pairs, a key-value pair is called `Entry`.
-//! A set of `Entry` is called `Label` and an example of the `Label` is showed as below:
+//! The index API writes a fixed sized [`IndexRecord`] to the stream. Each [`IndexRecord`] contains the user data
+//! and a number of user defined `Fields`, the value of each `Field` has to be u64 type.
+//! An example of `Fields` is showed as below:
 //! ```no_run
-//! use pravega_client_macros::Label;
+//! use pravega_client_macros::Fields;
 //!
-//! #[derive(Label, Debug, PartialOrd, PartialEq)]
-//! struct MyLabel {
-//!     time: u64,
+//! // Use Fields procedural marco to auto implement the necessary trait for MyFields.
+//! #[derive(Fields, Debug, PartialOrd, PartialEq)]
+//! struct MyFields {
+//!     time: u64, // A field
 //!     id: u64,
 //! }
 //!
 //! ```
-//! The `Label` procedural marco will convert the `MyLabel` struct to a list of key-value pairs.
-//! Notice that we only accept u64 as the `Entry` value type.
 //!
-//! To ensure the searching efficiency, we impose some constraints to the `Label`:
-//! * The `Entry` value in the `Label` must be monotonically increasing.
-//! * Deletion of the `Entry` in the `Label` is not permitted.
-//! * Adding a new `Entry` is possible, but the `Entry` has to be appended at the tail.
-//! * The Index Writer is generic over the `Label` struct, meaning if a new `Entry` is appended, it needs
-//! to create a new Index Writer for the new `Label`.
+//! To ensure the searching efficiency in an index stream, we impose some constraints to the `Fields`:
+//! * The value of the `Field` must be monotonically increasing.
+//! * Deletion of the `Field` is not permitted.
+//! * Adding a new `Field` is possible, but the `Field` has to be appended at the tail.
+//! * The Index Writer is generic over the `Fields` struct, meaning if a new `Field` is appended, it needs
+//! to create a new Index Writer for the new `Fields`.
 //!
 //! [`Record`]: crate::index::Record
 
@@ -69,9 +68,9 @@ lazy_static! {
 pub struct Record {
     type_code: i32,
     version: i32,
-    entries_len: u32,
+    fields_len: u32,
     data_len: u32,
-    entries: Vec<(u128, u64)>,
+    fields: Vec<(u128, u64)>,
     data: Vec<u8>,
 }
 
@@ -80,16 +79,16 @@ impl Record {
     // increase the version if record structure changes
     const VERSION: i32 = 0;
 
-    pub(crate) fn new(entries: Vec<(&'static str, u64)>, data: Vec<u8>) -> Record {
-        let entries_len = entries.len();
-        let entries_hash = Record::hash_keys(entries);
+    pub(crate) fn new(fields: Vec<(&'static str, u64)>, data: Vec<u8>) -> Record {
+        let fields_len = fields.len();
+        let fields_hash = Record::hash_keys(fields);
         Record {
             type_code: Record::TYPE_CODE,
             version: Record::VERSION,
             // u128 is 16 bytes and u64 is 8 bytes
-            entries_len: entries_len as u32 * 24,
+            fields_len: fields_len as u32 * 24,
             data_len: data.len() as u32,
-            entries: entries_hash,
+            fields: fields_hash,
             data,
         }
     }
@@ -135,7 +134,7 @@ impl Record {
     }
 }
 
-pub trait Label {
+pub trait Fields {
     fn to_key_value_pairs(&self) -> Vec<(&'static str, u64)>;
 }
 
@@ -157,22 +156,22 @@ pub(crate) mod test {
     use pravega_client_macros::Label;
 
     #[derive(Label, Debug, PartialOrd, PartialEq)]
-    struct LabelTest {
+    struct FieldsTest {
         time: u64,
         id: u64,
     }
 
     #[test]
     fn test_label_macro() {
-        let label = LabelTest { time: 0, id: 0 };
-        assert_eq!(label.to_key_value_pairs(), vec! {("time", 0), ("id", 0)});
+        let fields = FieldsTest { time: 0, id: 0 };
+        assert_eq!(fields.to_key_value_pairs(), vec! {("time", 0), ("id", 0)});
     }
 
     #[test]
     fn test_record_serde() {
         let data = vec![1, 2, 3, 4];
-        let entries = vec![("hello", 0), ("index", 1), ("stream", 2)];
-        let record = Record::new(entries, data.clone());
+        let fields = vec![("hello", 0), ("index", 1), ("stream", 2)];
+        let record = Record::new(fields, data.clone());
         let encoded = record.write_fields().expect("serialize record");
         assert_eq!(encoded.len(), RECORD_SIZE as usize);
         let decoded = Record::read_from(&encoded).expect("deserialize record");

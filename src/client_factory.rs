@@ -29,7 +29,7 @@ cfg_if::cfg_if! {
     }
 }
 
-use crate::index::Label;
+use crate::index::Fields;
 use pravega_client_auth::DelegationTokenProvider;
 use pravega_client_config::ClientConfig;
 use pravega_client_shared::{DelegationToken, PravegaNodeUri, Scope, ScopedSegment, ScopedStream, WriterId};
@@ -148,7 +148,7 @@ impl ClientFactory {
         ByteReader::new_async(stream, self.clone(), self.config().reader_wrapper_buffer_size()).await
     }
 
-    pub async fn create_index_writer<T: Label + PartialOrd + PartialEq + Debug>(
+    pub async fn create_index_writer<T: Fields + PartialOrd + PartialEq + Debug>(
         &self,
         stream: ScopedStream,
     ) -> IndexWriter<T> {

@@ -10,7 +10,7 @@
 
 use crate::byte::ByteWriter;
 use crate::client_factory::ClientFactory;
-use crate::index::{Label, Record, RECORD_SIZE};
+use crate::index::{Fields, Record, RECORD_SIZE};
 
 use pravega_client_shared::ScopedStream;
 
@@ -19,7 +19,7 @@ use snafu::{ensure, Backtrace, ResultExt, Snafu};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-const MAX_ENTRY_SIZE: usize = 100;
+const MAX_FIELDS_SIZE: usize = 100;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
@@ -30,10 +30,10 @@ pub enum IndexWriterError {
         backtrace: Backtrace,
     },
 
-    #[snafu(display("Label is not valid due to: {}", msg))]
-    InvalidLabel { msg: String },
+    #[snafu(display("Field is not valid due to: {}", msg))]
+    InvalidFields { msg: String },
 
-    #[snafu(display("Condition label is not valid due to: {}", msg))]
+    #[snafu(display("Condition field is not valid due to: {}", msg))]
     InvalidCondition { msg: String },
 
     #[snafu(display("Internal error : {}", msg))]
@@ -42,7 +42,7 @@ pub enum IndexWriterError {
 
 /// Index Writer writes a fixed size Record to the stream.
 ///
-/// Write takes a byte array as data and a Label. It hashes the Label entry key and construct a Record. Then
+/// Write takes a byte array as data and Fields. It hashes each Field name and construct a Record. Then
 /// it serializes the Record and writes to the stream.
 ///
 /// # Examples
@@ -50,12 +50,12 @@ pub enum IndexWriterError {
 /// use pravega_client_config::ClientConfigBuilder;
 /// use pravega_client::client_factory::ClientFactory;
 /// use pravega_client_shared::ScopedStream;
-/// use pravega_client_macros::Label;
+/// use pravega_client_macros::Fields;
 /// use std::io::Write;
 /// use tokio;
 ///
-/// #[derive(Label, Debug, PartialOrd, PartialEq)]
-/// struct MyLabel {
+/// #[derive(Fields, Debug, PartialOrd, PartialEq)]
+/// struct MyFields {
 ///     id: u64,
 ///     timestamp: u64,
 /// }
@@ -76,21 +76,21 @@ pub enum IndexWriterError {
 ///
 ///     let mut index_writer = client_factory.create_index_writer(stream).await;
 ///
-///     let label = MyLabel{id: 1, timestamp: 1000};
+///     let fields = MyFields{id: 1, timestamp: 1000};
 ///     let data = vec!{1; 10};
 ///
-///     index_writer.append(label, data).await.expect("append data with label");
+///     index_writer.append(fields, data).await.expect("append data with fields");
 ///     index_writer.flush().await.expect("flush");
 /// }
 /// ```
-pub struct IndexWriter<T: Label + PartialOrd + PartialEq + Debug> {
+pub struct IndexWriter<T: Fields + PartialOrd + PartialEq + Debug> {
     byte_writer: ByteWriter,
-    entries: Option<Vec<(u128, u64)>>,
-    label: Option<T>,
-    _label_type: PhantomData<T>,
+    hashed_fields: Option<Vec<(u128, u64)>>,
+    fields: Option<T>,
+    _fields_type: PhantomData<T>,
 }
 
-impl<T: Label + PartialOrd + PartialEq + Debug> IndexWriter<T> {
+impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
     pub(crate) async fn new(factory: ClientFactory, stream: ScopedStream) -> Self {
         let mut byte_writer = factory.create_byte_writer_async(stream.clone()).await;
         byte_writer.seek_to_tail_async().await;
@@ -101,45 +101,45 @@ impl<T: Label + PartialOrd + PartialEq + Debug> IndexWriter<T> {
             .head_offset()
             .await
             .expect("get readable head offset");
-        let entries = if head_offset != tail_offset {
+        let hashed_fields = if head_offset != tail_offset {
             let prev_record_offset = tail_offset - RECORD_SIZE;
             let record = index_reader
                 .read_record_from_random_offset(prev_record_offset)
                 .await
                 .expect("read last record");
-            Some(record.entries)
+            Some(record.fields)
         } else {
             None
         };
         IndexWriter {
             byte_writer,
-            entries,
-            label: None,
-            _label_type: PhantomData,
+            hashed_fields,
+            fields: None,
+            _fields_type: PhantomData,
         }
     }
 
-    /// Append data with a given label.
-    pub async fn append(&mut self, label: T, data: Vec<u8>) -> Result<(), IndexWriterError> {
-        self.validate_label(&label)?;
-        self.label = Some(label);
-        self.entries = None;
+    /// Append data with a given Fields.
+    pub async fn append(&mut self, fields: T, data: Vec<u8>) -> Result<(), IndexWriterError> {
+        self.validate_fields(&fields)?;
+        self.fields = Some(fields);
+        self.hashed_fields = None;
         self.append_internal(data).await
     }
 
-    /// Append data with a given label and conditioned on a label.
-    /// The conditional label should match the latest label in the stream,
-    /// if not, then this method will fail with error.
+    /// Append data with a given Fields and conditioned on a Fields.
+    /// The conditional Fields should match the latest Fields in the stream,
+    /// if not, this method will fail with error.
     pub async fn append_conditionally(
         &mut self,
-        label: T,
+        fields: T,
         condition_on: T,
         data: Vec<u8>,
     ) -> Result<(), IndexWriterError> {
         self.check_condition(condition_on)?;
-        self.validate_label(&label)?;
-        self.label = Some(label);
-        self.entries = None;
+        self.validate_fields(&fields)?;
+        self.fields = Some(fields);
+        self.hashed_fields = None;
         self.append_internal(data).await
     }
 
@@ -164,70 +164,70 @@ impl<T: Label + PartialOrd + PartialEq + Debug> IndexWriter<T> {
     }
 
     async fn append_internal(&mut self, data: Vec<u8>) -> Result<(), IndexWriterError> {
-        let entries = self.label.as_ref().unwrap().to_key_value_pairs();
-        let record = Record::new(entries, data);
+        let fields_list = self.fields.as_ref().unwrap().to_key_value_pairs();
+        let record = Record::new(fields_list, data);
         let encoded = record.write_fields().context(InvalidData {})?;
         let _size = self.byte_writer.write_async(&encoded).await;
         Ok(())
     }
 
-    // check if the provided label matches the previous label.
-    fn check_condition(&self, condition_label: T) -> Result<(), IndexWriterError> {
+    // check if the provided Fields matches the previous Fields.
+    fn check_condition(&self, condition_fields: T) -> Result<(), IndexWriterError> {
         ensure!(
-            *self.label.as_ref().unwrap() == condition_label,
+            *self.fields.as_ref().unwrap() == condition_fields,
             InvalidCondition {
                 msg: format!(
-                    "Previous label {:?} doesn't match condition label {:?}",
-                    self.label, condition_label
+                    "Previous fields {:?} doesn't match condition fields {:?}",
+                    self.fields, condition_fields
                 ),
             }
         );
         Ok(())
     }
 
-    // check if the provided entry value is monotonically increasing.
-    fn validate_label(&self, label: &T) -> Result<(), IndexWriterError> {
-        let kv_pairs = label.to_key_value_pairs();
+    // check if the provided field value is monotonically increasing.
+    fn validate_fields(&self, fields: &T) -> Result<(), IndexWriterError> {
+        let kv_pairs = fields.to_key_value_pairs();
         ensure!(
-            kv_pairs.len() <= MAX_ENTRY_SIZE,
-            InvalidLabel {
+            kv_pairs.len() <= MAX_FIELDS_SIZE,
+            InvalidFields {
                 msg: format!(
-                    "Label entry size {} exceeds max size allowed {}",
+                    "Fields size {} exceeds max size allowed {}",
                     kv_pairs.len(),
-                    MAX_ENTRY_SIZE,
+                    MAX_FIELDS_SIZE,
                 ),
             }
         );
 
-        if self.label.is_none() && self.entries.is_none() {
+        if self.fields.is_none() && self.hashed_fields.is_none() {
             return Ok(());
         }
-        if let Some(ref prev_label) = self.label {
+        if let Some(ref prev_fields) = self.fields {
             ensure!(
-                *prev_label <= *label,
-                InvalidLabel {
+                *prev_fields <= *fields,
+                InvalidFields {
                     msg: format!(
-                        "Label entry value should monotonically increasing: prev {:?}, current {:?}",
-                        prev_label, label,
+                        "The value of Field should monotonically increasing: prev {:?}, current {:?}",
+                        prev_fields, fields,
                     ),
                 }
             );
             return Ok(());
         }
 
-        if let Some(ref prev_entries_hash) = self.entries {
-            let entries_hash = Record::hash_keys(kv_pairs);
-            let matching = prev_entries_hash
+        if let Some(ref prev_fields_hash) = self.hashed_fields {
+            let fields_hash = Record::hash_keys(kv_pairs);
+            let matching = prev_fields_hash
                 .iter()
-                .zip(entries_hash.iter())
+                .zip(fields_hash.iter())
                 .filter(|&(a, b)| a.0 == b.0 && a.1 <= b.1)
                 .count();
             ensure!(
-                matching == prev_entries_hash.len(),
-                InvalidLabel {
+                matching == prev_fields_hash.len(),
+                InvalidFields {
                     msg: format!(
-                        "Label entry value should monotonically increasing: prev {:?}, current {:?}",
-                        prev_entries_hash, entries_hash,
+                        "The value of field should monotonically increasing: prev {:?}, current {:?}",
+                        prev_fields_hash, fields_hash,
                     ),
                 }
             );

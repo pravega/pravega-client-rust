@@ -17,7 +17,7 @@ use pravega_client::client_factory::ClientFactory;
 use pravega_client::event::writer::EventWriter;
 use pravega_client::index::{IndexReader, IndexWriter, Value, RECORD_SIZE};
 use pravega_client_config::{connection_type::ConnectionType, ClientConfigBuilder, MOCK_CONTROLLER_URI};
-use pravega_client_macros::Label;
+use pravega_client_macros::Fields;
 use pravega_client_shared::*;
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::{ControllerClient, ControllerClientImpl};
@@ -39,21 +39,21 @@ use std::sync::atomic::Ordering;
 use tokio::runtime::{Handle, Runtime};
 use tracing::{error, info};
 
-#[derive(Label, Debug, PartialOrd, PartialEq)]
-struct TestRecord0 {
+#[derive(Fields, Debug, PartialOrd, PartialEq)]
+struct TestFields0 {
     id: u64,
     timestamp: u64,
 }
 
-#[derive(Label, Debug, PartialOrd, PartialEq)]
-struct TestRecord1 {
+#[derive(Fields, Debug, PartialOrd, PartialEq)]
+struct TestFields1 {
     id: u64,
     timestamp: u64,
     pos: u64,
 }
 
-#[derive(Label, Debug, PartialOrd, PartialEq)]
-struct TestRecord2 {
+#[derive(Fields, Debug, PartialOrd, PartialEq)]
+struct TestFields2 {
     pos: u64,
     id: u64,
     timestamp: u64,
@@ -98,7 +98,7 @@ pub fn test_index_stream(config: PravegaStandaloneServiceConfig) {
 }
 
 async fn test_write_and_read(
-    writer: &mut IndexWriter<TestRecord0>,
+    writer: &mut IndexWriter<TestFields0>,
     reader: &mut IndexReader,
     event_reader: &mut EventReader,
 ) {
@@ -106,8 +106,8 @@ async fn test_write_and_read(
     const EVENT_NUM: u64 = 10;
 
     // test normal append
-    for i in 1..EVENT_NUM {
-        let label = TestRecord0 { id: i, timestamp: i };
+    for i in 1..=EVENT_NUM {
+        let label = TestFields0 { id: i, timestamp: i };
         let data = vec![1; i as usize];
         writer
             .append(label, data)
@@ -117,17 +117,30 @@ async fn test_write_and_read(
     }
 
     // test append with invalid label
-    let label = TestRecord0 { id: 1, timestamp: 1 };
+    let label = TestFields0 { id: 1, timestamp: 1 };
     let data = vec![1; 10];
     let res = writer.append(label, data).await;
     assert!(
-        matches! {res.err().expect("append should fail due to invalid label"), IndexWriterError::InvalidLabel{..}}
+        matches! {res.err().expect("append should fail due to invalid label"), IndexWriterError::InvalidFields{..}}
     );
 
-    // test normal read
+    // test tail read
     let mut i = 1;
-    let stream = reader.read(0).expect("get read stream");
+    let stream = reader.read(0, u64::MAX).expect("get read stream");
     pin_mut!(stream);
+    while let Some(read) = stream.next().await {
+        let data = vec![1; i as usize];
+        assert_eq!(read.expect("read data"), data);
+        i += 1;
+        if i > EVENT_NUM {
+            break;
+        }
+    }
+
+    // test slice read
+    let stream = reader.read(0, EVENT_NUM * RECORD_SIZE).expect("get read stream");
+    pin_mut!(stream);
+    let mut i = 1;
     while let Some(read) = stream.next().await {
         let data = vec![1; i as usize];
         assert_eq!(read.expect("read data"), data);
@@ -145,7 +158,7 @@ async fn test_write_and_read(
 
     let res = reader.search_offset(("uuid", 11)).await;
     assert!(
-        matches! {res.err().expect("search for a non-existing entry"), IndexReaderError::EntryNotFound{..}}
+        matches! {res.err().expect("search for a non-existing entry"), IndexReaderError::FieldNotFound{..}}
     );
 
     // test event reader compatibility
@@ -168,12 +181,13 @@ async fn test_write_and_read(
     info!("test index stream write and read passed");
 }
 
-async fn test_new_record(writer: &mut IndexWriter<TestRecord1>, reader: &mut IndexReader) {
+async fn test_new_record(writer: &mut IndexWriter<TestFields1>, reader: &mut IndexReader) {
     info!("test index stream new frame");
+    const EVENT_NUM: u64 = 20;
 
     // append
-    for i in 10..20 {
-        let label = TestRecord1 {
+    for i in 10..=EVENT_NUM {
+        let label = TestFields1 {
             id: i,
             timestamp: i,
             pos: i,
@@ -188,7 +202,7 @@ async fn test_new_record(writer: &mut IndexWriter<TestRecord1>, reader: &mut Ind
 
     // read
     let mut i = 1;
-    let stream = reader.read(0).expect("get read stream");
+    let stream = reader.read(0, EVENT_NUM * RECORD_SIZE).expect("get read stream");
     pin_mut!(stream);
     while let Some(read) = stream.next().await {
         let data = vec![1; i as usize];
@@ -205,21 +219,21 @@ async fn test_new_record(writer: &mut IndexWriter<TestRecord1>, reader: &mut Ind
 
     let res = reader.search_offset(("id", 21)).await;
     assert!(
-        matches! {res.err().expect("search for a non-existing entry"), IndexReaderError::EntryNotFound{..}}
+        matches! {res.err().expect("search for a non-existing entry"), IndexReaderError::FieldNotFound{..}}
     );
 
     info!("test index stream new frame passed");
 }
 
-async fn test_condition_append(writer: &mut IndexWriter<TestRecord1>) {
+async fn test_condition_append(writer: &mut IndexWriter<TestFields1>) {
     info!("test index stream condition append");
     // valid conditional append
-    let condition_on = TestRecord1 {
+    let condition_on = TestFields1 {
         id: 19,
         timestamp: 19,
         pos: 19,
     };
-    let label = TestRecord1 {
+    let label = TestFields1 {
         id: 20,
         timestamp: 20,
         pos: 20,
@@ -232,13 +246,13 @@ async fn test_condition_append(writer: &mut IndexWriter<TestRecord1>) {
     writer.flush().await.expect("flush data");
 
     // invalid conditional append
-    let condition_on = TestRecord1 {
+    let condition_on = TestFields1 {
         id: 19,
         timestamp: 19,
         pos: 19,
     };
 
-    let label = TestRecord1 {
+    let label = TestFields1 {
         id: 21,
         timestamp: 21,
         pos: 21,
@@ -251,15 +265,15 @@ async fn test_condition_append(writer: &mut IndexWriter<TestRecord1>) {
     info!("test index stream condition append passed");
 }
 
-async fn test_new_record_out_of_order(writer: &mut IndexWriter<TestRecord2>) {
+async fn test_new_record_out_of_order(writer: &mut IndexWriter<TestFields2>) {
     info!("test index stream new record out of order");
     let data = vec![1; 20];
-    let label = TestRecord2 {
+    let label = TestFields2 {
         pos: 20,
         id: 20,
         timestamp: 20,
     };
     let res = writer.append(label, data).await;
-    assert!(matches! {res.err().expect("should have append error"), IndexWriterError::InvalidLabel{..}});
+    assert!(matches! {res.err().expect("should have append error"), IndexWriterError::InvalidFields{..}});
     info!("test index stream new record out of order passed");
 }
