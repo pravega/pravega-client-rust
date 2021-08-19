@@ -381,11 +381,13 @@ mod test {
 
     #[test]
     fn test_byte_stream_seal() {
+        const BYTE_SIZE: usize = 200;
+
         let rt = Runtime::new().unwrap();
         let (mut writer, mut reader) = create_reader_and_writer(&rt);
 
         // write 200 bytes
-        let payload = vec![1; 200];
+        let payload = vec![1; BYTE_SIZE];
         writer.write(&payload).expect("write");
         writer.flush().expect("flush");
 
@@ -394,11 +396,11 @@ mod test {
 
         // read sealed stream
         reader.seek(SeekFrom::Start(0)).expect("seek to new head");
-        let mut buf = vec![0; 200];
+        let mut buf = vec![0; BYTE_SIZE];
         assert!(reader.read(&mut buf).is_ok());
-        assert_eq!(buf, vec![1; 200]);
+        assert_eq!(buf, vec![1; BYTE_SIZE]);
 
-        let payload = vec![1; 200];
+        let payload = vec![1; BYTE_SIZE];
         let write_result = writer.write(&payload);
         let flush_result = writer.flush();
         assert!(write_result.is_err() || flush_result.is_err());

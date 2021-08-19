@@ -17,7 +17,7 @@ use pravega_client_shared::{ScopedSegment, ScopedStream};
 use crate::segment::metadata::SegmentMetadataClient;
 use async_stream::try_stream;
 use futures::stream::Stream;
-use snafu::Snafu;
+use snafu::{ensure, Snafu};
 use std::io::SeekFrom;
 
 #[derive(Debug, Snafu)]
@@ -42,7 +42,6 @@ pub enum IndexReaderError {
 /// use pravega_client_config::ClientConfigBuilder;
 /// use pravega_client::client_factory::ClientFactory;
 /// use pravega_client_shared::ScopedStream;
-/// use std::io::SeekFrom;
 /// use futures_util::pin_mut;
 /// use futures_util::StreamExt;
 /// use std::io::Write;
@@ -66,7 +65,7 @@ pub enum IndexReaderError {
 ///     let client_factory = ClientFactory::new(config);
 ///
 ///     // assuming scope:myscope, stream:mystream exist.
-///     let stream = ScopedSegment::from("myscope/mystream");
+///     let stream = ScopedStream::from("myscope/mystream");
 ///
 ///     let mut index_reader = client_factory.create_index_reader(stream).await;
 ///
@@ -74,7 +73,7 @@ pub enum IndexReaderError {
 ///     let offset = index_reader.search_offset(("id", 10)).await.expect("get offset");
 ///
 ///     // read data
-///     let s = index_reader.read(SeekFrom::Start(offset));
+///     let s = index_reader.read(offset).expect("get read slice");
 ///     pin_mut!(s);
 ///     while let Some(res) = s.next().await {
 ///         // do something with the read result
@@ -171,41 +170,60 @@ impl IndexReader {
         }
     }
 
-    /// Read records starting from the given offset.
+    /// Reads records starting from the given offset.
     ///
-    /// This method returns a future Stream that implements an iterator. Application can iterate on
-    /// this future stream to get the data. When `next()` is invoked on the iterator, a read request
-    /// will be issued by the underlying reader and this read request will not block if there is no
-    /// data in the server.
+    /// This method returns a slice of stream that implements an iterator. Application can iterate on
+    /// this slice to get the data. When `next()` is invoked on the iterator, a read request
+    /// will be issued by the underlying reader.
+    ///
+    /// The slice that this method returns only contains data from current offset to the current tail
+    /// offset. If there are more data coming in to the server during the read time, those data will
+    /// not be included in this slice and application need to call this method again to fetch the
+    /// latest data.
     pub fn read<'stream, 'reader: 'stream>(
         &'reader self,
-        pos: SeekFrom,
-    ) -> impl Stream<Item = Result<Vec<u8>, IndexReaderError>> + 'stream {
-        try_stream! {
+        pos: u64,
+    ) -> Result<impl Stream<Item = Result<Vec<u8>, IndexReaderError>> + 'stream, IndexReaderError> {
+        ensure!(
+            pos % (RECORD_SIZE as u64) == 0,
+            InvalidOffset {
+                msg: format!(
+                    "Offset {} is invalid as it cannot be divided by the record size {}",
+                    pos, RECORD_SIZE
+                )
+            }
+        );
+        Ok(try_stream! {
             let stream = self.stream.clone();
             let mut byte_reader = self.factory.create_byte_reader_async(stream).await;
-            byte_reader.seek_async(pos)
+            let tail_offset = self.tail_offset().await?;
+            let mut num_of_records = (tail_offset - pos) / (RECORD_SIZE as u64);
+            byte_reader.seek_async(SeekFrom::Start(pos))
                 .await
                 .map_err(|e| IndexReaderError::InvalidOffset {
                     msg: format!("invalid seeking offset {:?}", e)
             })?;
-            loop {
-                let mut buf = vec![0; RECORD_SIZE as usize];
-                let size = byte_reader
-                    .read_async(&mut buf)
-                    .await
-                    .map_err(|e| IndexReaderError::Internal {
-                        msg: format!("byte reader read error {:?}", e),
-                    })?;
-                if size < RECORD_SIZE as usize {
-                    break;
+            while num_of_records > 0 {
+                let mut buf = vec!{};
+                let mut size_to_read = RECORD_SIZE as usize;
+                while size_to_read != 0 {
+                    let mut tmp_buf = vec![0; size_to_read];
+                    let size = byte_reader
+                        .read_async(&mut tmp_buf)
+                        .await
+                        .map_err(|e| IndexReaderError::Internal {
+                            msg: format!("byte reader read error {:?}", e),
+                        })?;
+                    buf.extend_from_slice(&tmp_buf[..size]);
+                    size_to_read -= size;
                 }
                 let record = Record::read_from(&buf).map_err(|e| IndexReaderError::Internal {
                     msg: format!("deserialize record {:?}", e),
                 })?;
+                num_of_records -= 1;
                 yield record.data;
             }
-        }
+        })
     }
 
     /// Data in the first readable record.

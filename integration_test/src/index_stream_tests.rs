@@ -126,7 +126,7 @@ async fn test_write_and_read(
 
     // test normal read
     let mut i = 1;
-    let stream = reader.read(SeekFrom::Start(0));
+    let stream = reader.read(0).expect("get read stream");
     pin_mut!(stream);
     while let Some(read) = stream.next().await {
         let data = vec![1; i as usize];
@@ -188,7 +188,7 @@ async fn test_new_record(writer: &mut IndexWriter<TestRecord1>, reader: &mut Ind
 
     // read
     let mut i = 1;
-    let stream = reader.read(SeekFrom::Start(0));
+    let stream = reader.read(0).expect("get read stream");
     pin_mut!(stream);
     while let Some(read) = stream.next().await {
         let data = vec![1; i as usize];
