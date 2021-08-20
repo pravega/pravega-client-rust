@@ -162,7 +162,7 @@ async fn test_write_and_read(
     );
 
     // test event reader compatibility
-    let mut read_count = 1;
+    let mut read_count = 0;
     while let Some(mut slice) = event_reader.acquire_segment().await {
         info!("acquire segment for reader {:?}", slice);
         for event in &mut slice {
