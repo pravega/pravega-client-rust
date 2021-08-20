@@ -28,7 +28,7 @@
 //!
 //! To ensure the searching efficiency in an index stream, we impose some constraints to the `Fields`.
 //! Suppose we have `Fields` A and B
-//! ```no_run
+//! ```ignore
 //! #[derive(Fields, Debug, PartialOrd, PartialEq)]
 //! struct A {
 //!     x: u64,
@@ -183,7 +183,7 @@ pub(crate) mod test {
     #[test]
     fn test_label_macro() {
         let fields = FieldsTest { time: 0, id: 0 };
-        assert_eq!(fields.to_key_value_pairs(), vec! {("time", 0), ("id", 0)});
+        assert_eq!(fields.get_field_values(), vec! {("time", 0), ("id", 0)});
     }
 
     #[test]

@@ -230,7 +230,7 @@ impl IndexReader {
                     buf.extend_from_slice(&tmp_buf[..size]);
                     size_to_read -= size;
                 }
-                let record = Record::read_from(&buf).map_err(|e| IndexReaderError::Internal {
+                let record = IndexRecord::read_from(&buf).map_err(|e| IndexReaderError::Internal {
                     msg: format!("deserialize record {:?}", e),
                 })?;
                 yield record.data;
