@@ -251,8 +251,8 @@ impl ByteWriter {
     /// let byte_writer = client_factory.create_byte_writer(segment);
     /// let offset = byte_writer.current_write_offset();
     /// ```
-    pub fn current_write_offset(&self) -> i64 {
-        self.write_offset
+    pub fn current_write_offset(&self) -> u64 {
+        self.write_offset as u64
     }
 
     /// Seek to the tail of the segment.
