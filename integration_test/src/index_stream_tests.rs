@@ -211,8 +211,8 @@ async fn test_new_record(writer: &mut IndexWriter<TestFields1>, reader: &mut Ind
     }
 
     // test search offset
-    let offset = reader.search_offset(("pos", 10)).await.expect("get offset");
-    assert_eq!(offset, RECORD_SIZE * 9);
+    let offset = reader.search_offset(("pos", 11)).await.expect("get offset");
+    assert_eq!(offset, RECORD_SIZE * 10);
 
     let offset = reader.search_offset(("pos", 15)).await.expect("get offset");
     assert_eq!(offset, RECORD_SIZE * 14);

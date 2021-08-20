@@ -11,7 +11,7 @@
 //! The Index API provides a way to efficiently search data in the stream.
 //!
 //! The index API writes a fixed sized [`IndexRecord`] to the stream. Each [`IndexRecord`] contains the user data
-//! and a number of user defined `Fields`, the value of each `Field` has to be u64 type.
+//! and a number of user defined `field`s. A set of `field`s is called 'Fields'.
 //! An example of `Fields` is showed as below:
 //! ```no_run
 //! use pravega_client_macros::Fields;
@@ -25,14 +25,33 @@
 //!
 //! ```
 //!
-//! To ensure the searching efficiency in an index stream, we impose some constraints to the `Fields`:
-//! * The value of the `Field` must be monotonically increasing.
-//! * Deletion of the `Field` is not permitted.
-//! * Adding a new `Field` is possible, but the `Field` has to be appended at the tail.
-//! * The Index Writer is generic over the `Fields` struct, meaning if a new `Field` is appended, it needs
-//! to create a new Index Writer for the new `Fields`.
 //!
-//! [`Record`]: crate::index::Record
+//! To ensure the searching efficiency in an index stream, we impose some constraints to the `Fields`.
+//! Suppose we have `Fields` A and B
+//! ```no_run
+//! #[derive(Fields, Debug, PartialOrd, PartialEq)]
+//! struct A {
+//!     x: u64,
+//!     y: u64,
+//! }
+//! #[derive(Fields, Debug, PartialOrd, PartialEq)]
+//! struct B {
+//!     x: u64,
+//!     y: u64,
+//!     z: u64,
+//! }
+//! ```
+//! * The type of `field` has to be u64 and the value of the `field` must be monotonically increasing.
+//! It means that if A2 is written after A1, then it must satisfy x2 >= x1 and y2 >= y1.
+//!
+//! * Upgrade is possible, meaning B can be written after A. But it has to meet two conditions: 1.
+//! B has to contain all the `field`s that A has and the order cannot change. 2. new `field`s can only
+//! be appended at the tail like `field` z.
+//!
+//! * The Index Writer is generic over the `Fields` struct, user needs to create new an Index writer
+//! when doing upgrading.
+//!
+//! [`Record`]: crate::index::IndexRecord
 
 pub mod writer;
 #[doc(inline)]
@@ -65,7 +84,7 @@ lazy_static! {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Record {
+pub struct IndexRecord {
     type_code: i32,
     version: i32,
     fields_len: u32,
@@ -74,17 +93,17 @@ pub struct Record {
     data: Vec<u8>,
 }
 
-impl Record {
+impl IndexRecord {
     const TYPE_CODE: i32 = 0;
     // increase the version if record structure changes
     const VERSION: i32 = 0;
 
-    pub(crate) fn new(fields: Vec<(&'static str, u64)>, data: Vec<u8>) -> Record {
+    pub(crate) fn new(fields: Vec<(&'static str, u64)>, data: Vec<u8>) -> IndexRecord {
         let fields_len = fields.len();
-        let fields_hash = Record::hash_keys(fields);
-        Record {
-            type_code: Record::TYPE_CODE,
-            version: Record::VERSION,
+        let fields_hash = IndexRecord::hash_keys(fields);
+        IndexRecord {
+            type_code: IndexRecord::TYPE_CODE,
+            version: IndexRecord::VERSION,
             // u128 is 16 bytes and u64 is 8 bytes
             fields_len: fields_len as u32 * 24,
             data_len: data.len() as u32,
@@ -113,14 +132,14 @@ impl Record {
     }
 
     fn read_from(input: &[u8]) -> Result<Self, BincodeError> {
-        let decoded: Record = CONFIG.deserialize(&input[8..])?;
+        let decoded: IndexRecord = CONFIG.deserialize(&input[8..])?;
         Ok(decoded)
     }
 
     pub(crate) fn hash_keys(entries: Vec<(&'static str, u64)>) -> Vec<(u128, u64)> {
         let mut entries_hash = vec![];
         for (key, val) in entries {
-            entries_hash.push((Record::hash_key_to_u128(key), val))
+            entries_hash.push((IndexRecord::hash_key_to_u128(key), val))
         }
         entries_hash
     }
@@ -135,7 +154,7 @@ impl Record {
 }
 
 pub trait Fields {
-    fn to_key_value_pairs(&self) -> Vec<(&'static str, u64)>;
+    fn get_field_values(&self) -> Vec<(&'static str, u64)>;
 }
 
 pub trait Value {
@@ -171,10 +190,10 @@ pub(crate) mod test {
     fn test_record_serde() {
         let data = vec![1, 2, 3, 4];
         let fields = vec![("hello", 0), ("index", 1), ("stream", 2)];
-        let record = Record::new(fields, data.clone());
+        let record = IndexRecord::new(fields, data.clone());
         let encoded = record.write_fields().expect("serialize record");
         assert_eq!(encoded.len(), RECORD_SIZE as usize);
-        let decoded = Record::read_from(&encoded).expect("deserialize record");
+        let decoded = IndexRecord::read_from(&encoded).expect("deserialize record");
         assert_eq!(decoded.data, data);
     }
 }

@@ -10,7 +10,7 @@
 
 use crate::byte::ByteWriter;
 use crate::client_factory::ClientFactory;
-use crate::index::{Fields, Record, RECORD_SIZE};
+use crate::index::{Fields, IndexRecord, RECORD_SIZE};
 
 use pravega_client_shared::ScopedStream;
 
@@ -164,8 +164,8 @@ impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
     }
 
     async fn append_internal(&mut self, data: Vec<u8>) -> Result<(), IndexWriterError> {
-        let fields_list = self.fields.as_ref().unwrap().to_key_value_pairs();
-        let record = Record::new(fields_list, data);
+        let fields_list = self.fields.as_ref().unwrap().get_field_values();
+        let record = IndexRecord::new(fields_list, data);
         let encoded = record.write_fields().context(InvalidData {})?;
         let _size = self.byte_writer.write_async(&encoded).await;
         Ok(())
@@ -187,7 +187,7 @@ impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
 
     // check if the provided field value is monotonically increasing.
     fn validate_fields(&self, fields: &T) -> Result<(), IndexWriterError> {
-        let kv_pairs = fields.to_key_value_pairs();
+        let kv_pairs = fields.get_field_values();
         ensure!(
             kv_pairs.len() <= MAX_FIELDS_SIZE,
             InvalidFields {
@@ -216,7 +216,7 @@ impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
         }
 
         if let Some(ref prev_fields_hash) = self.hashed_fields {
-            let fields_hash = Record::hash_keys(kv_pairs);
+            let fields_hash = IndexRecord::hash_keys(kv_pairs);
             let matching = prev_fields_hash
                 .iter()
                 .zip(fields_hash.iter())

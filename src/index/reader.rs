@@ -9,7 +9,7 @@
 //
 
 use crate::client_factory::ClientFactory;
-use crate::index::{Record, RECORD_SIZE};
+use crate::index::{IndexRecord, RECORD_SIZE};
 use crate::segment::reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 
 use pravega_client_shared::{ScopedSegment, ScopedStream};
@@ -126,7 +126,7 @@ impl IndexReader {
     pub async fn search_offset(&self, field: (&'static str, u64)) -> Result<u64, IndexReaderError> {
         const RECORD_SIZE_SIGNED: i64 = RECORD_SIZE as i64;
 
-        let target_key = Record::hash_key_to_u128(field.0);
+        let target_key = IndexRecord::hash_key_to_u128(field.0);
         let target_value = field.1;
 
         let head = self.head_offset().await.map_err(|e| IndexReaderError::Internal {
@@ -285,7 +285,7 @@ impl IndexReader {
     pub(crate) async fn read_record_from_random_offset(
         &self,
         offset: u64,
-    ) -> Result<Record, IndexReaderError> {
+    ) -> Result<IndexRecord, IndexReaderError> {
         let segment_read_cmd = self
             .segment_reader
             .read(offset as i64, RECORD_SIZE as i32)
@@ -293,9 +293,10 @@ impl IndexReader {
             .map_err(|e| IndexReaderError::Internal {
                 msg: format!("segment reader error: {:?}", e),
             })?;
-        let record = Record::read_from(&segment_read_cmd.data).map_err(|e| IndexReaderError::Internal {
-            msg: format!("record deserialization error: {:?}", e),
-        })?;
+        let record =
+            IndexRecord::read_from(&segment_read_cmd.data).map_err(|e| IndexReaderError::Internal {
+                msg: format!("record deserialization error: {:?}", e),
+            })?;
         Ok(record)
     }
 }

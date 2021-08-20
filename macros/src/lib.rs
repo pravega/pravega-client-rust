@@ -35,7 +35,7 @@ pub fn derive_fields(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     let expanded = quote! {
         // The generated impl.
         impl #impl_generics pravega_client::index::Fields for #name #ty_generics #where_clause {
-            fn to_key_value_pairs(&self) -> Vec<(&'static str, u64)> {
+            fn get_field_values(&self) -> Vec<(&'static str, u64)> {
                 vec!{#expr}
             }
         }
