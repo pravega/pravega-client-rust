@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-//! The Index API provides a way to efficiently search data in the stream.
+//! The Index API provides a way to build a monotonic index with a stream.
 //!
 //! The index API writes a fixed sized [`IndexRecord`] to the stream. Each [`IndexRecord`] contains the user data
 //! and a number of user defined `field`s. A set of `field`s is called 'Fields'.
