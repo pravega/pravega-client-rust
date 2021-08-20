@@ -105,6 +105,12 @@ async fn test_write_and_read(
     info!("test index stream write and read");
     const EVENT_NUM: u64 = 10;
 
+    // search for record when nothing in the stream
+    let res = reader.search_offset(("id", 5)).await;
+    assert!(
+        matches! {res.err().expect("search for a non-existing field"), IndexReaderError::FieldNotFound{..}}
+    );
+
     // test normal append
     for i in 1..=EVENT_NUM {
         let label = TestFields0 { id: i, timestamp: i };
@@ -148,17 +154,24 @@ async fn test_write_and_read(
     }
 
     // test search offset
+    // search for regular record
     let offset = reader.search_offset(("id", 5)).await.expect("get offset");
     // returns the starting offset of the 5th record, so it's the total length of the previous 4 records
     // same below
     assert_eq!(offset, RECORD_SIZE * 4);
 
+    // search for first record
     let offset = reader.search_offset(("id", 0)).await.expect("get offset");
     assert_eq!(offset, 0);
 
+    // search for last record
+    let offset = reader.search_offset(("id", 10)).await.expect("get offset");
+    assert_eq!(offset, RECORD_SIZE * 9);
+
+    // search for future record, should return error.
     let res = reader.search_offset(("uuid", 11)).await;
     assert!(
-        matches! {res.err().expect("search for a non-existing entry"), IndexReaderError::FieldNotFound{..}}
+        matches! {res.err().expect("search for a non-existing field"), IndexReaderError::FieldNotFound{..}}
     );
 
     // test event reader compatibility
@@ -221,6 +234,22 @@ async fn test_new_record(writer: &mut IndexWriter<TestFields1>, reader: &mut Ind
     assert!(
         matches! {res.err().expect("search for a non-existing entry"), IndexReaderError::FieldNotFound{..}}
     );
+    // test dup field search
+    let label = TestFields1 {
+        id: EVENT_NUM,
+        timestamp: EVENT_NUM,
+        pos: EVENT_NUM,
+    };
+    let data = vec![1; EVENT_NUM as usize];
+    writer
+        .append(label, data)
+        .await
+        .expect("write payload1 to byte stream");
+    writer.flush().await.expect("flush data");
+
+    // should return the first dup record
+    let offset = reader.search_offset(("id", 20)).await.expect("get offset");
+    assert_eq!(offset, RECORD_SIZE * 19);
 
     info!("test index stream new frame passed");
 }
@@ -229,16 +258,16 @@ async fn test_condition_append(writer: &mut IndexWriter<TestFields1>) {
     info!("test index stream condition append");
     // valid conditional append
     let condition_on = TestFields1 {
-        id: 19,
-        timestamp: 19,
-        pos: 19,
-    };
-    let label = TestFields1 {
         id: 20,
         timestamp: 20,
         pos: 20,
     };
-    let data = vec![1; 20];
+    let label = TestFields1 {
+        id: 21,
+        timestamp: 21,
+        pos: 21,
+    };
+    let data = vec![1; 21];
     writer
         .append_conditionally(label, condition_on, data)
         .await
@@ -257,7 +286,7 @@ async fn test_condition_append(writer: &mut IndexWriter<TestFields1>) {
         timestamp: 21,
         pos: 21,
     };
-    let data = vec![1; 20];
+    let data = vec![1; 21];
     let res = writer.append_conditionally(label, condition_on, data).await;
     assert!(
         matches! {res.err().expect("should have conditional append error"), IndexWriterError::InvalidCondition{..}}
@@ -267,11 +296,11 @@ async fn test_condition_append(writer: &mut IndexWriter<TestFields1>) {
 
 async fn test_new_record_out_of_order(writer: &mut IndexWriter<TestFields2>) {
     info!("test index stream new record out of order");
-    let data = vec![1; 20];
+    let data = vec![1; 21];
     let label = TestFields2 {
-        pos: 20,
-        id: 20,
-        timestamp: 20,
+        pos: 21,
+        id: 21,
+        timestamp: 21,
     };
     let res = writer.append(label, data).await;
     assert!(matches! {res.err().expect("should have append error"), IndexWriterError::InvalidFields{..}});

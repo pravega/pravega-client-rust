@@ -26,10 +26,10 @@ pub enum IndexReaderError {
     #[snafu(display("Field {} does not exist", msg))]
     FieldNotFound { msg: String },
 
-    #[snafu(display("Invalid offset : {}", msg))]
+    #[snafu(display("Invalid offset: {}", msg))]
     InvalidOffset { msg: String },
 
-    #[snafu(display("Internal error : {}", msg))]
+    #[snafu(display("Internal error: {}", msg))]
     Internal { msg: String },
 }
 
@@ -123,6 +123,9 @@ impl IndexReader {
     ///
     /// Note that if there are multiple entries that have the same Field name and value, this method will find and return
     /// the first one.
+    /// If the value of searching field is smaller than the first readable Record's field in the
+    /// stream, the first record data will be returned.
+    /// If the value of searching field is larger than the latest Record, a FieldNotFound error will be returned.
     pub async fn search_offset(&self, field: (&'static str, u64)) -> Result<u64, IndexReaderError> {
         const RECORD_SIZE_SIGNED: i64 = RECORD_SIZE as i64;
 
