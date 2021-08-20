@@ -186,7 +186,7 @@ async fn test_new_record(writer: &mut IndexWriter<TestFields1>, reader: &mut Ind
     const EVENT_NUM: u64 = 20;
 
     // append
-    for i in 10..=EVENT_NUM {
+    for i in 11..=EVENT_NUM {
         let label = TestFields1 {
             id: i,
             timestamp: i,
