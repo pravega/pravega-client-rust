@@ -73,7 +73,7 @@ pub enum IndexReaderError {
 ///     let offset = index_reader.search_offset(("id", 10)).await.expect("get offset");
 ///
 ///     // read data
-///     let s = index_reader.read(offset).expect("get read slice");
+///     let s = index_reader.read(offset, u64::MAX).expect("get read slice");
 ///     pin_mut!(s);
 ///     while let Some(res) = s.next().await {
 ///         // do something with the read result

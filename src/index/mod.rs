@@ -153,9 +153,9 @@ pub(crate) mod test {
     use super::*;
     use crate as pravega_client;
 
-    use pravega_client_macros::Label;
+    use pravega_client_macros::Fields;
 
-    #[derive(Label, Debug, PartialOrd, PartialEq)]
+    #[derive(Fields, Debug, PartialOrd, PartialEq)]
     struct FieldsTest {
         time: u64,
         id: u64,
