@@ -75,7 +75,8 @@ type EventHandle = oneshot::Receiver<Result<(), Error>>;
 ///
 ///     let client_factory = ClientFactory::new(config);
 ///
-///     // assuming scope:myscope, stream:mystream and segment 0 do exist.
+///     // assuming scope:myscope, stream:mystream exist.
+///     // notice that this stream should be a fixed sized single segment stream
 ///     let stream = ScopedStream::from("myscope/mystream");
 ///
 ///     let mut byte_writer = client_factory.create_byte_writer(stream);
@@ -250,8 +251,8 @@ impl ByteWriter {
     /// let byte_writer = client_factory.create_byte_writer(segment);
     /// let offset = byte_writer.current_write_offset();
     /// ```
-    pub fn current_write_offset(&self) -> i64 {
-        self.write_offset
+    pub fn current_write_offset(&self) -> u64 {
+        self.write_offset as u64
     }
 
     /// Seek to the tail of the segment.
@@ -336,8 +337,6 @@ mod test {
     use pravega_client_config::connection_type::{ConnectionType, MockType};
     use pravega_client_config::ClientConfigBuilder;
     use pravega_client_shared::PravegaNodeUri;
-    use std::io::Write;
-    use tokio::runtime::Runtime;
 
     #[test]
     #[should_panic(expected = "Byte stream is configured with more than one segment")]

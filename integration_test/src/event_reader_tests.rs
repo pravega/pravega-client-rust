@@ -74,12 +74,12 @@ fn test_read_large_events(client_factory: &ClientFactory, rt: &Runtime) {
         ))
     }
     let stream = ScopedStream {
-        scope: scope_name.clone(),
+        scope: scope_name,
         stream: stream_name,
     };
 
     let rg: ReaderGroup =
-        rt.block_on(client_factory.create_reader_group(scope_name, "rg-large-event".to_string(), stream));
+        rt.block_on(client_factory.create_reader_group("rg-large-event".to_string(), stream));
     let mut reader = rt.block_on(rg.create_reader("r1".to_string()));
 
     let mut event_count = 0;
@@ -131,15 +131,12 @@ fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactory, rt
         });
     }
     let stream = ScopedStream {
-        scope: scope_name.clone(),
+        scope: scope_name,
         stream: stream_name,
     };
 
-    let rg: ReaderGroup = rt.block_on(client_factory.create_reader_group(
-        scope_name,
-        "rg-single-reader-multi-segments".to_string(),
-        stream,
-    ));
+    let rg: ReaderGroup = rt
+        .block_on(client_factory.create_reader_group("rg-single-reader-multi-segments".to_string(), stream));
     let mut reader1 = rt.block_on(rg.create_reader("r1".to_string()));
     let mut reader2 = rt.block_on(rg.create_reader("r2".to_string()));
     let read_count = Arc::new(AtomicUsize::new(0));
@@ -211,7 +208,7 @@ async fn test_release_segment(client_factory: &ClientFactory) {
     };
 
     let rg: ReaderGroup = client_factory
-        .create_reader_group(scope_name, "rg-release".to_string(), stream)
+        .create_reader_group("rg-release".to_string(), stream)
         .await;
     let mut reader = rg.create_reader("r1".to_string()).await;
 
@@ -270,7 +267,7 @@ async fn test_release_segment_at(client_factory: &ClientFactory) {
     };
 
     let rg = client_factory
-        .create_reader_group(scope_name, "rg-release-segment".to_string(), str)
+        .create_reader_group("rg-release-segment".to_string(), str)
         .await;
     let mut reader = rg.create_reader("r1".to_string()).await;
     let mut event_count = 0;
@@ -332,7 +329,7 @@ async fn test_stream_scaling(client_factory: &ClientFactory) {
     };
 
     let rg = client_factory
-        .create_reader_group(scope_name, "rg_stream_scaling".to_string(), str)
+        .create_reader_group("rg_stream_scaling".to_string(), str)
         .await;
     let mut reader = rg.create_reader("r1".to_string()).await;
     let mut event_count = 0;
@@ -392,7 +389,7 @@ async fn test_read_api(client_factory: &ClientFactory) {
         stream: stream_name.clone(),
     };
     let rg = client_factory
-        .create_reader_group(scope_name, "rg-read-api".to_string(), str)
+        .create_reader_group("rg-read-api".to_string(), str)
         .await;
     let mut reader = rg.create_reader("r1".to_string()).await;
     let mut event_count = 0;
@@ -449,7 +446,7 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
         }
     });
 
-    let rg = h.block_on(client_factory.create_reader_group(scope_name, "rg_multi_reader".to_string(), str));
+    let rg = h.block_on(client_factory.create_reader_group("rg_multi_reader".to_string(), str));
     // reader 1 will be assigned all the segments.
     let mut reader1 = h.block_on(rg.create_reader("r1".to_string()));
     // no segments will be assigned to reader2
@@ -512,8 +509,7 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
         }
     });
 
-    let rg =
-        h.block_on(client_factory.create_reader_group(scope_name, "rg_reblance_reader".to_string(), str));
+    let rg = h.block_on(client_factory.create_reader_group("rg_reblance_reader".to_string(), str));
     // reader 1 will be assigned all the segments.
     let mut reader1 = h.block_on(rg.create_reader("r1".to_string()));
     // no segments will be assigned to reader2 until a rebalance
@@ -605,7 +601,7 @@ fn test_reader_offline(client_factory: &ClientFactory) {
         }
     });
 
-    let rg = h.block_on(client_factory.create_reader_group(scope_name, "rg_reader_offline".to_string(), str));
+    let rg = h.block_on(client_factory.create_reader_group("rg_reader_offline".to_string(), str));
     // reader 1 will be assigned all the segments.
     let mut reader1 = h.block_on(rg.create_reader("r1".to_string()));
 

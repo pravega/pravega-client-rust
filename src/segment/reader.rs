@@ -400,6 +400,7 @@ impl PrefetchingAsyncSegmentReader {
             self.fill_buffer().await?;
             self.issue_request_if_needed();
         }
+
         let mut need_to_read = buf.len();
         let mut copy_offset = 0;
         while let Some(cmd) = self.buffer.front() {
@@ -505,6 +506,7 @@ impl PrefetchingAsyncSegmentReader {
         }
         Ok(())
     }
+
     async fn fill_buffer(&mut self) -> Result<(), ReaderError> {
         if let Some(receiver) = self.receiver.take() {
             match receiver.await {
@@ -638,7 +640,7 @@ mod tests {
                     request_id: 1,
                 })),
             });
-        let async_segment_reader = runtime.block_on(factory.create_async_event_reader(segment_name));
+        let async_segment_reader = runtime.block_on(factory.create_async_segment_reader(segment_name));
         let data = runtime.block_on(async_segment_reader.read_inner(0, 11, &raw_client));
         let segment_read_result: SegmentReadCommand = data.unwrap();
         assert_eq!(

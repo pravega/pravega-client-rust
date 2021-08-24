@@ -29,6 +29,7 @@ cfg_if::cfg_if! {
     }
 }
 
+use crate::index::Fields;
 use pravega_client_auth::DelegationTokenProvider;
 use pravega_client_config::ClientConfig;
 use pravega_client_shared::{DelegationToken, PravegaNodeUri, Scope, ScopedSegment, ScopedStream, WriterId};
@@ -39,7 +40,9 @@ use pravega_wire_protocol::connection_factory::{
     ConnectionFactory, ConnectionFactoryConfig, SegmentConnectionManager,
 };
 
+use crate::index::{IndexReader, IndexWriter};
 use std::fmt;
+use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::runtime::Runtime;
 use tracing::info;
@@ -111,16 +114,12 @@ impl ClientFactory {
         EventWriter::new(stream, self.clone())
     }
 
-    pub async fn create_reader_group(
-        &self,
-        scope: Scope,
-        reader_group_name: String,
-        stream: ScopedStream,
-    ) -> ReaderGroup {
+    pub async fn create_reader_group(&self, reader_group_name: String, stream: ScopedStream) -> ReaderGroup {
         info!(
             "Creating reader group {:?} to read data from stream {:?}",
             reader_group_name, stream
         );
+        let scope = stream.scope.clone();
         let rg_config = ReaderGroupConfigBuilder::default().add_stream(stream).build();
         ReaderGroup::create(scope, reader_group_name, rg_config, self.clone()).await
     }
@@ -149,6 +148,17 @@ impl ClientFactory {
         ByteReader::new_async(stream, self.clone(), self.config().reader_wrapper_buffer_size()).await
     }
 
+    pub async fn create_index_writer<T: Fields + PartialOrd + PartialEq + Debug>(
+        &self,
+        stream: ScopedStream,
+    ) -> IndexWriter<T> {
+        IndexWriter::new(self.clone(), stream).await
+    }
+
+    pub async fn create_index_reader(&self, stream: ScopedStream) -> IndexReader {
+        IndexReader::new(self.clone(), stream).await
+    }
+
     pub async fn create_table(&self, scope: Scope, name: String) -> Table {
         Table::new(scope, name, self.clone())
             .await
@@ -159,7 +169,7 @@ impl ClientFactory {
         Synchronizer::new(scope, name, self.clone()).await
     }
 
-    pub(crate) async fn create_async_event_reader(&self, segment: ScopedSegment) -> AsyncSegmentReaderImpl {
+    pub(crate) async fn create_async_segment_reader(&self, segment: ScopedSegment) -> AsyncSegmentReaderImpl {
         AsyncSegmentReaderImpl::new(
             segment.clone(),
             self.clone(),

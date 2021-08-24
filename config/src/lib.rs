@@ -258,8 +258,9 @@ mod tests {
         assert_eq!(config.retry_policy(), RetryWithBackoff::default());
     }
 
-    #[tokio::test]
-    async fn test_extract_credentials() {
+    #[test]
+    fn test_extract_credentials() {
+        let rt = tokio::runtime::Runtime::new().expect("create runtime");
         // test empty env
         let config = ClientConfigBuilder::default()
             .controller_uri("127.0.0.2:9091".to_string())
@@ -269,7 +270,7 @@ mod tests {
         let token = encode(":");
 
         assert_eq!(
-            config.credentials.get_request_metadata().await,
+            rt.block_on(config.credentials.get_request_metadata()),
             format!("{} {}", "Basic", token)
         );
 
@@ -285,7 +286,7 @@ mod tests {
 
         let token = encode("hello:12345");
         assert_eq!(
-            config.credentials.get_request_metadata().await,
+            rt.block_on(config.credentials.get_request_metadata()),
             format!("{} {}", "Basic", token)
         );
 
@@ -296,7 +297,7 @@ mod tests {
             .build()
             .unwrap();
         assert_eq!(
-            config.credentials.get_request_metadata().await,
+            rt.block_on(config.credentials.get_request_metadata()),
             format!("{} {}", "Basic", "ABCDE")
         );
         env::remove_var("pravega_client_auth_method");
