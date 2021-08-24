@@ -84,7 +84,7 @@ lazy_static! {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct IndexRecord {
+pub(crate) struct IndexRecord {
     type_code: i32,
     version: i32,
     fields_len: u32,
