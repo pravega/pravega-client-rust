@@ -55,6 +55,6 @@ pub(crate) mod segment;
 #[doc(hidden)]
 pub mod test_utils;
 #[macro_use]
-mod util;
+pub mod util;
 #[macro_use]
 extern crate derive_new;

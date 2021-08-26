@@ -428,6 +428,37 @@ impl StreamManager {
             self.cf.create_event_writer(scoped_stream.clone()),
             self.cf.clone(),
             scoped_stream,
+            0,
+        );
+        Ok(stream_writer)
+    }
+
+    ///
+    /// Create a Writer for a given Stream.
+    ///
+    /// ```
+    /// import pravega_client;
+    /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
+    /// // Create a writer against an already created Pravega scope and Stream.
+    /// writer=manager.create_writer("scope", "stream", 100)
+    /// ```
+    ///
+    #[text_signature = "($self, scope_name, stream_name)"]
+    pub fn create_writer_inflight(
+        &self,
+        scope_name: &str,
+        stream_name: &str,
+        inflight_event_count: usize,
+    ) -> PyResult<StreamWriter> {
+        let scoped_stream = ScopedStream {
+            scope: Scope::from(scope_name.to_string()),
+            stream: Stream::from(stream_name.to_string()),
+        };
+        let stream_writer = StreamWriter::new(
+            self.cf.create_event_writer(scoped_stream.clone()),
+            self.cf.clone(),
+            scoped_stream,
+            inflight_event_count,
         );
         Ok(stream_writer)
     }

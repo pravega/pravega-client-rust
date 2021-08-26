@@ -8,7 +8,6 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use std::io::Error;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client::event::writer::EventWriter;
@@ -22,6 +21,8 @@ cfg_if! {
         use std::time::Duration;
         use tokio::time::timeout;
         use tokio::sync::oneshot::error::RecvError;
+        use pravega_client::util::oneshot_holder::OneShotHolder;
+        use std::io::Error;
     }
 }
 
@@ -31,15 +32,31 @@ cfg_if! {
 ///
 #[cfg(feature = "python_binding")]
 #[pyclass]
-#[derive(new)]
 pub(crate) struct StreamWriter {
     writer: EventWriter,
     factory: ClientFactory,
     stream: ScopedStream,
+    inflight: OneShotHolder<Error>,
 }
 
 // The amount of time the python api will wait for the underlying write to be completed.
 const TIMEOUT_IN_SECONDS: u64 = 120;
+
+impl StreamWriter {
+    pub fn new(
+        writer: EventWriter,
+        factory: ClientFactory,
+        stream: ScopedStream,
+        max_inflight_count: usize,
+    ) -> Self {
+        StreamWriter {
+            writer,
+            factory,
+            stream,
+            inflight: OneShotHolder::new(max_inflight_count),
+        }
+    }
+}
 
 #[cfg(feature = "python_binding")]
 #[pymethods]
@@ -111,9 +128,11 @@ impl StreamWriter {
                     .block_on(self.writer.write_event_by_routing_key(key.into(), event.to_vec()))
             }
         };
-
         let _guard = self.factory.runtime().enter();
-        let timeout_fut = timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), write_future);
+        let timeout_fut = timeout(
+            Duration::from_secs(TIMEOUT_IN_SECONDS),
+            self.inflight.add(write_future),
+        );
 
         let result: Result<Result<Result<(), Error>, RecvError>, _> =
             self.factory.runtime().block_on(timeout_fut);
@@ -134,6 +153,18 @@ impl StreamWriter {
             Err(_) => Err(exceptions::PyValueError::new_err(
                 "Write timed out, please check connectivity with Pravega.",
             )),
+        }
+    }
+
+    ///
+    /// Flush all the inflight events into Pravega Stream.
+    /// This will ensure all the inflight events are completely persisted on the Pravega Stream.
+    ///
+    #[text_signature = "($self)"]
+    #[args("*")]
+    pub fn flush(&mut self) {
+        for x in self.inflight.drain() {
+            let _res = self.factory.runtime().block_on(x);
         }
     }
 
