@@ -18,6 +18,7 @@ cfg_if! {
         use pyo3::PyResult;
         use pyo3::PyObjectProtocol;
         use tracing::trace;
+        use tracing::info;
         use std::time::Duration;
         use tokio::time::timeout;
         use tokio::sync::oneshot::error::RecvError;
@@ -163,6 +164,7 @@ impl StreamWriter {
     #[text_signature = "($self)"]
     #[args("*")]
     pub fn flush(&mut self) {
+        info!("Invoking flush() on writer {:?}", self.to_str());
         for x in self.inflight.drain() {
             let _res = self.factory.runtime().block_on(x);
         }
@@ -171,6 +173,12 @@ impl StreamWriter {
     /// Returns the string representation.
     fn to_str(&self) -> String {
         format!("Stream: {:?} ", self.stream)
+    }
+}
+
+impl Drop for StreamWriter {
+    fn drop(&mut self) {
+        self.flush();
     }
 }
 
