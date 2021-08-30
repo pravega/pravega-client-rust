@@ -47,6 +47,10 @@ impl<E> OneShotHolder<E> {
         result
     }
 
+    ///
+    /// Creates a draining iterator that removes all the oneShot receivers
+    /// from the OneShotHolder and yields the removed items.
+    ///
     pub fn drain(&mut self) -> Drain<'_, Receiver<Result<(), E>>> {
         self.inflight.drain(..)
     }

@@ -418,7 +418,10 @@ impl StreamManager {
     /// writer=manager.create_writer("scope", "stream")
     ///
     /// By default the max inflight events is configured for 0. The users can change this value
-    /// to ensure there are multiple inflight events at any given point in time.
+    /// to ensure there are multiple inflight events at any given point in time and can use the
+    /// flush() API on the writer to wait until all the events are persisted.
+    ///
+    ///
     /// ```
     ///
     #[text_signature = "($self, scope_name, stream_name, max_inflight_events)"]
