@@ -51,16 +51,3 @@ impl<E> OneShotHolder<E> {
         self.inflight.drain(..)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn one_result() {
-        let mut holder = OneShotHolder::new(2);
-
-        let (tx, rx) = tokio::sync::oneshot::channel::<Result<(), Error>>();
-        let t = holder.add(rx).await;
-    }
-}
