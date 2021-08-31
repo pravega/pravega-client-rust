@@ -426,7 +426,7 @@ impl StreamManager {
         };
         let stream_writer = StreamWriter::new(
             self.cf.create_event_writer(scoped_stream.clone()),
-            self.cf.clone(),
+            self.cf.runtime_handle(),
             scoped_stream,
         );
         Ok(stream_writer)
@@ -458,7 +458,7 @@ impl StreamManager {
             self.cf
                 .create_transactional_event_writer(scoped_stream.clone(), WriterId(writer_id)),
         );
-        let txn_stream_writer = StreamTxnWriter::new(txn_writer, self.cf.clone(), scoped_stream);
+        let txn_stream_writer = StreamTxnWriter::new(txn_writer, self.cf.runtime_handle(), scoped_stream);
         Ok(txn_stream_writer)
     }
 
@@ -489,7 +489,7 @@ impl StreamManager {
             self.cf
                 .create_reader_group(reader_group_name.to_string(), scoped_stream.clone()),
         );
-        let reader_group = StreamReaderGroup::new(rg, self.cf.clone(), scoped_stream);
+        let reader_group = StreamReaderGroup::new(rg, self.cf.runtime_handle(), scoped_stream);
         Ok(reader_group)
     }
 

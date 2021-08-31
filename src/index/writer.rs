@@ -9,7 +9,7 @@
 //
 
 use crate::byte::ByteWriter;
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
 use crate::index::{Fields, IndexRecord, RECORD_SIZE};
 
 use pravega_client_shared::ScopedStream;
@@ -91,8 +91,8 @@ pub struct IndexWriter<T: Fields + PartialOrd + PartialEq + Debug> {
 }
 
 impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
-    pub(crate) async fn new(factory: ClientFactory, stream: ScopedStream) -> Self {
-        let mut byte_writer = factory.create_byte_writer_async(stream.clone()).await;
+    pub(crate) async fn new(factory: ClientFactoryAsync, stream: ScopedStream) -> Self {
+        let mut byte_writer = factory.create_byte_writer(stream.clone()).await;
         byte_writer.seek_to_tail_async().await;
 
         let index_reader = factory.create_index_reader(stream.clone()).await;
