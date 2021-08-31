@@ -226,6 +226,7 @@ mod tests {
     use std::net::Ipv4Addr;
 
     #[test]
+    #[serial]
     fn test_get_set() {
         let config = ClientConfigBuilder::default()
             .max_connections_in_pool(15 as u32)
@@ -246,6 +247,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_get_default() {
         let config = ClientConfigBuilder::default()
             .controller_uri(MOCK_CONTROLLER_URI)
@@ -259,6 +261,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_extract_credentials() {
         let rt = tokio::runtime::Runtime::new().expect("create runtime");
         // test empty env
@@ -307,12 +310,13 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_extract_tls_cert_path() {
         // test default
         fs::create_dir_all(DEFAULT_TLS_CERT_PATH).expect("create default cert path");
         fs::File::create(format!("{}/foo.crt", DEFAULT_TLS_CERT_PATH)).expect("create crt");
         let config = ClientConfigBuilder::default()
-            .controller_uri("127.0.0.2:9091".to_string())
+            .controller_uri("tls://127.0.0.2:9091".to_string())
             .is_tls_enabled(true)
             .build()
             .unwrap();
@@ -353,7 +357,7 @@ mod tests {
         fs::File::create(format!("./bar/foo.crt")).expect("create crt");
         env::set_var("pravega_client_tls_cert_path", "./bar");
         let config = ClientConfigBuilder::default()
-            .controller_uri("127.0.0.2:9091".to_string())
+            .controller_uri("tls://127.0.0.2:9091".to_string())
             .is_tls_enabled(true)
             .build()
             .unwrap();
@@ -361,7 +365,7 @@ mod tests {
         // test with file path
         env::set_var("pravega_client_tls_cert_path", "./bar/foo.crt");
         let config = ClientConfigBuilder::default()
-            .controller_uri("127.0.0.2:9091".to_string())
+            .controller_uri("tls://127.0.0.2:9091".to_string())
             .is_tls_enabled(true)
             .build()
             .unwrap();
@@ -370,7 +374,7 @@ mod tests {
         // test with invalid path
         let result = std::panic::catch_unwind(|| {
             ClientConfigBuilder::default()
-                .controller_uri("127.0.0.2:9091".to_string())
+                .controller_uri("tls://127.0.0.2:9091".to_string())
                 .is_tls_enabled(true)
                 .build()
                 .unwrap()

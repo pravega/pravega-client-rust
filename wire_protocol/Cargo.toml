@@ -32,3 +32,6 @@ log = "0.4"
 tokio-rustls = "0.22"
 derive-new = "0.5"
 serde_bytes = "0.11"
+
+[dev-dependencies]
+serial_test = "0.5.1"
