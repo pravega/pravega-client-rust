@@ -35,7 +35,11 @@ impl<E> OneShotHolder<E> {
         item: tokio::sync::oneshot::Receiver<Result<(), E>>,
     ) -> Result<Result<(), E>, RecvError> {
         let result;
-        if self.inflight.len() > self.size {
+        if self.size == 0 {
+            // size is zero await on oneshot receiver directly.
+            return item.await;
+        }
+        if self.inflight.len() >= self.size {
             // await until the first receiver in the list has completed.
             let fut = self.inflight.pop_front().unwrap();
             result = fut.await;
@@ -53,5 +57,99 @@ impl<E> OneShotHolder<E> {
     ///
     pub fn drain(&mut self) -> Drain<'_, Receiver<Result<(), E>>> {
         self.inflight.drain(..)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug)]
+    struct CustomError;
+
+    #[tokio::test]
+    async fn test_oneshot_holder() {
+        let mut holder: OneShotHolder<CustomError> = OneShotHolder::new(1);
+
+        let (tx1, rx1) = tokio::sync::oneshot::channel::<Result<(), CustomError>>();
+        let (tx2, rx2) = tokio::sync::oneshot::channel::<Result<(), CustomError>>();
+        let r = holder.add(rx1).await.unwrap();
+        assert!(r.is_ok());
+        tokio::spawn(async move {
+            if let Err(_) = tx1.send(Ok(())) {
+                panic!("error is not expected");
+            }
+        });
+
+        //wait until rx1 is completed.
+        let r = holder.add(rx2).await.unwrap();
+        assert!(r.is_ok());
+
+        tokio::spawn(async move {
+            if let Err(_) = tx2.send(Err(CustomError)) {
+                panic!("error is not expected");
+            }
+        });
+        let mut iter = holder.drain();
+        match iter.next() {
+            Some(r) => {
+                if let Ok(_) = r.await.unwrap() {
+                    panic!("Error expected");
+                }
+            }
+            None => panic!("Expected an entry."),
+        };
+        assert!(iter.next().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_zero_size_oneshot_holder() {
+        let mut holder: OneShotHolder<CustomError> = OneShotHolder::new(0);
+
+        let (tx1, rx1) = tokio::sync::oneshot::channel::<Result<(), CustomError>>();
+        tokio::spawn(async move {
+            if let Err(_) = tx1.send(Ok(())) {
+                panic!("error is not expected");
+            }
+        });
+        let r = holder.add(rx1).await.unwrap();
+        assert!(r.is_ok());
+
+        let mut iter = holder.drain();
+        assert!(iter.next().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_receiver_error() {
+        let mut holder: OneShotHolder<CustomError> = OneShotHolder::new(1);
+
+        let (tx1, rx1) = tokio::sync::oneshot::channel::<Result<(), CustomError>>();
+        let (tx2, rx2) = tokio::sync::oneshot::channel::<Result<(), CustomError>>();
+        let r = holder.add(rx1).await.unwrap();
+        assert!(r.is_ok());
+
+        tokio::spawn(async move {
+            drop(tx1);
+        });
+
+        //wait until rx1 is completed.
+        let r = holder.add(rx2).await;
+        assert!(r.is_err()); //since tx1 is dropped the result is of type Error.
+
+        tokio::spawn(async move {
+            if let Err(_) = tx2.send(Err(CustomError)) {
+                panic!("error is not expected");
+            }
+        });
+        let mut iter = holder.drain();
+        match iter.next() {
+            Some(r) => {
+                if let Ok(_) = r.await.unwrap() {
+                    panic!("Error expected");
+                }
+            }
+            None => panic!("Expected an entry."),
+        };
+        assert!(iter.next().is_none());
     }
 }
