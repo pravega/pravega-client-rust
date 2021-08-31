@@ -223,6 +223,7 @@ impl ClientConfigBuilder {
 mod tests {
     use super::*;
     use base64::encode;
+    use serial_test::serial;
     use std::net::Ipv4Addr;
 
     #[test]
