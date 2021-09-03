@@ -112,7 +112,7 @@ impl Drop for EventReader {
     /// Destructor for reader invoked. This will automatically invoke reader_offline().
     fn drop(&mut self) {
         info!("reader {} is dropped", self.id);
-        // try fetching the currently running Runtme.
+        // try fetching the currently running Runtime.
         let r = Handle::try_current();
         match r {
             Ok(handle) => {
@@ -123,7 +123,8 @@ impl Drop for EventReader {
             }
             Err(_) => {
                 // ensure we block until the reader_offline executes successfully.
-                self.factory.runtime_handle().block_on(self.reader_offline());
+                let rt = tokio::runtime::Runtime::new().expect("create tokio runtime to drop reader");
+                rt.block_on(self.reader_offline());
             }
         }
     }
