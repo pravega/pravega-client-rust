@@ -56,7 +56,7 @@ use std::convert::{From, Into};
 use std::io::BufReader;
 use std::str::FromStr;
 use std::sync::Arc;
-use tokio::runtime::Runtime;
+use tokio::runtime::Handle;
 use tokio::sync::RwLock;
 use tokio_rustls::rustls::ClientConfig as RustlsClientConfig;
 use tonic::codegen::http::uri::InvalidUri;
@@ -631,11 +631,11 @@ impl ControllerClientImpl {
     /// The requests will be load balanced across multiple connections and every connection supports
     /// multiplexing of requests.
     ///
-    pub fn new(config: ClientConfig, rt: &Runtime) -> Self {
+    pub fn new(config: ClientConfig, handle: &Handle) -> Self {
         // actual connection is established lazily.
-        let ch = rt.block_on(get_channel(&config));
+        let ch = handle.block_on(get_channel(&config));
         let client = if config.is_auth_enabled {
-            let token = rt.block_on(config.credentials.get_request_metadata());
+            let token = handle.block_on(config.credentials.get_request_metadata());
             let token = MetadataValue::from_str(&token).expect("convert to metadata value");
             ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
                 req.metadata_mut().insert(AUTHORIZATION, token.clone());

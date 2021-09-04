@@ -50,54 +50,58 @@ use tracing::info;
 /// Applications should use ClientFactory to create resources they need.
 ///
 /// ClientFactory contains a connection pool that is shared by all the readers and writers it creates.
-/// It also contains a tokio runtime that is used to drive for async tasks. Spawned tasks in readers and
+/// It also contains a tokio runtime that is used to drive async tasks. Spawned tasks in readers and
 /// writers are tied to this runtime.
 ///
-/// Applications can call clone on ClientFactory in case ownership is needed. It holds an Arc to the
-/// internal object so cloned objects are still sharing the same connection pool and runtime.
+/// Note that dropping Runtime in async context is not a good practice and it will have warning messages.
+/// ClientFactory is the only place that's holding the Runtime, so it should not be used in any async contexts.
+/// You can use ['ClientFactoryAsync'] in async contexts instead.
 ///
+/// # Examples
+/// ```no_run
+/// use pravega_client_config::ClientConfigBuilder;
+/// use pravega_client::client_factory::ClientFactory;
+///
+/// fn main() {
+///    let config = ClientConfigBuilder::default()
+///         .controller_uri("localhost:8000")
+///         .build()
+///         .expect("create config");
+///     let client_factory = ClientFactory::new(config);
+/// }
+/// ```
+/// ```no_run
+/// use pravega_client_config::ClientConfigBuilder;
+/// use pravega_client::client_factory::ClientFactoryAsync;
+/// use tokio::runtime::Handle;
+///
+/// #[tokio::main]
+/// async fn main() {
+///    let config = ClientConfigBuilder::default()
+///         .controller_uri("localhost:8000")
+///         .build()
+///         .expect("create config");
+///     let handle = Handle::try_current().expect("get current runtime handle");
+///     let client_factory = ClientFactoryAsync::new(config, handle);
+/// }
+/// ```
+/// [`ClientFactoryAsync`]: ClientFactoryAsync
 pub struct ClientFactory {
     runtime: Runtime,
     client_factory_async: ClientFactoryAsync,
 }
 
 impl ClientFactory {
-    /// Create a new ClientFactory.
-    /// # Examples
-    /// ```no_run
-    /// use pravega_client_config::ClientConfigBuilder;
-    /// use pravega_client::client_factory::ClientFactory;
-    ///
-    /// fn main() {
-    ///    let config = ClientConfigBuilder::default()
-    ///         .controller_uri("localhost:8000")
-    ///         .build()
-    ///         .expect("create config");
-    ///     let client_factory = ClientFactory::new(config);
-    /// }
-    /// ```
     pub fn new(config: ClientConfig) -> ClientFactory {
         let rt = tokio::runtime::Runtime::new().expect("create runtime");
         ClientFactory::new_with_runtime(config, rt)
     }
 
     pub fn new_with_runtime(config: ClientConfig, rt: Runtime) -> ClientFactory {
-        let cf = ConnectionFactory::create(ConnectionFactoryConfig::from(&config));
-        let pool = ConnectionPool::new(SegmentConnectionManager::new(cf, config.max_connections_in_pool));
-        let controller = if config.mock {
-            Box::new(MockController::new(config.controller_uri.clone())) as Box<dyn ControllerClient>
-        } else {
-            Box::new(ControllerClientImpl::new(config.clone(), &rt)) as Box<dyn ControllerClient>
-        };
-        let handle = rt.handle().clone();
+        let async_factory = ClientFactoryAsync::new(config, rt.handle().clone());
         ClientFactory {
             runtime: rt,
-            client_factory_async: ClientFactoryAsync {
-                connection_pool: Arc::new(pool),
-                controller_client: Arc::new(controller),
-                config: Arc::new(config),
-                runtime_handle: handle,
-            },
+            client_factory_async: async_factory,
         }
     }
 
@@ -253,6 +257,21 @@ pub struct ClientFactoryAsync {
 }
 
 impl ClientFactoryAsync {
+    pub fn new(config: ClientConfig, handle: Handle) -> Self {
+        let cf = ConnectionFactory::create(ConnectionFactoryConfig::from(&config));
+        let pool = ConnectionPool::new(SegmentConnectionManager::new(cf, config.max_connections_in_pool));
+        let controller = if config.mock {
+            Box::new(MockController::new(config.controller_uri.clone())) as Box<dyn ControllerClient>
+        } else {
+            Box::new(ControllerClientImpl::new(config.clone(), &handle)) as Box<dyn ControllerClient>
+        };
+        ClientFactoryAsync {
+            connection_pool: Arc::new(pool),
+            controller_client: Arc::new(controller),
+            config: Arc::new(config),
+            runtime_handle: handle,
+        }
+    }
     pub fn config(&self) -> &ClientConfig {
         &self.config
     }
