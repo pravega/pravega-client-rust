@@ -8,6 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use crate::byte_stream::ByteStream;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use crate::stream_writer_transactional::StreamTxnWriter;
@@ -491,6 +492,31 @@ impl StreamManager {
         );
         let reader_group = StreamReaderGroup::new(rg, self.cf.clone(), scoped_stream);
         Ok(reader_group)
+    }
+
+    ///
+    /// Create a Binary I/O representation of a Pravega Stream. This ByteStream implements the
+    /// APIs provided by [io.IOBase](https://docs.python.org/3/library/io.html#io.IOBase)
+    ///
+    /// ```
+    /// import pravega_client;
+    /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
+    /// // Create a writer against an already created Pravega scope and Stream.
+    /// byte_stream=manager.create_byte_stream("scope", "stream");
+    /// byte_stream.write(b"bytes")
+    /// byte_stream.seek(2)
+    /// byte_stream.read()
+    /// b'tes'
+    /// ```
+    ///
+    #[text_signature = "($self, scope_name, stream_name)"]
+    pub fn create_byte_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<ByteStream> {
+        let scoped_stream = ScopedStream {
+            scope: Scope::from(scope_name.to_string()),
+            stream: Stream::from(stream_name.to_string()),
+        };
+        let byte_stream = ByteStream::new(scoped_stream, self.cf.clone());
+        Ok(byte_stream)
     }
 
     /// Returns the string representation.
