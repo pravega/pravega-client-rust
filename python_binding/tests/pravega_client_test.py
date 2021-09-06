@@ -108,7 +108,7 @@ class PravegaTest(unittest.TestCase):
         # seek to a given offset and read
         bs.seek(3, 0)
         buf=bytearray(2)
-        self.assertEqual(2, buf.readinto(buf))
+        self.assertEqual(2, bs.readinto(buf))
 
         bs.truncate(2)
         self.assertEqual(2, bs.current_head_offset())

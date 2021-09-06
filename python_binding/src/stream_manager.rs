@@ -501,12 +501,22 @@ impl StreamManager {
     /// ```
     /// import pravega_client;
     /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
-    /// // Create a writer against an already created Pravega scope and Stream.
+    /// Create a Byte_stream against an already created Pravega scope and Stream.
     /// byte_stream=manager.create_byte_stream("scope", "stream");
+    /// # write bytes into the Pravega Stream.
     /// byte_stream.write(b"bytes")
-    /// byte_stream.seek(2)
-    /// byte_stream.read()
-    /// b'tes'
+    /// 5
+    /// # Seek to a specified read offset.
+    /// byte_stream.seek(2, 0)
+    /// # Display the current read offset.
+    /// byte_stream.tell()
+    /// 2
+    ///
+    /// buf=bytearray(5)
+    /// byte_stream.readinto(buf)
+    /// 3
+    /// buf
+    /// bytearray(b'tes\x00\x00')
     /// ```
     ///
     #[text_signature = "($self, scope_name, stream_name)"]
