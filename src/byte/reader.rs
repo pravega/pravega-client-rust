@@ -384,8 +384,7 @@ mod test {
     fn test_byte_stream_seal() {
         const BYTE_SIZE: usize = 200;
 
-        let rt = Runtime::new().unwrap();
-        let (mut writer, mut reader) = create_reader_and_writer(&rt);
+        let (mut writer, mut reader, factory) = create_reader_and_writer();
 
         // write 200 bytes
         let payload = vec![1; BYTE_SIZE];
