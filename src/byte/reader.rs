@@ -51,7 +51,8 @@ use uuid::Uuid;
 ///
 ///     let client_factory = ClientFactory::new(config);
 ///
-///     // assuming scope:myscope, stream:mystream and segment with id 0 do exist.
+///     // assuming scope:myscope, stream:mystream exist.
+///     // notice that this stream should be a fixed sized single segment stream
 ///     let stream = ScopedStream::from("myscope/mystream");
 ///
 ///     let mut byte_reader = client_factory.create_byte_reader(stream);
@@ -61,10 +62,11 @@ use uuid::Uuid;
 /// ```
 pub struct ByteReader {
     reader_id: Uuid,
+    pub segment: ScopedSegment,
     reader: Option<PrefetchingAsyncSegmentReader>,
     reader_buffer_size: usize,
     metadata_client: SegmentMetadataClient,
-    factory: ClientFactory,
+    pub factory: ClientFactory,
 }
 
 impl Read for ByteReader {
@@ -101,16 +103,19 @@ impl ByteReader {
             stream: stream.stream.clone(),
             segment,
         };
-        let async_reader = factory.create_async_event_reader(scoped_segment.clone()).await;
+        let async_reader = factory.create_async_segment_reader(scoped_segment.clone()).await;
         let async_reader_wrapper = PrefetchingAsyncSegmentReader::new(
             factory.runtime().handle().clone(),
             Arc::new(Box::new(async_reader)),
             0,
             buffer_size,
         );
-        let metadata_client = factory.create_segment_metadata_client(scoped_segment).await;
+        let metadata_client = factory
+            .create_segment_metadata_client(scoped_segment.clone())
+            .await;
         ByteReader {
             reader_id: Uuid::new_v4(),
+            segment: scoped_segment,
             reader: Some(async_reader_wrapper),
             reader_buffer_size: buffer_size,
             metadata_client,
@@ -261,7 +266,6 @@ impl ByteReader {
             }
         }
     }
-
     fn recreate_reader_wrapper(&mut self, offset: i64) {
         let internal_reader = self.reader.take().unwrap().extract_reader();
         let new_reader_wrapper = PrefetchingAsyncSegmentReader::new(
@@ -293,6 +297,7 @@ mod test {
     use pravega_client_config::ClientConfigBuilder;
     use pravega_client_shared::PravegaNodeUri;
     use std::io::Write;
+    use tokio::runtime::Runtime;
 
     #[test]
     fn test_byte_seek() {
@@ -377,10 +382,13 @@ mod test {
 
     #[test]
     fn test_byte_stream_seal() {
-        let (mut writer, mut reader, factory) = create_reader_and_writer();
+        const BYTE_SIZE: usize = 200;
+
+        let rt = Runtime::new().unwrap();
+        let (mut writer, mut reader) = create_reader_and_writer(&rt);
 
         // write 200 bytes
-        let payload = vec![1; 200];
+        let payload = vec![1; BYTE_SIZE];
         writer.write(&payload).expect("write");
         writer.flush().expect("flush");
 
@@ -389,11 +397,11 @@ mod test {
 
         // read sealed stream
         reader.seek(SeekFrom::Start(0)).expect("seek to new head");
-        let mut buf = vec![0; 200];
+        let mut buf = vec![0; BYTE_SIZE];
         assert!(reader.read(&mut buf).is_ok());
-        assert_eq!(buf, vec![1; 200]);
+        assert_eq!(buf, vec![1; BYTE_SIZE]);
 
-        let payload = vec![1; 200];
+        let payload = vec![1; BYTE_SIZE];
         let write_result = writer.write(&payload);
         let flush_result = writer.flush();
         assert!(write_result.is_err() || flush_result.is_err());

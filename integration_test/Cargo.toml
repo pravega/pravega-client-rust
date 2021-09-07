@@ -20,6 +20,7 @@ pravega-client-shared = { path = "../shared"}
 pravega-client-retry = {path = "../retry"}
 pravega-connection-pool = {path= "../connection_pool" }
 pravega-client-config = {path = "../config"}
+pravega-client-macros = {path = "../macros"}
 tokio = { version = "1.1", features = ["full"] }
 lazy_static = "1.4"
 uuid = {version = "0.8", features = ["v4"]}
@@ -28,10 +29,11 @@ serde = { version = "1.0", features = ["derive"] }
 java-properties = "1.2"
 derive-new = "0.5"
 tracing-subscriber = "0.2"
+futures-util = "0.3.16"
 
 [build-dependencies]
 tracing = "0.1"
 flate2 = "1.0"
 tar = "0.4"
 pkg-config = "0.3"
-reqwest = {version = "0.11", default-features = false, features = ["blocking", "rustls-tls"]}
+reqwest = {version = "0.11", default-features = false, features = ["blocking", "rustls-tls-native-roots"]}
