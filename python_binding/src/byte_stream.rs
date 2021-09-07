@@ -38,7 +38,7 @@ pub(crate) struct ByteStream {
     reader: ByteReader,
 }
 
-// The amount of time the python api will wait for the underlying write to be completed.
+// The amount of time the python api will wait for the underlying operation to be completed.
 const TIMEOUT_IN_SECONDS: u64 = 120;
 
 impl ByteStream {
