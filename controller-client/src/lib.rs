@@ -1609,7 +1609,7 @@ mod test {
             .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
             .build()
             .unwrap();
-        let controller = ControllerClientImpl::new(config.clone(), &rt);
+        let controller = ControllerClientImpl::new(config.clone(), &rt.handle());
         let scope = Scope {
             name: "scope".to_string(),
         };
