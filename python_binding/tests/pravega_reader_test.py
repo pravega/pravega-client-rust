@@ -44,6 +44,7 @@ class PravegaReaderTest(aiounittest.AsyncTestCase):
         print("Write events")
         w1.write_event("test event")
         w1.write_event("test event")
+        w1.flush()
         reader_group = stream_manager.create_reader_group("rg" + suffix, scope, stream);
         r1 = reader_group.create_reader("reader-1")
         segment_slice = await r1.get_segment_slice_async()
@@ -113,6 +114,7 @@ class PravegaReaderTest(aiounittest.AsyncTestCase):
         print("Write events 100 events")
         for i in range(100):
             w1.write_event("data")
+        w1.flush()
 
         reader_group = stream_manager.create_reader_group("rg-multi" + suffix, scope, stream)
         r1 = reader_group.create_reader("r1")
@@ -161,6 +163,7 @@ class PravegaReaderTest(aiounittest.AsyncTestCase):
         print("Write events 100 events")
         for i in range(100):
             w1.write_event("data")
+        w1.flush()
 
         reader_group = stream_manager.create_reader_group("rg-partial" + suffix, scope, stream)
         r1 = reader_group.create_reader("r1")
@@ -215,6 +218,7 @@ class PravegaReaderTest(aiounittest.AsyncTestCase):
         for x in range(0, 1000):
             payload = str(x) * 100000
             w1.write_event(payload)
+        w1.flush()
         reader_group = stream_manager.create_reader_group("rg" + suffix, scope, stream);
         r1 = reader_group.create_reader("reader-1")
         # consume the segment slice for events.
