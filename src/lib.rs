@@ -54,6 +54,7 @@ pub(crate) mod segment;
 #[cfg(feature = "integration-test")]
 #[doc(hidden)]
 pub mod test_utils;
+#[doc(hidden)]
 #[macro_use]
 pub mod util;
 #[macro_use]

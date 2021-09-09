@@ -163,11 +163,33 @@ impl StreamWriter {
     ///
     #[text_signature = "($self)"]
     #[args("*")]
-    pub fn flush(&mut self) {
+    pub fn flush(&mut self) -> PyResult<()> {
         info!("Invoking flush() on writer {:?}", self.to_str());
+        let mut flush_result: PyResult<()> = Ok(());
         for x in self.inflight.drain() {
-            let _res = self.factory.runtime().block_on(x);
+            let res = self.factory.runtime().block_on(x);
+            // fail fast on error.
+            if let Err(e) = res {
+                info!(
+                    "RecvError observed while flushing events on stream {:?}",
+                    self.stream
+                );
+                flush_result = Err(exceptions::PyValueError::new_err(format!(
+                    "RecvError observed while writing an event {:?}",
+                    e
+                )));
+                break;
+            } else if let Err(e) = res.unwrap() {
+                info!("Error observed while flushing events on {:?}", self.stream);
+                flush_result = Err(exceptions::PyValueError::new_err(format!(
+                    "Error observed while writing an event {:?}",
+                    e
+                )));
+                break;
+            }
+            flush_result = Ok(());
         }
+        flush_result
     }
 
     /// Returns the string representation.
@@ -178,7 +200,7 @@ impl StreamWriter {
 
 impl Drop for StreamWriter {
     fn drop(&mut self) {
-        self.flush();
+        let _ = self.flush();
     }
 }
 
