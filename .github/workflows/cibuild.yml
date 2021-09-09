@@ -239,7 +239,7 @@ jobs:
             target: x86_64-pc-windows-msvc
           - build: win-gnu
             os: windows-2019
-            rust: nightly-x86_64-gnu
+            rust: stable-x86_64-gnu
             target: x86_64-pc-windows-gnu
           - build: win32-msvc
             os: windows-2019
