@@ -27,6 +27,7 @@
 #![allow(clippy::multiple_crate_versions, clippy::needless_doctest_main)]
 #![allow(bare_trait_objects)]
 #![recursion_limit = "1024"]
+#![allow(clippy::redundant_allocation)]
 
 //! A Rust client for [Pravega].
 //!
