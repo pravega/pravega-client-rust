@@ -9,6 +9,7 @@
 //
 
 use crate::client_factory::ClientFactory;
+use crate::error::Error;
 use crate::segment::event::{Incoming, PendingEvent, ServerReply, WriterInfo};
 use crate::segment::raw_client::{RawClient, RawClientError};
 use crate::update;
@@ -33,7 +34,6 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use snafu::{ResultExt, Snafu};
 use std::collections::VecDeque;
 use std::fmt;
-use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use tokio::select;
 use tokio::sync::oneshot;
@@ -71,8 +71,13 @@ pub(crate) struct SegmentWriter {
     // Delegation token provider used to authenticate client when communicating with segmentstore.
     delegation_token_provider: Arc<DelegationTokenProvider>,
 
-    // Number of consecutive reconnections
-    pub(crate) reconnection: i32,
+    // When ConditionalCheckFailure happens, there could be a race condition that the caller
+    // sends out an append before it receives the ConditionalCheckFailure. This append will succeed
+    // if it happens to have the correct offset, which breaks the ByteWriter contract.
+    // So it's necessary to let caller explicitly send a reset signal to the reactor indicating
+    // that the caller is fully aware of the ConditionalCheckFailure so any subsequent appends can be processed.
+    // Before receiving such reset signal, reactor will reject any append.
+    pub(crate) need_reset: bool,
 }
 
 impl SegmentWriter {
@@ -98,7 +103,7 @@ impl SegmentWriter {
             retry_policy,
             delegation_token_provider,
             connection_listener_handle: None,
-            reconnection: 0,
+            need_reset: false,
         }
     }
 
@@ -447,7 +452,6 @@ impl SegmentWriter {
                 .expect("send reconnect signal to reactor");
             return;
         }
-        self.reconnection += 1;
     }
 
     /// Force delegation token provider to refresh.
@@ -460,10 +464,12 @@ impl SegmentWriter {
         // remove failed append from inflight list
         while let Some(append) = self.inflight.pop_back() {
             if append.event_id >= event_id {
-                let _res = append.event.oneshot_sender.send(Result::Err(Error::new(
-                    ErrorKind::BrokenPipe,
-                    "conditional check failed",
-                )));
+                let _res = append
+                    .event
+                    .oneshot_sender
+                    .send(Result::Err(Error::ConditionalCheckFailure {
+                        msg: format!("Conditional check failed for event {}", append.event_id),
+                    }));
             } else {
                 self.inflight.push_back(append);
                 break;
@@ -472,10 +478,15 @@ impl SegmentWriter {
 
         // clear pending list
         while let Some(append) = self.pending.pop_back() {
-            let _res = append.event.oneshot_sender.send(Result::Err(Error::new(
-                ErrorKind::BrokenPipe,
-                "conditional check failed",
-            )));
+            let _res = append
+                .event
+                .oneshot_sender
+                .send(Result::Err(Error::ConditionalCheckFailure {
+                    msg: format!(
+                        "Conditional check failed in previous appends. Event id {}",
+                        append.event_id
+                    ),
+                }));
         }
     }
 }
@@ -533,6 +544,9 @@ pub enum SegmentWriterError {
 
     #[snafu(display("Reactor is closed due to: {:?}", msg))]
     ReactorClosed { msg: String },
+
+    #[snafu(display("Conditional check failed: {}", msg))]
+    ConditionalCheckFailure { msg: String },
 }
 
 #[cfg(test)]

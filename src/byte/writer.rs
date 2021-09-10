@@ -9,6 +9,7 @@
 //
 
 use crate::client_factory::ClientFactory;
+use crate::error::Error;
 use crate::event::writer::EventWriter;
 use crate::segment::event::{Incoming, PendingEvent, RoutingInfo};
 use crate::segment::metadata::SegmentMetadataClient;
@@ -19,7 +20,6 @@ use pravega_client_channel::{create_channel, ChannelSender};
 use pravega_client_shared::{ScopedSegment, ScopedStream, WriterId};
 
 use std::collections::VecDeque;
-use std::io::{Error, ErrorKind, Write};
 use tokio::sync::oneshot;
 use tracing::info_span;
 use tracing_futures::Instrument;
@@ -87,8 +87,8 @@ type EventHandle = oneshot::Receiver<Result<(), Error>>;
 ///     // It doesn't mean the data is persisted on the server side
 ///     // when this method returns Ok, user should call flush to ensure
 ///     // all data has been acknowledged by the server.
-///     byte_writer.write(&payload).expect("write");
-///     byte_writer.flush().expect("flush");
+///     client_factory.runtime().block_on(byte_writer.write(&payload)).expect("write");
+///     client_factory.runtime().block_on(byte_writer.flush()).expect("flush");
 /// }
 /// ```
 pub struct ByteWriter {
@@ -97,69 +97,15 @@ pub struct ByteWriter {
     sender: ChannelSender<Incoming>,
     metadata_client: SegmentMetadataClient,
     factory: ClientFactory,
-    event_handles: Option<VecDeque<EventHandle>>,
+    event_handles: VecDeque<EventHandle>,
     write_offset: i64,
-}
-
-/// ByteStreamWriter implements Write trait in standard library.
-/// It can be wrapped by BufWriter to improve performance.
-impl Write for ByteWriter {
-    /// Writes the given data to the server. It doesn't mean the data is persisted on the server side
-    /// when this method returns Ok, user should call flush to ensure all data has been acknowledged
-    /// by the server.
-    fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
-        let bytes_to_write = std::cmp::min(buf.len(), EventWriter::MAX_EVENT_SIZE);
-        let payload = buf[0..bytes_to_write].to_vec();
-        let oneshot_receiver = self
-            .factory
-            .runtime()
-            .block_on(self.write_internal(self.sender.clone(), payload));
-
-        self.write_offset += bytes_to_write as i64;
-
-        self.event_handles
-            .as_mut()
-            .expect("get event handles")
-            .push_back(oneshot_receiver);
-
-        let mut index = 0;
-        for handle in self.event_handles.as_mut().unwrap().iter_mut() {
-            if let Ok(res) = handle.try_recv() {
-                res.map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))?;
-                index += 1;
-            } else {
-                break;
-            }
-        }
-        self.event_handles
-            .as_mut()
-            .expect("get event handles")
-            .drain(0..index);
-        Ok(bytes_to_write)
-    }
-
-    /// This is a blocking call that will wait for data to be persisted on the server side.
-    fn flush(&mut self) -> Result<(), Error> {
-        let event_handles = self.event_handles.take().expect("get event handles");
-        self.event_handles = Some(VecDeque::new());
-        self.factory
-            .runtime()
-            .block_on(self.flush_internal(event_handles))?;
-        Ok(())
-    }
 }
 
 impl ByteWriter {
     // maximum 16 MB total size of events could be held in memory
     const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
-    pub(crate) fn new(stream: ScopedStream, factory: ClientFactory) -> Self {
-        factory
-            .runtime()
-            .block_on(ByteWriter::new_async(stream, factory.clone()))
-    }
-
-    pub(crate) async fn new_async(stream: ScopedStream, factory: ClientFactory) -> Self {
+    pub(crate) async fn new(stream: ScopedStream, factory: ClientFactory) -> Self {
         let (sender, receiver) = create_channel(Self::CHANNEL_CAPACITY);
         let writer_id = WriterId(get_random_u128());
         let segments = factory
@@ -192,45 +138,65 @@ impl ByteWriter {
             sender,
             metadata_client,
             factory,
-            event_handles: Some(VecDeque::new()),
+            event_handles: VecDeque::new(),
             write_offset: 0,
         }
     }
 
-    /// Write data asynchronously.
+    /// Writes the given data to the server asynchronously. It doesn't mean the data is persisted on the server side
+    /// when this method returns Ok, user should call flush to ensure all data has been acknowledged
+    /// by the server.
     ///
     /// # Examples
     /// ```ignore
-    /// let mut byte_writer = client_factory.create_byte_writer_async(segment).await;
+    /// let mut byte_writer = client_factory.create_byte_writer(segment).await;
     /// let payload = vec![0; 8];
-    /// let (size, handle) = byte_writer.write_async(&payload).await;
-    /// assert!(handle.await.is_ok());
+    /// let size = byte_writer.write(&payload).await;
     /// ```
-    pub async fn write_async(&mut self, buf: &[u8]) -> usize {
+    pub async fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
         let bytes_to_write = std::cmp::min(buf.len(), EventWriter::MAX_EVENT_SIZE);
         let payload = buf[0..bytes_to_write].to_vec();
         let oneshot_receiver = self.write_internal(self.sender.clone(), payload).await;
         self.write_offset += bytes_to_write as i64;
-        self.event_handles
-            .as_mut()
-            .expect("get event handles")
-            .push_back(oneshot_receiver);
-        bytes_to_write
+        self.event_handles.push_back(oneshot_receiver);
+
+        while let Some(handle) = self.event_handles.front_mut() {
+            if let Ok(res) = handle.try_recv() {
+                match res {
+                    Ok(_) => self.event_handles.pop_front(),
+                    Err(e) => Err(e),
+                }
+            } else {
+                break;
+            }
+        }
+        Ok(bytes_to_write)
     }
 
-    /// Flush data asynchronously.
+    /// Flush data.
+    ///
+    /// It will wait until all pending appends have acknowledgment.
     ///
     /// # Examples
     /// ```ignore
-    /// let mut byte_writer = client_factory.create_byte_writer_async(segment).await;
+    /// let mut byte_writer = client_factory.create_byte_writer(segment).await;
     /// let payload = vec![0; 8];
-    /// let size = byte_writer.write_async(&payload).await;
+    /// let size = byte_writer.write(&payload).await;
     /// byte_writer.flush().await;
     /// ```
-    pub async fn flush_async(&mut self) -> Result<(), Error> {
-        let event_handles = self.event_handles.take().expect("get event handles");
-        self.event_handles = Some(VecDeque::new());
-        self.flush_internal(event_handles).await?;
+    pub async fn flush(&mut self) -> Result<(), Error> {
+        for handle in self.event_handles.into_iter() {
+            match handle.await {
+                Ok(res) => {
+                    res?;
+                }
+                Err(e) => {
+                    return Err(Error::InternalFailure {
+                        msg: format!("oneshot error {:?}", e),
+                    });
+                }
+            }
+        }
         Ok(())
     }
 
@@ -238,17 +204,17 @@ impl ByteWriter {
     ///
     /// # Examples
     /// ```ignore
-    /// let mut byte_writer = client_factory.create_byte_writer_async(segment).await;
+    /// let mut byte_writer = client_factory.create_byte_writer(segment).await;
     /// byte_writer.seal().await.expect("seal segment");
     /// ```
     pub async fn seal(&mut self) -> Result<(), Error> {
-        let event_handles = self.event_handles.take().expect("get event handles");
-        self.event_handles = Some(VecDeque::new());
-        self.flush_internal(event_handles).await?;
+        self.flush().await?;
         self.metadata_client
             .seal_segment()
             .await
-            .map_err(|e| Error::new(ErrorKind::Other, format!("segment seal error: {:?}", e)))
+            .map_err(|e| Error::InternalFailure {
+                msg: format!("segment seal error: {:?}", e),
+            })
     }
 
     /// Truncate data before a given offset for the segment. No reads are allowed before
@@ -256,24 +222,26 @@ impl ByteWriter {
     ///
     /// # Examples
     /// ```ignore
-    /// let byte_writer = client_factory.create_byte_writer_async(segment).await;
+    /// let byte_writer = client_factory.create_byte_writer(segment).await;
     /// byte_writer.truncate_data_before(1024).await.expect("truncate segment");
     /// ```
     pub async fn truncate_data_before(&self, offset: i64) -> Result<(), Error> {
         self.metadata_client
             .truncate_segment(offset)
             .await
-            .map_err(|e| Error::new(ErrorKind::Other, format!("segment truncation error: {:?}", e)))
+            .map_err(|e| Error::InternalFailure {
+                msg: format!("segment truncation error: {:?}", e),
+            })
     }
 
     /// Track the current write position for this writer.
     ///
     /// # Examples
     /// ```ignore
-    /// let byte_writer = client_factory.create_byte_writer(segment);
+    /// let byte_writer = client_factory.create_byte_writer(segment).await;
     /// let offset = byte_writer.current_write_offset();
     /// ```
-    pub fn current_write_offset(&self) -> u64 {
+    pub fn current_offset(&self) -> u64 {
         self.write_offset as u64
     }
 
@@ -282,33 +250,45 @@ impl ByteWriter {
     /// This method is useful for tail reads.
     /// # Examples
     /// ```ignore
-    /// let mut byte_writer = client_factory.create_byte_writer_async(segment);
-    /// byte_writer.seek_to_tail();
-    /// ```
-    pub fn seek_to_tail(&mut self) {
-        let segment_info = self
-            .factory
-            .runtime()
-            .block_on(self.metadata_client.get_segment_info())
-            .expect("failed to get segment info");
-        self.write_offset = segment_info.write_offset;
-    }
-
-    /// Seek to the tail of the segment.
-    ///
-    /// This method is useful for tail reads.
-    /// # Examples
-    /// ```ignore
-    /// let mut byte_writer = client_factory.create_byte_writer_async(segment).await;
+    /// let mut byte_writer = client_factory.create_byte_writer(segment).await;
     /// byte_writer.seek_to_tail_async().await;
     /// ```
-    pub async fn seek_to_tail_async(&mut self) {
+    pub async fn seek_to_tail(&mut self) {
         let segment_info = self
             .metadata_client
             .get_segment_info()
             .await
             .expect("failed to get segment info");
         self.write_offset = segment_info.write_offset;
+    }
+
+    /// Reset the internal Reactor, making it ready for new appends.
+    ///
+    /// Use this method if you want to continue to append after ConditionalCheckFailure happens.
+    /// It will clear all pending events and set the Reactor ready.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// if let Err(Error::ConditionalCheckFailure(_e)) = byte_writer.flush().await {
+    ///     byte_writer.reset().await.expect("reset");
+    ///     byte_writer.seek_to_tail().await;
+    /// }
+    /// byte_writer.write(&payload).await.expect("write");
+    /// ```
+    pub async fn reset(&mut self) -> Result<(), Error> {
+        let Err(Error::ConditionalCheckFailure(_e)) = self.flush().await;
+        self.event_handles.clear();
+        // send reset signal to reactor
+        if let Err(e) = self
+            .sender
+            .send((Incoming::Reset(self.scoped_segment.clone()), 0))
+            .await
+        {
+            Err(Error::InternalFailure {
+                msg: "failed to send request to reactor".to_string(),
+            })
+        }
+        Ok(())
     }
 
     async fn write_internal(
@@ -326,29 +306,14 @@ impl ByteWriter {
             if let Err(_e) = sender.send((append_event, size)).await {
                 let (tx_error, rx_error) = oneshot::channel();
                 tx_error
-                    .send(Err(Error::new(
-                        ErrorKind::BrokenPipe,
-                        "failed to send request to reactor",
-                    )))
+                    .send(Err(Error::InternalFailure {
+                        msg: "failed to send request to reactor".to_string(),
+                    }))
                     .expect("send error");
                 return rx_error;
             }
         }
         rx
-    }
-
-    async fn flush_internal(&self, event_handles: VecDeque<EventHandle>) -> Result<(), Error> {
-        for handle in event_handles.into_iter() {
-            match handle.await {
-                Ok(res) => {
-                    res.map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))?;
-                }
-                Err(e) => {
-                    return Err(Error::new(ErrorKind::Other, format!("oneshot error {:?}", e)));
-                }
-            }
-        }
-        Ok(())
     }
 }
 

@@ -60,3 +60,4 @@ pub mod test_utils;
 mod util;
 #[macro_use]
 extern crate derive_new;
+pub mod error;

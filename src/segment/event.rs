@@ -7,11 +7,11 @@
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
+use crate::error::Error;
 use pravega_client_shared::*;
 use pravega_wire_protocol::commands::{Command, EventCommand};
 use pravega_wire_protocol::wire_commands::Replies;
 
-use std::io::{Error, ErrorKind};
 use tokio::sync::oneshot;
 use tracing::warn;
 use uuid::Uuid;
@@ -21,6 +21,7 @@ pub(crate) enum Incoming {
     AppendEvent(PendingEvent),
     ServerReply(ServerReply),
     Reconnect(WriterInfo),
+    Reset(ScopedSegment),
     Close(),
 }
 
@@ -66,14 +67,13 @@ impl PendingEvent {
                 PendingEvent::MAX_WRITE_SIZE
             );
             oneshot_sender
-                .send(Err(Error::new(
-                    ErrorKind::InvalidInput,
-                    format!(
+                .send(Err(Error::InvalidInput {
+                    msg: format!(
                         "Event size {} exceeds max write size limit {}",
                         data.len(),
                         PendingEvent::MAX_WRITE_SIZE
                     ),
-                )))
+                }))
                 .expect("send error to caller");
             None
         } else {
@@ -98,10 +98,9 @@ impl PendingEvent {
             Err(e) => {
                 warn!("failed to serialize event to event command, sending this error back to caller");
                 oneshot_sender
-                    .send(Err(Error::new(
-                        ErrorKind::InvalidInput,
-                        format!("Failed to serialize event: {:?}", e),
-                    )))
+                    .send(Err(Error::InternalFailure {
+                        msg: format!("Failed to serialize event: {:?}", e),
+                    }))
                     .expect("send error to caller");
                 None
             }

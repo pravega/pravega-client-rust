@@ -115,7 +115,7 @@ fn test_simple_write_and_read(writer: &mut ByteWriter, reader: &mut ByteReader) 
     let size1 = writer.write(&payload1).expect("write payload1 to byte stream");
     assert_eq!(size1, 4);
     writer.flush().expect("flush byte stream writer");
-    assert_eq!(writer.current_write_offset(), 4);
+    assert_eq!(writer.current_offset(), 4);
 
     let size2 = writer.write(&payload2).expect("write payload2 to byte stream");
     assert_eq!(size2, 4);
@@ -236,15 +236,15 @@ fn test_multiple_writers_conditional_append(factory: &ClientFactory, stream: Sco
     let mut writer1 = factory.create_byte_writer(stream.clone());
     let payload = vec![1; 1024];
     let _num = writer1.write(&payload).expect("writer1 write payload");
-    assert_eq!(writer1.current_write_offset(), 1024);
+    assert_eq!(writer1.current_offset(), 1024);
     writer1.flush().expect("writer1 flush");
     writer1.seek_to_tail();
-    assert_eq!(writer1.current_write_offset(), 1024);
+    assert_eq!(writer1.current_offset(), 1024);
 
     let mut writer2 = factory.create_byte_writer(stream);
     writer2.seek_to_tail();
     let _num = writer2.write(&payload).expect("writer2 write payload");
-    assert_eq!(writer2.current_write_offset(), 2048);
+    assert_eq!(writer2.current_offset(), 2048);
     writer2.flush().expect("writer2 flush");
 
     let writer_res = writer1.write(&payload);
@@ -253,10 +253,10 @@ fn test_multiple_writers_conditional_append(factory: &ClientFactory, stream: Sco
 
     writer1.seek_to_tail();
     let _num = writer1.write(&payload).expect("writer1 write payload");
-    assert_eq!(writer1.current_write_offset(), 3072);
+    assert_eq!(writer1.current_offset(), 3072);
     writer1.flush().expect("writer1 flush");
     writer1.seek_to_tail();
-    assert_eq!(writer1.current_write_offset(), 3072);
+    assert_eq!(writer1.current_offset(), 3072);
     info!("test byte stream multiple writers concurrent append passed");
 }
 
