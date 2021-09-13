@@ -179,7 +179,7 @@ class PravegaReaderTest(aiounittest.AsyncTestCase):
 
         print("Write events")
         for x in range(0, 1000):
-            payload = str(x) * 100000
+            payload = 'a' * 100000
             w1.write_event(payload)
         reader_group = stream_manager.create_reader_group("rg" + suffix, scope, stream);
         r1 = reader_group.create_reader("reader-1")
@@ -188,5 +188,6 @@ class PravegaReaderTest(aiounittest.AsyncTestCase):
         while count != 1000:
             segment_slice = await r1.get_segment_slice_async()
             for event in segment_slice:
-                count += 1
+                count+=1
+                self.assertEqual(b'a'*100000, event.data(), "Invalid event data")
             r1.release_segment(segment_slice)

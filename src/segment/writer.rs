@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
 use crate::segment::event::{Incoming, PendingEvent, ServerReply, WriterInfo};
 use crate::segment::raw_client::{RawClient, RawClientError};
 use crate::update;
@@ -107,7 +107,7 @@ impl SegmentWriter {
     /// to the reactor for processing.
     pub(crate) async fn setup_connection(
         &mut self,
-        factory: &ClientFactory,
+        factory: &ClientFactoryAsync,
     ) -> Result<(), SegmentWriterError> {
         let span = info_span!("setup connection", segment_writer_id= %self.id, segment= %self.segment, host = field::Empty);
         // span.enter doesn't work for async code https://docs.rs/tracing/0.1.17/tracing/span/struct.Span.html#in-asynchronous-code
@@ -401,7 +401,7 @@ impl SegmentWriter {
     /// 3. writes pending data to the server
     ///
     /// If error occurs during any one of the steps above, redo the reconnection from step 1.
-    pub(crate) async fn reconnect(&mut self, factory: &ClientFactory) {
+    pub(crate) async fn reconnect(&mut self, factory: &ClientFactoryAsync) {
         debug!("Reconnecting segment writer {:?}", self.id);
         let connection_id = if let Some(ref write_half) = self.connection {
             write_half.get_id()
@@ -538,6 +538,7 @@ pub enum SegmentWriterError {
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
+    use crate::client_factory::ClientFactory;
     use crate::segment::event::RoutingInfo;
     use pravega_client_channel::{create_channel, ChannelReceiver};
     use pravega_client_config::connection_type::{ConnectionType, MockType};
@@ -553,7 +554,7 @@ pub(crate) mod test {
         let (mut segment_writer, mut sender, mut receiver, factory) = create_segment_writer(MockType::Happy);
 
         // test set up connection
-        let result = rt.block_on(segment_writer.setup_connection(&factory));
+        let result = rt.block_on(segment_writer.setup_connection(&factory.to_async()));
         assert!(result.is_ok());
 
         // write data using mock connection
@@ -603,7 +604,7 @@ pub(crate) mod test {
             create_segment_writer(MockType::SegmentIsSealed);
 
         // test set up connection
-        let result = rt.block_on(segment_writer.setup_connection(&factory));
+        let result = rt.block_on(segment_writer.setup_connection(&factory.to_async()));
         assert!(result.is_ok());
 
         // write data using mock connection to a sealed segment
@@ -633,7 +634,7 @@ pub(crate) mod test {
         let rt = tokio::runtime::Runtime::new().unwrap();
         let (mut segment_writer, mut sender, mut receiver, factory) = create_segment_writer(MockType::Happy);
         // test set up connection
-        let result = rt.block_on(segment_writer.setup_connection(&factory));
+        let result = rt.block_on(segment_writer.setup_connection(&factory.to_async()));
         assert!(result.is_ok());
 
         // conditional and unconditional events should not be mixed
@@ -687,7 +688,7 @@ pub(crate) mod test {
         let rt = tokio::runtime::Runtime::new().unwrap();
         let (mut segment_writer, mut sender, mut receiver, factory) = create_segment_writer(MockType::Happy);
         // test set up connection
-        let result = rt.block_on(segment_writer.setup_connection(&factory));
+        let result = rt.block_on(segment_writer.setup_connection(&factory.to_async()));
         assert!(result.is_ok());
 
         // wrong offset

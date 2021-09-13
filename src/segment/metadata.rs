@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
 use crate::segment::raw_client::RawClient;
 use crate::util::get_request_id;
 
@@ -37,13 +37,13 @@ pub(crate) enum SegmentMetadataClientError {
 /// A client for looking at and editing the metadata related to a specific segment.
 pub(crate) struct SegmentMetadataClient {
     segment: ScopedSegment,
-    factory: ClientFactory,
+    factory: ClientFactoryAsync,
     delegation_token_provider: DelegationTokenProvider,
     endpoint: Mutex<PravegaNodeUri>,
 }
 
 impl SegmentMetadataClient {
-    pub(crate) async fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
+    pub(crate) async fn new(segment: ScopedSegment, factory: ClientFactoryAsync) -> Self {
         let endpoint = factory
             .controller_client()
             .get_endpoint_for_segment(&segment)

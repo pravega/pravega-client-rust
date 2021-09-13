@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
 use crate::segment::event::{Incoming, RoutingInfo};
 use crate::segment::writer::{Append, SegmentWriter};
 use crate::util::get_random_f64;
@@ -37,7 +37,7 @@ pub(crate) struct SegmentSelector {
     pub(crate) sender: ChannelSender<Incoming>,
 
     /// Access the controller and connection pool.
-    pub(crate) factory: ClientFactory,
+    pub(crate) factory: ClientFactoryAsync,
 
     /// Delegation token for authentication.
     pub(crate) delegation_token_provider: Arc<DelegationTokenProvider>,
@@ -47,7 +47,7 @@ impl SegmentSelector {
     pub(crate) async fn new(
         stream: ScopedStream,
         sender: ChannelSender<Incoming>,
-        factory: ClientFactory,
+        factory: ClientFactoryAsync,
     ) -> Self {
         let delegation_token_provider = factory.create_delegation_token_provider(stream.clone()).await;
         SegmentSelector {
@@ -191,6 +191,7 @@ impl SegmentSelector {
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
+    use crate::client_factory::ClientFactory;
     use im::HashMap as ImHashMap;
     use ordered_float::OrderedFloat;
     use pravega_client_channel::{create_channel, ChannelReceiver};
@@ -283,7 +284,7 @@ pub(crate) mod test {
             .await
             .unwrap();
         let (sender, receiver) = create_channel(1024);
-        let mut selector = SegmentSelector::new(stream.clone(), sender.clone(), factory.clone()).await;
+        let mut selector = SegmentSelector::new(stream.clone(), sender.clone(), factory.to_async()).await;
         let stream_segments = factory
             .controller_client()
             .get_current_segments(&stream)

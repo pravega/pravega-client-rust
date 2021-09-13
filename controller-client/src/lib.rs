@@ -56,12 +56,14 @@ use std::convert::{From, Into};
 use std::io::BufReader;
 use std::str::FromStr;
 use std::sync::Arc;
-use tokio::runtime::Runtime;
+use tokio::runtime::Handle;
 use tokio::sync::RwLock;
 use tokio_rustls::rustls::ClientConfig as RustlsClientConfig;
 use tonic::codegen::http::uri::InvalidUri;
+use tonic::codegen::InterceptedService;
+use tonic::service::Interceptor;
 use tonic::transport::{Channel, ClientTlsConfig, Endpoint, Uri};
-use tonic::{metadata::MetadataValue, Code, Request, Status};
+use tonic::{metadata::MetadataValue, Code, Status};
 use tracing::{debug, info, warn};
 
 #[allow(non_camel_case_types)]
@@ -325,9 +327,24 @@ pub trait ControllerClient: Send + Sync {
     async fn check_scale(&self, stream: &ScopedStream, scale_epoch: i32) -> ResultRetry<bool>;
 }
 
+#[derive(Clone)]
+struct AuthInterceptor {
+    token: Option<String>,
+}
+
+impl Interceptor for AuthInterceptor {
+    fn call(&mut self, mut request: tonic::Request<()>) -> std::result::Result<tonic::Request<()>, Status> {
+        if let Some(ref token_string) = self.token {
+            let meta_token = MetadataValue::from_str(token_string).expect("convert to metadata value");
+            request.metadata_mut().insert(AUTHORIZATION, meta_token);
+        }
+        Ok(request)
+    }
+}
+
 pub struct ControllerClientImpl {
     config: ClientConfig,
-    channel: RwLock<ControllerServiceClient<Channel>>,
+    channel: RwLock<ControllerServiceClient<InterceptedService<Channel, AuthInterceptor>>>,
 }
 
 async fn get_channel(config: &ClientConfig) -> Channel {
@@ -631,18 +648,17 @@ impl ControllerClientImpl {
     /// The requests will be load balanced across multiple connections and every connection supports
     /// multiplexing of requests.
     ///
-    pub fn new(config: ClientConfig, rt: &Runtime) -> Self {
+    pub fn new(config: ClientConfig, handle: &Handle) -> Self {
         // actual connection is established lazily.
-        let ch = rt.block_on(get_channel(&config));
+        let ch = handle.block_on(get_channel(&config));
         let client = if config.is_auth_enabled {
-            let token = rt.block_on(config.credentials.get_request_metadata());
-            let token = MetadataValue::from_str(&token).expect("convert to metadata value");
-            ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
-                req.metadata_mut().insert(AUTHORIZATION, token.clone());
-                Ok(req)
-            })
+            let token = handle.block_on(config.credentials.get_request_metadata());
+            let auth_interceptor = AuthInterceptor { token: Some(token) };
+
+            ControllerServiceClient::with_interceptor(ch, auth_interceptor)
         } else {
-            ControllerServiceClient::new(ch)
+            let auth_interceptor = AuthInterceptor { token: None };
+            ControllerServiceClient::with_interceptor(ch, auth_interceptor)
         };
 
         ControllerClientImpl {
@@ -661,7 +677,8 @@ impl ControllerClientImpl {
         } else {
             let ch = get_channel(&self.config).await;
             let mut x = self.channel.write().await;
-            *x = ControllerServiceClient::new(ch);
+            let auth_interceptor = AuthInterceptor { token: None };
+            *x = ControllerServiceClient::with_interceptor(ch, auth_interceptor);
         }
     }
 
@@ -671,7 +688,9 @@ impl ControllerClientImpl {
     /// which runs the connection in a background task and provides a `mpsc` channel interface.
     /// Due to this cloning the `Channel` type is cheap and encouraged.
     ///
-    async fn get_controller_client(&self) -> ControllerServiceClient<Channel> {
+    async fn get_controller_client(
+        &self,
+    ) -> ControllerServiceClient<InterceptedService<Channel, AuthInterceptor>> {
         if self.config.is_auth_enabled && self.config.credentials.is_expired() {
             // get_request_metadata internally checks if token expired before sending request to the server,
             // race condition might happen here but eventually only one request will be sent.
@@ -684,11 +703,8 @@ impl ControllerClientImpl {
         let ch = get_channel(&self.config).await;
         let mut x = self.channel.write().await;
         let token = self.config.credentials.get_request_metadata().await;
-        let token = MetadataValue::from_str(&token).expect("convert to metadata value");
-        *x = ControllerServiceClient::with_interceptor(ch, move |mut req: Request<()>| {
-            req.metadata_mut().insert(AUTHORIZATION, token.clone());
-            Ok(req)
-        });
+        let auth_interceptor = AuthInterceptor { token: Some(token) };
+        *x = ControllerServiceClient::with_interceptor(ch, auth_interceptor);
     }
 
     // Method used to translate grpc errors to ControllerError.
@@ -1609,7 +1625,7 @@ mod test {
             .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
             .build()
             .unwrap();
-        let controller = ControllerClientImpl::new(config.clone(), &rt);
+        let controller = ControllerClientImpl::new(config.clone(), &rt.handle());
         let scope = Scope {
             name: "scope".to_string(),
         };
