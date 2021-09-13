@@ -15,13 +15,13 @@ cfg_if! {
         use pyo3::types::PyByteArray;
         use std::io::{ Read, Seek, SeekFrom, Write};
         use pravega_client_shared::ScopedStream;
-        use pravega_client::client_factory::ClientFactory;
         use pyo3::exceptions;
         use pyo3::prelude::*;
         use pyo3::PyResult;
         use pyo3::PyObjectProtocol;
         use tracing::{trace, info, error};
         use tokio::time::timeout;
+        use tokio::runtime::Handle;
     }
 }
 
@@ -31,28 +31,16 @@ cfg_if! {
 ///
 #[cfg(feature = "python_binding")]
 #[pyclass]
+#[derive(new)]
 pub(crate) struct ByteStream {
     stream: ScopedStream,
-    factory: ClientFactory,
+    runtime_handle: Handle,
     writer: ByteWriter,
     reader: ByteReader,
 }
 
 // The amount of time the python api will wait for the underlying operation to be completed.
 const TIMEOUT_IN_SECONDS: u64 = 120;
-
-impl ByteStream {
-    pub fn new(stream: ScopedStream, factory: ClientFactory) -> Self {
-        let byte_writer = factory.create_byte_writer(stream.clone());
-        let byte_reader = factory.create_byte_reader(stream.clone());
-        ByteStream {
-            stream,
-            factory,
-            writer: byte_writer,
-            reader: byte_reader,
-        }
-    }
-}
 
 #[cfg(feature = "python_binding")]
 #[pymethods]
@@ -219,9 +207,9 @@ impl ByteStream {
     pub fn truncate(&mut self, offset: i64) -> PyResult<()> {
         let truncate_future = self.writer.truncate_data_before(offset);
 
-        let _guard = self.factory.runtime().enter();
+        let _guard = self.runtime_handle.enter();
         let timeout_fut = timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), truncate_future);
-        let res = self.factory.runtime().block_on(timeout_fut);
+        let res = self.runtime_handle.block_on(timeout_fut);
         match res {
             Ok(t) => match t {
                 Ok(_) => Ok(()),

@@ -8,12 +8,12 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::byte_stream::ByteStream;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use crate::stream_writer_transactional::StreamTxnWriter;
         use crate::stream_writer::StreamWriter;
         use crate::stream_reader_group::StreamReaderGroup;
+        use crate::byte_stream::ByteStream;
         use pravega_client::client_factory::ClientFactory;
         use pravega_client_shared::*;
         use pravega_client_config::{ClientConfig, ClientConfigBuilder};
@@ -525,7 +525,13 @@ impl StreamManager {
             scope: Scope::from(scope_name.to_string()),
             stream: Stream::from(stream_name.to_string()),
         };
-        let byte_stream = ByteStream::new(scoped_stream, self.cf.clone());
+
+        let byte_stream = ByteStream::new(
+            scoped_stream.clone(),
+            self.cf.runtime_handle(),
+            self.cf.create_byte_writer(scoped_stream.clone()),
+            self.cf.create_byte_reader(scoped_stream),
+        );
         Ok(byte_stream)
     }
 
