@@ -46,13 +46,13 @@ const TIMEOUT_IN_SECONDS: u64 = 120;
 impl StreamWriter {
     pub fn new(
         writer: EventWriter,
-        factory: ClientFactory,
+        runtime_handle: Handle,
         stream: ScopedStream,
         max_inflight_count: usize,
     ) -> Self {
         StreamWriter {
             writer,
-            factory,
+            runtime_handle,
             stream,
             inflight: OneShotHolder::new(max_inflight_count),
         }
@@ -165,7 +165,7 @@ impl StreamWriter {
         info!("Invoking flush() on writer {:?}", self.to_str());
         let mut flush_result: PyResult<()> = Ok(());
         for x in self.inflight.drain() {
-            let res = self.factory.runtime().block_on(x);
+            let res = self.runtime_handle.block_on(x);
             // fail fast on error.
             if let Err(e) = res {
                 info!(
