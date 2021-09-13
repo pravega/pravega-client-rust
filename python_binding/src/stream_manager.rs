@@ -417,10 +417,22 @@ impl StreamManager {
     /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
     /// // Create a writer against an already created Pravega scope and Stream.
     /// writer=manager.create_writer("scope", "stream")
+    ///
+    /// By default the max inflight events is configured for 0. The users can change this value
+    /// to ensure there are multiple inflight events at any given point in time and can use the
+    /// flush() API on the writer to wait until all the events are persisted.
+    ///
+    ///
     /// ```
     ///
-    #[text_signature = "($self, scope_name, stream_name)"]
-    pub fn create_writer(&self, scope_name: &str, stream_name: &str) -> PyResult<StreamWriter> {
+    #[text_signature = "($self, scope_name, stream_name, max_inflight_events)"]
+    #[args(scope_name, stream_name, max_inflight_events = 0)]
+    pub fn create_writer(
+        &self,
+        scope_name: &str,
+        stream_name: &str,
+        max_inflight_events: usize,
+    ) -> PyResult<StreamWriter> {
         let scoped_stream = ScopedStream {
             scope: Scope::from(scope_name.to_string()),
             stream: Stream::from(stream_name.to_string()),
@@ -429,6 +441,7 @@ impl StreamManager {
             self.cf.create_event_writer(scoped_stream.clone()),
             self.cf.runtime_handle(),
             scoped_stream,
+            max_inflight_events,
         );
         Ok(stream_writer)
     }
