@@ -73,7 +73,7 @@ impl StreamTransaction {
     #[text_signature = "($self, event, routing_key=None)"]
     #[args(event, routing_key = "None", "*")]
     pub fn write_event(&mut self, event: &str, routing_key: Option<&str>) -> PyResult<()> {
-        self.write_event_bytes(event.as_bytes(), routing_key) //
+        self.write_event_bytes(event.as_bytes(), routing_key)
     }
 
     ///
