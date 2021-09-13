@@ -11,7 +11,6 @@
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client::event::transactional_writer::TransactionalEventWriter;
-        use pravega_client::client_factory::ClientFactory;
         use pyo3::exceptions;
         use pyo3::prelude::*;
         use pyo3::PyResult;
@@ -20,6 +19,7 @@ cfg_if! {
         use pravega_client_shared::TxId;
         use pravega_client_shared::ScopedStream;
         use tracing::debug;
+        use tokio::runtime::Handle;
     }
 }
 
@@ -32,7 +32,7 @@ cfg_if! {
 #[derive(new)]
 pub(crate) struct StreamTxnWriter {
     writer: TransactionalEventWriter,
-    factory: ClientFactory,
+    runtime_handle: Handle,
     stream: ScopedStream,
 }
 
@@ -46,9 +46,9 @@ impl StreamTxnWriter {
     ///
     #[text_signature = "($self)"]
     pub fn begin_txn(&mut self) -> PyResult<StreamTransaction> {
-        let result = self.factory.runtime().block_on(self.writer.begin());
+        let result = self.runtime_handle.block_on(self.writer.begin());
         match result {
-            Ok(txn) => Ok(StreamTransaction::new(txn, self.factory.clone())),
+            Ok(txn) => Ok(StreamTransaction::new(txn, self.runtime_handle.clone())),
             Err(e) => Err(exceptions::PyValueError::new_err(format!("{:?}", e))),
         }
     }
@@ -59,10 +59,10 @@ impl StreamTxnWriter {
     #[text_signature = "($self, txn_id)"]
     pub fn get_txn(&mut self, txn_id: u128) -> PyResult<StreamTransaction> {
         debug!("Writing a single event for a given routing key");
-        let result = self.factory.runtime().block_on(self.writer.get_txn(TxId(txn_id)));
+        let result = self.runtime_handle.block_on(self.writer.get_txn(TxId(txn_id)));
 
         match result {
-            Ok(txn) => Ok(StreamTransaction::new(txn, self.factory.clone())),
+            Ok(txn) => Ok(StreamTransaction::new(txn, self.runtime_handle.clone())),
             Err(e) => Err(exceptions::PyValueError::new_err(format!("{:?}", e))),
         }
     }

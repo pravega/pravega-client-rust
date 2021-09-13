@@ -44,74 +44,85 @@ use crate::index::{IndexReader, IndexWriter};
 use std::fmt;
 use std::fmt::Debug;
 use std::sync::Arc;
-use tokio::runtime::Runtime;
+use tokio::runtime::{Handle, Runtime};
 use tracing::info;
 
 /// Applications should use ClientFactory to create resources they need.
 ///
 /// ClientFactory contains a connection pool that is shared by all the readers and writers it creates.
-/// It also contains a tokio runtime that is used to drive for async tasks. Spawned tasks in readers and
+/// It also contains a tokio runtime that is used to drive async tasks. Spawned tasks in readers and
 /// writers are tied to this runtime.
 ///
-/// Applications can call clone on ClientFactory in case ownership is needed. It holds an Arc to the
-/// internal object so cloned objects are still sharing the same connection pool and runtime.
+/// Note that dropping Runtime in async context is not a good practice and it will have warning messages.
+/// ClientFactory is the only place that's holding the Runtime, so it should not be used in any async contexts.
+/// You can use ['ClientFactoryAsync'] in async contexts instead.
 ///
-#[derive(Clone)]
-pub struct ClientFactory(Arc<ClientFactoryInternal>);
-
-struct ClientFactoryInternal {
-    connection_pool: ConnectionPool<SegmentConnectionManager>,
-    controller_client: Box<dyn ControllerClient>,
-    config: ClientConfig,
+/// # Examples
+/// ```no_run
+/// use pravega_client_config::ClientConfigBuilder;
+/// use pravega_client::client_factory::ClientFactory;
+///
+/// fn main() {
+///    let config = ClientConfigBuilder::default()
+///         .controller_uri("localhost:8000")
+///         .build()
+///         .expect("create config");
+///     let client_factory = ClientFactory::new(config);
+/// }
+/// ```
+/// ```no_run
+/// use pravega_client_config::ClientConfigBuilder;
+/// use pravega_client::client_factory::ClientFactoryAsync;
+/// use tokio::runtime::Handle;
+///
+/// #[tokio::main]
+/// async fn main() {
+///    let config = ClientConfigBuilder::default()
+///         .controller_uri("localhost:8000")
+///         .build()
+///         .expect("create config");
+///     let handle = Handle::try_current().expect("get current runtime handle");
+///     let client_factory = ClientFactoryAsync::new(config, handle);
+/// }
+/// ```
+/// [`ClientFactoryAsync`]: ClientFactoryAsync
+pub struct ClientFactory {
     runtime: Runtime,
+    client_factory_async: ClientFactoryAsync,
 }
 
 impl ClientFactory {
-    /// Create a new ClientFactory.
-    /// # Examples
-    /// ```no_run
-    /// use pravega_client_config::ClientConfigBuilder;
-    /// use pravega_client::client_factory::ClientFactory;
-    ///
-    /// fn main() {
-    ///    let config = ClientConfigBuilder::default()
-    ///         .controller_uri("localhost:8000")
-    ///         .build()
-    ///         .expect("create config");
-    ///     let client_factory = ClientFactory::new(config);
-    /// }
-    /// ```
     pub fn new(config: ClientConfig) -> ClientFactory {
         let rt = tokio::runtime::Runtime::new().expect("create runtime");
-        let cf = ConnectionFactory::create(ConnectionFactoryConfig::from(&config));
-        let pool = ConnectionPool::new(SegmentConnectionManager::new(cf, config.max_connections_in_pool));
-        let controller = if config.mock {
-            Box::new(MockController::new(config.controller_uri.clone())) as Box<dyn ControllerClient>
-        } else {
-            Box::new(ControllerClientImpl::new(config.clone(), &rt)) as Box<dyn ControllerClient>
-        };
-        ClientFactory(Arc::new(ClientFactoryInternal {
-            connection_pool: pool,
-            controller_client: controller,
-            config,
+        ClientFactory::new_with_runtime(config, rt)
+    }
+
+    pub fn new_with_runtime(config: ClientConfig, rt: Runtime) -> ClientFactory {
+        let async_factory = ClientFactoryAsync::new(config, rt.handle().clone());
+        ClientFactory {
             runtime: rt,
-        }))
+            client_factory_async: async_factory,
+        }
     }
 
     pub fn runtime(&self) -> &Runtime {
-        self.0.runtime()
+        &self.runtime
+    }
+
+    pub fn runtime_handle(&self) -> Handle {
+        self.runtime.handle().clone()
     }
 
     pub fn config(&self) -> &ClientConfig {
-        &self.0.config
+        self.client_factory_async.config()
     }
 
     pub fn controller_client(&self) -> &dyn ControllerClient {
-        self.0.controller_client()
+        self.client_factory_async.controller_client()
     }
 
     pub fn create_event_writer(&self, stream: ScopedStream) -> EventWriter {
-        EventWriter::new(stream, self.clone())
+        self.client_factory_async.create_event_writer(stream)
     }
 
     pub async fn create_reader_group(&self, reader_group_name: String, stream: ScopedStream) -> ReaderGroup {
@@ -119,6 +130,157 @@ impl ClientFactory {
             "Creating reader group {:?} to read data from stream {:?}",
             reader_group_name, stream
         );
+        self.client_factory_async
+            .create_reader_group(reader_group_name, stream)
+            .await
+    }
+
+    pub async fn create_transactional_event_writer(
+        &self,
+        stream: ScopedStream,
+        writer_id: WriterId,
+    ) -> TransactionalEventWriter {
+        self.client_factory_async
+            .create_transactional_event_writer(stream, writer_id)
+            .await
+    }
+
+    pub fn create_byte_writer(&self, stream: ScopedStream) -> ByteWriter {
+        self.runtime
+            .block_on(self.client_factory_async.create_byte_writer(stream))
+    }
+
+    pub async fn create_byte_writer_async(&self, stream: ScopedStream) -> ByteWriter {
+        self.client_factory_async.create_byte_writer(stream).await
+    }
+
+    pub fn create_byte_reader(&self, stream: ScopedStream) -> ByteReader {
+        self.runtime
+            .block_on(self.client_factory_async.create_byte_reader(stream))
+    }
+
+    pub async fn create_byte_reader_async(&self, stream: ScopedStream) -> ByteReader {
+        self.client_factory_async.create_byte_reader(stream).await
+    }
+
+    pub async fn create_index_writer<T: Fields + PartialOrd + PartialEq + Debug>(
+        &self,
+        stream: ScopedStream,
+    ) -> IndexWriter<T> {
+        self.client_factory_async.create_index_writer(stream).await
+    }
+
+    pub async fn create_index_reader(&self, stream: ScopedStream) -> IndexReader {
+        self.client_factory_async.create_index_reader(stream).await
+    }
+
+    pub async fn create_table(&self, scope: Scope, name: String) -> Table {
+        self.client_factory_async.create_table(scope, name).await
+    }
+
+    pub async fn create_synchronizer(&self, scope: Scope, name: String) -> Synchronizer {
+        self.client_factory_async.create_synchronizer(scope, name).await
+    }
+
+    pub fn to_async(&self) -> ClientFactoryAsync {
+        self.client_factory_async.clone()
+    }
+
+    pub(crate) async fn create_async_segment_reader(&self, segment: ScopedSegment) -> AsyncSegmentReaderImpl {
+        self.client_factory_async
+            .create_async_segment_reader(segment)
+            .await
+    }
+
+    pub(crate) async fn create_raw_client(&self, segment: &ScopedSegment) -> RawClientImpl<'_> {
+        self.client_factory_async.create_raw_client(segment).await
+    }
+
+    pub(crate) fn create_raw_client_for_endpoint(&self, endpoint: PravegaNodeUri) -> RawClientImpl<'_> {
+        self.client_factory_async.create_raw_client_for_endpoint(endpoint)
+    }
+
+    pub(crate) async fn create_delegation_token_provider(
+        &self,
+        stream: ScopedStream,
+    ) -> DelegationTokenProvider {
+        self.client_factory_async
+            .create_delegation_token_provider(stream)
+            .await
+    }
+
+    pub(crate) async fn create_segment_metadata_client(
+        &self,
+        segment: ScopedSegment,
+    ) -> SegmentMetadataClient {
+        self.client_factory_async
+            .create_segment_metadata_client(segment)
+            .await
+    }
+
+    #[doc(hidden)]
+    #[cfg(feature = "integration-test")]
+    pub async fn create_raw_client_wrapper(&self, segment: &ScopedSegment) -> RawClientWrapper<'_> {
+        let endpoint = self
+            .client_factory_async
+            .controller_client
+            .get_endpoint_for_segment(segment)
+            .await
+            .expect("get endpoint for segment");
+        RawClientWrapper::new(
+            &self.client_factory_async.connection_pool,
+            endpoint,
+            self.client_factory_async.config.request_timeout,
+        )
+    }
+
+    #[doc(hidden)]
+    #[cfg(feature = "integration-test")]
+    pub async fn create_segment_reader_wrapper(&self, segment: ScopedSegment) -> SegmentReaderWrapper {
+        SegmentReaderWrapper::new(
+            segment.clone(),
+            self.to_async(),
+            self.client_factory_async
+                .create_delegation_token_provider(ScopedStream::from(&segment))
+                .await,
+        )
+        .await
+    }
+}
+
+#[derive(Clone)]
+pub struct ClientFactoryAsync {
+    connection_pool: Arc<ConnectionPool<SegmentConnectionManager>>,
+    controller_client: Arc<Box<dyn ControllerClient>>,
+    config: Arc<ClientConfig>,
+    runtime_handle: Handle,
+}
+
+impl ClientFactoryAsync {
+    pub fn new(config: ClientConfig, handle: Handle) -> Self {
+        let cf = ConnectionFactory::create(ConnectionFactoryConfig::from(&config));
+        let pool = ConnectionPool::new(SegmentConnectionManager::new(cf, config.max_connections_in_pool));
+        let controller = if config.mock {
+            Box::new(MockController::new(config.controller_uri.clone())) as Box<dyn ControllerClient>
+        } else {
+            Box::new(ControllerClientImpl::new(config.clone(), &handle)) as Box<dyn ControllerClient>
+        };
+        ClientFactoryAsync {
+            connection_pool: Arc::new(pool),
+            controller_client: Arc::new(controller),
+            config: Arc::new(config),
+            runtime_handle: handle,
+        }
+    }
+    pub fn config(&self) -> &ClientConfig {
+        &self.config
+    }
+
+    pub fn create_event_writer(&self, stream: ScopedStream) -> EventWriter {
+        EventWriter::new(stream, self.clone())
+    }
+
+    pub async fn create_reader_group(&self, reader_group_name: String, stream: ScopedStream) -> ReaderGroup {
         let scope = stream.scope.clone();
         let rg_config = ReaderGroupConfigBuilder::default().add_stream(stream).build();
         ReaderGroup::create(scope, reader_group_name, rg_config, self.clone()).await
@@ -132,20 +294,12 @@ impl ClientFactory {
         TransactionalEventWriter::new(stream, writer_id, self.clone()).await
     }
 
-    pub fn create_byte_writer(&self, stream: ScopedStream) -> ByteWriter {
-        ByteWriter::new(stream, self.clone())
+    pub async fn create_byte_writer(&self, stream: ScopedStream) -> ByteWriter {
+        ByteWriter::new(stream, self.clone()).await
     }
 
-    pub async fn create_byte_writer_async(&self, stream: ScopedStream) -> ByteWriter {
-        ByteWriter::new_async(stream, self.clone()).await
-    }
-
-    pub fn create_byte_reader(&self, stream: ScopedStream) -> ByteReader {
-        ByteReader::new(stream, self.clone(), self.config().reader_wrapper_buffer_size())
-    }
-
-    pub async fn create_byte_reader_async(&self, stream: ScopedStream) -> ByteReader {
-        ByteReader::new_async(stream, self.clone(), self.config().reader_wrapper_buffer_size()).await
+    pub async fn create_byte_reader(&self, stream: ScopedStream) -> ByteReader {
+        ByteReader::new(stream, self.clone(), self.config().reader_wrapper_buffer_size()).await
     }
 
     pub async fn create_index_writer<T: Fields + PartialOrd + PartialEq + Debug>(
@@ -169,12 +323,19 @@ impl ClientFactory {
         Synchronizer::new(scope, name, self.clone()).await
     }
 
+    pub fn controller_client(&self) -> &dyn ControllerClient {
+        &**self.controller_client
+    }
+
+    pub fn runtime_handle(&self) -> Handle {
+        self.runtime_handle.clone()
+    }
+
     pub(crate) async fn create_async_segment_reader(&self, segment: ScopedSegment) -> AsyncSegmentReaderImpl {
         AsyncSegmentReaderImpl::new(
             segment.clone(),
             self.clone(),
-            self.0
-                .create_delegation_token_provider(ScopedStream::from(&segment))
+            self.create_delegation_token_provider(ScopedStream::from(&segment))
                 .await,
         )
         .await
@@ -182,61 +343,22 @@ impl ClientFactory {
 
     pub(crate) async fn create_raw_client(&self, segment: &ScopedSegment) -> RawClientImpl<'_> {
         let endpoint = self
-            .0
             .controller_client
             .get_endpoint_for_segment(segment)
             .await
             .expect("get endpoint for segment");
-        self.0.create_raw_client(endpoint)
+        RawClientImpl::new(&self.connection_pool, endpoint, self.config.request_timeout)
     }
 
     pub(crate) fn create_raw_client_for_endpoint(&self, endpoint: PravegaNodeUri) -> RawClientImpl<'_> {
-        self.0.create_raw_client(endpoint)
-    }
-
-    pub(crate) async fn create_delegation_token_provider(
-        &self,
-        stream: ScopedStream,
-    ) -> DelegationTokenProvider {
-        self.0.create_delegation_token_provider(stream).await
+        RawClientImpl::new(&self.connection_pool, endpoint, self.config.request_timeout)
     }
 
     pub(crate) async fn create_segment_metadata_client(
         &self,
         segment: ScopedSegment,
     ) -> SegmentMetadataClient {
-        SegmentMetadataClient::new(segment.clone(), self.clone()).await
-    }
-
-    #[doc(hidden)]
-    #[cfg(feature = "integration-test")]
-    pub async fn create_raw_client_wrapper(&self, segment: &ScopedSegment) -> RawClientWrapper<'_> {
-        let endpoint = self
-            .0
-            .controller_client
-            .get_endpoint_for_segment(segment)
-            .await
-            .expect("get endpoint for segment");
-        RawClientWrapper::new(&self.0.connection_pool, endpoint, self.0.config.request_timeout)
-    }
-
-    #[doc(hidden)]
-    #[cfg(feature = "integration-test")]
-    pub async fn create_segment_reader_wrapper(&self, segment: ScopedSegment) -> SegmentReaderWrapper {
-        SegmentReaderWrapper::new(
-            segment.clone(),
-            self.clone(),
-            self.0
-                .create_delegation_token_provider(ScopedStream::from(&segment))
-                .await,
-        )
-        .await
-    }
-}
-
-impl ClientFactoryInternal {
-    pub(crate) fn create_raw_client(&self, endpoint: PravegaNodeUri) -> RawClientImpl {
-        RawClientImpl::new(&self.connection_pool, endpoint, self.config.request_timeout)
+        SegmentMetadataClient::new(segment, self.clone()).await
     }
 
     pub(crate) async fn create_delegation_token_provider(
@@ -254,18 +376,9 @@ impl ClientFactoryInternal {
     pub(crate) fn get_connection_pool(&self) -> &ConnectionPool<SegmentConnectionManager> {
         &self.connection_pool
     }
-
-    pub(crate) fn controller_client(&self) -> &dyn ControllerClient {
-        &*self.controller_client
-    }
-
-    // borrow the Runtime.
-    pub(crate) fn runtime(&self) -> &Runtime {
-        &self.runtime
-    }
 }
 
-impl fmt::Debug for ClientFactoryInternal {
+impl fmt::Debug for ClientFactoryAsync {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ClientFactoryInternal")
             .field("connection pool", &self.connection_pool)

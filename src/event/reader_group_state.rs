@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
 use crate::event::reader_group::ReaderGroupConfigVersioned;
 use crate::sync::synchronizer::*;
 
@@ -71,7 +71,7 @@ impl ReaderGroupState {
     pub(crate) async fn new(
         scope: Scope,
         reader_group_name: String,
-        client_factory: &ClientFactory,
+        client_factory: &ClientFactoryAsync,
         config: ReaderGroupConfigVersioned,
         segments_to_offsets: HashMap<ScopedSegment, Offset>,
     ) -> ReaderGroupState {

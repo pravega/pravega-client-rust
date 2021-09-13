@@ -17,7 +17,7 @@ use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnec
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use std::net::SocketAddr;
 
-use pravega_client::client_factory::ClientFactory;
+use pravega_client::client_factory::{ClientFactory, ClientFactoryAsync};
 use pravega_client::event::transactional_writer::Transaction;
 use pravega_client::event::transactional_writer::TransactionalEventWriter;
 use pravega_client::test_utils::{MetadataWrapper, RawClientWrapper};
@@ -245,7 +245,7 @@ async fn setup_test(scope_name: &Scope, stream_name: &Stream, controller_client:
 }
 
 async fn get_segment_info(segment: &ScopedSegment, factory: &ClientFactory) -> SegmentInfo {
-    let meta = MetadataWrapper::new(segment.clone(), factory.clone()).await;
+    let meta = MetadataWrapper::new(segment.clone(), factory).await;
     meta.get_segment_info().await.expect("get segment info")
 }
 

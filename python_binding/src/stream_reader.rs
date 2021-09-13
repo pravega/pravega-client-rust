@@ -12,7 +12,6 @@ cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client::event::reader::EventReader;
         use pravega_client_shared::ScopedStream;
-        use pravega_client::client_factory::ClientFactory;
         use pyo3::prelude::*;
         use pyo3::PyResult;
         use pyo3::PyObjectProtocol;
@@ -21,6 +20,7 @@ cfg_if! {
         use pravega_client::event::reader::{Event, SegmentSlice};
         use pyo3::PyIterProtocol;
         use tokio::sync::Mutex;
+        use tokio::runtime::Handle;
     }
 }
 
@@ -33,7 +33,7 @@ cfg_if! {
 #[derive(new)]
 pub(crate) struct StreamReader {
     reader: Arc<Mutex<EventReader>>,
-    factory: ClientFactory,
+    runtime_handle: Handle,
     stream: ScopedStream,
 }
 
@@ -67,8 +67,7 @@ impl StreamReader {
             (fut.clone_ref(py), fut, loop_event)
         };
         let read = self.reader.clone();
-        let _guard = self.factory.runtime().enter();
-        tokio::spawn(async move {
+        self.runtime_handle.spawn(async move {
             let slice_result = read.lock().await.acquire_segment().await;
             let slice_py: Slice = Slice {
                 seg_slice: slice_result,
@@ -92,7 +91,7 @@ impl StreamReader {
     ///
     #[text_signature = "($self)"]
     pub fn reader_offline(&self) -> PyResult<()> {
-        self.factory.runtime().block_on(self.reader_offline_async());
+        self.runtime_handle.block_on(self.reader_offline_async());
         Ok(())
     }
 
@@ -103,7 +102,7 @@ impl StreamReader {
     pub fn release_segment(&self, slice: &mut Slice) -> PyResult<()> {
         info!("Release segment slice back");
         if let Some(s) = slice.get_set_to_none() {
-            self.factory.runtime().block_on(self.release_segment_async(s));
+            self.runtime_handle.block_on(self.release_segment_async(s));
         }
         Ok(())
     }

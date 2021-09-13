@@ -8,7 +8,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactory;
+use crate::client_factory::{ClientFactory, ClientFactoryAsync};
 use crate::segment::metadata::SegmentMetadataClient;
 use crate::segment::raw_client::{RawClient, RawClientError, RawClientImpl};
 use crate::segment::reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
@@ -60,8 +60,8 @@ pub struct MetadataWrapper {
 }
 
 impl MetadataWrapper {
-    pub async fn new(segment: ScopedSegment, factory: ClientFactory) -> Self {
-        let inner = SegmentMetadataClient::new(segment, factory).await;
+    pub async fn new(segment: ScopedSegment, factory: &ClientFactory) -> Self {
+        let inner = SegmentMetadataClient::new(segment, factory.to_async()).await;
         MetadataWrapper { inner }
     }
 
@@ -106,9 +106,9 @@ pub struct SegmentReaderWrapper {
 }
 
 impl SegmentReaderWrapper {
-    pub async fn new(
+    pub(crate) async fn new(
         segment: ScopedSegment,
-        factory: ClientFactory,
+        factory: ClientFactoryAsync,
         delegation_token_provider: DelegationTokenProvider,
     ) -> SegmentReaderWrapper {
         let inner = AsyncSegmentReaderImpl::new(segment, factory, delegation_token_provider).await;

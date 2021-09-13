@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
 use crate::segment::raw_client::{RawClient, RawClientError};
 use crate::util::get_request_id;
 
@@ -74,12 +74,16 @@ pub struct Table {
     // different table with same name will share the same state.
     name: String,
     endpoint: PravegaNodeUri,
-    factory: ClientFactory,
+    factory: ClientFactoryAsync,
     delegation_token_provider: DelegationTokenProvider,
 }
 
 impl Table {
-    pub async fn new(scope: Scope, name: String, factory: ClientFactory) -> Result<Table, TableError> {
+    pub(crate) async fn new(
+        scope: Scope,
+        name: String,
+        factory: ClientFactoryAsync,
+    ) -> Result<Table, TableError> {
         let segment = ScopedSegment {
             scope,
             stream: PravegaStream::from(format!("{}{}", name, KVTABLE_SUFFIX)),
@@ -538,6 +542,7 @@ impl Table {
                         self.delegation_token_provider.signal_token_expiry();
                         info!("auth token needs to refresh");
                     }
+                    info!("Table insert retry error {:?}", e);
                     RetryResult::Retry(e)
                 }
             }
@@ -874,6 +879,7 @@ impl Table {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::client_factory::ClientFactory;
     use pravega_client_config::connection_type::{ConnectionType, MockType};
     use pravega_client_config::ClientConfigBuilder;
     use pravega_client_shared::PravegaNodeUri;

@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
 use crate::segment::raw_client::{RawClient, RawClientError};
 use crate::util::get_request_id;
 
@@ -203,7 +203,7 @@ pub(crate) trait AsyncSegmentReader: Send + Sync {
 pub(crate) struct AsyncSegmentReaderImpl {
     segment: ScopedSegment,
     endpoint: Mutex<PravegaNodeUri>,
-    factory: ClientFactory,
+    factory: ClientFactoryAsync,
     delegation_token_provider: DelegationTokenProvider,
 }
 
@@ -244,7 +244,7 @@ impl AsyncSegmentReader for AsyncSegmentReaderImpl {
 impl AsyncSegmentReaderImpl {
     pub async fn new(
         segment: ScopedSegment,
-        factory: ClientFactory,
+        factory: ClientFactoryAsync,
         delegation_token_provider: DelegationTokenProvider,
     ) -> AsyncSegmentReaderImpl {
         let endpoint = factory
@@ -256,7 +256,7 @@ impl AsyncSegmentReaderImpl {
         AsyncSegmentReaderImpl {
             segment,
             endpoint: Mutex::new(endpoint),
-            factory: factory.clone(),
+            factory,
             delegation_token_provider,
         }
     }

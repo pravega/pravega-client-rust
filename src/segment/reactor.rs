@@ -14,7 +14,7 @@ use tracing::{debug, error, info, warn};
 use pravega_client_shared::*;
 use pravega_wire_protocol::wire_commands::Replies;
 
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
 use crate::segment::event::{Incoming, RoutingInfo, ServerReply};
 use crate::segment::selector::SegmentSelector;
 
@@ -28,7 +28,7 @@ impl Reactor {
         stream: ScopedStream,
         sender: ChannelSender<Incoming>,
         mut receiver: ChannelReceiver<Incoming>,
-        factory: ClientFactory,
+        factory: ClientFactoryAsync,
         stream_segments: Option<StreamSegments>,
     ) {
         let mut selector = SegmentSelector::new(stream, sender, factory.clone()).await;
@@ -45,7 +45,7 @@ impl Reactor {
     async fn run_once(
         selector: &mut SegmentSelector,
         receiver: &mut ChannelReceiver<Incoming>,
-        factory: &ClientFactory,
+        factory: &ClientFactoryAsync,
     ) -> Result<(), &'static str> {
         let (event, cap_guard) = receiver.recv().await.expect("sender closed, processor exit");
         match event {
@@ -101,7 +101,7 @@ impl Reactor {
     async fn process_server_reply(
         server_reply: ServerReply,
         selector: &mut SegmentSelector,
-        factory: &ClientFactory,
+        factory: &ClientFactoryAsync,
     ) -> Result<(), &'static str> {
         // it should always have writer because writer will
         // not be removed until it receives SegmentSealed reply
@@ -222,12 +222,20 @@ pub(crate) mod test {
         // write data once and reactor should ack
         rt.block_on(write_once_for_selector(&mut sender, 512));
         // accept the append
-        let result = rt.block_on(Reactor::run_once(&mut selector, &mut receiver, &factory));
+        let result = rt.block_on(Reactor::run_once(
+            &mut selector,
+            &mut receiver,
+            &factory.to_async(),
+        ));
         assert!(result.is_ok());
         assert_eq!(sender.remain(), 512);
 
         // process the server response
-        let result = rt.block_on(Reactor::run_once(&mut selector, &mut receiver, &factory));
+        let result = rt.block_on(Reactor::run_once(
+            &mut selector,
+            &mut receiver,
+            &factory.to_async(),
+        ));
         assert!(result.is_ok());
         assert_eq!(sender.remain(), 1024);
     }
@@ -241,12 +249,20 @@ pub(crate) mod test {
 
         // write data once
         rt.block_on(write_once_for_selector(&mut sender, 512));
-        let result = rt.block_on(Reactor::run_once(&mut selector, &mut receiver, &factory));
+        let result = rt.block_on(Reactor::run_once(
+            &mut selector,
+            &mut receiver,
+            &factory.to_async(),
+        ));
         assert!(result.is_ok());
         assert_eq!(sender.remain(), 512);
 
         // get wrong host reply and writer should retry
-        let result = rt.block_on(Reactor::run_once(&mut selector, &mut receiver, &factory));
+        let result = rt.block_on(Reactor::run_once(
+            &mut selector,
+            &mut receiver,
+            &factory.to_async(),
+        ));
         assert!(result.is_ok());
         assert_eq!(sender.remain(), 512);
     }
@@ -260,12 +276,20 @@ pub(crate) mod test {
 
         // write data once
         rt.block_on(write_once_for_selector(&mut sender, 512));
-        let result = rt.block_on(Reactor::run_once(&mut selector, &mut receiver, &factory));
+        let result = rt.block_on(Reactor::run_once(
+            &mut selector,
+            &mut receiver,
+            &factory.to_async(),
+        ));
         assert!(result.is_ok());
         assert_eq!(sender.remain(), 512);
 
         // should get segment sealed and reactor will fetch successors
-        let result = rt.block_on(Reactor::run_once(&mut selector, &mut receiver, &factory));
+        let result = rt.block_on(Reactor::run_once(
+            &mut selector,
+            &mut receiver,
+            &factory.to_async(),
+        ));
         // returns empty successors meaning stream is sealed
         assert!(result.is_err());
     }

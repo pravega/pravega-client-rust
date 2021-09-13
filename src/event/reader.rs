@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
 use crate::event::reader_group_state::Offset;
 use crate::segment::reader::ReaderError::SegmentSealed;
 use crate::segment::reader::{AsyncSegmentReader, ReaderError};
@@ -101,7 +101,7 @@ cfg_if::cfg_if! {
 /// ```
 pub struct EventReader {
     id: Reader,
-    factory: ClientFactory,
+    factory: ClientFactoryAsync,
     rx: Receiver<SegmentReadResult>,
     tx: Sender<SegmentReadResult>,
     meta: ReaderState,
@@ -112,7 +112,7 @@ impl Drop for EventReader {
     /// Destructor for reader invoked. This will automatically invoke reader_offline().
     fn drop(&mut self) {
         info!("reader {} is dropped", self.id);
-        // try fetching the currently running Runtme.
+        // try fetching the currently running Runtime.
         let r = Handle::try_current();
         match r {
             Ok(handle) => {
@@ -122,10 +122,9 @@ impl Drop for EventReader {
                 futures::executor::block_on(self.reader_offline());
             }
             Err(_) => {
-                // get a handle of the runtime.
-                let handle = self.factory.runtime().handle().clone();
                 // ensure we block until the reader_offline executes successfully.
-                handle.block_on(self.reader_offline());
+                let rt = tokio::runtime::Runtime::new().expect("create tokio runtime to drop reader");
+                rt.block_on(self.reader_offline());
             }
         }
     }
@@ -137,7 +136,7 @@ impl EventReader {
     pub(crate) async fn init_reader(
         id: String,
         rg_state: Arc<Mutex<ReaderGroupState>>,
-        factory: ClientFactory,
+        factory: ClientFactoryAsync,
     ) -> Self {
         let reader = Reader::from(id);
         let new_segments_to_acquire = rg_state
@@ -189,8 +188,7 @@ impl EventReader {
         slice_meta_map.iter().for_each(|(segment, meta)| {
             let (tx_stop, rx_stop) = oneshot::channel();
             stop_reading_map.insert(segment.clone(), tx_stop);
-            let _guard = factory.runtime().enter();
-            tokio::spawn(SegmentSlice::get_segment_data(
+            factory.runtime_handle().spawn(SegmentSlice::get_segment_data(
                 segment.clone(),
                 meta.start_offset,
                 tx.clone(),
@@ -215,7 +213,7 @@ impl EventReader {
     fn init_event_reader(
         rg_state: Arc<Mutex<ReaderGroupState>>,
         id: Reader,
-        factory: ClientFactory,
+        factory: ClientFactoryAsync,
         tx: Sender<SegmentReadResult>,
         rx: Receiver<SegmentReadResult>,
         segment_slice_map: HashMap<ScopedSegment, SliceMetadata>,
@@ -311,7 +309,7 @@ impl EventReader {
 
             // reinitialize the segment data reactor.
             let (tx_drop_fetch, rx_drop_fetch) = oneshot::channel();
-            self.factory.runtime().spawn(SegmentSlice::get_segment_data(
+            tokio::spawn(SegmentSlice::get_segment_data(
                 segment.clone(),
                 slice_meta.read_offset, // start reading from the offset provided.
                 self.tx.clone(),
@@ -821,7 +819,7 @@ impl SegmentSlice {
         start_offset: i64,
         tx: Sender<SegmentReadResult>,
         mut drop_fetch: oneshot::Receiver<()>,
-        factory: ClientFactory,
+        factory: ClientFactoryAsync,
     ) {
         let mut offset: i64 = start_offset;
         let segment_reader = factory.create_async_segment_reader(segment.clone()).await;
@@ -1161,13 +1159,12 @@ mod tests {
     use crate::event::reader_group_state::ReaderGroupStateError;
     use crate::sync::synchronizer::SynchronizerError;
 
-    use pravega_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
-    use pravega_client_shared::{Reader, Scope, ScopedSegment, ScopedStream, Stream};
-    use pravega_wire_protocol::commands::{Command, EventCommand};
-
     use bytes::{Buf, BufMut, BytesMut};
     use mockall::predicate;
     use mockall::predicate::*;
+    use pravega_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
+    use pravega_client_shared::{Reader, Scope, ScopedSegment, ScopedStream, Stream};
+    use pravega_wire_protocol::commands::{Command, EventCommand};
     use std::collections::HashMap;
     use std::iter;
     use std::sync::Arc;
@@ -1212,7 +1209,7 @@ mod tests {
         let mut reader = EventReader::init_event_reader(
             Arc::new(Mutex::new(rg_mock)),
             Reader::from("r1".to_string()),
-            cf.clone(),
+            cf.to_async(),
             tx.clone(),
             rx,
             create_slice_map(init_segments),
@@ -1308,7 +1305,7 @@ mod tests {
         let mut reader = EventReader::init_event_reader(
             Arc::new(Mutex::new(rg_mock)),
             Reader::from("r1".to_string()),
-            cf.clone(),
+            cf.to_async(),
             tx.clone(),
             rx,
             create_slice_map(init_segments),
@@ -1383,7 +1380,7 @@ mod tests {
         let mut reader = EventReader::init_event_reader(
             Arc::new(Mutex::new(rg_mock)),
             Reader::from("r1".to_string()),
-            cf.clone(),
+            cf.to_async(),
             tx.clone(),
             rx,
             create_slice_map(init_segments),
@@ -1456,7 +1453,7 @@ mod tests {
         let mut reader = EventReader::init_event_reader(
             Arc::new(Mutex::new(rg_mock)),
             Reader::from("r1".to_string()),
-            cf.clone(),
+            cf.to_async(),
             tx.clone(),
             rx,
             create_slice_map(init_segments),
@@ -1527,7 +1524,7 @@ mod tests {
         let mut reader = EventReader::init_event_reader(
             Arc::new(Mutex::new(rg_mock)),
             Reader::from("r1".to_string()),
-            cf.clone(),
+            cf.to_async(),
             tx.clone(),
             rx,
             create_slice_map(init_segments),
