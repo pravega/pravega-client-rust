@@ -10,7 +10,7 @@
 
 use crate::pravega_service::PravegaStandaloneServiceConfig;
 
-use pravega_client::client_factory::ClientFactory;
+use pravega_client::client_factory::{ClientFactory, ClientFactoryAsync};
 use pravega_client::event::reader_group::ReaderGroup;
 use pravega_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_client_shared::{
@@ -35,28 +35,30 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
-
+    let async_client_factory = client_factory.to_async();
     let runtime = client_factory.runtime();
-    test_read_large_events(&client_factory, runtime);
-    test_multi_reader_multi_segments_tail_read(&client_factory, runtime);
-    runtime.block_on(test_read_api(&client_factory));
-    runtime.block_on(test_stream_scaling(&client_factory));
-    runtime.block_on(test_release_segment(&client_factory));
-    runtime.block_on(test_release_segment_at(&client_factory));
-    test_multiple_readers(&client_factory);
-    test_reader_offline(&client_factory);
-    test_segment_rebalance(&client_factory);
+
+    test_read_large_events(&async_client_factory);
+    test_multi_reader_multi_segments_tail_read(&async_client_factory);
+    runtime.block_on(test_read_api(&async_client_factory));
+    runtime.block_on(test_stream_scaling(&async_client_factory));
+    runtime.block_on(test_release_segment(&async_client_factory));
+    runtime.block_on(test_release_segment_at(&async_client_factory));
+    test_multiple_readers(&async_client_factory);
+    test_reader_offline(&async_client_factory);
+    test_segment_rebalance(&async_client_factory);
     info!("test event stream reader finished");
 }
 
-fn test_read_large_events(client_factory: &ClientFactory, rt: &Runtime) {
+fn test_read_large_events(client_factory: &ClientFactoryAsync) {
+    let h = client_factory.runtime_handle();
     let scope_name = Scope::from("testReaderScaling".to_owned());
     let stream_name = Stream::from("testReadLargeEvents".to_owned());
 
     const NUM_EVENTS: usize = 1000;
     const EVENT_SIZE: usize = 1000;
 
-    let new_stream = rt.block_on(create_scope_stream(
+    let new_stream = h.block_on(create_scope_stream(
         client_factory.controller_client(),
         &scope_name,
         &stream_name,
@@ -65,7 +67,7 @@ fn test_read_large_events(client_factory: &ClientFactory, rt: &Runtime) {
     // write events only if the stream is created. This is useful if we are running the reader tests
     // multiple times.
     if new_stream {
-        rt.block_on(write_events(
+        h.block_on(write_events(
             scope_name.clone(),
             stream_name.clone(),
             client_factory.clone(),
@@ -74,17 +76,17 @@ fn test_read_large_events(client_factory: &ClientFactory, rt: &Runtime) {
         ))
     }
     let stream = ScopedStream {
-        scope: scope_name.clone(),
+        scope: scope_name,
         stream: stream_name,
     };
 
     let rg: ReaderGroup =
-        rt.block_on(client_factory.create_reader_group(scope_name, "rg-large-event".to_string(), stream));
-    let mut reader = rt.block_on(rg.create_reader("r1".to_string()));
+        h.block_on(client_factory.create_reader_group("rg-large-event".to_string(), stream));
+    let mut reader = h.block_on(rg.create_reader("r1".to_string()));
 
     let mut event_count = 0;
     while event_count < NUM_EVENTS {
-        if let Some(mut slice) = rt.block_on(reader.acquire_segment()) {
+        if let Some(mut slice) = h.block_on(reader.acquire_segment()) {
             for event in &mut slice {
                 assert_eq!(
                     vec![1; EVENT_SIZE],
@@ -94,20 +96,21 @@ fn test_read_large_events(client_factory: &ClientFactory, rt: &Runtime) {
                 event_count += 1;
                 info!("read count {}", event_count);
             }
-            rt.block_on(reader.release_segment(slice));
+            h.block_on(reader.release_segment(slice));
         }
     }
     assert_eq!(event_count, NUM_EVENTS);
 }
 
-fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactory, rt: &Runtime) {
+fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactoryAsync) {
+    let h = client_factory.runtime_handle();
     let scope_name = Scope::from("testMultiReaderMultiSegmentsTailRead".to_owned());
     let stream_name = Stream::from("testMultiReaderMultiSegmentsTailRead".to_owned());
 
     const NUM_EVENTS: usize = 2000;
     const EVENT_SIZE: usize = 1024;
 
-    let new_stream = rt.block_on(create_scope_stream(
+    let new_stream = h.block_on(create_scope_stream(
         client_factory.controller_client(),
         &scope_name,
         &stream_name,
@@ -115,11 +118,11 @@ fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactory, rt
     ));
     // write events only if the stream is created. This is useful if we are running the reader tests
     // multiple times.
-    let factory = client_factory.clone();
     let scope_name_clone = scope_name.clone();
     let stream_name_clone = stream_name.clone();
+    let factory = client_factory.clone();
     if new_stream {
-        rt.spawn(async {
+        h.spawn(async {
             write_events(
                 scope_name_clone,
                 stream_name_clone,
@@ -131,21 +134,18 @@ fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactory, rt
         });
     }
     let stream = ScopedStream {
-        scope: scope_name.clone(),
+        scope: scope_name,
         stream: stream_name,
     };
 
-    let rg: ReaderGroup = rt.block_on(client_factory.create_reader_group(
-        scope_name,
-        "rg-single-reader-multi-segments".to_string(),
-        stream,
-    ));
-    let mut reader1 = rt.block_on(rg.create_reader("r1".to_string()));
-    let mut reader2 = rt.block_on(rg.create_reader("r2".to_string()));
+    let rg: ReaderGroup =
+        h.block_on(client_factory.create_reader_group("rg-single-reader-multi-segments".to_string(), stream));
+    let mut reader1 = h.block_on(rg.create_reader("r1".to_string()));
+    let mut reader2 = h.block_on(rg.create_reader("r2".to_string()));
     let read_count = Arc::new(AtomicUsize::new(0));
     let read_count1 = read_count.clone();
     let read_count2 = read_count.clone();
-    let handle1 = rt.spawn(async move {
+    let handle1 = h.spawn(async move {
         while read_count1.load(Ordering::Relaxed) < NUM_EVENTS {
             if let Some(mut slice) = reader1.acquire_segment().await {
                 info!("acquire segment for reader r1, {:?}", slice);
@@ -162,7 +162,7 @@ fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactory, rt
             }
         }
     });
-    let handle2 = rt.spawn(async move {
+    let handle2 = h.spawn(async move {
         while read_count2.load(Ordering::Relaxed) < NUM_EVENTS {
             if let Some(mut slice) = reader2.acquire_segment().await {
                 info!("acquire segment for reader r2 {:?}", slice);
@@ -179,12 +179,12 @@ fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactory, rt
             }
         }
     });
-    rt.block_on(handle1).expect("wait for reader1");
-    rt.block_on(handle2).expect("wait for reader2");
+    h.block_on(handle1).expect("wait for reader1");
+    h.block_on(handle2).expect("wait for reader2");
     assert_eq!(read_count.load(Ordering::Relaxed), NUM_EVENTS);
 }
 
-async fn test_release_segment(client_factory: &ClientFactory) {
+async fn test_release_segment(client_factory: &ClientFactoryAsync) {
     let scope_name = Scope::from("testReaderScaling".to_owned());
     let stream_name = Stream::from("testReaderRelease1".to_owned());
 
@@ -199,7 +199,7 @@ async fn test_release_segment(client_factory: &ClientFactory) {
         write_events_before_and_after_scale(
             scope_name.clone(),
             stream_name.clone(),
-            client_factory.clone(),
+            client_factory,
             NUM_EVENTS,
             EVENT_SIZE,
         )
@@ -211,7 +211,7 @@ async fn test_release_segment(client_factory: &ClientFactory) {
     };
 
     let rg: ReaderGroup = client_factory
-        .create_reader_group(scope_name, "rg-release".to_string(), stream)
+        .create_reader_group("rg-release".to_string(), stream)
         .await;
     let mut reader = rg.create_reader("r1".to_string()).await;
 
@@ -244,7 +244,7 @@ async fn test_release_segment(client_factory: &ClientFactory) {
     assert_eq!(event_count, NUM_EVENTS);
 }
 
-async fn test_release_segment_at(client_factory: &ClientFactory) {
+async fn test_release_segment_at(client_factory: &ClientFactoryAsync) {
     let scope_name = Scope::from("testReaderScaling".to_owned());
     let stream_name = Stream::from("testReaderReleaseat".to_owned());
 
@@ -258,7 +258,7 @@ async fn test_release_segment_at(client_factory: &ClientFactory) {
         write_events_before_and_after_scale(
             scope_name.clone(),
             stream_name.clone(),
-            client_factory.clone(),
+            client_factory,
             NUM_EVENTS,
             EVENT_SIZE,
         )
@@ -270,7 +270,7 @@ async fn test_release_segment_at(client_factory: &ClientFactory) {
     };
 
     let rg = client_factory
-        .create_reader_group(scope_name, "rg-release-segment".to_string(), str)
+        .create_reader_group("rg-release-segment".to_string(), str)
         .await;
     let mut reader = rg.create_reader("r1".to_string()).await;
     let mut event_count = 0;
@@ -306,7 +306,7 @@ async fn test_release_segment_at(client_factory: &ClientFactory) {
     assert_eq!(event_count, NUM_EVENTS + NUM_EVENTS + 5); // 5 additional events.
 }
 
-async fn test_stream_scaling(client_factory: &ClientFactory) {
+async fn test_stream_scaling(client_factory: &ClientFactoryAsync) {
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testReaderStream".to_owned());
 
@@ -320,7 +320,7 @@ async fn test_stream_scaling(client_factory: &ClientFactory) {
         write_events_before_and_after_scale(
             scope_name.clone(),
             stream_name.clone(),
-            client_factory.clone(),
+            client_factory,
             NUM_EVENTS,
             EVENT_SIZE,
         )
@@ -332,7 +332,7 @@ async fn test_stream_scaling(client_factory: &ClientFactory) {
     };
 
     let rg = client_factory
-        .create_reader_group(scope_name, "rg_stream_scaling".to_string(), str)
+        .create_reader_group("rg_stream_scaling".to_string(), str)
         .await;
     let mut reader = rg.create_reader("r1".to_string()).await;
     let mut event_count = 0;
@@ -365,7 +365,7 @@ async fn test_stream_scaling(client_factory: &ClientFactory) {
 }
 
 //Test reading out data from a stream.
-async fn test_read_api(client_factory: &ClientFactory) {
+async fn test_read_api(client_factory: &ClientFactoryAsync) {
     info!("test event stream reader read api");
     let scope_name = Scope::from("testReaderScope".to_owned());
     let stream_name = Stream::from("testReaderStream".to_owned());
@@ -392,7 +392,7 @@ async fn test_read_api(client_factory: &ClientFactory) {
         stream: stream_name.clone(),
     };
     let rg = client_factory
-        .create_reader_group(scope_name, "rg-read-api".to_string(), str)
+        .create_reader_group("rg-read-api".to_string(), str)
         .await;
     let mut reader = rg.create_reader("r1".to_string()).await;
     let mut event_count = 0;
@@ -421,8 +421,8 @@ async fn test_read_api(client_factory: &ClientFactory) {
     info!("test event stream reader read api passed");
 }
 
-fn test_multiple_readers(client_factory: &ClientFactory) {
-    let h = client_factory.runtime();
+fn test_multiple_readers(client_factory: &ClientFactoryAsync) {
+    let h = client_factory.runtime_handle();
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testMultiReader".to_owned());
     let str = ScopedStream {
@@ -449,7 +449,7 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
         }
     });
 
-    let rg = h.block_on(client_factory.create_reader_group(scope_name, "rg_multi_reader".to_string(), str));
+    let rg = h.block_on(client_factory.create_reader_group("rg_multi_reader".to_string(), str));
     // reader 1 will be assigned all the segments.
     let mut reader1 = h.block_on(rg.create_reader("r1".to_string()));
     // no segments will be assigned to reader2
@@ -484,8 +484,8 @@ fn test_multiple_readers(client_factory: &ClientFactory) {
     }
 }
 
-fn test_segment_rebalance(client_factory: &ClientFactory) {
-    let h = client_factory.runtime();
+fn test_segment_rebalance(client_factory: &ClientFactoryAsync) {
+    let h = client_factory.runtime_handle();
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testsegrebalance".to_owned());
     let str = ScopedStream {
@@ -512,8 +512,7 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
         }
     });
 
-    let rg =
-        h.block_on(client_factory.create_reader_group(scope_name, "rg_reblance_reader".to_string(), str));
+    let rg = h.block_on(client_factory.create_reader_group("rg_reblance_reader".to_string(), str));
     // reader 1 will be assigned all the segments.
     let mut reader1 = h.block_on(rg.create_reader("r1".to_string()));
     // no segments will be assigned to reader2 until a rebalance
@@ -577,8 +576,8 @@ fn test_segment_rebalance(client_factory: &ClientFactory) {
     println!("{}", events_read);
 }
 
-fn test_reader_offline(client_factory: &ClientFactory) {
-    let h = client_factory.runtime();
+fn test_reader_offline(client_factory: &ClientFactoryAsync) {
+    let h = client_factory.runtime_handle();
     let scope_name = Scope::from("testScope".to_owned());
     let stream_name = Stream::from("testReaderOffline".to_owned());
     let str = ScopedStream {
@@ -605,7 +604,7 @@ fn test_reader_offline(client_factory: &ClientFactory) {
         }
     });
 
-    let rg = h.block_on(client_factory.create_reader_group(scope_name, "rg_reader_offline".to_string(), str));
+    let rg = h.block_on(client_factory.create_reader_group("rg_reader_offline".to_string(), str));
     // reader 1 will be assigned all the segments.
     let mut reader1 = h.block_on(rg.create_reader("r1".to_string()));
 
@@ -652,7 +651,7 @@ fn test_reader_offline(client_factory: &ClientFactory) {
 async fn write_events(
     scope_name: Scope,
     stream_name: Stream,
-    client_factory: ClientFactory,
+    client_factory: ClientFactoryAsync,
     num_events: usize,
     event_size: usize,
 ) {
@@ -672,7 +671,7 @@ async fn write_events(
 async fn write_events_before_and_after_scale(
     scope_name: Scope,
     stream_name: Stream,
-    client_factory: ClientFactory,
+    client_factory: &ClientFactoryAsync,
     num_events: usize,
     event_size: usize,
 ) {
@@ -698,7 +697,14 @@ async fn write_events_before_and_after_scale(
     let current_segments_result = controller.get_current_segments(&scoped_stream).await;
     assert_eq!(2, current_segments_result.unwrap().key_segment_map.len());
     // write events post stream scaling.
-    write_events(scope_name, stream_name, client_factory, num_events, event_size).await;
+    write_events(
+        scope_name,
+        stream_name,
+        client_factory.clone(),
+        num_events,
+        event_size,
+    )
+    .await;
 }
 
 // helper method to create scope and stream.

@@ -223,9 +223,11 @@ impl ClientConfigBuilder {
 mod tests {
     use super::*;
     use base64::encode;
+    use serial_test::serial;
     use std::net::Ipv4Addr;
 
     #[test]
+    #[serial]
     fn test_get_set() {
         let config = ClientConfigBuilder::default()
             .max_connections_in_pool(15 as u32)
@@ -246,6 +248,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_get_default() {
         let config = ClientConfigBuilder::default()
             .controller_uri(MOCK_CONTROLLER_URI)
@@ -258,8 +261,10 @@ mod tests {
         assert_eq!(config.retry_policy(), RetryWithBackoff::default());
     }
 
-    #[tokio::test]
-    async fn test_extract_credentials() {
+    #[test]
+    #[serial]
+    fn test_extract_credentials() {
+        let rt = tokio::runtime::Runtime::new().expect("create runtime");
         // test empty env
         let config = ClientConfigBuilder::default()
             .controller_uri("127.0.0.2:9091".to_string())
@@ -269,7 +274,7 @@ mod tests {
         let token = encode(":");
 
         assert_eq!(
-            config.credentials.get_request_metadata().await,
+            rt.block_on(config.credentials.get_request_metadata()),
             format!("{} {}", "Basic", token)
         );
 
@@ -285,7 +290,7 @@ mod tests {
 
         let token = encode("hello:12345");
         assert_eq!(
-            config.credentials.get_request_metadata().await,
+            rt.block_on(config.credentials.get_request_metadata()),
             format!("{} {}", "Basic", token)
         );
 
@@ -296,7 +301,7 @@ mod tests {
             .build()
             .unwrap();
         assert_eq!(
-            config.credentials.get_request_metadata().await,
+            rt.block_on(config.credentials.get_request_metadata()),
             format!("{} {}", "Basic", "ABCDE")
         );
         env::remove_var("pravega_client_auth_method");
@@ -306,12 +311,13 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_extract_tls_cert_path() {
         // test default
         fs::create_dir_all(DEFAULT_TLS_CERT_PATH).expect("create default cert path");
         fs::File::create(format!("{}/foo.crt", DEFAULT_TLS_CERT_PATH)).expect("create crt");
         let config = ClientConfigBuilder::default()
-            .controller_uri("127.0.0.2:9091".to_string())
+            .controller_uri("tls://127.0.0.2:9091".to_string())
             .is_tls_enabled(true)
             .build()
             .unwrap();
@@ -352,7 +358,7 @@ mod tests {
         fs::File::create(format!("./bar/foo.crt")).expect("create crt");
         env::set_var("pravega_client_tls_cert_path", "./bar");
         let config = ClientConfigBuilder::default()
-            .controller_uri("127.0.0.2:9091".to_string())
+            .controller_uri("tls://127.0.0.2:9091".to_string())
             .is_tls_enabled(true)
             .build()
             .unwrap();
@@ -360,7 +366,7 @@ mod tests {
         // test with file path
         env::set_var("pravega_client_tls_cert_path", "./bar/foo.crt");
         let config = ClientConfigBuilder::default()
-            .controller_uri("127.0.0.2:9091".to_string())
+            .controller_uri("tls://127.0.0.2:9091".to_string())
             .is_tls_enabled(true)
             .build()
             .unwrap();
@@ -369,7 +375,7 @@ mod tests {
         // test with invalid path
         let result = std::panic::catch_unwind(|| {
             ClientConfigBuilder::default()
-                .controller_uri("127.0.0.2:9091".to_string())
+                .controller_uri("tls://127.0.0.2:9091".to_string())
                 .is_tls_enabled(true)
                 .build()
                 .unwrap()

@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
 use crate::event::reader::EventReader;
 use crate::event::reader_group_state::Offset;
 
@@ -52,13 +52,12 @@ cfg_if::cfg_if! {
 ///         .build()
 ///         .expect("creating config");
 ///     let client_factory = ClientFactory::new(config);
-///     let scope = Scope::from("scope".to_string());
 ///     let stream = ScopedStream {
-///         scope: scope.clone(),
+///         scope: Scope::from("scope".to_string()),
 ///         stream: Stream::from("stream".to_string()),
 ///     };
 ///     // Create a reader group to read data from the Pravega stream.
-///     let rg = client_factory.create_reader_group(scope, "rg".to_string(), stream).await;
+///     let rg = client_factory.create_reader_group("rg".to_string(), stream).await;
 ///     // Create a reader under the reader group.
 ///     let mut reader1 = rg.create_reader("r1".to_string()).await;
 ///     let mut reader2 = rg.create_reader("r2".to_string()).await;
@@ -69,7 +68,7 @@ pub struct ReaderGroup {
     pub name: String,
     config: ReaderGroupConfig,
     pub state: Arc<Mutex<ReaderGroupState>>,
-    client_factory: ClientFactory,
+    client_factory: ClientFactoryAsync,
 }
 
 impl ReaderGroup {
@@ -80,7 +79,7 @@ impl ReaderGroup {
             _scope: Scope,
             _name: String,
             _rg_config: ReaderGroupConfig,
-            _client_factory: &ClientFactory,
+            _client_factory: &ClientFactoryAsync,
             _init_segments: HashMap<ScopedSegment, Offset>,
         ) -> ReaderGroupState {
             ReaderGroupState::default()
@@ -90,7 +89,7 @@ impl ReaderGroup {
                 scope: Scope,
                 name: String,
                 rg_config: ReaderGroupConfig,
-                client_factory: &ClientFactory,
+                client_factory: &ClientFactoryAsync,
                 init_segments: HashMap<ScopedSegment, Offset>,
             ) -> ReaderGroupState {
                 ReaderGroupState::new(scope, name, client_factory, rg_config.config, init_segments).await
@@ -105,7 +104,7 @@ impl ReaderGroup {
         scope: Scope,
         name: String,
         rg_config: ReaderGroupConfig,
-        client_factory: ClientFactory,
+        client_factory: ClientFactoryAsync,
     ) -> ReaderGroup {
         let streams: Vec<ScopedStream> = rg_config.get_streams();
         let mut init_segments: HashMap<ScopedSegment, Offset> = HashMap::new();
@@ -384,6 +383,7 @@ pub enum SerdeError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::client_factory::ClientFactory;
     use crate::event::reader_group::ReaderGroupConfigBuilder;
     use crate::event::reader_group_state::ReaderGroupStateError;
     use crate::sync::synchronizer::SynchronizerError::SyncUpdateError;
@@ -438,7 +438,7 @@ mod tests {
                 .add_stream(ScopedStream::from("scope/s1"))
                 .build(),
             state: Arc::new(Mutex::new(mock_rg_state)),
-            client_factory: client_factory.clone(),
+            client_factory: client_factory.to_async(),
         };
         client_factory
             .runtime()

@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
 use crate::event::writer::EventWriter;
 use crate::segment::event::{Incoming, PendingEvent, RoutingInfo};
 use crate::segment::metadata::SegmentMetadataClient;
@@ -75,7 +75,8 @@ type EventHandle = oneshot::Receiver<Result<(), Error>>;
 ///
 ///     let client_factory = ClientFactory::new(config);
 ///
-///     // assuming scope:myscope, stream:mystream and segment 0 do exist.
+///     // assuming scope:myscope, stream:mystream exist.
+///     // notice that this stream should be a fixed sized single segment stream
 ///     let stream = ScopedStream::from("myscope/mystream");
 ///
 ///     let mut byte_writer = client_factory.create_byte_writer(stream);
@@ -94,7 +95,7 @@ pub struct ByteWriter {
     scoped_segment: ScopedSegment,
     sender: ChannelSender<Incoming>,
     metadata_client: SegmentMetadataClient,
-    factory: ClientFactory,
+    factory: ClientFactoryAsync,
     event_handle: Option<EventHandle>,
     write_offset: i64,
 }
@@ -110,7 +111,7 @@ impl Write for ByteWriter {
         let payload = buf[0..bytes_to_write].to_vec();
         let oneshot_receiver = self
             .factory
-            .runtime()
+            .runtime_handle()
             .block_on(self.write_internal(self.sender.clone(), payload));
 
         self.write_offset += bytes_to_write as i64;
@@ -121,7 +122,9 @@ impl Write for ByteWriter {
     /// This is a blocking call that will wait for data to be persisted on the server side.
     fn flush(&mut self) -> Result<(), Error> {
         if let Some(event_handle) = self.event_handle.take() {
-            self.factory.runtime().block_on(self.flush_internal(event_handle))
+            self.factory
+                .runtime_handle()
+                .block_on(self.flush_internal(event_handle))
         } else {
             Ok(())
         }
@@ -132,13 +135,7 @@ impl ByteWriter {
     // maximum 16 MB total size of events could be held in memory
     const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
-    pub(crate) fn new(stream: ScopedStream, factory: ClientFactory) -> Self {
-        factory
-            .runtime()
-            .block_on(ByteWriter::new_async(stream, factory.clone()))
-    }
-
-    pub(crate) async fn new_async(stream: ScopedStream, factory: ClientFactory) -> Self {
+    pub(crate) async fn new(stream: ScopedStream, factory: ClientFactoryAsync) -> Self {
         let (sender, receiver) = create_channel(Self::CHANNEL_CAPACITY);
         let writer_id = WriterId(get_random_u128());
         let segments = factory
@@ -162,9 +159,8 @@ impl ByteWriter {
             .await;
         let span = info_span!("Reactor", byte_stream_writer = %writer_id);
         // spawn is tied to the factory runtime.
-        factory
-            .runtime()
-            .spawn(Reactor::run(stream, sender.clone(), receiver, factory.clone(), None).instrument(span));
+        let _h = factory.runtime_handle().enter();
+        tokio::spawn(Reactor::run(stream, sender.clone(), receiver, factory.clone(), None).instrument(span));
         ByteWriter {
             writer_id,
             scoped_segment,
@@ -250,8 +246,8 @@ impl ByteWriter {
     /// let byte_writer = client_factory.create_byte_writer(segment);
     /// let offset = byte_writer.current_write_offset();
     /// ```
-    pub fn current_write_offset(&self) -> i64 {
-        self.write_offset
+    pub fn current_write_offset(&self) -> u64 {
+        self.write_offset as u64
     }
 
     /// Seek to the tail of the segment.
@@ -265,7 +261,7 @@ impl ByteWriter {
     pub fn seek_to_tail(&mut self) {
         let segment_info = self
             .factory
-            .runtime()
+            .runtime_handle()
             .block_on(self.metadata_client.get_segment_info())
             .expect("failed to get segment info");
         self.write_offset = segment_info.write_offset;
@@ -332,12 +328,11 @@ impl Drop for ByteWriter {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::client_factory::ClientFactory;
     use crate::util::create_stream;
     use pravega_client_config::connection_type::{ConnectionType, MockType};
     use pravega_client_config::ClientConfigBuilder;
     use pravega_client_shared::PravegaNodeUri;
-    use std::io::Write;
-    use tokio::runtime::Runtime;
 
     #[test]
     #[should_panic(expected = "Byte stream is configured with more than one segment")]

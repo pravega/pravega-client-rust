@@ -26,3 +26,6 @@ tokio = "1.1"
 async-trait = "0.1"
 tracing = "0.1"
 tracing-subscriber = "0.2"
+
+[dev-dependencies]
+serial_test = "*"
