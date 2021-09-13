@@ -47,9 +47,7 @@ impl Reactor {
         receiver: &mut ChannelReceiver<Incoming>,
         factory: &ClientFactoryAsync,
     ) -> Result<(), &'static str> {
-        println!("receving");
         let (event, cap_guard) = receiver.recv().await.expect("sender closed, processor exit");
-        println!("received");
         match event {
             Incoming::AppendEvent(pending_event) => {
                 let event_segment_writer = match &pending_event.routing_info {

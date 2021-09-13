@@ -542,6 +542,7 @@ impl Table {
                         self.delegation_token_provider.signal_token_expiry();
                         info!("auth token needs to refresh");
                     }
+                    info!("Table insert retry error {:?}", e);
                     RetryResult::Retry(e)
                 }
             }
