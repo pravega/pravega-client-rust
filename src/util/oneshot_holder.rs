@@ -15,7 +15,7 @@ use tokio::sync::oneshot::Receiver;
 
 pub struct OneShotHolder<E> {
     size: usize,
-    inflight: VecDeque<tokio::sync::oneshot::Receiver<Result<(), E>>>,
+    inflight: VecDeque<Receiver<Result<(), E>>>,
 }
 
 impl<E> OneShotHolder<E> {
@@ -30,10 +30,7 @@ impl<E> OneShotHolder<E> {
     /// Method to add oneShot Receivers. The method will await on the oneShot receivers
     /// only if the size of queue is greater than configured size.
     ///
-    pub async fn add(
-        &mut self,
-        item: tokio::sync::oneshot::Receiver<Result<(), E>>,
-    ) -> Result<Result<(), E>, RecvError> {
+    pub async fn add(&mut self, item: Receiver<Result<(), E>>) -> Result<Result<(), E>, RecvError> {
         let result;
         if self.size == 0 {
             // size is zero await on oneshot receiver directly.
@@ -63,6 +60,7 @@ impl<E> OneShotHolder<E> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::sync::oneshot::channel;
 
     #[derive(Debug)]
     struct CustomError;
@@ -71,8 +69,8 @@ mod tests {
     async fn test_oneshot_holder() {
         let mut holder: OneShotHolder<CustomError> = OneShotHolder::new(1);
 
-        let (tx1, rx1) = tokio::sync::oneshot::channel::<Result<(), CustomError>>();
-        let (tx2, rx2) = tokio::sync::oneshot::channel::<Result<(), CustomError>>();
+        let (tx1, rx1) = channel::<Result<(), CustomError>>();
+        let (tx2, rx2) = channel::<Result<(), CustomError>>();
         let r = holder.add(rx1).await.unwrap();
         assert!(r.is_ok());
         tokio::spawn(async move {
@@ -106,7 +104,7 @@ mod tests {
     async fn test_zero_size_oneshot_holder() {
         let mut holder: OneShotHolder<CustomError> = OneShotHolder::new(0);
 
-        let (tx1, rx1) = tokio::sync::oneshot::channel::<Result<(), CustomError>>();
+        let (tx1, rx1) = channel::<Result<(), CustomError>>();
         tokio::spawn(async move {
             if let Err(_) = tx1.send(Ok(())) {
                 panic!("error is not expected");
@@ -123,8 +121,8 @@ mod tests {
     async fn test_receiver_error() {
         let mut holder: OneShotHolder<CustomError> = OneShotHolder::new(1);
 
-        let (tx1, rx1) = tokio::sync::oneshot::channel::<Result<(), CustomError>>();
-        let (tx2, rx2) = tokio::sync::oneshot::channel::<Result<(), CustomError>>();
+        let (tx1, rx1) = channel::<Result<(), CustomError>>();
+        let (tx2, rx2) = channel::<Result<(), CustomError>>();
         let r = holder.add(rx1).await.unwrap();
         assert!(r.is_ok());
 
