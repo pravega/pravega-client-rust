@@ -55,9 +55,10 @@ impl Reactor {
                 };
 
                 if event_segment_writer.need_reset {
-                    pending_event.oneshot_sender.send(Result::Err(Error::ConditionalCheckFailure {
+                    // ignore the send result since error means the receiver is dropped
+                    let _res = pending_event.oneshot_sender.send(Result::Err(Error::ConditionalCheckFailure {
                         msg:
-                        format!("conditional check failed in previous appends, need to reset before processing new appends"),
+                        "conditional check failed in previous appends, need to reset before processing new appends".to_string(),
                     }));
                     return Ok(());
                 }
@@ -95,6 +96,12 @@ impl Reactor {
                         info!("reconnect signal received for writer: {:?}, but does not match current writer: id {}, connection id {}, ignore", writer_info, writer.id, write_half.get_id());
                     }
                 }
+                Ok(())
+            }
+            Incoming::Reset(segment) => {
+                info!("reset writer for segment {:?} in reactor", segment);
+                let writer = selector.get_segment_writer_by_key(&segment);
+                writer.need_reset = false;
                 Ok(())
             }
             Incoming::Close() => {
@@ -196,11 +203,11 @@ impl Reactor {
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
+    use crate::error::Error;
     use crate::segment::event::{PendingEvent, RoutingInfo};
     use crate::segment::selector::test::create_segment_selector;
     use pravega_client_channel::ChannelSender;
     use pravega_client_config::connection_type::MockType;
-    use std::io::Error;
     use tokio::sync::oneshot;
 
     type EventHandle = oneshot::Receiver<Result<(), Error>>;

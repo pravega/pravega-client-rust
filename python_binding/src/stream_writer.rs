@@ -8,11 +8,11 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use std::io::Error;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client::event::writer::EventWriter;
         use pravega_client_shared::ScopedStream;
+        use pravega_client::error::Error;
         use pyo3::exceptions;
         use pyo3::prelude::*;
         use pyo3::PyResult;

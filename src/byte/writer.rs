@@ -63,32 +63,35 @@ type EventHandle = oneshot::Receiver<Result<(), Error>>;
 /// # Examples
 /// ```no_run
 /// use pravega_client_config::ClientConfigBuilder;
-/// use pravega_client::client_factory::ClientFactory;
+/// use pravega_client::client_factory::ClientFactoryAsync;
 /// use pravega_client_shared::ScopedStream;
-/// use std::io::Write;
+/// use pravega_client::byte::ByteWriter;
+/// use tokio::runtime::Handle;
 ///
-/// fn main() {
+/// #[tokio::main]
+/// async fn main() {
 ///     // assuming Pravega controller is running at endpoint `localhost:9090`
 ///     let config = ClientConfigBuilder::default()
 ///         .controller_uri("localhost:9090")
 ///         .build()
 ///         .expect("creating config");
 ///
-///     let client_factory = ClientFactory::new(config);
+///     let handle = Handle::current();
+///     let client_factory = ClientFactoryAsync::new(config, handle);
 ///
 ///     // assuming scope:myscope, stream:mystream exist.
 ///     // notice that this stream should be a fixed sized single segment stream
 ///     let stream = ScopedStream::from("myscope/mystream");
 ///
-///     let mut byte_writer = client_factory.create_byte_writer(stream);
+///     let mut byte_writer = client_factory.create_byte_writer(stream).await;
 ///
 ///     let payload = "hello world".to_string().into_bytes();
 ///
 ///     // It doesn't mean the data is persisted on the server side
-///     // when this method returns Ok, user should call flush to ensure
+///     // when write method returns Ok, user should call flush to ensure
 ///     // all data has been acknowledged by the server.
-///     client_factory.runtime().block_on(byte_writer.write(&payload)).expect("write");
-///     client_factory.runtime().block_on(byte_writer.flush()).expect("flush");
+///     byte_writer.write(&payload).await.expect("write");
+///     byte_writer.flush().await.expect("flush");
 /// }
 /// ```
 pub struct ByteWriter {
@@ -162,8 +165,10 @@ impl ByteWriter {
         while let Some(handle) = self.event_handles.front_mut() {
             if let Ok(res) = handle.try_recv() {
                 match res {
-                    Ok(_) => self.event_handles.pop_front(),
-                    Err(e) => Err(e),
+                    Ok(_) => {
+                        self.event_handles.pop_front().expect("remove successful handle");
+                    }
+                    Err(e) => return Err(e),
                 }
             } else {
                 break;
@@ -184,7 +189,8 @@ impl ByteWriter {
     /// byte_writer.flush().await;
     /// ```
     pub async fn flush(&mut self) -> Result<(), Error> {
-        for handle in self.event_handles.into_iter() {
+        while self.event_handles.front().is_some() {
+            let handle = self.event_handles.pop_front().expect("get first handle");
             match handle.await {
                 Ok(res) => {
                     res?;
@@ -263,7 +269,7 @@ impl ByteWriter {
 
     /// Reset the internal Reactor, making it ready for new appends.
     ///
-    /// Use this method if you want to continue to append after ConditionalCheckFailure happens.
+    /// Use this method if you want to continue to append after ConditionalCheckFailure error.
     /// It will clear all pending events and set the Reactor ready.
     ///
     /// # Examples
@@ -275,7 +281,6 @@ impl ByteWriter {
     /// byte_writer.write(&payload).await.expect("write");
     /// ```
     pub async fn reset(&mut self) -> Result<(), Error> {
-        let Err(Error::ConditionalCheckFailure(_e)) = self.flush().await;
         self.event_handles.clear();
         // send reset signal to reactor
         if let Err(e) = self
@@ -283,9 +288,9 @@ impl ByteWriter {
             .send((Incoming::Reset(self.scoped_segment.clone()), 0))
             .await
         {
-            Err(Error::InternalFailure {
-                msg: "failed to send request to reactor".to_string(),
-            })
+            return Err(Error::InternalFailure {
+                msg: format!("failed to send request to reactor: {:?}", e),
+            });
         }
         Ok(())
     }
@@ -348,6 +353,6 @@ mod test {
             2,
         ));
         let stream = ScopedStream::from("testScopeInvalid/testStreamInvalid");
-        factory.create_byte_writer(stream);
+        factory.runtime().block_on(factory.create_byte_writer(stream));
     }
 }

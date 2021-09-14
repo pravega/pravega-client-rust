@@ -12,6 +12,7 @@ use crate::pravega_service::PravegaStandaloneServiceConfig;
 use crate::utils;
 
 use pravega_client::client_factory::ClientFactory;
+use pravega_client::error::Error;
 use pravega_client::event::writer::EventWriter;
 use pravega_client::test_utils::SegmentReaderWrapper;
 use pravega_client_config::{connection_type::ConnectionType, ClientConfigBuilder, MOCK_CONTROLLER_URI};
@@ -25,7 +26,6 @@ use pravega_wire_protocol::commands::{
 use pravega_wire_protocol::connection_factory::{ConnectionFactory, SegmentConnectionManager};
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
-use std::io::Error;
 use std::net::SocketAddr;
 use tracing::info;
 
