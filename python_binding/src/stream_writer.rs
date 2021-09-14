@@ -10,9 +10,9 @@
 
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
+        use pravega_client::error::Error as WriterError;
         use pravega_client::event::writer::EventWriter;
         use pravega_client_shared::ScopedStream;
-        use pravega_client::error::Error;
         use pyo3::exceptions;
         use pyo3::prelude::*;
         use pyo3::PyResult;
@@ -97,7 +97,7 @@ impl StreamWriter {
     #[args(event, routing_key = "None", "*")]
     pub fn write_event_bytes(&mut self, event: &[u8], routing_key: Option<&str>) -> PyResult<()> {
         // to_vec creates an owned copy of the python byte array object.
-        let write_future: tokio::sync::oneshot::Receiver<Result<(), Error>> = match routing_key {
+        let write_future: tokio::sync::oneshot::Receiver<Result<(), WriterError>> = match routing_key {
             Option::None => {
                 trace!("Writing a single event with no routing key");
                 self.runtime_handle
@@ -113,7 +113,7 @@ impl StreamWriter {
         let _guard = self.runtime_handle.enter();
         let timeout_fut = timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), write_future);
 
-        let result: Result<Result<Result<(), Error>, RecvError>, _> =
+        let result: Result<Result<Result<(), WriterError>, RecvError>, _> =
             self.runtime_handle.block_on(timeout_fut);
         match result {
             Ok(t) => match t {
