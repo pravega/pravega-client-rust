@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
 use crate::segment::metadata::SegmentMetadataClient;
 use crate::segment::reader::PrefetchingAsyncSegmentReader;
 
@@ -66,27 +66,21 @@ pub struct ByteReader {
     reader: Option<PrefetchingAsyncSegmentReader>,
     reader_buffer_size: usize,
     metadata_client: SegmentMetadataClient,
-    pub factory: ClientFactory,
+    factory: ClientFactoryAsync,
 }
 
 impl Read for ByteReader {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
         let result = self
             .factory
-            .runtime()
+            .runtime_handle()
             .block_on(self.reader.as_mut().unwrap().read(buf));
         result.map_err(|e| Error::new(ErrorKind::Other, format!("Error: {:?}", e)))
     }
 }
 
 impl ByteReader {
-    pub(crate) fn new(stream: ScopedStream, factory: ClientFactory, buffer_size: usize) -> Self {
-        factory
-            .runtime()
-            .block_on(ByteReader::new_async(stream, factory.clone(), buffer_size))
-    }
-
-    pub(crate) async fn new_async(stream: ScopedStream, factory: ClientFactory, buffer_size: usize) -> Self {
+    pub(crate) async fn new(stream: ScopedStream, factory: ClientFactoryAsync, buffer_size: usize) -> Self {
         let segments = factory
             .controller_client()
             .get_head_segments(&stream)
@@ -105,7 +99,7 @@ impl ByteReader {
         };
         let async_reader = factory.create_async_segment_reader(scoped_segment.clone()).await;
         let async_reader_wrapper = PrefetchingAsyncSegmentReader::new(
-            factory.runtime().handle().clone(),
+            factory.runtime_handle(),
             Arc::new(Box::new(async_reader)),
             0,
             buffer_size,
@@ -150,7 +144,7 @@ impl ByteReader {
     /// ```
     pub fn current_head(&self) -> std::io::Result<u64> {
         self.factory
-            .runtime()
+            .runtime_handle()
             .block_on(self.metadata_client.fetch_current_starting_head())
             .map(|i| i as u64)
             .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
@@ -181,7 +175,7 @@ impl ByteReader {
     /// ```
     pub fn current_tail(&self) -> std::io::Result<u64> {
         self.factory
-            .runtime()
+            .runtime_handle()
             .block_on(self.metadata_client.fetch_current_segment_length())
             .map(|i| i as u64)
             .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
@@ -269,7 +263,7 @@ impl ByteReader {
     fn recreate_reader_wrapper(&mut self, offset: i64) {
         let internal_reader = self.reader.take().unwrap().extract_reader();
         let new_reader_wrapper = PrefetchingAsyncSegmentReader::new(
-            self.factory.runtime().handle().clone(),
+            self.factory.runtime_handle(),
             internal_reader,
             offset,
             self.reader_buffer_size,
@@ -284,7 +278,7 @@ impl ByteReader {
 impl Seek for ByteReader {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         let factory = self.factory.clone();
-        factory.runtime().block_on(self.seek_async(pos))
+        factory.runtime_handle().block_on(self.seek_async(pos))
     }
 }
 
@@ -292,6 +286,7 @@ impl Seek for ByteReader {
 mod test {
     use super::*;
     use crate::byte::writer::ByteWriter;
+    use crate::client_factory::ClientFactory;
     use crate::util::create_stream;
     use pravega_client_config::connection_type::{ConnectionType, MockType};
     use pravega_client_config::ClientConfigBuilder;
@@ -301,7 +296,8 @@ mod test {
 
     #[test]
     fn test_byte_seek() {
-        let (mut writer, mut reader, _factory) = create_reader_and_writer();
+        let rt = Runtime::new().unwrap();
+        let (mut writer, mut reader, _factory) = create_reader_and_writer(&rt);
 
         // write 200 bytes
         let payload = vec![1; 200];
@@ -354,7 +350,8 @@ mod test {
 
     #[test]
     fn test_byte_stream_truncate() {
-        let (mut writer, mut reader, factory) = create_reader_and_writer();
+        let rt = Runtime::new().unwrap();
+        let (mut writer, mut reader, _factory) = create_reader_and_writer(&rt);
 
         // write 200 bytes
         let payload = vec![1; 200];
@@ -384,7 +381,8 @@ mod test {
     fn test_byte_stream_seal() {
         const BYTE_SIZE: usize = 200;
 
-        let (mut writer, mut reader, factory) = create_reader_and_writer();
+        let rt = Runtime::new().unwrap();
+        let (mut writer, mut reader, _factory) = create_reader_and_writer(&rt);
 
         // write 200 bytes
         let payload = vec![1; BYTE_SIZE];
@@ -426,7 +424,7 @@ mod test {
         factory.create_byte_reader(stream);
     }
 
-    fn create_reader_and_writer() -> (ByteWriter, ByteReader, ClientFactory) {
+    fn create_reader_and_writer(runtime: &Runtime) -> (ByteWriter, ByteReader, ClientFactory) {
         let config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(MockType::Happy))
             .mock(true)

@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
 use crate::index::{IndexRecord, RECORD_SIZE};
 use crate::segment::reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 
@@ -83,13 +83,13 @@ pub enum IndexReaderError {
 /// ```
 pub struct IndexReader {
     stream: ScopedStream,
-    factory: ClientFactory,
+    factory: ClientFactoryAsync,
     meta: SegmentMetadataClient,
     segment_reader: AsyncSegmentReaderImpl,
 }
 
 impl IndexReader {
-    pub(crate) async fn new(factory: ClientFactory, stream: ScopedStream) -> Self {
+    pub(crate) async fn new(factory: ClientFactoryAsync, stream: ScopedStream) -> Self {
         let segments = factory
             .controller_client()
             .get_head_segments(&stream)
@@ -208,7 +208,7 @@ impl IndexReader {
         }
         Ok(try_stream! {
             let stream = self.stream.clone();
-            let mut byte_reader = self.factory.create_byte_reader_async(stream).await;
+            let mut byte_reader = self.factory.create_byte_reader(stream).await;
             let mut num_of_records_to_read = if end_offset == u64::MAX {
                 u64::MAX
             } else {

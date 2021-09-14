@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
 use crate::segment::event::{Incoming, PendingEvent, RoutingInfo};
 use crate::segment::reactor::Reactor;
 
@@ -79,7 +79,7 @@ use tracing_futures::Instrument;
 pub struct TransactionalEventWriter {
     stream: ScopedStream,
     writer_id: WriterId,
-    factory: ClientFactory,
+    factory: ClientFactoryAsync,
     pinger_handle: PingerHandle,
     delegation_token_provider: Arc<DelegationTokenProvider>,
     shutdown: oneshot::Sender<()>,
@@ -87,7 +87,7 @@ pub struct TransactionalEventWriter {
 
 impl TransactionalEventWriter {
     // use ClientFactory to initialize a TransactionalEventStreamWriter.
-    pub(crate) async fn new(stream: ScopedStream, writer_id: WriterId, factory: ClientFactory) -> Self {
+    pub(crate) async fn new(stream: ScopedStream, writer_id: WriterId, factory: ClientFactoryAsync) -> Self {
         let (mut pinger, pinger_handle, shutdown) = Pinger::new(
             stream.clone(),
             factory.config().transaction_timeout_time,
@@ -95,10 +95,10 @@ impl TransactionalEventWriter {
         );
         let delegation_token_provider =
             Arc::new(factory.create_delegation_token_provider(stream.clone()).await);
-        let runtime_handle = factory.runtime();
         let span = info_span!("Pinger", transactional_event_stream_writer = %writer_id);
-        let _guard = runtime_handle.enter();
-        tokio::spawn(async move { pinger.start_ping().instrument(span).await });
+        factory
+            .runtime_handle()
+            .spawn(async move { pinger.start_ping().instrument(span).await });
         TransactionalEventWriter {
             stream,
             writer_id,
@@ -190,7 +190,7 @@ pub struct Transaction {
     info: TransactionInfo,
     sender: ChannelSender<Incoming>,
     handle: PingerHandle,
-    factory: ClientFactory,
+    factory: ClientFactoryAsync,
     event_handles: Vec<EventHandle>,
 }
 
@@ -206,7 +206,7 @@ impl Transaction {
         info: TransactionInfo,
         stream_segments: StreamSegments,
         handle: PingerHandle,
-        factory: ClientFactory,
+        factory: ClientFactoryAsync,
         closed: bool,
     ) -> Self {
         let (tx, rx) = create_channel(Self::CHANNEL_CAPACITY);
@@ -219,13 +219,11 @@ impl Transaction {
                 event_handles: vec![],
             };
         }
-        let rt_handle = factory.runtime();
+        let rt_handle = factory.runtime_handle();
         let writer_id = info.writer_id;
         let txn_id = info.txn_id;
         let span = info_span!("StreamReactor", txn_id = %txn_id, event_stream_writer = %writer_id);
-        // tokio::spawn is tied to the factory runtime.
-        let _guard = rt_handle.enter();
-        tokio::spawn(
+        rt_handle.spawn(
             Reactor::run(
                 info.stream.clone(),
                 tx.clone(),
@@ -423,7 +421,7 @@ pub(crate) struct Pinger {
     stream: ScopedStream,
     txn_lease_millis: u64,
     ping_interval_millis: u64,
-    factory: ClientFactory,
+    factory: ClientFactoryAsync,
     receiver: UnboundedReceiver<PingerEvent>,
     shutdown: oneshot::Receiver<()>,
 }
@@ -461,14 +459,14 @@ impl Pinger {
     pub(crate) fn new(
         stream: ScopedStream,
         txn_lease_millis: u64,
-        factory: ClientFactory,
+        factory: ClientFactoryAsync,
     ) -> (Self, PingerHandle, oneshot::Sender<()>) {
         let (tx, rx) = unbounded_channel();
         let (oneshot_tx, oneshot_rx) = oneshot::channel();
         let pinger = Pinger {
             stream,
             txn_lease_millis,
-            ping_interval_millis: Pinger::get_ping_interval(txn_lease_millis),
+            ping_interval_millis: Pinger::ping_interval(txn_lease_millis),
             factory,
             receiver: rx,
             shutdown: oneshot_rx,
@@ -546,7 +544,7 @@ impl Pinger {
         }
     }
 
-    fn get_ping_interval(txn_lease_millis: u64) -> u64 {
+    fn ping_interval(txn_lease_millis: u64) -> u64 {
         //Provides a good number of attempts: 1 for <4s, 2 for <9s, 3 for <16s, 4 for <25s, ... 10 for <100s
         //while at the same time allowing the interval to grow as the timeout gets larger.
         let target_num_pings = if txn_lease_millis > 1000u64 {
@@ -591,6 +589,7 @@ pub enum TransactionError {
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
+    use crate::client_factory::ClientFactory;
     use crate::util::create_stream;
     use pravega_client_config::connection_type::{ConnectionType, MockType};
     use pravega_client_config::ClientConfigBuilder;
@@ -599,17 +598,17 @@ pub(crate) mod test {
 
     #[test]
     fn test_get_ping_interval() {
-        assert_eq!(Pinger::get_ping_interval(1000u64), 1000u64);
-        assert_eq!(Pinger::get_ping_interval(4000u64), 2000u64);
-        assert_eq!(Pinger::get_ping_interval(9000u64), 3000u64);
-        assert_eq!(Pinger::get_ping_interval(16000u64), 4000u64);
-        assert_eq!(Pinger::get_ping_interval(25000u64), 5000u64);
+        assert_eq!(Pinger::ping_interval(1000u64), 1000u64);
+        assert_eq!(Pinger::ping_interval(4000u64), 2000u64);
+        assert_eq!(Pinger::ping_interval(9000u64), 3000u64);
+        assert_eq!(Pinger::ping_interval(16000u64), 4000u64);
+        assert_eq!(Pinger::ping_interval(25000u64), 5000u64);
     }
 
     #[test]
     fn test_txn_stream_writer() {
         let rt = Runtime::new().unwrap();
-        let mut txn_stream_writer = rt.block_on(create_txn_stream_writer());
+        let (mut txn_stream_writer, _factory) = rt.block_on(create_txn_stream_writer());
         let transaction = rt.block_on(txn_stream_writer.begin()).expect("open transaction");
         let fetched_transaction = rt
             .block_on(txn_stream_writer.get_txn(transaction.txn_id()))
@@ -617,27 +616,10 @@ pub(crate) mod test {
         assert_eq!(transaction.txn_id(), fetched_transaction.txn_id());
     }
 
-    // helper function
-    pub(crate) async fn create_txn_stream_writer() -> TransactionalEventWriter {
-        let txn_segment = ScopedSegment::from("scope/stream/0");
-        let writer_id = WriterId(123);
-        let config = ClientConfigBuilder::default()
-            .connection_type(ConnectionType::Mock(MockType::Happy))
-            .mock(true)
-            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091"))
-            .build()
-            .unwrap();
-        let factory = ClientFactory::new(config);
-        create_stream(&factory, "scope", "stream", 1).await;
-        factory
-            .create_transactional_event_writer(ScopedStream::from(&txn_segment), writer_id)
-            .await
-    }
-
     #[test]
     fn test_txn_commit() {
         let rt = Runtime::new().unwrap();
-        let mut txn_stream_writer = rt.block_on(create_txn_stream_writer());
+        let (mut txn_stream_writer, _factory) = rt.block_on(create_txn_stream_writer());
         let mut txn = rt
             .block_on(txn_stream_writer.begin())
             .expect("begin a transaction");
@@ -655,7 +637,7 @@ pub(crate) mod test {
     #[test]
     fn test_txn_abort() {
         let rt = Runtime::new().unwrap();
-        let mut txn_stream_writer = rt.block_on(create_txn_stream_writer());
+        let (mut txn_stream_writer, _factory) = rt.block_on(create_txn_stream_writer());
         let mut txn = rt
             .block_on(txn_stream_writer.begin())
             .expect("begin a transaction");
@@ -673,7 +655,7 @@ pub(crate) mod test {
     #[test]
     fn test_txn_write_event() {
         let rt = Runtime::new().unwrap();
-        let mut txn_stream_writer = rt.block_on(create_txn_stream_writer());
+        let (mut txn_stream_writer, _factory) = rt.block_on(create_txn_stream_writer());
         let mut txn = rt
             .block_on(txn_stream_writer.begin())
             .expect("begin a transaction");
@@ -684,5 +666,23 @@ pub(crate) mod test {
 
         rt.block_on(txn.commit(Timestamp(0))).unwrap();
         assert!(txn.event_handles.is_empty());
+    }
+
+    // helper function
+    pub(crate) async fn create_txn_stream_writer() -> (TransactionalEventWriter, ClientFactory) {
+        let txn_segment = ScopedSegment::from("scope/stream/0");
+        let writer_id = WriterId(123);
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(MockType::Happy))
+            .mock(true)
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091"))
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        create_stream(&factory, "scope", "stream", 1).await;
+        let writer = factory
+            .create_transactional_event_writer(ScopedStream::from(&txn_segment), writer_id)
+            .await;
+        (writer, factory)
     }
 }

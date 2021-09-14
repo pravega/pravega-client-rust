@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
 use crate::error::Error;
 use crate::event::writer::EventWriter;
 use crate::segment::event::{Incoming, PendingEvent, RoutingInfo};
@@ -96,7 +96,7 @@ pub struct ByteWriter {
     scoped_segment: ScopedSegment,
     sender: ChannelSender<Incoming>,
     metadata_client: SegmentMetadataClient,
-    factory: ClientFactory,
+    factory: ClientFactoryAsync,
     event_handles: VecDeque<EventHandle>,
     write_offset: i64,
 }
@@ -105,7 +105,7 @@ impl ByteWriter {
     // maximum 16 MB total size of events could be held in memory
     const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
-    pub(crate) async fn new(stream: ScopedStream, factory: ClientFactory) -> Self {
+    pub(crate) async fn new(stream: ScopedStream, factory: ClientFactoryAsync) -> Self {
         let (sender, receiver) = create_channel(Self::CHANNEL_CAPACITY);
         let writer_id = WriterId(get_random_u128());
         let segments = factory
@@ -129,9 +129,8 @@ impl ByteWriter {
             .await;
         let span = info_span!("Reactor", byte_stream_writer = %writer_id);
         // spawn is tied to the factory runtime.
-        factory
-            .runtime()
-            .spawn(Reactor::run(stream, sender.clone(), receiver, factory.clone(), None).instrument(span));
+        let _h = factory.runtime_handle().enter();
+        tokio::spawn(Reactor::run(stream, sender.clone(), receiver, factory.clone(), None).instrument(span));
         ByteWriter {
             writer_id,
             scoped_segment,
@@ -326,6 +325,7 @@ impl Drop for ByteWriter {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::client_factory::ClientFactory;
     use crate::util::create_stream;
     use pravega_client_config::connection_type::{ConnectionType, MockType};
     use pravega_client_config::ClientConfigBuilder;

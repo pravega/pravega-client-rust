@@ -13,13 +13,13 @@ cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client::event::writer::EventWriter;
         use pravega_client_shared::ScopedStream;
-        use pravega_client::client_factory::ClientFactory;
         use pyo3::exceptions;
         use pyo3::prelude::*;
         use pyo3::PyResult;
         use pyo3::PyObjectProtocol;
         use tracing::trace;
         use std::time::Duration;
+        use tokio::runtime::Handle;
         use tokio::time::timeout;
         use tokio::sync::oneshot::error::RecvError;
     }
@@ -34,7 +34,7 @@ cfg_if! {
 #[derive(new)]
 pub(crate) struct StreamWriter {
     writer: EventWriter,
-    factory: ClientFactory,
+    runtime_handle: Handle,
     stream: ScopedStream,
 }
 
@@ -100,23 +100,21 @@ impl StreamWriter {
         let write_future: tokio::sync::oneshot::Receiver<Result<(), Error>> = match routing_key {
             Option::None => {
                 trace!("Writing a single event with no routing key");
-                self.factory
-                    .runtime()
+                self.runtime_handle
                     .block_on(self.writer.write_event(event.to_vec()))
             }
             Option::Some(key) => {
                 trace!("Writing a single event for a given routing key {:?}", key);
-                self.factory
-                    .runtime()
+                self.runtime_handle
                     .block_on(self.writer.write_event_by_routing_key(key.into(), event.to_vec()))
             }
         };
 
-        let _guard = self.factory.runtime().enter();
+        let _guard = self.runtime_handle.enter();
         let timeout_fut = timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), write_future);
 
         let result: Result<Result<Result<(), Error>, RecvError>, _> =
-            self.factory.runtime().block_on(timeout_fut);
+            self.runtime_handle.block_on(timeout_fut);
         match result {
             Ok(t) => match t {
                 Ok(t1) => match t1 {
