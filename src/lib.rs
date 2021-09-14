@@ -57,8 +57,9 @@ pub(crate) mod segment;
 #[cfg(feature = "integration-test")]
 #[doc(hidden)]
 pub mod test_utils;
+#[doc(hidden)]
 #[macro_use]
-mod util;
+pub mod util;
 #[macro_use]
 extern crate derive_new;
 pub mod error;
