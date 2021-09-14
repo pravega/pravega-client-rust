@@ -24,7 +24,6 @@ cfg_if! {
         use tokio::time::timeout;
         use tokio::sync::oneshot::error::RecvError;
         use pravega_client::util::oneshot_holder::OneShotHolder;
-        use std::io::Error;
     }
 }
 
@@ -38,7 +37,7 @@ pub(crate) struct StreamWriter {
     writer: EventWriter,
     runtime_handle: Handle,
     stream: ScopedStream,
-    inflight: OneShotHolder<Error>,
+    inflight: OneShotHolder<WriterError>,
 }
 
 // The amount of time the python api will wait for the underlying write to be completed.
