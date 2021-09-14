@@ -247,6 +247,7 @@ async fn test_multiple_writers_conditional_append(factory: &ClientFactory, strea
     assert!(writer_res.is_err() || flush_res.is_err());
 
     writer1.seek_to_tail().await;
+    writer1.reset().await.expect("reset writer");
     let _num = writer1.write(&payload).await.expect("writer1 write payload");
     assert_eq!(writer1.current_offset(), 3072);
     writer1.flush().await.expect("writer1 flush");
