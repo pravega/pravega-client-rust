@@ -227,10 +227,7 @@ async fn test_write_and_read_with_workload(writer: &mut ByteWriter, reader: &mut
     info!("test write and read with workload passed");
 }
 
-async fn test_multiple_writers_conditional_append(
-    factory: &ClientFactory,
-    stream: ScopedStream,
-) -> Result<(), Error> {
+async fn test_multiple_writers_conditional_append(factory: &ClientFactory, stream: ScopedStream) {
     info!("test byte stream multiple writers concurrent append");
     let mut writer1 = factory.create_byte_writer(stream.clone()).await;
     let payload = vec![1; 1024];
