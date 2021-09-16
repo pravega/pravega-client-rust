@@ -164,12 +164,8 @@ impl ByteWriter {
 
         while let Some(handle) = self.event_handles.front_mut() {
             if let Ok(res) = handle.try_recv() {
-                match res {
-                    Ok(_) => {
-                        self.event_handles.pop_front().expect("remove successful handle");
-                    }
-                    Err(e) => return Err(e),
-                }
+                res?;
+                self.event_handles.pop_front().expect("remove successful handle");
             } else {
                 break;
             }

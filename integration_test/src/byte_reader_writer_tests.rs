@@ -14,6 +14,7 @@ use crate::utils;
 use pravega_client::byte::reader::ByteReader;
 use pravega_client::byte::writer::ByteWriter;
 use pravega_client::client_factory::ClientFactory;
+use pravega_client::error::Error;
 use pravega_client::event::writer::EventWriter;
 use pravega_client_config::{connection_type::ConnectionType, ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_client_shared::*;
@@ -226,7 +227,10 @@ async fn test_write_and_read_with_workload(writer: &mut ByteWriter, reader: &mut
     info!("test write and read with workload passed");
 }
 
-async fn test_multiple_writers_conditional_append(factory: &ClientFactory, stream: ScopedStream) {
+async fn test_multiple_writers_conditional_append(
+    factory: &ClientFactory,
+    stream: ScopedStream,
+) -> Result<(), Error> {
     info!("test byte stream multiple writers concurrent append");
     let mut writer1 = factory.create_byte_writer(stream.clone()).await;
     let payload = vec![1; 1024];
