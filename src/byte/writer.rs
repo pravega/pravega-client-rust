@@ -187,16 +187,10 @@ impl ByteWriter {
     pub async fn flush(&mut self) -> Result<(), Error> {
         while self.event_handles.front().is_some() {
             let handle = self.event_handles.pop_front().expect("get first handle");
-            match handle.await {
-                Ok(res) => {
-                    res?;
-                }
-                Err(e) => {
-                    return Err(Error::InternalFailure {
-                        msg: format!("oneshot error {:?}", e),
-                    });
-                }
-            }
+            let event_result = handle.await.map_err(|e| Error::InternalFailure {
+                msg: format!("oneshot error {:?}", e),
+            })?;
+            event_result?;
         }
         Ok(())
     }
@@ -279,15 +273,13 @@ impl ByteWriter {
     pub async fn reset(&mut self) -> Result<(), Error> {
         self.event_handles.clear();
         // send reset signal to reactor
-        if let Err(e) = self
-            .sender
+        self.sender
             .send((Incoming::Reset(self.scoped_segment.clone()), 0))
             .await
-        {
-            return Err(Error::InternalFailure {
+            .map_err(|e| Error::InternalFailure {
                 msg: format!("failed to send request to reactor: {:?}", e),
-            });
-        }
+            })?;
+
         Ok(())
     }
 
