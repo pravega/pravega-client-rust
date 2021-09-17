@@ -3,7 +3,7 @@ name: documentation
 on:
   push:
     branches:
-      - master
+      - '**'
 
 jobs:
   generate_documentation:
@@ -39,10 +39,11 @@ jobs:
           maturin develop -m python_binding/Cargo.toml
           pdoc --html pravega_client
           mkdir -p book/book/python
-          cp html/pravega_client.html book/book/python
+          ls
+          #cp html/pravega_client/pravega_client.html book/book/python
 
-      - name: Deploy
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./book/book/
+#      - name: Deploy
+#        uses: peaceiris/actions-gh-pages@v3
+#        with:
+#          github_token: ${{ secrets.GITHUB_TOKEN }}
+#          publish_dir: ./book/book/
