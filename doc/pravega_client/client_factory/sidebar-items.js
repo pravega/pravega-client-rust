@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["ClientFactory","Applications should use ClientFactory to create resources they need."]]});
+initSidebarItems({"struct":[["ClientFactory","Applications should use ClientFactory to create resources they need."],["ClientFactoryAsync",""]]});

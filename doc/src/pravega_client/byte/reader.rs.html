@@ -1,7 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/byte/reader.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>reader.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../pravega_client/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src&#x2F;byte&#x2F;reader.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>reader.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../pravega_client/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input"name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -401,12 +398,7 @@
 <span id="398">398</span>
 <span id="399">399</span>
 <span id="400">400</span>
-<span id="401">401</span>
-<span id="402">402</span>
-<span id="403">403</span>
-<span id="404">404</span>
-<span id="405">405</span>
-</pre><div class="example-wrap"><pre class="rust ">
+</pre><pre class="rust">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
 <span class="comment">//</span>
@@ -417,14 +409,14 @@
 <span class="comment">// http://www.apache.org/licenses/LICENSE-2.0</span>
 <span class="comment">//</span>
 
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::client_factory::ClientFactory</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::client_factory::ClientFactoryAsync</span>;
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::segment::metadata::SegmentMetadataClient</span>;
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::segment::reader::PrefetchingAsyncSegmentReader</span>;
 
-<span class="kw">use</span> <span class="ident">pravega_client_shared::ScopedSegment</span>;
+<span class="kw">use</span> <span class="ident">pravega_client_shared</span>::{<span class="ident">ScopedSegment</span>, <span class="ident">ScopedStream</span>};
 
 <span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
-<span class="kw">use</span> <span class="ident">std::io</span>::{<span class="ident">Error</span>, <span class="ident">ErrorKind</span>, <span class="ident">Read</span>, <span class="ident">Seek</span>, <span class="ident">SeekFrom</span>};
+<span class="kw">use</span> <span class="ident">std::io</span>::{<span class="ident">Error</span>, <span class="ident">ErrorKind</span>, <span class="ident">SeekFrom</span>};
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">uuid::Uuid</span>;
 
@@ -447,67 +439,70 @@
 <span class="doccomment">/// # Examples</span>
 <span class="doccomment">/// ```no_run</span>
 <span class="doccomment">/// use pravega_client_config::ClientConfigBuilder;</span>
-<span class="doccomment">/// use pravega_client::client_factory::ClientFactory;</span>
-<span class="doccomment">/// use pravega_client_shared::ScopedSegment;</span>
-<span class="doccomment">/// use std::io::Read;</span>
+<span class="doccomment">/// use pravega_client::client_factory::ClientFactoryAsync;</span>
+<span class="doccomment">/// use pravega_client_shared::ScopedStream;</span>
+<span class="doccomment">/// use tokio::runtime::Handle;</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// fn main() {</span>
+<span class="doccomment">/// #[tokio::main]</span>
+<span class="doccomment">/// async fn main() {</span>
 <span class="doccomment">///     // assuming Pravega controller is running at endpoint `localhost:9090`</span>
 <span class="doccomment">///     let config = ClientConfigBuilder::default()</span>
 <span class="doccomment">///         .controller_uri(&quot;localhost:9090&quot;)</span>
 <span class="doccomment">///         .build()</span>
 <span class="doccomment">///         .expect(&quot;creating config&quot;);</span>
 <span class="doccomment">///</span>
-<span class="doccomment">///     let client_factory = ClientFactory::new(config);</span>
+<span class="doccomment">///     let handle = Handle::current();</span>
+<span class="doccomment">///     let client_factory = ClientFactoryAsync::new(config, handle);</span>
 <span class="doccomment">///</span>
-<span class="doccomment">///     // assuming scope:myscope, stream:mystream and segment with id 0 do exist.</span>
-<span class="doccomment">///     let segment = ScopedSegment::from(&quot;myscope/mystream/0&quot;);</span>
+<span class="doccomment">///     // assuming scope:myscope, stream:mystream exist.</span>
+<span class="doccomment">///     // notice that this stream should be a fixed sized single segment stream</span>
+<span class="doccomment">///     let stream = ScopedStream::from(&quot;myscope/mystream&quot;);</span>
 <span class="doccomment">///</span>
-<span class="doccomment">///     let mut byte_reader = client_factory.create_byte_reader(segment);</span>
+<span class="doccomment">///     let mut byte_reader = client_factory.create_byte_reader(stream).await;</span>
 <span class="doccomment">///     let mut buf: Vec&lt;u8&gt; = vec![0; 4];</span>
-<span class="doccomment">///     let size = byte_reader.read(&amp;mut buf).expect(&quot;read from byte stream&quot;);</span>
+<span class="doccomment">///     let size = byte_reader.read(&amp;mut buf).await.expect(&quot;read from byte stream&quot;);</span>
 <span class="doccomment">/// }</span>
 <span class="doccomment">/// ```</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ByteReader</span> {
     <span class="ident">reader_id</span>: <span class="ident">Uuid</span>,
+    <span class="kw">pub</span> <span class="ident">segment</span>: <span class="ident">ScopedSegment</span>,
     <span class="ident">reader</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PrefetchingAsyncSegmentReader</span><span class="op">&gt;</span>,
     <span class="ident">reader_buffer_size</span>: <span class="ident">usize</span>,
     <span class="ident">metadata_client</span>: <span class="ident">SegmentMetadataClient</span>,
-    <span class="ident">factory</span>: <span class="ident">ClientFactory</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">Read</span> <span class="kw">for</span> <span class="ident">ByteReader</span> {
-    <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">factory</span>
-            .<span class="ident">runtime</span>()
-            .<span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">reader</span>.<span class="ident">as_mut</span>().<span class="ident">unwrap</span>().<span class="ident">read</span>(<span class="ident">buf</span>));
-        <span class="ident">result</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">Error::new</span>(<span class="ident">ErrorKind::Other</span>, <span class="macro">format!</span>(<span class="string">&quot;Error: {:?}&quot;</span>, <span class="ident">e</span>)))
-    }
+    <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">ByteReader</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">segment</span>: <span class="ident">ScopedSegment</span>, <span class="ident">factory</span>: <span class="ident">ClientFactory</span>, <span class="ident">buffer_size</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="ident">factory</span>
-            .<span class="ident">runtime</span>()
-            .<span class="ident">block_on</span>(<span class="ident">ByteReader::new_async</span>(<span class="ident">segment</span>, <span class="ident">factory</span>.<span class="ident">clone</span>(), <span class="ident">buffer_size</span>))
-    }
-
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new_async</span>(
-        <span class="ident">segment</span>: <span class="ident">ScopedSegment</span>,
-        <span class="ident">factory</span>: <span class="ident">ClientFactory</span>,
-        <span class="ident">buffer_size</span>: <span class="ident">usize</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">async_reader</span> <span class="op">=</span> <span class="ident">factory</span>.<span class="ident">create_async_event_reader</span>(<span class="ident">segment</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">stream</span>: <span class="ident">ScopedStream</span>, <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>, <span class="ident">buffer_size</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="kw">let</span> <span class="ident">segments</span> <span class="op">=</span> <span class="ident">factory</span>
+            .<span class="ident">controller_client</span>()
+            .<span class="ident">get_head_segments</span>(<span class="kw-2">&amp;</span><span class="ident">stream</span>)
+            .<span class="kw">await</span>
+            .<span class="ident">expect</span>(<span class="string">&quot;get head segments&quot;</span>);
+        <span class="macro">assert_eq!</span>(
+            <span class="ident">segments</span>.<span class="ident">len</span>(),
+            <span class="number">1</span>,
+            <span class="string">&quot;Byte stream is configured with more than one segment&quot;</span>
+        );
+        <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="ident">segments</span>.<span class="ident">iter</span>().<span class="ident">next</span>().<span class="ident">unwrap</span>().<span class="number">0</span>.<span class="ident">clone</span>();
+        <span class="kw">let</span> <span class="ident">scoped_segment</span> <span class="op">=</span> <span class="ident">ScopedSegment</span> {
+            <span class="ident">scope</span>: <span class="ident">stream</span>.<span class="ident">scope</span>.<span class="ident">clone</span>(),
+            <span class="ident">stream</span>: <span class="ident">stream</span>.<span class="ident">stream</span>.<span class="ident">clone</span>(),
+            <span class="ident">segment</span>,
+        };
+        <span class="kw">let</span> <span class="ident">async_reader</span> <span class="op">=</span> <span class="ident">factory</span>.<span class="ident">create_async_segment_reader</span>(<span class="ident">scoped_segment</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
         <span class="kw">let</span> <span class="ident">async_reader_wrapper</span> <span class="op">=</span> <span class="ident">PrefetchingAsyncSegmentReader::new</span>(
-            <span class="ident">factory</span>.<span class="ident">runtime</span>().<span class="ident">handle</span>().<span class="ident">clone</span>(),
+            <span class="ident">factory</span>.<span class="ident">runtime_handle</span>(),
             <span class="ident">Arc::new</span>(<span class="ident">Box::new</span>(<span class="ident">async_reader</span>)),
             <span class="number">0</span>,
             <span class="ident">buffer_size</span>,
         );
-        <span class="kw">let</span> <span class="ident">metadata_client</span> <span class="op">=</span> <span class="ident">factory</span>.<span class="ident">create_segment_metadata_client</span>(<span class="ident">segment</span>).<span class="kw">await</span>;
+        <span class="kw">let</span> <span class="ident">metadata_client</span> <span class="op">=</span> <span class="ident">factory</span>
+            .<span class="ident">create_segment_metadata_client</span>(<span class="ident">scoped_segment</span>.<span class="ident">clone</span>())
+            .<span class="kw">await</span>;
         <span class="ident">ByteReader</span> {
             <span class="ident">reader_id</span>: <span class="ident">Uuid::new_v4</span>(),
+            <span class="ident">segment</span>: <span class="ident">scoped_segment</span>,
             <span class="ident">reader</span>: <span class="prelude-val">Some</span>(<span class="ident">async_reader_wrapper</span>),
             <span class="ident">reader_buffer_size</span>: <span class="ident">buffer_size</span>,
             <span class="ident">metadata_client</span>,
@@ -518,34 +513,17 @@
     <span class="doccomment">/// Read data asynchronously.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// ```ignore</span>
-    <span class="doccomment">/// let mut byte_reader = client_factory.create_byte_reader_async(segment).await;</span>
+    <span class="doccomment">/// let mut byte_reader = client_factory.create_byte_reader(segment).await;</span>
     <span class="doccomment">/// let mut buf: Vec&lt;u8&gt; = vec![0; 4];</span>
-    <span class="doccomment">/// let size = byte_reader.read_async(&amp;mut buf).expect(&quot;read&quot;);</span>
+    <span class="doccomment">/// let size = byte_reader.read(&amp;mut buf).expect(&quot;read&quot;);</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">read_async</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">reader</span>
             .<span class="ident">as_mut</span>()
             .<span class="ident">unwrap</span>()
             .<span class="ident">read</span>(<span class="ident">buf</span>)
             .<span class="kw">await</span>
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">Error::new</span>(<span class="ident">ErrorKind::Other</span>, <span class="macro">format!</span>(<span class="string">&quot;Error: {:?}&quot;</span>, <span class="ident">e</span>)))
-    }
-
-    <span class="doccomment">/// Return the head of current readable data in the segment.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The ByteReader is initialized to read from the segment at offset 0. However, it might</span>
-    <span class="doccomment">/// encounter the SegmentIsTruncated error due to the segment has been truncated. In this case,</span>
-    <span class="doccomment">/// application should call this method to get the current readable head and read from it.</span>
-    <span class="doccomment">/// ```ignore</span>
-    <span class="doccomment">/// let mut byte_reader = client_factory.create_byte_reader(segment);</span>
-    <span class="doccomment">/// let offset = byte_reader.current_head().expect(&quot;get current head offset&quot;);</span>
-    <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">current_head</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">factory</span>
-            .<span class="ident">runtime</span>()
-            .<span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">metadata_client</span>.<span class="ident">fetch_current_starting_head</span>())
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="ident">i</span> <span class="kw">as</span> <span class="ident">u64</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">Error::new</span>(<span class="ident">ErrorKind::Other</span>, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">e</span>)))
     }
 
     <span class="doccomment">/// Return the head of current readable data in the segment asynchronously.</span>
@@ -557,24 +535,10 @@
     <span class="doccomment">/// let mut byte_reader = client_factory.create_byte_reader_async(segment).await;</span>
     <span class="doccomment">/// let offset = byte_reader.current_head().await.expect(&quot;get current head offset&quot;);</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">current_head_async</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">current_head</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">metadata_client</span>
             .<span class="ident">fetch_current_starting_head</span>()
             .<span class="kw">await</span>
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="ident">i</span> <span class="kw">as</span> <span class="ident">u64</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">Error::new</span>(<span class="ident">ErrorKind::Other</span>, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">e</span>)))
-    }
-
-    <span class="doccomment">/// Return the tail offset of the segment.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ```ignore</span>
-    <span class="doccomment">/// let mut byte_reader = client_factory.create_byte_reader(segment);</span>
-    <span class="doccomment">/// let offset = byte_reader.current_tail().expect(&quot;get current tail offset&quot;);</span>
-    <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">current_tail</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">factory</span>
-            .<span class="ident">runtime</span>()
-            .<span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">metadata_client</span>.<span class="ident">fetch_current_segment_length</span>())
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="ident">i</span> <span class="kw">as</span> <span class="ident">u64</span>)
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">Error::new</span>(<span class="ident">ErrorKind::Other</span>, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">e</span>)))
     }
@@ -585,7 +549,7 @@
     <span class="doccomment">/// let mut byte_reader = client_factory.create_byte_reader_async(segment).await;</span>
     <span class="doccomment">/// let offset = byte_reader.current_tail().await.expect(&quot;get current tail offset&quot;);</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">current_tail_async</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">current_tail</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">metadata_client</span>
             .<span class="ident">fetch_current_segment_length</span>()
             .<span class="kw">await</span>
@@ -614,8 +578,10 @@
         <span class="self">self</span>.<span class="ident">reader</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>().<span class="ident">available</span>()
     }
 
-    <span class="doccomment">/// Seek to an offset asynchronously.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">seek_async</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">pos</span>: <span class="ident">SeekFrom</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// The seek method for ByteReader allows seeking to a byte offset from the beginning</span>
+    <span class="doccomment">/// of the stream or a byte offset relative to the current position in the stream.</span>
+    <span class="doccomment">/// If the stream has been truncated, the byte offset will be relative to the original beginning of the stream.</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">pos</span>: <span class="ident">SeekFrom</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="ident">pos</span> {
             <span class="ident">SeekFrom::Start</span>(<span class="ident">offset</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">offset</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
@@ -658,11 +624,10 @@
             }
         }
     }
-
     <span class="kw">fn</span> <span class="ident">recreate_reader_wrapper</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">i64</span>) {
         <span class="kw">let</span> <span class="ident">internal_reader</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">reader</span>.<span class="ident">take</span>().<span class="ident">unwrap</span>().<span class="ident">extract_reader</span>();
         <span class="kw">let</span> <span class="ident">new_reader_wrapper</span> <span class="op">=</span> <span class="ident">PrefetchingAsyncSegmentReader::new</span>(
-            <span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">runtime</span>().<span class="ident">handle</span>().<span class="ident">clone</span>(),
+            <span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">runtime_handle</span>(),
             <span class="ident">internal_reader</span>,
             <span class="ident">offset</span>,
             <span class="self">self</span>.<span class="ident">reader_buffer_size</span>,
@@ -671,133 +636,133 @@
     }
 }
 
-<span class="doccomment">/// The Seek implementation for ByteReader allows seeking to a byte offset from the beginning</span>
-<span class="doccomment">/// of the stream or a byte offset relative to the current position in the stream.</span>
-<span class="doccomment">/// If the stream has been truncated, the byte offset will be relative to the original beginning of the stream.</span>
-<span class="kw">impl</span> <span class="ident">Seek</span> <span class="kw">for</span> <span class="ident">ByteReader</span> {
-    <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">pos</span>: <span class="ident">SeekFrom</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">factory</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">clone</span>();
-        <span class="ident">factory</span>.<span class="ident">runtime</span>().<span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">seek_async</span>(<span class="ident">pos</span>))
-    }
-}
-
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
     <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::byte::writer::ByteWriter</span>;
+    <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::client_factory::ClientFactory</span>;
     <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::util::create_stream</span>;
     <span class="kw">use</span> <span class="ident">pravega_client_config::connection_type</span>::{<span class="ident">ConnectionType</span>, <span class="ident">MockType</span>};
     <span class="kw">use</span> <span class="ident">pravega_client_config::ClientConfigBuilder</span>;
     <span class="kw">use</span> <span class="ident">pravega_client_shared::PravegaNodeUri</span>;
-    <span class="kw">use</span> <span class="ident">std::io::Write</span>;
     <span class="kw">use</span> <span class="ident">tokio::runtime::Runtime</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_byte_seek</span>() {
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">Runtime::new</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">writer</span>, <span class="kw-2">mut</span> <span class="ident">reader</span>) <span class="op">=</span> <span class="ident">create_reader_and_writer</span>(<span class="kw-2">&amp;</span><span class="ident">rt</span>);
-
+        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">writer</span>, <span class="kw-2">mut</span> <span class="ident">reader</span>, <span class="ident">factory</span>) <span class="op">=</span> <span class="ident">create_reader_and_writer</span>(<span class="ident">Runtime::new</span>().<span class="ident">unwrap</span>());
+        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">factory</span>.<span class="ident">runtime</span>();
         <span class="comment">// write 200 bytes</span>
         <span class="kw">let</span> <span class="ident">payload</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">200</span>];
-        <span class="ident">writer</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">payload</span>).<span class="ident">expect</span>(<span class="string">&quot;write&quot;</span>);
-        <span class="ident">writer</span>.<span class="ident">flush</span>().<span class="ident">expect</span>(<span class="string">&quot;flush&quot;</span>);
+        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">writer</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">payload</span>)).<span class="ident">expect</span>(<span class="string">&quot;write&quot;</span>);
+        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">writer</span>.<span class="ident">flush</span>()).<span class="ident">expect</span>(<span class="string">&quot;flush&quot;</span>);
 
         <span class="comment">// read 200 bytes from beginning</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">200</span>];
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">read</span> <span class="op">=</span> <span class="number">0</span>;
         <span class="kw">while</span> <span class="ident">read</span> <span class="op">!</span><span class="op">=</span> <span class="number">200</span> {
-            <span class="kw">let</span> <span class="ident">r</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buf</span>).<span class="ident">expect</span>(<span class="string">&quot;read&quot;</span>);
+            <span class="kw">let</span> <span class="ident">r</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buf</span>)).<span class="ident">expect</span>(<span class="string">&quot;read&quot;</span>);
             <span class="ident">read</span> <span class="op">+</span><span class="op">=</span> <span class="ident">r</span>;
         }
         <span class="macro">assert_eq!</span>(<span class="ident">read</span>, <span class="number">200</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">buf</span>, <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">200</span>]);
         <span class="comment">// seek to head</span>
-        <span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Start</span>(<span class="number">0</span>)).<span class="ident">expect</span>(<span class="string">&quot;seek to head&quot;</span>);
+        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Start</span>(<span class="number">0</span>)))
+            .<span class="ident">expect</span>(<span class="string">&quot;seek to head&quot;</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">reader</span>.<span class="ident">current_offset</span>(), <span class="number">0</span>);
 
         <span class="comment">// seek to head with positive offset</span>
-        <span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Start</span>(<span class="number">100</span>)).<span class="ident">expect</span>(<span class="string">&quot;seek to head&quot;</span>);
+        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Start</span>(<span class="number">100</span>)))
+            .<span class="ident">expect</span>(<span class="string">&quot;seek to head&quot;</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">reader</span>.<span class="ident">current_offset</span>(), <span class="number">100</span>);
 
         <span class="comment">// seek to current with positive offset</span>
         <span class="macro">assert_eq!</span>(<span class="ident">reader</span>.<span class="ident">current_offset</span>(), <span class="number">100</span>);
-        <span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Current</span>(<span class="number">100</span>)).<span class="ident">expect</span>(<span class="string">&quot;seek to current&quot;</span>);
+        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Current</span>(<span class="number">100</span>)))
+            .<span class="ident">expect</span>(<span class="string">&quot;seek to current&quot;</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">reader</span>.<span class="ident">current_offset</span>(), <span class="number">200</span>);
 
         <span class="comment">// seek to current with negative offset</span>
-        <span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Current</span>(<span class="op">-</span><span class="number">100</span>)).<span class="ident">expect</span>(<span class="string">&quot;seek to current&quot;</span>);
+        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Current</span>(<span class="op">-</span><span class="number">100</span>)))
+            .<span class="ident">expect</span>(<span class="string">&quot;seek to current&quot;</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">reader</span>.<span class="ident">current_offset</span>(), <span class="number">100</span>);
 
         <span class="comment">// seek to current invalid negative offset</span>
-        <span class="macro">assert!</span>(<span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Current</span>(<span class="op">-</span><span class="number">200</span>)).<span class="ident">is_err</span>());
+        <span class="macro">assert!</span>(<span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Current</span>(<span class="op">-</span><span class="number">200</span>))).<span class="ident">is_err</span>());
 
         <span class="comment">// seek to end</span>
-        <span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::End</span>(<span class="number">0</span>)).<span class="ident">expect</span>(<span class="string">&quot;seek to end&quot;</span>);
+        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::End</span>(<span class="number">0</span>))).<span class="ident">expect</span>(<span class="string">&quot;seek to end&quot;</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">reader</span>.<span class="ident">current_offset</span>(), <span class="number">200</span>);
 
         <span class="comment">// seek to end with positive offset</span>
-        <span class="macro">assert!</span>(<span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::End</span>(<span class="number">1</span>)).<span class="ident">is_ok</span>());
+        <span class="macro">assert!</span>(<span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::End</span>(<span class="number">1</span>))).<span class="ident">is_ok</span>());
 
         <span class="comment">// seek to end with negative offset</span>
-        <span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::End</span>(<span class="op">-</span><span class="number">100</span>)).<span class="ident">expect</span>(<span class="string">&quot;seek to end&quot;</span>);
+        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::End</span>(<span class="op">-</span><span class="number">100</span>)))
+            .<span class="ident">expect</span>(<span class="string">&quot;seek to end&quot;</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">reader</span>.<span class="ident">current_offset</span>(), <span class="number">100</span>);
 
         <span class="comment">// seek to end with invalid negative offset</span>
-        <span class="macro">assert!</span>(<span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::End</span>(<span class="op">-</span><span class="number">300</span>)).<span class="ident">is_err</span>());
+        <span class="macro">assert!</span>(<span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::End</span>(<span class="op">-</span><span class="number">300</span>))).<span class="ident">is_err</span>());
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_byte_stream_truncate</span>() {
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">Runtime::new</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">writer</span>, <span class="kw-2">mut</span> <span class="ident">reader</span>) <span class="op">=</span> <span class="ident">create_reader_and_writer</span>(<span class="kw-2">&amp;</span><span class="ident">rt</span>);
-
+        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">writer</span>, <span class="kw-2">mut</span> <span class="ident">reader</span>, <span class="ident">factory</span>) <span class="op">=</span> <span class="ident">create_reader_and_writer</span>(<span class="ident">Runtime::new</span>().<span class="ident">unwrap</span>());
+        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">factory</span>.<span class="ident">runtime</span>();
         <span class="comment">// write 200 bytes</span>
         <span class="kw">let</span> <span class="ident">payload</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">200</span>];
-        <span class="ident">writer</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">payload</span>).<span class="ident">expect</span>(<span class="string">&quot;write&quot;</span>);
-        <span class="ident">writer</span>.<span class="ident">flush</span>().<span class="ident">expect</span>(<span class="string">&quot;flush&quot;</span>);
+        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">writer</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">payload</span>)).<span class="ident">expect</span>(<span class="string">&quot;write&quot;</span>);
+        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">writer</span>.<span class="ident">flush</span>()).<span class="ident">expect</span>(<span class="string">&quot;flush&quot;</span>);
 
         <span class="comment">// truncate to offset 100</span>
         <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">writer</span>.<span class="ident">truncate_data_before</span>(<span class="number">100</span>)).<span class="ident">expect</span>(<span class="string">&quot;truncate&quot;</span>);
 
         <span class="comment">// read truncated offset</span>
-        <span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Start</span>(<span class="number">0</span>)).<span class="ident">expect</span>(<span class="string">&quot;seek to head&quot;</span>);
+        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Start</span>(<span class="number">0</span>)))
+            .<span class="ident">expect</span>(<span class="string">&quot;seek to head&quot;</span>);
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">100</span>];
-        <span class="macro">assert!</span>(<span class="ident">reader</span>.<span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buf</span>).<span class="ident">is_err</span>());
+        <span class="macro">assert!</span>(<span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buf</span>)).<span class="ident">is_err</span>());
 
         <span class="comment">// read from current head</span>
-        <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">current_head</span>().<span class="ident">expect</span>(<span class="string">&quot;get current head&quot;</span>);
-        <span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Start</span>(<span class="ident">offset</span>)).<span class="ident">expect</span>(<span class="string">&quot;seek to new head&quot;</span>);
+        <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">current_head</span>()).<span class="ident">expect</span>(<span class="string">&quot;get current head&quot;</span>);
+        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Start</span>(<span class="ident">offset</span>)))
+            .<span class="ident">expect</span>(<span class="string">&quot;seek to new head&quot;</span>);
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">100</span>];
-        <span class="macro">assert!</span>(<span class="ident">reader</span>.<span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buf</span>).<span class="ident">is_ok</span>());
+        <span class="macro">assert!</span>(<span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buf</span>)).<span class="ident">is_ok</span>());
         <span class="macro">assert_eq!</span>(<span class="ident">buf</span>, <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">100</span>]);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_byte_stream_seal</span>() {
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">Runtime::new</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">writer</span>, <span class="kw-2">mut</span> <span class="ident">reader</span>) <span class="op">=</span> <span class="ident">create_reader_and_writer</span>(<span class="kw-2">&amp;</span><span class="ident">rt</span>);
+        <span class="kw">const</span> <span class="ident">BYTE_SIZE</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">200</span>;
+
+        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">writer</span>, <span class="kw-2">mut</span> <span class="ident">reader</span>, <span class="ident">factory</span>) <span class="op">=</span> <span class="ident">create_reader_and_writer</span>(<span class="ident">Runtime::new</span>().<span class="ident">unwrap</span>());
+        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">factory</span>.<span class="ident">runtime</span>();
 
         <span class="comment">// write 200 bytes</span>
-        <span class="kw">let</span> <span class="ident">payload</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">200</span>];
-        <span class="ident">writer</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">payload</span>).<span class="ident">expect</span>(<span class="string">&quot;write&quot;</span>);
-        <span class="ident">writer</span>.<span class="ident">flush</span>().<span class="ident">expect</span>(<span class="string">&quot;flush&quot;</span>);
+        <span class="kw">let</span> <span class="ident">payload</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">1</span>; <span class="ident">BYTE_SIZE</span>];
+        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">writer</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">payload</span>)).<span class="ident">expect</span>(<span class="string">&quot;write&quot;</span>);
+        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">writer</span>.<span class="ident">flush</span>()).<span class="ident">expect</span>(<span class="string">&quot;flush&quot;</span>);
 
         <span class="comment">// seal the segment</span>
         <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">writer</span>.<span class="ident">seal</span>()).<span class="ident">expect</span>(<span class="string">&quot;seal&quot;</span>);
 
         <span class="comment">// read sealed stream</span>
-        <span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Start</span>(<span class="number">0</span>)).<span class="ident">expect</span>(<span class="string">&quot;seek to new head&quot;</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">200</span>];
-        <span class="macro">assert!</span>(<span class="ident">reader</span>.<span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buf</span>).<span class="ident">is_ok</span>());
-        <span class="macro">assert_eq!</span>(<span class="ident">buf</span>, <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">200</span>]);
+        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Start</span>(<span class="number">0</span>)))
+            .<span class="ident">expect</span>(<span class="string">&quot;seek to new head&quot;</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">0</span>; <span class="ident">BYTE_SIZE</span>];
+        <span class="macro">assert!</span>(<span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">reader</span>.<span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buf</span>)).<span class="ident">is_ok</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">buf</span>, <span class="macro">vec!</span>[<span class="number">1</span>; <span class="ident">BYTE_SIZE</span>]);
 
-        <span class="kw">let</span> <span class="ident">payload</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">200</span>];
-        <span class="kw">let</span> <span class="ident">write_result</span> <span class="op">=</span> <span class="ident">writer</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">payload</span>);
-        <span class="kw">let</span> <span class="ident">flush_result</span> <span class="op">=</span> <span class="ident">writer</span>.<span class="ident">flush</span>();
+        <span class="kw">let</span> <span class="ident">payload</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">1</span>; <span class="ident">BYTE_SIZE</span>];
+        <span class="kw">let</span> <span class="ident">write_result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">writer</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">payload</span>));
+        <span class="kw">let</span> <span class="ident">flush_result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">writer</span>.<span class="ident">flush</span>());
         <span class="macro">assert!</span>(<span class="ident">write_result</span>.<span class="ident">is_err</span>() <span class="op">|</span><span class="op">|</span> <span class="ident">flush_result</span>.<span class="ident">is_err</span>());
     }
 
-    <span class="kw">fn</span> <span class="ident">create_reader_and_writer</span>(<span class="ident">runtime</span>: <span class="kw-2">&amp;</span><span class="ident">Runtime</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">ByteWriter</span>, <span class="ident">ByteReader</span>) {
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="attribute">#[<span class="ident">should_panic</span>(<span class="ident">expected</span> <span class="op">=</span> <span class="string">&quot;Byte stream is configured with more than one segment&quot;</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">test_invalid_stream_config</span>() {
         <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">ClientConfigBuilder::default</span>()
             .<span class="ident">connection_type</span>(<span class="ident">ConnectionType::Mock</span>(<span class="ident">MockType::Happy</span>))
             .<span class="ident">mock</span>(<span class="bool-val">true</span>)
@@ -805,13 +770,36 @@
             .<span class="ident">build</span>()
             .<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">factory</span> <span class="op">=</span> <span class="ident">ClientFactory::new</span>(<span class="ident">config</span>);
-        <span class="ident">runtime</span>.<span class="ident">block_on</span>(<span class="ident">create_stream</span>(<span class="kw-2">&amp;</span><span class="ident">factory</span>, <span class="string">&quot;testScope&quot;</span>, <span class="string">&quot;testStream&quot;</span>));
-        <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="ident">ScopedSegment::from</span>(<span class="string">&quot;testScope/testStream/0.#epoch.0&quot;</span>);
-        <span class="kw">let</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">factory</span>.<span class="ident">create_byte_writer</span>(<span class="ident">segment</span>.<span class="ident">clone</span>());
-        <span class="kw">let</span> <span class="ident">reader</span> <span class="op">=</span> <span class="ident">factory</span>.<span class="ident">create_byte_reader</span>(<span class="ident">segment</span>);
-        (<span class="ident">writer</span>, <span class="ident">reader</span>)
+        <span class="ident">factory</span>.<span class="ident">runtime</span>().<span class="ident">block_on</span>(<span class="ident">create_stream</span>(
+            <span class="kw-2">&amp;</span><span class="ident">factory</span>,
+            <span class="string">&quot;testScopeInvalid&quot;</span>,
+            <span class="string">&quot;testStreamInvalid&quot;</span>,
+            <span class="number">2</span>,
+        ));
+        <span class="kw">let</span> <span class="ident">stream</span> <span class="op">=</span> <span class="ident">ScopedStream::from</span>(<span class="string">&quot;testScopeInvalid/testStreamInvalid&quot;</span>);
+        <span class="ident">factory</span>.<span class="ident">runtime</span>().<span class="ident">block_on</span>(<span class="ident">factory</span>.<span class="ident">create_byte_reader</span>(<span class="ident">stream</span>));
+    }
+
+    <span class="kw">fn</span> <span class="ident">create_reader_and_writer</span>(<span class="ident">runtime</span>: <span class="ident">Runtime</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">ByteWriter</span>, <span class="ident">ByteReader</span>, <span class="ident">ClientFactory</span>) {
+        <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">ClientConfigBuilder::default</span>()
+            .<span class="ident">connection_type</span>(<span class="ident">ConnectionType::Mock</span>(<span class="ident">MockType::Happy</span>))
+            .<span class="ident">mock</span>(<span class="bool-val">true</span>)
+            .<span class="ident">controller_uri</span>(<span class="ident">PravegaNodeUri::from</span>(<span class="string">&quot;127.0.0.2:9091&quot;</span>.<span class="ident">to_string</span>()))
+            .<span class="ident">build</span>()
+            .<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">factory</span> <span class="op">=</span> <span class="ident">ClientFactory::new_with_runtime</span>(<span class="ident">config</span>, <span class="ident">runtime</span>);
+        <span class="ident">factory</span>
+            .<span class="ident">runtime</span>()
+            .<span class="ident">block_on</span>(<span class="ident">create_stream</span>(<span class="kw-2">&amp;</span><span class="ident">factory</span>, <span class="string">&quot;testScope&quot;</span>, <span class="string">&quot;testStream&quot;</span>, <span class="number">1</span>));
+        <span class="kw">let</span> <span class="ident">stream</span> <span class="op">=</span> <span class="ident">ScopedStream::from</span>(<span class="string">&quot;testScope/testStream&quot;</span>);
+        <span class="kw">let</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">factory</span>
+            .<span class="ident">runtime</span>()
+            .<span class="ident">block_on</span>(<span class="ident">factory</span>.<span class="ident">create_byte_writer</span>(<span class="ident">stream</span>.<span class="ident">clone</span>()));
+        <span class="kw">let</span> <span class="ident">reader</span> <span class="op">=</span> <span class="ident">factory</span>.<span class="ident">runtime</span>().<span class="ident">block_on</span>(<span class="ident">factory</span>.<span class="ident">create_byte_reader</span>(<span class="ident">stream</span>));
+        (<span class="ident">writer</span>, <span class="ident">reader</span>, <span class="ident">factory</span>)
     }
 }
 </pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
-    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script></body></html>
+    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script>
+</body></html>

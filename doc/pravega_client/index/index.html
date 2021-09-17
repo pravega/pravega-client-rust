@@ -1,0 +1,54 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The Index API provides a way to build a monotonic index with a stream."><meta name="keywords" content="rust, rustlang, rust-lang, index"><title>pravega_client::index - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg"><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../pravega_client/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a><h2 class="location">Module index</h2><div class="sidebar-elems"><div class="block items"><ul><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li></ul></div><div id="sidebar-vars" data-name="index" data-ty="mod" data-relpath="./"></div><script defer src="./sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input"name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../wheel.svg"></a></div></form></nav><section id="main" class="content"><h1 class="fqn"><span class="in-band">Module <a href="../index.html">pravega_client</a>::<wbr><a class="mod" href="#">index</a><button id="copy-path" onclick="copy_path(this)" title="copy path"><img src="../../clipboard.svg" width="19" height="18" alt="Copy item import" title="Copy item import to clipboard"></button></span><span class="out-of-band"><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="../../src/pravega_client/index/mod.rs.html#11-199" title="goto source code">[src]</a></span></h1><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The Index API provides a way to build a monotonic index with a stream.</p>
+<p>The index API writes a fixed sized [<code>IndexRecord</code>] to the stream. Each [<code>IndexRecord</code>] contains the user data
+and a number of user defined <code>field</code>s. A set of <code>field</code>s is called ‘Fields’.
+An example of <code>Fields</code> is showed as below:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">pravega_client_macros::Fields</span>;
+
+<span class="comment">// Use Fields procedural marco to auto implement the necessary trait for MyFields.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Fields</span>, <span class="ident">Debug</span>, <span class="ident">PartialOrd</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="kw">struct</span> <span class="ident">MyFields</span> {
+    <span class="ident">time</span>: <span class="ident">u64</span>, <span class="comment">// A field</span>
+    <span class="ident">id</span>: <span class="ident">u64</span>,
+}
+</pre></div>
+<p>To ensure the searching efficiency in an index stream, we impose some constraints to the <code>Fields</code>.
+Suppose we have <code>Fields</code> A and B</p>
+
+<div class='information'><div class='tooltip ignore'>ⓘ</div></div><div class="example-wrap"><pre class="rust rust-example-rendered ignore">
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Fields</span>, <span class="ident">Debug</span>, <span class="ident">PartialOrd</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="kw">struct</span> <span class="ident">A</span> {
+    <span class="ident">x</span>: <span class="ident">u64</span>,
+    <span class="ident">y</span>: <span class="ident">u64</span>,
+}
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Fields</span>, <span class="ident">Debug</span>, <span class="ident">PartialOrd</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="kw">struct</span> <span class="ident">B</span> {
+    <span class="ident">x</span>: <span class="ident">u64</span>,
+    <span class="ident">y</span>: <span class="ident">u64</span>,
+    <span class="ident">z</span>: <span class="ident">u64</span>,
+}</pre></div>
+<ul>
+<li>
+<p>The type of <code>field</code> has to be u64 and the value of the <code>field</code> must be monotonically increasing.
+It means that if A2 is written after A1, then it must satisfy x2 &gt;= x1 and y2 &gt;= y1.</p>
+</li>
+<li>
+<p>Upgrade is possible, meaning B can be written after A. But it has to meet two conditions: 1.
+B has to contain all the <code>field</code>s that A has and the order cannot change. 2. new <code>field</code>s can only
+be appended at the tail like <code>field</code> z.</p>
+</li>
+<li>
+<p>The Index Writer is generic over the <code>Fields</code> struct, user needs to create new an Index writer
+when doing upgrading.</p>
+</li>
+</ul>
+</div></details><h2 id="modules" class="section-header"><a href="#modules">Modules</a></h2>
+<div class="item-table"><div class="item-left module-item"><a class="mod" href="reader/index.html" title="pravega_client::index::reader mod">reader</a></div><div class="item-right docblock-short"></div><div class="item-left module-item"><a class="mod" href="writer/index.html" title="pravega_client::index::writer mod">writer</a></div><div class="item-right docblock-short"></div></div><h2 id="structs" class="section-header"><a href="#structs">Structs</a></h2>
+<div class="item-table"><div class="item-left module-item"><a class="struct" href="struct.IndexReader.html" title="pravega_client::index::IndexReader struct">IndexReader</a></div><div class="item-right docblock-short"><p>Index Reader reads the Index Record from Stream.</p>
+</div><div class="item-left module-item"><a class="struct" href="struct.IndexWriter.html" title="pravega_client::index::IndexWriter struct">IndexWriter</a></div><div class="item-right docblock-short"><p>Index Writer writes a fixed size Record to the stream.</p>
+</div></div><h2 id="constants" class="section-header"><a href="#constants">Constants</a></h2>
+<div class="item-table"><div class="item-left module-item"><a class="constant" href="constant.RECORD_SIZE.html" title="pravega_client::index::RECORD_SIZE constant">RECORD_SIZE</a></div><div class="item-right docblock-short"></div></div><h2 id="traits" class="section-header"><a href="#traits">Traits</a></h2>
+<div class="item-table"><div class="item-left module-item"><a class="trait" href="trait.Fields.html" title="pravega_client::index::Fields trait">Fields</a></div><div class="item-right docblock-short"></div><div class="item-left module-item"><a class="trait" href="trait.Value.html" title="pravega_client::index::Value trait">Value</a></div><div class="item-right docblock-short"></div></div></section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="pravega_client" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script>
+</body></html>

@@ -1,7 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/segment/writer.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>writer.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../pravega_client/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src&#x2F;segment&#x2F;writer.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>writer.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../pravega_client/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input"name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -802,7 +799,21 @@
 <span id="799">799</span>
 <span id="800">800</span>
 <span id="801">801</span>
-</pre><div class="example-wrap"><pre class="rust ">
+<span id="802">802</span>
+<span id="803">803</span>
+<span id="804">804</span>
+<span id="805">805</span>
+<span id="806">806</span>
+<span id="807">807</span>
+<span id="808">808</span>
+<span id="809">809</span>
+<span id="810">810</span>
+<span id="811">811</span>
+<span id="812">812</span>
+<span id="813">813</span>
+<span id="814">814</span>
+<span id="815">815</span>
+</pre><pre class="rust">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
 <span class="comment">//</span>
@@ -813,7 +824,8 @@
 <span class="comment">// http://www.apache.org/licenses/LICENSE-2.0</span>
 <span class="comment">//</span>
 
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::client_factory::ClientFactory</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::client_factory::ClientFactoryAsync</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::error::Error</span>;
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::segment::event</span>::{<span class="ident">Incoming</span>, <span class="ident">PendingEvent</span>, <span class="ident">ServerReply</span>, <span class="ident">WriterInfo</span>};
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::segment::raw_client</span>::{<span class="ident">RawClient</span>, <span class="ident">RawClientError</span>};
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::update</span>;
@@ -838,7 +850,6 @@
 <span class="kw">use</span> <span class="ident">snafu</span>::{<span class="ident">ResultExt</span>, <span class="ident">Snafu</span>};
 <span class="kw">use</span> <span class="ident">std::collections::VecDeque</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
-<span class="kw">use</span> <span class="ident">std::io</span>::{<span class="ident">Error</span>, <span class="ident">ErrorKind</span>};
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">tokio::select</span>;
 <span class="kw">use</span> <span class="ident">tokio::sync::oneshot</span>;
@@ -876,8 +887,13 @@
     <span class="comment">// Delegation token provider used to authenticate client when communicating with segmentstore.</span>
     <span class="ident">delegation_token_provider</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">DelegationTokenProvider</span><span class="op">&gt;</span>,
 
-    <span class="comment">// Number of consecutive reconnections</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">reconnection</span>: <span class="ident">i32</span>,
+    <span class="comment">// When ConditionalCheckFailure happens, there could be a race condition that the caller</span>
+    <span class="comment">// sends out an append before it receives the ConditionalCheckFailure. This append will succeed</span>
+    <span class="comment">// if it happens to have the correct offset, which breaks the ByteWriter contract.</span>
+    <span class="comment">// So it&#39;s necessary to let caller explicitly send a reset signal to the reactor indicating</span>
+    <span class="comment">// that the caller is fully aware of the ConditionalCheckFailure so any subsequent appends can be processed.</span>
+    <span class="comment">// Before receiving such reset signal, reactor will reject any append.</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">need_reset</span>: <span class="ident">bool</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">SegmentWriter</span> {
@@ -903,7 +919,7 @@
             <span class="ident">retry_policy</span>,
             <span class="ident">delegation_token_provider</span>,
             <span class="ident">connection_listener_handle</span>: <span class="prelude-val">None</span>,
-            <span class="ident">reconnection</span>: <span class="number">0</span>,
+            <span class="ident">need_reset</span>: <span class="bool-val">false</span>,
         }
     }
 
@@ -912,7 +928,7 @@
     <span class="doccomment">/// to the reactor for processing.</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">setup_connection</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">factory</span>: <span class="kw-2">&amp;</span><span class="ident">ClientFactory</span>,
+        <span class="ident">factory</span>: <span class="kw-2">&amp;</span><span class="ident">ClientFactoryAsync</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">span</span> <span class="op">=</span> <span class="macro">info_span!</span>(<span class="string">&quot;setup connection&quot;</span>, <span class="ident">segment_writer_id</span><span class="op">=</span> <span class="op">%</span><span class="self">self</span>.<span class="ident">id</span>, <span class="ident">segment</span><span class="op">=</span> <span class="op">%</span><span class="self">self</span>.<span class="ident">segment</span>, <span class="ident">host</span> <span class="op">=</span> <span class="ident">field::Empty</span>);
         <span class="comment">// span.enter doesn&#39;t work for async code https://docs.rs/tracing/0.1.17/tracing/span/struct.Span.html#in-asynchronous-code</span>
@@ -1198,15 +1214,15 @@
         <span class="ident">ret</span>
     }
 
-    <span class="doccomment">/// Reconnect will not exist until this writer has been successfully connected to the right host.</span>
+    <span class="doccomment">/// Reconnection will not exit until this writer has been successfully connected to the right host.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// It does the following steps:</span>
     <span class="doccomment">/// 1. sets up a new connection</span>
     <span class="doccomment">/// 2. puts inflight events back to the pending list</span>
     <span class="doccomment">/// 3. writes pending data to the server</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// If error occurs during any one of the steps above, redo the reconnect from step 1.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">reconnect</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">factory</span>: <span class="kw-2">&amp;</span><span class="ident">ClientFactory</span>) {
+    <span class="doccomment">/// If error occurs during any one of the steps above, redo the reconnection from step 1.</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">reconnect</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">factory</span>: <span class="kw-2">&amp;</span><span class="ident">ClientFactoryAsync</span>) {
         <span class="macro">debug!</span>(<span class="string">&quot;Reconnecting segment writer {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">id</span>);
         <span class="kw">let</span> <span class="ident">connection_id</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">write_half</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">connection</span> {
             <span class="ident">write_half</span>.<span class="ident">get_id</span>()
@@ -1250,9 +1266,7 @@
                 ))
                 .<span class="kw">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;send reconnect signal to reactor&quot;</span>);
-            <span class="kw">return</span>;
         }
-        <span class="self">self</span>.<span class="ident">reconnection</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
     }
 
     <span class="doccomment">/// Force delegation token provider to refresh.</span>
@@ -1265,10 +1279,12 @@
         <span class="comment">// remove failed append from inflight list</span>
         <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">append</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">inflight</span>.<span class="ident">pop_back</span>() {
             <span class="kw">if</span> <span class="ident">append</span>.<span class="ident">event_id</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">event_id</span> {
-                <span class="kw">let</span> <span class="ident">_res</span> <span class="op">=</span> <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">oneshot_sender</span>.<span class="ident">send</span>(<span class="ident">Result::Err</span>(<span class="ident">Error::new</span>(
-                    <span class="ident">ErrorKind::BrokenPipe</span>,
-                    <span class="string">&quot;conditional check failed&quot;</span>,
-                )));
+                <span class="kw">let</span> <span class="ident">_res</span> <span class="op">=</span> <span class="ident">append</span>
+                    .<span class="ident">event</span>
+                    .<span class="ident">oneshot_sender</span>
+                    .<span class="ident">send</span>(<span class="ident">Result::Err</span>(<span class="ident">Error::ConditionalCheckFailure</span> {
+                        <span class="ident">msg</span>: <span class="macro">format!</span>(<span class="string">&quot;Conditional check failed for event {}&quot;</span>, <span class="ident">append</span>.<span class="ident">event_id</span>),
+                    }));
             } <span class="kw">else</span> {
                 <span class="self">self</span>.<span class="ident">inflight</span>.<span class="ident">push_back</span>(<span class="ident">append</span>);
                 <span class="kw">break</span>;
@@ -1277,10 +1293,15 @@
 
         <span class="comment">// clear pending list</span>
         <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">append</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">pending</span>.<span class="ident">pop_back</span>() {
-            <span class="kw">let</span> <span class="ident">_res</span> <span class="op">=</span> <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">oneshot_sender</span>.<span class="ident">send</span>(<span class="ident">Result::Err</span>(<span class="ident">Error::new</span>(
-                <span class="ident">ErrorKind::BrokenPipe</span>,
-                <span class="string">&quot;conditional check failed&quot;</span>,
-            )));
+            <span class="kw">let</span> <span class="ident">_res</span> <span class="op">=</span> <span class="ident">append</span>
+                .<span class="ident">event</span>
+                .<span class="ident">oneshot_sender</span>
+                .<span class="ident">send</span>(<span class="ident">Result::Err</span>(<span class="ident">Error::ConditionalCheckFailure</span> {
+                    <span class="ident">msg</span>: <span class="macro">format!</span>(
+                        <span class="string">&quot;Conditional check failed in previous appends. Event id {}&quot;</span>,
+                        <span class="ident">append</span>.<span class="ident">event_id</span>
+                    ),
+                }));
         }
     }
 }
@@ -1338,11 +1359,15 @@
 
     <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Reactor is closed due to: {:?}&quot;</span>, <span class="ident">msg</span>))]</span>
     <span class="ident">ReactorClosed</span> { <span class="ident">msg</span>: <span class="ident">String</span> },
+
+    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Conditional check failed: {}&quot;</span>, <span class="ident">msg</span>))]</span>
+    <span class="ident">ConditionalCheckFailure</span> { <span class="ident">msg</span>: <span class="ident">String</span> },
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">test</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::client_factory::ClientFactory</span>;
     <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::segment::event::RoutingInfo</span>;
     <span class="kw">use</span> <span class="ident">pravega_client_channel</span>::{<span class="ident">create_channel</span>, <span class="ident">ChannelReceiver</span>};
     <span class="kw">use</span> <span class="ident">pravega_client_config::connection_type</span>::{<span class="ident">ConnectionType</span>, <span class="ident">MockType</span>};
@@ -1358,7 +1383,7 @@
         <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">segment_writer</span>, <span class="kw-2">mut</span> <span class="ident">sender</span>, <span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="ident">factory</span>) <span class="op">=</span> <span class="ident">create_segment_writer</span>(<span class="ident">MockType::Happy</span>);
 
         <span class="comment">// test set up connection</span>
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">segment_writer</span>.<span class="ident">setup_connection</span>(<span class="kw-2">&amp;</span><span class="ident">factory</span>));
+        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">segment_writer</span>.<span class="ident">setup_connection</span>(<span class="kw-2">&amp;</span><span class="ident">factory</span>.<span class="ident">to_async</span>()));
         <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
 
         <span class="comment">// write data using mock connection</span>
@@ -1408,7 +1433,7 @@
             <span class="ident">create_segment_writer</span>(<span class="ident">MockType::SegmentIsSealed</span>);
 
         <span class="comment">// test set up connection</span>
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">segment_writer</span>.<span class="ident">setup_connection</span>(<span class="kw-2">&amp;</span><span class="ident">factory</span>));
+        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">segment_writer</span>.<span class="ident">setup_connection</span>(<span class="kw-2">&amp;</span><span class="ident">factory</span>.<span class="ident">to_async</span>()));
         <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
 
         <span class="comment">// write data using mock connection to a sealed segment</span>
@@ -1438,7 +1463,7 @@
         <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">tokio::runtime::Runtime::new</span>().<span class="ident">unwrap</span>();
         <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">segment_writer</span>, <span class="kw-2">mut</span> <span class="ident">sender</span>, <span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="ident">factory</span>) <span class="op">=</span> <span class="ident">create_segment_writer</span>(<span class="ident">MockType::Happy</span>);
         <span class="comment">// test set up connection</span>
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">segment_writer</span>.<span class="ident">setup_connection</span>(<span class="kw-2">&amp;</span><span class="ident">factory</span>));
+        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">segment_writer</span>.<span class="ident">setup_connection</span>(<span class="kw-2">&amp;</span><span class="ident">factory</span>.<span class="ident">to_async</span>()));
         <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
 
         <span class="comment">// conditional and unconditional events should not be mixed</span>
@@ -1492,7 +1517,7 @@
         <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">tokio::runtime::Runtime::new</span>().<span class="ident">unwrap</span>();
         <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">segment_writer</span>, <span class="kw-2">mut</span> <span class="ident">sender</span>, <span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="ident">factory</span>) <span class="op">=</span> <span class="ident">create_segment_writer</span>(<span class="ident">MockType::Happy</span>);
         <span class="comment">// test set up connection</span>
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">segment_writer</span>.<span class="ident">setup_connection</span>(<span class="kw-2">&amp;</span><span class="ident">factory</span>));
+        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">segment_writer</span>.<span class="ident">setup_connection</span>(<span class="kw-2">&amp;</span><span class="ident">factory</span>.<span class="ident">to_async</span>()));
         <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
 
         <span class="comment">// wrong offset</span>
@@ -1606,4 +1631,5 @@
 }
 </pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
-    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script></body></html>
+    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script>
+</body></html>
