@@ -214,7 +214,7 @@ impl IndexReader {
             } else {
                 (end_offset - start_offset) / (RECORD_SIZE as u64)
             };
-            byte_reader.seek_async(SeekFrom::Start(start_offset))
+            byte_reader.seek(SeekFrom::Start(start_offset))
                 .await
                 .map_err(|e| IndexReaderError::InvalidOffset {
                     msg: format!("invalid seeking offset {:?}", e)
@@ -225,7 +225,7 @@ impl IndexReader {
                 while size_to_read != 0 {
                     let mut tmp_buf = vec![0; size_to_read];
                     let size = byte_reader
-                        .read_async(&mut tmp_buf)
+                        .read(&mut tmp_buf)
                         .await
                         .map_err(|e| IndexReaderError::Internal {
                             msg: format!("byte reader read error {:?}", e),

@@ -9,6 +9,7 @@
 //
 
 use crate::client_factory::ClientFactoryAsync;
+use crate::error::Error;
 use crate::segment::event::{Incoming, PendingEvent, RoutingInfo};
 use crate::segment::reactor::Reactor;
 
@@ -23,7 +24,6 @@ use futures::FutureExt;
 use snafu::{ResultExt, Snafu};
 use std::collections::BTreeMap;
 use std::collections::HashSet;
-use std::io::Error;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};

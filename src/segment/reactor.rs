@@ -15,10 +15,9 @@ use pravega_client_shared::*;
 use pravega_wire_protocol::wire_commands::Replies;
 
 use crate::client_factory::ClientFactoryAsync;
+use crate::error::Error;
 use crate::segment::event::{Incoming, RoutingInfo, ServerReply};
 use crate::segment::selector::SegmentSelector;
-
-const MAX_RECONNECTION_ALLOWED_FOR_CONDITIONAL_CHECK: i32 = 3;
 
 #[derive(new)]
 pub(crate) struct Reactor {}
@@ -55,6 +54,14 @@ impl Reactor {
                     RoutingInfo::Segment(segment) => selector.get_segment_writer_by_key(segment),
                 };
 
+                if event_segment_writer.need_reset {
+                    // ignore the send result since error means the receiver is dropped
+                    let _res = pending_event.oneshot_sender.send(Result::Err(Error::ConditionalCheckFailure {
+                        msg:
+                        "conditional check failed in previous appends, need to reset before processing new appends".to_string(),
+                    }));
+                    return Ok(());
+                }
                 if let Err(e) = event_segment_writer.write(pending_event, cap_guard).await {
                     warn!("failed to write append to segment due to {:?}, reconnecting", e);
                     event_segment_writer.reconnect(factory).await;
@@ -91,6 +98,12 @@ impl Reactor {
                 }
                 Ok(())
             }
+            Incoming::Reset(segment) => {
+                info!("reset writer for segment {:?} in reactor", segment);
+                let writer = selector.get_segment_writer_by_key(&segment);
+                writer.need_reset = false;
+                Ok(())
+            }
             Incoming::Close() => {
                 info!("receive signal to close reactor");
                 Err("close")
@@ -115,8 +128,6 @@ impl Reactor {
                     "data appended for writer {:?}, latest event id is: {:?}",
                     writer.id, cmd.event_number
                 );
-                // reconnection works as expected, set reconnection to 0
-                writer.reconnection = 0;
                 writer.ack(cmd.event_number);
                 if let Err(e) = writer.write_pending_events().await {
                     warn!(
@@ -170,22 +181,11 @@ impl Reactor {
 
             Replies::ConditionalCheckFailed(cmd) => {
                 if writer.id.0 == cmd.writer_id {
-                    if writer.reconnection > 0
-                        && writer.reconnection < MAX_RECONNECTION_ALLOWED_FOR_CONDITIONAL_CHECK
-                    {
-                        // Conditional check failed, but it could be caused by reconnection.
-                        // Reconnect again to fetch the latest event number from server.
-                        warn!(
-                            "conditional check failed {:?}, probably a false alarm caused by reconnection",
-                            cmd
-                        );
-                        writer.reconnect(factory).await;
-                    } else {
-                        // reconnection did not happen, conditional check failed must
-                        // be caused by interleaved data.
-                        warn!("conditional check failed {:?}", cmd);
-                        writer.fail_events_upon_conditional_check_failure(cmd.event_number);
-                    }
+                    // Conditional check failed caused by interleaved data.
+                    warn!("conditional check failed {:?}", cmd);
+                    writer.fail_events_upon_conditional_check_failure(cmd.event_number);
+                    // Caller need to send reset signal before new appends can be processed.
+                    writer.need_reset = true;
                 }
                 Ok(())
             }
@@ -203,11 +203,11 @@ impl Reactor {
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
+    use crate::error::Error;
     use crate::segment::event::{PendingEvent, RoutingInfo};
     use crate::segment::selector::test::create_segment_selector;
     use pravega_client_channel::ChannelSender;
     use pravega_client_config::connection_type::MockType;
-    use std::io::Error;
     use tokio::sync::oneshot;
 
     type EventHandle = oneshot::Receiver<Result<(), Error>>;

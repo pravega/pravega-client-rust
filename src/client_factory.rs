@@ -145,21 +145,11 @@ impl ClientFactory {
             .await
     }
 
-    pub fn create_byte_writer(&self, stream: ScopedStream) -> ByteWriter {
-        self.runtime
-            .block_on(self.client_factory_async.create_byte_writer(stream))
-    }
-
-    pub async fn create_byte_writer_async(&self, stream: ScopedStream) -> ByteWriter {
+    pub async fn create_byte_writer(&self, stream: ScopedStream) -> ByteWriter {
         self.client_factory_async.create_byte_writer(stream).await
     }
 
-    pub fn create_byte_reader(&self, stream: ScopedStream) -> ByteReader {
-        self.runtime
-            .block_on(self.client_factory_async.create_byte_reader(stream))
-    }
-
-    pub async fn create_byte_reader_async(&self, stream: ScopedStream) -> ByteReader {
+    pub async fn create_byte_reader(&self, stream: ScopedStream) -> ByteReader {
         self.client_factory_async.create_byte_reader(stream).await
     }
 

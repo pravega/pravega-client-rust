@@ -10,6 +10,7 @@
 
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
+        use pravega_client::error::Error as WriterError;
         use pravega_client::event::writer::EventWriter;
         use pravega_client_shared::ScopedStream;
         use pyo3::exceptions;
@@ -23,7 +24,6 @@ cfg_if! {
         use tokio::time::timeout;
         use tokio::sync::oneshot::error::RecvError;
         use pravega_client::util::oneshot_holder::OneShotHolder;
-        use std::io::Error;
     }
 }
 
@@ -37,7 +37,7 @@ pub(crate) struct StreamWriter {
     writer: EventWriter,
     runtime_handle: Handle,
     stream: ScopedStream,
-    inflight: OneShotHolder<Error>,
+    inflight: OneShotHolder<WriterError>,
 }
 
 // The amount of time the python api will wait for the underlying write to be completed.
@@ -115,7 +115,7 @@ impl StreamWriter {
     #[args(event, routing_key = "None", "*")]
     pub fn write_event_bytes(&mut self, event: &[u8], routing_key: Option<&str>) -> PyResult<()> {
         // to_vec creates an owned copy of the python byte array object.
-        let write_future: tokio::sync::oneshot::Receiver<Result<(), Error>> = match routing_key {
+        let write_future: tokio::sync::oneshot::Receiver<Result<(), WriterError>> = match routing_key {
             Option::None => {
                 trace!("Writing a single event with no routing key");
                 self.runtime_handle
@@ -133,7 +133,7 @@ impl StreamWriter {
             self.inflight.add(write_future),
         );
 
-        let result: Result<Result<Result<(), Error>, RecvError>, _> =
+        let result: Result<Result<Result<(), WriterError>, RecvError>, _> =
             self.runtime_handle.block_on(timeout_fut);
         match result {
             Ok(t) => match t {

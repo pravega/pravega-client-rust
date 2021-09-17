@@ -9,6 +9,7 @@
 //
 
 use crate::client_factory::ClientFactoryAsync;
+use crate::error::Error;
 use crate::segment::event::{Incoming, PendingEvent, RoutingInfo};
 use crate::segment::reactor::Reactor;
 use crate::util::get_random_u128;
@@ -16,7 +17,6 @@ use crate::util::get_random_u128;
 use pravega_client_channel::{create_channel, ChannelSender};
 use pravega_client_shared::{ScopedStream, WriterId};
 
-use std::io::{Error, ErrorKind};
 use tokio::sync::oneshot;
 use tracing::info_span;
 use tracing_futures::Instrument;
@@ -155,10 +155,9 @@ impl EventWriter {
         if let Err(_e) = self.sender.send((append_event, size)).await {
             let (tx_error, rx_error) = oneshot::channel();
             tx_error
-                .send(Err(Error::new(
-                    ErrorKind::BrokenPipe,
-                    "failed to send request to reactor",
-                )))
+                .send(Err(Error::InternalFailure {
+                    msg: "failed to send request to reactor".to_string(),
+                }))
                 .expect("send error");
             rx_error
         } else {
