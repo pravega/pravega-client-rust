@@ -33,6 +33,114 @@
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
+<dt id="pravega_client.pravega_client.ByteStream"><code class="flex name class">
+<span>class <span class="ident">ByteStream</span></span>
+<span>(</span><span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>This represents a Stream writer for a given Stream.
+Note: A python object of StreamWriter cannot be created directly without using the StreamManager.</p></div>
+<h3>Methods</h3>
+<dl>
+<dt id="pravega_client.pravega_client.ByteStream.current_head_offset"><code class="name flex">
+<span>def <span class="ident">current_head_offset</span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the current head offset of the Stream.</p></div>
+</dd>
+<dt id="pravega_client.pravega_client.ByteStream.current_tail_offset"><code class="name flex">
+<span>def <span class="ident">current_tail_offset</span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the current tail offset of the Stream.</p></div>
+</dd>
+<dt id="pravega_client.pravega_client.ByteStream.flush"><code class="name flex">
+<span>def <span class="ident">flush</span></span>(<span>self, /)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>This is is used to flush all the data to be persisted on the Pravega server side.</p>
+<pre><code>import pravega_client;
+manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
+// lets assume the Pravega scope and stream are already created.
+byte_stream=manager.create_byte_stream(&quot;scope&quot;, &quot;stream&quot;)
+
+byte_stream.write(b&quot;bytes&quot;)
+byte_stream.flush();
+</code></pre></div>
+</dd>
+<dt id="pravega_client.pravega_client.ByteStream.readinto"><code class="name flex">
+<span>def <span class="ident">readinto</span></span>(<span>self, /, byteArray)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>This is used to read bytes from a Pravega Stream into the specified buffer.</p>
+<pre><code>import pravega_client;
+manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
+// lets assume the Pravega scope and stream are already created.
+byte_stream=manager.create_byte_stream(&quot;scope&quot;, &quot;stream&quot;)
+
+byte_stream.write(b&quot;bytes&quot;)
+byte_stream.flush();
+buf = bytearray(5)
+byte_stream.readinto(buf)
+buf
+bytearray(b'bytes')
+</code></pre></div>
+</dd>
+<dt id="pravega_client.pravega_client.ByteStream.seek"><code class="name flex">
+<span>def <span class="ident">seek</span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Seek to a position within the stream.
+whence follows the same values as IOBase.seek (<a href="https://docs.python.org/3/library/io.html#io.IOBase.seek">https://docs.python.org/3/library/io.html#io.IOBase.seek</a>)
+where:</p>
+<pre><code class="language-bash">0: from start of the stream
+1: from current stream position
+2: from end of the stream
+</code></pre></div>
+</dd>
+<dt id="pravega_client.pravega_client.ByteStream.seekable"><code class="name flex">
+<span>def <span class="ident">seekable</span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Whether the buffer is seekable; here just for compatibility, it always returns True.</p></div>
+</dd>
+<dt id="pravega_client.pravega_client.ByteStream.tell"><code class="name flex">
+<span>def <span class="ident">tell</span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the current read position in the Stream.</p></div>
+</dd>
+<dt id="pravega_client.pravega_client.ByteStream.to_str"><code class="name flex">
+<span>def <span class="ident">to_str</span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the string representation.</p></div>
+</dd>
+<dt id="pravega_client.pravega_client.ByteStream.truncate"><code class="name flex">
+<span>def <span class="ident">truncate</span></span>(<span>self, /, offset)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Truncate Stream at the specified offset. All data before that offset will be truncated
+from the Pravega Stream.</p></div>
+</dd>
+<dt id="pravega_client.pravega_client.ByteStream.write"><code class="name flex">
+<span>def <span class="ident">write</span></span>(<span>self, /, byte_array)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Write a byte array into the Pravega Stream using a byte writer. The data is not persisted
+on the server side when this method returns, user should call a flush to ensure all data has
+been acknowledged by the server.</p>
+<pre><code>import pravega_client;
+manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
+// lets assume the Pravega scope and stream are already created.
+byte_stream=manager.create_byte_stream(&quot;scope&quot;, &quot;stream&quot;)
+
+byte_stream.write(b&quot;bytes&quot;)
+byte_stream.flush();
+</code></pre></div>
+</dd>
+</dl>
+</dd>
 <dt id="pravega_client.pravega_client.StreamManager"><code class="flex name class">
 <span>class <span class="ident">StreamManager</span></span>
 <span>(</span><span>controller_uri, auth_enabled, tls_enabled)</span>
@@ -49,6 +157,32 @@ manager=pravega_client.StreamManager(&quot;tls://127.0.0.1:9090&quot;)
 </code></pre></div>
 <h3>Methods</h3>
 <dl>
+<dt id="pravega_client.pravega_client.StreamManager.create_byte_stream"><code class="name flex">
+<span>def <span class="ident">create_byte_stream</span></span>(<span>self, /, scope_name, stream_name)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Create a Binary I/O representation of a Pravega Stream. This ByteStream implements the
+APIs provided by <a href="https://docs.python.org/3/library/io.html#io.IOBase">io.IOBase</a></p>
+<pre><code>import pravega_client;
+manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
+Create a Byte_stream against an already created Pravega scope and Stream.
+byte_stream=manager.create_byte_stream(&quot;scope&quot;, &quot;stream&quot;);
+# write bytes into the Pravega Stream.
+byte_stream.write(b&quot;bytes&quot;)
+5
+# Seek to a specified read offset.
+byte_stream.seek(2, 0)
+# Display the current read offset.
+byte_stream.tell()
+2
+
+buf=bytearray(5)
+byte_stream.readinto(buf)
+3
+buf
+bytearray(b'tes\x00\x00')
+</code></pre></div>
+</dd>
 <dt id="pravega_client.pravega_client.StreamManager.create_reader_group"><code class="name flex">
 <span>def <span class="ident">create_reader_group</span></span>(<span>self, /, reader_group_name, scope_name, stream_name)</span>
 </code></dt>
@@ -477,8 +611,24 @@ writer.write_event_bytes(e_bytes, &quot;key1&quot;)
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
+<h4><code><a title="pravega_client.pravega_client.ByteStream" href="#pravega_client.pravega_client.ByteStream">ByteStream</a></code></h4>
+<ul class="two-column">
+<li><code><a title="pravega_client.pravega_client.ByteStream.current_head_offset" href="#pravega_client.pravega_client.ByteStream.current_head_offset">current_head_offset</a></code></li>
+<li><code><a title="pravega_client.pravega_client.ByteStream.current_tail_offset" href="#pravega_client.pravega_client.ByteStream.current_tail_offset">current_tail_offset</a></code></li>
+<li><code><a title="pravega_client.pravega_client.ByteStream.flush" href="#pravega_client.pravega_client.ByteStream.flush">flush</a></code></li>
+<li><code><a title="pravega_client.pravega_client.ByteStream.readinto" href="#pravega_client.pravega_client.ByteStream.readinto">readinto</a></code></li>
+<li><code><a title="pravega_client.pravega_client.ByteStream.seek" href="#pravega_client.pravega_client.ByteStream.seek">seek</a></code></li>
+<li><code><a title="pravega_client.pravega_client.ByteStream.seekable" href="#pravega_client.pravega_client.ByteStream.seekable">seekable</a></code></li>
+<li><code><a title="pravega_client.pravega_client.ByteStream.tell" href="#pravega_client.pravega_client.ByteStream.tell">tell</a></code></li>
+<li><code><a title="pravega_client.pravega_client.ByteStream.to_str" href="#pravega_client.pravega_client.ByteStream.to_str">to_str</a></code></li>
+<li><code><a title="pravega_client.pravega_client.ByteStream.truncate" href="#pravega_client.pravega_client.ByteStream.truncate">truncate</a></code></li>
+<li><code><a title="pravega_client.pravega_client.ByteStream.write" href="#pravega_client.pravega_client.ByteStream.write">write</a></code></li>
+</ul>
+</li>
+<li>
 <h4><code><a title="pravega_client.pravega_client.StreamManager" href="#pravega_client.pravega_client.StreamManager">StreamManager</a></code></h4>
 <ul class="">
+<li><code><a title="pravega_client.pravega_client.StreamManager.create_byte_stream" href="#pravega_client.pravega_client.StreamManager.create_byte_stream">create_byte_stream</a></code></li>
 <li><code><a title="pravega_client.pravega_client.StreamManager.create_reader_group" href="#pravega_client.pravega_client.StreamManager.create_reader_group">create_reader_group</a></code></li>
 <li><code><a title="pravega_client.pravega_client.StreamManager.create_scope" href="#pravega_client.pravega_client.StreamManager.create_scope">create_scope</a></code></li>
 <li><code><a title="pravega_client.pravega_client.StreamManager.create_stream" href="#pravega_client.pravega_client.StreamManager.create_stream">create_stream</a></code></li>
