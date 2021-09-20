@@ -382,8 +382,8 @@ fn set_up_byte_stream_reader(config: ClientConfig, rt: &Runtime) -> ByteReader {
         &stream_name,
         1,
     ));
-    let scoped_segment = ScopedSegment::from("testByteReaderPerf/testByteReaderPerf/0");
-    client_factory.create_byte_reader(scoped_segment)
+    let scoped_stream = ScopedStream::from("testByteReaderPerf/testByteReaderPerf");
+    client_factory.create_byte_reader(scoped_stream)
 }
 
 async fn create_scope_stream(

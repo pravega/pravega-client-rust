@@ -93,7 +93,7 @@ pub struct IndexWriter<T: Fields + PartialOrd + PartialEq + Debug> {
 impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
     pub(crate) async fn new(factory: ClientFactoryAsync, stream: ScopedStream) -> Self {
         let mut byte_writer = factory.create_byte_writer(stream.clone()).await;
-        byte_writer.seek_to_tail_async().await;
+        byte_writer.seek_to_tail().await;
 
         let index_reader = factory.create_index_reader(stream.clone()).await;
         let tail_offset = index_reader.tail_offset().await.expect("get tail offset");
@@ -146,7 +146,7 @@ impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
     /// Flush data.
     pub async fn flush(&mut self) -> Result<(), IndexWriterError> {
         self.byte_writer
-            .flush_async()
+            .flush()
             .await
             .map_err(|e| IndexWriterError::Internal {
                 msg: format!("failed to flush data {:?}", e),
@@ -167,7 +167,7 @@ impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
         let fields_list = self.fields.as_ref().unwrap().get_field_values();
         let record = IndexRecord::new(fields_list, data);
         let encoded = record.write_fields().context(InvalidData {})?;
-        let _size = self.byte_writer.write_async(&encoded).await;
+        let _size = self.byte_writer.write(&encoded).await;
         Ok(())
     }
 
