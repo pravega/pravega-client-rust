@@ -13,6 +13,7 @@ cfg_if! {
         use crate::stream_writer_transactional::StreamTxnWriter;
         use crate::stream_writer::StreamWriter;
         use crate::stream_reader_group::StreamReaderGroup;
+        use crate::byte_stream::ByteStream;
         use pravega_client::client_factory::ClientFactory;
         use pravega_client_shared::*;
         use pravega_client_config::{ClientConfig, ClientConfigBuilder};
@@ -504,6 +505,51 @@ impl StreamManager {
         );
         let reader_group = StreamReaderGroup::new(rg, self.cf.runtime_handle(), scoped_stream);
         Ok(reader_group)
+    }
+
+    ///
+    /// Create a Binary I/O representation of a Pravega Stream. This ByteStream implements the
+    /// APIs provided by [io.IOBase](https://docs.python.org/3/library/io.html#io.IOBase)
+    ///
+    /// ```
+    /// import pravega_client;
+    /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
+    /// Create a Byte_stream against an already created Pravega scope and Stream.
+    /// byte_stream=manager.create_byte_stream("scope", "stream");
+    /// # write bytes into the Pravega Stream.
+    /// byte_stream.write(b"bytes")
+    /// 5
+    /// # Seek to a specified read offset.
+    /// byte_stream.seek(2, 0)
+    /// # Display the current read offset.
+    /// byte_stream.tell()
+    /// 2
+    ///
+    /// buf=bytearray(5)
+    /// byte_stream.readinto(buf)
+    /// 3
+    /// buf
+    /// bytearray(b'tes\x00\x00')
+    /// ```
+    ///
+    #[text_signature = "($self, scope_name, stream_name)"]
+    pub fn create_byte_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<ByteStream> {
+        let scoped_stream = ScopedStream {
+            scope: Scope::from(scope_name.to_string()),
+            stream: Stream::from(stream_name.to_string()),
+        };
+
+        let byte_stream = ByteStream::new(
+            scoped_stream.clone(),
+            self.cf.runtime_handle(),
+            self.cf
+                .runtime_handle()
+                .block_on(self.cf.create_byte_writer(scoped_stream.clone())),
+            self.cf
+                .runtime_handle()
+                .block_on(self.cf.create_byte_reader(scoped_stream)),
+        );
+        Ok(byte_stream)
     }
 
     /// Returns the string representation.
