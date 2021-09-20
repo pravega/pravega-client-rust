@@ -542,8 +542,12 @@ impl StreamManager {
         let byte_stream = ByteStream::new(
             scoped_stream.clone(),
             self.cf.runtime_handle(),
-            self.cf.create_byte_writer(scoped_stream.clone()),
-            self.cf.create_byte_reader(scoped_stream),
+            self.cf
+                .runtime_handle()
+                .block_on(self.cf.create_byte_writer(scoped_stream.clone())),
+            self.cf
+                .runtime_handle()
+                .block_on(self.cf.create_byte_reader(scoped_stream)),
         );
         Ok(byte_stream)
     }

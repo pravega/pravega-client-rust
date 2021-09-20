@@ -13,7 +13,7 @@ cfg_if! {
         use std::time::Duration;
         use pravega_client::byte::{ByteReader, ByteWriter};
         use pyo3::types::PyByteArray;
-        use std::io::{ Read, Seek, SeekFrom, Write};
+        use std::io::SeekFrom;
         use pravega_client_shared::ScopedStream;
         use pyo3::exceptions;
         use pyo3::prelude::*;
@@ -64,7 +64,7 @@ impl ByteStream {
     #[args(byte_array)]
     pub fn write(&mut self, byte_array: &[u8]) -> PyResult<usize> {
         trace!("Writing a byte array to stream {:?}", self.stream);
-        match self.writer.write(byte_array) {
+        match self.runtime_handle.block_on(self.writer.write(byte_array)) {
             Ok(bytes_written) => Ok(bytes_written),
             Err(e) => Err(exceptions::PyOSError::new_err(format!(
                 "Error while writing into ByteStream {:?}",
@@ -89,7 +89,7 @@ impl ByteStream {
     #[text_signature = "($self)"]
     pub fn flush(&mut self) -> PyResult<()> {
         info!("Flush all data into Pravega Stream {:?}", self.stream);
-        match self.writer.flush() {
+        match self.runtime_handle.block_on(self.writer.flush()) {
             Ok(()) => Ok(()),
             Err(e) => Err(exceptions::PyOSError::new_err(format!(
                 "Error while flushing data into ByteStream {:?}",
@@ -119,7 +119,7 @@ impl ByteStream {
     pub fn readinto(&mut self, buf: &PyByteArray) -> PyResult<usize> {
         trace!("Reading binary data from stream {:?} into buffer", buf);
         let destination_buffer = unsafe { buf.as_bytes_mut() };
-        match self.reader.read(destination_buffer) {
+        match self.runtime_handle.block_on(self.reader.read(destination_buffer)) {
             Ok(bytes_read) => Ok(bytes_read),
             Err(e) => Err(exceptions::PyOSError::new_err(format!(
                 "Error while reading from ByteStream {:?}",
@@ -147,7 +147,7 @@ impl ByteStream {
                     "whence should be one of 0: seek from start, 1: seek from current, or 2: seek from end",
                 )),
             };
-        match self.reader.seek(pos) {
+        match self.runtime_handle.block_on(self.reader.seek(pos)) {
             Ok(new_start_offset) => Ok(new_start_offset),
             Err(e) => Err(exceptions::PyValueError::new_err(format!(
                 "Error while seeking to offset {:?}",
@@ -174,7 +174,7 @@ impl ByteStream {
     /// Get the current head offset of the Stream.
     ///
     pub fn current_head_offset(&self) -> PyResult<u64> {
-        let res = self.reader.current_head();
+        let res = self.runtime_handle.block_on(self.reader.current_head());
         match res {
             Ok(t) => Ok(t),
             Err(e) => Err(exceptions::PyOSError::new_err(format!(
@@ -188,11 +188,20 @@ impl ByteStream {
     /// Get the current tail offset of the Stream.
     ///
     pub fn current_tail_offset(&self) -> PyResult<u64> {
-        let res = self.reader.current_tail();
+        let res_future = self.reader.current_tail();
+        let _guard = self.runtime_handle.enter();
+        let timeout_fut = timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), res_future);
+        let res = self.runtime_handle.block_on(timeout_fut);
         match res {
-            Ok(t) => Ok(t),
+            Ok(t) => match t {
+                Ok(offset) => Ok(offset),
+                Err(e) => Err(exceptions::PyOSError::new_err(format!(
+                    "Error while fetching tail offset ByteStream {:?}",
+                    e
+                ))),
+            },
             Err(e) => Err(exceptions::PyOSError::new_err(format!(
-                "Error while fetching the tail offset of ByteStream {:?}",
+                "Fetching tail offset timed out, please check connectivity with Pravega. {:?}",
                 e
             ))),
         }
@@ -234,7 +243,7 @@ impl ByteStream {
 impl Drop for ByteStream {
     fn drop(&mut self) {
         info!("Drop invoked on ByteStream {:?}, invoking flush", self.stream);
-        if let Err(e) = self.writer.flush() {
+        if let Err(e) = self.runtime_handle.block_on(self.writer.flush()) {
             error!("Error while flushing byteStream {:?}", e);
         }
     }
