@@ -7,7 +7,7 @@
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
 use crate::sync::table::{Table, TableError, Version};
 
 use pravega_client_shared::Scope;
@@ -120,7 +120,7 @@ const MAX_RETRIES: i32 = 10;
 const DELAY_MILLIS: u64 = 1000;
 
 impl Synchronizer {
-    pub async fn new(scope: Scope, name: String, factory: ClientFactory) -> Synchronizer {
+    pub(crate) async fn new(scope: Scope, name: String, factory: ClientFactoryAsync) -> Synchronizer {
         let table_map = Table::new(scope, name.clone(), factory)
             .await
             .expect("create table");
@@ -915,6 +915,7 @@ fn apply_deletes_to_localmap(to_delete: &mut Update, table_synchronizer: &mut Sy
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::client_factory::ClientFactory;
     use crate::sync::synchronizer::{deserialize_from, Update};
     use crate::sync::synchronizer::{serialize, Value};
     use pravega_client_config::connection_type::{ConnectionType, MockType};

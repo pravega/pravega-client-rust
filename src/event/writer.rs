@@ -8,7 +8,8 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
+use crate::error::Error;
 use crate::segment::event::{Incoming, PendingEvent, RoutingInfo};
 use crate::segment::reactor::Reactor;
 use crate::util::get_random_u128;
@@ -16,7 +17,6 @@ use crate::util::get_random_u128;
 use pravega_client_channel::{create_channel, ChannelSender};
 use pravega_client_shared::{ScopedStream, WriterId};
 
-use std::io::{Error, ErrorKind};
 use tokio::sync::oneshot;
 use tracing::info_span;
 use tracing_futures::Instrument;
@@ -82,14 +82,14 @@ impl EventWriter {
     // maximum 16 MB total size of events could be held in memory
     const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
-    pub(crate) fn new(stream: ScopedStream, factory: ClientFactory) -> Self {
+    pub(crate) fn new(stream: ScopedStream, factory: ClientFactoryAsync) -> Self {
         let (tx, rx) = create_channel(Self::CHANNEL_CAPACITY);
         let writer_id = WriterId::from(get_random_u128());
         let span = info_span!("Reactor", event_stream_writer = %writer_id);
         // spawn is tied to the factory runtime.
         factory
-            .runtime()
-            .spawn(Reactor::run(stream, tx.clone(), rx, factory.clone(), None).instrument(span));
+            .runtime_handle()
+            .spawn(Reactor::run(stream, tx.clone(), rx, factory, None).instrument(span));
         EventWriter {
             writer_id,
             sender: tx,
@@ -155,10 +155,9 @@ impl EventWriter {
         if let Err(_e) = self.sender.send((append_event, size)).await {
             let (tx_error, rx_error) = oneshot::channel();
             tx_error
-                .send(Err(Error::new(
-                    ErrorKind::BrokenPipe,
-                    "failed to send request to reactor",
-                )))
+                .send(Err(Error::InternalFailure {
+                    msg: "failed to send request to reactor".to_string(),
+                }))
                 .expect("send error");
             rx_error
         } else {

@@ -8,20 +8,22 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use std::io::Error;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
+        use pravega_client::error::Error as WriterError;
         use pravega_client::event::writer::EventWriter;
         use pravega_client_shared::ScopedStream;
-        use pravega_client::client_factory::ClientFactory;
         use pyo3::exceptions;
         use pyo3::prelude::*;
         use pyo3::PyResult;
         use pyo3::PyObjectProtocol;
         use tracing::trace;
+        use tracing::info;
         use std::time::Duration;
+        use tokio::runtime::Handle;
         use tokio::time::timeout;
         use tokio::sync::oneshot::error::RecvError;
+        use pravega_client::util::oneshot_holder::OneShotHolder;
     }
 }
 
@@ -31,15 +33,31 @@ cfg_if! {
 ///
 #[cfg(feature = "python_binding")]
 #[pyclass]
-#[derive(new)]
 pub(crate) struct StreamWriter {
     writer: EventWriter,
-    factory: ClientFactory,
+    runtime_handle: Handle,
     stream: ScopedStream,
+    inflight: OneShotHolder<WriterError>,
 }
 
 // The amount of time the python api will wait for the underlying write to be completed.
 const TIMEOUT_IN_SECONDS: u64 = 120;
+
+impl StreamWriter {
+    pub fn new(
+        writer: EventWriter,
+        runtime_handle: Handle,
+        stream: ScopedStream,
+        max_inflight_count: usize,
+    ) -> Self {
+        StreamWriter {
+            writer,
+            runtime_handle,
+            stream,
+            inflight: OneShotHolder::new(max_inflight_count),
+        }
+    }
+}
 
 #[cfg(feature = "python_binding")]
 #[pymethods]
@@ -97,26 +115,26 @@ impl StreamWriter {
     #[args(event, routing_key = "None", "*")]
     pub fn write_event_bytes(&mut self, event: &[u8], routing_key: Option<&str>) -> PyResult<()> {
         // to_vec creates an owned copy of the python byte array object.
-        let write_future: tokio::sync::oneshot::Receiver<Result<(), Error>> = match routing_key {
+        let write_future: tokio::sync::oneshot::Receiver<Result<(), WriterError>> = match routing_key {
             Option::None => {
                 trace!("Writing a single event with no routing key");
-                self.factory
-                    .runtime()
+                self.runtime_handle
                     .block_on(self.writer.write_event(event.to_vec()))
             }
             Option::Some(key) => {
                 trace!("Writing a single event for a given routing key {:?}", key);
-                self.factory
-                    .runtime()
+                self.runtime_handle
                     .block_on(self.writer.write_event_by_routing_key(key.into(), event.to_vec()))
             }
         };
+        let _guard = self.runtime_handle.enter();
+        let timeout_fut = timeout(
+            Duration::from_secs(TIMEOUT_IN_SECONDS),
+            self.inflight.add(write_future),
+        );
 
-        let _guard = self.factory.runtime().enter();
-        let timeout_fut = timeout(Duration::from_secs(TIMEOUT_IN_SECONDS), write_future);
-
-        let result: Result<Result<Result<(), Error>, RecvError>, _> =
-            self.factory.runtime().block_on(timeout_fut);
+        let result: Result<Result<Result<(), WriterError>, RecvError>, _> =
+            self.runtime_handle.block_on(timeout_fut);
         match result {
             Ok(t) => match t {
                 Ok(t1) => match t1 {
@@ -137,9 +155,50 @@ impl StreamWriter {
         }
     }
 
+    ///
+    /// Flush all the inflight events into Pravega Stream.
+    /// This will ensure all the inflight events are completely persisted on the Pravega Stream.
+    ///
+    #[text_signature = "($self)"]
+    #[args("*")]
+    pub fn flush(&mut self) -> PyResult<()> {
+        info!("Invoking flush() on writer {:?}", self.to_str());
+        let mut flush_result: PyResult<()> = Ok(());
+        for x in self.inflight.drain() {
+            let res = self.runtime_handle.block_on(x);
+            // fail fast on error.
+            if let Err(e) = res {
+                info!(
+                    "RecvError observed while flushing events on stream {:?}",
+                    self.stream
+                );
+                flush_result = Err(exceptions::PyValueError::new_err(format!(
+                    "RecvError observed while writing an event {:?}",
+                    e
+                )));
+                break;
+            } else if let Err(e) = res.unwrap() {
+                info!("Error observed while flushing events on {:?}", self.stream);
+                flush_result = Err(exceptions::PyValueError::new_err(format!(
+                    "Error observed while writing an event {:?}",
+                    e
+                )));
+                break;
+            }
+            flush_result = Ok(());
+        }
+        flush_result
+    }
+
     /// Returns the string representation.
     fn to_str(&self) -> String {
         format!("Stream: {:?} ", self.stream)
+    }
+}
+
+impl Drop for StreamWriter {
+    fn drop(&mut self) {
+        let _ = self.flush();
     }
 }
 

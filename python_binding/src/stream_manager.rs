@@ -13,6 +13,7 @@ cfg_if! {
         use crate::stream_writer_transactional::StreamTxnWriter;
         use crate::stream_writer::StreamWriter;
         use crate::stream_reader_group::StreamReaderGroup;
+        use crate::byte_stream::ByteStream;
         use pravega_client::client_factory::ClientFactory;
         use pravega_client_shared::*;
         use pravega_client_config::{ClientConfig, ClientConfigBuilder};
@@ -206,7 +207,7 @@ impl StreamManager {
     ///
     #[text_signature = "($self, scope_name)"]
     pub fn create_scope(&self, scope_name: &str) -> PyResult<bool> {
-        let handle = self.cf.runtime();
+        let handle = self.cf.runtime_handle();
 
         info!("creating scope {:?}", scope_name);
 
@@ -226,7 +227,7 @@ impl StreamManager {
     ///
     #[text_signature = "($self, scope_name)"]
     pub fn delete_scope(&self, scope_name: &str) -> PyResult<bool> {
-        let handle = self.cf.runtime();
+        let handle = self.cf.runtime_handle();
         info!("Delete scope {:?}", scope_name);
 
         let controller = self.cf.controller_client();
@@ -257,7 +258,7 @@ impl StreamManager {
         retention_policy: StreamRetentionPolicy,
         tags: Option<Vec<String>>,
     ) -> PyResult<bool> {
-        let handle = self.cf.runtime();
+        let handle = self.cf.runtime_handle();
         info!(
             "creating stream {:?} under scope {:?} with scaling policy {:?}, retention policy {:?} and tags {:?}",
             stream_name, scope_name, scaling_policy.scaling, retention_policy.retention, tags
@@ -317,7 +318,7 @@ impl StreamManager {
         retention_policy: StreamRetentionPolicy,
         tags: Option<Vec<String>>,
     ) -> PyResult<bool> {
-        let handle = self.cf.runtime();
+        let handle = self.cf.runtime_handle();
         info!(
             "updating stream {:?} under scope {:?} with scaling policy {:?}, retention policy {:?} and tags {:?}",
             stream_name, scope_name, scaling_policy.scaling, retention_policy.retention, tags
@@ -346,7 +347,7 @@ impl StreamManager {
     ///
     #[text_signature = "($self, scope_name, stream_name, scaling_policy, retention_policy, tags)"]
     pub fn get_stream_tags(&self, scope_name: &str, stream_name: &str) -> PyResult<Option<Vec<String>>> {
-        let handle = self.cf.runtime();
+        let handle = self.cf.runtime_handle();
         info!(
             "fetch tags for stream {:?} under scope {:?}",
             stream_name, scope_name,
@@ -370,7 +371,7 @@ impl StreamManager {
     ///
     #[text_signature = "($self, scope_name, stream_name)"]
     pub fn seal_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
-        let handle = self.cf.runtime();
+        let handle = self.cf.runtime_handle();
         info!("Sealing stream {:?} under scope {:?} ", stream_name, scope_name);
         let scoped_stream = ScopedStream {
             scope: Scope::from(scope_name.to_string()),
@@ -392,7 +393,7 @@ impl StreamManager {
     ///
     #[text_signature = "($self, scope_name, stream_name)"]
     pub fn delete_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
-        let handle = self.cf.runtime();
+        let handle = self.cf.runtime_handle();
         info!("Deleting stream {:?} under scope {:?} ", stream_name, scope_name);
         let scoped_stream = ScopedStream {
             scope: Scope::from(scope_name.to_string()),
@@ -416,18 +417,31 @@ impl StreamManager {
     /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
     /// // Create a writer against an already created Pravega scope and Stream.
     /// writer=manager.create_writer("scope", "stream")
+    ///
+    /// By default the max inflight events is configured for 0. The users can change this value
+    /// to ensure there are multiple inflight events at any given point in time and can use the
+    /// flush() API on the writer to wait until all the events are persisted.
+    ///
+    ///
     /// ```
     ///
-    #[text_signature = "($self, scope_name, stream_name)"]
-    pub fn create_writer(&self, scope_name: &str, stream_name: &str) -> PyResult<StreamWriter> {
+    #[text_signature = "($self, scope_name, stream_name, max_inflight_events)"]
+    #[args(scope_name, stream_name, max_inflight_events = 0)]
+    pub fn create_writer(
+        &self,
+        scope_name: &str,
+        stream_name: &str,
+        max_inflight_events: usize,
+    ) -> PyResult<StreamWriter> {
         let scoped_stream = ScopedStream {
             scope: Scope::from(scope_name.to_string()),
             stream: Stream::from(stream_name.to_string()),
         };
         let stream_writer = StreamWriter::new(
             self.cf.create_event_writer(scoped_stream.clone()),
-            self.cf.clone(),
+            self.cf.runtime_handle(),
             scoped_stream,
+            max_inflight_events,
         );
         Ok(stream_writer)
     }
@@ -453,12 +467,12 @@ impl StreamManager {
             scope: Scope::from(scope_name.to_owned()),
             stream: Stream::from(stream_name.to_owned()),
         };
-        let handle = self.cf.runtime();
+        let handle = self.cf.runtime_handle();
         let txn_writer = handle.block_on(
             self.cf
                 .create_transactional_event_writer(scoped_stream.clone(), WriterId(writer_id)),
         );
-        let txn_stream_writer = StreamTxnWriter::new(txn_writer, self.cf.clone(), scoped_stream);
+        let txn_stream_writer = StreamTxnWriter::new(txn_writer, self.cf.runtime_handle(), scoped_stream);
         Ok(txn_stream_writer)
     }
 
@@ -481,17 +495,61 @@ impl StreamManager {
     ) -> PyResult<StreamReaderGroup> {
         let scope = Scope::from(scope_name.to_string());
         let scoped_stream = ScopedStream {
-            scope: scope.clone(),
+            scope,
             stream: Stream::from(stream_name.to_string()),
         };
-        let handle = self.cf.runtime();
-        let rg = handle.block_on(self.cf.create_reader_group(
-            scope,
-            reader_group_name.to_string(),
-            scoped_stream.clone(),
-        ));
-        let reader_group = StreamReaderGroup::new(rg, self.cf.clone(), scoped_stream);
+        let handle = self.cf.runtime_handle();
+        let rg = handle.block_on(
+            self.cf
+                .create_reader_group(reader_group_name.to_string(), scoped_stream.clone()),
+        );
+        let reader_group = StreamReaderGroup::new(rg, self.cf.runtime_handle(), scoped_stream);
         Ok(reader_group)
+    }
+
+    ///
+    /// Create a Binary I/O representation of a Pravega Stream. This ByteStream implements the
+    /// APIs provided by [io.IOBase](https://docs.python.org/3/library/io.html#io.IOBase)
+    ///
+    /// ```
+    /// import pravega_client;
+    /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
+    /// Create a Byte_stream against an already created Pravega scope and Stream.
+    /// byte_stream=manager.create_byte_stream("scope", "stream");
+    /// # write bytes into the Pravega Stream.
+    /// byte_stream.write(b"bytes")
+    /// 5
+    /// # Seek to a specified read offset.
+    /// byte_stream.seek(2, 0)
+    /// # Display the current read offset.
+    /// byte_stream.tell()
+    /// 2
+    ///
+    /// buf=bytearray(5)
+    /// byte_stream.readinto(buf)
+    /// 3
+    /// buf
+    /// bytearray(b'tes\x00\x00')
+    /// ```
+    ///
+    #[text_signature = "($self, scope_name, stream_name)"]
+    pub fn create_byte_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<ByteStream> {
+        let scoped_stream = ScopedStream {
+            scope: Scope::from(scope_name.to_string()),
+            stream: Stream::from(stream_name.to_string()),
+        };
+
+        let byte_stream = ByteStream::new(
+            scoped_stream.clone(),
+            self.cf.runtime_handle(),
+            self.cf
+                .runtime_handle()
+                .block_on(self.cf.create_byte_writer(scoped_stream.clone())),
+            self.cf
+                .runtime_handle()
+                .block_on(self.cf.create_byte_reader(scoped_stream)),
+        );
+        Ok(byte_stream)
     }
 
     /// Returns the string representation.

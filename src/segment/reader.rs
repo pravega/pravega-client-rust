@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
 use crate::segment::raw_client::{RawClient, RawClientError};
 use crate::util::get_request_id;
 
@@ -203,7 +203,7 @@ pub(crate) trait AsyncSegmentReader: Send + Sync {
 pub(crate) struct AsyncSegmentReaderImpl {
     segment: ScopedSegment,
     endpoint: Mutex<PravegaNodeUri>,
-    factory: ClientFactory,
+    factory: ClientFactoryAsync,
     delegation_token_provider: DelegationTokenProvider,
 }
 
@@ -244,7 +244,7 @@ impl AsyncSegmentReader for AsyncSegmentReaderImpl {
 impl AsyncSegmentReaderImpl {
     pub async fn new(
         segment: ScopedSegment,
-        factory: ClientFactory,
+        factory: ClientFactoryAsync,
         delegation_token_provider: DelegationTokenProvider,
     ) -> AsyncSegmentReaderImpl {
         let endpoint = factory
@@ -256,7 +256,7 @@ impl AsyncSegmentReaderImpl {
         AsyncSegmentReaderImpl {
             segment,
             endpoint: Mutex::new(endpoint),
-            factory: factory.clone(),
+            factory,
             delegation_token_provider,
         }
     }
@@ -400,6 +400,7 @@ impl PrefetchingAsyncSegmentReader {
             self.fill_buffer().await?;
             self.issue_request_if_needed();
         }
+
         let mut need_to_read = buf.len();
         let mut copy_offset = 0;
         while let Some(cmd) = self.buffer.front() {
@@ -505,6 +506,7 @@ impl PrefetchingAsyncSegmentReader {
         }
         Ok(())
     }
+
     async fn fill_buffer(&mut self) -> Result<(), ReaderError> {
         if let Some(receiver) = self.receiver.take() {
             match receiver.await {
@@ -638,7 +640,7 @@ mod tests {
                     request_id: 1,
                 })),
             });
-        let async_segment_reader = runtime.block_on(factory.create_async_event_reader(segment_name));
+        let async_segment_reader = runtime.block_on(factory.create_async_segment_reader(segment_name));
         let data = runtime.block_on(async_segment_reader.read_inner(0, 11, &raw_client));
         let segment_read_result: SegmentReadCommand = data.unwrap();
         assert_eq!(

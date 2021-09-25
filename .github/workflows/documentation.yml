@@ -39,7 +39,7 @@ jobs:
           maturin develop -m python_binding/Cargo.toml
           pdoc --html pravega_client
           mkdir -p book/book/python
-          cp html/pravega_client.html book/book/python
+          cp html/pravega_client/pravega_client.html book/book/python
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3

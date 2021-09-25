@@ -8,7 +8,8 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
+use crate::error::Error;
 use crate::segment::event::{Incoming, PendingEvent, ServerReply, WriterInfo};
 use crate::segment::raw_client::{RawClient, RawClientError};
 use crate::update;
@@ -33,7 +34,6 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use snafu::{ResultExt, Snafu};
 use std::collections::VecDeque;
 use std::fmt;
-use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use tokio::select;
 use tokio::sync::oneshot;
@@ -71,8 +71,13 @@ pub(crate) struct SegmentWriter {
     // Delegation token provider used to authenticate client when communicating with segmentstore.
     delegation_token_provider: Arc<DelegationTokenProvider>,
 
-    // Number of consecutive reconnections
-    pub(crate) reconnection: i32,
+    // When ConditionalCheckFailure happens, there could be a race condition that the caller
+    // sends out an append before it receives the ConditionalCheckFailure. This append will succeed
+    // if it happens to have the correct offset, which breaks the ByteWriter contract.
+    // So it's necessary to let caller explicitly send a reset signal to the reactor indicating
+    // that the caller is fully aware of the ConditionalCheckFailure so any subsequent appends can be processed.
+    // Before receiving such reset signal, reactor will reject any append.
+    pub(crate) need_reset: bool,
 }
 
 impl SegmentWriter {
@@ -98,7 +103,7 @@ impl SegmentWriter {
             retry_policy,
             delegation_token_provider,
             connection_listener_handle: None,
-            reconnection: 0,
+            need_reset: false,
         }
     }
 
@@ -107,7 +112,7 @@ impl SegmentWriter {
     /// to the reactor for processing.
     pub(crate) async fn setup_connection(
         &mut self,
-        factory: &ClientFactory,
+        factory: &ClientFactoryAsync,
     ) -> Result<(), SegmentWriterError> {
         let span = info_span!("setup connection", segment_writer_id= %self.id, segment= %self.segment, host = field::Empty);
         // span.enter doesn't work for async code https://docs.rs/tracing/0.1.17/tracing/span/struct.Span.html#in-asynchronous-code
@@ -401,7 +406,7 @@ impl SegmentWriter {
     /// 3. writes pending data to the server
     ///
     /// If error occurs during any one of the steps above, redo the reconnection from step 1.
-    pub(crate) async fn reconnect(&mut self, factory: &ClientFactory) {
+    pub(crate) async fn reconnect(&mut self, factory: &ClientFactoryAsync) {
         debug!("Reconnecting segment writer {:?}", self.id);
         let connection_id = if let Some(ref write_half) = self.connection {
             write_half.get_id()
@@ -445,9 +450,7 @@ impl SegmentWriter {
                 ))
                 .await
                 .expect("send reconnect signal to reactor");
-            return;
         }
-        self.reconnection += 1;
     }
 
     /// Force delegation token provider to refresh.
@@ -460,10 +463,12 @@ impl SegmentWriter {
         // remove failed append from inflight list
         while let Some(append) = self.inflight.pop_back() {
             if append.event_id >= event_id {
-                let _res = append.event.oneshot_sender.send(Result::Err(Error::new(
-                    ErrorKind::BrokenPipe,
-                    "conditional check failed",
-                )));
+                let _res = append
+                    .event
+                    .oneshot_sender
+                    .send(Result::Err(Error::ConditionalCheckFailure {
+                        msg: format!("Conditional check failed for event {}", append.event_id),
+                    }));
             } else {
                 self.inflight.push_back(append);
                 break;
@@ -472,10 +477,15 @@ impl SegmentWriter {
 
         // clear pending list
         while let Some(append) = self.pending.pop_back() {
-            let _res = append.event.oneshot_sender.send(Result::Err(Error::new(
-                ErrorKind::BrokenPipe,
-                "conditional check failed",
-            )));
+            let _res = append
+                .event
+                .oneshot_sender
+                .send(Result::Err(Error::ConditionalCheckFailure {
+                    msg: format!(
+                        "Conditional check failed in previous appends. Event id {}",
+                        append.event_id
+                    ),
+                }));
         }
     }
 }
@@ -533,11 +543,15 @@ pub enum SegmentWriterError {
 
     #[snafu(display("Reactor is closed due to: {:?}", msg))]
     ReactorClosed { msg: String },
+
+    #[snafu(display("Conditional check failed: {}", msg))]
+    ConditionalCheckFailure { msg: String },
 }
 
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
+    use crate::client_factory::ClientFactory;
     use crate::segment::event::RoutingInfo;
     use pravega_client_channel::{create_channel, ChannelReceiver};
     use pravega_client_config::connection_type::{ConnectionType, MockType};
@@ -553,7 +567,7 @@ pub(crate) mod test {
         let (mut segment_writer, mut sender, mut receiver, factory) = create_segment_writer(MockType::Happy);
 
         // test set up connection
-        let result = rt.block_on(segment_writer.setup_connection(&factory));
+        let result = rt.block_on(segment_writer.setup_connection(&factory.to_async()));
         assert!(result.is_ok());
 
         // write data using mock connection
@@ -603,7 +617,7 @@ pub(crate) mod test {
             create_segment_writer(MockType::SegmentIsSealed);
 
         // test set up connection
-        let result = rt.block_on(segment_writer.setup_connection(&factory));
+        let result = rt.block_on(segment_writer.setup_connection(&factory.to_async()));
         assert!(result.is_ok());
 
         // write data using mock connection to a sealed segment
@@ -633,7 +647,7 @@ pub(crate) mod test {
         let rt = tokio::runtime::Runtime::new().unwrap();
         let (mut segment_writer, mut sender, mut receiver, factory) = create_segment_writer(MockType::Happy);
         // test set up connection
-        let result = rt.block_on(segment_writer.setup_connection(&factory));
+        let result = rt.block_on(segment_writer.setup_connection(&factory.to_async()));
         assert!(result.is_ok());
 
         // conditional and unconditional events should not be mixed
@@ -687,7 +701,7 @@ pub(crate) mod test {
         let rt = tokio::runtime::Runtime::new().unwrap();
         let (mut segment_writer, mut sender, mut receiver, factory) = create_segment_writer(MockType::Happy);
         // test set up connection
-        let result = rt.block_on(segment_writer.setup_connection(&factory));
+        let result = rt.block_on(segment_writer.setup_connection(&factory.to_async()));
         assert!(result.is_ok());
 
         // wrong offset

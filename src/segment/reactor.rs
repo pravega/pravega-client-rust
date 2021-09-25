@@ -14,11 +14,10 @@ use tracing::{debug, error, info, warn};
 use pravega_client_shared::*;
 use pravega_wire_protocol::wire_commands::Replies;
 
-use crate::client_factory::ClientFactory;
+use crate::client_factory::ClientFactoryAsync;
+use crate::error::Error;
 use crate::segment::event::{Incoming, RoutingInfo, ServerReply};
 use crate::segment::selector::SegmentSelector;
-
-const MAX_RECONNECTION_ALLOWED_FOR_CONDITIONAL_CHECK: i32 = 3;
 
 #[derive(new)]
 pub(crate) struct Reactor {}
@@ -28,7 +27,7 @@ impl Reactor {
         stream: ScopedStream,
         sender: ChannelSender<Incoming>,
         mut receiver: ChannelReceiver<Incoming>,
-        factory: ClientFactory,
+        factory: ClientFactoryAsync,
         stream_segments: Option<StreamSegments>,
     ) {
         let mut selector = SegmentSelector::new(stream, sender, factory.clone()).await;
@@ -45,7 +44,7 @@ impl Reactor {
     async fn run_once(
         selector: &mut SegmentSelector,
         receiver: &mut ChannelReceiver<Incoming>,
-        factory: &ClientFactory,
+        factory: &ClientFactoryAsync,
     ) -> Result<(), &'static str> {
         let (event, cap_guard) = receiver.recv().await.expect("sender closed, processor exit");
         match event {
@@ -55,6 +54,14 @@ impl Reactor {
                     RoutingInfo::Segment(segment) => selector.get_segment_writer_by_key(segment),
                 };
 
+                if event_segment_writer.need_reset {
+                    // ignore the send result since error means the receiver is dropped
+                    let _res = pending_event.oneshot_sender.send(Result::Err(Error::ConditionalCheckFailure {
+                        msg:
+                        "conditional check failed in previous appends, need to reset before processing new appends".to_string(),
+                    }));
+                    return Ok(());
+                }
                 if let Err(e) = event_segment_writer.write(pending_event, cap_guard).await {
                     warn!("failed to write append to segment due to {:?}, reconnecting", e);
                     event_segment_writer.reconnect(factory).await;
@@ -91,6 +98,12 @@ impl Reactor {
                 }
                 Ok(())
             }
+            Incoming::Reset(segment) => {
+                info!("reset writer for segment {:?} in reactor", segment);
+                let writer = selector.get_segment_writer_by_key(&segment);
+                writer.need_reset = false;
+                Ok(())
+            }
             Incoming::Close() => {
                 info!("receive signal to close reactor");
                 Err("close")
@@ -101,7 +114,7 @@ impl Reactor {
     async fn process_server_reply(
         server_reply: ServerReply,
         selector: &mut SegmentSelector,
-        factory: &ClientFactory,
+        factory: &ClientFactoryAsync,
     ) -> Result<(), &'static str> {
         // it should always have writer because writer will
         // not be removed until it receives SegmentSealed reply
@@ -115,8 +128,6 @@ impl Reactor {
                     "data appended for writer {:?}, latest event id is: {:?}",
                     writer.id, cmd.event_number
                 );
-                // reconnection works as expected, set reconnection to 0
-                writer.reconnection = 0;
                 writer.ack(cmd.event_number);
                 if let Err(e) = writer.write_pending_events().await {
                     warn!(
@@ -170,22 +181,11 @@ impl Reactor {
 
             Replies::ConditionalCheckFailed(cmd) => {
                 if writer.id.0 == cmd.writer_id {
-                    if writer.reconnection > 0
-                        && writer.reconnection < MAX_RECONNECTION_ALLOWED_FOR_CONDITIONAL_CHECK
-                    {
-                        // Conditional check failed, but it could be caused by reconnection.
-                        // Reconnect again to fetch the latest event number from server.
-                        warn!(
-                            "conditional check failed {:?}, probably a false alarm caused by reconnection",
-                            cmd
-                        );
-                        writer.reconnect(factory).await;
-                    } else {
-                        // reconnection did not happen, conditional check failed must
-                        // be caused by interleaved data.
-                        warn!("conditional check failed {:?}", cmd);
-                        writer.fail_events_upon_conditional_check_failure(cmd.event_number);
-                    }
+                    // Conditional check failed caused by interleaved data.
+                    warn!("conditional check failed {:?}", cmd);
+                    writer.fail_events_upon_conditional_check_failure(cmd.event_number);
+                    // Caller need to send reset signal before new appends can be processed.
+                    writer.need_reset = true;
                 }
                 Ok(())
             }
@@ -203,11 +203,11 @@ impl Reactor {
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
+    use crate::error::Error;
     use crate::segment::event::{PendingEvent, RoutingInfo};
     use crate::segment::selector::test::create_segment_selector;
     use pravega_client_channel::ChannelSender;
     use pravega_client_config::connection_type::MockType;
-    use std::io::Error;
     use tokio::sync::oneshot;
 
     type EventHandle = oneshot::Receiver<Result<(), Error>>;
@@ -222,12 +222,20 @@ pub(crate) mod test {
         // write data once and reactor should ack
         rt.block_on(write_once_for_selector(&mut sender, 512));
         // accept the append
-        let result = rt.block_on(Reactor::run_once(&mut selector, &mut receiver, &factory));
+        let result = rt.block_on(Reactor::run_once(
+            &mut selector,
+            &mut receiver,
+            &factory.to_async(),
+        ));
         assert!(result.is_ok());
         assert_eq!(sender.remain(), 512);
 
         // process the server response
-        let result = rt.block_on(Reactor::run_once(&mut selector, &mut receiver, &factory));
+        let result = rt.block_on(Reactor::run_once(
+            &mut selector,
+            &mut receiver,
+            &factory.to_async(),
+        ));
         assert!(result.is_ok());
         assert_eq!(sender.remain(), 1024);
     }
@@ -241,12 +249,20 @@ pub(crate) mod test {
 
         // write data once
         rt.block_on(write_once_for_selector(&mut sender, 512));
-        let result = rt.block_on(Reactor::run_once(&mut selector, &mut receiver, &factory));
+        let result = rt.block_on(Reactor::run_once(
+            &mut selector,
+            &mut receiver,
+            &factory.to_async(),
+        ));
         assert!(result.is_ok());
         assert_eq!(sender.remain(), 512);
 
         // get wrong host reply and writer should retry
-        let result = rt.block_on(Reactor::run_once(&mut selector, &mut receiver, &factory));
+        let result = rt.block_on(Reactor::run_once(
+            &mut selector,
+            &mut receiver,
+            &factory.to_async(),
+        ));
         assert!(result.is_ok());
         assert_eq!(sender.remain(), 512);
     }
@@ -260,12 +276,20 @@ pub(crate) mod test {
 
         // write data once
         rt.block_on(write_once_for_selector(&mut sender, 512));
-        let result = rt.block_on(Reactor::run_once(&mut selector, &mut receiver, &factory));
+        let result = rt.block_on(Reactor::run_once(
+            &mut selector,
+            &mut receiver,
+            &factory.to_async(),
+        ));
         assert!(result.is_ok());
         assert_eq!(sender.remain(), 512);
 
         // should get segment sealed and reactor will fetch successors
-        let result = rt.block_on(Reactor::run_once(&mut selector, &mut receiver, &factory));
+        let result = rt.block_on(Reactor::run_once(
+            &mut selector,
+            &mut receiver,
+            &factory.to_async(),
+        ));
         // returns empty successors meaning stream is sealed
         assert!(result.is_err());
     }

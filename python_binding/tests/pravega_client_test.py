@@ -78,6 +78,41 @@ class PravegaTest(unittest.TestCase):
         w1.write_event("test event1")
         w1.write_event("test event2")
 
+    def test_byteStream(self):
+        scope = ''.join(secrets.choice(string.ascii_lowercase + string.digits)
+                        for i in range(10))
+        print("Creating a Stream Manager, ensure Pravega is running")
+        stream_manager=pravega_client.StreamManager("tcp://127.0.0.1:9090", False, False)
+
+        print("Creating a scope")
+        scope_result=stream_manager.create_scope(scope)
+        self.assertEqual(True, scope_result, "Scope creation status")
+
+        print("Creating a stream")
+        stream_result=stream_manager.create_stream(scope, "testStream", 1)
+        self.assertEqual(True, stream_result, "Stream creation status")
+
+        # write and read data.
+        print("Creating a writer for Stream")
+        bs=stream_manager.create_byte_stream(scope,"testStream")
+        self.assertEqual(5, bs.write(b"bytes"))
+        bs.flush()
+        self.assertEqual(5, bs.current_tail_offset())
+        buf=bytearray(5)
+        self.assertEqual(5, bs.readinto(buf))
+
+        # fetch the current read offset.
+        current_offset=bs.tell()
+        self.assertEqual(5, current_offset)
+
+        # seek to a given offset and read
+        bs.seek(3, 0)
+        buf=bytearray(2)
+        self.assertEqual(2, bs.readinto(buf))
+
+        bs.truncate(2)
+        self.assertEqual(2, bs.current_head_offset())
+
     def test_writeTxn(self):
         scope = ''.join(secrets.choice(string.ascii_lowercase + string.digits)
                         for i in range(10))
