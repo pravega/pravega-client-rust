@@ -51,7 +51,8 @@ impl StreamReader {
     /// import pravega_client;
     /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
     /// // lets assume the Pravega scope and stream are already created.
-    /// reader=manager.create_reader("scope", "stream");
+    /// reader_group=manager.create_reader_group("rg1", "scope", "stream")
+    /// reader=reader_group.create_reader("reader-1");
     /// slice=await reader.get_segment_slice_async()
     /// for event in slice:
     ///     print(event.data())
@@ -97,34 +98,6 @@ impl StreamReader {
 }
 
 impl StreamReader {
-    // //
-    // // This is used to set the mark the Python future as complete and set its result.
-    // // ref: https://docs.python.org/3/library/asyncio-future.html#asyncio.Future.set_result
-    // //
-    // fn set_fut_result(event_loop: PyObject, fut: PyObject, res: PyObject) -> PyResult<()> {
-    //     let gil = Python::acquire_gil();
-    //     let py = gil.python();
-    //     let sr = fut.getattr(py, "set_result")?;
-    //     // The future is set on the event loop.
-    //     // ref :https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.call_soon_threadsafe
-    //     // call_soon_threadsafe schedules the callback (setting the future to complete) to be called
-    //     // in the next iteration of the event loop.
-    //     event_loop.call_method1(py, "call_soon_threadsafe", (sr, res))?;
-    //
-    //     Ok(())
-    // }
-    //
-    // //
-    // // Return the running event loop in the current OS thread.
-    // // https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.get_running_loop
-    // // This supported in Python 3.7 onwards.
-    // //
-    // fn get_loop(py: Python) -> PyResult<PyObject> {
-    //     let asyncio = PyModule::import(py, "asyncio")?;
-    //     let event_loop = asyncio.call0("get_running_loop")?;
-    //     Ok(event_loop.into())
-    // }
-
     // Helper method for to set reader_offline.
     async fn reader_offline_async(&self) {
         self.reader.lock().await.reader_offline().await;
