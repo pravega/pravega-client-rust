@@ -55,33 +55,16 @@ impl StreamReader {
     ///     print(event.data())
     ///```
     ///
-    pub fn get_segment_slice_async(&self) -> PyResult<PyObject> {
-        // create a python future object.
-        let (py_future, py_future_clone, event_loop): (PyObject, PyObject, PyObject) = {
-            let gil = Python::acquire_gil();
-            let py = gil.python();
-            let loop_event = StreamReader::get_loop(py)?;
-            let fut: PyObject = loop_event.call_method0(py, "create_future")?;
-            (fut.clone_ref(py), fut, loop_event)
-        };
+    pub fn get_segment_slice_async<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
         let read = self.reader.clone();
-        self.runtime_handle.spawn(async move {
+
+        pyo3_asyncio::tokio::future_into_py(py, async move {
             let slice_result = read.lock().await.acquire_segment().await;
             let slice_py: Slice = Slice {
                 seg_slice: slice_result,
             };
-            let gil = Python::acquire_gil();
-            let py = gil.python();
-            let py_container = PyCell::new(py, slice_py).unwrap();
-            if let Err(e) = StreamReader::set_fut_result(event_loop, py_future, PyObject::from(py_container))
-            {
-                let gil = Python::acquire_gil();
-                let py = gil.python();
-                e.print(py);
-            }
-        });
-
-        Ok(py_future_clone)
+            Ok(Python::with_gil(|py| slice_py.into_py(py)))
+        })
     }
 
     ///
@@ -112,33 +95,33 @@ impl StreamReader {
 }
 
 impl StreamReader {
+    // //
+    // // This is used to set the mark the Python future as complete and set its result.
+    // // ref: https://docs.python.org/3/library/asyncio-future.html#asyncio.Future.set_result
+    // //
+    // fn set_fut_result(event_loop: PyObject, fut: PyObject, res: PyObject) -> PyResult<()> {
+    //     let gil = Python::acquire_gil();
+    //     let py = gil.python();
+    //     let sr = fut.getattr(py, "set_result")?;
+    //     // The future is set on the event loop.
+    //     // ref :https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.call_soon_threadsafe
+    //     // call_soon_threadsafe schedules the callback (setting the future to complete) to be called
+    //     // in the next iteration of the event loop.
+    //     event_loop.call_method1(py, "call_soon_threadsafe", (sr, res))?;
     //
-    // This is used to set the mark the Python future as complete and set its result.
-    // ref: https://docs.python.org/3/library/asyncio-future.html#asyncio.Future.set_result
+    //     Ok(())
+    // }
     //
-    fn set_fut_result(event_loop: PyObject, fut: PyObject, res: PyObject) -> PyResult<()> {
-        let gil = Python::acquire_gil();
-        let py = gil.python();
-        let sr = fut.getattr(py, "set_result")?;
-        // The future is set on the event loop.
-        // ref :https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.call_soon_threadsafe
-        // call_soon_threadsafe schedules the callback (setting the future to complete) to be called
-        // in the next iteration of the event loop.
-        event_loop.call_method1(py, "call_soon_threadsafe", (sr, res))?;
-
-        Ok(())
-    }
-
-    //
-    // Return the running event loop in the current OS thread.
-    // https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.get_running_loop
-    // This supported in Python 3.7 onwards.
-    //
-    fn get_loop(py: Python) -> PyResult<PyObject> {
-        let asyncio = PyModule::import(py, "asyncio")?;
-        let event_loop = asyncio.call0("get_running_loop")?;
-        Ok(event_loop.into())
-    }
+    // //
+    // // Return the running event loop in the current OS thread.
+    // // https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.get_running_loop
+    // // This supported in Python 3.7 onwards.
+    // //
+    // fn get_loop(py: Python) -> PyResult<PyObject> {
+    //     let asyncio = PyModule::import(py, "asyncio")?;
+    //     let event_loop = asyncio.call0("get_running_loop")?;
+    //     Ok(event_loop.into())
+    // }
 
     // Helper method for to set reader_offline.
     async fn reader_offline_async(&self) {
