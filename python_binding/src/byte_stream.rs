@@ -18,6 +18,7 @@ cfg_if! {
         use pyo3::exceptions;
         use pyo3::prelude::*;
         use pyo3::PyResult;
+        use pyo3::PyObjectProtocol;
         use tracing::{trace, info, error};
         use tokio::time::timeout;
         use tokio::runtime::Handle;
@@ -254,9 +255,9 @@ impl Drop for ByteStream {
 /// representation of an Python object.
 ///
 #[cfg(feature = "python_binding")]
-#[pymethods]
-impl ByteStream {
-    fn __repr__(&self) -> String {
-        format!("ByteStream({})", self.to_str())
+#[pyproto]
+impl PyObjectProtocol for ByteStream {
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("ByteStream({})", self.to_str()))
     }
 }

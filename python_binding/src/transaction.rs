@@ -16,6 +16,7 @@ cfg_if! {
         use pyo3::PyResult;
         use crate::TxnFailedException;
         use pravega_client_shared::{Timestamp, TransactionStatus, TxId};
+        use pyo3::PyObjectProtocol;
         use tracing::{trace, info, warn};
         use std::time::Duration;
         use tokio::time::timeout;
@@ -192,9 +193,9 @@ impl StreamTransaction {
 /// representation of an Python object.
 ///
 #[cfg(feature = "python_binding")]
-#[pymethods]
-impl StreamTransaction {
-    fn __repr__(&self) -> String {
-        format!("StreamTransaction({})", self.to_str())
+#[pyproto]
+impl PyObjectProtocol for StreamTransaction {
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("StreamTransaction({})", self.to_str()))
     }
 }
