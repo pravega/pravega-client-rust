@@ -89,7 +89,7 @@ impl StreamReader {
     ///
     /// Set the reader offline.
     ///
-    #[text_signature = "($self)"]
+    #[pyo3(text_signature = "($self)")]
     pub fn reader_offline(&self) -> PyResult<()> {
         self.runtime_handle.block_on(self.reader_offline_async());
         Ok(())
@@ -98,7 +98,7 @@ impl StreamReader {
     ///
     /// Release the segment back.
     ///
-    #[text_signature = "($self, slice)"]
+    #[pyo3(text_signature = "($self, slice)")]
     pub fn release_segment(&self, slice: &mut Slice) -> PyResult<()> {
         info!("Release segment slice back");
         if let Some(s) = slice.get_set_to_none() {

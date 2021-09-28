@@ -82,7 +82,7 @@ impl StreamWriter {
     /// writer.write_event("e2", "key1")
     /// ```
     ///
-    #[text_signature = "($self, event, routing_key=None)"]
+    #[pyo3(text_signature = "($self, event, routing_key=None)")]
     #[args(event, routing_key = "None", "*")]
     pub fn write_event(&mut self, event: &str, routing_key: Option<&str>) -> PyResult<()> {
         match routing_key {
@@ -111,7 +111,7 @@ impl StreamWriter {
     /// writer.write_event_bytes(e_bytes, "key1")
     /// ```
     ///
-    #[text_signature = "($self, event, routing_key=None)"]
+    #[pyo3(text_signature = "($self, event, routing_key=None)")]
     #[args(event, routing_key = "None", "*")]
     pub fn write_event_bytes(&mut self, event: &[u8], routing_key: Option<&str>) -> PyResult<()> {
         // to_vec creates an owned copy of the python byte array object.
@@ -159,7 +159,7 @@ impl StreamWriter {
     /// Flush all the inflight events into Pravega Stream.
     /// This will ensure all the inflight events are completely persisted on the Pravega Stream.
     ///
-    #[text_signature = "($self)"]
+    #[pyo3(text_signature = "($self)")]
     #[args("*")]
     pub fn flush(&mut self) -> PyResult<()> {
         info!("Invoking flush() on writer {:?}", self.to_str());
