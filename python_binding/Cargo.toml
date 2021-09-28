@@ -39,7 +39,7 @@ pravega-wire-protocol = { path = "../wire_protocol", version = "0.2"}
 pravega-client-retry = {path = "../retry", version = "0.2"}
 pravega-connection-pool = {path = "../connection_pool", version = "0.2"}
 pravega-client-config = {path = "../config", version = "0.2"}
-tokio = { version = "1.1", features = ["full"] }
+tokio = "1.1"
 lazy_static = "1.4.0"
 uuid = {version = "0.8", features = ["v4"]}
 futures = "0.3.5"
