@@ -19,7 +19,7 @@ cfg_if! {
         use pravega_client_config::{ClientConfig, ClientConfigBuilder};
         use pyo3::prelude::*;
         use pyo3::PyResult;
-        use pyo3::{exceptions, PyObjectProtocol};
+        use pyo3::exceptions;
         use tracing::info;
     }
 }
@@ -567,9 +567,9 @@ impl StreamManager {
 /// representation of an Python object.
 ///
 #[cfg(feature = "python_binding")]
-#[pyproto]
-impl PyObjectProtocol for StreamManager {
-    fn __repr__(&self) -> PyResult<String> {
-        Ok(format!("StreamManager({})", self.to_str()))
+#[pymethods]
+impl StreamManager {
+    fn __repr__(&self) -> String {
+        format!("StreamManager({})", self.to_str())
     }
 }
