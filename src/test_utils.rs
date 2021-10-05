@@ -72,13 +72,6 @@ impl MetadataWrapper {
             .map_err(|e| format!("{:?}", e))
     }
 
-    pub async fn is_sealed(&self) -> Result<bool, String> {
-        self.inner
-            .is_sealed()
-            .await
-            .map_err(|e| format!("{:?}", e))
-    }
-
     pub async fn fetch_current_segment_length(&self) -> Result<i64, String> {
         self.inner
             .fetch_current_segment_length()
