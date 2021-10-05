@@ -13,6 +13,7 @@ use super::retry_result::RetryError;
 use super::retry_result::RetryResult;
 use std::thread::sleep;
 use std::time::Duration;
+use std::error::Error;
 
 /// Retry the given operation synchronously until it succeeds, or until the given `Duration` end.
 /// retry_schedule: The retry policy that has max retry times and retry delay.
@@ -28,6 +29,7 @@ use std::time::Duration;
 pub fn retry_sync<O, T, E>(retry_schedule: impl BackoffSchedule, mut operation: O) -> Result<T, RetryError<E>>
 where
     O: FnMut() -> RetryResult<T, E>,
+    E: Error,
 {
     retry_internal(retry_schedule, |_| operation())
 }
@@ -38,6 +40,7 @@ pub fn retry_internal<O, T, E>(
 ) -> Result<T, RetryError<E>>
 where
     O: FnMut(u64) -> RetryResult<T, E>,
+    E: Error,
 {
     let mut iterator = retry_schedule;
     let mut current_try = 1;

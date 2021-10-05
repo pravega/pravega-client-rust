@@ -14,6 +14,7 @@ use super::retry_result::RetryResult;
 use std::future::Future;
 use std::time::Duration;
 use tokio::time::sleep;
+use std::error::Error;
 
 /// Retry the given operation asynchronously until it succeeds,
 /// or until the given Duration iterator ends.
@@ -33,6 +34,7 @@ pub async fn retry_async<F, T, E>(
 ) -> Result<T, RetryError<E>>
 where
     F: Future<Output = RetryResult<T, E>>,
+    E: Error
 {
     let mut iterator = retry_schedule;
     let mut current_try = 1;
@@ -74,6 +76,7 @@ mod tests {
     use super::RetryResult;
     use std::time::Duration;
     use tokio::runtime::Runtime;
+    use std::io::{Error, ErrorKind};
 
     #[test]
     fn attempts_just_once() {
@@ -82,9 +85,9 @@ mod tests {
         let future = retry_async(retry_policy, || async {
             let previous = 1;
             match previous {
-                1 => RetryResult::Fail("not retry"),
+                1 => RetryResult::Fail(Error::new(ErrorKind::NotFound, ())),
                 2 => RetryResult::Success(previous),
-                _ => RetryResult::Retry("retry"),
+                _ => RetryResult::Retry(Error::new(ErrorKind::NotFound, ())),
             }
         });
         let res = runtime.block_on(future);
@@ -105,9 +108,9 @@ mod tests {
         let future = retry_async(retry_policy, || async {
             let previous = 3;
             match previous {
-                1 => RetryResult::Fail("not retry"),
+                1 => RetryResult::Fail(Error::new(ErrorKind::NotFound, ())),
                 2 => RetryResult::Success(previous),
-                _ => RetryResult::Retry("retry"),
+                _ => RetryResult::Retry(Error::new(ErrorKind::NotFound, ())),
             }
         });
 
