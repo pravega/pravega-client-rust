@@ -41,6 +41,7 @@ use pravega_wire_protocol::connection_factory::{
 };
 
 use crate::index::{IndexReader, IndexWriter};
+use crate::util::meta::MetaClient;
 use std::fmt;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -270,6 +271,18 @@ impl ClientFactoryAsync {
         EventWriter::new(stream, self.clone())
     }
 
+    pub async fn create_stream_meta_client(&self, stream: ScopedStream) -> MetaClient {
+        MetaClient::new(
+            stream.clone(),
+            self.clone(),
+            self.create_delegation_token_provider(stream).await,
+        )
+    }
+
+    ///
+    /// Create a ReaderGroup with the specified name to read from the specified Stream.
+    /// The readers will read from the HEAD/beginning of the Stream.
+    ///
     pub async fn create_reader_group(&self, reader_group_name: String, stream: ScopedStream) -> ReaderGroup {
         let scope = stream.scope.clone();
         let rg_config = ReaderGroupConfigBuilder::default().add_stream(stream).build();
