@@ -15,7 +15,7 @@
 //!
 use crate::byte::reader::ByteReader;
 use crate::byte::writer::ByteWriter;
-use crate::event::reader_group::{ReaderGroup, ReaderGroupConfigBuilder};
+use crate::event::reader_group::{ReaderGroup, ReaderGroupConfig, ReaderGroupConfigBuilder};
 use crate::event::transactional_writer::TransactionalEventWriter;
 use crate::event::writer::EventWriter;
 use crate::segment::metadata::SegmentMetadataClient;
@@ -286,6 +286,18 @@ impl ClientFactoryAsync {
     pub async fn create_reader_group(&self, reader_group_name: String, stream: ScopedStream) -> ReaderGroup {
         let scope = stream.scope.clone();
         let rg_config = ReaderGroupConfigBuilder::default().add_stream(stream).build();
+        ReaderGroup::create(scope, reader_group_name, rg_config, self.clone()).await
+    }
+
+    ///
+    /// Create a ReaderGroup with the streams configured in the ReaderGroupConfig.
+    ///
+    pub async fn create_reader_group_with_config(
+        &self,
+        scope: Scope,
+        reader_group_name: String,
+        rg_config: ReaderGroupConfig,
+    ) -> ReaderGroup {
         ReaderGroup::create(scope, reader_group_name, rg_config, self.clone()).await
     }
 

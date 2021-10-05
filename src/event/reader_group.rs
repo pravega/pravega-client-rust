@@ -106,15 +106,23 @@ impl ReaderGroup {
         rg_config: ReaderGroupConfig,
         client_factory: ClientFactoryAsync,
     ) -> ReaderGroup {
-        let streams: Vec<ScopedStream> = rg_config.get_streams();
+        let streams = rg_config.get_start_stream_cuts();
         let mut init_segments: HashMap<ScopedSegment, Offset> = HashMap::new();
 
-        for stream in streams {
+        for (stream, stream_cut) in streams {
             let meta_client = client_factory.create_stream_meta_client(stream.clone()).await;
-            let segments = meta_client
-                .fetch_current_head_segments()
-                .await
-                .expect("Error while fetching stream's starting segments to read from");
+            let segments = match stream_cut {
+                StreamCutVersioned::Tail => meta_client
+                    .fetch_current_head_segments()
+                    .await
+                    .expect("Error while fetching stream's head segments to read from"),
+                // StreamCutVersioned::Unbounded causes Reader group to read from the current head of stream
+                _ => meta_client
+                    .fetch_current_head_segments()
+                    .await
+                    .expect("Error while fetching stream's head segments to read from"),
+            };
+
             init_segments.extend(segments.iter().map(|(seg, off)| {
                 (
                     ScopedSegment {
@@ -200,6 +208,12 @@ impl ReaderGroupConfig {
             .keys()
             .cloned()
             .collect::<Vec<ScopedStream>>()
+    }
+
+    /// Method to obtain the streams and start Streamcut in a ReaderGroupConfig.
+    pub fn get_start_stream_cuts(&self) -> HashMap<ScopedStream, StreamCutVersioned> {
+        let ReaderGroupConfigVersioned::V1(v1) = &self.config;
+        v1.starting_stream_cuts.clone()
     }
 }
 
@@ -344,7 +358,7 @@ impl ReaderGroupConfigV1 {
 
 /// StreamCutVersioned enum contains all versions of StreamCut struct
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-pub(crate) enum StreamCutVersioned {
+pub enum StreamCutVersioned {
     V1(StreamCutV1),
     Unbounded,
     Tail,
@@ -371,7 +385,7 @@ impl StreamCutVersioned {
 /// and is responsible for keyspace 0-0.5 then other segments covering the range 0.5-1.0 will also be
 /// included.)
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-pub(crate) struct StreamCutV1 {
+pub struct StreamCutV1 {
     stream: ScopedStream,
     positions: HashMap<ScopedSegment, i64>,
 }
