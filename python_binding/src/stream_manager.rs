@@ -509,12 +509,6 @@ impl StreamManager {
         };
         let handle = self.cf.runtime_handle();
         let rg = if read_from_tail {
-            // Create a reader group to read from current HEAD/start of the Stream.
-            handle.block_on(
-                self.cf
-                    .create_reader_group(reader_group_name.to_string(), scoped_stream.clone()),
-            )
-        } else {
             // Create a reader group to read from the current TAIL/end of the Stream.
             let rg_config = ReaderGroupConfigBuilder::default()
                 .read_from_tail_of_stream(scoped_stream.clone())
@@ -525,6 +519,12 @@ impl StreamManager {
                 rg_config,
                 scope,
             ))
+        } else {
+            // Create a reader group to read from current HEAD/start of the Stream.
+            handle.block_on(
+                self.cf
+                    .create_reader_group(reader_group_name.to_string(), scoped_stream.clone()),
+            )
         };
         let reader_group = StreamReaderGroup::new(rg, self.cf.runtime_handle(), scoped_stream);
         Ok(reader_group)
