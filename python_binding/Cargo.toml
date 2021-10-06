@@ -12,8 +12,9 @@ authors = ["Pravega Community"]
 
 [package.metadata.maturin]
 classifier = ["Development Status :: 5 - Production/Stable", "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Rust", "Programming Language :: Python :: 3.8", "Programming Language :: Python :: 3.9",]
-requires-python = ">=3.8"
+    "Programming Language :: Rust", "Programming Language :: Python :: 3.6", "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8", "Programming Language :: Python :: 3.9",]
+requires-python = ">=3.6"
 [package.metadata.maturin.project-url]
 Homepage= "https://pravega.github.io/pravega-client-rust/"
 
@@ -24,7 +25,7 @@ crate-type = ["cdylib"]
 [features]
 default = ["python_binding"]
 javascript_binding = ["wasm-bindgen"]
-python_binding = ["pyo3"]
+python_binding = ["pyo3", "pyo3-asyncio"]
 
 #Run tests for bindings using command cargo test --no-default-features
 
@@ -39,13 +40,14 @@ pravega-wire-protocol = { path = "../wire_protocol", version = "0.2"}
 pravega-client-retry = {path = "../retry", version = "0.2"}
 pravega-connection-pool = {path = "../connection_pool", version = "0.2"}
 pravega-client-config = {path = "../config", version = "0.2"}
-tokio = { version = "1.1", features = ["full"] }
+tokio = "1.1"
 lazy_static = "1.4.0"
 uuid = {version = "0.8", features = ["v4"]}
 futures = "0.3.5"
 derive-new = "0.5"
 #Python bindings
-pyo3 = { features = ["extension-module"], optional = true, version = "0.13" }
+pyo3 = { version = "0.14.5" , features = ["extension-module", "multiple-pymethods"], optional = true }
+pyo3-asyncio = { version = "0.14", features = ["tokio-runtime"], optional = true }
 #WASM bindings
 wasm-bindgen = { version = "0.2.63", optional = true }
 cfg-if = "0.1.10"

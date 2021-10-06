@@ -60,7 +60,7 @@ impl ByteStream {
     /// byte_stream.flush();
     /// ```
     ///
-    #[text_signature = "($self, byte_array)"]
+    #[pyo3(text_signature = "($self, byte_array)")]
     #[args(byte_array)]
     pub fn write(&mut self, byte_array: &[u8]) -> PyResult<usize> {
         trace!("Writing a byte array to stream {:?}", self.stream);
@@ -86,7 +86,7 @@ impl ByteStream {
     /// byte_stream.flush();
     /// ```
     ///
-    #[text_signature = "($self)"]
+    #[pyo3(text_signature = "($self)")]
     pub fn flush(&mut self) -> PyResult<()> {
         info!("Flush all data into Pravega Stream {:?}", self.stream);
         match self.runtime_handle.block_on(self.writer.flush()) {
@@ -114,7 +114,7 @@ impl ByteStream {
     /// bytearray(b'bytes')
     /// ```
     ///
-    #[text_signature = "($self, byteArray)"]
+    #[pyo3(text_signature = "($self, byteArray)")]
     #[args(byteArray)]
     pub fn readinto(&mut self, buf: &PyByteArray) -> PyResult<usize> {
         trace!("Reading binary data from stream {:?} into buffer", buf);
@@ -211,7 +211,7 @@ impl ByteStream {
     /// Truncate Stream at the specified offset. All data before that offset will be truncated
     /// from the Pravega Stream.
     ///
-    #[text_signature = "($self, offset)"]
+    #[pyo3(text_signature = "($self, offset)")]
     #[args(offset)]
     pub fn truncate(&mut self, offset: i64) -> PyResult<()> {
         let truncate_future = self.writer.truncate_data_before(offset);

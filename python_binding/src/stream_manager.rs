@@ -38,7 +38,7 @@ cfg_if! {
 ///
 #[cfg(feature = "python_binding")]
 #[pyclass]
-#[text_signature = "(controller_uri, auth_enabled, tls_enabled)"]
+#[pyo3(text_signature = "(controller_uri, auth_enabled, tls_enabled)")]
 pub(crate) struct StreamManager {
     controller_ip: String,
     cf: ClientFactory,
@@ -205,7 +205,7 @@ impl StreamManager {
     ///
     /// Create a Scope in Pravega.
     ///
-    #[text_signature = "($self, scope_name)"]
+    #[pyo3(text_signature = "($self, scope_name)")]
     pub fn create_scope(&self, scope_name: &str) -> PyResult<bool> {
         let handle = self.cf.runtime_handle();
 
@@ -225,7 +225,7 @@ impl StreamManager {
     ///
     /// Delete a Scope in Pravega.
     ///
-    #[text_signature = "($self, scope_name)"]
+    #[pyo3(text_signature = "($self, scope_name)")]
     pub fn delete_scope(&self, scope_name: &str) -> PyResult<bool> {
         let handle = self.cf.runtime_handle();
         info!("Delete scope {:?}", scope_name);
@@ -244,7 +244,7 @@ impl StreamManager {
     ///
     /// Create a Stream in Pravega
     ///
-    #[text_signature = "($self, scope_name, stream_name, scaling_policy, retention_policy, tags)"]
+    #[pyo3(text_signature = "($self, scope_name, stream_name, scaling_policy, retention_policy, tags)")]
     #[args(
         scaling_policy = "Default::default()",
         retention_policy = "Default::default()",
@@ -285,7 +285,7 @@ impl StreamManager {
     ///
     /// Create a Stream in Pravega.
     ///
-    #[text_signature = "($self, scope_name, stream_name, initial_segments)"]
+    #[pyo3(text_signature = "($self, scope_name, stream_name, initial_segments)")]
     pub fn create_stream(
         &self,
         scope_name: &str,
@@ -304,7 +304,7 @@ impl StreamManager {
     ///
     /// Update Stream Configuration in Pravega
     ///
-    #[text_signature = "($self, scope_name, stream_name, scaling_policy, retention_policy, tags)"]
+    #[pyo3(text_signature = "($self, scope_name, stream_name, scaling_policy, retention_policy, tags)")]
     #[args(
         scaling_policy = "Default::default()",
         retention_policy = "Default::default()",
@@ -345,7 +345,7 @@ impl StreamManager {
     ///
     /// Get Stream tags from Pravega
     ///
-    #[text_signature = "($self, scope_name, stream_name, scaling_policy, retention_policy, tags)"]
+    #[pyo3(text_signature = "($self, scope_name, stream_name, scaling_policy, retention_policy, tags)")]
     pub fn get_stream_tags(&self, scope_name: &str, stream_name: &str) -> PyResult<Option<Vec<String>>> {
         let handle = self.cf.runtime_handle();
         info!(
@@ -369,7 +369,7 @@ impl StreamManager {
     ///
     /// Create a Stream in Pravega.
     ///
-    #[text_signature = "($self, scope_name, stream_name)"]
+    #[pyo3(text_signature = "($self, scope_name, stream_name)")]
     pub fn seal_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
         let handle = self.cf.runtime_handle();
         info!("Sealing stream {:?} under scope {:?} ", stream_name, scope_name);
@@ -391,7 +391,7 @@ impl StreamManager {
     ///
     /// Delete a Stream in Pravega.
     ///
-    #[text_signature = "($self, scope_name, stream_name)"]
+    #[pyo3(text_signature = "($self, scope_name, stream_name)")]
     pub fn delete_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
         let handle = self.cf.runtime_handle();
         info!("Deleting stream {:?} under scope {:?} ", stream_name, scope_name);
@@ -425,7 +425,7 @@ impl StreamManager {
     ///
     /// ```
     ///
-    #[text_signature = "($self, scope_name, stream_name, max_inflight_events)"]
+    #[pyo3(text_signature = "($self, scope_name, stream_name, max_inflight_events)")]
     #[args(scope_name, stream_name, max_inflight_events = 0)]
     pub fn create_writer(
         &self,
@@ -456,7 +456,7 @@ impl StreamManager {
     /// writer=manager.create_transaction_writer("scope", "stream", "123")
     /// ```
     ///
-    #[text_signature = "($self, scope_name, stream_name, writer_id)"]
+    #[pyo3(text_signature = "($self, scope_name, stream_name, writer_id)")]
     pub fn create_transaction_writer(
         &self,
         scope_name: &str,
@@ -486,7 +486,7 @@ impl StreamManager {
     /// event.reader_group=manager.create_reader_group("rg1", "scope", "stream")
     /// ```
     ///
-    #[text_signature = "($self, reader_group_name, scope_name, stream_name)"]
+    #[pyo3(text_signature = "($self, reader_group_name, scope_name, stream_name)")]
     pub fn create_reader_group(
         &self,
         reader_group_name: &str,
@@ -532,7 +532,7 @@ impl StreamManager {
     /// bytearray(b'tes\x00\x00')
     /// ```
     ///
-    #[text_signature = "($self, scope_name, stream_name)"]
+    #[pyo3(text_signature = "($self, scope_name, stream_name)")]
     pub fn create_byte_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<ByteStream> {
         let scoped_stream = ScopedStream {
             scope: Scope::from(scope_name.to_string()),

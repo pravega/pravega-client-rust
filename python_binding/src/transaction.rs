@@ -46,7 +46,7 @@ impl StreamTransaction {
     /// Get the transaction id.
     ///
     #[cfg(feature = "python_binding")]
-    #[text_signature = "($self)"]
+    #[pyo3(text_signature = "($self)")]
     pub fn get_txn_id(&mut self) -> PyResult<u128> {
         let result: TxId = self.txn.txn_id();
         Ok(result.0)
@@ -55,7 +55,7 @@ impl StreamTransaction {
     ///
     /// Check if the transaction is an OPEN state.
     ///
-    #[text_signature = "($self)"]
+    #[pyo3(text_signature = "($self)")]
     pub fn is_open(&self) -> PyResult<bool> {
         let result: Result<TransactionStatus, TransactionError> =
             self.runtime_handle.block_on(self.txn.check_status());
@@ -70,7 +70,7 @@ impl StreamTransaction {
     ///
     /// Write an event of type String into to the Transaction. The operation blocks until the write operations is completed.
     ///
-    #[text_signature = "($self, event, routing_key=None)"]
+    #[pyo3(text_signature = "($self, event, routing_key=None)")]
     #[args(event, routing_key = "None", "*")]
     pub fn write_event(&mut self, event: &str, routing_key: Option<&str>) -> PyResult<()> {
         self.write_event_bytes(event.as_bytes(), routing_key)
@@ -87,7 +87,7 @@ impl StreamTransaction {
     /// >>> b=e.encode("utf-8") // Python api to convert an object to byte array.
     /// >>> w1.write_event_bytes(b)
     ///
-    #[text_signature = "($self, event, routing_key=None)"]
+    #[pyo3(text_signature = "($self, event, routing_key=None)")]
     #[args(event, routing_key = "None", "*")]
     pub fn write_event_bytes(&mut self, event: &[u8], routing_key: Option<&str>) -> PyResult<()> {
         trace!("Writing a single event to a transaction {:?}", self.txn.txn_id());
@@ -113,7 +113,7 @@ impl StreamTransaction {
     //  This operation will either fully succeed making all events consumable or fully fail such that none of them are.
     //  There may be some time delay before readers see the events after this call has returned.
     ///
-    #[text_signature = "($self)"]
+    #[pyo3(text_signature = "($self)")]
     pub fn commit(&mut self) -> PyResult<()> {
         self.commit_timestamp(i64::MIN as u64)
     }
@@ -124,7 +124,7 @@ impl StreamTransaction {
     //  This operation will either fully succeed making all events consumable or fully fail such that none of them are.
     //  There may be some time delay before readers see the events after this call has returned.
     ///
-    #[text_signature = "($self, timestamp_as_u64)"]
+    #[pyo3(text_signature = "($self, timestamp_as_u64)")]
     pub fn commit_timestamp(&mut self, timestamp: u64) -> PyResult<()> {
         info!("Committing the transaction {:?}", self.txn.txn_id());
         let commit_fut = self.txn.commit(Timestamp::from(timestamp));
@@ -155,7 +155,7 @@ impl StreamTransaction {
     /// Abort the Transaction.
     /// Drops the transaction, causing all events written to it to be deleted.
     ///
-    #[text_signature = "($self)"]
+    #[pyo3(text_signature = "($self)")]
     pub fn abort(&mut self) -> PyResult<()> {
         info!("Aborting the transaction {}", self.txn.txn_id());
         let abort_fut = self.txn.abort();
