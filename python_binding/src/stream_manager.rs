@@ -21,6 +21,7 @@ cfg_if! {
         use pyo3::PyResult;
         use pyo3::{exceptions, PyObjectProtocol};
         use tracing::info;
+        use pravega_client::event::reader_group::ReaderGroupConfigBuilder;
     }
 }
 
@@ -478,31 +479,53 @@ impl StreamManager {
 
     ///
     /// Create a ReaderGroup for a given Stream.
+    /// By default all the readers created from this ReaderGroup will start reading from the
+    /// current HEAD/start of the Stream.
+    /// The user can also choose to read from the tail of the Stream.
     ///
     /// ```
     /// import pravega_client;
     /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
     /// // Create a ReaderGroup against an already created Pravega scope and Stream.
     /// event.reader_group=manager.create_reader_group("rg1", "scope", "stream")
+    ///
+    /// // Create a ReaderGroup to read from the current TAIL/end of an already created Pravega scope and Stream
+    /// event.reader_group=manager.create_reader_group("rg1", "scope", "stream", true)
     /// ```
     ///
     #[pyo3(text_signature = "($self, reader_group_name, scope_name, stream_name)")]
+    #[args(read_from_tail = "false")]
     pub fn create_reader_group(
         &self,
         reader_group_name: &str,
         scope_name: &str,
         stream_name: &str,
+        read_from_tail: bool,
     ) -> PyResult<StreamReaderGroup> {
         let scope = Scope::from(scope_name.to_string());
         let scoped_stream = ScopedStream {
-            scope,
+            scope: scope.clone(),
             stream: Stream::from(stream_name.to_string()),
         };
         let handle = self.cf.runtime_handle();
-        let rg = handle.block_on(
-            self.cf
-                .create_reader_group(reader_group_name.to_string(), scoped_stream.clone()),
-        );
+        let rg = if read_from_tail {
+            // Create a reader group to read from current HEAD/start of the Stream.
+            handle.block_on(
+                self.cf
+                    .create_reader_group(reader_group_name.to_string(), scoped_stream.clone()),
+            )
+        } else {
+            // Create a reader group to read from the current TAIL/end of the Stream.
+            let rg_config = ReaderGroupConfigBuilder::default()
+                .read_from_tail_of_stream(scoped_stream.clone())
+                .build();
+
+            handle.block_on(self.cf.create_reader_group_with_config(
+                reader_group_name.to_string(),
+                rg_config,
+                scope,
+            ))
+        };
         let reader_group = StreamReaderGroup::new(rg, self.cf.runtime_handle(), scoped_stream);
         Ok(reader_group)
     }
