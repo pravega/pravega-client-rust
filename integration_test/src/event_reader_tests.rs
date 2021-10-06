@@ -650,8 +650,8 @@ fn test_reader_offline(client_factory: &ClientFactoryAsync) {
 
 fn test_read_from_head_of_stream(client_factory: &ClientFactoryAsync) {
     let h = client_factory.runtime_handle();
-    let scope_name = Scope::from("testScopeRG".to_owned());
-    let stream_name = Stream::from("testRG1".to_owned());
+    let scope_name = Scope::from("testReadHeadScopeRG".to_owned());
+    let stream_name = Stream::from("testHeadRG".to_owned());
     let str = ScopedStream {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
@@ -687,7 +687,7 @@ fn test_read_from_head_of_stream(client_factory: &ClientFactoryAsync) {
 
     let mut reader1 = h.block_on(rg.create_reader("r1".to_string()));
 
-    let mut events_read = 0; // one event has been already read by reader 1.
+    let mut events_read = 0;
     while let Some(slice) = h.block_on(reader1.acquire_segment()) {
         // read from a Segment slice.
         for event in slice {
@@ -707,8 +707,8 @@ fn test_read_from_head_of_stream(client_factory: &ClientFactoryAsync) {
 
 fn test_read_from_tail_of_stream(client_factory: &ClientFactoryAsync) {
     let h = client_factory.runtime_handle();
-    let scope_name = Scope::from("testScopeRG".to_owned());
-    let stream_name = Stream::from("testRG2".to_owned());
+    let scope_name = Scope::from("testReadTailScopeRG".to_owned());
+    let stream_name = Stream::from("testTailRG".to_owned());
     let str = ScopedStream {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
@@ -733,7 +733,7 @@ fn test_read_from_tail_of_stream(client_factory: &ClientFactoryAsync) {
 
     let mut reader1 = h.block_on(rg.create_reader("r1".to_string()));
 
-    let mut events_read = 0; // one event has been already read by reader 1.
+    let mut events_read = 0;
     assert!(
         h.block_on(reader1.acquire_segment()).is_none(),
         "No events are expected to be read"
