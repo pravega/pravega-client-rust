@@ -113,9 +113,9 @@ impl ReaderGroup {
             let meta_client = client_factory.create_stream_meta_client(stream.clone()).await;
             let segments = match stream_cut {
                 StreamCutVersioned::Tail => meta_client
-                    .fetch_current_head_segments()
+                    .fetch_current_tail_segments()
                     .await
-                    .expect("Error while fetching stream's head segments to read from"),
+                    .expect("Error while fetching stream's tail segments to read from"),
                 // StreamCutVersioned::Unbounded causes Reader group to read from the current head of stream
                 _ => meta_client
                     .fetch_current_head_segments()

@@ -10,7 +10,6 @@
 
 use crate::client_factory::ClientFactoryAsync;
 use im::HashMap;
-use pravega_client_auth::DelegationTokenProvider;
 use pravega_client_shared::{ScopedSegment, ScopedStream, Segment, SegmentInfo};
 use pravega_controller_client::ControllerError;
 use snafu::Snafu;
@@ -23,7 +22,6 @@ use tracing::{debug, error};
 pub struct MetaClient {
     scoped_stream: ScopedStream,
     factory: ClientFactoryAsync,
-    delegation_token_provider: DelegationTokenProvider,
 }
 
 #[derive(Debug, Snafu)]

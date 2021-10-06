@@ -136,6 +136,25 @@ impl ClientFactory {
             .await
     }
 
+    ///
+    /// Create a Reader Group based on the ReaderGroupConfig.
+    ///
+    pub async fn create_reader_group_with_config(
+        &self,
+        reader_group_name: String,
+        reader_group_config: ReaderGroupConfig,
+        scope: Scope,
+    ) -> ReaderGroup {
+        info!(
+            "Creating reader group {:?} to read data from streams {:?}",
+            reader_group_name,
+            reader_group_config.get_streams()
+        );
+        self.client_factory_async
+            .create_reader_group_with_config(scope, reader_group_name, reader_group_config)
+            .await
+    }
+
     pub async fn create_transactional_event_writer(
         &self,
         stream: ScopedStream,
@@ -272,11 +291,7 @@ impl ClientFactoryAsync {
     }
 
     pub async fn create_stream_meta_client(&self, stream: ScopedStream) -> MetaClient {
-        MetaClient::new(
-            stream.clone(),
-            self.clone(),
-            self.create_delegation_token_provider(stream).await,
-        )
+        MetaClient::new(stream, self.clone())
     }
 
     ///
