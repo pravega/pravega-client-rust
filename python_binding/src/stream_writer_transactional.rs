@@ -44,7 +44,7 @@ impl StreamTxnWriter {
     /// This returns a StreamTransaction which can be perform writes on the created transaction. It
     /// can also be used to perform commit() and abort() operations on the created transaction.
     ///
-    #[text_signature = "($self)"]
+    #[pyo3(text_signature = "($self)")]
     pub fn begin_txn(&mut self) -> PyResult<StreamTransaction> {
         let result = self.runtime_handle.block_on(self.writer.begin());
         match result {
@@ -56,7 +56,7 @@ impl StreamTxnWriter {
     ///
     /// Get a StreamTransaction for a given transaction id.
     ///
-    #[text_signature = "($self, txn_id)"]
+    #[pyo3(text_signature = "($self, txn_id)")]
     pub fn get_txn(&mut self, txn_id: u128) -> PyResult<StreamTransaction> {
         debug!("Writing a single event for a given routing key");
         let result = self.runtime_handle.block_on(self.writer.get_txn(TxId(txn_id)));
