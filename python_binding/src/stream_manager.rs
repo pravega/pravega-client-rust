@@ -493,7 +493,7 @@ impl StreamManager {
     /// event.reader_group=manager.create_reader_group("rg1", "scope", "stream", true)
     /// ```
     ///
-    #[pyo3(text_signature = "($self, reader_group_name, scope_name, stream_name)")]
+    #[pyo3(text_signature = "($self, reader_group_name, scope_name, stream_name, read_from_tail)")]
     #[args(read_from_tail = "false")]
     pub fn create_reader_group(
         &self,
