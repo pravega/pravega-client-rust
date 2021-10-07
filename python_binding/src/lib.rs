@@ -11,6 +11,8 @@
 #[macro_use]
 extern crate cfg_if;
 
+use crate::stream_reader_group::StreamReaderGroupConfig;
+
 mod byte_stream;
 mod stream_manager;
 mod stream_reader;
@@ -51,6 +53,7 @@ fn pravega_client(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<StreamTxnWriter>()?;
     m.add_class::<StreamTransaction>()?;
     m.add_class::<StreamReader>()?;
+    m.add_class::<StreamReaderGroupConfig>()?;
     m.add_class::<StreamReaderGroup>()?;
     m.add_class::<StreamScalingPolicy>()?;
     m.add_class::<StreamRetentionPolicy>()?;

@@ -9,6 +9,9 @@
 //
 
 use crate::stream_reader::StreamReader;
+use pravega_client::event::reader_group::{ReaderGroupConfig, ReaderGroupConfigBuilder};
+use pravega_client_shared::{Scope, Stream};
+use pyo3::types::PyTuple;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client_shared::ScopedStream;
@@ -20,6 +23,60 @@ cfg_if! {
         use std::sync::Arc;
         use tokio::sync::Mutex;
         use tokio::runtime::Handle;
+    }
+}
+
+#[cfg(feature = "python_binding")]
+#[pyclass]
+pub(crate) struct StreamReaderGroupConfig {
+    pub(crate) reader_group_config: ReaderGroupConfig,
+}
+
+///
+/// Create a StreamManager by providing a controller uri.
+/// ```
+/// import pravega_client;
+/// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
+/// // this manager can be used to create scopes, streams, writers and readers against Pravega.
+/// manager.create_scope("scope")
+///
+/// // optionally enable tls support using tls:// scheme
+/// manager=pravega_client.StreamManager("tls://127.0.0.1:9090")
+/// ```
+///
+#[cfg(feature = "python_binding")]
+#[pymethods]
+impl StreamReaderGroupConfig {
+    #[new]
+    #[args(stream_names = "*")]
+    fn new(read_from_tail: bool, scope_name: &str, stream_names: &PyTuple) -> PyResult<Self> {
+        let mut rg_config_builder = ReaderGroupConfigBuilder::default();
+        if stream_names.len() > 0 {
+            let streams: Vec<String> = stream_names
+                .extract()
+                .expect("Error while reading the stream names");
+            for stream in streams {
+                let scoped_stream = ScopedStream {
+                    scope: Scope::from(scope_name.to_string()),
+                    stream: Stream::from(stream),
+                };
+                if read_from_tail {
+                    rg_config_builder.read_from_tail_of_stream(scoped_stream);
+                } else {
+                    rg_config_builder.read_from_head_of_stream(scoped_stream);
+                }
+            }
+            let rg_config = rg_config_builder.build();
+            info!("RGConfig {:?}", rg_config);
+            Ok(StreamReaderGroupConfig {
+                reader_group_config: rg_config,
+            })
+        } else {
+            info!("No Streams");
+            Err(pyo3::exceptions::PyValueError::new_err(
+                "No Pravega Streams present in the ReaderGroupConfiguration",
+            ))
+        }
     }
 }
 
