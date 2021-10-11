@@ -241,9 +241,7 @@ impl ReaderGroupConfigBuilder {
 
     /// Add a Pravega Stream to the reader group which will be read from Current HEAD/start of the stream.
     pub fn add_stream(&mut self, stream: ScopedStream) -> &mut Self {
-        self.starting_stream_cuts
-            .insert(stream, StreamCutVersioned::Unbounded);
-        self
+        self.read_from_head_of_stream(stream)
     }
 
     /// Add a Pravega Stream to the reader group which will be read from Current HEAD/start of the stream.
@@ -259,8 +257,10 @@ impl ReaderGroupConfigBuilder {
         self
     }
 
+    ///
     /// Build a ReaderGroupConfig object.
     /// This method panics for invalid configuration.
+    ///
     pub fn build(&self) -> ReaderGroupConfig {
         assert!(
             !self.starting_stream_cuts.is_empty(),

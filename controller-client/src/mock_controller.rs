@@ -361,7 +361,10 @@ impl ControllerClient for MockController {
         })
     }
 
-    async fn get_head_segments(&self, stream: &ScopedStream) -> ResultRetry<ImHashMap<Segment, i64>> {
+    async fn get_head_segments(
+        &self,
+        stream: &ScopedStream,
+    ) -> ResultRetry<std::collections::HashMap<Segment, i64>> {
         let segments_in_stream: Vec<ScopedSegment> =
             get_segments_for_stream(stream, &self.created_streams.read().await)?;
         Ok(segments_in_stream

@@ -9,10 +9,10 @@
 //
 
 use crate::client_factory::ClientFactoryAsync;
-use im::HashMap;
 use pravega_client_shared::{ScopedSegment, ScopedStream, Segment, SegmentInfo};
 use pravega_controller_client::ControllerError;
-use snafu::Snafu;
+use snafu::{ResultExt, Snafu};
+use std::collections::HashMap;
 use tracing::{debug, error};
 
 ///
@@ -48,9 +48,9 @@ pub enum MetaClientError {
     },
     #[snafu(display("Could not connect due to {}", error_msg))]
     ControllerConnectionError {
+        source: ControllerError,
         stream: String,
         can_retry: bool,
-        source: ControllerError,
         error_msg: String,
     },
 }
@@ -64,12 +64,12 @@ impl MetaClient {
             .factory
             .controller_client()
             .get_head_segments(&self.scoped_stream)
-            .await;
-        segments.map_err(|e| {
-            MetaClientError::ControllerConnectionError {
+            .await
+            .map_err(|e| e.error);
+        segments.context({
+            ControllerConnectionError {
                 stream: self.scoped_stream.to_string(),
                 can_retry: false, // the controller client has retried internally
-                source: e.error,
                 error_msg: "Failed to fetch Stream's Head segments from controller".to_string(),
             }
         })
@@ -79,50 +79,45 @@ impl MetaClient {
     /// Fetch the Current Tail Segments of a given Stream.
     ///
     pub async fn fetch_current_tail_segments(&self) -> Result<HashMap<Segment, i64>, MetaClientError> {
-        match self
+        let res = self
             .factory
             .controller_client()
             .get_current_segments(&self.scoped_stream)
             .await
-        {
-            Ok(segments) => {
-                let key_map = segments.key_segment_map;
-                if key_map.is_empty() {
-                    Err(MetaClientError::StreamSealed {
-                        stream: self.scoped_stream.to_string(),
-                        can_retry: false,
-                        operation: "Get current segments for a stream".to_string(),
-                        error_msg: "Zero current segments for the stream".to_string(),
-                    })
-                } else {
-                    let mut map = HashMap::new();
-                    for (_, segment_range) in key_map {
-                        let info = self.fetch_segment_info(&segment_range.scoped_segment).await;
-                        match info {
-                            Ok(segment_info) => {
-                                debug!("Received SegmentInfo {:?}", segment_info);
-                                map.insert(segment_range.get_segment(), segment_info.write_offset);
-                            }
-                            Err(e) => {
-                                error!(
-                                    "Error while fetching segment info for segment {:?} after retries. {:?}",
-                                    segment_range.scoped_segment, e
-                                );
-                                return Err(e);
-                            }
-                        }
+            .map_err(|e| e.error);
+        let segments = res.context(ControllerConnectionError {
+            stream: self.scoped_stream.to_string(),
+            can_retry: false, // Controller client internally retries
+            error_msg: "Failed to fetch Stream's current segments from controller".to_string(),
+        })?;
+
+        let key_map = segments.key_segment_map;
+        if key_map.is_empty() {
+            Err(MetaClientError::StreamSealed {
+                stream: self.scoped_stream.to_string(),
+                can_retry: false,
+                operation: "Get current segments for a stream".to_string(),
+                error_msg: "Zero current segments for the stream".to_string(),
+            })
+        } else {
+            let mut map = HashMap::new();
+            for (_, segment_range) in key_map {
+                let info = self.fetch_segment_info(&segment_range.scoped_segment).await;
+                match info {
+                    Ok(segment_info) => {
+                        debug!("Received SegmentInfo {:?}", segment_info);
+                        map.insert(segment_range.get_segment(), segment_info.write_offset);
                     }
-                    Ok(map)
+                    Err(e) => {
+                        error!(
+                            "Error while fetching segment info for segment {:?} after retries. {:?}",
+                            segment_range.scoped_segment, e
+                        );
+                        return Err(e);
+                    }
                 }
             }
-            Err(e) => {
-                Err(MetaClientError::ControllerConnectionError {
-                    stream: self.scoped_stream.to_string(),
-                    can_retry: false, // Controller client internally retries
-                    source: e.error,
-                    error_msg: "Failed to fetch Stream's current segments from controller".to_string(),
-                })
-            }
+            Ok(map)
         }
     }
 
