@@ -22,6 +22,7 @@ cfg_if! {
         use pyo3::{exceptions, PyObjectProtocol};
         use tracing::info;
         use pravega_client::event::reader_group::ReaderGroupConfigBuilder;
+        use crate::stream_reader_group::StreamReaderGroupConfig;
     }
 }
 
@@ -511,12 +512,12 @@ impl StreamManager {
         let rg_config = if read_from_tail {
             // Create a reader group to read from the current TAIL/end of the Stream.
             ReaderGroupConfigBuilder::default()
-                .read_from_tail_of_stream(scoped_stream.clone())
+                .read_from_tail_of_stream(scoped_stream)
                 .build()
         } else {
             // Create a reader group to read from current HEAD/start of the Stream.
             ReaderGroupConfigBuilder::default()
-                .read_from_head_of_stream(scoped_stream.clone())
+                .read_from_head_of_stream(scoped_stream)
                 .build()
         };
         let rg = handle.block_on(self.cf.create_reader_group_with_config(
@@ -524,7 +525,43 @@ impl StreamManager {
             rg_config,
             scope,
         ));
-        let reader_group = StreamReaderGroup::new(rg, self.cf.runtime_handle(), scoped_stream);
+        let reader_group = StreamReaderGroup::new(rg, self.cf.runtime_handle());
+        Ok(reader_group)
+    }
+
+    ///
+    /// Create a ReaderGroup for a given Stream given the Reader Group Config.
+    ///
+    /// ```
+    /// import pravega_client;
+    /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
+    /// // Create a ReaderGroup against 1 or more Pravega streams.
+    /// rg_config = pravega_client.StreamReaderGroupConfig(True, "Sc", "s1", "s2", "s3")
+    /// // Create a ReaderGroup against an already created Pravega scope and Stream.
+    /// event.reader_group=manager.create_reader_group("rg1", "scope", "stream")
+    ///
+    /// // Create a ReaderGroup to read from the current TAIL/end of an already created Pravega scope and Stream
+    /// event.reader_group=manager.create_reader_group("rg1", "scope", "stream", true)
+    /// ```
+    ///
+    #[pyo3(text_signature = "($self, reader_group_name, scope_name, stream_name, read_from_tail)")]
+    #[args(read_from_tail = "false")]
+    pub fn create_reader_group_with_config(
+        &self,
+        reader_group_name: &str,
+        scope_name: &str,
+        rg_config: StreamReaderGroupConfig,
+    ) -> PyResult<StreamReaderGroup> {
+        let scope = Scope::from(scope_name.to_string());
+
+        let handle = self.cf.runtime_handle();
+
+        let rg = handle.block_on(self.cf.create_reader_group_with_config(
+            reader_group_name.to_string(),
+            rg_config.reader_group_config,
+            scope,
+        ));
+        let reader_group = StreamReaderGroup::new(rg, self.cf.runtime_handle());
         Ok(reader_group)
     }
 

@@ -66,7 +66,7 @@ cfg_if::cfg_if! {
 /// ```
 pub struct ReaderGroup {
     pub name: String,
-    config: ReaderGroupConfig,
+    pub config: ReaderGroupConfig,
     pub state: Arc<Mutex<ReaderGroupState>>,
     client_factory: ClientFactoryAsync,
 }
@@ -167,6 +167,13 @@ impl ReaderGroup {
             .await
             .expect("Error while creating the reader");
         EventReader::init_reader(reader_id, self.state.clone(), self.client_factory.clone()).await
+    }
+
+    ///
+    /// Return the managed Streams by the ReaderGroup.
+    ///
+    pub fn get_managed_streams(&self) -> Vec<ScopedStream> {
+        self.config.get_streams()
     }
 }
 
