@@ -536,9 +536,9 @@ impl StreamManager {
     /// import pravega_client;
     /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
     /// // Create a ReaderGroup against 1 or more Pravega streams.
-    /// rg_config = pravega_client.StreamReaderGroupConfig(True, "Sc", "s1", "s2", "s3")
+    /// rg_config = pravega_client.StreamReaderGroupConfig(False, "Sc", "s1", "s2", "s3")
     /// // Create a ReaderGroup against an already created Pravega scope and Stream.
-    /// event.reader_group=manager.create_reader_group("rg1", "scope", "stream")
+    /// event.reader_group=manager.create_reader_group_with_config("rg1", "scope", rg_config)
     ///
     /// // Create a ReaderGroup to read from the current TAIL/end of an already created Pravega scope and Stream
     /// event.reader_group=manager.create_reader_group("rg1", "scope", "stream", true)
