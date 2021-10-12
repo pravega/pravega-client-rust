@@ -111,28 +111,21 @@ impl ReaderGroup {
 
         for (stream, stream_cut) in streams {
             let meta_client = client_factory.create_stream_meta_client(stream.clone()).await;
-            let segments = match stream_cut {
+            if let StreamCutVersioned::V1(sc) = match stream_cut {
                 StreamCutVersioned::Tail => meta_client
                     .fetch_current_tail_segments()
                     .await
                     .expect("Error while fetching stream's tail segments to read from"),
                 // StreamCutVersioned::Unbounded causes Reader group to read from the current head of stream
-                _ => meta_client
+                StreamCutVersioned::Unbounded => meta_client
                     .fetch_current_head_segments()
                     .await
                     .expect("Error while fetching stream's head segments to read from"),
-            };
-
-            init_segments.extend(segments.iter().map(|(seg, off)| {
-                (
-                    ScopedSegment {
-                        scope: stream.scope.clone(),
-                        stream: stream.stream.clone(),
-                        segment: seg.clone(),
-                    },
-                    Offset::new(*off),
-                )
-            }));
+                StreamCutVersioned::V1(sc1) => StreamCutVersioned::V1(sc1),
+            } {
+                let segments = sc.positions;
+                init_segments.extend(segments.iter().map(|(seg, off)| (seg.clone(), Offset::new(*off))));
+            }
         }
         let rg_state = ReaderGroup::create_rg_state(
             scope,
@@ -254,6 +247,12 @@ impl ReaderGroupConfigBuilder {
     /// Add a Pravega Stream to the reader group which will be read from Current TAIL/end of the stream.
     pub fn read_from_tail_of_stream(&mut self, stream: ScopedStream) -> &mut Self {
         self.starting_stream_cuts.insert(stream, StreamCutVersioned::Tail);
+        self
+    }
+
+    /// Add a Pravega Stream to the reader group which will be read from the provided StreamCut.
+    pub fn read_from_stream(&mut self, stream: ScopedStream, stream_cut: StreamCutVersioned) -> &mut Self {
+        self.starting_stream_cuts.insert(stream, stream_cut);
         self
     }
 

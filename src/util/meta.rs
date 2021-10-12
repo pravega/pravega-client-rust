@@ -9,7 +9,8 @@
 //
 
 use crate::client_factory::ClientFactoryAsync;
-use pravega_client_shared::{ScopedSegment, ScopedStream, Segment, SegmentInfo};
+use crate::event::reader_group::{StreamCutV1, StreamCutVersioned};
+use pravega_client_shared::{ScopedSegment, ScopedStream, SegmentInfo};
 use pravega_controller_client::ControllerError;
 use snafu::{ResultExt, Snafu};
 use std::collections::HashMap;
@@ -59,14 +60,30 @@ impl MetaClient {
     ///
     /// Fetch the current Head Segments and the corresponding offsets for the given Stream.
     ///
-    pub async fn fetch_current_head_segments(&self) -> Result<HashMap<Segment, i64>, MetaClientError> {
+    pub async fn fetch_current_head_segments(&self) -> Result<StreamCutVersioned, MetaClientError> {
         let segments = self
             .factory
             .controller_client()
             .get_head_segments(&self.scoped_stream)
             .await
-            .map_err(|e| e.error);
-        segments.context({
+            .map(|mut map| {
+                let segment_map: HashMap<ScopedSegment, i64> = map
+                    .drain()
+                    .map(|(seg, off)| {
+                        (
+                            ScopedSegment::new(
+                                self.scoped_stream.scope.clone(),
+                                self.scoped_stream.stream.clone(),
+                                seg,
+                            ),
+                            off,
+                        )
+                    })
+                    .collect();
+                StreamCutVersioned::V1(StreamCutV1::new(self.scoped_stream.clone(), segment_map))
+            });
+
+        segments.map_err(|e| e.error).context({
             ControllerConnectionError {
                 stream: self.scoped_stream.to_string(),
                 can_retry: false, // the controller client has retried internally
@@ -78,7 +95,7 @@ impl MetaClient {
     ///
     /// Fetch the Current Tail Segments of a given Stream.
     ///
-    pub async fn fetch_current_tail_segments(&self) -> Result<HashMap<Segment, i64>, MetaClientError> {
+    pub async fn fetch_current_tail_segments(&self) -> Result<StreamCutVersioned, MetaClientError> {
         let res = self
             .factory
             .controller_client()
@@ -100,13 +117,13 @@ impl MetaClient {
                 error_msg: "Zero current segments for the stream".to_string(),
             })
         } else {
-            let mut map = HashMap::new();
+            let mut segment_map = HashMap::new();
             for (_, segment_range) in key_map {
                 let info = self.fetch_segment_info(&segment_range.scoped_segment).await;
                 match info {
                     Ok(segment_info) => {
                         debug!("Received SegmentInfo {:?}", segment_info);
-                        map.insert(segment_range.get_segment(), segment_info.write_offset);
+                        segment_map.insert(segment_info.segment, segment_info.write_offset);
                     }
                     Err(e) => {
                         error!(
@@ -117,7 +134,10 @@ impl MetaClient {
                     }
                 }
             }
-            Ok(map)
+            Ok(StreamCutVersioned::V1(StreamCutV1::new(
+                self.scoped_stream.clone(),
+                segment_map,
+            )))
         }
     }
 
