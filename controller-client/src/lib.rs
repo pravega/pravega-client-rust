@@ -42,7 +42,7 @@ use controller::{
     StreamsInScopeRequest, StreamsInScopeResponse, StreamsInScopeWithTagRequest, SuccessorResponse, TxnId,
     TxnRequest, TxnState, TxnStatus, UpdateStreamStatus,
 };
-use im::{HashMap as ImHashMap, OrdMap};
+use im::OrdMap;
 use ordered_float::OrderedFloat;
 use pravega_client_config::credentials::AUTHORIZATION;
 use pravega_client_config::ClientConfig;
@@ -239,7 +239,10 @@ pub trait ControllerClient: Send + Sync {
     /**
      * API to get segments pointing to the HEAD of the stream..
      */
-    async fn get_head_segments(&self, stream: &ScopedStream) -> ResultRetry<ImHashMap<Segment, i64>>;
+    async fn get_head_segments(
+        &self,
+        stream: &ScopedStream,
+    ) -> ResultRetry<std::collections::HashMap<Segment, i64>>;
 
     /**
      * API to create a new transaction. The transaction timeout is relative to the creation time.
@@ -544,7 +547,10 @@ impl ControllerClient for ControllerClientImpl {
             self.call_get_epoch_segments(stream, epoch)
         )
     }
-    async fn get_head_segments(&self, stream: &ScopedStream) -> ResultRetry<ImHashMap<Segment, i64>> {
+    async fn get_head_segments(
+        &self,
+        stream: &ScopedStream,
+    ) -> ResultRetry<std::collections::HashMap<Segment, i64>> {
         wrap_with_async_retry!(
             self.config.retry_policy.max_tries(MAX_RETRIES),
             self.call_get_head_segments(stream)
@@ -1199,7 +1205,10 @@ impl ControllerClientImpl {
         }
     }
 
-    async fn call_get_head_segments(&self, stream: &ScopedStream) -> Result<ImHashMap<Segment, i64>> {
+    async fn call_get_head_segments(
+        &self,
+        stream: &ScopedStream,
+    ) -> Result<std::collections::HashMap<Segment, i64>> {
         let request: StreamInfo = StreamInfo::from(stream);
         let op_status: StdResult<tonic::Response<SegmentsAtTime>, tonic::Status> = self
             .get_controller_client()

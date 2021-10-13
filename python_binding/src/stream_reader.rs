@@ -34,7 +34,7 @@ cfg_if! {
 pub(crate) struct StreamReader {
     reader: Arc<Mutex<EventReader>>,
     runtime_handle: Handle,
-    stream: ScopedStream,
+    streams: Vec<ScopedStream>,
 }
 
 #[cfg(feature = "python_binding")]
@@ -93,7 +93,7 @@ impl StreamReader {
 
     /// Returns the string representation.
     fn to_str(&self) -> String {
-        format!("Stream: {:?} ", self.stream)
+        format!("Streams: {:?} ", self.streams)
     }
 }
 

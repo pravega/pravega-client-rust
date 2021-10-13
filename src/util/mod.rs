@@ -23,6 +23,7 @@ use crate::client_factory::ClientFactory;
 
 #[macro_use]
 pub(crate) mod metric;
+pub mod meta;
 pub mod oneshot_holder;
 
 thread_local! {

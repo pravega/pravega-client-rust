@@ -66,7 +66,7 @@ cfg_if::cfg_if! {
 /// ```
 pub struct ReaderGroup {
     pub name: String,
-    config: ReaderGroupConfig,
+    pub config: ReaderGroupConfig,
     pub state: Arc<Mutex<ReaderGroupState>>,
     client_factory: ClientFactoryAsync,
 }
@@ -106,24 +106,26 @@ impl ReaderGroup {
         rg_config: ReaderGroupConfig,
         client_factory: ClientFactoryAsync,
     ) -> ReaderGroup {
-        let streams: Vec<ScopedStream> = rg_config.get_streams();
+        let streams = rg_config.get_start_stream_cuts();
         let mut init_segments: HashMap<ScopedSegment, Offset> = HashMap::new();
-        for stream in streams {
-            let segments = client_factory
-                .controller_client()
-                .get_head_segments(&stream)
-                .await
-                .expect("Error while fetching stream's starting segments to read from ");
-            init_segments.extend(segments.iter().map(|(seg, off)| {
-                (
-                    ScopedSegment {
-                        scope: stream.scope.clone(),
-                        stream: stream.stream.clone(),
-                        segment: seg.clone(),
-                    },
-                    Offset::new(*off),
-                )
-            }));
+
+        for (stream, stream_cut) in streams {
+            let meta_client = client_factory.create_stream_meta_client(stream.clone()).await;
+            if let StreamCutVersioned::V1(sc) = match stream_cut {
+                StreamCutVersioned::Tail => meta_client
+                    .fetch_current_tail_segments()
+                    .await
+                    .expect("Error while fetching stream's tail segments to read from"),
+                // StreamCutVersioned::Unbounded causes Reader group to read from the current head of stream
+                StreamCutVersioned::Unbounded => meta_client
+                    .fetch_current_head_segments()
+                    .await
+                    .expect("Error while fetching stream's head segments to read from"),
+                StreamCutVersioned::V1(sc1) => StreamCutVersioned::V1(sc1),
+            } {
+                let segments = sc.positions;
+                init_segments.extend(segments.iter().map(|(seg, off)| (seg.clone(), Offset::new(*off))));
+            }
         }
         let rg_state = ReaderGroup::create_rg_state(
             scope,
@@ -159,10 +161,17 @@ impl ReaderGroup {
             .expect("Error while creating the reader");
         EventReader::init_reader(reader_id, self.state.clone(), self.client_factory.clone()).await
     }
+
+    ///
+    /// Return the managed Streams by the ReaderGroup.
+    ///
+    pub fn get_managed_streams(&self) -> Vec<ScopedStream> {
+        self.config.get_streams()
+    }
 }
 
-// Specifies the ReaderGroupConfig.
-// ReaderGroupConfig::default() ensures the group refresh interval is set to 3 seconds.
+/// Specifies the ReaderGroupConfig.
+/// ReaderGroupConfig::default() ensures the group refresh interval is set to 3 seconds.
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct ReaderGroupConfig {
     pub(crate) config: ReaderGroupConfigVersioned,
@@ -200,8 +209,17 @@ impl ReaderGroupConfig {
             .cloned()
             .collect::<Vec<ScopedStream>>()
     }
+
+    /// Method to obtain the streams and start Streamcut in a ReaderGroupConfig.
+    pub fn get_start_stream_cuts(&self) -> HashMap<ScopedStream, StreamCutVersioned> {
+        let ReaderGroupConfigVersioned::V1(v1) = &self.config;
+        v1.starting_stream_cuts.clone()
+    }
 }
 
+///
+/// Builder used to build the ReaderGroup Config. The reader group refresh time is 3 seconds.
+///
 pub struct ReaderGroupConfigBuilder {
     group_refresh_time_millis: u64,
     starting_stream_cuts: HashMap<ScopedStream, StreamCutVersioned>,
@@ -214,15 +232,34 @@ impl ReaderGroupConfigBuilder {
         self
     }
 
-    /// Add a Pravega Stream to the reader group.
+    /// Add a Pravega Stream to the reader group which will be read from Current HEAD/start of the stream.
     pub fn add_stream(&mut self, stream: ScopedStream) -> &mut Self {
+        self.read_from_head_of_stream(stream)
+    }
+
+    /// Add a Pravega Stream to the reader group which will be read from Current HEAD/start of the stream.
+    pub fn read_from_head_of_stream(&mut self, stream: ScopedStream) -> &mut Self {
         self.starting_stream_cuts
             .insert(stream, StreamCutVersioned::Unbounded);
         self
     }
 
+    /// Add a Pravega Stream to the reader group which will be read from Current TAIL/end of the stream.
+    pub fn read_from_tail_of_stream(&mut self, stream: ScopedStream) -> &mut Self {
+        self.starting_stream_cuts.insert(stream, StreamCutVersioned::Tail);
+        self
+    }
+
+    /// Add a Pravega Stream to the reader group which will be read from the provided StreamCut.
+    pub fn read_from_stream(&mut self, stream: ScopedStream, stream_cut: StreamCutVersioned) -> &mut Self {
+        self.starting_stream_cuts.insert(stream, stream_cut);
+        self
+    }
+
+    ///
     /// Build a ReaderGroupConfig object.
     /// This method panics for invalid configuration.
+    ///
     pub fn build(&self) -> ReaderGroupConfig {
         assert!(
             !self.starting_stream_cuts.is_empty(),
@@ -327,9 +364,10 @@ impl ReaderGroupConfigV1 {
 
 /// StreamCutVersioned enum contains all versions of StreamCut struct
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-pub(crate) enum StreamCutVersioned {
+pub enum StreamCutVersioned {
     V1(StreamCutV1),
     Unbounded,
+    Tail,
 }
 
 impl StreamCutVersioned {
@@ -353,7 +391,7 @@ impl StreamCutVersioned {
 /// and is responsible for keyspace 0-0.5 then other segments covering the range 0.5-1.0 will also be
 /// included.)
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-pub(crate) struct StreamCutV1 {
+pub struct StreamCutV1 {
     stream: ScopedStream,
     positions: HashMap<ScopedSegment, i64>,
 }
@@ -497,6 +535,42 @@ mod tests {
         for val in v1.starting_stream_cuts.values() {
             assert_eq!(&StreamCutVersioned::Unbounded, val);
         }
+    }
+
+    #[test]
+    fn test_reader_group_config_builder_read_from_head() {
+        let rg_config = ReaderGroupConfigBuilder::default()
+            .read_from_head_of_stream(ScopedStream::from("scope1/s1"))
+            .build();
+        let ReaderGroupConfigVersioned::V1(v1) = rg_config.config;
+        // verify default
+        assert_eq!(v1.group_refresh_time_millis, 3000);
+        //Validate both the streams are present.
+        assert!(v1
+            .starting_stream_cuts
+            .contains_key(&ScopedStream::from("scope1/s1")));
+        assert_eq!(
+            v1.starting_stream_cuts.get(&ScopedStream::from("scope1/s1")),
+            Some(&StreamCutVersioned::Unbounded)
+        );
+    }
+
+    #[test]
+    fn test_reader_group_config_builder_read_from_tail() {
+        let rg_config = ReaderGroupConfigBuilder::default()
+            .read_from_tail_of_stream(ScopedStream::from("scope1/s1"))
+            .build();
+        let ReaderGroupConfigVersioned::V1(v1) = rg_config.config;
+        // verify default
+        assert_eq!(v1.group_refresh_time_millis, 3000);
+        //Validate both the streams are present.
+        assert!(v1
+            .starting_stream_cuts
+            .contains_key(&ScopedStream::from("scope1/s1")));
+        assert_eq!(
+            v1.starting_stream_cuts.get(&ScopedStream::from("scope1/s1")),
+            Some(&StreamCutVersioned::Tail)
+        );
     }
 
     #[test]

@@ -15,7 +15,7 @@
 //!
 use crate::byte::reader::ByteReader;
 use crate::byte::writer::ByteWriter;
-use crate::event::reader_group::{ReaderGroup, ReaderGroupConfigBuilder};
+use crate::event::reader_group::{ReaderGroup, ReaderGroupConfig, ReaderGroupConfigBuilder};
 use crate::event::transactional_writer::TransactionalEventWriter;
 use crate::event::writer::EventWriter;
 use crate::segment::metadata::SegmentMetadataClient;
@@ -41,6 +41,7 @@ use pravega_wire_protocol::connection_factory::{
 };
 
 use crate::index::{IndexReader, IndexWriter};
+use crate::util::meta::MetaClient;
 use std::fmt;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -132,6 +133,25 @@ impl ClientFactory {
         );
         self.client_factory_async
             .create_reader_group(reader_group_name, stream)
+            .await
+    }
+
+    ///
+    /// Create a Reader Group based on the ReaderGroupConfig.
+    ///
+    pub async fn create_reader_group_with_config(
+        &self,
+        reader_group_name: String,
+        reader_group_config: ReaderGroupConfig,
+        scope: Scope,
+    ) -> ReaderGroup {
+        info!(
+            "Creating reader group {:?} to read data from streams {:?}",
+            reader_group_name,
+            reader_group_config.get_streams()
+        );
+        self.client_factory_async
+            .create_reader_group_with_config(scope, reader_group_name, reader_group_config)
             .await
     }
 
@@ -270,9 +290,29 @@ impl ClientFactoryAsync {
         EventWriter::new(stream, self.clone())
     }
 
+    pub async fn create_stream_meta_client(&self, stream: ScopedStream) -> MetaClient {
+        MetaClient::new(stream, self.clone())
+    }
+
+    ///
+    /// Create a ReaderGroup with the specified name to read from the specified Stream.
+    /// The readers will read from the HEAD/beginning of the Stream.
+    ///
     pub async fn create_reader_group(&self, reader_group_name: String, stream: ScopedStream) -> ReaderGroup {
         let scope = stream.scope.clone();
         let rg_config = ReaderGroupConfigBuilder::default().add_stream(stream).build();
+        ReaderGroup::create(scope, reader_group_name, rg_config, self.clone()).await
+    }
+
+    ///
+    /// Create a ReaderGroup with the streams configured in the ReaderGroupConfig.
+    ///
+    pub async fn create_reader_group_with_config(
+        &self,
+        scope: Scope,
+        reader_group_name: String,
+        rg_config: ReaderGroupConfig,
+    ) -> ReaderGroup {
         ReaderGroup::create(scope, reader_group_name, rg_config, self.clone()).await
     }
 

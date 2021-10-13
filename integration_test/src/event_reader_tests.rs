@@ -11,7 +11,7 @@
 use crate::pravega_service::PravegaStandaloneServiceConfig;
 
 use pravega_client::client_factory::{ClientFactory, ClientFactoryAsync};
-use pravega_client::event::reader_group::ReaderGroup;
+use pravega_client::event::reader_group::{ReaderGroup, ReaderGroupConfigBuilder};
 use pravega_client_config::{ClientConfigBuilder, MOCK_CONTROLLER_URI};
 use pravega_client_shared::{
     Retention, RetentionType, ScaleType, Scaling, Scope, ScopedSegment, ScopedStream, Segment, Stream,
@@ -37,7 +37,8 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
     let client_factory = ClientFactory::new(config);
     let async_client_factory = client_factory.to_async();
     let runtime = client_factory.runtime();
-
+    test_read_from_tail_of_stream(&async_client_factory);
+    test_read_from_head_of_stream(&async_client_factory);
     test_read_large_events(&async_client_factory);
     test_multi_reader_multi_segments_tail_read(&async_client_factory);
     runtime.block_on(test_read_api(&async_client_factory));
@@ -631,6 +632,122 @@ fn test_reader_offline(client_factory: &ClientFactoryAsync) {
 
     let mut events_read = 1; // one event has been already read by reader 1.
     while let Some(slice) = h.block_on(reader2.acquire_segment()) {
+        // read from a Segment slice.
+        for event in slice {
+            assert_eq!(
+                vec![1; EVENT_SIZE],
+                event.value.as_slice(),
+                "Corrupted event read"
+            );
+            events_read += 1;
+        }
+        if events_read == NUM_EVENTS {
+            break;
+        }
+    }
+    assert_eq!(NUM_EVENTS, events_read);
+}
+
+fn test_read_from_head_of_stream(client_factory: &ClientFactoryAsync) {
+    let h = client_factory.runtime_handle();
+    let scope_name = Scope::from("testReadHeadScopeRG".to_owned());
+    let stream_name = Stream::from("testHeadRG".to_owned());
+    let str = ScopedStream {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+    };
+    const NUM_EVENTS: usize = 10;
+    const EVENT_SIZE: usize = 10;
+
+    h.block_on(async {
+        let new_stream =
+            create_scope_stream(client_factory.controller_client(), &scope_name, &stream_name, 4).await;
+        // write events only if the stream is created.
+        if new_stream {
+            // write events
+            write_events(
+                scope_name.clone(),
+                stream_name.clone(),
+                client_factory.clone(),
+                NUM_EVENTS,
+                EVENT_SIZE,
+            )
+            .await;
+        }
+    });
+
+    let rg_config = ReaderGroupConfigBuilder::default()
+        .read_from_head_of_stream(str)
+        .build();
+    let rg = h.block_on(client_factory.create_reader_group_with_config(
+        scope_name,
+        "rg_reader_offline".to_string(),
+        rg_config,
+    ));
+
+    let mut reader1 = h.block_on(rg.create_reader("r1".to_string()));
+
+    let mut events_read = 0;
+    while let Some(slice) = h.block_on(reader1.acquire_segment()) {
+        // read from a Segment slice.
+        for event in slice {
+            assert_eq!(
+                vec![1; EVENT_SIZE],
+                event.value.as_slice(),
+                "Corrupted event read"
+            );
+            events_read += 1;
+        }
+        if events_read == NUM_EVENTS {
+            break;
+        }
+    }
+    assert_eq!(NUM_EVENTS, events_read);
+}
+
+fn test_read_from_tail_of_stream(client_factory: &ClientFactoryAsync) {
+    let h = client_factory.runtime_handle();
+    let scope_name = Scope::from("testReadTailScopeRG".to_owned());
+    let stream_name = Stream::from("testTailRG".to_owned());
+    let str = ScopedStream {
+        scope: scope_name.clone(),
+        stream: stream_name.clone(),
+    };
+    const NUM_EVENTS: usize = 10;
+    const EVENT_SIZE: usize = 10;
+
+    h.block_on(async {
+        let new_stream =
+            create_scope_stream(client_factory.controller_client(), &scope_name, &stream_name, 1).await;
+        new_stream
+    });
+
+    let rg_config = ReaderGroupConfigBuilder::default()
+        .read_from_tail_of_stream(str)
+        .build();
+    let rg = h.block_on(client_factory.create_reader_group_with_config(
+        scope_name.clone(),
+        "rg_reader_offline".to_string(),
+        rg_config,
+    ));
+
+    let mut reader1 = h.block_on(rg.create_reader("r1".to_string()));
+
+    let mut events_read = 0;
+    assert!(
+        h.block_on(reader1.acquire_segment()).is_none(),
+        "No events are expected to be read"
+    );
+    // Write events to the stream.
+    h.block_on(write_events(
+        scope_name,
+        stream_name,
+        client_factory.clone(),
+        NUM_EVENTS,
+        EVENT_SIZE,
+    ));
+    // Verify that we are able to read events from the stream.
+    while let Some(slice) = h.block_on(reader1.acquire_segment()) {
         // read from a Segment slice.
         for event in slice {
             assert_eq!(
