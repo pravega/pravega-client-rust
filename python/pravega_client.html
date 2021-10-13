@@ -184,14 +184,36 @@ bytearray(b'tes\x00\x00')
 </code></pre></div>
 </dd>
 <dt id="pravega_client.pravega_client.StreamManager.create_reader_group"><code class="name flex">
-<span>def <span class="ident">create_reader_group</span></span>(<span>self, /, reader_group_name, scope_name, stream_name)</span>
+<span>def <span class="ident">create_reader_group</span></span>(<span>self, /, reader_group_name, scope_name, stream_name, read_from_tail)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Create a ReaderGroup for a given Stream.</p>
+<div class="desc"><p>Create a ReaderGroup for a given Stream.
+By default all the readers created from this ReaderGroup will start reading from the
+current HEAD/start of the Stream.
+The user can also choose to read from the tail of the Stream.</p>
 <pre><code>import pravega_client;
 manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
 // Create a ReaderGroup against an already created Pravega scope and Stream.
 event.reader_group=manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;)
+
+// Create a ReaderGroup to read from the current TAIL/end of an already created Pravega scope and Stream
+event.reader_group=manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;, true)
+</code></pre></div>
+</dd>
+<dt id="pravega_client.pravega_client.StreamManager.create_reader_group_with_config"><code class="name flex">
+<span>def <span class="ident">create_reader_group_with_config</span></span>(<span>self, /, reader_group_name, scope_name, stream_name, read_from_tail)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Create a ReaderGroup for a given Stream given the Reader Group Config.</p>
+<pre><code>import pravega_client;
+manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
+// Create a ReaderGroup against 1 or more Pravega streams.
+rg_config = pravega_client.StreamReaderGroupConfig(False, &quot;Sc&quot;, &quot;s1&quot;, &quot;s2&quot;, &quot;s3&quot;)
+// Create a ReaderGroup against an already created Pravega scope and Stream.
+event.reader_group=manager.create_reader_group_with_config(&quot;rg1&quot;, &quot;scope&quot;, rg_config)
+
+// Create a ReaderGroup to read from the current TAIL/end of an already created Pravega scope and Stream
+event.reader_group=manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;, true)
 </code></pre></div>
 </dd>
 <dt id="pravega_client.pravega_client.StreamManager.create_scope"><code class="name flex">
@@ -355,6 +377,22 @@ for event in slice:
 </code></pre></div>
 </dd>
 <dt id="pravega_client.pravega_client.StreamReaderGroup.to_str"><code class="name flex">
+<span>def <span class="ident">to_str</span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the string representation.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="pravega_client.pravega_client.StreamReaderGroupConfig"><code class="flex name class">
+<span>class <span class="ident">StreamReaderGroupConfig</span></span>
+<span>(</span><span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<h3>Methods</h3>
+<dl>
+<dt id="pravega_client.pravega_client.StreamReaderGroupConfig.to_str"><code class="name flex">
 <span>def <span class="ident">to_str</span></span>(<span>...)</span>
 </code></dt>
 <dd>
@@ -631,6 +669,7 @@ writer.write_event_bytes(e_bytes, &quot;key1&quot;)
 <ul class="">
 <li><code><a title="pravega_client.pravega_client.StreamManager.create_byte_stream" href="#pravega_client.pravega_client.StreamManager.create_byte_stream">create_byte_stream</a></code></li>
 <li><code><a title="pravega_client.pravega_client.StreamManager.create_reader_group" href="#pravega_client.pravega_client.StreamManager.create_reader_group">create_reader_group</a></code></li>
+<li><code><a title="pravega_client.pravega_client.StreamManager.create_reader_group_with_config" href="#pravega_client.pravega_client.StreamManager.create_reader_group_with_config">create_reader_group_with_config</a></code></li>
 <li><code><a title="pravega_client.pravega_client.StreamManager.create_scope" href="#pravega_client.pravega_client.StreamManager.create_scope">create_scope</a></code></li>
 <li><code><a title="pravega_client.pravega_client.StreamManager.create_stream" href="#pravega_client.pravega_client.StreamManager.create_stream">create_stream</a></code></li>
 <li><code><a title="pravega_client.pravega_client.StreamManager.create_stream_with_policy" href="#pravega_client.pravega_client.StreamManager.create_stream_with_policy">create_stream_with_policy</a></code></li>
@@ -658,6 +697,12 @@ writer.write_event_bytes(e_bytes, &quot;key1&quot;)
 <ul class="">
 <li><code><a title="pravega_client.pravega_client.StreamReaderGroup.create_reader" href="#pravega_client.pravega_client.StreamReaderGroup.create_reader">create_reader</a></code></li>
 <li><code><a title="pravega_client.pravega_client.StreamReaderGroup.to_str" href="#pravega_client.pravega_client.StreamReaderGroup.to_str">to_str</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="pravega_client.pravega_client.StreamReaderGroupConfig" href="#pravega_client.pravega_client.StreamReaderGroupConfig">StreamReaderGroupConfig</a></code></h4>
+<ul class="">
+<li><code><a title="pravega_client.pravega_client.StreamReaderGroupConfig.to_str" href="#pravega_client.pravega_client.StreamReaderGroupConfig.to_str">to_str</a></code></li>
 </ul>
 </li>
 <li>

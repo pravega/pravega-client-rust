@@ -376,6 +376,46 @@
 <span id="376">376</span>
 <span id="377">377</span>
 <span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
 </pre><pre class="rust">
 <span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
@@ -394,7 +434,7 @@
 <span class="doccomment">//!</span>
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::byte::reader::ByteReader</span>;
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::byte::writer::ByteWriter</span>;
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::event::reader_group</span>::{<span class="ident">ReaderGroup</span>, <span class="ident">ReaderGroupConfigBuilder</span>};
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::event::reader_group</span>::{<span class="ident">ReaderGroup</span>, <span class="ident">ReaderGroupConfig</span>, <span class="ident">ReaderGroupConfigBuilder</span>};
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::event::transactional_writer::TransactionalEventWriter</span>;
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::event::writer::EventWriter</span>;
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::segment::metadata::SegmentMetadataClient</span>;
@@ -420,6 +460,7 @@
 };
 
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::index</span>::{<span class="ident">IndexReader</span>, <span class="ident">IndexWriter</span>};
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::util::meta::MetaClient</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
@@ -511,6 +552,25 @@
         );
         <span class="self">self</span>.<span class="ident">client_factory_async</span>
             .<span class="ident">create_reader_group</span>(<span class="ident">reader_group_name</span>, <span class="ident">stream</span>)
+            .<span class="kw">await</span>
+    }
+
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Create a Reader Group based on the ReaderGroupConfig.</span>
+    <span class="doccomment">///</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_reader_group_with_config</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">reader_group_name</span>: <span class="ident">String</span>,
+        <span class="ident">reader_group_config</span>: <span class="ident">ReaderGroupConfig</span>,
+        <span class="ident">scope</span>: <span class="ident">Scope</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ReaderGroup</span> {
+        <span class="macro">info!</span>(
+            <span class="string">&quot;Creating reader group {:?} to read data from streams {:?}&quot;</span>,
+            <span class="ident">reader_group_name</span>,
+            <span class="ident">reader_group_config</span>.<span class="ident">get_streams</span>()
+        );
+        <span class="self">self</span>.<span class="ident">client_factory_async</span>
+            .<span class="ident">create_reader_group_with_config</span>(<span class="ident">scope</span>, <span class="ident">reader_group_name</span>, <span class="ident">reader_group_config</span>)
             .<span class="kw">await</span>
     }
 
@@ -649,9 +709,29 @@
         <span class="ident">EventWriter::new</span>(<span class="ident">stream</span>, <span class="self">self</span>.<span class="ident">clone</span>())
     }
 
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_stream_meta_client</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">stream</span>: <span class="ident">ScopedStream</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">MetaClient</span> {
+        <span class="ident">MetaClient::new</span>(<span class="ident">stream</span>, <span class="self">self</span>.<span class="ident">clone</span>())
+    }
+
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Create a ReaderGroup with the specified name to read from the specified Stream.</span>
+    <span class="doccomment">/// The readers will read from the HEAD/beginning of the Stream.</span>
+    <span class="doccomment">///</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_reader_group</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">reader_group_name</span>: <span class="ident">String</span>, <span class="ident">stream</span>: <span class="ident">ScopedStream</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ReaderGroup</span> {
         <span class="kw">let</span> <span class="ident">scope</span> <span class="op">=</span> <span class="ident">stream</span>.<span class="ident">scope</span>.<span class="ident">clone</span>();
         <span class="kw">let</span> <span class="ident">rg_config</span> <span class="op">=</span> <span class="ident">ReaderGroupConfigBuilder::default</span>().<span class="ident">add_stream</span>(<span class="ident">stream</span>).<span class="ident">build</span>();
+        <span class="ident">ReaderGroup::create</span>(<span class="ident">scope</span>, <span class="ident">reader_group_name</span>, <span class="ident">rg_config</span>, <span class="self">self</span>.<span class="ident">clone</span>()).<span class="kw">await</span>
+    }
+
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Create a ReaderGroup with the streams configured in the ReaderGroupConfig.</span>
+    <span class="doccomment">///</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_reader_group_with_config</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">scope</span>: <span class="ident">Scope</span>,
+        <span class="ident">reader_group_name</span>: <span class="ident">String</span>,
+        <span class="ident">rg_config</span>: <span class="ident">ReaderGroupConfig</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ReaderGroup</span> {
         <span class="ident">ReaderGroup::create</span>(<span class="ident">scope</span>, <span class="ident">reader_group_name</span>, <span class="ident">rg_config</span>, <span class="self">self</span>.<span class="ident">clone</span>()).<span class="kw">await</span>
     }
 
