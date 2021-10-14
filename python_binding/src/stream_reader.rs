@@ -8,6 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use std::io::Error;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client::event::reader::EventReader;
@@ -75,7 +76,7 @@ impl StreamReader {
     ///
     #[pyo3(text_signature = "($self)")]
     pub fn reader_offline(&self) -> PyResult<()> {
-        self.runtime_handle.block_on(self.reader_offline_async());
+        self.runtime_handle.block_on(self.reader_offline_async())?;
         Ok(())
     }
 
@@ -86,7 +87,7 @@ impl StreamReader {
     pub fn release_segment(&self, slice: &mut Slice) -> PyResult<()> {
         info!("Release segment slice back");
         if let Some(s) = slice.get_set_to_none() {
-            self.runtime_handle.block_on(self.release_segment_async(s));
+            self.runtime_handle.block_on(self.release_segment_async(s))?;
         }
         Ok(())
     }
@@ -99,13 +100,13 @@ impl StreamReader {
 
 impl StreamReader {
     // Helper method for to set reader_offline.
-    async fn reader_offline_async(&self) {
-        self.reader.lock().await.reader_offline().await;
+    async fn reader_offline_async(&self) -> Result<(), Error> {
+        self.reader.lock().await.reader_offline().await
     }
 
     // Helper method for to release segment
-    async fn release_segment_async(&self, slice: SegmentSlice) {
-        self.reader.lock().await.release_segment(slice).await;
+    async fn release_segment_async(&self, slice: SegmentSlice) -> Result<(), Error> {
+        self.reader.lock().await.release_segment(slice).await
     }
 }
 

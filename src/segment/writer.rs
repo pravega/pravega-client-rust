@@ -37,7 +37,7 @@ use std::fmt;
 use std::sync::Arc;
 use tokio::select;
 use tokio::sync::oneshot;
-use tracing::{debug, error, field, info, info_span, trace, warn};
+use tracing::{debug, error, field, info, info_span, trace};
 use tracing_futures::Instrument;
 
 pub(crate) struct SegmentWriter {
@@ -152,7 +152,7 @@ impl SegmentWriter {
                 match raw_client.send_setup_request(&request).await {
                     Ok((reply, connection)) => RetryResult::Success((reply, connection)),
                     Err(e) => {
-                        warn!("failed to setup append using rawclient due to {:?}", e);
+                        info!("failed to setup append using rawclient due to {:?}", e);
                         RetryResult::Retry(e)
                     }
                 }
@@ -170,7 +170,7 @@ impl SegmentWriter {
                         connection
                     }
                     _ => {
-                        warn!("append setup failed due to {:?}", reply);
+                        info!("append setup failed due to {:?}", reply);
                         return Err(SegmentWriterError::WrongReply {
                             expected: String::from("AppendSetup"),
                             actual: reply,
@@ -208,7 +208,7 @@ impl SegmentWriter {
                         let reply = match result {
                             Ok(reply) => reply,
                             Err(e) => {
-                                warn!("connection failed to read data back from segmentstore due to {:?}, closing listener task {:?}", e, listener_id);
+                                info!("connection failed to read data back from segmentstore due to {:?}, closing listener task {:?}", e, listener_id);
                                 let result = sender
                                     .send((Incoming::Reconnect(WriterInfo {
                                         segment: segment.clone(),
