@@ -9,8 +9,10 @@
 //
 
 use std::time::Duration;
-use std::error::Error;
+// use std::error::Error;
 use std::fmt::{Display, Formatter, Debug};
+use std::error::Error;
+use snafu::Snafu;
 
 /// The RetryResult that the operation should return.
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug, Hash)]
@@ -24,7 +26,8 @@ pub enum RetryResult<T, E> {
 }
 
 /// An error that the Retry function would give.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Snafu)]
+#[snafu(display("Failed after retry due to {}", error))]
 pub struct RetryError<E: Error> {
     /// The error returned by the operation on the last try.
     pub error: E,
@@ -34,15 +37,18 @@ pub struct RetryError<E: Error> {
     pub tries: u64,
 }
 
-impl<E: Error> Error for RetryError<E> {
+// impl<E: Error> Error for RetryError<E> {
+//     fn description(&self) -> &str {
+//         ""
+//     }
+//     // backtrace
+// }
 
-}
-
-impl<E: Error> Display for RetryError<E> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        Ok(())
-    }
-}
+// impl<E: Error> Display for RetryError<E> {
+//     fn fmt(&self, _f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+//         write!(_f, "{}", )
+//     }
+// }
 
 ///
 /// Trait which is used check if the Error is Retryable.

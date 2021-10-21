@@ -77,6 +77,7 @@ mod tests {
     use std::time::Duration;
     use tokio::runtime::Runtime;
     use std::io::{Error, ErrorKind};
+    use crate::retry_result::Retryable;
 
     #[test]
     fn attempts_just_once() {
@@ -85,19 +86,27 @@ mod tests {
         let future = retry_async(retry_policy, || async {
             let previous = 1;
             match previous {
-                1 => RetryResult::Fail(Error::new(ErrorKind::NotFound, ())),
+                1 => RetryResult::Fail(Error::new(ErrorKind::NotFound, RetryError {
+                    error: "not retry".into(),
+                    tries: 1,
+                    total_delay: Duration::from_millis(0)
+                })),
                 2 => RetryResult::Success(previous),
-                _ => RetryResult::Retry(Error::new(ErrorKind::NotFound, ())),
+                _ => RetryResult::Retry(Error::new(ErrorKind::NotFound, RetryError {
+                    error: "retry".into(),
+                    tries: 1,
+                    total_delay: Duration::from_millis(0)
+                })),
             }
         });
         let res = runtime.block_on(future);
         assert_eq!(
-            res,
-            Err(RetryError {
-                error: "not retry",
+            res.err().unwrap(),
+            RetryError {
+                error: "not retry".into(),
                 tries: 1,
                 total_delay: Duration::from_millis(0)
-            })
+            }
         );
     }
 
@@ -107,21 +116,32 @@ mod tests {
         let retry_policy = RetryWithBackoff::default().max_tries(3);
         let future = retry_async(retry_policy, || async {
             let previous = 3;
+            let t =
             match previous {
-                1 => RetryResult::Fail(Error::new(ErrorKind::NotFound, ())),
+                1 => RetryResult::Fail(Error::new(ErrorKind::NotFound, RetryError {
+                    error: "not retry".into(),
+                    tries: 4,
+                    total_delay: Duration::from_millis(0)
+                })),
                 2 => RetryResult::Success(previous),
-                _ => RetryResult::Retry(Error::new(ErrorKind::NotFound, ())),
-            }
+                _ => RetryResult::Retry(Error::new(ErrorKind::NotFound, RetryError {
+                    error: "retry".into(),
+                    tries: 4,
+                    total_delay: Duration::from_millis(0)
+                })),
+            };
+
+            t
         });
 
         let res = runtime.block_on(future);
         assert_eq!(
-            res,
-            Err(RetryError {
-                error: "retry",
+            res.err().unwrap(),
+            RetryError {
+                error: "retry".into(),
                 tries: 4,
                 total_delay: Duration::from_millis(111)
-            })
+            }
         );
     }
 
@@ -136,7 +156,11 @@ mod tests {
             counter += 1;
             async move {
                 if previous < 3 {
-                    RetryResult::Retry("retry")
+                    RetryResult::Retry(Error::new(ErrorKind::NotFound, RetryError {
+                        error: "retry".into(),
+                        tries: 4,
+                        total_delay: Duration::from_millis(0)
+                    }))
                 } else {
                     RetryResult::Success(previous)
                 }
