@@ -76,8 +76,15 @@ mod tests {
     use super::RetryResult;
     use std::time::Duration;
     use tokio::runtime::Runtime;
-    use std::io::{Error, ErrorKind};
-    use crate::retry_result::Retryable;
+    use snafu::Snafu;
+
+    #[derive(Debug, PartialEq, Eq, Snafu)]
+    pub enum SnafuError {
+        #[snafu(display("Retryable error"))]
+        Retryable,
+        #[snafu(display("NonRetryable error"))]
+        Nonretryable,
+    }
 
     #[test]
     fn attempts_just_once() {
@@ -86,27 +93,19 @@ mod tests {
         let future = retry_async(retry_policy, || async {
             let previous = 1;
             match previous {
-                1 => RetryResult::Fail(Error::new(ErrorKind::NotFound, RetryError {
-                    error: "not retry".into(),
-                    tries: 1,
-                    total_delay: Duration::from_millis(0)
-                })),
+                1 => RetryResult::Fail(SnafuError::Nonretryable),
                 2 => RetryResult::Success(previous),
-                _ => RetryResult::Retry(Error::new(ErrorKind::NotFound, RetryError {
-                    error: "retry".into(),
-                    tries: 1,
-                    total_delay: Duration::from_millis(0)
-                })),
+                _ => RetryResult::Retry(SnafuError::Retryable),
             }
         });
         let res = runtime.block_on(future);
         assert_eq!(
-            res.err().unwrap(),
-            RetryError {
-                error: "not retry".into(),
+            res,
+            Err(RetryError {
+                error: SnafuError::Nonretryable,
                 tries: 1,
-                total_delay: Duration::from_millis(0)
-            }
+                total_delay: Duration::from_millis(0),
+            })
         );
     }
 
@@ -116,33 +115,15 @@ mod tests {
         let retry_policy = RetryWithBackoff::default().max_tries(3);
         let future = retry_async(retry_policy, || async {
             let previous = 3;
-            let t =
             match previous {
-                1 => RetryResult::Fail(Error::new(ErrorKind::NotFound, RetryError {
-                    error: "not retry".into(),
-                    tries: 4,
-                    total_delay: Duration::from_millis(0)
-                })),
+                1 => RetryResult::Fail(SnafuError::Nonretryable),
                 2 => RetryResult::Success(previous),
-                _ => RetryResult::Retry(Error::new(ErrorKind::NotFound, RetryError {
-                    error: "retry".into(),
-                    tries: 4,
-                    total_delay: Duration::from_millis(0)
-                })),
-            };
-
-            t
+                _ => RetryResult::Retry(SnafuError::Retryable),
+            }
         });
 
         let res = runtime.block_on(future);
-        assert_eq!(
-            res.err().unwrap(),
-            RetryError {
-                error: "retry".into(),
-                tries: 4,
-                total_delay: Duration::from_millis(111)
-            }
-        );
+        assert_eq!(res.err().unwrap().tries, 4);
     }
 
     #[test]
@@ -156,11 +137,7 @@ mod tests {
             counter += 1;
             async move {
                 if previous < 3 {
-                    RetryResult::Retry(Error::new(ErrorKind::NotFound, RetryError {
-                        error: "retry".into(),
-                        tries: 4,
-                        total_delay: Duration::from_millis(0)
-                    }))
+                    RetryResult::Retry(SnafuError::Retryable)
                 } else {
                     RetryResult::Success(previous)
                 }

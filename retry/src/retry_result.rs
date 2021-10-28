@@ -10,7 +10,7 @@
 
 use std::time::Duration;
 // use std::error::Error;
-use std::fmt::{Display, Formatter, Debug};
+use std::fmt::{Debug};
 use std::error::Error;
 use snafu::Snafu;
 
@@ -37,18 +37,6 @@ pub struct RetryError<E: Error> {
     pub tries: u64,
 }
 
-// impl<E: Error> Error for RetryError<E> {
-//     fn description(&self) -> &str {
-//         ""
-//     }
-//     // backtrace
-// }
-
-// impl<E: Error> Display for RetryError<E> {
-//     fn fmt(&self, _f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-//         write!(_f, "{}", )
-//     }
-// }
 
 ///
 /// Trait which is used check if the Error is Retryable.
