@@ -9,9 +9,7 @@
 //
 
 use std::time::Duration;
-// use std::error::Error;
 use std::fmt::{Debug};
-use std::error::Error;
 use snafu::Snafu;
 
 /// The RetryResult that the operation should return.
@@ -28,7 +26,7 @@ pub enum RetryResult<T, E> {
 /// An error that the Retry function would give.
 #[derive(Debug, PartialEq, Eq, Snafu)]
 #[snafu(display("Failed after retry due to {}", error))]
-pub struct RetryError<E: Error> {
+pub struct RetryError<E: std::fmt::Display> {
     /// The error returned by the operation on the last try.
     pub error: E,
     /// The duration spent waiting between retries of the operation.

@@ -14,7 +14,6 @@ use super::retry_result::RetryResult;
 use std::future::Future;
 use std::time::Duration;
 use tokio::time::sleep;
-use std::error::Error;
 
 /// Retry the given operation asynchronously until it succeeds,
 /// or until the given Duration iterator ends.
@@ -34,7 +33,7 @@ pub async fn retry_async<F, T, E>(
 ) -> Result<T, RetryError<E>>
 where
     F: Future<Output = RetryResult<T, E>>,
-    E: Error
+    E: std::fmt::Display
 {
     let mut iterator = retry_schedule;
     let mut current_try = 1;
