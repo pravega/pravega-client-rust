@@ -11,9 +11,9 @@
 use super::retry_policy::BackoffSchedule;
 use super::retry_result::RetryError;
 use super::retry_result::RetryResult;
+use std::error::Error;
 use std::thread::sleep;
 use std::time::Duration;
-use std::error::Error;
 
 /// Retry the given operation synchronously until it succeeds, or until the given `Duration` end.
 /// retry_schedule: The retry policy that has max retry times and retry delay.

@@ -8,9 +8,9 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use std::time::Duration;
-use std::fmt::{Debug};
 use snafu::Snafu;
+use std::fmt::Debug;
+use std::time::Duration;
 
 /// The RetryResult that the operation should return.
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug, Hash)]

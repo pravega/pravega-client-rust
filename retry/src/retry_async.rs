@@ -33,7 +33,7 @@ pub async fn retry_async<F, T, E>(
 ) -> Result<T, RetryError<E>>
 where
     F: Future<Output = RetryResult<T, E>>,
-    E: std::fmt::Display
+    E: std::fmt::Display,
 {
     let mut iterator = retry_schedule;
     let mut current_try = 1;
@@ -73,9 +73,9 @@ mod tests {
     use super::retry_async;
     use super::RetryError;
     use super::RetryResult;
+    use snafu::Snafu;
     use std::time::Duration;
     use tokio::runtime::Runtime;
-    use snafu::Snafu;
 
     #[derive(Debug, PartialEq, Eq, Snafu)]
     pub enum SnafuError {
