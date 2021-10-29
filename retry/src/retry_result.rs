@@ -25,7 +25,7 @@ pub enum RetryResult<T, E> {
 
 /// An error that the Retry function would give.
 #[derive(Debug, PartialEq, Eq, Snafu)]
-#[snafu(display("Failed after retry due to {}", error))]
+#[snafu(display("Failed after {} retries due to {} which took {:?}", tries, error, total_delay))]
 pub struct RetryError<E: std::fmt::Display> {
     /// The error returned by the operation on the last try.
     pub error: E,
