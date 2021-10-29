@@ -35,7 +35,6 @@ pub struct RetryError<E: std::fmt::Display> {
     pub tries: u64,
 }
 
-
 ///
 /// Trait which is used check if the Error is Retryable.
 ///
