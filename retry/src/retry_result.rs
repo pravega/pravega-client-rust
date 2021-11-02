@@ -8,7 +8,10 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use snafu::Snafu;
+use std::fmt::Debug;
 use std::time::Duration;
+
 /// The RetryResult that the operation should return.
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug, Hash)]
 pub enum RetryResult<T, E> {
@@ -21,8 +24,14 @@ pub enum RetryResult<T, E> {
 }
 
 /// An error that the Retry function would give.
-#[derive(Debug, PartialEq, Eq)]
-pub struct RetryError<E> {
+#[derive(Debug, PartialEq, Eq, Snafu)]
+#[snafu(display(
+    "Failed after {} retries due to {} which took {:?}",
+    tries,
+    error,
+    total_delay
+))]
+pub struct RetryError<E: std::fmt::Display> {
     /// The error returned by the operation on the last try.
     pub error: E,
     /// The duration spent waiting between retries of the operation.

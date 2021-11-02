@@ -15,12 +15,22 @@
 //! # use pravega_client_retry::retry_policy::RetryWithBackoff;
 //! # use pravega_client_retry::retry_result::RetryResult;
 //! # use pravega_client_retry::retry_sync::retry_sync;
+//! # use snafu::Snafu;
+//!
+//!     #[derive(Debug, PartialEq, Eq, Snafu)]
+//!     pub enum SnafuError {
+//!         #[snafu(display("Retryable error"))]
+//!         Retryable,
+//!         #[snafu(display("NonRetryable error"))]
+//!         Nonretryable,
+//!     }
+//!
 //! let retry_policy = RetryWithBackoff::default().max_tries(1);
 //! let mut collection = vec![1, 2].into_iter();
 //! let value = retry_sync(retry_policy, || match collection.next() {
 //!     Some(n) if n == 2 => RetryResult::Success(n),
-//!     Some(_) => RetryResult::Retry("not 2"),
-//!     None => RetryResult::Fail("to the end"),
+//!     Some(_) => RetryResult::Retry(SnafuError::Retryable),
+//!     None => RetryResult::Fail(SnafuError::Nonretryable),
 //! }).unwrap();
 //!
 //! assert_eq!(value, 2);
