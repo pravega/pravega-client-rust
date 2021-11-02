@@ -1,6 +1,6 @@
 [package]
 name = "pravega-wire-protocol"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2018"
 categories = ["network-programming"]
 keywords = ["streaming", "client", "pravega"]
@@ -14,10 +14,10 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pravega-client-shared = { path = "../shared", version = "0.2"}
-pravega-client-retry = {path = "../retry", version = "0.2"}
-pravega-connection-pool = {path = "../connection_pool", version = "0.2" }
-pravega-client-config = {path = "../config", version = "0.2"}
+pravega-client-shared = { path = "../shared", version = "0.3"}
+pravega-client-retry = {path = "../retry", version = "0.3"}
+pravega-connection-pool = {path = "../connection_pool", version = "0.3" }
+pravega-client-config = {path = "../config", version = "0.3"}
 async-trait = "0.1"
 bincode2 = "2.0.1"
 byteorder = "1.3"
