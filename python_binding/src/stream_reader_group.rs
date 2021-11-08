@@ -159,10 +159,10 @@ impl StreamReaderGroup {
     ///
     pub fn reader_offline(&self, reader_name: &str) -> PyResult<()> {
         info!(
-            "Marking reader {:?} under reader group {:?}" as offline,
+            "Marking reader {:?} under reader group {:?} as offline",
             reader_name, self.reader_group.name
         );
-        let r: Reader = Reader {
+        let _: Reader = Reader {
             name: reader_name.to_string(),
         };
         // TODO
