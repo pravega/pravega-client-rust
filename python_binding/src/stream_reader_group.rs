@@ -8,6 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use pravega_client_shared::Reader;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client_shared::ScopedStream;
@@ -113,11 +114,7 @@ pub(crate) struct StreamReaderGroup {
 #[pymethods]
 impl StreamReaderGroup {
     ///
-    /// This method returns a Python Future which completes when a segment slice is acquired for consumption.
-    /// A segment slice is data chunk received from a segment of a Pravega stream. It can contain one
-    /// or more events and the user can iterate over the segment slice to read the events.
-    /// If there are multiple segments in the stream then this API can return a segment slice of any
-    /// segments in the stream. The reader ensures that events returned by the stream are in order.
+    /// This method is used to create a reader under a ReaderGroup.
     ///
     /// ```
     /// import pravega_client;
@@ -144,6 +141,32 @@ impl StreamReaderGroup {
             self.reader_group.get_managed_streams(),
         );
         Ok(stream_reader)
+    }
+
+    ///
+    /// This method is used to create a reader under a ReaderGroup.
+    ///
+    /// ```
+    /// import pravega_client;
+    /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
+    /// // lets assume the Pravega scope and stream are already created.
+    /// event.reader_group=manager.create_reader_group("rg1", "scope", "stream")
+    /// reader=event.reader_group.create_reader("reader_id");
+    /// slice=await reader.get_segment_slice_async()
+    /// for event in slice:
+    ///     print(event.data())
+    ///```
+    ///
+    pub fn reader_offline(&self, reader_name: &str) -> PyResult<()> {
+        info!(
+            "Marking reader {:?} under reader group {:?}" as offline,
+            reader_name, self.reader_group.name
+        );
+        let r: Reader = Reader {
+            name: reader_name.to_string(),
+        };
+        // TODO
+        Ok(())
     }
 
     /// Returns the string representation.

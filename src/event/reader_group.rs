@@ -181,6 +181,7 @@ impl ReaderGroup {
         reader: &Reader,
         last_position: HashMap<ScopedSegment, Offset>,
     ) -> Result<(), ReaderGroupStateError> {
+        // TODO:
         self.state.lock().await.remove_reader(reader, last_position).await
     }
 
