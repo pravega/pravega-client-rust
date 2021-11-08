@@ -697,7 +697,7 @@ fn test_read_from_head_of_stream(client_factory: &ClientFactoryAsync) {
     let mut reader1 = h.block_on(rg.create_reader("r1".to_string()));
 
     let mut events_read = 0;
-    while let Some(slice) = h.block_on(reader1.acquire_segment()) {
+    while let Some(slice) = h.block_on(reader1.acquire_segment()).unwrap() {
         // read from a Segment slice.
         for event in slice {
             assert_eq!(
@@ -744,7 +744,7 @@ fn test_read_from_tail_of_stream(client_factory: &ClientFactoryAsync) {
 
     let mut events_read = 0;
     assert!(
-        h.block_on(reader1.acquire_segment()).is_none(),
+        h.block_on(reader1.acquire_segment()).unwrap().is_none(),
         "No events are expected to be read"
     );
     // Write events to the stream.
@@ -756,7 +756,7 @@ fn test_read_from_tail_of_stream(client_factory: &ClientFactoryAsync) {
         EVENT_SIZE,
     ));
     // Verify that we are able to read events from the stream.
-    while let Some(slice) = h.block_on(reader1.acquire_segment()) {
+    while let Some(slice) = h.block_on(reader1.acquire_segment()).unwrap() {
         // read from a Segment slice.
         for event in slice {
             assert_eq!(

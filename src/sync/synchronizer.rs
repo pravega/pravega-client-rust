@@ -1078,24 +1078,26 @@ mod test {
             name: "tableSyncScope".to_string(),
         };
         let mut sync = rt.block_on(factory.create_synchronizer(scope, "sync".to_string()));
-        rt.block_on(sync.insert(|table| {
-            table.insert(
-                "outer_key".to_owned(),
-                "inner_key".to_owned(),
-                "i32".to_owned(),
-                Box::new(1),
-            );
-            Ok(None)
-        }))
-        .unwrap();
+        let _: Option<String> = rt
+            .block_on(sync.insert(|table| {
+                table.insert(
+                    "outer_key".to_owned(),
+                    "inner_key".to_owned(),
+                    "i32".to_owned(),
+                    Box::new(1),
+                );
+                Ok(None)
+            }))
+            .unwrap();
         let value_option = sync.get("outer_key", "inner_key");
         assert!(value_option.is_some());
 
-        rt.block_on(sync.insert(|table| {
-            table.insert_tombstone("outer_key".to_owned(), "inner_key".to_owned())?;
-            Ok(None)
-        }))
-        .unwrap();
+        let _: Option<String> = rt
+            .block_on(sync.insert(|table| {
+                table.insert_tombstone("outer_key".to_owned(), "inner_key".to_owned())?;
+                Ok(None)
+            }))
+            .unwrap();
         let value_option = sync.get("outer_key", "inner_key");
         assert!(value_option.is_none());
     }

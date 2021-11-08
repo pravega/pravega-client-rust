@@ -9,7 +9,7 @@
 //
 
 use crate::client_factory::ClientFactoryAsync;
-use crate::event::reader_group_state::Offset;
+use crate::event::reader_group_state::{Offset, ReaderGroupStateError};
 use crate::segment::reader::ReaderError::SegmentSealed;
 use crate::segment::reader::{AsyncSegmentReader, ReaderError};
 
@@ -86,13 +86,13 @@ cfg_if::cfg_if! {
 ///     // readers which are part of the reader group.
 ///     let mut reader1 = rg.create_reader("r1".to_string()).await;
 ///     // read all events from a given segment slice.
-///     if let Some(mut segment_slice) =  reader1.acquire_segment().await {
+///     if let Some(mut segment_slice) =  reader1.acquire_segment().await.expect("Failed to acquire segment") {
 ///         while let Some(event) = segment_slice.next() {
 ///             println!("Event read is {:?}", event);
 ///         }
 ///     }
 ///     // read one event from the a given  segment slice and return it back.
-///     if let Some(mut segment_slice) = reader1.acquire_segment().await {
+///     if let Some(mut segment_slice) = reader1.acquire_segment().await.expect("Failed to acquire segment") {
 ///         if let Some(event) = segment_slice.next() {
 ///             println!("Event read is {:?}", event);
 ///             // release the segment slice back to the reader.
@@ -113,7 +113,7 @@ pub struct EventReader {
 impl Drop for EventReader {
     /// Destructor for reader invoked. This will automatically invoke reader_offline().
     fn drop(&mut self) {
-        info!("reader {} is dropped", self.id);
+        info!("Reader {:?} is dropped", self.id);
         // try fetching the currently running Runtime.
         let r = Handle::try_current();
         match r {
@@ -121,12 +121,14 @@ impl Drop for EventReader {
                 // enter the runtime context.
                 let _ = handle.enter();
                 // ensure we block until the reader_offline method completes.
-                futures::executor::block_on(self.reader_offline());
+                let offline_status = futures::executor::block_on(self.reader_offline());
+                info!("Reader {:?} is marked as offline. {:?}", self.id, offline_status);
             }
             Err(_) => {
                 // ensure we block until the reader_offline executes successfully.
-                let rt = tokio::runtime::Runtime::new().expect("create tokio runtime to drop reader");
-                rt.block_on(self.reader_offline());
+                let rt = tokio::runtime::Runtime::new().expect("Create tokio runtime to drop reader");
+                let offline_status = rt.block_on(self.reader_offline());
+                info!("Reader {:?} is marked as offline. {:?}", self.id, offline_status);
             }
         }
     }
@@ -359,7 +361,7 @@ impl EventReader {
     /// is assumed dead.
     pub async fn reader_offline(&mut self) -> Result<(), Error> {
         if !self.meta.reader_offline {
-            info!("putting reader {} offline", self.id);
+            info!("Putting reader {:?} offline", self.id);
             // stop reading from all the segments.
             self.meta.stop_reading_all();
             // close all slice return Receivers.
@@ -385,10 +387,11 @@ impl EventReader {
                 .map_err(|e| {
                     Error::new(
                         ErrorKind::Other,
-                        format!("failed to remove reader due to {:?}", e),
+                        format!("Failed to remove reader {:?} due to {:?}", self.id, e),
                     )
                 })?;
-            Ok(())
+        }
+        Ok(())
     }
 
     /// Release the segment of the provided SegmentSlice from the reader. This segment is marked as
@@ -460,7 +463,7 @@ impl EventReader {
     /// that another thread removes this reader from the ReaderGroup probably because the host of this reader
     /// is assumed dead.
     pub async fn acquire_segment(&mut self) -> Result<Option<SegmentSlice>, Error> {
-        info!("acquiring segment for reader {}", self.id);
+        info!("acquiring segment for reader {:?}", self.id);
         // Check if newer segments should be acquired.
         if self.meta.last_segment_acquire.elapsed() > REBALANCE_INTERVAL {
             info!("need to rebalance segments across readers");
@@ -575,12 +578,12 @@ impl EventReader {
                                 self.fetch_successors(e).await?;
                             }
                         }
-                        debug!("segment Slice meta {:?}", self.meta.slices);
+                        debug!("Segment Slice meta {:?}", self.meta.slices);
                         Ok(None)
                     }
                 }
             } else {
-                warn!("error getting updates from segment slice for reader {}", self.id);
+                warn!("Error getting updates from segment slice for reader {}", self.id);
                 Ok(None)
             }
         } else {
@@ -1287,7 +1290,7 @@ mod tests {
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
-            .return_const(0 as isize);
+            .returning(|_| Ok(0 as isize));
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
@@ -1304,7 +1307,7 @@ mod tests {
         let mut event_size = 0;
 
         // Attempt to acquire a segment.
-        while let Some(mut slice) = cf.runtime().block_on(reader.acquire_segment()) {
+        while let Some(mut slice) = cf.runtime().block_on(reader.acquire_segment()).unwrap() {
             loop {
                 if let Some(event) = slice.next() {
                     println!("Read event {:?}", event);
@@ -1355,7 +1358,7 @@ mod tests {
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
             .with(predicate::eq(Reader::from("r1".to_string())))
-            .return_const(1 as isize);
+            .returning(|_| Ok(1 as isize));
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
 
         // mock rg_state.assign_segment_to_reader
@@ -1400,7 +1403,7 @@ mod tests {
         let mut event_count = 0;
 
         // Attempt to acquire a segment.
-        while let Some(mut slice) = cf.runtime().block_on(reader.acquire_segment()) {
+        while let Some(mut slice) = cf.runtime().block_on(reader.acquire_segment()).unwrap() {
             loop {
                 if let Some(event) = slice.next() {
                     println!("Read event {:?}", event);
@@ -1458,7 +1461,7 @@ mod tests {
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
-            .return_const(0 as isize);
+            .returning(|_| Ok(0 as isize));
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
@@ -1475,7 +1478,7 @@ mod tests {
 
         let mut total_events_read = 0;
         // Attempt to acquire a segment.
-        while let Some(mut slice) = cf.runtime().block_on(reader.acquire_segment()) {
+        while let Some(mut slice) = cf.runtime().block_on(reader.acquire_segment()).unwrap() {
             let segment = slice.meta.scoped_segment.clone();
             println!("Received Segment Slice {:?}", segment);
             let mut event_count = 0;
@@ -1531,7 +1534,7 @@ mod tests {
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
-            .return_const(0 as isize);
+            .returning(|_| Ok(0 as isize));
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
@@ -1545,7 +1548,11 @@ mod tests {
         );
 
         // acquire a segment
-        let mut slice = cf.runtime().block_on(reader.acquire_segment()).unwrap();
+        let mut slice = cf
+            .runtime()
+            .block_on(reader.acquire_segment())
+            .expect("Failed to acquire a segment")
+            .unwrap();
 
         // read an event.
         let event = slice.next().unwrap();
@@ -1554,16 +1561,24 @@ mod tests {
         assert_eq!(event.offset_in_segment, 0); // first event.
 
         // release the segment slice.
-        cf.runtime().block_on(reader.release_segment(slice));
+        let _ = cf.runtime().block_on(reader.release_segment(slice));
 
         // acquire the next segment
-        let slice = cf.runtime().block_on(reader.acquire_segment()).unwrap();
+        let slice = cf
+            .runtime()
+            .block_on(reader.acquire_segment())
+            .expect("Failed to acquire segment")
+            .unwrap();
 
         //Do not read, simply return it back.
-        cf.runtime().block_on(reader.release_segment(slice));
+        let _ = cf.runtime().block_on(reader.release_segment(slice));
 
         // Try acquiring the segment again.
-        let mut slice = cf.runtime().block_on(reader.acquire_segment()).unwrap();
+        let mut slice = cf
+            .runtime()
+            .block_on(reader.acquire_segment())
+            .expect("Failed to acquire segment")
+            .unwrap();
         // Verify a partial event being present. This implies
         let event = slice.next().unwrap();
         assert_eq!(event.value.len(), 2);
@@ -1602,7 +1617,7 @@ mod tests {
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
-            .return_const(0 as isize);
+            .returning(|_| Ok(0 as isize));
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
@@ -1616,7 +1631,11 @@ mod tests {
         );
 
         // acquire a segment
-        let mut slice = cf.runtime().block_on(reader.acquire_segment()).unwrap();
+        let mut slice = cf
+            .runtime()
+            .block_on(reader.acquire_segment())
+            .expect("Failed to acquire segment")
+            .unwrap();
 
         // read an event.
         let event = slice.next().unwrap();
@@ -1632,7 +1651,7 @@ mod tests {
         assert_eq!(event.offset_in_segment, 9); // second event.
 
         // release the segment slice.
-        cf.runtime().block_on(reader.release_segment_at(slice, 0));
+        let _ = cf.runtime().block_on(reader.release_segment_at(slice, 0));
 
         // simulate a segment read at offset 0.
         let (_stop_tx, stop_rx) = oneshot::channel();
@@ -1646,7 +1665,11 @@ mod tests {
         ));
 
         // acquire the next segment
-        let mut slice = cf.runtime().block_on(reader.acquire_segment()).unwrap();
+        let mut slice = cf
+            .runtime()
+            .block_on(reader.acquire_segment())
+            .expect("Failed to acquire segment")
+            .unwrap();
         // Verify a partial event being present. This implies
         let event = slice.next().unwrap();
         assert_eq!(event.value.len(), 1);

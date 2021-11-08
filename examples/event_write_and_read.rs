@@ -78,12 +78,19 @@ fn main() {
         println!("event reader created");
 
         // read from segment
-        let mut slice = reader.acquire_segment().await.expect("acquire segment");
+        let mut slice = reader
+            .acquire_segment()
+            .await
+            .unwrap()
+            .expect("failed to acquire segment");
         let read_event = slice.next();
         assert!(read_event.is_some(), "event slice should have event to read");
         assert_eq!(b"hello world", read_event.unwrap().value.as_slice());
         println!("event reader read data");
-        reader.reader_offline().await;
+        reader
+            .reader_offline()
+            .await
+            .expect("failed to mark the reader offline");
         println!("event write and read example finished");
     });
 }

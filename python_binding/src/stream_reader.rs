@@ -16,6 +16,7 @@ cfg_if! {
         use pyo3::prelude::*;
         use pyo3::PyResult;
         use pyo3::PyObjectProtocol;
+        use pyo3::exceptions;
         use tracing::info;
         use std::sync::Arc;
         use pravega_client::event::reader::{Event, SegmentSlice};
@@ -64,10 +65,16 @@ impl StreamReader {
 
         pyo3_asyncio::tokio::future_into_py(py, async move {
             let slice_result = read.lock().await.acquire_segment().await;
-            let slice_py: Slice = Slice {
-                seg_slice: slice_result,
-            };
-            Ok(Python::with_gil(|py| slice_py.into_py(py)))
+            match slice_result {
+                Ok(slice) => {
+                    let slice_py: Slice = Slice { seg_slice: slice };
+                    Ok(Python::with_gil(|py| slice_py.into_py(py)))
+                }
+                Err(e) => Err(exceptions::PyOSError::new_err(format!(
+                    "Error while attempting to acquire segment {:?}",
+                    e
+                ))),
+            }
         })
     }
 

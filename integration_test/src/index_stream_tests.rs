@@ -176,7 +176,7 @@ async fn test_write_and_read(
 
     // test event reader compatibility
     let mut read_count = 0;
-    while let Some(mut slice) = event_reader.acquire_segment().await {
+    while let Some(mut slice) = event_reader.acquire_segment().await.unwrap() {
         info!("acquire segment for reader {:?}", slice);
         for event in &mut slice {
             // record size minus 8 bytes header
@@ -187,7 +187,7 @@ async fn test_write_and_read(
             );
             read_count += 1;
         }
-        event_reader.release_segment(slice).await;
+        event_reader.release_segment(slice).await.unwrap();
     }
     assert_eq!(read_count, EVENT_NUM);
 
