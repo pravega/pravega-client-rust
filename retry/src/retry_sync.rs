@@ -11,6 +11,7 @@
 use super::retry_policy::BackoffSchedule;
 use super::retry_result::RetryError;
 use super::retry_result::RetryResult;
+use std::error::Error;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -28,6 +29,7 @@ use std::time::Duration;
 pub fn retry_sync<O, T, E>(retry_schedule: impl BackoffSchedule, mut operation: O) -> Result<T, RetryError<E>>
 where
     O: FnMut() -> RetryResult<T, E>,
+    E: Error,
 {
     retry_internal(retry_schedule, |_| operation())
 }
@@ -38,6 +40,7 @@ pub fn retry_internal<O, T, E>(
 ) -> Result<T, RetryError<E>>
 where
     O: FnMut(u64) -> RetryResult<T, E>,
+    E: Error,
 {
     let mut iterator = retry_schedule;
     let mut current_try = 1;
@@ -93,8 +96,8 @@ mod tests {
         let mut collection = vec![1, 2, 3, 4, 5].into_iter();
         let value = retry_sync(retry_policy, || match collection.next() {
             Some(n) if n == 5 => RetryResult::Success(n),
-            Some(_) => RetryResult::Retry("not 5"),
-            None => RetryResult::Fail("to the end"),
+            Some(_) => RetryResult::Retry(SnafuError::Retryable),
+            None => RetryResult::Fail(SnafuError::Nonretryable),
         })
         .unwrap();
         assert_eq!(value, 5);
@@ -106,8 +109,8 @@ mod tests {
         let mut collection = vec![1, 2].into_iter();
         let value = retry_sync(retry_policy, || match collection.next() {
             Some(n) if n == 2 => RetryResult::Success(n),
-            Some(_) => RetryResult::Retry("not 2"),
-            None => RetryResult::Fail("to the end"),
+            Some(_) => RetryResult::Retry(SnafuError::Retryable),
+            None => RetryResult::Fail(SnafuError::Nonretryable),
         })
         .unwrap();
         assert_eq!(value, 2);
@@ -119,14 +122,14 @@ mod tests {
         let mut collection = vec![1, 2].into_iter();
         let res = retry_sync(retry_policy, || match collection.next() {
             Some(n) if n == 3 => RetryResult::Success(n),
-            Some(_) => RetryResult::Retry("retry"),
-            None => RetryResult::Fail("to the end"),
+            Some(_) => RetryResult::Retry(SnafuError::Retryable),
+            None => RetryResult::Fail(SnafuError::Nonretryable),
         });
 
         assert_eq!(
             res,
             Err(RetryError {
-                error: "retry",
+                error: SnafuError::Retryable,
                 tries: 2,
                 total_delay: Duration::from_millis(1),
             })
@@ -139,13 +142,13 @@ mod tests {
         let mut collection = vec![1].into_iter();
         let res = retry_sync(retry_policy, || match collection.next() {
             Some(n) if n == 3 => RetryResult::Success(n),
-            Some(_) => RetryResult::Fail("non-retry"),
-            None => RetryResult::Fail("to the end"),
+            Some(_) => RetryResult::Fail(SnafuError::Nonretryable),
+            None => RetryResult::Fail(SnafuError::Nonretryable),
         });
         assert_eq!(
             res,
             Err(RetryError {
-                error: "non-retry",
+                error: SnafuError::Nonretryable,
                 tries: 1,
                 total_delay: Duration::from_millis(0),
             })

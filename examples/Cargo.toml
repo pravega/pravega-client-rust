@@ -1,6 +1,6 @@
 [package]
 name = "pravega-rust-client-examples"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2018"
 categories = ["network-programming"]
 keywords = ["streaming", "client", "pravega"]
@@ -15,8 +15,8 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 
 [dev-dependencies]
 pravega-client = { path = "../", version = "0.3"}
-pravega-client-config = { path = "../config", version = "0.2"}
-pravega-client-shared = { path = "../shared", version = "0.2"}
+pravega-client-config = { path = "../config", version = "0.3"}
+pravega-client-shared = { path = "../shared", version = "0.3"}
 tokio = "1.5"
 
 [[example]]

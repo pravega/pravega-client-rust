@@ -33,6 +33,7 @@ pub async fn retry_async<F, T, E>(
 ) -> Result<T, RetryError<E>>
 where
     F: Future<Output = RetryResult<T, E>>,
+    E: std::fmt::Display,
 {
     let mut iterator = retry_schedule;
     let mut current_try = 1;
@@ -72,8 +73,17 @@ mod tests {
     use super::retry_async;
     use super::RetryError;
     use super::RetryResult;
+    use snafu::Snafu;
     use std::time::Duration;
     use tokio::runtime::Runtime;
+
+    #[derive(Debug, PartialEq, Eq, Snafu)]
+    pub enum SnafuError {
+        #[snafu(display("Retryable error"))]
+        Retryable,
+        #[snafu(display("NonRetryable error"))]
+        Nonretryable,
+    }
 
     #[test]
     fn attempts_just_once() {
@@ -82,18 +92,18 @@ mod tests {
         let future = retry_async(retry_policy, || async {
             let previous = 1;
             match previous {
-                1 => RetryResult::Fail("not retry"),
+                1 => RetryResult::Fail(SnafuError::Nonretryable),
                 2 => RetryResult::Success(previous),
-                _ => RetryResult::Retry("retry"),
+                _ => RetryResult::Retry(SnafuError::Retryable),
             }
         });
         let res = runtime.block_on(future);
         assert_eq!(
             res,
             Err(RetryError {
-                error: "not retry",
+                error: SnafuError::Nonretryable,
                 tries: 1,
-                total_delay: Duration::from_millis(0)
+                total_delay: Duration::from_millis(0),
             })
         );
     }
@@ -105,21 +115,14 @@ mod tests {
         let future = retry_async(retry_policy, || async {
             let previous = 3;
             match previous {
-                1 => RetryResult::Fail("not retry"),
+                1 => RetryResult::Fail(SnafuError::Nonretryable),
                 2 => RetryResult::Success(previous),
-                _ => RetryResult::Retry("retry"),
+                _ => RetryResult::Retry(SnafuError::Retryable),
             }
         });
 
         let res = runtime.block_on(future);
-        assert_eq!(
-            res,
-            Err(RetryError {
-                error: "retry",
-                tries: 4,
-                total_delay: Duration::from_millis(111)
-            })
-        );
+        assert_eq!(res.err().unwrap().tries, 4);
     }
 
     #[test]
@@ -133,7 +136,7 @@ mod tests {
             counter += 1;
             async move {
                 if previous < 3 {
-                    RetryResult::Retry("retry")
+                    RetryResult::Retry(SnafuError::Retryable)
                 } else {
                     RetryResult::Success(previous)
                 }
