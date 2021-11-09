@@ -86,13 +86,13 @@ cfg_if::cfg_if! {
 ///     // readers which are part of the reader group.
 ///     let mut reader1 = rg.create_reader("r1".to_string()).await;
 ///     // read all events from a given segment slice.
-///     if let Some(mut segment_slice) =  reader1.acquire_segment().await.expect("Failed to acquire segment") {
+///     if let Some(mut segment_slice) =  reader1.acquire_segment().await.expect("Failed to acquire segment since the reader is offline") {
 ///         while let Some(event) = segment_slice.next() {
 ///             println!("Event read is {:?}", event);
 ///         }
 ///     }
 ///     // read one event from the a given  segment slice and return it back.
-///     if let Some(mut segment_slice) = reader1.acquire_segment().await.expect("Failed to acquire segment") {
+///     if let Some(mut segment_slice) = reader1.acquire_segment().await.expect("Failed to acquire segment since the reader is offline") {
 ///         if let Some(event) = segment_slice.next() {
 ///             println!("Event read is {:?}", event);
 ///             // release the segment slice back to the reader.
@@ -1551,7 +1551,7 @@ mod tests {
         let mut slice = cf
             .runtime()
             .block_on(reader.acquire_segment())
-            .expect("Failed to acquire a segment")
+            .expect("Failed to acquire segment since the reader is offline")
             .unwrap();
 
         // read an event.
@@ -1567,7 +1567,7 @@ mod tests {
         let slice = cf
             .runtime()
             .block_on(reader.acquire_segment())
-            .expect("Failed to acquire segment")
+            .expect("Failed to acquire segment since the reader is offline")
             .unwrap();
 
         //Do not read, simply return it back.

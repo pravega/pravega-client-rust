@@ -87,7 +87,10 @@ fn test_read_large_events(client_factory: &ClientFactoryAsync) {
 
     let mut event_count = 0;
     while event_count < NUM_EVENTS {
-        if let Some(mut slice) = h.block_on(reader.acquire_segment()).expect("acquire segment") {
+        if let Some(mut slice) = h
+            .block_on(reader.acquire_segment())
+            .expect("Failed to acquire segment since the reader is offline")
+        {
             for event in &mut slice {
                 assert_eq!(
                     vec![1; EVENT_SIZE],
@@ -149,7 +152,11 @@ fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactoryAsyn
     let read_count2 = read_count.clone();
     let handle1 = h.spawn(async move {
         while read_count1.load(Ordering::Relaxed) < NUM_EVENTS {
-            if let Some(mut slice) = reader1.acquire_segment().await.expect("acquire segment") {
+            if let Some(mut slice) = reader1
+                .acquire_segment()
+                .await
+                .expect("Failed to acquire segment since the reader is offline")
+            {
                 info!("acquire segment for reader r1, {:?}", slice);
                 for event in &mut slice {
                     assert_eq!(
@@ -166,7 +173,11 @@ fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactoryAsyn
     });
     let handle2 = h.spawn(async move {
         while read_count2.load(Ordering::Relaxed) < NUM_EVENTS {
-            if let Some(mut slice) = reader2.acquire_segment().await.expect("acquire segment") {
+            if let Some(mut slice) = reader2
+                .acquire_segment()
+                .await
+                .expect("Failed to acquire segment since the reader is offline")
+            {
                 info!("acquire segment for reader r2 {:?}", slice);
                 for event in &mut slice {
                     assert_eq!(
@@ -220,7 +231,11 @@ async fn test_release_segment(client_factory: &ClientFactoryAsync) {
     let mut event_count = 0;
     let mut release_invoked = false;
     while event_count < NUM_EVENTS {
-        if let Some(mut slice) = reader.acquire_segment().await.expect("acquire segment") {
+        if let Some(mut slice) = reader
+            .acquire_segment()
+            .await
+            .expect("Failed to acquire segment since the reader is offline")
+        {
             loop {
                 if !release_invoked && event_count == 5 {
                     reader.release_segment(slice).await.expect("release segment");
@@ -282,7 +297,11 @@ async fn test_release_segment_at(client_factory: &ClientFactoryAsync) {
             // all events have been read. Exit test.
             break;
         }
-        if let Some(mut slice) = reader.acquire_segment().await.expect("acquire segment") {
+        if let Some(mut slice) = reader
+            .acquire_segment()
+            .await
+            .expect("Failed to acquire segment since the reader is offline")
+        {
             loop {
                 if !release_invoked && event_count == 5 {
                     reader
@@ -346,7 +365,11 @@ async fn test_stream_scaling(client_factory: &ClientFactoryAsync) {
             // all events have been read. Exit test.
             break;
         }
-        if let Some(mut slice) = reader.acquire_segment().await.expect("acquire segment") {
+        if let Some(mut slice) = reader
+            .acquire_segment()
+            .await
+            .expect("Failed to acquire segment since the reader is offline")
+        {
             loop {
                 if let Some(event) = slice.next() {
                     assert_eq!(
@@ -401,7 +424,11 @@ async fn test_read_api(client_factory: &ClientFactoryAsync) {
         .await;
     let mut reader = rg.create_reader("r1".to_string()).await;
     let mut event_count = 0;
-    while let Some(mut slice) = reader.acquire_segment().await.expect("acquire segment") {
+    while let Some(mut slice) = reader
+        .acquire_segment()
+        .await
+        .expect("Failed to acquire segment since the reader is offline")
+    {
         loop {
             if let Some(event) = slice.next() {
                 assert_eq!(
@@ -460,7 +487,10 @@ fn test_multiple_readers(client_factory: &ClientFactoryAsync) {
     // no segments will be assigned to reader2
     let mut reader2 = h.block_on(rg.create_reader("r2".to_string()));
 
-    if let Some(mut slice) = h.block_on(reader1.acquire_segment()).expect("acquire segment") {
+    if let Some(mut slice) = h
+        .block_on(reader1.acquire_segment())
+        .expect("Failed to acquire segment since the reader is offline")
+    {
         if let Some(event) = slice.next() {
             assert_eq!(
                 vec![1; EVENT_SIZE],
@@ -476,7 +506,10 @@ fn test_multiple_readers(client_factory: &ClientFactoryAsync) {
         }
     }
 
-    if let Some(mut slice) = h.block_on(reader2.acquire_segment()).expect("acquire segment") {
+    if let Some(mut slice) = h
+        .block_on(reader2.acquire_segment())
+        .expect("Failed to acquire segment since the reader is offline")
+    {
         if let Some(event) = slice.next() {
             assert_eq!(
                 vec![1; EVENT_SIZE],
@@ -530,7 +563,10 @@ fn test_segment_rebalance(client_factory: &ClientFactoryAsync) {
     reader1.set_last_acquire_release_time(last_acquire_release_time);
     reader2.set_last_acquire_release_time(last_acquire_release_time);
     let mut events_read = 0;
-    if let Some(mut slice) = h.block_on(reader1.acquire_segment()).expect("acquire segment") {
+    if let Some(mut slice) = h
+        .block_on(reader1.acquire_segment())
+        .expect("Failed to acquire segment since the reader is offline")
+    {
         if let Some(event) = slice.next() {
             assert_eq!(
                 vec![1; EVENT_SIZE],
@@ -547,7 +583,10 @@ fn test_segment_rebalance(client_factory: &ClientFactoryAsync) {
     }
 
     // try acquiring a segment on reader 2 and verify segments are acquired.
-    if let Some(mut slice) = h.block_on(reader2.acquire_segment()).expect("acquire segment") {
+    if let Some(mut slice) = h
+        .block_on(reader2.acquire_segment())
+        .expect("Failed to acquire segment since the reader is offline")
+    {
         if let Some(event) = slice.next() {
             // validate that reader 2 acquired a segment.
             assert_eq!(
@@ -567,7 +606,10 @@ fn test_segment_rebalance(client_factory: &ClientFactoryAsync) {
     //reset the time to ensure reader1 acquires segment in the next cycle.
     reader1.set_last_acquire_release_time(Instant::now() - Duration::from_secs(20));
 
-    while let Some(slice) = h.block_on(reader1.acquire_segment()).expect("acquire segment") {
+    while let Some(slice) = h
+        .block_on(reader1.acquire_segment())
+        .expect("Failed to acquire segment since the reader is offline")
+    {
         // read all events in the slice.
         for event in slice {
             assert_eq!(
@@ -619,7 +661,10 @@ fn test_reader_offline(client_factory: &ClientFactoryAsync) {
 
     // read one event using reader1 and release it back.
     // A drop of segment slice does the same .
-    if let Some(mut slice) = h.block_on(reader1.acquire_segment()).expect("acquire segment") {
+    if let Some(mut slice) = h
+        .block_on(reader1.acquire_segment())
+        .expect("Failed to acquire segment since the reader is offline")
+    {
         if let Some(event) = slice.next() {
             assert_eq!(
                 vec![1; EVENT_SIZE],
@@ -640,7 +685,10 @@ fn test_reader_offline(client_factory: &ClientFactoryAsync) {
     let mut reader2 = h.block_on(rg.create_reader("r2".to_string()));
 
     let mut events_read = 1; // one event has been already read by reader 1.
-    while let Some(slice) = h.block_on(reader2.acquire_segment()).expect("acquire segment") {
+    while let Some(slice) = h
+        .block_on(reader2.acquire_segment())
+        .expect("Failed to acquire segment since the reader is offline")
+    {
         // read from a Segment slice.
         for event in slice {
             assert_eq!(
