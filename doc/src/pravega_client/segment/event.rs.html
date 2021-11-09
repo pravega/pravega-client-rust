@@ -156,7 +156,7 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">new</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">WriterInfo</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">segment</span>: <span class="ident">ScopedSegment</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">connection_id</span>: <span class="ident">Uuid</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">connection_id</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Uuid</span><span class="op">&gt;</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">writer_id</span>: <span class="ident">WriterId</span>,
 }
 

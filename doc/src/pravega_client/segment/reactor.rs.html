@@ -304,9 +304,6 @@
 <span id="304">304</span>
 <span id="305">305</span>
 <span id="306">306</span>
-<span id="307">307</span>
-<span id="308">308</span>
-<span id="309">309</span>
 </pre><pre class="rust"><code><span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
 <span class="comment">//</span>
@@ -377,6 +374,25 @@
                 }
                 <span class="prelude-val">Ok</span>(())
             }
+            <span class="ident">Incoming::Reconnect</span>(<span class="ident">writer_info</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> <span class="ident">option</span> <span class="op">=</span> <span class="ident">selector</span>.<span class="ident">writers</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">writer_info</span>.<span class="ident">segment</span>);
+                <span class="kw">if</span> <span class="ident">option</span>.<span class="ident">is_none</span>() {
+                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
+                }
+                <span class="kw">let</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">option</span>.<span class="ident">unwrap</span>();
+
+                <span class="comment">// Only reconnect if the current connection is having connection failure. It might happen that the</span>
+                <span class="comment">// write op has already triggered the connection failure and has reconnected. It&#39;s necessary to avoid</span>
+                <span class="comment">// reconnect twice since resending duplicate inflight events will cause InvalidEventNumber error.</span>
+                <span class="kw">let</span> <span class="ident">current_connection_id</span> <span class="op">=</span> <span class="ident">writer</span>.<span class="ident">connection</span>.<span class="ident">as_ref</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">c</span><span class="op">|</span> <span class="ident">c</span>.<span class="ident">get_id</span>());
+                <span class="kw">if</span> <span class="ident">current_connection_id</span> <span class="op">=</span><span class="op">=</span> <span class="ident">writer_info</span>.<span class="ident">connection_id</span> {
+                    <span class="macro">warn!</span>(<span class="string">&quot;reconnect for writer {:?}&quot;</span>, <span class="ident">writer_info</span>);
+                    <span class="ident">writer</span>.<span class="ident">reconnect</span>(<span class="ident">factory</span>).<span class="kw">await</span>;
+                } <span class="kw">else</span> {
+                    <span class="macro">info!</span>(<span class="string">&quot;reconnect signal received for writer: {:?}, but does not match current writer: id {}, connection id {:?}, ignore&quot;</span>, <span class="ident">writer_info</span>, <span class="ident">writer</span>.<span class="ident">id</span>, <span class="ident">current_connection_id</span>);
+                }
+                <span class="prelude-val">Ok</span>(())
+            }
             <span class="ident">Incoming::ServerReply</span>(<span class="ident">server_reply</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">Reactor::process_server_reply</span>(<span class="ident">server_reply</span>, <span class="ident">selector</span>, <span class="ident">factory</span>).<span class="kw">await</span> {
                     <span class="macro">error!</span>(<span class="string">&quot;failed to process server reply due to {:?}&quot;</span>, <span class="ident">e</span>);
@@ -384,28 +400,6 @@
                 } <span class="kw">else</span> {
                     <span class="prelude-val">Ok</span>(())
                 }
-            }
-            <span class="ident">Incoming::Reconnect</span>(<span class="ident">writer_info</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="kw">let</span> <span class="ident">option</span> <span class="op">=</span> <span class="ident">selector</span>.<span class="ident">writers</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">writer_info</span>.<span class="ident">segment</span>);
-                <span class="kw">if</span> <span class="ident">option</span>.<span class="ident">is_none</span>() {
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
-                }
-                <span class="kw">let</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">option</span>.<span class="ident">unwrap</span>();
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">write_half</span>) <span class="op">=</span> <span class="ident">writer</span>.<span class="ident">connection</span> {
-                    <span class="comment">// Only reconnect if the current connection is having connection</span>
-                    <span class="comment">// failure. It might happen that the write op has already triggered</span>
-                    <span class="comment">// the connection failure and has reconnected. It&#39;s necessary to avoid</span>
-                    <span class="comment">// reconnect twice since resending duplicate inflight events will</span>
-                    <span class="comment">// cause InvalidEventNumber error.</span>
-                    <span class="kw">if</span> <span class="ident">write_half</span>.<span class="ident">get_id</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">writer_info</span>.<span class="ident">connection_id</span> <span class="op">&amp;&amp;</span> <span class="ident">writer_info</span>.<span class="ident">writer_id</span> <span class="op">=</span><span class="op">=</span> <span class="ident">writer</span>.<span class="ident">id</span>
-                    {
-                        <span class="macro">warn!</span>(<span class="string">&quot;reconnect for writer {:?}&quot;</span>, <span class="ident">writer_info</span>);
-                        <span class="ident">writer</span>.<span class="ident">reconnect</span>(<span class="ident">factory</span>).<span class="kw">await</span>;
-                    } <span class="kw">else</span> {
-                        <span class="macro">info!</span>(<span class="string">&quot;reconnect signal received for writer: {:?}, but does not match current writer: id {}, connection id {}, ignore&quot;</span>, <span class="ident">writer_info</span>, <span class="ident">writer</span>.<span class="ident">id</span>, <span class="ident">write_half</span>.<span class="ident">get_id</span>());
-                    }
-                }
-                <span class="prelude-val">Ok</span>(())
             }
             <span class="ident">Incoming::Reset</span>(<span class="ident">segment</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="macro">info!</span>(<span class="string">&quot;reset writer for segment {:?} in reactor&quot;</span>, <span class="ident">segment</span>);
