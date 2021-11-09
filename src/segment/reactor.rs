@@ -63,8 +63,27 @@ impl Reactor {
                     return Ok(());
                 }
                 if let Err(e) = event_segment_writer.write(pending_event, cap_guard).await {
-                    info!("failed to write append to segment due to {:?}, reconnecting", e);
+                    warn!("failed to write append to segment due to {:?}, reconnecting", e);
                     event_segment_writer.reconnect(factory).await;
+                }
+                Ok(())
+            }
+            Incoming::Reconnect(writer_info) => {
+                let option = selector.writers.get_mut(&writer_info.segment);
+                if option.is_none() {
+                    return Ok(());
+                }
+                let writer = option.unwrap();
+
+                // Only reconnect if the current connection is having connection failure. It might happen that the
+                // write op has already triggered the connection failure and has reconnected. It's necessary to avoid
+                // reconnect twice since resending duplicate inflight events will cause InvalidEventNumber error.
+                let current_connection_id = writer.connection.as_ref().map(|c| c.get_id());
+                if current_connection_id == writer_info.connection_id {
+                    warn!("reconnect for writer {:?}", writer_info);
+                    writer.reconnect(factory).await;
+                } else {
+                    info!("reconnect signal received for writer: {:?}, but does not match current writer: id {}, connection id {:?}, ignore", writer_info, writer.id, current_connection_id);
                 }
                 Ok(())
             }
@@ -75,28 +94,6 @@ impl Reactor {
                 } else {
                     Ok(())
                 }
-            }
-            Incoming::Reconnect(writer_info) => {
-                let option = selector.writers.get_mut(&writer_info.segment);
-                if option.is_none() {
-                    return Ok(());
-                }
-                let writer = option.unwrap();
-                if let Some(ref write_half) = writer.connection {
-                    // Only reconnect if the current connection is having connection
-                    // failure. It might happen that the write op has already triggered
-                    // the connection failure and has reconnected. It's necessary to avoid
-                    // reconnect twice since resending duplicate inflight events will
-                    // cause InvalidEventNumber error.
-                    if write_half.get_id() == writer_info.connection_id && writer_info.writer_id == writer.id
-                    {
-                        info!("reconnect for writer {:?}", writer_info);
-                        writer.reconnect(factory).await;
-                    } else {
-                        info!("reconnect signal received for writer: {:?}, but does not match current writer: id {}, connection id {}, ignore", writer_info, writer.id, write_half.get_id());
-                    }
-                }
-                Ok(())
             }
             Incoming::Reset(segment) => {
                 info!("reset writer for segment {:?} in reactor", segment);
@@ -130,7 +127,7 @@ impl Reactor {
                 );
                 writer.ack(cmd.event_number);
                 if let Err(e) = writer.write_pending_events().await {
-                    info!(
+                    warn!(
                         "writer {:?} failed to flush data to segment {:?} due to {:?}, reconnecting",
                         writer.id, writer.segment, e
                     );
@@ -170,7 +167,7 @@ impl Reactor {
             }
 
             Replies::WrongHost(cmd) => {
-                info!(
+                warn!(
                     "wrong host {:?} : stack trace {}",
                     cmd.segment, cmd.server_stack_trace
                 );

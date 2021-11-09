@@ -34,7 +34,7 @@ pub(crate) struct ServerReply {
 #[derive(new, Debug)]
 pub(crate) struct WriterInfo {
     pub(crate) segment: ScopedSegment,
-    pub(crate) connection_id: Uuid,
+    pub(crate) connection_id: Option<Uuid>,
     pub(crate) writer_id: WriterId,
 }
 

@@ -212,7 +212,7 @@ impl SegmentWriter {
                                 let result = sender
                                     .send((Incoming::Reconnect(WriterInfo {
                                         segment: segment.clone(),
-                                        connection_id: r.get_id(),
+                                        connection_id: Some(r.get_id()),
                                         writer_id,
                                     }), 0)).await;
                                 if let Err(e) = result {
@@ -408,11 +408,7 @@ impl SegmentWriter {
     /// If error occurs during any one of the steps above, redo the reconnection from step 1.
     pub(crate) async fn reconnect(&mut self, factory: &ClientFactoryAsync) {
         debug!("Reconnecting segment writer {:?}", self.id);
-        let connection_id = if let Some(ref write_half) = self.connection {
-            write_half.get_id()
-        } else {
-            panic!("should always have connection here");
-        };
+        let connection_id = self.connection.as_ref().map(|c| c.get_id());
 
         // setup the connection
         let setup_res = self.setup_connection(factory).await;
