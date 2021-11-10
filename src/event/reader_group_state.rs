@@ -252,6 +252,10 @@ impl ReaderGroupState {
         reader: &Reader,
         owned_segments: &HashMap<ScopedSegment, Offset>,
     ) -> Result<Option<String>, SynchronizerError> {
+        if !table.get_inner_map(ASSIGNED).contains_key(&reader.to_string()) {
+            //Reader is already offline.
+            return Ok(None);
+        }
         let assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)?;
 
         for (segment, pos) in assigned_segments {
@@ -808,6 +812,8 @@ mod test {
 
         ReaderGroupState::remove_reader_internal(&mut table, &READER, &segments)
             .expect("remove online reader");
+        ReaderGroupState::remove_reader_internal(&mut table, &READER, &segments)
+            .expect("Idempotent remove online reader");
 
         assert_eq!(table.get_inner_map(UNASSIGNED).len(), 2);
     }
