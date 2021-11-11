@@ -8,7 +8,6 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use pravega_client_shared::Reader;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client_shared::ScopedStream;
@@ -161,12 +160,9 @@ impl StreamReaderGroup {
             "Marking reader {:?} under reader group {:?} as offline",
             reader_name, self.reader_group.name
         );
-        let reader: Reader = Reader {
-            name: reader_name.to_string(),
-        };
         let res = self
             .runtime_handle
-            .block_on(self.reader_group.reader_offline(&reader, None));
+            .block_on(self.reader_group.reader_offline(reader_name.to_string(), None));
         match res {
             Ok(_) => Ok(()),
             Err(e) => match e {

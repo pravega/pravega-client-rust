@@ -178,13 +178,14 @@ impl ReaderGroup {
     /// If the reader is already offline, this method will have no effect.
     pub async fn reader_offline(
         &self,
-        reader: &Reader,
+        reader_id: String,
         last_position: Option<HashMap<ScopedSegment, Offset>>,
     ) -> Result<(), ReaderGroupStateError> {
+        let r: Reader = reader_id.into();
         if let Some(position) = last_position {
-            self.state.lock().await.remove_reader(reader, position).await
+            self.state.lock().await.remove_reader(&r, position).await
         } else {
-            self.state.lock().await.remove_reader_default(reader).await
+            self.state.lock().await.remove_reader_default(&r).await
         }
     }
 
