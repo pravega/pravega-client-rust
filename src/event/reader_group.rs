@@ -179,10 +179,13 @@ impl ReaderGroup {
     pub async fn reader_offline(
         &self,
         reader: &Reader,
-        last_position: HashMap<ScopedSegment, Offset>,
+        last_position: Option<HashMap<ScopedSegment, Offset>>,
     ) -> Result<(), ReaderGroupStateError> {
-        // TODO:
-        self.state.lock().await.remove_reader(reader, last_position).await
+        if let Some(position) = last_position {
+            self.state.lock().await.remove_reader(reader, position).await
+        } else {
+            self.state.lock().await.remove_reader_default(reader).await
+        }
     }
 
     ///

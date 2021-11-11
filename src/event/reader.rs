@@ -147,8 +147,7 @@ impl EventReader {
             .lock()
             .await
             .compute_segments_to_acquire_or_release(&reader)
-            .await
-            .expect("reader should be online");
+            .await;
         // attempt acquiring the desired number of segments.
         if new_segments_to_acquire > 0 {
             for _ in 0..new_segments_to_acquire {
@@ -162,6 +161,10 @@ impl EventReader {
                     debug!("Acquiring segment {:?} for reader {:?}", seg, reader);
                 } else {
                     // There are no new unassigned segments to be acquired.
+                    debug!(
+                        "No unassigned segments that can be acquired by the reader {:?}",
+                        reader
+                    );
                     break;
                 }
             }
@@ -406,13 +409,7 @@ impl EventReader {
             .lock()
             .await
             .compute_segments_to_acquire_or_release(&self.id)
-            .await
-            .map_err(|e| {
-                Error::new(
-                    ErrorKind::Other,
-                    format!("reader {:?} is offline {:?}", self.id, e),
-                )
-            })?;
+            .await;
         let segment = ScopedSegment::from(slice.meta.scoped_segment.as_str());
         // check if segments needs to be released from the reader
         if new_segments_to_release < 0 {
@@ -669,7 +666,7 @@ impl EventReader {
             .lock()
             .await
             .compute_segments_to_acquire_or_release(&self.id)
-            .await?;
+            .await;
         if new_segments_to_acquire <= 0 {
             Ok(None)
         } else {
