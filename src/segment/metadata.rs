@@ -111,6 +111,7 @@ impl SegmentMetadataClient {
         })
     }
 
+    /// Returns whether the current segment is sealed.
     pub async fn is_sealed(&self) -> Result<bool, SegmentMetadataClientError> {
         self.get_segment_info().await.map(|cmd| cmd.is_sealed)
     }
