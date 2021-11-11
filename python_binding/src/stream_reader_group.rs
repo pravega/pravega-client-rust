@@ -22,8 +22,10 @@ cfg_if! {
         use tokio::runtime::Handle;
         use crate::stream_reader::StreamReader;
         use pravega_client::event::reader_group::{ReaderGroupConfig, ReaderGroupConfigBuilder};
+        use pravega_client::event::reader_group_state::ReaderGroupStateError;
         use pravega_client_shared::{Scope, Stream};
         use pyo3::types::PyTuple;
+        use pyo3::exceptions;
     }
 }
 
@@ -144,17 +146,14 @@ impl StreamReaderGroup {
     }
 
     ///
-    /// This method is used to create a reader under a ReaderGroup.
+    /// This method is used to manually mark a reader as offline under a ReaderGroup.
     ///
     /// ```
     /// import pravega_client;
     /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
     /// // lets assume the Pravega scope and stream are already created.
     /// event.reader_group=manager.create_reader_group("rg1", "scope", "stream")
-    /// reader=event.reader_group.create_reader("reader_id");
-    /// slice=await reader.get_segment_slice_async()
-    /// for event in slice:
-    ///     print(event.data())
+    /// event.reader_group.reader_offline("reader_id");
     ///```
     ///
     pub fn reader_offline(&self, reader_name: &str) -> PyResult<()> {
@@ -162,11 +161,28 @@ impl StreamReaderGroup {
             "Marking reader {:?} under reader group {:?} as offline",
             reader_name, self.reader_group.name
         );
-        let _: Reader = Reader {
+        let reader: Reader = Reader {
             name: reader_name.to_string(),
         };
-        // TODO
-        Ok(())
+        let res = self
+            .runtime_handle
+            .block_on(self.reader_group.reader_offline(&reader, None));
+        match res {
+            Ok(_) => Ok(()),
+            Err(e) => match e {
+                ReaderGroupStateError::SyncError { .. } => {
+                    error!("Failed to mark the reader {:?} offline {:?} ", reader_name, e);
+                    Err(exceptions::PyValueError::new_err(format!(
+                        " Failed to mark reader offline {:?}",
+                        e
+                    )))
+                }
+                ReaderGroupStateError::ReaderAlreadyOfflineError { .. } => {
+                    info!("Reader {:?} is already offline", reader_name);
+                    Ok(())
+                }
+            },
+        }
     }
 
     /// Returns the string representation.

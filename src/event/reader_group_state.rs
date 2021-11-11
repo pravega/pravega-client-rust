@@ -247,11 +247,20 @@ impl ReaderGroupState {
             .sync
             .insert(|table| ReaderGroupState::remove_reader_internal_default(table, reader))
             .await
-            .context(SyncError {
-                error_msg: format!(
-                    "remove reader {:?} and put known owned segments to unassigned list",
-                    reader
-                ),
+            .map_err(|err| match err {
+                SynchronizerError::SyncPreconditionError { .. } => {
+                    ReaderGroupStateError::ReaderAlreadyOfflineError {
+                        error_msg: format!("Reader {:?} already offline", reader),
+                        source: err,
+                    }
+                }
+                _ => ReaderGroupStateError::SyncError {
+                    error_msg: format!(
+                        "remove reader {:?} and put known owned segments to unassigned list",
+                        reader
+                    ),
+                    source: err,
+                },
             })?;
         Ok(())
     }
@@ -283,11 +292,20 @@ impl ReaderGroupState {
             .sync
             .insert(|table| ReaderGroupState::remove_reader_internal(table, reader, &owned_segments))
             .await
-            .context(SyncError {
-                error_msg: format!(
-                    "remove reader {:?} and put owned segments {:?} to unassigned list",
-                    reader, owned_segments
-                ),
+            .map_err(|err| match err {
+                SynchronizerError::SyncPreconditionError { .. } => {
+                    ReaderGroupStateError::ReaderAlreadyOfflineError {
+                        error_msg: format!("Reader {:?} already offline", reader),
+                        source: err,
+                    }
+                }
+                _ => ReaderGroupStateError::SyncError {
+                    error_msg: format!(
+                        "remove reader {:?} and put known owned segments to unassigned list",
+                        reader
+                    ),
+                    source: err,
+                },
             })?;
         Ok(())
     }
@@ -297,10 +315,6 @@ impl ReaderGroupState {
         reader: &Reader,
         owned_segments: &HashMap<ScopedSegment, Offset>,
     ) -> Result<(), SynchronizerError> {
-        if !table.get_inner_map(ASSIGNED).contains_key(&reader.to_string()) {
-            //Reader is already offline.
-            return Ok(());
-        }
         let assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)?;
 
         for (segment, pos) in assigned_segments {
@@ -857,9 +871,12 @@ mod test {
 
         ReaderGroupState::remove_reader_internal(&mut table, &READER, &segments)
             .expect("remove online reader");
-        ReaderGroupState::remove_reader_internal(&mut table, &READER, &segments)
-            .expect("Idempotent remove online reader");
-
+        let res = ReaderGroupState::remove_reader_internal(&mut table, &READER, &segments)
+            .expect_err("Excepted error");
+        match res {
+            SynchronizerError::SyncPreconditionError { .. } => {}
+            _ => assert!(false, "Invalid error returned"),
+        }
         assert_eq!(table.get_inner_map(UNASSIGNED).len(), 2);
     }
 }

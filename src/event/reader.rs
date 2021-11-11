@@ -770,7 +770,10 @@ impl ReaderState {
                     returned_meta
                 }
                 Err(e) => {
-                    error!("Error Segment slice was not returned {:?}", e);
+                    error!(
+                        "Error Segment slice was not returned for segment {:?}. Error {:?} ",
+                        segment, e
+                    );
                     panic!("A Segment slice was not returned to the Reader.");
                 }
             }
