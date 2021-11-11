@@ -91,7 +91,7 @@ fn test_read_offline_stream(client_factory: &ClientFactoryAsync) {
     let mut events_read = 0;
     match res {
         None => {
-            assert!(false, "Expected a segment slice to be returned")
+            panic!("Expected a segment slice to be returned")
         }
         Some(slice) => {
             for event in slice {
