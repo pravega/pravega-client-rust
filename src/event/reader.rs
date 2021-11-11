@@ -1287,7 +1287,7 @@ mod tests {
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
-            .returning(|_| Ok(0 as isize));
+            .return_const(0 as isize);
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
@@ -1355,7 +1355,7 @@ mod tests {
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
             .with(predicate::eq(Reader::from("r1".to_string())))
-            .returning(|_| Ok(1 as isize));
+            .return_const(1 as isize);
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
 
         // mock rg_state.assign_segment_to_reader
@@ -1458,7 +1458,7 @@ mod tests {
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
-            .returning(|_| Ok(0 as isize));
+            .return_const(0 as isize);
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
@@ -1531,7 +1531,7 @@ mod tests {
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
-            .returning(|_| Ok(0 as isize));
+            .return_const(0 as isize);
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
@@ -1614,7 +1614,7 @@ mod tests {
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
-            .returning(|_| Ok(0 as isize));
+            .return_const(0 as isize);
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
