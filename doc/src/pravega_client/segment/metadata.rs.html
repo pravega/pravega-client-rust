@@ -217,6 +217,11 @@
 <span id="217">217</span>
 <span id="218">218</span>
 <span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
 </pre><pre class="rust"><code><span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
 <span class="comment">//</span>
@@ -328,6 +333,11 @@
             <span class="ident">operation</span>: <span class="string">&quot;get segment info&quot;</span>.<span class="ident">to_string</span>(),
             <span class="ident">error_msg</span>: <span class="ident">e</span>.<span class="ident">error</span>,
         })
+    }
+
+    <span class="doccomment">/// Returns whether the current segment is sealed.</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">is_sealed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span>, <span class="ident">SegmentMetadataClientError</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">get_segment_info</span>().<span class="kw">await</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">cmd</span><span class="op">|</span> <span class="ident">cmd</span>.<span class="ident">is_sealed</span>)
     }
 
     <span class="doccomment">/// Returns the length of the current segment. i.e. the total length of all data written to the segment.</span>
