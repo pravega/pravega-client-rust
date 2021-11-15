@@ -23,7 +23,6 @@ use im::HashMap as ImHashMap;
 use std::collections::{HashMap, HashSet};
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
-use std::thread::panicking;
 use std::time::{Duration, Instant};
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -1078,13 +1077,7 @@ impl Default for SegmentSlice {
 impl Drop for SegmentSlice {
     fn drop(&mut self) {
         if let Some(sender) = self.slice_return_tx.take() {
-            if panicking() {
-                //TODO: need to return an error to the channel to indicate processing failed.
-                //Perhaps this self.meta should track the previous offset so it when the segment is released
-                //it can backtrack exactly one event.
-            } else {
-                let _ = sender.send(Some(self.meta.clone()));
-            }
+            let _ = sender.send(Some(self.meta.clone()));
         }
     }
 }
