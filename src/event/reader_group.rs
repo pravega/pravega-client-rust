@@ -175,15 +175,23 @@ impl ReaderGroup {
     /// the map to be complete, or even non-empty. If a segment is missing, the last known value will be
     /// assumed.
     ///
+    /// The application can persist the full scoped segment and offset by using the SegmentSlice and the Event
+    /// obtained while iterating over the SegmentSlice.
+    ///
+    ///
     /// If the reader is already offline, this method will have no effect.
     pub async fn reader_offline(
         &self,
         reader_id: String,
-        last_position: Option<HashMap<ScopedSegment, Offset>>,
+        last_position: Option<HashMap<String, i64>>,
     ) -> Result<(), ReaderGroupStateError> {
         let r: Reader = reader_id.into();
-        if let Some(position) = last_position {
-            self.state.lock().await.remove_reader(&r, position).await
+        if let Some(mut position) = last_position {
+            let offset_map: HashMap<ScopedSegment, Offset> = position
+                .drain()
+                .map(|(seg, pos)| (ScopedSegment::from(seg.as_str()), Offset::new(pos)))
+                .collect();
+            self.state.lock().await.remove_reader(&r, offset_map).await
         } else {
             self.state.lock().await.remove_reader_default(&r).await
         }

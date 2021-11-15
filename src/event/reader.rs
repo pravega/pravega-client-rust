@@ -253,19 +253,6 @@ impl EventReader {
         self.meta.last_segment_acquire = time;
     }
 
-    /// Return the start offset for each assigned segment in this reader.
-    ///
-    /// Offsets prior to the start offset are persisted in the ReaderGroupState.
-    /// If reader is marked offline by other threads, any events from the start offset will be read and processed
-    /// again by other readers. It is application's responsibility to do the deduplication based on the start offset.
-    pub fn segment_start_offset(&self) -> HashMap<ScopedSegment, i64> {
-        self.meta
-            .slices
-            .iter()
-            .map(|(k, v)| (k.clone(), v.start_offset))
-            .collect::<HashMap<ScopedSegment, i64>>()
-    }
-
     /// Release a partially read segment slice back to event reader.
     ///
     /// Note: it may return an error indicating that the reader has already been removed. This means
@@ -372,8 +359,8 @@ impl EventReader {
             // use the updated map to return the data.
 
             let mut offset_map: HashMap<ScopedSegment, Offset> = HashMap::new();
-            for (seg, offset) in self.meta.slices_dished_out.drain() {
-                offset_map.insert(seg, Offset::new(offset));
+            for (seg, slice_meta) in self.meta.slices_dished_out.drain() {
+                offset_map.insert(seg, Offset::new(slice_meta.read_offset));
             }
             for meta in self.meta.slices.values() {
                 offset_map.insert(
@@ -512,7 +499,7 @@ impl EventReader {
             );
             self.meta
                 .slices_dished_out
-                .insert(segment_with_data, slice_meta.read_offset);
+                .insert(segment_with_data, slice_meta.copy_meta());
             Ok(Some(SegmentSlice {
                 meta: slice_meta,
                 slice_return_tx: Some(slice_return_tx),
@@ -540,7 +527,7 @@ impl EventReader {
                                     .add_slice_release_receiver(segment.clone(), slice_return_rx);
                                 self.meta
                                     .slices_dished_out
-                                    .insert(segment.clone(), slice_meta.read_offset);
+                                    .insert(segment.clone(), slice_meta.copy_meta());
 
                                 info!(
                                     "segment slice for {:?} is ready for consumption by reader {}",
@@ -741,7 +728,7 @@ impl EventReader {
 // Reader meta data.
 struct ReaderState {
     slices: HashMap<ScopedSegment, SliceMetadata>,
-    slices_dished_out: HashMap<ScopedSegment, i64>,
+    slices_dished_out: HashMap<ScopedSegment, SliceMetadata>,
     slice_release_receiver: HashMap<ScopedSegment, oneshot::Receiver<Option<SliceMetadata>>>,
     slice_stop_reading: HashMap<ScopedSegment, oneshot::Sender<()>>,
     last_segment_release: Instant,
@@ -764,7 +751,6 @@ impl ReaderState {
     async fn wait_for_segment_slice_return(&mut self, segment: &ScopedSegment) -> Option<SliceMetadata> {
         if let Some(receiver) = self.slice_release_receiver.remove(segment) {
             match receiver.await {
-                //TODO: Handle error here.
                 Ok(returned_meta) => {
                     debug!("SegmentSlice returned {:?}", returned_meta);
                     returned_meta
@@ -774,7 +760,7 @@ impl ReaderState {
                         "Error Segment slice was not returned for segment {:?}. Error {:?} ",
                         segment, e
                     );
-                    panic!("A Segment slice was not returned to the Reader.");
+                    self.slices_dished_out.remove(segment)
                 }
             }
         } else {
@@ -1124,6 +1110,18 @@ impl SliceMetadata {
     /// Method to verify if the Segment has pending events that can be read.
     pub fn has_events(&self) -> bool {
         !self.partial_data_present && self.segment_data.value.len() > TYPE_PLUS_LENGTH_SIZE as usize
+    }
+
+    fn copy_meta(&self) -> SliceMetadata {
+        SliceMetadata {
+            start_offset: self.start_offset,
+            scoped_segment: self.scoped_segment.clone(),
+            last_event_offset: self.last_event_offset,
+            read_offset: self.read_offset,
+            end_offset: self.end_offset,
+            segment_data: SegmentDataBuffer::empty(),
+            partial_data_present: false,
+        }
     }
 }
 
