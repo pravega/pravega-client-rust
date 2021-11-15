@@ -111,6 +111,11 @@ impl SegmentMetadataClient {
         })
     }
 
+    /// Returns whether the current segment is sealed.
+    pub async fn is_sealed(&self) -> Result<bool, SegmentMetadataClientError> {
+        self.get_segment_info().await.map(|cmd| cmd.is_sealed)
+    }
+
     /// Returns the length of the current segment. i.e. the total length of all data written to the segment.
     pub async fn fetch_current_segment_length(&self) -> Result<i64, SegmentMetadataClientError> {
         self.get_segment_info().await.map(|cmd| cmd.write_offset)
