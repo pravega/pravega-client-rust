@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - "*"
+  pull_request:
+    branches:
+      - master
 
 jobs:
   release:
@@ -12,18 +15,10 @@ jobs:
     steps:
       - uses: actions-rs/toolchain@v1
         with:
-          profile: minimal
           toolchain: stable
           override: true
       - name: Install cargo-release
-        uses: actions-rs/install@v0.1
-        with:
-          crate: cargo-release
-          version: 0.18.4
-      - name: Run cargo-release
-        uses: actions-rs/cargo@v1
-        with:
-          command: release
-          # By default cargo-release run in dry-run mode.
-          # args: --no-confirm --execute --no-verify --dev-version
-
+        run: cargo install cargo-release
+      - name: Release (Dry Run)
+        run: cargo release --workspace # By default cargo-release run in dry-run mode.
+ 
