@@ -1,0 +1,29 @@
+# This action is meant to be triggered manually via the GitHub UI
+name: Cargo publish Check
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  release:
+    name: Run cargo-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Install cargo-release
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-release
+          version: 0.18.4
+      - name: Run cargo-release
+        uses: actions-rs/cargo@v1
+        with:
+          command: release
+          # By default cargo-release run in dry-run mode.
+          # args: --no-confirm --execute --no-verify --dev-version
+
