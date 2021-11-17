@@ -3,10 +3,7 @@ name: Cargo publish Check
 on:
   push:
     tags:
-      - "*"
-  pull_request:
-    branches:
-      - master
+      - "*" # Run this validation on release tags
 
 jobs:
   release:
