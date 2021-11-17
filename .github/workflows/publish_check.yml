@@ -44,5 +44,4 @@ jobs:
       - name: Install cargo-release
         run: cargo install cargo-release
       - name: Release (Dry Run)
-        run: cargo release --workspace # By default cargo-release run in dry-run mode.
-
+        run: cargo release --workspace -vv --exclude pravega-client-integration-test --exclude pravega-client-examples --exclude pravegactl

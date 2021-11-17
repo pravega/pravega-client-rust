@@ -1,9 +1,9 @@
-name: packaging
+name: packaging and publish to pypi
 
 on:
   push:
     tags:
-      - '[0-9]+.[0-9]+.[0-9]+' # publish only on a release tag and not on RC candidates.
+      - '*'
 
 jobs:
   wheel:
