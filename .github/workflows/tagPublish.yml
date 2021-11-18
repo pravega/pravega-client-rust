@@ -1,9 +1,9 @@
-name: packaging
+name: packaging and publish to pypi
 
 on:
   push:
     tags:
-      - "*"
+      - '*'
 
 jobs:
   wheel:
