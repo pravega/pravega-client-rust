@@ -17,9 +17,12 @@ use crate::util::get_random_u128;
 use pravega_client_channel::{create_channel, ChannelSender};
 use pravega_client_shared::{ScopedStream, WriterId};
 
+use std::collections::VecDeque;
 use tokio::sync::oneshot;
 use tracing::info_span;
 use tracing_futures::Instrument;
+
+// type EventHandle = oneshot::Receiver<Result<(), Error>>;
 
 /// Write events exactly once to a given stream.
 ///
@@ -75,6 +78,7 @@ use tracing_futures::Instrument;
 pub struct EventWriter {
     writer_id: WriterId,
     sender: ChannelSender<Incoming>,
+    event_handles: VecDeque<oneshot::Receiver<Result<(), Error>>>,
 }
 
 impl EventWriter {
@@ -93,6 +97,7 @@ impl EventWriter {
         EventWriter {
             writer_id,
             sender: tx,
+            event_handles: VecDeque::new(),
         }
     }
 
@@ -118,9 +123,18 @@ impl EventWriter {
     pub async fn write_event(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), Error>> {
         let size = event.len();
         let (tx, rx) = oneshot::channel();
+        let (tx_flush, rx_flush) = oneshot::channel();
         let routing_info = RoutingInfo::RoutingKey(None);
+        let routing_info_flush = RoutingInfo::RoutingKey(None);
         if let Some(pending_event) = PendingEvent::with_header(routing_info, event, None, tx) {
             let append_event = Incoming::AppendEvent(pending_event);
+            if let Some(pending_event_flush) =
+                PendingEvent::with_header(routing_info_flush, Vec::new(), None, tx_flush)
+            {
+                let append_event_flush = Incoming::AppendEvent(pending_event_flush);
+                let flush_rec = self.writer_event_internal(append_event_flush, 0, rx_flush).await;
+                self.event_handles.push_back(flush_rec);
+            }
             self.writer_event_internal(append_event, size, rx).await
         } else {
             rx
@@ -137,9 +151,18 @@ impl EventWriter {
     ) -> oneshot::Receiver<Result<(), Error>> {
         let size = event.len();
         let (tx, rx) = oneshot::channel();
+        let (tx_flush, rx_flush) = oneshot::channel();
         let routing_info = RoutingInfo::RoutingKey(Some(routing_key));
+        let routing_info_flush = RoutingInfo::RoutingKey(None);
         if let Some(pending_event) = PendingEvent::with_header(routing_info, event, None, tx) {
             let append_event = Incoming::AppendEvent(pending_event);
+            if let Some(pending_event_flush) =
+                PendingEvent::with_header(routing_info_flush, Vec::new(), None, tx_flush)
+            {
+                let append_event_flush = Incoming::AppendEvent(pending_event_flush);
+                let flush_rec = self.writer_event_internal(append_event_flush, 0, rx_flush).await;
+                self.event_handles.push_back(flush_rec);
+            }
             self.writer_event_internal(append_event, size, rx).await
         } else {
             rx
@@ -163,6 +186,32 @@ impl EventWriter {
         } else {
             rx
         }
+    }
+
+    /// Flush data.
+    ///
+    /// It will wait until all pending appends have acknowledgment.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// let mut byte_writer = client_factory.create_byte_writer(segment).await;
+    /// let payload = vec![0; 8];
+    /// let size = event_writer.write_event(&payload).await;
+    /// event_writer.flush().await;
+    /// ```
+    pub async fn flush(&mut self) -> Result<(), Error> {
+        while self.event_handles.front().is_some() {
+            let handle = self.event_handles.pop_front().expect("get first handle");
+            let event_result = handle.await.map_err(|e| Error::InternalFailure {
+                msg: format!("oneshot error {:?}", e),
+            })?;
+            event_result?;
+        }
+        Ok(())
+    }
+
+    pub fn flush_cleared(&self) -> bool {
+        self.event_handles.is_empty()
     }
 }
 
