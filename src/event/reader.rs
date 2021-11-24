@@ -1297,6 +1297,7 @@ mod tests {
         // simulate initialization of a Reader
         let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
+        rg_mock.expect_check_online().return_const(true);
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
             .return_const(0 as isize);
@@ -1369,6 +1370,7 @@ mod tests {
             .with(predicate::eq(Reader::from("r1".to_string())))
             .return_const(1 as isize);
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
+        rg_mock.expect_check_online().return_const(true);
 
         // mock rg_state.assign_segment_to_reader
         let res: Result<Option<ScopedSegment>, ReaderGroupStateError> =
@@ -1471,6 +1473,7 @@ mod tests {
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
             .return_const(0 as isize);
+        rg_mock.expect_check_online().return_const(true);
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
@@ -1541,6 +1544,7 @@ mod tests {
         let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
 
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
+        rg_mock.expect_check_online().return_const(true);
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
             .return_const(0 as isize);
@@ -1624,6 +1628,7 @@ mod tests {
         // simulate initialization of a Reader
         let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
+        rg_mock.expect_check_online().return_const(true);
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
             .return_const(0 as isize);
