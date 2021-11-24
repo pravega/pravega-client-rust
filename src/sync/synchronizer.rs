@@ -377,7 +377,7 @@ pub struct Value {
     pub data: Vec<u8>,
 }
 
-const TOMBSTONE: &str = "tombstone";
+pub const TOMBSTONE: &str = "tombstone";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct Tombstone {}

@@ -88,7 +88,6 @@ fn test_read_offline_stream(client_factory: &ClientFactoryAsync) {
     let res = h
         .block_on(reader1.acquire_segment())
         .expect("Failed to acquire a segment");
-    let mut events_read = 0;
     match res {
         None => {
             panic!("Expected a segment slice to be returned")
@@ -100,7 +99,6 @@ fn test_read_offline_stream(client_factory: &ClientFactoryAsync) {
                     event.value.as_slice(),
                     "Corrupted event read"
                 );
-                events_read += 1;
             }
         }
     };
@@ -109,25 +107,8 @@ fn test_read_offline_stream(client_factory: &ClientFactoryAsync) {
     let offline_res = h.block_on(rg.reader_offline(reader_id.to_string(), None));
     assert!(offline_res.is_ok(), "Reader offline did not succeed");
 
-    // Attempt reading the remaining events.
-    while let Some(slice) = h
-        .block_on(reader1.acquire_segment())
-        .expect("Failed to acquire segment since the reader is offline")
-    {
-        // read all events in the slice.
-        for event in slice {
-            assert_eq!(
-                vec![1; EVENT_SIZE],
-                event.value.as_slice(),
-                "Corrupted event read"
-            );
-            events_read += 1;
-        }
-        if events_read == NUM_EVENTS {
-            break;
-        }
-    }
-    assert_eq!(NUM_EVENTS, events_read);
+    // Attempt reading the remaining events from the same reader marked offline.
+    assert!(h.block_on(reader1.acquire_segment()).is_err());
 }
 
 // helper method to write events to Pravega

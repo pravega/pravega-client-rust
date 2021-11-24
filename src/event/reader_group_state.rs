@@ -144,12 +144,22 @@ impl ReaderGroupState {
         );
 
         table.insert(
-            "distance_to_tail".to_owned(),
+            DISTANCE.to_owned(),
             reader.to_string(),
             "u64".to_owned(),
             Box::new(u64::MAX),
         );
         Ok(())
+    }
+
+    pub async fn check_online(&mut self, reader: &Reader) -> bool {
+        self.sync.fetch_updates().await.expect("should fetch updates");
+        let res = self
+            .sync
+            .get_inner_map(ASSIGNED)
+            .get(&reader.to_string())
+            .map(|v| (v.type_id != TOMBSTONE));
+        res.unwrap_or(false)
     }
 
     /// Returns the active readers in a vector.

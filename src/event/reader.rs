@@ -367,18 +367,30 @@ impl EventReader {
                     Offset::new(meta.read_offset),
                 );
             }
-            // reader offline might fail when this reader has already been removed by the reader group.
-            self.rg_state
+
+            match self
+                .rg_state
                 .lock()
                 .await
                 .remove_reader(&self.id, offset_map)
                 .await
-                .map_err(|e| {
-                    Error::new(
+            {
+                Ok(()) => {
+                    self.meta.reader_offline = true;
+                    Ok(())
+                }
+                Err(e) => match e {
+                    ReaderGroupStateError::ReaderAlreadyOfflineError { .. } => {
+                        self.meta.reader_offline = true;
+                        info!("Reader {:?} is already offline", self.id);
+                        Ok(())
+                    }
+                    _ => Err(Error::new(
                         ErrorKind::Other,
                         format!("Failed to remove reader {:?} due to {:?}", self.id, e),
-                    )
-                })?;
+                    )),
+                },
+            }?
         }
         Ok(())
     }
@@ -446,6 +458,12 @@ impl EventReader {
     /// that another thread removes this reader from the ReaderGroup probably because the host of this reader
     /// is assumed dead.
     pub async fn acquire_segment(&mut self) -> Result<Option<SegmentSlice>, Error> {
+        if self.meta.reader_offline || !self.rg_state.lock().await.check_online(&self.id).await {
+            return Err(Error::new(
+                ErrorKind::Other,
+                format!("Reader already marked offline {:?}", self.id),
+            ));
+        }
         info!("acquiring segment for reader {:?}", self.id);
         // Check if newer segments should be acquired.
         if self.meta.last_segment_acquire.elapsed() > REBALANCE_INTERVAL {
