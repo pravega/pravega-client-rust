@@ -9,14 +9,17 @@
 //
 
 use crate::client_factory::ClientFactoryAsync;
+use crate::event::reader_group_state::ReaderGroupStateError::SyncError;
 use crate::event::reader_group_state::{Offset, ReaderGroupStateError};
 use crate::segment::reader::ReaderError::SegmentSealed;
 use crate::segment::reader::{AsyncSegmentReader, ReaderError};
+use snafu::{ResultExt, Snafu};
 
 use pravega_client_retry::retry_result::Retryable;
 use pravega_client_shared::{Reader, ScopedSegment, Segment, SegmentWithRange};
 use pravega_wire_protocol::commands::{Command, EventCommand, TYPE_PLUS_LENGTH_SIZE};
 
+use crate::sync::synchronizer::SynchronizerError;
 use bytes::{Buf, BufMut, BytesMut};
 use core::fmt;
 use im::HashMap as ImHashMap;
@@ -107,6 +110,12 @@ pub struct EventReader {
     tx: Sender<SegmentReadResult>,
     meta: ReaderState,
     rg_state: Arc<Mutex<ReaderGroupState>>,
+}
+
+#[derive(Debug, Snafu)]
+pub enum EventReaderError {
+    #[snafu(display("ReaderGroup State error: {}", source))]
+    StateError { source: ReaderGroupStateError },
 }
 
 impl Drop for EventReader {
@@ -457,12 +466,16 @@ impl EventReader {
     /// Note: it may return an error indicating that the reader is not online. This means
     /// that another thread removes this reader from the ReaderGroup probably because the host of this reader
     /// is assumed dead.
-    pub async fn acquire_segment(&mut self) -> Result<Option<SegmentSlice>, Error> {
+    pub async fn acquire_segment(&mut self) -> Result<Option<SegmentSlice>, EventReaderError> {
         if self.meta.reader_offline || !self.rg_state.lock().await.check_online(&self.id).await {
-            return Err(Error::new(
-                ErrorKind::Other,
-                format!("Reader already marked offline {:?}", self.id),
-            ));
+            return Err(EventReaderError::StateError {
+                source: ReaderGroupStateError::ReaderAlreadyOfflineError {
+                    error_msg: format!("Reader already marked offline {:?}", self.id),
+                    source: SynchronizerError::SyncPreconditionError {
+                        error_msg: String::from("Precondition failure"),
+                    },
+                },
+            });
         }
         info!("acquiring segment for reader {:?}", self.id);
         // Check if newer segments should be acquired.
@@ -470,12 +483,7 @@ impl EventReader {
             info!("need to rebalance segments across readers");
             // assign newer segments to this reader if available.
             // Note: reader may not online.
-            let res = self.assign_segments_to_reader().await.map_err(|e| {
-                Error::new(
-                    ErrorKind::Other,
-                    format!("failed to assign segments to reader {:?} due to {:?}", self.id, e),
-                )
-            })?;
+            let res = self.assign_segments_to_reader().await.context(StateError {})?;
             if let Some(new_segments) = res {
                 // fetch current segments.
                 // Note: reader may not online.
@@ -485,12 +493,11 @@ impl EventReader {
                     .await
                     .get_segments_for_reader(&self.id)
                     .await
-                    .map_err(|e| {
-                        Error::new(
-                            ErrorKind::Other,
-                            format!("failed to get segments for reader {:?} due to {:?}", self.id, e),
-                        )
-                    })?;
+                    .map_err(|e| SyncError {
+                        error_msg: format!("failed to get segments for reader {:?}", self.id),
+                        source: e,
+                    })
+                    .context(StateError {})?;
                 let new_segments: HashSet<(ScopedSegment, Offset)> = current_segments
                     .into_iter()
                     .filter(|(seg, _off)| new_segments.contains(seg))
@@ -576,7 +583,7 @@ impl EventReader {
                                 self.meta.slices_dished_out.remove(&segment);
                             } else {
                                 info!("Segment slice {:?} has received error {:?}", slice_meta, e);
-                                self.fetch_successors(e).await?;
+                                self.fetch_successors(e).await.context(StateError {})?;
                             }
                         }
                         debug!("Segment Slice meta {:?}", self.meta.slices);
@@ -599,7 +606,7 @@ impl EventReader {
 
     // Fetch successors of the segment where an error was observed.
     // ensure we stop the read task and spawn read tasks for the successor segments.
-    async fn fetch_successors(&mut self, e: ReaderError) -> Result<(), Error> {
+    async fn fetch_successors(&mut self, e: ReaderError) -> Result<(), ReaderGroupStateError> {
         match e {
             ReaderError::SegmentSealed {
                 segment,
@@ -630,15 +637,9 @@ impl EventReader {
                     .lock()
                     .await
                     .segment_completed(&self.id, &completed_scoped_segment, &successors)
-                    .await
-                    .expect("Update segment completed");
+                    .await?;
                 // Assign newer segments to this reader if available.
-                let option = self.assign_segments_to_reader().await.map_err(|e| {
-                    Error::new(
-                        ErrorKind::Other,
-                        format!("failed to remove reader due to {:?}", e),
-                    )
-                })?;
+                let option = self.assign_segments_to_reader().await?;
                 if let Some(new_segments) = option {
                     // fetch current segments.
                     let current_segments = self
@@ -647,7 +648,10 @@ impl EventReader {
                         .await
                         .get_segments_for_reader(&self.id)
                         .await
-                        .expect("Read segments");
+                        .map_err(|e| SyncError {
+                            error_msg: format!("Failed to fetch segments for reader {:?}", self.id),
+                            source: e,
+                        })?;
                     let new_segments: HashSet<(ScopedSegment, Offset)> = current_segments
                         .into_iter()
                         .filter(|(seg, _off)| new_segments.contains(seg))

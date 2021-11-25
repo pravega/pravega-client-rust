@@ -46,7 +46,7 @@ pub enum SynchronizerError {
     #[snafu(display("Failed insert tombstone in table synchronizer due to: {:?}", error_msg))]
     SyncTombstoneError { error_msg: String },
 
-    #[snafu(display("Failed to run update function synchronizer due to: {:?}", error_msg))]
+    #[snafu(display("Failed due to Precondition check failure: {:?}", error_msg))]
     SyncPreconditionError { error_msg: String },
 }
 
