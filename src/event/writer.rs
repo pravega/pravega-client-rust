@@ -128,6 +128,7 @@ impl EventWriter {
         let routing_info_flush = RoutingInfo::RoutingKey(None);
         if let Some(pending_event) = PendingEvent::with_header(routing_info, event, None, tx) {
             let append_event = Incoming::AppendEvent(pending_event);
+            let write_event = self.writer_event_internal(append_event, size, rx).await;
             if let Some(pending_event_flush) =
                 PendingEvent::without_header(routing_info_flush, Vec::new(), None, tx_flush)
             {
@@ -135,7 +136,7 @@ impl EventWriter {
                 let flush_rec = self.writer_event_internal(append_event_flush, 0, rx_flush).await;
                 self.event_handles.push_back(flush_rec);
             }
-            self.writer_event_internal(append_event, size, rx).await
+            write_event
         } else {
             rx
         }
@@ -156,6 +157,7 @@ impl EventWriter {
         let routing_info_flush = RoutingInfo::RoutingKey(None);
         if let Some(pending_event) = PendingEvent::with_header(routing_info, event, None, tx) {
             let append_event = Incoming::AppendEvent(pending_event);
+            let write_event = self.writer_event_internal(append_event, size, rx).await;
             if let Some(pending_event_flush) =
                 PendingEvent::without_header(routing_info_flush, Vec::new(), None, tx_flush)
             {
@@ -163,7 +165,7 @@ impl EventWriter {
                 let flush_rec = self.writer_event_internal(append_event_flush, 0, rx_flush).await;
                 self.event_handles.push_back(flush_rec);
             }
-            self.writer_event_internal(append_event, size, rx).await
+            write_event
         } else {
             rx
         }
