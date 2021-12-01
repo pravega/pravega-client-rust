@@ -135,6 +135,8 @@ impl EventWriter {
                 let append_event_flush = Incoming::AppendEvent(pending_event_flush);
                 let flush_rec = self.writer_event_internal(append_event_flush, 0, rx_flush).await;
                 self.event_handles.push_back(flush_rec);
+            } else {
+                panic!("Failed to track event in flush.");
             }
             write_event
         } else {
@@ -164,6 +166,8 @@ impl EventWriter {
                 let append_event_flush = Incoming::AppendEvent(pending_event_flush);
                 let flush_rec = self.writer_event_internal(append_event_flush, 0, rx_flush).await;
                 self.event_handles.push_back(flush_rec);
+            } else {
+                panic!("Failed to track event in flush.");
             }
             write_event
         } else {
@@ -212,6 +216,16 @@ impl EventWriter {
         Ok(())
     }
 
+    /// This is to check if all the events have been flushed.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// let mut byte_writer = client_factory.create_byte_writer(segment).await;
+    /// let payload = vec![0; 8];
+    /// let size = event_writer.write_event(&payload).await;
+    /// event_writer.flush().await;
+    /// assert!(event_writer.flush_cleared());
+    ///   ```
     pub fn flush_cleared(&self) -> bool {
         self.event_handles.is_empty()
     }
