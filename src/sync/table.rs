@@ -18,9 +18,9 @@ use pravega_client_retry::retry_result::RetryResult;
 use pravega_client_shared::{PravegaNodeUri, Stream as PravegaStream};
 use pravega_client_shared::{Scope, ScopedSegment, ScopedStream, Segment};
 use pravega_wire_protocol::commands::{
-    CreateTableSegmentCommand, ReadTableCommand, ReadTableEntriesCommand, ReadTableEntriesDeltaCommand,
-    ReadTableKeysCommand, RemoveTableKeysCommand, TableEntries, TableKey, TableValue,
-    UpdateTableEntriesCommand,
+    CreateTableSegmentCommand, DeleteTableSegmentCommand, ReadTableCommand, ReadTableEntriesCommand,
+    ReadTableEntriesDeltaCommand, ReadTableKeysCommand, RemoveTableKeysCommand, TableEntries, TableKey,
+    TableValue, UpdateTableEntriesCommand,
 };
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
@@ -79,6 +79,76 @@ pub struct Table {
 }
 
 impl Table {
+    ///
+    /// Method that is used to delete a Table Segment
+    ///
+    pub(crate) async fn delete(
+        scope: Scope,
+        name: String,
+        factory: ClientFactoryAsync,
+    ) -> Result<(), TableError> {
+        let segment = ScopedSegment {
+            scope,
+            stream: PravegaStream::from(format!("{}{}", name, KVTABLE_SUFFIX)),
+            segment: Segment::from(0),
+        };
+        info!("deleting table map on {:?}", segment);
+
+        let delegation_token_provider = factory
+            .create_delegation_token_provider(ScopedStream::from(&segment))
+            .await;
+        let op = "Delete table segment";
+        retry_async(factory.config().retry_policy, || async {
+            let req = Requests::DeleteTableSegment(DeleteTableSegmentCommand {
+                request_id: get_request_id(),
+                segment: segment.to_string(),
+                must_be_empty: false,
+                delegation_token: delegation_token_provider
+                    .retrieve_token(factory.controller_client())
+                    .await,
+            });
+
+            let endpoint = factory
+                .controller_client()
+                .get_endpoint_for_segment(&segment)
+                .await
+                .expect("get endpoint for segment");
+            debug!("endpoint is {}", endpoint.to_string());
+
+            let result = factory
+                .create_raw_client_for_endpoint(endpoint.clone())
+                .send_request(&req)
+                .await;
+            match result {
+                Ok(reply) => RetryResult::Success(reply),
+                Err(e) => {
+                    if e.is_token_expired() {
+                        delegation_token_provider.signal_token_expiry();
+                        debug!("auth token needs to refresh");
+                    }
+                    debug!("retry on error {:?}", e);
+                    RetryResult::Retry(e)
+                }
+            }
+        })
+        .await
+        .map_err(|e| TableError::ConnectionError {
+            can_retry: true,
+            operation: op.to_string(),
+            source: e.error,
+        })
+        .and_then(|r| match r {
+            Replies::SegmentDeleted(..) | Replies::NoSuchSegment(..) => {
+                info!("Table segment {:?} deleted", segment);
+                Ok(())
+            }
+            _ => Err(TableError::OperationError {
+                operation: op.to_string(),
+                error_msg: r.to_string(),
+            }),
+        })
+    }
+
     pub(crate) async fn new(
         scope: Scope,
         name: String,

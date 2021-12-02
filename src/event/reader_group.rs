@@ -14,6 +14,8 @@ use crate::event::reader_group_state::Offset;
 
 use pravega_client_shared::{Reader, Scope, ScopedSegment, ScopedStream};
 
+use crate::sync::table::TableError;
+use crate::sync::Table;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Error as CborError;
 use serde_cbor::{from_slice, to_vec};
@@ -141,6 +143,15 @@ impl ReaderGroup {
             state: Arc::new(Mutex::new(rg_state)),
             client_factory,
         }
+    }
+
+    /// Delete a reader group.
+    pub(crate) async fn delete(
+        scope: Scope,
+        name: String,
+        client_factory: ClientFactoryAsync,
+    ) -> Result<(), TableError> {
+        Table::delete(scope, name, client_factory).await
     }
 
     /// Create a new EventReader under the ReaderGroup. This method panics if the reader is
