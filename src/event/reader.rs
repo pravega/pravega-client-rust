@@ -785,6 +785,7 @@ pub struct Event {
 
 /// This represents a segment slice which can be used to read events from a Pravega segment as an
 /// iterator.
+#[derive(Default)]
 pub struct SegmentSlice {
     pub meta: SliceMetadata,
     pub(crate) slice_return_tx: Option<oneshot::Sender<Option<SliceMetadata>>>,
@@ -994,15 +995,6 @@ impl Iterator for SegmentSlice {
 impl fmt::Debug for SegmentSlice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SegmentSlice").field("meta", &self.meta).finish()
-    }
-}
-
-impl Default for SegmentSlice {
-    fn default() -> Self {
-        SegmentSlice {
-            meta: Default::default(),
-            slice_return_tx: None,
-        }
     }
 }
 
