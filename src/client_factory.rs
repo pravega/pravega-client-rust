@@ -155,6 +155,23 @@ impl ClientFactory {
             .await
     }
 
+    ///
+    /// Create a Reader Group based on the ReaderGroupConfig.
+    ///
+    pub async fn delete_reader_group(
+        &self,
+        scope: Scope,
+        reader_group_name: String,
+    ) -> Result<(), TableError> {
+        info!(
+            "Deleting reader group {:?} under scope {:?}",
+            reader_group_name, scope
+        );
+        self.client_factory_async
+            .delete_reader_group(scope, reader_group_name)
+            .await
+    }
+
     pub async fn create_transactional_event_writer(
         &self,
         stream: ScopedStream,
@@ -316,6 +333,9 @@ impl ClientFactoryAsync {
         ReaderGroup::create(scope, reader_group_name, rg_config, self.clone()).await
     }
 
+    ///
+    /// Delete a ReaderGroup given for a given scope.
+    ///
     pub async fn delete_reader_group(
         &self,
         scope: Scope,
