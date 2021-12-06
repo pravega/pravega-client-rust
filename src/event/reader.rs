@@ -24,7 +24,6 @@ use bytes::{Buf, BufMut, BytesMut};
 use core::fmt;
 use im::HashMap as ImHashMap;
 use std::collections::{HashMap, HashSet};
-use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::runtime::Handle;
@@ -266,7 +265,7 @@ impl EventReader {
     /// Note: it may return an error indicating that the reader has already been removed. This means
     /// that another thread removes this reader from the ReaderGroup probably due to the host of this reader
     /// is assumed dead.
-    pub async fn release_segment(&mut self, mut slice: SegmentSlice) -> Result<(), Error> {
+    pub async fn release_segment(&mut self, mut slice: SegmentSlice) -> Result<(), EventReaderError> {
         info!(
             "releasing segment slice {} from reader {}",
             slice.meta.scoped_segment, self.id
@@ -302,7 +301,11 @@ impl EventReader {
     /// Note: it may return an error indicating that the reader has already been removed. This means
     /// that another thread removes this reader from the ReaderGroup probably due to the host of this reader
     /// is assumed dead.
-    pub async fn release_segment_at(&mut self, slice: SegmentSlice, offset: i64) -> Result<(), Error> {
+    pub async fn release_segment_at(
+        &mut self,
+        slice: SegmentSlice,
+        offset: i64,
+    ) -> Result<(), EventReaderError> {
         info!(
             "releasing segment slice {} at offset {}",
             slice.meta.scoped_segment, offset
@@ -357,7 +360,7 @@ impl EventReader {
     /// Note: it may return an error indicating that the reader has already been removed. This means
     /// that another thread removes this reader from the ReaderGroup probably due to the host of this reader
     /// is assumed dead.
-    pub async fn reader_offline(&mut self) -> Result<(), Error> {
+    pub async fn reader_offline(&mut self) -> Result<(), EventReaderError> {
         if !self.meta.reader_offline {
             info!("Putting reader {:?} offline", self.id);
             // stop reading from all the segments.
@@ -394,10 +397,7 @@ impl EventReader {
                         info!("Reader {:?} is already offline", self.id);
                         Ok(())
                     }
-                    _ => Err(Error::new(
-                        ErrorKind::Other,
-                        format!("Failed to remove reader {:?} due to {:?}", self.id, e),
-                    )),
+                    state_err => Err(EventReaderError::StateError { source: state_err }),
                 },
             }?
         }
@@ -410,7 +410,7 @@ impl EventReader {
         &mut self,
         mut slice: SegmentSlice,
         read_offset: i64,
-    ) -> Result<(), Error> {
+    ) -> Result<(), EventReaderError> {
         let new_segments_to_release = self
             .rg_state
             .lock()
@@ -442,15 +442,7 @@ impl EventReader {
                 .await
                 .release_segment(&self.id, &segment, &Offset::new(read_offset))
                 .await
-                .map_err(|e| {
-                    Error::new(
-                        ErrorKind::Other,
-                        format!(
-                            "failed to release segment {:?} from reader {:?} due to {:?}",
-                            segment, self.id, e
-                        ),
-                    )
-                })?;
+                .context(StateError {})?;
         }
         Ok(())
     }
@@ -874,6 +866,7 @@ pub struct Event {
 
 /// This represents a segment slice which can be used to read events from a Pravega segment as an
 /// iterator.
+#[derive(Default)]
 pub struct SegmentSlice {
     pub meta: SliceMetadata,
     pub(crate) slice_return_tx: Option<oneshot::Sender<Option<SliceMetadata>>>,
@@ -1083,15 +1076,6 @@ impl Iterator for SegmentSlice {
 impl fmt::Debug for SegmentSlice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SegmentSlice").field("meta", &self.meta).finish()
-    }
-}
-
-impl Default for SegmentSlice {
-    fn default() -> Self {
-        SegmentSlice {
-            meta: Default::default(),
-            slice_return_tx: None,
-        }
     }
 }
 

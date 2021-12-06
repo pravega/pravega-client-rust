@@ -485,7 +485,7 @@ impl ReaderGroupState {
             .await
             .context(SyncError {
                 error_msg: format!(
-                    "release segment {:?} with offset {:?} from reader {:?} ",
+                    "Failed to release segment {:?} with offset {:?} from reader {:?} ",
                     segment, offset, reader
                 ),
             })?;

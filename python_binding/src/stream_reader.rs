@@ -8,10 +8,10 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use std::io::Error;
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client::event::reader::EventReader;
+        use pravega_client::event::reader::EventReaderError;
         use pravega_client_shared::ScopedStream;
         use pyo3::prelude::*;
         use pyo3::PyResult;
@@ -83,8 +83,13 @@ impl StreamReader {
     ///
     #[pyo3(text_signature = "($self)")]
     pub fn reader_offline(&self) -> PyResult<()> {
-        self.runtime_handle.block_on(self.reader_offline_async())?;
-        Ok(())
+        match self.runtime_handle.block_on(self.reader_offline_async()) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyOSError::new_err(format!(
+                "Error while attempting to acquire segment {:?}",
+                e
+            ))),
+        }
     }
 
     ///
@@ -94,7 +99,13 @@ impl StreamReader {
     pub fn release_segment(&self, slice: &mut Slice) -> PyResult<()> {
         info!("Release segment slice back");
         if let Some(s) = slice.get_set_to_none() {
-            self.runtime_handle.block_on(self.release_segment_async(s))?;
+            match self.runtime_handle.block_on(self.release_segment_async(s)) {
+                Ok(_) => Ok(()),
+                Err(e) => Err(exceptions::PyOSError::new_err(format!(
+                    "Error while attempting to acquire segment {:?}",
+                    e
+                ))),
+            }?;
         }
         Ok(())
     }
@@ -107,12 +118,12 @@ impl StreamReader {
 
 impl StreamReader {
     // Helper method for to set reader_offline.
-    async fn reader_offline_async(&self) -> Result<(), Error> {
+    async fn reader_offline_async(&self) -> Result<(), EventReaderError> {
         self.reader.lock().await.reader_offline().await
     }
 
     // Helper method for to release segment
-    async fn release_segment_async(&self, slice: SegmentSlice) -> Result<(), Error> {
+    async fn release_segment_async(&self, slice: SegmentSlice) -> Result<(), EventReaderError> {
         self.reader.lock().await.release_segment(slice).await
     }
 }
