@@ -77,7 +77,7 @@ then it reaches the end of segment and no more data could be read from this offs
 ```rust
 let offset = byte_reader.current_head().await.expect("get current head offset");
 let mut buf: Vec<u8> = vec![0; 4];
-let size = byte_reader.read(&mut buf).expect("read from byte stream");
+let size = byte_reader.read(&mut buf).await.expect("read from byte stream");
 ```
 
 ### Put it together
@@ -104,8 +104,8 @@ async fn main() {
     
     let payload = "hello world".to_string().into_bytes();
     
-    byte_writer.write(&payload).expect("write");
-    byte_writer.flush().expect("flush");
+    byte_writer.write(&payload).await.expect("write");
+    byte_writer.flush().await.expect("flush");
 
     byte_writer.truncate_data_before(4).await.expect("truncate segment");
 
@@ -117,7 +117,7 @@ async fn main() {
 
     let offset = byte_reader.current_head().await.expect("get current head offset");
     let mut buf: Vec<u8> = vec![0; 4];
-    let size = byte_reader.read(&mut buf).expect("read from byte stream");
+    let size = byte_reader.read(&mut buf).await.expect("read from byte stream");
 }
 ```
 

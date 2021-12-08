@@ -226,7 +226,7 @@ impl ByteReader {
     }
 
     ///
-    /// Return a handle to the Tokio Runtime
+    /// Return a handle to the Tokio Runtime managed by the ConnectionFactory.
     ///
     pub fn runtime_handle(&self) -> Handle {
         self.factory.runtime_handle()
