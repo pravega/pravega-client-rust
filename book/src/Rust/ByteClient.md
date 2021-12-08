@@ -75,7 +75,7 @@ is the truncation offset.
 `read` method will block until some data are fetched from the server. If returned `size` is 0,
 then it reaches the end of segment and no more data could be read from this offset.
 ```rust
-let offset = byte_reader.current_head().expect("get current head offset");
+let offset = byte_reader.current_head().await.expect("get current head offset");
 let mut buf: Vec<u8> = vec![0; 4];
 let size = byte_reader.read(&mut buf).expect("read from byte stream");
 ```
@@ -87,7 +87,8 @@ use pravega_client::client_factory::ClientFactory;
 use pravega_client_shared::ScopedSegment;
 use std::io::Write;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let config = ClientConfigBuilder::default()
      .controller_uri("localhost:9090")
      .build()
@@ -99,22 +100,22 @@ fn main() {
     
     // write
     let mut byte_writer = client_factory.create_byte_writer(segment);
-    byte_writer.seek_to_tail();
+    byte_writer.seek_to_tail().await;
     
     let payload = "hello world".to_string().into_bytes();
     
     byte_writer.write(&payload).expect("write");
     byte_writer.flush().expect("flush");
 
-    client_factory.runtime().block_on(byte_writer.truncate_data_before(4)).expect("truncate segment");
+    byte_writer.truncate_data_before(4).await.expect("truncate segment");
 
-    client_factory.runtime().block_on(byte_writer.seal()).expect("seal segment");
+    byte_writer.seal().await.expect("seal segment");
 
     // read
     let segment = ScopedSegment::from("myscope/mystream/0");
-    let mut byte_reader = client_factory.create_byte_reader(segment);
+    let mut byte_reader = client_factory.create_byte_reader(segment).await;
 
-    let offset = byte_reader.current_head().expect("get current head offset");
+    let offset = byte_reader.current_head().await.expect("get current head offset");
     let mut buf: Vec<u8> = vec![0; 4];
     let size = byte_reader.read(&mut buf).expect("read from byte stream");
 }
