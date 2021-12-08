@@ -17,6 +17,7 @@ use pravega_client_shared::{ScopedSegment, ScopedStream};
 use std::convert::TryInto;
 use std::io::{Error, ErrorKind, SeekFrom};
 use std::sync::Arc;
+use tokio::runtime::Handle;
 use uuid::Uuid;
 
 /// A ByteReader enables reading raw bytes from a segment.
@@ -223,6 +224,14 @@ impl ByteReader {
             }
         }
     }
+
+    ///
+    /// Return a handle to the Tokio Runtime
+    ///
+    pub fn runtime_handle(&self) -> Handle {
+        self.factory.runtime_handle()
+    }
+
     fn recreate_reader_wrapper(&mut self, offset: i64) {
         let internal_reader = self.reader.take().unwrap().extract_reader();
         let new_reader_wrapper = PrefetchingAsyncSegmentReader::new(
