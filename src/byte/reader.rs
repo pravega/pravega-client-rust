@@ -17,7 +17,6 @@ use pravega_client_shared::{ScopedSegment, ScopedStream};
 use std::convert::TryInto;
 use std::io::{Error, ErrorKind, SeekFrom};
 use std::sync::Arc;
-use tokio::runtime::Handle;
 use uuid::Uuid;
 
 /// A ByteReader enables reading raw bytes from a segment.
