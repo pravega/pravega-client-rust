@@ -225,13 +225,6 @@ impl ByteReader {
         }
     }
 
-    ///
-    /// Return a handle to the Tokio Runtime managed by the ConnectionFactory.
-    ///
-    pub fn runtime_handle(&self) -> Handle {
-        self.factory.runtime_handle()
-    }
-
     fn recreate_reader_wrapper(&mut self, offset: i64) {
         let internal_reader = self.reader.take().unwrap().extract_reader();
         let new_reader_wrapper = PrefetchingAsyncSegmentReader::new(
