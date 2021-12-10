@@ -398,6 +398,7 @@
 <span id="398">398</span>
 <span id="399">399</span>
 <span id="400">400</span>
+<span id="401">401</span>
 </pre><pre class="rust"><code><span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
 <span class="comment">//</span>
@@ -623,6 +624,7 @@
             }
         }
     }
+
     <span class="kw">fn</span> <span class="ident">recreate_reader_wrapper</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">i64</span>) {
         <span class="kw">let</span> <span class="ident">internal_reader</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">reader</span>.<span class="ident">take</span>().<span class="ident">unwrap</span>().<span class="ident">extract_reader</span>();
         <span class="kw">let</span> <span class="ident">new_reader_wrapper</span> <span class="op">=</span> <span class="ident">PrefetchingAsyncSegmentReader::new</span>(

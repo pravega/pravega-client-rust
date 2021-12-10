@@ -349,9 +349,9 @@ then it reaches the end of segment and no more data could be read from this offs
 <pre><pre class="playground"><code class="language-rust">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>let offset = byte_reader.current_head().expect(&quot;get current head offset&quot;);
+</span>let offset = byte_reader.current_head().await.expect(&quot;get current head offset&quot;);
 let mut buf: Vec&lt;u8&gt; = vec![0; 4];
-let size = byte_reader.read(&amp;mut buf).expect(&quot;read from byte stream&quot;);
+let size = byte_reader.read(&amp;mut buf).await.expect(&quot;read from byte stream&quot;);
 <span class="boring">}
 </span></code></pre></pre>
 <h3><a class="header" href="#put-it-together" id="put-it-together">Put it together</a></h3>
@@ -360,7 +360,8 @@ use pravega_client::client_factory::ClientFactory;
 use pravega_client_shared::ScopedSegment;
 use std::io::Write;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let config = ClientConfigBuilder::default()
      .controller_uri(&quot;localhost:9090&quot;)
      .build()
@@ -372,24 +373,24 @@ fn main() {
     
     // write
     let mut byte_writer = client_factory.create_byte_writer(segment);
-    byte_writer.seek_to_tail();
+    byte_writer.seek_to_tail().await;
     
     let payload = &quot;hello world&quot;.to_string().into_bytes();
     
-    byte_writer.write(&amp;payload).expect(&quot;write&quot;);
-    byte_writer.flush().expect(&quot;flush&quot;);
+    byte_writer.write(&amp;payload).await.expect(&quot;write&quot;);
+    byte_writer.flush().await.expect(&quot;flush&quot;);
 
-    client_factory.runtime().block_on(byte_writer.truncate_data_before(4)).expect(&quot;truncate segment&quot;);
+    byte_writer.truncate_data_before(4).await.expect(&quot;truncate segment&quot;);
 
-    client_factory.runtime().block_on(byte_writer.seal()).expect(&quot;seal segment&quot;);
+    byte_writer.seal().await.expect(&quot;seal segment&quot;);
 
     // read
     let segment = ScopedSegment::from(&quot;myscope/mystream/0&quot;);
-    let mut byte_reader = client_factory.create_byte_reader(segment);
+    let mut byte_reader = client_factory.create_byte_reader(segment).await;
 
-    let offset = byte_reader.current_head().expect(&quot;get current head offset&quot;);
+    let offset = byte_reader.current_head().await.expect(&quot;get current head offset&quot;);
     let mut buf: Vec&lt;u8&gt; = vec![0; 4];
-    let size = byte_reader.read(&amp;mut buf).expect(&quot;read from byte stream&quot;);
+    let size = byte_reader.read(&amp;mut buf).await.expect(&quot;read from byte stream&quot;);
 }
 </code></pre></pre>
 <p>For more details please refer <a href="Rust/../doc/pravega_client/byte">API docs</a>.</p>

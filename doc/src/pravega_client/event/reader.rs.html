@@ -1948,14 +1948,6 @@
 <span id="1948">1948</span>
 <span id="1949">1949</span>
 <span id="1950">1950</span>
-<span id="1951">1951</span>
-<span id="1952">1952</span>
-<span id="1953">1953</span>
-<span id="1954">1954</span>
-<span id="1955">1955</span>
-<span id="1956">1956</span>
-<span id="1957">1957</span>
-<span id="1958">1958</span>
 </pre><pre class="rust"><code><span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
 <span class="comment">//</span>
@@ -2743,6 +2735,7 @@
 
 <span class="doccomment">/// This represents a segment slice which can be used to read events from a Pravega segment as an</span>
 <span class="doccomment">/// iterator.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SegmentSlice</span> {
     <span class="kw">pub</span> <span class="ident">meta</span>: <span class="ident">SliceMetadata</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">slice_return_tx</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">oneshot::Sender</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">SliceMetadata</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
@@ -2952,15 +2945,6 @@
 <span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">SegmentSlice</span> {
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
         <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;SegmentSlice&quot;</span>).<span class="ident">field</span>(<span class="string">&quot;meta&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">meta</span>).<span class="ident">finish</span>()
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">SegmentSlice</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="ident">SegmentSlice</span> {
-            <span class="ident">meta</span>: <span class="ident">Default::default</span>(),
-            <span class="ident">slice_return_tx</span>: <span class="prelude-val">None</span>,
-        }
     }
 }
 
