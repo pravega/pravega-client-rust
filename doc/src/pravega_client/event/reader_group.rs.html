@@ -579,6 +579,41 @@
 <span id="579">579</span>
 <span id="580">580</span>
 <span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
 </pre><pre class="rust"><code><span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
 <span class="comment">//</span>
@@ -591,7 +626,7 @@
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::client_factory::ClientFactoryAsync</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::event::reader::EventReader</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::event::reader_group_state::Offset</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::event::reader_group_state</span>::{<span class="ident">Offset</span>, <span class="ident">ReaderGroupStateError</span>};
 
 <span class="kw">use</span> <span class="ident">pravega_client_shared</span>::{<span class="ident">Reader</span>, <span class="ident">Scope</span>, <span class="ident">ScopedSegment</span>, <span class="ident">ScopedStream</span>};
 
@@ -648,7 +683,7 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ReaderGroup</span> {
     <span class="kw">pub</span> <span class="ident">name</span>: <span class="ident">String</span>,
     <span class="kw">pub</span> <span class="ident">config</span>: <span class="ident">ReaderGroupConfig</span>,
-    <span class="kw">pub</span> <span class="ident">state</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">ReaderGroupState</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">state</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">ReaderGroupState</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">client_factory</span>: <span class="ident">ClientFactoryAsync</span>,
 }
 
@@ -733,14 +768,49 @@
     <span class="doccomment">/// let reader = rg.create_reader(&quot;reader&quot;.to_string()).await;</span>
     <span class="doccomment">/// ```</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_reader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">reader_id</span>: <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">EventReader</span> {
-        <span class="kw">let</span> <span class="ident">r</span>: <span class="ident">Reader</span> <span class="op">=</span> <span class="ident">Reader::from</span>(<span class="ident">reader_id</span>.<span class="ident">clone</span>());
+        <span class="kw">let</span> <span class="ident">r</span>: <span class="ident">Reader</span> <span class="op">=</span> <span class="ident">reader_id</span>.<span class="ident">into</span>();
         <span class="self">self</span>.<span class="ident">state</span>
             .<span class="ident">lock</span>()
             .<span class="kw">await</span>
             .<span class="ident">add_reader</span>(<span class="kw-2">&amp;</span><span class="ident">r</span>)
             .<span class="kw">await</span>
             .<span class="ident">expect</span>(<span class="string">&quot;Error while creating the reader&quot;</span>);
-        <span class="ident">EventReader::init_reader</span>(<span class="ident">reader_id</span>, <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">clone</span>(), <span class="self">self</span>.<span class="ident">client_factory</span>.<span class="ident">clone</span>()).<span class="kw">await</span>
+        <span class="ident">EventReader::init_reader</span>(<span class="ident">r</span>.<span class="ident">name</span>, <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">clone</span>(), <span class="self">self</span>.<span class="ident">client_factory</span>.<span class="ident">clone</span>()).<span class="kw">await</span>
+    }
+
+    <span class="doccomment">/// Returns the readers which are currently online.</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">list_readers</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Reader</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">lock</span>().<span class="kw">await</span>.<span class="ident">get_online_readers</span>().<span class="kw">await</span>
+    }
+
+    <span class="doccomment">/// Removes a reader from the reader group. (Because it is offline)</span>
+    <span class="doccomment">/// Normally, readers shutdown gracefully by calling `reader_offline` on the reader itself.</span>
+    <span class="doccomment">/// However, if the process dies, this provides an alternative way to shutdown the reader.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// `last_position` is a map containing the last offsets processed by the reader. There is no requirement for</span>
+    <span class="doccomment">/// the map to be complete, or even non-empty. If a segment is missing, the last known value will be</span>
+    <span class="doccomment">/// assumed.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The application can persist the full scoped segment and offset by using the SegmentSlice and the Event</span>
+    <span class="doccomment">/// obtained while iterating over the SegmentSlice.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// If the reader is already offline, this method will have no effect.</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">reader_offline</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">reader_id</span>: <span class="ident">String</span>,
+        <span class="ident">last_position</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">i64</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ReaderGroupStateError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">r</span>: <span class="ident">Reader</span> <span class="op">=</span> <span class="ident">reader_id</span>.<span class="ident">into</span>();
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">mut</span> <span class="ident">position</span>) <span class="op">=</span> <span class="ident">last_position</span> {
+            <span class="kw">let</span> <span class="ident">offset_map</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">position</span>
+                .<span class="ident">drain</span>()
+                .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">seg</span>, <span class="ident">pos</span>)<span class="op">|</span> (<span class="ident">ScopedSegment::from</span>(<span class="ident">seg</span>.<span class="ident">as_str</span>()), <span class="ident">Offset::new</span>(<span class="ident">pos</span>)))
+                .<span class="ident">collect</span>();
+            <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">lock</span>().<span class="kw">await</span>.<span class="ident">remove_reader</span>(<span class="kw-2">&amp;</span><span class="ident">r</span>, <span class="ident">offset_map</span>).<span class="kw">await</span>
+        } <span class="kw">else</span> {
+            <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">lock</span>().<span class="kw">await</span>.<span class="ident">remove_reader_default</span>(<span class="kw-2">&amp;</span><span class="ident">r</span>).<span class="kw">await</span>
+        }
     }
 
     <span class="doccomment">///</span>
@@ -865,7 +935,7 @@
     }
 }
 
-<span class="comment">// ReaderGroupConfigVersioned enum contains all versions of Position struct</span>
+<span class="doccomment">/// ReaderGroupConfigVersioned enum contains all versions of Position struct</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">PartialEq</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum</span> <span class="ident">ReaderGroupConfigVersioned</span> {
     <span class="ident">V1</span>(<span class="ident">ReaderGroupConfigV1</span>),

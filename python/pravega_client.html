@@ -361,11 +361,7 @@ Note: A python object of StreamReader cannot be created directly without using t
 <span>def <span class="ident">create_reader</span></span>(<span>...)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>This method returns a Python Future which completes when a segment slice is acquired for consumption.
-A segment slice is data chunk received from a segment of a Pravega stream. It can contain one
-or more events and the user can iterate over the segment slice to read the events.
-If there are multiple segments in the stream then this API can return a segment slice of any
-segments in the stream. The reader ensures that events returned by the stream are in order.</p>
+<div class="desc"><p>This method is used to create a reader under a ReaderGroup.</p>
 <pre><code>import pravega_client;
 manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
 // lets assume the Pravega scope and stream are already created.
@@ -374,6 +370,18 @@ reader=event.reader_group.create_reader(&quot;reader_id&quot;);
 slice=await reader.get_segment_slice_async()
 for event in slice:
     print(event.data())
+</code></pre></div>
+</dd>
+<dt id="pravega_client.pravega_client.StreamReaderGroup.reader_offline"><code class="name flex">
+<span>def <span class="ident">reader_offline</span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>This method is used to manually mark a reader as offline under a ReaderGroup.</p>
+<pre><code>import pravega_client;
+manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
+// lets assume the Pravega scope and stream are already created.
+event.reader_group=manager.create_reader_group(&quot;rg1&quot;, &quot;scope&quot;, &quot;stream&quot;)
+event.reader_group.reader_offline(&quot;reader_id&quot;);
 </code></pre></div>
 </dd>
 <dt id="pravega_client.pravega_client.StreamReaderGroup.to_str"><code class="name flex">
@@ -696,6 +704,7 @@ writer.write_event_bytes(e_bytes, &quot;key1&quot;)
 <h4><code><a title="pravega_client.pravega_client.StreamReaderGroup" href="#pravega_client.pravega_client.StreamReaderGroup">StreamReaderGroup</a></code></h4>
 <ul class="">
 <li><code><a title="pravega_client.pravega_client.StreamReaderGroup.create_reader" href="#pravega_client.pravega_client.StreamReaderGroup.create_reader">create_reader</a></code></li>
+<li><code><a title="pravega_client.pravega_client.StreamReaderGroup.reader_offline" href="#pravega_client.pravega_client.StreamReaderGroup.reader_offline">reader_offline</a></code></li>
 <li><code><a title="pravega_client.pravega_client.StreamReaderGroup.to_str" href="#pravega_client.pravega_client.StreamReaderGroup.to_str">to_str</a></code></li>
 </ul>
 </li>
