@@ -99,13 +99,14 @@ impl StreamReader {
     pub fn release_segment(&self, slice: &mut Slice) -> PyResult<()> {
         info!("Release segment slice back");
         if let Some(s) = slice.get_set_to_none() {
-            match self.runtime_handle.block_on(self.release_segment_async(s)) {
-                Ok(_) => Ok(()),
-                Err(e) => Err(exceptions::PyOSError::new_err(format!(
-                    "Error while attempting to acquire segment {:?}",
-                    e
-                ))),
-            }?;
+            self.runtime_handle
+                .block_on(self.release_segment_async(s))
+                .map_err(|e| {
+                    exceptions::PyOSError::new_err(format!(
+                        "Error while attempting to acquire segment {:?}",
+                        e
+                    ))
+                })?;
         }
         Ok(())
     }
