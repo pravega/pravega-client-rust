@@ -49,17 +49,9 @@ pub(crate) struct StreamManager {
 
 #[cfg(feature = "python_binding")]
 #[pyclass]
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub(crate) struct StreamRetentionPolicy {
     retention: Retention,
-}
-
-impl Default for StreamRetentionPolicy {
-    fn default() -> Self {
-        StreamRetentionPolicy {
-            retention: Default::default(),
-        }
-    }
 }
 
 #[cfg(feature = "python_binding")]
@@ -95,17 +87,9 @@ impl StreamRetentionPolicy {
 
 #[cfg(feature = "python_binding")]
 #[pyclass]
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub(crate) struct StreamScalingPolicy {
     scaling: Scaling,
-}
-
-impl Default for StreamScalingPolicy {
-    fn default() -> Self {
-        StreamScalingPolicy {
-            scaling: Default::default(),
-        }
-    }
 }
 
 #[cfg(feature = "python_binding")]

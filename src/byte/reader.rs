@@ -223,6 +223,7 @@ impl ByteReader {
             }
         }
     }
+
     fn recreate_reader_wrapper(&mut self, offset: i64) {
         let internal_reader = self.reader.take().unwrap().extract_reader();
         let new_reader_wrapper = PrefetchingAsyncSegmentReader::new(
