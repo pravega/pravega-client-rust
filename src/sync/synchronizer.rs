@@ -45,6 +45,9 @@ pub enum SynchronizerError {
 
     #[snafu(display("Failed insert tombstone in table synchronizer due to: {:?}", error_msg))]
     SyncTombstoneError { error_msg: String },
+
+    #[snafu(display("Failed due to Precondition check failure: {:?}", error_msg))]
+    SyncPreconditionError { error_msg: String },
 }
 
 /// Provide a map that is synchronized across different processes.
@@ -298,19 +301,19 @@ impl Synchronizer {
 
     /// Insert/Update a list of keys and applies it atomically to the local map.
     /// This will update the local map to the latest version.
-    pub async fn insert(
+    pub async fn insert<R>(
         &mut self,
-        updates_generator: impl FnMut(&mut Update) -> Result<Option<String>, SynchronizerError>,
-    ) -> Result<Option<String>, SynchronizerError> {
+        updates_generator: impl FnMut(&mut Update) -> Result<R, SynchronizerError>,
+    ) -> Result<R, SynchronizerError> {
         conditionally_write(updates_generator, self, MAX_RETRIES).await
     }
 
     /// Remove a list of keys and apply it atomically to local map.
     /// This will update the local map to latest version.
-    pub async fn remove(
+    pub async fn remove<R>(
         &mut self,
-        deletes_generator: impl FnMut(&mut Update) -> Result<Option<String>, SynchronizerError>,
-    ) -> Result<Option<String>, SynchronizerError> {
+        deletes_generator: impl FnMut(&mut Update) -> Result<R, SynchronizerError>,
+    ) -> Result<R, SynchronizerError> {
         conditionally_remove(deletes_generator, self, MAX_RETRIES).await
     }
 }
@@ -374,7 +377,7 @@ pub struct Value {
     pub data: Vec<u8>,
 }
 
-const TOMBSTONE: &str = "tombstone";
+pub const TOMBSTONE: &str = "tombstone";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct Tombstone {}
@@ -699,11 +702,11 @@ where
     serde_cbor::de::from_slice(reader)
 }
 
-async fn conditionally_write(
-    mut updates_generator: impl FnMut(&mut Update) -> Result<Option<String>, SynchronizerError>,
+async fn conditionally_write<R>(
+    mut updates_generator: impl FnMut(&mut Update) -> Result<R, SynchronizerError>,
     table_synchronizer: &mut Synchronizer,
     mut retry: i32,
-) -> Result<Option<String>, SynchronizerError> {
+) -> Result<R, SynchronizerError> {
     let mut update_result = None;
 
     while retry > 0 {
@@ -717,7 +720,7 @@ async fn conditionally_write(
             remove: Vec::new(),
         };
 
-        update_result = updates_generator(&mut to_update)?;
+        update_result = Some(updates_generator(&mut to_update)?);
         debug!("number of insert is {}", to_update.insert.len());
         if to_update.insert_is_empty() {
             debug!(
@@ -768,14 +771,16 @@ async fn conditionally_write(
             }
         }
     }
-    Ok(update_result)
+    update_result.ok_or(SynchronizerError::SyncUpdateError {
+        error_msg: "No attempts were made.".into(),
+    })
 }
 
-async fn conditionally_remove(
-    mut delete_generator: impl FnMut(&mut Update) -> Result<Option<String>, SynchronizerError>,
+async fn conditionally_remove<R>(
+    mut delete_generator: impl FnMut(&mut Update) -> Result<R, SynchronizerError>,
     table_synchronizer: &mut Synchronizer,
     mut retry: i32,
-) -> Result<Option<String>, SynchronizerError> {
+) -> Result<R, SynchronizerError> {
     let mut delete_result = None;
 
     while retry > 0 {
@@ -788,7 +793,7 @@ async fn conditionally_remove(
             insert: Vec::new(),
             remove: Vec::new(),
         };
-        delete_result = delete_generator(&mut to_delete)?;
+        delete_result = Some(delete_generator(&mut to_delete)?);
 
         if to_delete.remove_is_empty() {
             debug!(
@@ -837,13 +842,15 @@ async fn conditionally_remove(
             }
         }
     }
-    Ok(delete_result)
+    delete_result.ok_or(SynchronizerError::SyncUpdateError {
+        error_msg: "No attempts were made.".into(),
+    })
 }
 
 async fn clear_tombstone(
     to_remove: &mut Update,
     table_synchronizer: &mut Synchronizer,
-) -> Result<Option<String>, SynchronizerError> {
+) -> Result<(), SynchronizerError> {
     table_synchronizer
         .remove(|table| {
             for remove in to_remove.get_remove_iter() {
@@ -851,7 +858,7 @@ async fn clear_tombstone(
                     table.remove(remove.outer_key.to_owned(), remove.inner_key.to_owned());
                 }
             }
-            Ok(None)
+            Ok(())
         })
         .await
 }
@@ -1074,24 +1081,26 @@ mod test {
             name: "tableSyncScope".to_string(),
         };
         let mut sync = rt.block_on(factory.create_synchronizer(scope, "sync".to_string()));
-        rt.block_on(sync.insert(|table| {
-            table.insert(
-                "outer_key".to_owned(),
-                "inner_key".to_owned(),
-                "i32".to_owned(),
-                Box::new(1),
-            );
-            Ok(None)
-        }))
-        .unwrap();
+        let _: Option<String> = rt
+            .block_on(sync.insert(|table| {
+                table.insert(
+                    "outer_key".to_owned(),
+                    "inner_key".to_owned(),
+                    "i32".to_owned(),
+                    Box::new(1),
+                );
+                Ok(None)
+            }))
+            .unwrap();
         let value_option = sync.get("outer_key", "inner_key");
         assert!(value_option.is_some());
 
-        rt.block_on(sync.insert(|table| {
-            table.insert_tombstone("outer_key".to_owned(), "inner_key".to_owned())?;
-            Ok(None)
-        }))
-        .unwrap();
+        let _: Option<String> = rt
+            .block_on(sync.insert(|table| {
+                table.insert_tombstone("outer_key".to_owned(), "inner_key".to_owned())?;
+                Ok(None)
+            }))
+            .unwrap();
         let value_option = sync.get("outer_key", "inner_key");
         assert!(value_option.is_none());
     }

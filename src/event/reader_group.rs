@@ -10,7 +10,7 @@
 
 use crate::client_factory::ClientFactoryAsync;
 use crate::event::reader::EventReader;
-use crate::event::reader_group_state::Offset;
+use crate::event::reader_group_state::{Offset, ReaderGroupStateError};
 
 use pravega_client_shared::{Reader, Scope, ScopedSegment, ScopedStream};
 
@@ -67,7 +67,7 @@ cfg_if::cfg_if! {
 pub struct ReaderGroup {
     pub name: String,
     pub config: ReaderGroupConfig,
-    pub state: Arc<Mutex<ReaderGroupState>>,
+    state: Arc<Mutex<ReaderGroupState>>,
     client_factory: ClientFactoryAsync,
 }
 
@@ -152,14 +152,49 @@ impl ReaderGroup {
     /// let reader = rg.create_reader("reader".to_string()).await;
     /// ```
     pub async fn create_reader(&self, reader_id: String) -> EventReader {
-        let r: Reader = Reader::from(reader_id.clone());
+        let r: Reader = reader_id.into();
         self.state
             .lock()
             .await
             .add_reader(&r)
             .await
             .expect("Error while creating the reader");
-        EventReader::init_reader(reader_id, self.state.clone(), self.client_factory.clone()).await
+        EventReader::init_reader(r.name, self.state.clone(), self.client_factory.clone()).await
+    }
+
+    /// Returns the readers which are currently online.
+    pub async fn list_readers(&self) -> Vec<Reader> {
+        self.state.lock().await.get_online_readers().await
+    }
+
+    /// Removes a reader from the reader group. (Because it is offline)
+    /// Normally, readers shutdown gracefully by calling `reader_offline` on the reader itself.
+    /// However, if the process dies, this provides an alternative way to shutdown the reader.
+    ///
+    /// `last_position` is a map containing the last offsets processed by the reader. There is no requirement for
+    /// the map to be complete, or even non-empty. If a segment is missing, the last known value will be
+    /// assumed.
+    ///
+    /// The application can persist the full scoped segment and offset by using the SegmentSlice and the Event
+    /// obtained while iterating over the SegmentSlice.
+    ///
+    ///
+    /// If the reader is already offline, this method will have no effect.
+    pub async fn reader_offline(
+        &self,
+        reader_id: String,
+        last_position: Option<HashMap<String, i64>>,
+    ) -> Result<(), ReaderGroupStateError> {
+        let r: Reader = reader_id.into();
+        if let Some(mut position) = last_position {
+            let offset_map: HashMap<ScopedSegment, Offset> = position
+                .drain()
+                .map(|(seg, pos)| (ScopedSegment::from(seg.as_str()), Offset::new(pos)))
+                .collect();
+            self.state.lock().await.remove_reader(&r, offset_map).await
+        } else {
+            self.state.lock().await.remove_reader_default(&r).await
+        }
     }
 
     ///
@@ -284,7 +319,7 @@ impl Default for ReaderGroupConfigBuilder {
     }
 }
 
-// ReaderGroupConfigVersioned enum contains all versions of Position struct
+/// ReaderGroupConfigVersioned enum contains all versions of Position struct
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) enum ReaderGroupConfigVersioned {
     V1(ReaderGroupConfigV1),

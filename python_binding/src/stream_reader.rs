@@ -11,10 +11,12 @@
 cfg_if! {
     if #[cfg(feature = "python_binding")] {
         use pravega_client::event::reader::EventReader;
+        use pravega_client::event::reader::EventReaderError;
         use pravega_client_shared::ScopedStream;
         use pyo3::prelude::*;
         use pyo3::PyResult;
         use pyo3::PyObjectProtocol;
+        use pyo3::exceptions;
         use tracing::info;
         use std::sync::Arc;
         use pravega_client::event::reader::{Event, SegmentSlice};
@@ -63,10 +65,16 @@ impl StreamReader {
 
         pyo3_asyncio::tokio::future_into_py(py, async move {
             let slice_result = read.lock().await.acquire_segment().await;
-            let slice_py: Slice = Slice {
-                seg_slice: slice_result,
-            };
-            Ok(Python::with_gil(|py| slice_py.into_py(py)))
+            match slice_result {
+                Ok(slice) => {
+                    let slice_py: Slice = Slice { seg_slice: slice };
+                    Ok(Python::with_gil(|py| slice_py.into_py(py)))
+                }
+                Err(e) => Err(exceptions::PyOSError::new_err(format!(
+                    "Error while attempting to acquire segment {:?}",
+                    e
+                ))),
+            }
         })
     }
 
@@ -75,8 +83,13 @@ impl StreamReader {
     ///
     #[pyo3(text_signature = "($self)")]
     pub fn reader_offline(&self) -> PyResult<()> {
-        self.runtime_handle.block_on(self.reader_offline_async());
-        Ok(())
+        match self.runtime_handle.block_on(self.reader_offline_async()) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyOSError::new_err(format!(
+                "Error while attempting to acquire segment {:?}",
+                e
+            ))),
+        }
     }
 
     ///
@@ -86,7 +99,14 @@ impl StreamReader {
     pub fn release_segment(&self, slice: &mut Slice) -> PyResult<()> {
         info!("Release segment slice back");
         if let Some(s) = slice.get_set_to_none() {
-            self.runtime_handle.block_on(self.release_segment_async(s));
+            self.runtime_handle
+                .block_on(self.release_segment_async(s))
+                .map_err(|e| {
+                    exceptions::PyOSError::new_err(format!(
+                        "Error while attempting to acquire segment {:?}",
+                        e
+                    ))
+                })?;
         }
         Ok(())
     }
@@ -99,13 +119,13 @@ impl StreamReader {
 
 impl StreamReader {
     // Helper method for to set reader_offline.
-    async fn reader_offline_async(&self) {
-        self.reader.lock().await.reader_offline().await;
+    async fn reader_offline_async(&self) -> Result<(), EventReaderError> {
+        self.reader.lock().await.reader_offline().await
     }
 
     // Helper method for to release segment
-    async fn release_segment_async(&self, slice: SegmentSlice) {
-        self.reader.lock().await.release_segment(slice).await;
+    async fn release_segment_async(&self, slice: SegmentSlice) -> Result<(), EventReaderError> {
+        self.reader.lock().await.release_segment(slice).await
     }
 }
 

@@ -9,14 +9,17 @@
 //
 
 use crate::client_factory::ClientFactoryAsync;
-use crate::event::reader_group_state::Offset;
+use crate::event::reader_group_state::ReaderGroupStateError::SyncError;
+use crate::event::reader_group_state::{Offset, ReaderGroupStateError};
 use crate::segment::reader::ReaderError::SegmentSealed;
 use crate::segment::reader::{AsyncSegmentReader, ReaderError};
+use snafu::{ResultExt, Snafu};
 
 use pravega_client_retry::retry_result::Retryable;
 use pravega_client_shared::{Reader, ScopedSegment, Segment, SegmentWithRange};
 use pravega_wire_protocol::commands::{Command, EventCommand, TYPE_PLUS_LENGTH_SIZE};
 
+use crate::sync::synchronizer::SynchronizerError;
 use bytes::{Buf, BufMut, BytesMut};
 use core::fmt;
 use im::HashMap as ImHashMap;
@@ -84,13 +87,13 @@ cfg_if::cfg_if! {
 ///     // readers which are part of the reader group.
 ///     let mut reader1 = rg.create_reader("r1".to_string()).await;
 ///     // read all events from a given segment slice.
-///     if let Some(mut segment_slice) =  reader1.acquire_segment().await {
+///     if let Some(mut segment_slice) =  reader1.acquire_segment().await.expect("Failed to acquire segment since the reader is offline") {
 ///         while let Some(event) = segment_slice.next() {
 ///             println!("Event read is {:?}", event);
 ///         }
 ///     }
 ///     // read one event from the a given  segment slice and return it back.
-///     if let Some(mut segment_slice) = reader1.acquire_segment().await {
+///     if let Some(mut segment_slice) = reader1.acquire_segment().await.expect("Failed to acquire segment since the reader is offline") {
 ///         if let Some(event) = segment_slice.next() {
 ///             println!("Event read is {:?}", event);
 ///             // release the segment slice back to the reader.
@@ -100,7 +103,7 @@ cfg_if::cfg_if! {
 /// }
 /// ```
 pub struct EventReader {
-    id: Reader,
+    pub id: Reader,
     factory: ClientFactoryAsync,
     rx: Receiver<SegmentReadResult>,
     tx: Sender<SegmentReadResult>,
@@ -108,10 +111,16 @@ pub struct EventReader {
     rg_state: Arc<Mutex<ReaderGroupState>>,
 }
 
+#[derive(Debug, Snafu)]
+pub enum EventReaderError {
+    #[snafu(display("ReaderGroup State error: {}", source))]
+    StateError { source: ReaderGroupStateError },
+}
+
 impl Drop for EventReader {
     /// Destructor for reader invoked. This will automatically invoke reader_offline().
     fn drop(&mut self) {
-        info!("reader {} is dropped", self.id);
+        info!("Reader {:?} is dropped", self.id);
         // try fetching the currently running Runtime.
         let r = Handle::try_current();
         match r {
@@ -119,19 +128,21 @@ impl Drop for EventReader {
                 // enter the runtime context.
                 let _ = handle.enter();
                 // ensure we block until the reader_offline method completes.
-                futures::executor::block_on(self.reader_offline());
+                let offline_status = futures::executor::block_on(self.reader_offline());
+                info!("Reader {:?} is marked as offline. {:?}", self.id, offline_status);
             }
             Err(_) => {
                 // ensure we block until the reader_offline executes successfully.
-                let rt = tokio::runtime::Runtime::new().expect("create tokio runtime to drop reader");
-                rt.block_on(self.reader_offline());
+                let rt = tokio::runtime::Runtime::new().expect("Create tokio runtime to drop reader");
+                let offline_status = rt.block_on(self.reader_offline());
+                info!("Reader {:?} is marked as offline. {:?}", self.id, offline_status);
             }
         }
     }
 }
 
 impl EventReader {
-    /// Initialize the reader. This fetches the assigned segments from the TableSynchronizer and
+    /// Initialize the reader. This fetches the assigned segments from the Synchronizer and
     /// spawns background tasks to start reads from those Segments.
     pub(crate) async fn init_reader(
         id: String,
@@ -157,6 +168,10 @@ impl EventReader {
                     debug!("Acquiring segment {:?} for reader {:?}", seg, reader);
                 } else {
                     // There are no new unassigned segments to be acquired.
+                    debug!(
+                        "No unassigned segments that can be acquired by the reader {:?}",
+                        reader
+                    );
                     break;
                 }
             }
@@ -239,13 +254,18 @@ impl EventReader {
 
     // for testing purposes.
     #[doc(hidden)]
+    #[cfg(feature = "integration-test")]
     pub fn set_last_acquire_release_time(&mut self, time: Instant) {
         self.meta.last_segment_release = time;
         self.meta.last_segment_acquire = time;
     }
 
     /// Release a partially read segment slice back to event reader.
-    pub async fn release_segment(&mut self, mut slice: SegmentSlice) {
+    ///
+    /// Note: it may return an error indicating that the reader has already been removed. This means
+    /// that another thread removes this reader from the ReaderGroup probably due to the host of this reader
+    /// is assumed dead.
+    pub async fn release_segment(&mut self, mut slice: SegmentSlice) -> Result<(), EventReaderError> {
         info!(
             "releasing segment slice {} from reader {}",
             slice.meta.scoped_segment, self.id
@@ -254,11 +274,11 @@ impl EventReader {
         let scoped_segment = ScopedSegment::from(slice.meta.scoped_segment.clone().as_str());
         self.meta.add_slices(slice.meta.clone());
         self.meta.slices_dished_out.remove(&scoped_segment);
-
         if self.meta.last_segment_release.elapsed() > REBALANCE_INTERVAL {
             debug!("try to rebalance segments across readers");
             let read_offset = slice.meta.read_offset;
-            self.release_segment_from_reader(slice, read_offset).await;
+            // Note: reader may not online
+            self.release_segment_from_reader(slice, read_offset).await?;
             self.meta.last_segment_release = Instant::now();
         } else {
             //send an indication to the waiting rx that slice has been returned.
@@ -273,10 +293,19 @@ impl EventReader {
                 panic!("This is unexpected, No sender for SegmentSlice present.");
             }
         }
+        Ok(())
     }
 
     /// Release a segment back to the reader and also indicate the offset up to which the segment slice is consumed.
-    pub async fn release_segment_at(&mut self, slice: SegmentSlice, offset: i64) {
+    ///
+    /// Note: it may return an error indicating that the reader has already been removed. This means
+    /// that another thread removes this reader from the ReaderGroup probably due to the host of this reader
+    /// is assumed dead.
+    pub async fn release_segment_at(
+        &mut self,
+        slice: SegmentSlice,
+        offset: i64,
+    ) -> Result<(), EventReaderError> {
         info!(
             "releasing segment slice {} at offset {}",
             slice.meta.scoped_segment, offset
@@ -320,44 +349,68 @@ impl EventReader {
             self.meta.add_slices(slice_meta);
             self.meta.slices_dished_out.remove(&segment);
         } else {
-            self.release_segment(slice).await;
+            self.release_segment(slice).await?;
         }
+        Ok(())
     }
 
-    /// Mark the reader as offline. This will ensure the segments owned by this reader is distributed
-    /// to other readers in the ReaderGroup.
-    pub async fn reader_offline(&mut self) {
+    /// Mark the reader as offline.
+    /// This will ensure the segments owned by this reader is distributed to other readers in the ReaderGroup.
+    ///
+    /// Note: it may return an error indicating that the reader has already been removed. This means
+    /// that another thread removes this reader from the ReaderGroup probably due to the host of this reader
+    /// is assumed dead.
+    pub async fn reader_offline(&mut self) -> Result<(), EventReaderError> {
         if !self.meta.reader_offline {
-            info!("putting reader {} offline", self.id);
+            info!("Putting reader {:?} offline", self.id);
             // stop reading from all the segments.
             self.meta.stop_reading_all();
-            // Close all slice return Receivers.
+            // close all slice return Receivers.
             self.meta.close_all_slice_return_channel();
             // use the updated map to return the data.
 
             let mut offset_map: HashMap<ScopedSegment, Offset> = HashMap::new();
-            for (seg, off) in self.meta.slices_dished_out.drain() {
-                offset_map.insert(seg, Offset::new(off));
+            for (seg, slice_meta) in self.meta.slices_dished_out.drain() {
+                offset_map.insert(seg, Offset::new(slice_meta.read_offset));
             }
-            for (_, meta) in self.meta.slices.drain() {
+            for meta in self.meta.slices.values() {
                 offset_map.insert(
                     ScopedSegment::from(meta.scoped_segment.as_str()),
                     Offset::new(meta.read_offset),
                 );
             }
-            self.rg_state
+
+            match self
+                .rg_state
                 .lock()
                 .await
                 .remove_reader(&self.id, offset_map)
                 .await
-                .expect("Update ReaderGroup to ensure reader is offline");
-            self.meta.reader_offline = true;
+            {
+                Ok(()) => {
+                    self.meta.reader_offline = true;
+                    Ok(())
+                }
+                Err(e) => match e {
+                    ReaderGroupStateError::ReaderAlreadyOfflineError { .. } => {
+                        self.meta.reader_offline = true;
+                        info!("Reader {:?} is already offline", self.id);
+                        Ok(())
+                    }
+                    state_err => Err(EventReaderError::StateError { source: state_err }),
+                },
+            }?
         }
+        Ok(())
     }
 
-    // Release the segment of the provided SegmentSlice from the reader. This segment is marked as
-    // unassigned in the reader group state and other reads can acquire it.
-    async fn release_segment_from_reader(&mut self, mut slice: SegmentSlice, read_offset: i64) {
+    /// Release the segment of the provided SegmentSlice from the reader. This segment is marked as
+    /// unassigned in the reader group state and other reads can acquire it.
+    async fn release_segment_from_reader(
+        &mut self,
+        mut slice: SegmentSlice,
+        read_offset: i64,
+    ) -> Result<(), EventReaderError> {
         let new_segments_to_release = self
             .rg_state
             .lock()
@@ -389,8 +442,9 @@ impl EventReader {
                 .await
                 .release_segment(&self.id, &segment, &Offset::new(read_offset))
                 .await
-                .expect("Failed to release segment from RG state for reader");
+                .context(StateError {})?;
         }
+        Ok(())
     }
 
     /// This function returns a SegmentSlice from the data received from the SegmentStore(s).
@@ -400,21 +454,42 @@ impl EventReader {
     /// to different Segments of the stream are received. In-case we receive data for an already
     /// acquired SegmentSlice this method waits until SegmentSlice is completely consumed before
     /// returning the data.
-    pub async fn acquire_segment(&mut self) -> Option<SegmentSlice> {
-        info!("acquiring segment for reader {}", self.id);
+    ///
+    /// Note: it may return an error indicating that the reader is not online. This means
+    /// that another thread removes this reader from the ReaderGroup probably because the host of this reader
+    /// is assumed dead.
+    pub async fn acquire_segment(&mut self) -> Result<Option<SegmentSlice>, EventReaderError> {
+        if self.meta.reader_offline || !self.rg_state.lock().await.check_online(&self.id).await {
+            return Err(EventReaderError::StateError {
+                source: ReaderGroupStateError::ReaderAlreadyOfflineError {
+                    error_msg: format!("Reader already marked offline {:?}", self.id),
+                    source: SynchronizerError::SyncPreconditionError {
+                        error_msg: String::from("Precondition failure"),
+                    },
+                },
+            });
+        }
+        info!("acquiring segment for reader {:?}", self.id);
         // Check if newer segments should be acquired.
         if self.meta.last_segment_acquire.elapsed() > REBALANCE_INTERVAL {
             info!("need to rebalance segments across readers");
-            // Assign newer segments to this reader if available.
-            if let Some(new_segments) = self.assign_segments_to_reader().await {
+            // assign newer segments to this reader if available.
+            // Note: reader may not online.
+            let res = self.assign_segments_to_reader().await.context(StateError {})?;
+            if let Some(new_segments) = res {
                 // fetch current segments.
+                // Note: reader may not online.
                 let current_segments = self
                     .rg_state
                     .lock()
                     .await
                     .get_segments_for_reader(&self.id)
                     .await
-                    .expect("Read segments");
+                    .map_err(|e| SyncError {
+                        error_msg: format!("failed to get segments for reader {:?}", self.id),
+                        source: e,
+                    })
+                    .context(StateError {})?;
                 let new_segments: HashSet<(ScopedSegment, Offset)> = current_segments
                     .into_iter()
                     .filter(|(seg, _off)| new_segments.contains(seg))
@@ -440,11 +515,11 @@ impl EventReader {
             );
             self.meta
                 .slices_dished_out
-                .insert(segment_with_data, slice_meta.read_offset);
-            Some(SegmentSlice {
+                .insert(segment_with_data, slice_meta.copy_meta());
+            Ok(Some(SegmentSlice {
                 meta: slice_meta,
                 slice_return_tx: Some(slice_return_tx),
-            })
+            }))
         } else if let Ok(option) = timeout(Duration::from_millis(1000), self.rx.recv()).await {
             if let Some(read_result) = option {
                 match read_result {
@@ -457,7 +532,7 @@ impl EventReader {
                                 != slice_meta.read_offset + slice_meta.segment_data.value.len() as i64
                             {
                                 info!("Data from an invalid offset {:?} observed. Expected offset {:?}. Ignoring this data", data.offset_in_segment, slice_meta.read_offset);
-                                None
+                                Ok(None)
                             } else {
                                 // add received data to Segment slice.
                                 EventReader::add_data_to_segment_slice(data, &mut slice_meta);
@@ -468,22 +543,22 @@ impl EventReader {
                                     .add_slice_release_receiver(segment.clone(), slice_return_rx);
                                 self.meta
                                     .slices_dished_out
-                                    .insert(segment.clone(), slice_meta.read_offset);
+                                    .insert(segment.clone(), slice_meta.copy_meta());
 
                                 info!(
                                     "segment slice for {:?} is ready for consumption by reader {}",
                                     slice_meta.scoped_segment, self.id,
                                 );
 
-                                Some(SegmentSlice {
+                                Ok(Some(SegmentSlice {
                                     meta: slice_meta,
                                     slice_return_tx: Some(slice_return_tx),
-                                })
+                                }))
                             }
                         } else {
                             //None is sent if the the segment is released from the reader.
                             debug!("ignore the received data since None was returned");
-                            None
+                            Ok(None)
                         }
                     }
                     Err((e, offset)) => {
@@ -500,16 +575,16 @@ impl EventReader {
                                 self.meta.slices_dished_out.remove(&segment);
                             } else {
                                 info!("Segment slice {:?} has received error {:?}", slice_meta, e);
-                                self.fetch_successors(e).await;
+                                self.fetch_successors(e).await.context(StateError {})?;
                             }
                         }
-                        debug!("segment Slice meta {:?}", self.meta.slices);
-                        None
+                        debug!("Segment Slice meta {:?}", self.meta.slices);
+                        Ok(None)
                     }
                 }
             } else {
-                warn!("error getting updates from segment slice for reader {}", self.id);
-                None
+                warn!("Error getting updates from segment slice for reader {}", self.id);
+                Ok(None)
             }
         } else {
             info!(
@@ -517,13 +592,13 @@ impl EventReader {
                 self.id,
                 self.meta.slices.len()
             );
-            None
+            Ok(None)
         }
     }
 
     // Fetch successors of the segment where an error was observed.
     // ensure we stop the read task and spawn read tasks for the successor segments.
-    async fn fetch_successors(&mut self, e: ReaderError) {
+    async fn fetch_successors(&mut self, e: ReaderError) -> Result<(), ReaderGroupStateError> {
         match e {
             ReaderError::SegmentSealed {
                 segment,
@@ -554,10 +629,10 @@ impl EventReader {
                     .lock()
                     .await
                     .segment_completed(&self.id, &completed_scoped_segment, &successors)
-                    .await
-                    .expect("Update segment completed");
+                    .await?;
                 // Assign newer segments to this reader if available.
-                if let Some(new_segments) = self.assign_segments_to_reader().await {
+                let option = self.assign_segments_to_reader().await?;
+                if let Some(new_segments) = option {
                     // fetch current segments.
                     let current_segments = self
                         .rg_state
@@ -565,7 +640,10 @@ impl EventReader {
                         .await
                         .get_segments_for_reader(&self.id)
                         .await
-                        .expect("Read segments");
+                        .map_err(|e| SyncError {
+                            error_msg: format!("Failed to fetch segments for reader {:?}", self.id),
+                            source: e,
+                        })?;
                     let new_segments: HashSet<(ScopedSegment, Offset)> = current_segments
                         .into_iter()
                         .filter(|(seg, _off)| new_segments.contains(seg))
@@ -577,10 +655,11 @@ impl EventReader {
             }
             _ => error!("Error observed while reading from Pravega {:?}", e),
         };
+        Ok(())
     }
 
     // This function tries to acquire newer segments for the reader.
-    async fn assign_segments_to_reader(&self) -> Option<Vec<ScopedSegment>> {
+    async fn assign_segments_to_reader(&self) -> Result<Option<Vec<ScopedSegment>>, ReaderGroupStateError> {
         let mut new_segments: Vec<ScopedSegment> = Vec::new();
         let new_segments_to_acquire = self
             .rg_state
@@ -589,7 +668,7 @@ impl EventReader {
             .compute_segments_to_acquire_or_release(&self.id)
             .await;
         if new_segments_to_acquire <= 0 {
-            None
+            Ok(None)
         } else {
             for _ in 0..new_segments_to_acquire {
                 if let Some(seg) = self
@@ -597,8 +676,7 @@ impl EventReader {
                     .lock()
                     .await
                     .assign_segment_to_reader(&self.id)
-                    .await
-                    .expect("Error while waiting for segments to be assigned")
+                    .await?
                 {
                     debug!("Acquiring segment {:?} for reader {:?}", seg, self.id);
                     new_segments.push(seg);
@@ -608,7 +686,7 @@ impl EventReader {
                 }
             }
             debug!("Segments acquired by reader {:?} are {:?}", self.id, new_segments);
-            Some(new_segments)
+            Ok(Some(new_segments))
         }
     }
 
@@ -663,7 +741,7 @@ impl EventReader {
 // Reader meta data.
 struct ReaderState {
     slices: HashMap<ScopedSegment, SliceMetadata>,
-    slices_dished_out: HashMap<ScopedSegment, i64>,
+    slices_dished_out: HashMap<ScopedSegment, SliceMetadata>,
     slice_release_receiver: HashMap<ScopedSegment, oneshot::Receiver<Option<SliceMetadata>>>,
     slice_stop_reading: HashMap<ScopedSegment, oneshot::Sender<()>>,
     last_segment_release: Instant,
@@ -691,8 +769,11 @@ impl ReaderState {
                     returned_meta
                 }
                 Err(e) => {
-                    error!("Error Segment slice was not returned {:?}", e);
-                    panic!("A Segment slice was not returned to the Reader.");
+                    error!(
+                        "Error Segment slice was not returned for segment {:?}. Error {:?} ",
+                        segment, e
+                    );
+                    self.slices_dished_out.remove(segment)
                 }
             }
         } else {
@@ -1002,7 +1083,6 @@ impl fmt::Debug for SegmentSlice {
 impl Drop for SegmentSlice {
     fn drop(&mut self) {
         if let Some(sender) = self.slice_return_tx.take() {
-            self.slice_return_tx = None;
             let _ = sender.send(Some(self.meta.clone()));
         }
     }
@@ -1029,6 +1109,18 @@ impl SliceMetadata {
     /// Method to verify if the Segment has pending events that can be read.
     pub fn has_events(&self) -> bool {
         !self.partial_data_present && self.segment_data.value.len() > TYPE_PLUS_LENGTH_SIZE as usize
+    }
+
+    fn copy_meta(&self) -> SliceMetadata {
+        SliceMetadata {
+            start_offset: self.start_offset,
+            scoped_segment: self.scoped_segment.clone(),
+            last_event_offset: self.last_event_offset,
+            read_offset: self.read_offset,
+            end_offset: self.end_offset,
+            segment_data: SegmentDataBuffer::empty(),
+            partial_data_present: false,
+        }
     }
 }
 
@@ -1193,6 +1285,7 @@ mod tests {
         // simulate initialization of a Reader
         let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
+        rg_mock.expect_check_online().return_const(true);
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
             .return_const(0 as isize);
@@ -1212,7 +1305,7 @@ mod tests {
         let mut event_size = 0;
 
         // Attempt to acquire a segment.
-        while let Some(mut slice) = cf.runtime().block_on(reader.acquire_segment()) {
+        while let Some(mut slice) = cf.runtime().block_on(reader.acquire_segment()).unwrap() {
             loop {
                 if let Some(event) = slice.next() {
                     println!("Read event {:?}", event);
@@ -1265,6 +1358,7 @@ mod tests {
             .with(predicate::eq(Reader::from("r1".to_string())))
             .return_const(1 as isize);
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
+        rg_mock.expect_check_online().return_const(true);
 
         // mock rg_state.assign_segment_to_reader
         let res: Result<Option<ScopedSegment>, ReaderGroupStateError> =
@@ -1308,7 +1402,7 @@ mod tests {
         let mut event_count = 0;
 
         // Attempt to acquire a segment.
-        while let Some(mut slice) = cf.runtime().block_on(reader.acquire_segment()) {
+        while let Some(mut slice) = cf.runtime().block_on(reader.acquire_segment()).unwrap() {
             loop {
                 if let Some(event) = slice.next() {
                     println!("Read event {:?}", event);
@@ -1367,6 +1461,7 @@ mod tests {
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
             .return_const(0 as isize);
+        rg_mock.expect_check_online().return_const(true);
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
@@ -1383,7 +1478,7 @@ mod tests {
 
         let mut total_events_read = 0;
         // Attempt to acquire a segment.
-        while let Some(mut slice) = cf.runtime().block_on(reader.acquire_segment()) {
+        while let Some(mut slice) = cf.runtime().block_on(reader.acquire_segment()).unwrap() {
             let segment = slice.meta.scoped_segment.clone();
             println!("Received Segment Slice {:?}", segment);
             let mut event_count = 0;
@@ -1437,6 +1532,7 @@ mod tests {
         let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
 
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
+        rg_mock.expect_check_online().return_const(true);
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
             .return_const(0 as isize);
@@ -1453,7 +1549,11 @@ mod tests {
         );
 
         // acquire a segment
-        let mut slice = cf.runtime().block_on(reader.acquire_segment()).unwrap();
+        let mut slice = cf
+            .runtime()
+            .block_on(reader.acquire_segment())
+            .expect("Failed to acquire segment since the reader is offline")
+            .unwrap();
 
         // read an event.
         let event = slice.next().unwrap();
@@ -1462,16 +1562,24 @@ mod tests {
         assert_eq!(event.offset_in_segment, 0); // first event.
 
         // release the segment slice.
-        cf.runtime().block_on(reader.release_segment(slice));
+        let _ = cf.runtime().block_on(reader.release_segment(slice));
 
         // acquire the next segment
-        let slice = cf.runtime().block_on(reader.acquire_segment()).unwrap();
+        let slice = cf
+            .runtime()
+            .block_on(reader.acquire_segment())
+            .expect("Failed to acquire segment since the reader is offline")
+            .unwrap();
 
         //Do not read, simply return it back.
-        cf.runtime().block_on(reader.release_segment(slice));
+        let _ = cf.runtime().block_on(reader.release_segment(slice));
 
         // Try acquiring the segment again.
-        let mut slice = cf.runtime().block_on(reader.acquire_segment()).unwrap();
+        let mut slice = cf
+            .runtime()
+            .block_on(reader.acquire_segment())
+            .expect("Failed to acquire segment")
+            .unwrap();
         // Verify a partial event being present. This implies
         let event = slice.next().unwrap();
         assert_eq!(event.value.len(), 2);
@@ -1508,6 +1616,7 @@ mod tests {
         // simulate initialization of a Reader
         let init_segments = vec![create_segment_slice(0), create_segment_slice(1)];
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
+        rg_mock.expect_check_online().return_const(true);
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
             .return_const(0 as isize);
@@ -1524,7 +1633,11 @@ mod tests {
         );
 
         // acquire a segment
-        let mut slice = cf.runtime().block_on(reader.acquire_segment()).unwrap();
+        let mut slice = cf
+            .runtime()
+            .block_on(reader.acquire_segment())
+            .expect("Failed to acquire segment")
+            .unwrap();
 
         // read an event.
         let event = slice.next().unwrap();
@@ -1540,7 +1653,7 @@ mod tests {
         assert_eq!(event.offset_in_segment, 9); // second event.
 
         // release the segment slice.
-        cf.runtime().block_on(reader.release_segment_at(slice, 0));
+        let _ = cf.runtime().block_on(reader.release_segment_at(slice, 0));
 
         // simulate a segment read at offset 0.
         let (_stop_tx, stop_rx) = oneshot::channel();
@@ -1554,7 +1667,11 @@ mod tests {
         ));
 
         // acquire the next segment
-        let mut slice = cf.runtime().block_on(reader.acquire_segment()).unwrap();
+        let mut slice = cf
+            .runtime()
+            .block_on(reader.acquire_segment())
+            .expect("Failed to acquire segment")
+            .unwrap();
         // Verify a partial event being present. This implies
         let event = slice.next().unwrap();
         assert_eq!(event.value.len(), 1);

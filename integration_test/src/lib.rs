@@ -30,6 +30,7 @@ mod event_reader_tests;
 mod event_writer_tests;
 mod index_stream_tests;
 mod pravega_service;
+mod reader_group_tests;
 mod synchronizer_tests;
 mod table_tests;
 mod transactional_event_writer_tests;
@@ -153,6 +154,11 @@ mod test {
         span.in_scope(|| {
             info!("Running index stream test");
             index_stream_tests::test_index_stream(config.clone());
+        });
+        let span = info_span!("reader group tests", auth = config.auth, tls = config.tls);
+        span.in_scope(|| {
+            info!("Running reader group test");
+            reader_group_tests::test_reader_group(config.clone());
         });
         // Shut down Pravega standalone
         pravega.stop().unwrap();
