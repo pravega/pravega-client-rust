@@ -21,7 +21,8 @@ use uuid::Uuid;
 
 /// A ByteReader enables reading raw bytes from a segment.
 ///
-/// The ByteReader implements [`Read`] and [`Seek`] trait in the standard library.
+/// The ByteReader provides an API similar to the [`Read`] and [`Seek`] traits in the standard library,
+/// but where the methods are asynchronous.
 ///
 /// Internally ByteReader uses a prefetching reader that prefetches data from the server in the background.
 /// The prefetched data is cached in memory so any sequential reads should be able to hit the cache.
