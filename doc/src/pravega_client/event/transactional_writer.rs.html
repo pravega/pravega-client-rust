@@ -775,7 +775,7 @@
 
 <span class="kw">impl</span> <span class="ident">TransactionalEventWriter</span> {
     <span class="comment">// use ClientFactory to initialize a TransactionalEventStreamWriter.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">stream</span>: <span class="ident">ScopedStream</span>, <span class="ident">writer_id</span>: <span class="ident">WriterId</span>, <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">stream</span>: <span class="ident">ScopedStream</span>, <span class="ident">writer_id</span>: <span class="ident">WriterId</span>, <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">pinger</span>, <span class="ident">pinger_handle</span>, <span class="ident">shutdown</span>) <span class="op">=</span> <span class="ident">Pinger::new</span>(
             <span class="ident">stream</span>.<span class="ident">clone</span>(),
             <span class="ident">factory</span>.<span class="ident">config</span>().<span class="ident">transaction_timeout_time</span>,
@@ -798,7 +798,7 @@
     }
 
     <span class="doccomment">/// This method opens a transaction by sending a request to Pravega controller.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">begin</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Transaction</span>, <span class="ident">TransactionalEventWriterError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">begin</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Transaction</span>, <span class="ident">TransactionalEventWriterError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">txn_segments</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">factory</span>
             .<span class="ident">controller_client</span>()
@@ -826,7 +826,7 @@
     <span class="doccomment">/// If the current transaction is not in open status, meaning it has been committed</span>
     <span class="doccomment">/// or aborted, this method will create a closed transaction that only contains the meta data</span>
     <span class="doccomment">/// of this transaction.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_txn</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">txn_id</span>: <span class="ident">TxId</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Transaction</span>, <span class="ident">TransactionalEventWriterError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_txn</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">txn_id</span>: <span class="ident">TxId</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Transaction</span>, <span class="ident">TransactionalEventWriterError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">status</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">factory</span>
             .<span class="ident">controller_client</span>()
@@ -896,7 +896,7 @@
         <span class="ident">handle</span>: <span class="ident">PingerHandle</span>,
         <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>,
         <span class="ident">closed</span>: <span class="ident">bool</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    ) -&gt; <span class="self">Self</span> {
         <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">create_channel</span>(<span class="ident"><span class="self">Self</span>::CHANNEL_CAPACITY</span>);
         <span class="kw">if</span> <span class="ident">closed</span> {
             <span class="kw">return</span> <span class="ident">Transaction</span> {
@@ -931,12 +931,12 @@
     }
 
     <span class="doccomment">/// get the transaction id.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">txn_id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TxId</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">txn_id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">TxId</span> {
         <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span>
     }
 
     <span class="doccomment">/// get the stream that this transaction is based on.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">stream</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ScopedStream</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">stream</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">ScopedStream</span> {
         <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">stream</span>.<span class="ident">clone</span>()
     }
 
@@ -947,7 +947,7 @@
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">routing_key</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
         <span class="ident">event</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TransactionError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TransactionError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">error_if_closed</span>()<span class="question-mark">?</span>;
 
         <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">event</span>.<span class="ident">len</span>();
@@ -979,7 +979,7 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ack_up_to</span> <span class="op">=</span> <span class="number">0</span>;
         <span class="kw">for</span> <span class="ident">event</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">event_handles</span> {
             <span class="kw">match</span> <span class="ident">event</span>.<span class="ident">try_recv</span>() {
-                <span class="prelude-val">Ok</span>(<span class="ident">res</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="prelude-val">Ok</span>(<span class="ident">res</span>) =&gt; {
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">res</span> {
                         <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">TransactionError::TxnSegmentWriterError</span> {
                             <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;error when writing event: {:?}&quot;</span>, <span class="ident">e</span>),
@@ -988,10 +988,10 @@
                         <span class="ident">ack_up_to</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
                     }
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">TryRecvError::Empty</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="prelude-val">Err</span>(<span class="ident">TryRecvError::Empty</span>) =&gt; {
                     <span class="kw">break</span>;
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">TryRecvError::Closed</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="prelude-val">Err</span>(<span class="ident">TryRecvError::Closed</span>) =&gt; {
                     <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">TransactionError::TxnSegmentWriterError</span> {
                         <span class="ident">error_msg</span>: <span class="string">&quot;event handle closed, cannot get result for event&quot;</span>.<span class="ident">to_string</span>(),
                     });
@@ -1003,7 +1003,7 @@
     }
 
     <span class="doccomment">/// commit accepts a timestamp and will send a commit request to Pravega controller.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">commit</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">timestamp</span>: <span class="ident">Timestamp</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TransactionError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">commit</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">timestamp</span>: <span class="ident">Timestamp</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TransactionError</span><span class="op">&gt;</span> {
         <span class="macro">debug!</span>(<span class="string">&quot;committing transaction {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span>);
 
         <span class="self">self</span>.<span class="ident">error_if_closed</span>()<span class="question-mark">?</span>;
@@ -1011,14 +1011,14 @@
 
         <span class="kw">for</span> <span class="ident">event</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">event_handles</span> {
             <span class="kw">match</span> <span class="ident">event</span>.<span class="kw">await</span> {
-                <span class="prelude-val">Ok</span>(<span class="ident">res</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="prelude-val">Ok</span>(<span class="ident">res</span>) =&gt; {
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">res</span> {
                         <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">TransactionError::TxnSegmentWriterError</span> {
                             <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;error when writing event: {:?}&quot;</span>, <span class="ident">e</span>),
                         });
                     }
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
                     <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">TransactionError::TxnSegmentWriterError</span> {
                         <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;event handle closed, cannot get result for event: {:?}&quot;</span>, <span class="ident">e</span>),
                     });
@@ -1049,7 +1049,7 @@
     }
 
     <span class="doccomment">/// abort will send abort request to Pravega controller.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">abort</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TransactionError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">abort</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TransactionError</span><span class="op">&gt;</span> {
         <span class="macro">debug!</span>(<span class="string">&quot;aborting transaction {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span>);
 
         <span class="self">self</span>.<span class="ident">error_if_closed</span>()<span class="question-mark">?</span>;
@@ -1072,7 +1072,7 @@
     }
 
     <span class="doccomment">/// check the current Transaction status by sending request to Pravega controller.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">check_status</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TransactionStatus</span>, <span class="ident">TransactionError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">check_status</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TransactionStatus</span>, <span class="ident">TransactionError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">factory</span>
             .<span class="ident">controller_client</span>()
             .<span class="ident">check_transaction_status</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">info</span>.<span class="ident">stream</span>, <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span>)
@@ -1081,7 +1081,7 @@
             .<span class="ident">context</span>(<span class="ident">TxnControllerError</span> {})
     }
 
-    <span class="kw">fn</span> <span class="ident">error_if_closed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TransactionError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">error_if_closed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TransactionError</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">closed</span> {
             <span class="prelude-val">Err</span>(<span class="ident">TransactionError::TxnClosed</span> { <span class="ident">id</span>: <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span> })
         } <span class="kw">else</span> {
@@ -1120,7 +1120,7 @@
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">PingerHandle</span>(<span class="ident">UnboundedSender</span><span class="op">&lt;</span><span class="ident">PingerEvent</span><span class="op">&gt;</span>);
 
 <span class="kw">impl</span> <span class="ident">PingerHandle</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">add</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">txn_id</span>: <span class="ident">TxId</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TransactionalEventWriterError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">add</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">txn_id</span>: <span class="ident">TxId</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TransactionalEventWriterError</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>.<span class="number">0</span>.<span class="ident">send</span>(<span class="ident">PingerEvent::Add</span>(<span class="ident">txn_id</span>)) {
             <span class="macro">error!</span>(<span class="string">&quot;pinger failed to add transaction: {:?}&quot;</span>, <span class="ident">e</span>);
             <span class="prelude-val">Err</span>(<span class="ident">TransactionalEventWriterError::PingerError</span> {
@@ -1131,7 +1131,7 @@
         }
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">txn_id</span>: <span class="ident">TxId</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TransactionalEventWriterError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">txn_id</span>: <span class="ident">TxId</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TransactionalEventWriterError</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>.<span class="number">0</span>.<span class="ident">send</span>(<span class="ident">PingerEvent::Remove</span>(<span class="ident">txn_id</span>)) {
             <span class="macro">error!</span>(<span class="string">&quot;pinger failed to remove transaction: {:?}&quot;</span>, <span class="ident">e</span>);
             <span class="prelude-val">Err</span>(<span class="ident">TransactionalEventWriterError::PingerError</span> {
@@ -1148,7 +1148,7 @@
         <span class="ident">stream</span>: <span class="ident">ScopedStream</span>,
         <span class="ident">txn_lease_millis</span>: <span class="ident">u64</span>,
         <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> (<span class="self">Self</span>, <span class="ident">PingerHandle</span>, <span class="ident">oneshot::Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span>) {
+    ) -&gt; (<span class="self">Self</span>, <span class="ident">PingerHandle</span>, <span class="ident">oneshot::Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span>) {
         <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">unbounded_channel</span>();
         <span class="kw">let</span> (<span class="ident">oneshot_tx</span>, <span class="ident">oneshot_rx</span>) <span class="op">=</span> <span class="ident">oneshot::channel</span>();
         <span class="kw">let</span> <span class="ident">pinger</span> <span class="op">=</span> <span class="ident">Pinger</span> {
@@ -1176,10 +1176,10 @@
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">option</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">receiver</span>.<span class="ident">recv</span>().<span class="ident">now_or_never</span>() {
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">event</span>) <span class="op">=</span> <span class="ident">option</span> {
                     <span class="kw">match</span> <span class="ident">event</span> {
-                        <span class="ident">PingerEvent::Add</span>(<span class="ident">id</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="ident">PingerEvent::Add</span>(<span class="ident">id</span>) =&gt; {
                             <span class="ident">txn_list</span>.<span class="ident">insert</span>(<span class="ident">id</span>);
                         }
-                        <span class="ident">PingerEvent::Remove</span>(<span class="ident">id</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="ident">PingerEvent::Remove</span>(<span class="ident">id</span>) =&gt; {
                             <span class="ident">txn_list</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">id</span>);
                         }
                     }
@@ -1221,10 +1221,10 @@
 
             <span class="comment">// delay for transaction lease milliseconds.</span>
             <span class="macro">tokio::select!</span> {
-                <span class="kw">_</span> <span class="op">=</span> <span class="ident">sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="self">self</span>.<span class="ident">txn_lease_millis</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">_</span> <span class="op">=</span> <span class="ident">sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="self">self</span>.<span class="ident">txn_lease_millis</span>)) =&gt; {
                     <span class="macro">debug!</span>(<span class="string">&quot;pinger wake up after {}ms&quot;</span>, <span class="self">self</span>.<span class="ident">txn_lease_millis</span>);
                 }
-                <span class="kw">_</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">shutdown</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">_</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">shutdown</span> =&gt; {
                     <span class="macro">info!</span>(<span class="string">&quot;shut down pinger&quot;</span>);
                     <span class="kw">return</span>;
                 }
@@ -1232,7 +1232,7 @@
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">ping_interval</span>(<span class="ident">txn_lease_millis</span>: <span class="ident">u64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">ping_interval</span>(<span class="ident">txn_lease_millis</span>: <span class="ident">u64</span>) -&gt; <span class="ident">u64</span> {
         <span class="comment">//Provides a good number of attempts: 1 for &lt;4s, 2 for &lt;9s, 3 for &lt;16s, 4 for &lt;25s, ... 10 for &lt;100s</span>
         <span class="comment">//while at the same time allowing the interval to grow as the timeout gets larger.</span>
         <span class="kw">let</span> <span class="ident">target_num_pings</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">txn_lease_millis</span> <span class="op">&gt;</span> <span class="number">1000u64</span> {
@@ -1357,7 +1357,7 @@
     }
 
     <span class="comment">// helper function</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_txn_stream_writer</span>() <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">TransactionalEventWriter</span>, <span class="ident">ClientFactory</span>) {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_txn_stream_writer</span>() -&gt; (<span class="ident">TransactionalEventWriter</span>, <span class="ident">ClientFactory</span>) {
         <span class="kw">let</span> <span class="ident">txn_segment</span> <span class="op">=</span> <span class="ident">ScopedSegment::from</span>(<span class="string">&quot;scope/stream/0&quot;</span>);
         <span class="kw">let</span> <span class="ident">writer_id</span> <span class="op">=</span> <span class="ident">WriterId</span>(<span class="number">123</span>);
         <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">ClientConfigBuilder::default</span>()

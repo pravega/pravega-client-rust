@@ -902,7 +902,7 @@
         <span class="ident">sender</span>: <span class="ident">ChannelSender</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
         <span class="ident">retry_policy</span>: <span class="ident">RetryWithBackoff</span>,
         <span class="ident">delegation_token_provider</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">DelegationTokenProvider</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    ) -&gt; <span class="self">Self</span> {
         <span class="ident">SegmentWriter</span> {
             <span class="ident">id</span>: <span class="ident">WriterId::from</span>(<span class="ident">get_random_u128</span>()),
             <span class="ident">connection</span>: <span class="prelude-val">None</span>,
@@ -924,7 +924,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">setup_connection</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">factory</span>: <span class="kw-2">&amp;</span><span class="ident">ClientFactoryAsync</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">span</span> <span class="op">=</span> <span class="macro">info_span!</span>(<span class="string">&quot;setup connection&quot;</span>, <span class="ident">segment_writer_id</span><span class="op">=</span> <span class="op">%</span><span class="self">self</span>.<span class="ident">id</span>, <span class="ident">segment</span><span class="op">=</span> <span class="op">%</span><span class="self">self</span>.<span class="ident">segment</span>, <span class="ident">host</span> <span class="op">=</span> <span class="ident">field::Empty</span>);
         <span class="comment">// span.enter doesn&#39;t work for async code https://docs.rs/tracing/0.1.17/tracing/span/struct.Span.html#in-asynchronous-code</span>
         <span class="kw">async</span> {
@@ -939,8 +939,8 @@
                 .<span class="ident">get_endpoint_for_segment</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">segment</span>) <span class="comment">// retries are internal to the controller client.</span>
                 .<span class="kw">await</span>
             {
-                <span class="prelude-val">Ok</span>(<span class="ident">uri</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">uri</span>,
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SegmentWriterError::RetryControllerWriting</span> { <span class="ident">err</span>: <span class="ident">e</span> }),
+                <span class="prelude-val">Ok</span>(<span class="ident">uri</span>) =&gt; <span class="ident">uri</span>,
+                <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SegmentWriterError::RetryControllerWriting</span> { <span class="ident">err</span>: <span class="ident">e</span> }),
             };
             <span class="ident">current_span</span>().<span class="ident">record</span>(<span class="string">&quot;host&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">field::debug</span>(<span class="kw-2">&amp;</span><span class="ident">uri</span>));
 
@@ -961,8 +961,8 @@
                     <span class="self">self</span>.<span class="ident">id</span>, <span class="self">self</span>.<span class="ident">segment</span>
                 );
                 <span class="kw">match</span> <span class="ident">raw_client</span>.<span class="ident">send_setup_request</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="kw">await</span> {
-                    <span class="prelude-val">Ok</span>((<span class="ident">reply</span>, <span class="ident">connection</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult::Success</span>((<span class="ident">reply</span>, <span class="ident">connection</span>)),
-                    <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="prelude-val">Ok</span>((<span class="ident">reply</span>, <span class="ident">connection</span>)) =&gt; <span class="ident">RetryResult::Success</span>((<span class="ident">reply</span>, <span class="ident">connection</span>)),
+                    <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
                         <span class="macro">info!</span>(<span class="string">&quot;failed to setup append using rawclient due to {:?}&quot;</span>, <span class="ident">e</span>);
                         <span class="ident">RetryResult::Retry</span>(<span class="ident">e</span>)
                     }
@@ -971,8 +971,8 @@
             .<span class="kw">await</span>;
 
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">connection</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">result</span> {
-                <span class="prelude-val">Ok</span>((<span class="ident">reply</span>, <span class="ident">connection</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">reply</span> {
-                    <span class="ident">Replies::AppendSetup</span>(<span class="ident">cmd</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="prelude-val">Ok</span>((<span class="ident">reply</span>, <span class="ident">connection</span>)) =&gt; <span class="kw">match</span> <span class="ident">reply</span> {
+                    <span class="ident">Replies::AppendSetup</span>(<span class="ident">cmd</span>) =&gt; {
                         <span class="macro">debug!</span>(
                             <span class="string">&quot;append setup completed for writer:{:?}/segment:{:?} with latest event number {}&quot;</span>,
                             <span class="self">self</span>.<span class="ident">id</span>, <span class="self">self</span>.<span class="ident">segment</span>, <span class="ident">cmd</span>.<span class="ident">last_event_number</span>
@@ -980,7 +980,7 @@
                         <span class="self">self</span>.<span class="ident">ack</span>(<span class="ident">cmd</span>.<span class="ident">last_event_number</span>);
                         <span class="ident">connection</span>
                     }
-                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="kw">_</span> =&gt; {
                         <span class="macro">info!</span>(<span class="string">&quot;append setup failed due to {:?}&quot;</span>, <span class="ident">reply</span>);
                         <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SegmentWriterError::WrongReply</span> {
                             <span class="ident">expected</span>: <span class="ident">String::from</span>(<span class="string">&quot;AppendSetup&quot;</span>),
@@ -988,7 +988,7 @@
                         });
                     }
                 },
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SegmentWriterError::RetryRawClient</span> { <span class="ident">err</span>: <span class="ident">e</span> }),
+                <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SegmentWriterError::RetryRawClient</span> { <span class="ident">err</span>: <span class="ident">e</span> }),
             };
             <span class="kw">let</span> (<span class="ident">r</span>, <span class="ident">w</span>) <span class="op">=</span> <span class="ident">connection</span>.<span class="ident">split</span>();
             <span class="self">self</span>.<span class="ident">connection</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">w</span>);
@@ -1011,14 +1011,14 @@
         <span class="ident">tokio::spawn</span>(<span class="kw">async</span> <span class="kw">move</span> {
             <span class="kw">loop</span> {
                 <span class="macro">select!</span> {
-                    <span class="kw">_</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">oneshot_rx</span> <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="kw">_</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">oneshot_rx</span> =&gt; {
                         <span class="macro">debug!</span>(<span class="string">&quot;shut down connection listener {:?}&quot;</span>, <span class="ident">listener_id</span>);
                         <span class="kw">break</span>;
                     }
-                    <span class="ident">result</span> <span class="op">=</span> <span class="ident">r</span>.<span class="ident">read</span>() <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">result</span> <span class="op">=</span> <span class="ident">r</span>.<span class="ident">read</span>() =&gt; {
                         <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">result</span> {
-                            <span class="prelude-val">Ok</span>(<span class="ident">reply</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">reply</span>,
-                            <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="prelude-val">Ok</span>(<span class="ident">reply</span>) =&gt; <span class="ident">reply</span>,
+                            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
                                 <span class="macro">info!</span>(<span class="string">&quot;connection failed to read data back from segmentstore due to {:?}, closing listener task {:?}&quot;</span>, <span class="ident">e</span>, <span class="ident">listener_id</span>);
                                 <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">sender</span>
                                     .<span class="ident">send</span>((<span class="ident">Incoming::Reconnect</span>(<span class="ident">WriterInfo</span> {
@@ -1056,7 +1056,7 @@
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">event</span>: <span class="ident">PendingEvent</span>,
         <span class="ident">cap_guard</span>: <span class="ident">CapacityGuard</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">add_pending</span>(<span class="ident">event</span>, <span class="ident">cap_guard</span>);
         <span class="self">self</span>.<span class="ident">write_pending_events</span>().<span class="kw">await</span>
     }
@@ -1073,7 +1073,7 @@
 
     <span class="doccomment">/// Writes the pending events to the server. It will grab at most MAX_WRITE_SIZE of data</span>
     <span class="doccomment">/// from the pending list and send them to the server. Those events will be moved to inflight list waiting to be acked.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">write_pending_events</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">write_pending_events</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentWriterError</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">inflight</span>.<span class="ident">is_empty</span>() <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">pending</span>.<span class="ident">is_empty</span>() {
             <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
         }
@@ -1094,11 +1094,11 @@
             );
             <span class="kw">if</span> <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">data</span>.<span class="ident">len</span>() <span class="op">+</span> <span class="ident">to_send</span>.<span class="ident">len</span>() <span class="op">&lt;</span><span class="op">=</span> <span class="ident">SegmentWriter::MAX_WRITE_SIZE</span> <span class="kw">as</span> <span class="ident">usize</span>
                 <span class="op">&amp;&amp;</span> <span class="ident">event_count</span> <span class="op">&lt;</span> <span class="ident">SegmentWriter::MAX_EVENTS</span> <span class="kw">as</span> <span class="ident">usize</span>
-                <span class="op">&amp;&amp;</span> <span class="ident">conditional</span> <span class="op">=</span><span class="op">=</span> <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">conditional_offset</span>.<span class="ident">is_some</span>()
+                <span class="op">&amp;&amp;</span> <span class="ident">conditional</span> <span class="op">==</span> <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">conditional_offset</span>.<span class="ident">is_some</span>()
             {
                 <span class="kw">if</span> <span class="ident">conditional</span> {
                     <span class="kw">let</span> <span class="ident">event_offset</span> <span class="op">=</span> <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">conditional_offset</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>().<span class="ident">to_owned</span>();
-                    <span class="kw">if</span> <span class="ident">offset</span> <span class="op">=</span><span class="op">=</span> <span class="op">-</span><span class="number">1</span> {
+                    <span class="kw">if</span> <span class="ident">offset</span> <span class="op">==</span> <span class="op">-</span><span class="number">1</span> {
                         <span class="comment">// first conditional append</span>
                         <span class="ident">offset</span> <span class="op">=</span> <span class="ident">event_offset</span> <span class="op">+</span> <span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">data</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i64</span>;
                     } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">offset</span> <span class="op">!</span><span class="op">=</span> <span class="ident">event_offset</span> {
@@ -1152,11 +1152,11 @@
         <span class="kw">let</span> <span class="ident">writer</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">connection</span>.<span class="ident">as_mut</span>().<span class="ident">expect</span>(<span class="string">&quot;must have connection&quot;</span>);
         <span class="ident">writer</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">request</span>).<span class="kw">await</span>.<span class="ident">context</span>(<span class="ident">SegmentWriting</span> {})<span class="question-mark">?</span>;
 
-        <span class="macro">update!</span>(<span class="ident">ClientMetrics::AppendBlockSize</span>, <span class="ident">total_size</span> <span class="kw">as</span> <span class="ident">u64</span>, <span class="string">&quot;Segment Writer Id&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">id</span>.<span class="ident">to_string</span>());
+        <span class="macro">update!</span>(<span class="ident">ClientMetrics::AppendBlockSize</span>, <span class="ident">total_size</span> <span class="kw">as</span> <span class="ident">u64</span>, <span class="string">&quot;Segment Writer Id&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">id</span>.<span class="ident">to_string</span>());
         <span class="macro">update!</span>(
             <span class="ident">ClientMetrics::OutstandingAppendCount</span>,
             <span class="self">self</span>.<span class="ident">pending</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>,
-            <span class="string">&quot;Segment Writer Id&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">id</span>.<span class="ident">to_string</span>()
+            <span class="string">&quot;Segment Writer Id&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">id</span>.<span class="ident">to_string</span>()
         );
         <span class="prelude-val">Ok</span>(())
     }
@@ -1190,7 +1190,7 @@
             }
 
             <span class="comment">// ack up to event id</span>
-            <span class="kw">if</span> <span class="ident">acked</span>.<span class="ident">event_id</span> <span class="op">=</span><span class="op">=</span> <span class="ident">event_id</span> {
+            <span class="kw">if</span> <span class="ident">acked</span>.<span class="ident">event_id</span> <span class="op">==</span> <span class="ident">event_id</span> {
                 <span class="kw">break</span>;
             }
         }
@@ -1198,7 +1198,7 @@
 
     <span class="doccomment">/// Gets the unacked events. Notice that it will pass the ownership</span>
     <span class="doccomment">/// of the unacked events to the caller, which means this method can only be called once.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_unacked_events</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Append</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_unacked_events</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Append</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="macro">vec!</span>[];
         <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">append</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">inflight</span>.<span class="ident">pop_front</span>() {
             <span class="ident">ret</span>.<span class="ident">push</span>(<span class="ident">append</span>);
@@ -1298,15 +1298,15 @@
 }
 
 <span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">SegmentWriter</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
         <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;SegmentWriter&quot;</span>)
             .<span class="ident">field</span>(<span class="string">&quot;segment writer id&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">id</span>)
             .<span class="ident">field</span>(<span class="string">&quot;segment&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">segment</span>)
             .<span class="ident">field</span>(
                 <span class="string">&quot;connection&quot;</span>,
                 <span class="kw-2">&amp;</span><span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">connection</span> {
-                    <span class="prelude-val">Some</span>(<span class="ident">w</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">format!</span>(<span class="string">&quot;WritingClientConnection is {:?}&quot;</span>, <span class="ident">w</span>),
-                    <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;doesn&#39;t have connection&quot;</span>.<span class="ident">to_owned</span>(),
+                    <span class="prelude-val">Some</span>(<span class="ident">w</span>) =&gt; <span class="macro">format!</span>(<span class="string">&quot;WritingClientConnection is {:?}&quot;</span>, <span class="ident">w</span>),
+                    <span class="prelude-val">None</span> =&gt; <span class="string">&quot;doesn&#39;t have connection&quot;</span>.<span class="ident">to_owned</span>(),
                 },
             )
             .<span class="ident">field</span>(
@@ -1554,7 +1554,7 @@
     <span class="comment">// helper function section</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">create_segment_writer</span>(
         <span class="ident">mock</span>: <span class="ident">MockType</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> (
+    ) -&gt; (
         <span class="ident">SegmentWriter</span>,
         <span class="ident">ChannelSender</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
         <span class="ident">ChannelReceiver</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
@@ -1588,7 +1588,7 @@
         <span class="ident">sender</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">ChannelSender</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
         <span class="ident">receiver</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">ChannelReceiver</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
         <span class="ident">offset</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">PendingEvent</span>, <span class="ident">CapacityGuard</span>, <span class="ident">EventHandle</span>) {
+    ) -&gt; (<span class="ident">PendingEvent</span>, <span class="ident">CapacityGuard</span>, <span class="ident">EventHandle</span>) {
         <span class="kw">let</span> (<span class="ident">oneshot_sender</span>, <span class="ident">oneshot_receiver</span>) <span class="op">=</span> <span class="ident">tokio::sync::oneshot::channel</span>();
         <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">PendingEvent::new</span>(
             <span class="ident">RoutingInfo::RoutingKey</span>(<span class="prelude-val">Some</span>(<span class="string">&quot;routing_key&quot;</span>.<span class="ident">into</span>())),

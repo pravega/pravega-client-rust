@@ -2,7 +2,7 @@
 <p>Byte streams are restricted to single-segment streams, but, unlike event streams, there is no event framing,
 so a reader cannot distinguish separate writes for you, and, if needed, you must do so by
 convention or by protocol in a layer above the reader.</p>
-<h2 id="note" class="section-header"><a href="#note">Note</a></h2>
+<h3 id="note" class="section-header"><a href="#note">Note</a></h3>
 <ul>
 <li>Sharing a single-segment stream between the byte API and the Event readers/writers will
 CORRUPT YOUR DATA in an unrecoverable way.</li>
@@ -10,9 +10,9 @@ CORRUPT YOUR DATA in an unrecoverable way.</li>
 interleaved data.</li>
 </ul>
 </div></details><h2 id="modules" class="section-header"><a href="#modules">Modules</a></h2>
-<div class="item-table"><div class="item-left module-item"><a class="mod" href="reader/index.html" title="pravega_client::byte::reader mod">reader</a></div><div class="item-right docblock-short"></div><div class="item-left module-item"><a class="mod" href="writer/index.html" title="pravega_client::byte::writer mod">writer</a></div><div class="item-right docblock-short"></div></div><h2 id="structs" class="section-header"><a href="#structs">Structs</a></h2>
-<div class="item-table"><div class="item-left module-item"><a class="struct" href="struct.ByteReader.html" title="pravega_client::byte::ByteReader struct">ByteReader</a></div><div class="item-right docblock-short"><p>A ByteReader enables reading raw bytes from a segment.</p>
-</div><div class="item-left module-item"><a class="struct" href="struct.ByteWriter.html" title="pravega_client::byte::ByteWriter struct">ByteWriter</a></div><div class="item-right docblock-short"><p>Allow for writing raw bytes directly to a segment.</p>
-</div></div></section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="pravega_client" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="mod" href="reader/index.html" title="pravega_client::byte::reader mod">reader</a></div><div class="item-right docblock-short"></div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="writer/index.html" title="pravega_client::byte::writer mod">writer</a></div><div class="item-right docblock-short"></div></div></div><h2 id="structs" class="section-header"><a href="#structs">Structs</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.ByteReader.html" title="pravega_client::byte::ByteReader struct">ByteReader</a></div><div class="item-right docblock-short"><p>A ByteReader enables reading raw bytes from a segment.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.ByteWriter.html" title="pravega_client::byte::ByteWriter struct">ByteWriter</a></div><div class="item-right docblock-short"><p>Allow for writing raw bytes directly to a segment.</p>
+</div></div></div></section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="pravega_client" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
     <script src="../../main.js"></script>
 </body></html>

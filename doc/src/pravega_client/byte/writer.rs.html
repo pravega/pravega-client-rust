@@ -454,7 +454,7 @@
     <span class="comment">// maximum 16 MB total size of events could be held in memory</span>
     <span class="kw">const</span> <span class="ident">CHANNEL_CAPACITY</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">16</span> <span class="op">*</span> <span class="number">1024</span> <span class="op">*</span> <span class="number">1024</span>;
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">stream</span>: <span class="ident">ScopedStream</span>, <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">stream</span>: <span class="ident">ScopedStream</span>, <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">let</span> (<span class="ident">sender</span>, <span class="ident">receiver</span>) <span class="op">=</span> <span class="ident">create_channel</span>(<span class="ident"><span class="self">Self</span>::CHANNEL_CAPACITY</span>);
         <span class="kw">let</span> <span class="ident">writer_id</span> <span class="op">=</span> <span class="ident">WriterId</span>(<span class="ident">get_random_u128</span>());
         <span class="kw">let</span> <span class="ident">segments</span> <span class="op">=</span> <span class="ident">factory</span>
@@ -501,7 +501,7 @@
     <span class="doccomment">/// let payload = vec![0; 8];</span>
     <span class="doccomment">/// let size = byte_writer.write(&amp;payload).await;</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">bytes_to_write</span> <span class="op">=</span> <span class="ident">std::cmp::min</span>(<span class="ident">buf</span>.<span class="ident">len</span>(), <span class="ident">EventWriter::MAX_EVENT_SIZE</span>);
         <span class="kw">let</span> <span class="ident">payload</span> <span class="op">=</span> <span class="ident">buf</span>[<span class="number">0</span>..<span class="ident">bytes_to_write</span>].<span class="ident">to_vec</span>();
         <span class="kw">let</span> <span class="ident">oneshot_receiver</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">write_internal</span>(<span class="self">self</span>.<span class="ident">sender</span>.<span class="ident">clone</span>(), <span class="ident">payload</span>).<span class="kw">await</span>;
@@ -530,7 +530,7 @@
     <span class="doccomment">/// let size = byte_writer.write(&amp;payload).await;</span>
     <span class="doccomment">/// byte_writer.flush().await;</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
         <span class="kw">while</span> <span class="self">self</span>.<span class="ident">event_handles</span>.<span class="ident">front</span>().<span class="ident">is_some</span>() {
             <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">event_handles</span>.<span class="ident">pop_front</span>().<span class="ident">expect</span>(<span class="string">&quot;get first handle&quot;</span>);
             <span class="kw">let</span> <span class="ident">event_result</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="kw">await</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">Error::InternalFailure</span> {
@@ -548,7 +548,7 @@
     <span class="doccomment">/// let mut byte_writer = client_factory.create_byte_writer(segment).await;</span>
     <span class="doccomment">/// byte_writer.seal().await.expect(&quot;seal segment&quot;);</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">seal</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">seal</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">flush</span>().<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="self">self</span>.<span class="ident">metadata_client</span>
             .<span class="ident">seal_segment</span>()
@@ -566,7 +566,7 @@
     <span class="doccomment">/// let byte_writer = client_factory.create_byte_writer(segment).await;</span>
     <span class="doccomment">/// byte_writer.truncate_data_before(1024).await.expect(&quot;truncate segment&quot;);</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">truncate_data_before</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">i64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">truncate_data_before</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">i64</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">metadata_client</span>
             .<span class="ident">truncate_segment</span>(<span class="ident">offset</span>)
             .<span class="kw">await</span>
@@ -582,7 +582,7 @@
     <span class="doccomment">/// let byte_writer = client_factory.create_byte_writer(segment).await;</span>
     <span class="doccomment">/// let offset = byte_writer.current_write_offset();</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">current_offset</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">current_offset</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
         <span class="self">self</span>.<span class="ident">write_offset</span> <span class="kw">as</span> <span class="ident">u64</span>
     }
 
@@ -616,7 +616,7 @@
     <span class="doccomment">/// }</span>
     <span class="doccomment">/// byte_writer.write(&amp;payload).await.expect(&quot;write&quot;);</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">reset</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">reset</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">event_handles</span>.<span class="ident">clear</span>();
         <span class="comment">// send reset signal to reactor</span>
         <span class="self">self</span>.<span class="ident">sender</span>
@@ -633,7 +633,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">sender</span>: <span class="ident">ChannelSender</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
         <span class="ident">event</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">oneshot::Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="ident">oneshot::Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">event</span>.<span class="ident">len</span>();
         <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">oneshot::channel</span>();
         <span class="kw">let</span> <span class="ident">routing_info</span> <span class="op">=</span> <span class="ident">RoutingInfo::Segment</span>(<span class="self">self</span>.<span class="ident">scoped_segment</span>.<span class="ident">clone</span>());

@@ -344,7 +344,7 @@
         <span class="ident">stream</span>: <span class="ident">ScopedStream</span>,
         <span class="ident">sender</span>: <span class="ident">ChannelSender</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
         <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    ) -&gt; <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">delegation_token_provider</span> <span class="op">=</span> <span class="ident">factory</span>.<span class="ident">create_delegation_token_provider</span>(<span class="ident">stream</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
         <span class="ident">SegmentSelector</span> {
             <span class="ident">stream</span>,
@@ -374,7 +374,7 @@
 
     <span class="doccomment">/// Get a segment writer by providing an optional routing key. The stream at least owns one</span>
     <span class="doccomment">/// segment so this method should always has writer to return.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_segment_writer</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">routing_key</span>: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">SegmentWriter</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_segment_writer</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">routing_key</span>: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">SegmentWriter</span> {
         <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">current_segments</span>
             .<span class="ident">get_segment_for_routing_key</span>(<span class="ident">routing_key</span>, <span class="ident">get_random_f64</span>);
@@ -384,7 +384,7 @@
     }
 
     <span class="doccomment">/// Get a segment writer by providing the segment name.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_segment_writer_by_key</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">segment</span>: <span class="kw-2">&amp;</span><span class="ident">ScopedSegment</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">SegmentWriter</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_segment_writer_by_key</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">segment</span>: <span class="kw-2">&amp;</span><span class="ident">ScopedSegment</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">SegmentWriter</span> {
         <span class="self">self</span>.<span class="ident">writers</span>
             .<span class="ident">get_mut</span>(<span class="ident">segment</span>)
             .<span class="ident">expect</span>(<span class="string">&quot;must have corresponding writer&quot;</span>)
@@ -396,7 +396,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">refresh_segment_event_writers_upon_sealed</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">sealed_segment</span>: <span class="kw-2">&amp;</span><span class="ident">ScopedSegment</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Append</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Append</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">stream_segments_with_predecessors</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">factory</span>
             .<span class="ident">controller_client</span>()
@@ -420,7 +420,7 @@
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">successors</span>: <span class="ident">StreamSegmentsWithPredecessors</span>,
         <span class="ident">sealed_segment</span>: <span class="kw-2">&amp;</span><span class="ident">ScopedSegment</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Append</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Append</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">current_segments</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">current_segments</span>
             .<span class="ident">apply_replacement_range</span>(<span class="kw-2">&amp;</span><span class="ident">sealed_segment</span>.<span class="ident">segment</span>, <span class="kw-2">&amp;</span><span class="ident">successors</span>)
@@ -461,10 +461,10 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">resend</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">to_resend</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Append</span><span class="op">&gt;</span>) {
         <span class="kw">for</span> <span class="ident">append</span> <span class="kw">in</span> <span class="ident">to_resend</span> {
             <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">append</span>.<span class="ident">event</span>.<span class="ident">routing_info</span> {
-                <span class="ident">RoutingInfo::RoutingKey</span>(<span class="ident">key</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>
+                <span class="ident">RoutingInfo::RoutingKey</span>(<span class="ident">key</span>) =&gt; <span class="self">self</span>
                     .<span class="ident">current_segments</span>
                     .<span class="ident">get_segment_for_routing_key</span>(<span class="ident">key</span>, <span class="ident">get_random_f64</span>),
-                <span class="ident">RoutingInfo::Segment</span>(<span class="ident">segment</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">segment</span>,
+                <span class="ident">RoutingInfo::Segment</span>(<span class="ident">segment</span>) =&gt; <span class="ident">segment</span>,
             };
             <span class="kw">let</span> <span class="ident">segment_writer</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">writers</span>.<span class="ident">get_mut</span>(<span class="ident">segment</span>).<span class="ident">expect</span>(<span class="string">&quot;must have writer&quot;</span>);
             <span class="ident">segment_writer</span>.<span class="ident">add_pending</span>(<span class="ident">append</span>.<span class="ident">event</span>, <span class="ident">append</span>.<span class="ident">cap_guard</span>);
@@ -479,7 +479,7 @@
     }
 
     <span class="doccomment">/// Removes segment writer from the internal map.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">remove_segment_writer</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">segment</span>: <span class="kw-2">&amp;</span><span class="ident">ScopedSegment</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">SegmentWriter</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">remove_segment_writer</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">segment</span>: <span class="kw-2">&amp;</span><span class="ident">ScopedSegment</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">SegmentWriter</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">writers</span>.<span class="ident">remove</span>(<span class="ident">segment</span>)
     }
 }
@@ -540,7 +540,7 @@
     <span class="comment">// helper function section</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_segment_selector</span>(
         <span class="ident">mock</span>: <span class="ident">MockType</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> (
+    ) -&gt; (
         <span class="ident">SegmentSelector</span>,
         <span class="ident">ChannelSender</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
         <span class="ident">ChannelReceiver</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,

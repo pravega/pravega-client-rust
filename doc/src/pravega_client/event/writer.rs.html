@@ -286,7 +286,7 @@
     <span class="comment">// maximum 16 MB total size of events could be held in memory</span>
     <span class="kw">const</span> <span class="ident">CHANNEL_CAPACITY</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">16</span> <span class="op">*</span> <span class="number">1024</span> <span class="op">*</span> <span class="number">1024</span>;
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">stream</span>: <span class="ident">ScopedStream</span>, <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">stream</span>: <span class="ident">ScopedStream</span>, <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">create_channel</span>(<span class="ident"><span class="self">Self</span>::CHANNEL_CAPACITY</span>);
         <span class="kw">let</span> <span class="ident">writer_id</span> <span class="op">=</span> <span class="ident">WriterId::from</span>(<span class="ident">get_random_u128</span>());
         <span class="kw">let</span> <span class="ident">span</span> <span class="op">=</span> <span class="macro">info_span!</span>(<span class="string">&quot;Reactor&quot;</span>, <span class="ident">event_stream_writer</span> <span class="op">=</span> <span class="op">%</span><span class="ident">writer_id</span>);
@@ -319,7 +319,7 @@
     <span class="doccomment">/// let result = event_writer.write_event(payload).await;</span>
     <span class="doccomment">/// result.await.expect(&quot;flush to server&quot;);</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">write_event</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">event</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">oneshot::Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">write_event</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">event</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) -&gt; <span class="ident">oneshot::Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">event</span>.<span class="ident">len</span>();
         <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">oneshot::channel</span>();
         <span class="kw">let</span> <span class="ident">routing_info</span> <span class="op">=</span> <span class="ident">RoutingInfo::RoutingKey</span>(<span class="prelude-val">None</span>);
@@ -338,7 +338,7 @@
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">routing_key</span>: <span class="ident">String</span>,
         <span class="ident">event</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">oneshot::Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="ident">oneshot::Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">event</span>.<span class="ident">len</span>();
         <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">oneshot::channel</span>();
         <span class="kw">let</span> <span class="ident">routing_info</span> <span class="op">=</span> <span class="ident">RoutingInfo::RoutingKey</span>(<span class="prelude-val">Some</span>(<span class="ident">routing_key</span>));
@@ -355,7 +355,7 @@
         <span class="ident">append_event</span>: <span class="ident">Incoming</span>,
         <span class="ident">size</span>: <span class="ident">usize</span>,
         <span class="ident">rx</span>: <span class="ident">oneshot::Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">oneshot::Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="ident">oneshot::Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">_e</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">sender</span>.<span class="ident">send</span>((<span class="ident">append_event</span>, <span class="ident">size</span>)).<span class="kw">await</span> {
             <span class="kw">let</span> (<span class="ident">tx_error</span>, <span class="ident">rx_error</span>) <span class="op">=</span> <span class="ident">oneshot::channel</span>();
             <span class="ident">tx_error</span>

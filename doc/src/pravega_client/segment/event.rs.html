@@ -181,7 +181,7 @@
         <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
         <span class="ident">conditional_offset</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>,
         <span class="ident">oneshot_sender</span>: <span class="ident">oneshot::Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="ident">data</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="ident">PendingEvent::MAX_WRITE_SIZE</span> {
             <span class="macro">warn!</span>(
                 <span class="string">&quot;event size {:?} exceeds limit {:?}&quot;</span>,
@@ -213,11 +213,11 @@
         <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
         <span class="ident">conditional_offset</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>,
         <span class="ident">oneshot_sender</span>: <span class="ident">oneshot::Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PendingEvent</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PendingEvent</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">cmd</span> <span class="op">=</span> <span class="ident">EventCommand</span> { <span class="ident">data</span> };
         <span class="kw">match</span> <span class="ident">cmd</span>.<span class="ident">write_fields</span>() {
-            <span class="prelude-val">Ok</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">PendingEvent::new</span>(<span class="ident">routing_info</span>, <span class="ident">data</span>, <span class="ident">conditional_offset</span>, <span class="ident">oneshot_sender</span>),
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="prelude-val">Ok</span>(<span class="ident">data</span>) =&gt; <span class="ident">PendingEvent::new</span>(<span class="ident">routing_info</span>, <span class="ident">data</span>, <span class="ident">conditional_offset</span>, <span class="ident">oneshot_sender</span>),
+            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
                 <span class="macro">warn!</span>(<span class="string">&quot;failed to serialize event to event command, sending this error back to caller&quot;</span>);
                 <span class="ident">oneshot_sender</span>
                     .<span class="ident">send</span>(<span class="prelude-val">Err</span>(<span class="ident">Error::InternalFailure</span> {
@@ -234,11 +234,11 @@
         <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
         <span class="ident">conditional_offset</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>,
         <span class="ident">oneshot_sender</span>: <span class="ident">oneshot::Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PendingEvent</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PendingEvent</span><span class="op">&gt;</span> {
         <span class="ident">PendingEvent::new</span>(<span class="ident">routing_info</span>, <span class="ident">data</span>, <span class="ident">conditional_offset</span>, <span class="ident">oneshot_sender</span>)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">is_empty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">is_empty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="ident">data</span>.<span class="ident">is_empty</span>()
     }
 }

@@ -126,27 +126,27 @@
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">static</span> <span class="ident">REQUEST_ID_GENERATOR</span>: <span class="ident">AtomicI64</span> <span class="op">=</span> <span class="ident">AtomicI64::new</span>(<span class="number">0</span>);
 
 <span class="doccomment">/// Function used to generate request ids for all the modules.</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_request_id</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i64</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_request_id</span>() -&gt; <span class="ident">i64</span> {
     <span class="ident">REQUEST_ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering::SeqCst</span>) <span class="op">+</span> <span class="number">1</span>
 }
 
 <span class="doccomment">/// Function used to generate random u64.</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_random_u64</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_random_u64</span>() -&gt; <span class="ident">u64</span> {
     <span class="ident">RNG</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">rng</span><span class="op">|</span> <span class="ident">rng</span>.<span class="ident">borrow_mut</span>().<span class="ident">gen</span>())
 }
 
 <span class="doccomment">/// Function used to generate random u128.</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_random_u128</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u128</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_random_u128</span>() -&gt; <span class="ident">u128</span> {
     <span class="ident">RNG</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">rng</span><span class="op">|</span> <span class="ident">rng</span>.<span class="ident">borrow_mut</span>().<span class="ident">gen</span>())
 }
 
 <span class="doccomment">/// Function used to generate random i64.</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_random_f64</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">f64</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_random_f64</span>() -&gt; <span class="ident">f64</span> {
     <span class="ident">RNG</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">rng</span><span class="op">|</span> <span class="ident">rng</span>.<span class="ident">borrow_mut</span>().<span class="ident">gen</span>())
 }
 
 <span class="doccomment">/// Return the current span.</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">current_span</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">span::Span</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">current_span</span>() -&gt; <span class="ident">span::Span</span> {
     <span class="ident">span::Span::current</span>()
 }
 

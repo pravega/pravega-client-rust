@@ -267,7 +267,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">SegmentMetadataClient</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">segment</span>: <span class="ident">ScopedSegment</span>, <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">segment</span>: <span class="ident">ScopedSegment</span>, <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">endpoint</span> <span class="op">=</span> <span class="ident">factory</span>
             .<span class="ident">controller_client</span>()
             .<span class="ident">get_endpoint_for_segment</span>(<span class="kw-2">&amp;</span><span class="ident">segment</span>)
@@ -285,7 +285,7 @@
     }
 
     <span class="doccomment">/// Return info for the current segment.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_segment_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SegmentInfo</span>, <span class="ident">SegmentMetadataClientError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_segment_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SegmentInfo</span>, <span class="ident">SegmentMetadataClientError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">controller</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">controller_client</span>();
 
         <span class="ident">retry_async</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">config</span>().<span class="ident">retry_policy</span>, <span class="op">|</span><span class="op">|</span> <span class="kw">async</span> {
@@ -300,15 +300,15 @@
                 .<span class="kw">await</span>;
 
             <span class="kw">match</span> <span class="ident">result</span> {
-                <span class="prelude-val">Ok</span>(<span class="ident">reply</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">reply</span> {
-                    <span class="ident">Replies::StreamSegmentInfo</span>(<span class="ident">cmd</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult::Success</span>(<span class="ident">SegmentInfo</span> {
+                <span class="prelude-val">Ok</span>(<span class="ident">reply</span>) =&gt; <span class="kw">match</span> <span class="ident">reply</span> {
+                    <span class="ident">Replies::StreamSegmentInfo</span>(<span class="ident">cmd</span>) =&gt; <span class="ident">RetryResult::Success</span>(<span class="ident">SegmentInfo</span> {
                         <span class="ident">segment</span>: <span class="self">self</span>.<span class="ident">segment</span>.<span class="ident">clone</span>(),
                         <span class="ident">starting_offset</span>: <span class="ident">cmd</span>.<span class="ident">start_offset</span>,
                         <span class="ident">write_offset</span>: <span class="ident">cmd</span>.<span class="ident">write_offset</span>,
                         <span class="ident">is_sealed</span>: <span class="ident">cmd</span>.<span class="ident">is_sealed</span>,
                         <span class="ident">last_modified_time</span>: <span class="ident">cmd</span>.<span class="ident">last_modified</span>,
                     }),
-                    <span class="ident">Replies::WrongHost</span>(<span class="ident">_cmd</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">Replies::WrongHost</span>(<span class="ident">_cmd</span>) =&gt; {
                         <span class="kw">let</span> <span class="ident">updated_endpoint</span> <span class="op">=</span> <span class="ident">controller</span>
                             .<span class="ident">get_endpoint_for_segment</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">segment</span>)
                             .<span class="kw">await</span>
@@ -316,10 +316,10 @@
                         <span class="kw-2">*</span><span class="ident">endpoint</span> <span class="op">=</span> <span class="ident">updated_endpoint</span>;
                         <span class="ident">RetryResult::Retry</span>(<span class="string">&quot;wrong host&quot;</span>.<span class="ident">to_string</span>())
                     }
-                    <span class="ident">Replies::NoSuchSegment</span>(<span class="ident">_cmd</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult::Fail</span>(<span class="string">&quot;no such segment&quot;</span>.<span class="ident">to_string</span>()),
-                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult::Fail</span>(<span class="string">&quot;unexpected reply&quot;</span>.<span class="ident">to_string</span>()),
+                    <span class="ident">Replies::NoSuchSegment</span>(<span class="ident">_cmd</span>) =&gt; <span class="ident">RetryResult::Fail</span>(<span class="string">&quot;no such segment&quot;</span>.<span class="ident">to_string</span>()),
+                    <span class="kw">_</span> =&gt; <span class="ident">RetryResult::Fail</span>(<span class="string">&quot;unexpected reply&quot;</span>.<span class="ident">to_string</span>()),
                 },
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
                     <span class="kw">if</span> <span class="ident">e</span>.<span class="ident">is_token_expired</span>() {
                         <span class="self">self</span>.<span class="ident">delegation_token_provider</span>.<span class="ident">signal_token_expiry</span>();
                     }
@@ -336,25 +336,25 @@
     }
 
     <span class="doccomment">/// Returns whether the current segment is sealed.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">is_sealed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span>, <span class="ident">SegmentMetadataClientError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">is_sealed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span>, <span class="ident">SegmentMetadataClientError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">get_segment_info</span>().<span class="kw">await</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">cmd</span><span class="op">|</span> <span class="ident">cmd</span>.<span class="ident">is_sealed</span>)
     }
 
     <span class="doccomment">/// Returns the length of the current segment. i.e. the total length of all data written to the segment.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">fetch_current_segment_length</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">i64</span>, <span class="ident">SegmentMetadataClientError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">fetch_current_segment_length</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">i64</span>, <span class="ident">SegmentMetadataClientError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">get_segment_info</span>().<span class="kw">await</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">cmd</span><span class="op">|</span> <span class="ident">cmd</span>.<span class="ident">write_offset</span>)
     }
 
     <span class="doccomment">/// Returns the current head of segment. Call this method to get the latest head after</span>
     <span class="doccomment">/// segment truncation.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">fetch_current_starting_head</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">i64</span>, <span class="ident">SegmentMetadataClientError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">fetch_current_starting_head</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">i64</span>, <span class="ident">SegmentMetadataClientError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">get_segment_info</span>().<span class="kw">await</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">cmd</span><span class="op">|</span> <span class="ident">cmd</span>.<span class="ident">starting_offset</span>)
     }
 
     <span class="doccomment">/// Deletes all data before the offset of the provided segment.</span>
     <span class="doccomment">/// This data will no longer be readable. Existing offsets are not affected by this operations.</span>
     <span class="doccomment">/// The new startingOffset will be reflected in latest SegmentInfo.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">truncate_segment</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">i64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentMetadataClientError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">truncate_segment</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">i64</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentMetadataClientError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">controller</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">controller_client</span>();
 
         <span class="ident">retry_async</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">config</span>().<span class="ident">retry_policy</span>, <span class="op">|</span><span class="op">|</span> <span class="kw">async</span> {
@@ -370,9 +370,9 @@
                 .<span class="kw">await</span>;
 
             <span class="kw">match</span> <span class="ident">result</span> {
-                <span class="prelude-val">Ok</span>(<span class="ident">reply</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">reply</span> {
-                    <span class="ident">Replies::SegmentTruncated</span>(<span class="ident">_cmd</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult::Success</span>(()),
-                    <span class="ident">Replies::WrongHost</span>(<span class="ident">_cmd</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="prelude-val">Ok</span>(<span class="ident">reply</span>) =&gt; <span class="kw">match</span> <span class="ident">reply</span> {
+                    <span class="ident">Replies::SegmentTruncated</span>(<span class="ident">_cmd</span>) =&gt; <span class="ident">RetryResult::Success</span>(()),
+                    <span class="ident">Replies::WrongHost</span>(<span class="ident">_cmd</span>) =&gt; {
                         <span class="kw">let</span> <span class="ident">updated_endpoint</span> <span class="op">=</span> <span class="ident">controller</span>
                             .<span class="ident">get_endpoint_for_segment</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">segment</span>)
                             .<span class="kw">await</span>
@@ -380,10 +380,10 @@
                         <span class="kw-2">*</span><span class="ident">endpoint</span> <span class="op">=</span> <span class="ident">updated_endpoint</span>;
                         <span class="ident">RetryResult::Retry</span>(<span class="string">&quot;wrong host&quot;</span>.<span class="ident">to_string</span>())
                     }
-                    <span class="ident">Replies::NoSuchSegment</span>(<span class="ident">_cmd</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult::Fail</span>(<span class="string">&quot;no such segment&quot;</span>.<span class="ident">to_string</span>()),
-                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult::Fail</span>(<span class="string">&quot;unexpected reply&quot;</span>.<span class="ident">to_string</span>()),
+                    <span class="ident">Replies::NoSuchSegment</span>(<span class="ident">_cmd</span>) =&gt; <span class="ident">RetryResult::Fail</span>(<span class="string">&quot;no such segment&quot;</span>.<span class="ident">to_string</span>()),
+                    <span class="kw">_</span> =&gt; <span class="ident">RetryResult::Fail</span>(<span class="string">&quot;unexpected reply&quot;</span>.<span class="ident">to_string</span>()),
                 },
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
                     <span class="kw">if</span> <span class="ident">e</span>.<span class="ident">is_token_expired</span>() {
                         <span class="self">self</span>.<span class="ident">delegation_token_provider</span>.<span class="ident">signal_token_expiry</span>();
                     }
@@ -400,7 +400,7 @@
     }
 
     <span class="doccomment">/// Seals the segment so that no more writes can go to it.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">seal_segment</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentMetadataClientError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">seal_segment</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SegmentMetadataClientError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">controller</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">controller_client</span>();
 
         <span class="ident">retry_async</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">config</span>().<span class="ident">retry_policy</span>, <span class="op">|</span><span class="op">|</span> <span class="kw">async</span> {
@@ -415,9 +415,9 @@
                 .<span class="kw">await</span>;
 
             <span class="kw">match</span> <span class="ident">result</span> {
-                <span class="prelude-val">Ok</span>(<span class="ident">reply</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">reply</span> {
-                    <span class="ident">Replies::SegmentSealed</span>(<span class="ident">_cmd</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult::Success</span>(()),
-                    <span class="ident">Replies::WrongHost</span>(<span class="ident">_cmd</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="prelude-val">Ok</span>(<span class="ident">reply</span>) =&gt; <span class="kw">match</span> <span class="ident">reply</span> {
+                    <span class="ident">Replies::SegmentSealed</span>(<span class="ident">_cmd</span>) =&gt; <span class="ident">RetryResult::Success</span>(()),
+                    <span class="ident">Replies::WrongHost</span>(<span class="ident">_cmd</span>) =&gt; {
                         <span class="kw">let</span> <span class="ident">updated_endpoint</span> <span class="op">=</span> <span class="ident">controller</span>
                             .<span class="ident">get_endpoint_for_segment</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">segment</span>)
                             .<span class="kw">await</span>
@@ -425,12 +425,12 @@
                         <span class="kw-2">*</span><span class="ident">endpoint</span> <span class="op">=</span> <span class="ident">updated_endpoint</span>;
                         <span class="ident">RetryResult::Retry</span>(<span class="string">&quot;wrong host&quot;</span>.<span class="ident">to_string</span>())
                     }
-                    <span class="ident">Replies::NoSuchSegment</span>(<span class="ident">_cmd</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult::Fail</span>(<span class="string">&quot;no such segment&quot;</span>.<span class="ident">to_string</span>()),
+                    <span class="ident">Replies::NoSuchSegment</span>(<span class="ident">_cmd</span>) =&gt; <span class="ident">RetryResult::Fail</span>(<span class="string">&quot;no such segment&quot;</span>.<span class="ident">to_string</span>()),
                     <span class="comment">// this might caused by retry.</span>
-                    <span class="ident">Replies::SegmentIsSealed</span>(<span class="ident">_cmd</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult::Success</span>(()),
-                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RetryResult::Fail</span>(<span class="string">&quot;unexpected reply&quot;</span>.<span class="ident">to_string</span>()),
+                    <span class="ident">Replies::SegmentIsSealed</span>(<span class="ident">_cmd</span>) =&gt; <span class="ident">RetryResult::Success</span>(()),
+                    <span class="kw">_</span> =&gt; <span class="ident">RetryResult::Fail</span>(<span class="string">&quot;unexpected reply&quot;</span>.<span class="ident">to_string</span>()),
                 },
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
                     <span class="kw">if</span> <span class="ident">e</span>.<span class="ident">is_token_expired</span>() {
                         <span class="self">self</span>.<span class="ident">delegation_token_provider</span>.<span class="ident">signal_token_expiry</span>();
                     }
