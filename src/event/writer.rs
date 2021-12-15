@@ -125,7 +125,9 @@ impl EventWriter {
         let (tx, rx) = oneshot::channel();
         let (tx_flush, rx_flush) = oneshot::channel();
         let routing_info = RoutingInfo::RoutingKey(None);
-        if let Some(pending_event) = PendingEvent::with_header_flush(routing_info, event, None, tx, Some(tx_flush)) {
+        if let Some(pending_event) =
+            PendingEvent::with_header_flush(routing_info, event, None, tx, Some(tx_flush))
+        {
             let append_event = Incoming::AppendEvent(pending_event);
             self.writer_event_internal(append_event, size, rx, rx_flush).await
         } else {
@@ -145,7 +147,9 @@ impl EventWriter {
         let (tx, rx) = oneshot::channel();
         let (tx_flush, rx_flush) = oneshot::channel();
         let routing_info = RoutingInfo::RoutingKey(Some(routing_key));
-        if let Some(pending_event) = PendingEvent::with_header_flush(routing_info, event, None, tx, Some(tx_flush)) {
+        if let Some(pending_event) =
+            PendingEvent::with_header_flush(routing_info, event, None, tx, Some(tx_flush))
+        {
             let append_event = Incoming::AppendEvent(pending_event);
             self.writer_event_internal(append_event, size, rx, rx_flush).await
         } else {

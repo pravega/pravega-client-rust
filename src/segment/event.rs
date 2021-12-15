@@ -98,7 +98,13 @@ impl PendingEvent {
     ) -> Option<PendingEvent> {
         let cmd = EventCommand { data };
         match cmd.write_fields() {
-            Ok(data) => PendingEvent::new(routing_info, data, conditional_offset, oneshot_sender, flush_oneshot_sender),
+            Ok(data) => PendingEvent::new(
+                routing_info,
+                data,
+                conditional_offset,
+                oneshot_sender,
+                flush_oneshot_sender,
+            ),
             Err(e) => {
                 warn!("failed to serialize event to event command, sending this error back to caller");
                 oneshot_sender
@@ -127,7 +133,13 @@ impl PendingEvent {
         oneshot_sender: oneshot::Sender<Result<(), Error>>,
         flush_oneshot_sender: Option<oneshot::Sender<Result<(), Error>>>,
     ) -> Option<PendingEvent> {
-        PendingEvent::new(routing_info, data, conditional_offset, oneshot_sender, flush_oneshot_sender)
+        PendingEvent::new(
+            routing_info,
+            data,
+            conditional_offset,
+            oneshot_sender,
+            flush_oneshot_sender,
+        )
     }
 
     pub(crate) fn without_header(
