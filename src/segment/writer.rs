@@ -784,6 +784,7 @@ pub(crate) mod test {
             vec![1; size],
             offset,
             oneshot_sender,
+            None,
         )
         .expect("create pending event");
         sender.send((Incoming::AppendEvent(event), size)).await.unwrap();

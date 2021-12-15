@@ -125,20 +125,9 @@ impl EventWriter {
         let (tx, rx) = oneshot::channel();
         let (tx_flush, rx_flush) = oneshot::channel();
         let routing_info = RoutingInfo::RoutingKey(None);
-        let routing_info_flush = RoutingInfo::RoutingKey(None);
-        if let Some(pending_event) = PendingEvent::with_header(routing_info, event, None, tx) {
+        if let Some(pending_event) = PendingEvent::with_header_flush(routing_info, event, None, tx, Some(tx_flush)) {
             let append_event = Incoming::AppendEvent(pending_event);
-            let write_event = self.writer_event_internal(append_event, size, rx).await;
-            if let Some(pending_event_flush) =
-                PendingEvent::without_header(routing_info_flush, Vec::new(), None, tx_flush)
-            {
-                let append_event_flush = Incoming::AppendEvent(pending_event_flush);
-                let flush_rec = self.writer_event_internal(append_event_flush, 0, rx_flush).await;
-                self.event_handles.push_back(flush_rec);
-            } else {
-                panic!("Failed to track event in flush.");
-            }
-            write_event
+            self.writer_event_internal(append_event, size, rx, rx_flush).await
         } else {
             rx
         }
@@ -156,20 +145,9 @@ impl EventWriter {
         let (tx, rx) = oneshot::channel();
         let (tx_flush, rx_flush) = oneshot::channel();
         let routing_info = RoutingInfo::RoutingKey(Some(routing_key));
-        let routing_info_flush = RoutingInfo::RoutingKey(None);
-        if let Some(pending_event) = PendingEvent::with_header(routing_info, event, None, tx) {
+        if let Some(pending_event) = PendingEvent::with_header_flush(routing_info, event, None, tx, Some(tx_flush)) {
             let append_event = Incoming::AppendEvent(pending_event);
-            let write_event = self.writer_event_internal(append_event, size, rx).await;
-            if let Some(pending_event_flush) =
-                PendingEvent::without_header(routing_info_flush, Vec::new(), None, tx_flush)
-            {
-                let append_event_flush = Incoming::AppendEvent(pending_event_flush);
-                let flush_rec = self.writer_event_internal(append_event_flush, 0, rx_flush).await;
-                self.event_handles.push_back(flush_rec);
-            } else {
-                panic!("Failed to track event in flush.");
-            }
-            write_event
+            self.writer_event_internal(append_event, size, rx, rx_flush).await
         } else {
             rx
         }
@@ -180,6 +158,7 @@ impl EventWriter {
         append_event: Incoming,
         size: usize,
         rx: oneshot::Receiver<Result<(), Error>>,
+        rx_flush: oneshot::Receiver<Result<(), Error>>,
     ) -> oneshot::Receiver<Result<(), Error>> {
         if let Err(_e) = self.sender.send((append_event, size)).await {
             let (tx_error, rx_error) = oneshot::channel();
@@ -190,6 +169,7 @@ impl EventWriter {
                 .expect("send error");
             rx_error
         } else {
+            self.event_handles.push_back(rx_flush);
             rx
         }
     }
