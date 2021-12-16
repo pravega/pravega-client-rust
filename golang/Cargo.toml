@@ -1,0 +1,14 @@
+[package]
+name = "pravega"
+version = "0.3.1"
+edition = "2018"
+categories = ["network-programming"]
+keywords = ["streaming", "client", "pravega", "golang"]
+readme = "README.md"
+repository = "https://github.com/pravega/pravega-client-rust"
+license = "Apache-2.0"
+description = "An internal library used by the Rust client for Pravega."
+authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.com>",
+    "Sandeep Shridhar <sandeep.shridhar@dell.com>", "Wenxiao Zhang <wenxiao.zhang@dell.com>"]
+
+[dependencies]
