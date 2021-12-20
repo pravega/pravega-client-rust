@@ -4,4 +4,4 @@
 
 # Python Bindings
 
-{{#include ../../../python_binding/PythonBinding.md}}
+{{#include ../../../python/PythonBinding.md}}

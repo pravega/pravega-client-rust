@@ -12,7 +12,7 @@ ROOT = Path(__file__).parent.parent.parent
 # this script.
 # Note the docker image konstin2/maturin:master does not work.
 
-os.chdir("./python_binding")
+os.chdir("./python")
 command = [
     "maturin",
     "build",
