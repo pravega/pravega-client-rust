@@ -18,7 +18,9 @@ use pravega_client_channel::{create_channel, ChannelSender};
 use pravega_client_shared::{ScopedStream, WriterId};
 
 use std::collections::VecDeque;
+use tokio::io::ErrorKind;
 use tokio::sync::oneshot;
+use tokio::sync::oneshot::error::TryRecvError;
 use tracing::info_span;
 use tracing_futures::Instrument;
 
@@ -191,11 +193,18 @@ impl EventWriter {
     /// ```
     pub async fn flush(&mut self) -> Result<(), Error> {
         while self.event_handles.front().is_some() {
-            let handle = self.event_handles.pop_front().expect("get first handle");
-            let event_result = handle.await.map_err(|e| Error::InternalFailure {
-                msg: format!("oneshot error {:?}", e),
-            })?;
-            event_result?;
+            let mut receiver = self.event_handles.pop_front().expect("get first handle");
+
+            let event_res = receiver.try_recv();
+            match event_res {
+                Err(TryRecvError::Closed) => {}
+                Err(TryRecvError::Empty) => {}
+                _ => {
+                    event_res.map_err(|e| Error::InternalFailure {
+                        msg: format!("oneshot error {:?}", e),
+                    })?;
+                }
+            }
         }
         Ok(())
     }
@@ -211,6 +220,10 @@ impl EventWriter {
     /// assert!(event_writer.flush_cleared());
     ///   ```
     pub fn flush_cleared(&self) -> bool {
+        // for  self.event_handles.front().is_some() {
+        //
+        // }
+
         self.event_handles.is_empty()
     }
 }
