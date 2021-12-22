@@ -18,7 +18,6 @@ use pravega_client_channel::{create_channel, ChannelSender};
 use pravega_client_shared::{ScopedStream, WriterId};
 
 use std::collections::VecDeque;
-use tokio::io::ErrorKind;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;
 use tracing::info_span;
