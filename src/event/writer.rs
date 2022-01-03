@@ -23,8 +23,6 @@ use tokio::sync::oneshot::error::TryRecvError;
 use tracing::info_span;
 use tracing_futures::Instrument;
 
-// type EventHandle = oneshot::Receiver<Result<(), Error>>;
-
 /// Write events exactly once to a given stream.
 ///
 /// EventWriter spawns a `Reactor` that runs in the background for processing incoming events.
@@ -192,38 +190,20 @@ impl EventWriter {
     /// ```
     pub async fn flush(&mut self) -> Result<(), Error> {
         while self.event_handles.front().is_some() {
-            let mut receiver = self.event_handles.pop_front().expect("get first handle");
+            let mut receiver = self.event_handles.swap_remove_front(0).expect("get first handle");
 
-            let event_res = receiver.try_recv();
-            match event_res {
+            let try_recv = receiver.try_recv();
+            match try_recv {
                 Err(TryRecvError::Closed) => {}
                 Err(TryRecvError::Empty) => {}
                 _ => {
-                    event_res.map_err(|e| Error::InternalFailure {
+                    try_recv.map_err(|e| Error::InternalFailure {
                         msg: format!("oneshot error {:?}", e),
-                    })?;
+                    })??;
                 }
-            }
+            };
         }
         Ok(())
-    }
-
-    /// This is to check if all the events have been flushed.
-    ///
-    /// # Examples
-    /// ```ignore
-    /// let mut byte_writer = client_factory.create_byte_writer(segment).await;
-    /// let payload = vec![0; 8];
-    /// let size = event_writer.write_event(&payload).await;
-    /// event_writer.flush().await;
-    /// assert!(event_writer.flush_cleared());
-    ///   ```
-    pub fn flush_cleared(&self) -> bool {
-        // for  self.event_handles.front().is_some() {
-        //
-        // }
-
-        self.event_handles.is_empty()
     }
 }
 
