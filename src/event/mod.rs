@@ -80,4 +80,4 @@ pub mod writer;
 #[doc(inline)]
 pub use writer::EventWriter;
 
-pub(crate) mod reader_group_state;
+pub mod reader_group_state;

@@ -78,12 +78,23 @@ fn main() {
         println!("event reader created");
 
         // read from segment
-        let mut slice = reader.acquire_segment().await.expect("acquire segment");
-        let read_event = slice.next();
-        assert!(read_event.is_some(), "event slice should have event to read");
-        assert_eq!(b"hello world", read_event.unwrap().value.as_slice());
-        println!("event reader read data");
-        reader.reader_offline().await;
+        if let Some(mut slice) = reader
+            .acquire_segment()
+            .await
+            .expect("Failed to acquire segment since the reader is offline")
+        {
+            let read_event = slice.next();
+            assert!(read_event.is_some(), "event slice should have event to read");
+            assert_eq!(b"hello world", read_event.unwrap().value.as_slice());
+            println!("event reader read data");
+        } else {
+            println!("no data to read from the Pravega stream");
+            assert!(false, "read should return the written event.")
+        }
+        reader
+            .reader_offline()
+            .await
+            .expect("failed to mark the reader offline");
         println!("event write and read example finished");
     });
 }
