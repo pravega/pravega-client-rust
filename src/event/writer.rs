@@ -19,7 +19,6 @@ use pravega_client_shared::{ScopedStream, WriterId};
 
 use std::collections::VecDeque;
 use tokio::sync::oneshot;
-use tokio::sync::oneshot::error::TryRecvError;
 use tracing::info_span;
 use tracing_futures::Instrument;
 
@@ -180,28 +179,14 @@ impl EventWriter {
     /// Flush data.
     ///
     /// It will wait until all pending appends have acknowledgment.
-    ///
-    /// # Examples
-    /// ```ignore
-    /// let mut byte_writer = client_factory.create_byte_writer(segment).await;
-    /// let payload = vec![0; 8];
-    /// let size = event_writer.write_event(&payload).await;
-    /// event_writer.flush().await;
     /// ```
     pub async fn flush(&mut self) -> Result<(), Error> {
-        while self.event_handles.front().is_some() {
-            let mut receiver = self.event_handles.swap_remove_front(0).expect("get first handle");
+        while let Some(receiver) = self.event_handles.pop_front() {
+            let recv = receiver.await.map_err(|e| Error::InternalFailure {
+                msg: format!("oneshot error {:?}", e),
+            })?;
 
-            let try_recv = receiver.try_recv();
-            match try_recv {
-                Err(TryRecvError::Closed) => {}
-                Err(TryRecvError::Empty) => {}
-                _ => {
-                    try_recv.map_err(|e| Error::InternalFailure {
-                        msg: format!("oneshot error {:?}", e),
-                    })??;
-                }
-            };
+            recv?;
         }
         Ok(())
     }

@@ -377,6 +377,14 @@ impl SegmentWriter {
                     acked.event_id
                 );
             }
+            if let Some(flush_sender) = acked.event.flush_oneshot_sender {
+                if flush_sender.send(Result::Ok(())).is_err() {
+                    trace!(
+                        "failed to send ack back to caller using oneshot due to Receiver dropped: event id {:?}",
+                        acked.event_id
+                    );
+                }
+            }
 
             // ack up to event id
             if acked.event_id == event_id {
