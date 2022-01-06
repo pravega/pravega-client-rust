@@ -19,6 +19,7 @@ use pravega_client_shared::{ScopedStream, WriterId};
 
 use std::collections::VecDeque;
 use tokio::sync::oneshot;
+use tokio::sync::oneshot::error::TryRecvError;
 use tracing::info_span;
 use tracing_futures::Instrument;
 
@@ -171,6 +172,7 @@ impl EventWriter {
                 .expect("send error");
             rx_error
         } else {
+            self.clear_initial_complete_events();
             self.event_handles.push_back(rx_flush);
             rx
         }
@@ -181,6 +183,7 @@ impl EventWriter {
     /// It will wait until all pending appends have acknowledgment.
     /// ```
     pub async fn flush(&mut self) -> Result<(), Error> {
+        self.clear_initial_complete_events();
         while let Some(receiver) = self.event_handles.pop_front() {
             let recv = receiver.await.map_err(|e| Error::InternalFailure {
                 msg: format!("oneshot error {:?}", e),
@@ -189,6 +192,22 @@ impl EventWriter {
             recv?;
         }
         Ok(())
+    }
+
+    /// Clear initial completed events from flush queue.
+    fn clear_initial_complete_events(&mut self) {
+        while let Some(mut receiver) = self.event_handles.pop_front() {
+            let try_recv = receiver.try_recv();
+
+            match try_recv {
+                Err(TryRecvError::Empty) => {
+                    self.event_handles.push_front(receiver);
+                    break;
+                }
+                Err(TryRecvError::Closed) => {}
+                _ => {}
+            }
+        }
     }
 }
 
