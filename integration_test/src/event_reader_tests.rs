@@ -421,7 +421,7 @@ async fn test_read_api(client_factory: &ClientFactoryAsync) {
             stream_name.clone(),
             client_factory.clone(),
             NUM_EVENTS,
-            EVNET_SIZE,
+            EVENT_SIZE,
         )
         .await;
     }
@@ -442,7 +442,7 @@ async fn test_read_api(client_factory: &ClientFactoryAsync) {
         loop {
             if let Some(event) = slice.next() {
                 assert_eq!(
-                    vec![1; EVNET_SIZE],
+                    vec![1; EVENT_SIZE],
                     event.value.as_slice(),
                     "Corrupted event read"
                 );
