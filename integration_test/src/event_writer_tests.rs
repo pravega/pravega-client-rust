@@ -271,10 +271,7 @@ async fn test_write_correctness_while_scaling(writer: &mut EventWriter, factory:
         i += 1;
     }
     // the data should write successfully.
-    for rx in receivers {
-        let reply: Result<(), Error> = rx.await.expect("wait for result from oneshot");
-        assert!(reply.is_ok());
-    }
+    assert!(writer.flush().await.is_ok());
 
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
@@ -364,6 +361,9 @@ async fn test_write_correctness_with_routing_key(writer: &mut EventWriter, facto
         }
         i += 1;
     }
+
+    assert!(writer.flush().await.is_ok());
+
     let first_segment = ScopedSegment {
         scope: scope_name.clone(),
         stream: stream_name.clone(),
