@@ -271,7 +271,7 @@ async fn test_write_correctness_while_scaling(writer: &mut EventWriter, factory:
         i += 1;
     }
     // the data should write successfully.
-    writer.flush().await.expect("wait for writer events to flush");
+    assert!(writer.flush().await.is_ok());
 
     let segment_name = ScopedSegment {
         scope: scope_name.clone(),
@@ -362,7 +362,7 @@ async fn test_write_correctness_with_routing_key(writer: &mut EventWriter, facto
         i += 1;
     }
 
-    writer.flush().await.expect("flush events");
+    assert!(writer.flush().await.is_ok());
 
     let first_segment = ScopedSegment {
         scope: scope_name.clone(),

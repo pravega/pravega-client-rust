@@ -163,7 +163,12 @@ impl EventWriter {
         rx: oneshot::Receiver<Result<(), Error>>,
         rx_flush: oneshot::Receiver<Result<(), Error>>,
     ) -> oneshot::Receiver<Result<(), Error>> {
-        if let Err(_e) = self.sender.send((append_event, size)).await {
+        if let Err(err) = self.clear_initial_complete_events() {
+            // fail fast upon checking previous write events
+            let (tx_error, rx_error) = oneshot::channel();
+            tx_error.send(Err(err)).expect("send error");
+            rx_error
+        } else if let Err(_e) = self.sender.send((append_event, size)).await {
             let (tx_error, rx_error) = oneshot::channel();
             tx_error
                 .send(Err(Error::InternalFailure {
@@ -172,7 +177,6 @@ impl EventWriter {
                 .expect("send error");
             rx_error
         } else {
-            self.clear_initial_complete_events();
             self.event_handles.push_back(rx_flush);
             rx
         }
@@ -181,9 +185,7 @@ impl EventWriter {
     /// Flush data.
     ///
     /// It will wait until all pending appends have acknowledgment.
-    /// ```
     pub async fn flush(&mut self) -> Result<(), Error> {
-        self.clear_initial_complete_events();
         while let Some(receiver) = self.event_handles.pop_front() {
             let recv = receiver.await.map_err(|e| Error::InternalFailure {
                 msg: format!("oneshot error {:?}", e),
@@ -195,7 +197,7 @@ impl EventWriter {
     }
 
     /// Clear initial completed events from flush queue.
-    fn clear_initial_complete_events(&mut self) {
+    fn clear_initial_complete_events(&mut self) -> Result<(), Error> {
         while let Some(mut receiver) = self.event_handles.pop_front() {
             let try_recv = receiver.try_recv();
 
@@ -204,10 +206,18 @@ impl EventWriter {
                     self.event_handles.push_front(receiver);
                     break;
                 }
-                Err(TryRecvError::Closed) => {}
-                _ => {}
+                Err(TryRecvError::Closed) => {
+                    let res = try_recv.map_err(|e| Error::InternalFailure {
+                        msg: format!("Trying to flush a closed channel {:?}", e),
+                    })?;
+
+                    return res;
+                }
+                Ok(_) => {}
             }
         }
+
+        Ok(())
     }
 }
 
