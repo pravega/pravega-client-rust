@@ -19,6 +19,8 @@ use pravega_client_shared::{
 };
 use pravega_controller_client::ControllerClient;
 
+use pravega_wire_protocol::commands::NoSuchSegmentCommand;
+use pravega_wire_protocol::wire_commands::Replies;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread;
@@ -399,7 +401,15 @@ async fn test_read_api(client_factory: &ClientFactoryAsync) {
     let stream_name = Stream::from("testReaderStream".to_owned());
 
     const NUM_EVENTS: usize = 10;
-    const EVNET_SIZE: usize = 10;
+    const EVENT_SIZE: usize = 10;
+
+    // let reply = Replies::NoSuchSegment(NoSuchSegmentCommand {
+    //     request_id: 1,
+    //     segment: "foo".to_string(),
+    //     server_stack_trace: String::from(""),
+    //     offset: -1,
+    // });
+    // let s = reply.to_string();
 
     let new_stream =
         create_scope_stream(client_factory.controller_client(), &scope_name, &stream_name, 4).await;
@@ -450,7 +460,20 @@ async fn test_read_api(client_factory: &ClientFactoryAsync) {
             break;
         }
     }
-    info!("test event stream reader read api passed");
+    info!("read all events from the stream");
+    client_factory
+        .delete_reader_group(scope_name, "rg-read-api".to_string())
+        .await
+        .expect("Deletion of ReaderGroup failed");
+    // Attempt acquiring a segment of a deleted ReaderGroup.
+    let acquire_segment_result = reader.acquire_segment().await;
+    //Verify the operation fails with EventReaderError
+    assert!(
+        acquire_segment_result.is_err(),
+        "After reader group deletion acquire_segment API should return an error"
+    );
+    let reader_offline_result = reader.reader_offline().await;
+    assert!(reader_offline_result.is_ok(), "The reader is already offline");
 }
 
 fn test_multiple_readers(client_factory: &ClientFactoryAsync) {

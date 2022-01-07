@@ -46,6 +46,8 @@ pub enum TableError {
     },
     #[snafu(display("Key does not exist while performing {}: {}", operation, error_msg))]
     KeyDoesNotExist { operation: String, error_msg: String },
+    #[snafu(display("Table {} does not exist while performing {}", name, operation))]
+    TableDoesNotExist { operation: String, name: String },
     #[snafu(display(
         "Incorrect Key version observed while performing {}: {}",
         operation,
@@ -59,7 +61,7 @@ pub enum TableError {
 /// Table is the client implementation of Table Segment in Pravega.
 /// Table Segment is a key-value table based on Pravega segment.
 ///
-/// # Exmaples
+/// # Examples
 /// ```ignore
 /// let map = client_factory.create_table(scope, "table".into()).await;
 /// let k: String = "key".into();
@@ -936,10 +938,17 @@ impl Table {
 
                     Ok((entries, c.last_position))
                 }
+                Replies::NoSuchSegment(c) => {
+                    debug!("Received NoSuchSegment, the table segment is deleted {:?}", c);
+                    Err(TableError::TableDoesNotExist {
+                        operation: op.into(),
+                        name: c.segment,
+                    })
+                }
                 // unexpected response from Segment store causes a panic.
                 _ => Err(TableError::OperationError {
                     operation: op.into(),
-                    error_msg: r.to_string(),
+                    error_msg: "Unexpected response received from Segment Store".to_string(),
                 }),
             }
         })

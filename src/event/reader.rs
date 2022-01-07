@@ -267,9 +267,23 @@ impl EventReader {
     /// is assumed dead.
     pub async fn release_segment(&mut self, mut slice: SegmentSlice) -> Result<(), EventReaderError> {
         info!(
-            "releasing segment slice {} from reader {}",
+            "releasing segment slice {} from reader {:?}",
             slice.meta.scoped_segment, self.id
         );
+        // check if the reader is already offline.
+        if self.meta.reader_offline || !self.rg_state.lock().await.check_online(&self.id).await {
+            return Err(EventReaderError::StateError {
+                source: ReaderGroupStateError::ReaderAlreadyOfflineError {
+                    error_msg: format!(
+                        "Reader already marked offline {:?} or the ReaderGroup is deleted",
+                        self.id
+                    ),
+                    source: SynchronizerError::SyncPreconditionError {
+                        error_msg: String::from("Precondition failure"),
+                    },
+                },
+            });
+        }
         //update meta data.
         let scoped_segment = ScopedSegment::from(slice.meta.scoped_segment.clone().as_str());
         self.meta.add_slices(slice.meta.clone());
@@ -322,6 +336,19 @@ impl EventReader {
             slice.meta.end_offset >= offset,
             "the offset where the segment slice is released should be less than the end offset"
         );
+        if self.meta.reader_offline || !self.rg_state.lock().await.check_online(&self.id).await {
+            return Err(EventReaderError::StateError {
+                source: ReaderGroupStateError::ReaderAlreadyOfflineError {
+                    error_msg: format!(
+                        "Reader already marked offline {:?} or the ReaderGroup is deleted",
+                        self.id
+                    ),
+                    source: SynchronizerError::SyncPreconditionError {
+                        error_msg: String::from("Precondition failure"),
+                    },
+                },
+            });
+        }
         let segment = ScopedSegment::from(slice.meta.scoped_segment.as_str());
         if slice.meta.read_offset != offset {
             self.meta.stop_reading(&segment);
@@ -361,7 +388,7 @@ impl EventReader {
     /// that another thread removes this reader from the ReaderGroup probably due to the host of this reader
     /// is assumed dead.
     pub async fn reader_offline(&mut self) -> Result<(), EventReaderError> {
-        if !self.meta.reader_offline {
+        if !self.meta.reader_offline && self.rg_state.lock().await.check_online(&self.id).await {
             info!("Putting reader {:?} offline", self.id);
             // stop reading from all the segments.
             self.meta.stop_reading_all();
@@ -411,6 +438,19 @@ impl EventReader {
         mut slice: SegmentSlice,
         read_offset: i64,
     ) -> Result<(), EventReaderError> {
+        if self.meta.reader_offline || !self.rg_state.lock().await.check_online(&self.id).await {
+            return Err(EventReaderError::StateError {
+                source: ReaderGroupStateError::ReaderAlreadyOfflineError {
+                    error_msg: format!(
+                        "Reader already marked offline {:?} or the ReaderGroup is deleted",
+                        self.id
+                    ),
+                    source: SynchronizerError::SyncPreconditionError {
+                        error_msg: String::from("Precondition failure"),
+                    },
+                },
+            });
+        }
         let new_segments_to_release = self
             .rg_state
             .lock()
@@ -462,7 +502,10 @@ impl EventReader {
         if self.meta.reader_offline || !self.rg_state.lock().await.check_online(&self.id).await {
             return Err(EventReaderError::StateError {
                 source: ReaderGroupStateError::ReaderAlreadyOfflineError {
-                    error_msg: format!("Reader already marked offline {:?}", self.id),
+                    error_msg: format!(
+                        "Reader already marked offline {:?} or the ReaderGroup is deleted",
+                        self.id
+                    ),
                     source: SynchronizerError::SyncPreconditionError {
                         error_msg: String::from("Precondition failure"),
                     },

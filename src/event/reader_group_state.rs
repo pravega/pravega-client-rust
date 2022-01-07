@@ -14,6 +14,7 @@ use crate::sync::synchronizer::*;
 
 use pravega_client_shared::{Reader, Scope, ScopedSegment, Segment, SegmentWithRange};
 
+use crate::sync::table::TableError;
 #[cfg(test)]
 use mockall::automock;
 use serde::{Deserialize, Serialize};
@@ -153,7 +154,11 @@ impl ReaderGroupState {
     }
 
     pub async fn check_online(&mut self, reader: &Reader) -> bool {
-        self.sync.fetch_updates().await.expect("should fetch updates");
+        match self.sync.fetch_updates().await {
+            Ok(update_count) => debug!("Number of updates read is {:?}", update_count),
+            Err(TableError::TableDoesNotExist { .. }) => return false,
+            _ => panic!("Fetch updates failed after all retries"),
+        }
         let res = self
             .sync
             .get_inner_map(ASSIGNED)
