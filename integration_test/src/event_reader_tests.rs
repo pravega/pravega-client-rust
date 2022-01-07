@@ -403,14 +403,6 @@ async fn test_read_api(client_factory: &ClientFactoryAsync) {
     const NUM_EVENTS: usize = 10;
     const EVENT_SIZE: usize = 10;
 
-    // let reply = Replies::NoSuchSegment(NoSuchSegmentCommand {
-    //     request_id: 1,
-    //     segment: "foo".to_string(),
-    //     server_stack_trace: String::from(""),
-    //     offset: -1,
-    // });
-    // let s = reply.to_string();
-
     let new_stream =
         create_scope_stream(client_factory.controller_client(), &scope_name, &stream_name, 4).await;
     // write events only if the stream is not created.

@@ -156,7 +156,7 @@ impl ClientFactory {
     }
 
     ///
-    /// Create a Reader Group based on the ReaderGroupConfig.
+    /// Delete a ReaderGroup.
     ///
     pub async fn delete_reader_group(
         &self,
