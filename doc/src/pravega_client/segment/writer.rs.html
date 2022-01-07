@@ -809,6 +809,15 @@
 <span id="809">809</span>
 <span id="810">810</span>
 <span id="811">811</span>
+<span id="812">812</span>
+<span id="813">813</span>
+<span id="814">814</span>
+<span id="815">815</span>
+<span id="816">816</span>
+<span id="817">817</span>
+<span id="818">818</span>
+<span id="819">819</span>
+<span id="820">820</span>
 </pre><pre class="rust"><code><span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
 <span class="comment">//</span>
@@ -1187,6 +1196,14 @@
                     <span class="string">&quot;failed to send ack back to caller using oneshot due to Receiver dropped: event id {:?}&quot;</span>,
                     <span class="ident">acked</span>.<span class="ident">event_id</span>
                 );
+            }
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">flush_sender</span>) <span class="op">=</span> <span class="ident">acked</span>.<span class="ident">event</span>.<span class="ident">flush_oneshot_sender</span> {
+                <span class="kw">if</span> <span class="ident">flush_sender</span>.<span class="ident">send</span>(<span class="ident">Result::Ok</span>(())).<span class="ident">is_err</span>() {
+                    <span class="macro">info!</span>(
+                        <span class="string">&quot;failed to send ack back to caller using oneshot due to Receiver dropped: event id {:?}&quot;</span>,
+                        <span class="ident">acked</span>.<span class="ident">event_id</span>
+                    );
+                }
             }
 
             <span class="comment">// ack up to event id</span>
@@ -1595,6 +1612,7 @@
             <span class="macro">vec!</span>[<span class="number">1</span>; <span class="ident">size</span>],
             <span class="ident">offset</span>,
             <span class="ident">oneshot_sender</span>,
+            <span class="prelude-val">None</span>,
         )
         .<span class="ident">expect</span>(<span class="string">&quot;create pending event&quot;</span>);
         <span class="ident">sender</span>.<span class="ident">send</span>((<span class="ident">Incoming::AppendEvent</span>(<span class="ident">event</span>), <span class="ident">size</span>)).<span class="kw">await</span>.<span class="ident">unwrap</span>();
