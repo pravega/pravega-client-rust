@@ -165,10 +165,12 @@ fn test_read_offline_with_offset(client_factory: &ClientFactoryAsync) {
         event.value.as_slice(),
         "Corrupted event read"
     );
-    let offset_map = HashMap::from([(
+    let mut offset_map = HashMap::new();
+
+    offset_map.insert(
         slice.meta.scoped_segment.clone(),
         event.offset_in_segment + EVENT_SIZE as i64 + 8,
-    )]);
+    );
 
     // Segment slice is dropped here and it will update the RG state with the offsets.
     // Now mark the reader offline

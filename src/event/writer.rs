@@ -17,7 +17,9 @@ use crate::util::get_random_u128;
 use pravega_client_channel::{create_channel, ChannelSender};
 use pravega_client_shared::{ScopedStream, WriterId};
 
+use std::collections::VecDeque;
 use tokio::sync::oneshot;
+use tokio::sync::oneshot::error::TryRecvError;
 use tracing::info_span;
 use tracing_futures::Instrument;
 
@@ -75,6 +77,7 @@ use tracing_futures::Instrument;
 pub struct EventWriter {
     writer_id: WriterId,
     sender: ChannelSender<Incoming>,
+    event_handles: VecDeque<oneshot::Receiver<Result<(), Error>>>,
 }
 
 impl EventWriter {
@@ -93,6 +96,7 @@ impl EventWriter {
         EventWriter {
             writer_id,
             sender: tx,
+            event_handles: VecDeque::new(),
         }
     }
 
@@ -118,10 +122,13 @@ impl EventWriter {
     pub async fn write_event(&mut self, event: Vec<u8>) -> oneshot::Receiver<Result<(), Error>> {
         let size = event.len();
         let (tx, rx) = oneshot::channel();
+        let (tx_flush, rx_flush) = oneshot::channel();
         let routing_info = RoutingInfo::RoutingKey(None);
-        if let Some(pending_event) = PendingEvent::with_header(routing_info, event, None, tx) {
+        if let Some(pending_event) =
+            PendingEvent::with_header_flush(routing_info, event, None, tx, Some(tx_flush))
+        {
             let append_event = Incoming::AppendEvent(pending_event);
-            self.writer_event_internal(append_event, size, rx).await
+            self.writer_event_internal(append_event, size, rx, rx_flush).await
         } else {
             rx
         }
@@ -137,10 +144,13 @@ impl EventWriter {
     ) -> oneshot::Receiver<Result<(), Error>> {
         let size = event.len();
         let (tx, rx) = oneshot::channel();
+        let (tx_flush, rx_flush) = oneshot::channel();
         let routing_info = RoutingInfo::RoutingKey(Some(routing_key));
-        if let Some(pending_event) = PendingEvent::with_header(routing_info, event, None, tx) {
+        if let Some(pending_event) =
+            PendingEvent::with_header_flush(routing_info, event, None, tx, Some(tx_flush))
+        {
             let append_event = Incoming::AppendEvent(pending_event);
-            self.writer_event_internal(append_event, size, rx).await
+            self.writer_event_internal(append_event, size, rx, rx_flush).await
         } else {
             rx
         }
@@ -151,8 +161,14 @@ impl EventWriter {
         append_event: Incoming,
         size: usize,
         rx: oneshot::Receiver<Result<(), Error>>,
+        rx_flush: oneshot::Receiver<Result<(), Error>>,
     ) -> oneshot::Receiver<Result<(), Error>> {
-        if let Err(_e) = self.sender.send((append_event, size)).await {
+        if let Err(err) = self.clear_initial_complete_events() {
+            // fail fast upon checking previous write events
+            let (tx_error, rx_error) = oneshot::channel();
+            tx_error.send(Err(err)).expect("send error");
+            rx_error
+        } else if let Err(_e) = self.sender.send((append_event, size)).await {
             let (tx_error, rx_error) = oneshot::channel();
             tx_error
                 .send(Err(Error::InternalFailure {
@@ -161,8 +177,47 @@ impl EventWriter {
                 .expect("send error");
             rx_error
         } else {
+            self.event_handles.push_back(rx_flush);
             rx
         }
+    }
+
+    /// Flush data.
+    ///
+    /// It will wait until all pending appends have acknowledgment.
+    pub async fn flush(&mut self) -> Result<(), Error> {
+        while let Some(receiver) = self.event_handles.pop_front() {
+            let recv = receiver.await.map_err(|e| Error::InternalFailure {
+                msg: format!("oneshot error {:?}", e),
+            })?;
+
+            recv?;
+        }
+        Ok(())
+    }
+
+    /// Clear initial completed events from flush queue.
+    fn clear_initial_complete_events(&mut self) -> Result<(), Error> {
+        while let Some(mut receiver) = self.event_handles.pop_front() {
+            let try_recv = receiver.try_recv();
+
+            match try_recv {
+                Err(TryRecvError::Empty) => {
+                    self.event_handles.push_front(receiver);
+                    break;
+                }
+                Err(TryRecvError::Closed) => {
+                    let res = try_recv.map_err(|e| Error::InternalFailure {
+                        msg: format!("Trying to flush a closed channel {:?}", e),
+                    })?;
+
+                    return res;
+                }
+                Ok(_) => {}
+            }
+        }
+
+        Ok(())
     }
 }
 
