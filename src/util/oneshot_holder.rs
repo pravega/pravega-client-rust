@@ -31,18 +31,18 @@ impl<E> OneShotHolder<E> {
     /// only if the size of queue is greater than configured size.
     ///
     pub async fn add(&mut self, item: Receiver<Result<(), E>>) -> Result<Result<(), E>, RecvError> {
-        let result;
         if self.size == 0 {
             // size is zero await on oneshot receiver directly.
             return item.await;
         }
-        if self.inflight.len() >= self.size {
-            // await until the first receiver in the list has completed.
-            let fut = self.inflight.pop_front().unwrap();
-            result = fut.await;
-        } else {
-            result = Ok(Ok(()));
-        }
+        let result =
+            if self.inflight.len() >= self.size {
+                // await until the first receiver in the list has completed.
+                let fut = self.inflight.pop_front().unwrap();
+                fut.await
+            } else {
+                Ok(Ok(()))
+            };
         // Append the Receiver to the queue.
         self.inflight.push_back(item);
         result
