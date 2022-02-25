@@ -35,14 +35,13 @@ impl<E> OneShotHolder<E> {
             // size is zero await on oneshot receiver directly.
             return item.await;
         }
-        let result =
-            if self.inflight.len() >= self.size {
-                // await until the first receiver in the list has completed.
-                let fut = self.inflight.pop_front().unwrap();
-                fut.await
-            } else {
-                Ok(Ok(()))
-            };
+        let result = if self.inflight.len() >= self.size {
+            // await until the first receiver in the list has completed.
+            let fut = self.inflight.pop_front().unwrap();
+            fut.await
+        } else {
+            Ok(Ok(()))
+        };
         // Append the Receiver to the queue.
         self.inflight.push_back(item);
         result
