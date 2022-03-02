@@ -78,7 +78,7 @@ impl StreamRetentionPolicy {
     pub fn by_time(time_in_millis: i64) -> StreamRetentionPolicy {
         StreamRetentionPolicy {
             retention: Retention {
-                retention_type: RetentionType::Size,
+                retention_type: RetentionType::Time,
                 retention_param: time_in_millis,
             },
         }
