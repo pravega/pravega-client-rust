@@ -17,7 +17,6 @@ use tracing::info;
 
 const LIBRARY: &str = "pravega";
 const VERSION: &str = "0.10.1";
-const TAG: &str = "stream-tags";
 const BASE: &str = "./";
 
 fn main() {
