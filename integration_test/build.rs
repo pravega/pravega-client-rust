@@ -47,8 +47,8 @@ fn remove_suffix(value: &mut String, suffix: &str) {
 /// Downloads and unpacks a prebuilt binary. Only works for certain platforms.
 fn install_prebuilt() {
     let url = format!(
-        "https://github.com/shrids/pravega/releases/download/v{}/pravega-{}.tgz",
-        TAG, VERSION
+        "https://github.com/pravega/pravega/releases/download/v{}/pravega-{}.tgz",
+        VERSION, VERSION
     );
     let short_file_name = url.split('/').last().unwrap();
     let mut base_name = short_file_name.to_string();
@@ -66,6 +66,7 @@ fn install_prebuilt() {
     // Extract the Pravega standalone.
     let unpacked_dir = ".";
     let tar_gz = File::open(file_name).unwrap();
+    dbg!(&tar_gz);
     let tar = GzDecoder::new(tar_gz);
     let mut archive = Archive::new(tar);
     archive.unpack(unpacked_dir).unwrap();
