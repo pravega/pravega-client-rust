@@ -228,7 +228,7 @@ impl StreamManager {
     }
 
     ///
-    /// Create a Stream in Pravega
+    /// Create a Stream in Pravega.
     ///
     #[pyo3(text_signature = "($self, scope_name, stream_name, scaling_policy, retention_policy, tags)")]
     #[args(
@@ -288,7 +288,7 @@ impl StreamManager {
     }
 
     ///
-    /// Update Stream Configuration in Pravega
+    /// Update Stream Configuration in Pravega.
     ///
     #[pyo3(text_signature = "($self, scope_name, stream_name, scaling_policy, retention_policy, tags)")]
     #[args(
@@ -329,7 +329,7 @@ impl StreamManager {
     }
 
     ///
-    /// Get Stream tags from Pravega
+    /// Get Stream tags from Pravega.
     ///
     #[pyo3(text_signature = "($self, scope_name, stream_name, scaling_policy, retention_policy, tags)")]
     pub fn get_stream_tags(&self, scope_name: &str, stream_name: &str) -> PyResult<Option<Vec<String>>> {
@@ -353,7 +353,7 @@ impl StreamManager {
     }
 
     ///
-    /// Create a Stream in Pravega.
+    /// Seal a Stream in Pravega.
     ///
     #[pyo3(text_signature = "($self, scope_name, stream_name)")]
     pub fn seal_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
