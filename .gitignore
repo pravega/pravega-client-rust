@@ -26,3 +26,10 @@ __pycache__/
 book/book
 html/
 python_binding/.tox/
+
+# These are temp files of Nodejs bindings
+nodejs/target
+nodejs/index.node
+**/node_modules
+**/.DS_Store
+npm-debug.log*
