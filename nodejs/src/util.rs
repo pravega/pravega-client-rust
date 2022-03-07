@@ -17,10 +17,8 @@ pub fn js_log<'a, C: Context<'a>>(cx: &mut C, s: String) -> NeonResult<()> {
     let global = cx.global();
     let console = global.get(cx, "console")?.downcast_or_throw::<JsObject, _>(cx)?;
     let log = console.get(cx, "log")?.downcast_or_throw::<JsFunction, _>(cx)?;
-    let null = cx.null();
 
-    let args: Vec<Handle<JsString>> = vec![cx.string(s)];
-    log.call(cx, null, args)?;
+    log.call_with(cx).arg(cx.string(s)).apply::<JsUndefined, C>(cx)?;
 
     Ok(())
 }

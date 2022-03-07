@@ -41,5 +41,6 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
     cx.export_function("StreamManagerSealStream", StreamManager::js_seal_stream)?;
     cx.export_function("StreamManagerDeleteStream", StreamManager::js_delete_stream)?;
     cx.export_function("StreamManagerListStreams", StreamManager::js_list_streams)?;
+    cx.export_function("StreamManagerToString", StreamManager::js_to_str)?;
     Ok(())
 }

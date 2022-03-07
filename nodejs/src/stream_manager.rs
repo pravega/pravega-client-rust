@@ -11,7 +11,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::util::js_log;
 use neon::prelude::*;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client_config::{ClientConfig, ClientConfigBuilder};
@@ -563,5 +562,14 @@ impl StreamManager {
             array.set(&mut cx, pos as u32, stream_name)?;
         }
         Ok(array)
+    }
+
+    pub fn js_to_str(mut cx: FunctionContext) -> JsResult<JsString> {
+        let stream_manager = cx.this().downcast_or_throw::<JsBox<StreamManager>, _>(&mut cx)?;
+
+        Ok(cx.string(format!(
+            "Controller ip: {:?} ClientConfig: {:?}",
+            stream_manager.controller_ip, stream_manager.config
+        )))
     }
 }

@@ -12,10 +12,10 @@
 // limitations under the License.
 
 import { assert } from 'chai';
-import { StreamManger, StreamRetentionPolicy, StreamScalingPolicy } from '../stream_manager.js';
+import { StreamManager, StreamRetentionPolicy, StreamScalingPolicy } from '../stream_manager.js';
 
-const stream_manager = new StreamManger('tcp://127.0.0.1:9090', false, false, true);
-console.log(stream_manager);
+const stream_manager = StreamManager('tcp://127.0.0.1:9090', false, false, true);
+console.log(`${stream_manager}`);
 
 // create scope and stream
 assert.equal(stream_manager.create_scope('scope1'), true);

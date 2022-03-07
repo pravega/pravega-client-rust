@@ -29,5 +29,5 @@ tracing-subscriber = "0.2.2"
 
 [dependencies.neon]
 default-features = false
-features = ["napi-6"]
-version = "0.9"
+features = ["napi-6", "promise-api", "channel-api"]
+version = "0.10.0-alpha.3"
