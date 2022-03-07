@@ -20,8 +20,10 @@ use pravega_client_shared::*;
 use pravega_controller_client::ControllerError;
 use tracing::info;
 
-// An internal rust struct that holds the necessary info to perform actions on StreamManager.
-// The `js_new` method will return a boxed(wrapped) StreamManager as an external object.
+///
+/// An internal rust struct that holds the necessary info to perform actions on StreamManager.
+/// The `js_new` method will return a boxed(wrapped) StreamManager as an external object.
+///
 pub(crate) struct StreamManager {
     controller_ip: String,
     cf: ClientFactory,
@@ -133,7 +135,9 @@ impl StreamScalingPolicy {
 
 impl Finalize for StreamManager {}
 
-// The implementation of the pure Rust client call.
+///
+/// The implementation of the pure Rust client call.
+///
 impl StreamManager {
     fn new(
         controller_uri: &str,
@@ -357,7 +361,9 @@ impl StreamManager {
     }
 }
 
-// The implementation of the JavaScript call and parameters cast.
+///
+/// The implementation of the JavaScript proxy call and the parameters cast.
+///
 impl StreamManager {
     pub fn js_new(mut cx: FunctionContext) -> JsResult<JsBox<StreamManager>> {
         let controller_uri = cx.argument::<JsString>(0)?.value(&mut cx);
