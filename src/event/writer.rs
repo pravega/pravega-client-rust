@@ -100,6 +100,33 @@ impl EventWriter {
         }
     }
 
+
+    pub async fn write_large_event(&mut self, event: Vec<v8>) -> oneshot:Receiver<Result<(), Error>> {
+        // create buffer
+         let payloads = createBufs(events);
+    }
+
+    pub async fn createBufs(event: Vec<v8>) -> Vec<v8> {
+        let toWrite = Vec::new();
+        for (int i = 0; i < events.size(); i++) {
+            ByteBuffer event = events.get(i);
+            byte[] header = new byte[WireCommands.TYPE_PLUS_LENGTH_SIZE];
+            ByteBuffer wrapped = ByteBuffer.wrap(header);
+            wrapped.putInt(WireCommandType.EVENT.getCode());
+            wrapped.putInt(event.remaining());
+            wrapped.flip();
+            toWrite[2 * i] = wrapped;
+            toWrite[2 * i + 1] = event;
+        }
+        ByteBuf master = Unpooled.wrappedBuffer(toWrite);
+        ArrayList<ByteBuf> result = new ArrayList<>();
+        while (master.isReadable()) {
+            int toRead = Math.min(master.readableBytes(), WRITE_SIZE);
+            result.add(master.readSlice(toRead));
+        }
+        return result;
+    }
+
     /// Write an event without routing key.
     ///
     /// A random routing key will be generated in this case.
@@ -124,13 +151,23 @@ impl EventWriter {
         let (tx, rx) = oneshot::channel();
         let (tx_flush, rx_flush) = oneshot::channel();
         let routing_info = RoutingInfo::RoutingKey(None);
-        if let Some(pending_event) =
-            PendingEvent::with_header_flush(routing_info, event, None, tx, Some(tx_flush))
-        {
-            let append_event = Incoming::AppendEvent(pending_event);
-            self.writer_event_internal(append_event, size, rx, rx_flush).await
-        } else {
+        if (size > MAX_EVENT_SIZE) {
+            // create transient segment
+            // buffer writes in transient segment
+            // batch remaining writes to main segments
+
+            write_large_event(event)
+
             rx
+        } else {
+            if let Some(pending_event) =
+            PendingEvent::with_header_flush(routing_info, event, None, tx, Some(tx_flush))
+            {
+                let append_event = Incoming::AppendEvent(pending_event);
+                self.writer_event_internal(append_event, size, rx, rx_flush).await
+            } else {
+                rx
+            }
         }
     }
 
