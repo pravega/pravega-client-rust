@@ -17,14 +17,8 @@ pub mod util;
 use neon::prelude::*;
 use stream_manager::{StreamManager, StreamRetentionPolicy, StreamScalingPolicy};
 
-fn hello(mut cx: FunctionContext) -> JsResult<JsNumber> {
-    let result = 42;
-    Ok(cx.number(result))
-}
-
 #[neon::main]
 fn main(mut cx: ModuleContext) -> NeonResult<()> {
-    cx.export_function("hello", hello)?;
     cx.export_function("StreamManagerNew", StreamManager::js_new)?;
     cx.export_function("StreamManagerCreateScope", StreamManager::js_create_scope)?;
     cx.export_function("StreamManagerDeleteScope", StreamManager::js_delete_scope)?;
