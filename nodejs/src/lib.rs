@@ -26,11 +26,26 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
     cx.export_function("StreamRetentionPolicyNone", StreamRetentionPolicy::js_none)?;
     cx.export_function("StreamRetentionPolicyBySize", StreamRetentionPolicy::js_by_size)?;
     cx.export_function("StreamRetentionPolicyByTime", StreamRetentionPolicy::js_by_time)?;
-    cx.export_function("StreamScalingPolicyFixed", StreamScalingPolicy::js_fixed_scaling_policy)?;
-    cx.export_function("StreamScalingPolicyByDataRate", StreamScalingPolicy::js_auto_scaling_policy_by_data_rate)?;
-    cx.export_function("StreamScalingPolicyByEventRate", StreamScalingPolicy::js_auto_scaling_policy_by_event_rate)?;
-    cx.export_function("StreamManagerCreateStreamWithPolicy", StreamManager::js_create_stream_with_policy)?;
-    cx.export_function("StreamManagerUpdateStreamWithPolicy", StreamManager::js_update_stream_with_policy)?;
+    cx.export_function(
+        "StreamScalingPolicyFixed",
+        StreamScalingPolicy::js_fixed_scaling_policy,
+    )?;
+    cx.export_function(
+        "StreamScalingPolicyByDataRate",
+        StreamScalingPolicy::js_auto_scaling_policy_by_data_rate,
+    )?;
+    cx.export_function(
+        "StreamScalingPolicyByEventRate",
+        StreamScalingPolicy::js_auto_scaling_policy_by_event_rate,
+    )?;
+    cx.export_function(
+        "StreamManagerCreateStreamWithPolicy",
+        StreamManager::js_create_stream_with_policy,
+    )?;
+    cx.export_function(
+        "StreamManagerUpdateStreamWithPolicy",
+        StreamManager::js_update_stream_with_policy,
+    )?;
     cx.export_function("StreamManagerGetStreamTags", StreamManager::js_get_stream_tags)?;
     cx.export_function("StreamManagerSealStream", StreamManager::js_seal_stream)?;
     cx.export_function("StreamManagerDeleteStream", StreamManager::js_delete_stream)?;
