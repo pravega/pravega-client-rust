@@ -30,6 +30,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex;
 use uuid::Uuid;
+use snafu::{Backtrace, GenerateBacktrace};
 
 type TableSegmentIndex = HashMap<String, HashMap<TableKey, TableValue>>;
 type TableSegment = HashMap<String, Vec<(TableKey, TableValue)>>;
@@ -197,9 +198,17 @@ pub struct MockWritingConnection {
 impl ConnectionReadHalf for MockReadingConnection {
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError> {
         if self.index == self.buffer.len() {
-            let reply: Replies = self.receiver.recv().await.expect("read");
-            self.buffer = reply.write_fields().expect("serialize reply");
-            self.index = 0;
+            if let Some(reply) = self.receiver.recv().await {
+                self.buffer = reply.write_fields().expect("serialize reply");
+                self.index = 0;
+            } else {
+                return Err(ConnectionError::ReadData {
+                        endpoint: PravegaNodeUri("mock".into()),
+                        source: std::io::Error::from(std::io::ErrorKind::NotConnected),
+                        backtrace: Backtrace::generate(),
+                      }
+                )
+            }
         }
         buf.copy_from_slice(&self.buffer[self.index..self.index + buf.len()]);
         self.index += buf.len();
