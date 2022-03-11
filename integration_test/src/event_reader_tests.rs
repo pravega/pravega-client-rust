@@ -172,9 +172,10 @@ fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactoryAsyn
                     reader1.release_segment(slice).await.expect("release segment");
                 }
             }
-        }).await
+        })
+        .await
     });
-    let handle2 = h.spawn( async move {
+    let handle2 = h.spawn(async move {
         tokio::time::timeout(timeout, async move {
             while read_count2.load(Ordering::SeqCst) < NUM_EVENTS {
                 if let Some(mut slice) = reader2
@@ -195,10 +196,15 @@ fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactoryAsyn
                     reader2.release_segment(slice).await.expect("release segment");
                 }
             }
-        }).await
+        })
+        .await
     });
-    h.block_on(handle1).expect("wait for reader1").expect("Reader1 failed");
-    h.block_on(handle2).expect("wait for reader2").expect("Reader2 failed");
+    h.block_on(handle1)
+        .expect("wait for reader1")
+        .expect("Reader1 failed");
+    h.block_on(handle2)
+        .expect("wait for reader2")
+        .expect("Reader2 failed");
     assert_eq!(read_count.load(Ordering::SeqCst), NUM_EVENTS);
 }
 

@@ -22,6 +22,7 @@ use crate::wire_commands::{Decode, Encode, Replies, Requests};
 use async_trait::async_trait;
 use pravega_client_config::connection_type::MockType;
 use pravega_client_shared::{PravegaNodeUri, ScopedSegment, SegmentInfo};
+use snafu::{Backtrace, GenerateBacktrace};
 use std::cmp;
 use std::collections::HashMap;
 use std::fmt;
@@ -30,7 +31,6 @@ use std::sync::Arc;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex;
 use uuid::Uuid;
-use snafu::{Backtrace, GenerateBacktrace};
 
 type TableSegmentIndex = HashMap<String, HashMap<TableKey, TableValue>>;
 type TableSegment = HashMap<String, Vec<(TableKey, TableValue)>>;
@@ -203,11 +203,10 @@ impl ConnectionReadHalf for MockReadingConnection {
                 self.index = 0;
             } else {
                 return Err(ConnectionError::ReadData {
-                        endpoint: PravegaNodeUri("mock".into()),
-                        source: std::io::Error::from(std::io::ErrorKind::NotConnected),
-                        backtrace: Backtrace::generate(),
-                      }
-                )
+                    endpoint: PravegaNodeUri("mock".into()),
+                    source: std::io::Error::from(std::io::ErrorKind::NotConnected),
+                    backtrace: Backtrace::generate(),
+                });
             }
         }
         buf.copy_from_slice(&self.buffer[self.index..self.index + buf.len()]);
