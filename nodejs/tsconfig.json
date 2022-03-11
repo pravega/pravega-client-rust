@@ -1,10 +1,10 @@
 {
     "compilerOptions": {
         "sourceMap": true,
-        "target": "es6",
+        "target": "esnext",
         "module": "esnext",
         "esModuleInterop": true,
-        "moduleResolution": "nodenext",
+        "moduleResolution": "node",
         "rootDir": "./"
     }
 }

@@ -15,10 +15,10 @@ use neon::prelude::*;
 
 pub fn js_log<'a, C: Context<'a>>(cx: &mut C, s: String) -> NeonResult<()> {
     let global = cx.global();
-    let console = global.get(cx, "console")?.downcast_or_throw::<JsObject, _>(cx)?;
-    let log = console.get(cx, "log")?.downcast_or_throw::<JsFunction, _>(cx)?;
+    let console = global.get::<JsObject, _, _>(cx, "console")?;
+    let log = console.get::<JsFunction, _, _>(cx, "log")?;
 
-    log.call_with(cx).arg(cx.string(s)).apply::<JsUndefined, C>(cx)?;
+    log.call_with(cx).arg(cx.string(s)).exec(cx)?;
 
     Ok(())
 }

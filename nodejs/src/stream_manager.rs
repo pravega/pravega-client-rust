@@ -11,8 +11,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::stream_reader_group::{StreamCut, StreamReaderGroup};
 use neon::prelude::*;
 use pravega_client::client_factory::ClientFactory;
+use pravega_client::event::reader_group::{ReaderGroupConfigBuilder, StreamCutVersioned};
 use pravega_client_config::{ClientConfig, ClientConfigBuilder};
 use pravega_client_retry::retry_result::RetryError;
 use pravega_client_shared::*;
@@ -358,6 +360,37 @@ impl StreamManager {
                 .await
         })
     }
+
+    ///
+    /// Create a ReaderGroup for a given Stream.
+    ///
+    fn create_reader_group(
+        &self,
+        reader_group_name: &str,
+        scope_name: &str,
+        streams: Vec<String>,
+        stream_cut: &StreamCutVersioned,
+    ) -> StreamReaderGroup {
+        let mut rg_config_builder = ReaderGroupConfigBuilder::default();
+
+        let scope = Scope::from(scope_name.to_string());
+        for stream in streams {
+            let scoped_stream = ScopedStream {
+                scope: scope.clone(),
+                stream: Stream::from(stream.to_string()),
+            };
+            rg_config_builder.read_from_stream(scoped_stream, stream_cut.clone());
+        }
+        let rg_config = rg_config_builder.build();
+
+        let handle = self.cf.runtime_handle();
+        let rg = handle.block_on(self.cf.create_reader_group_with_config(
+            reader_group_name.to_string(),
+            rg_config,
+            scope,
+        ));
+        StreamReaderGroup::new(rg, self.cf.runtime_handle())
+    }
 }
 
 ///
@@ -562,6 +595,31 @@ impl StreamManager {
             array.set(&mut cx, pos as u32, stream_name)?;
         }
         Ok(array)
+    }
+
+    pub fn js_create_reader_group(mut cx: FunctionContext) -> JsResult<JsBox<StreamReaderGroup>> {
+        let stream_manager = cx.this().downcast_or_throw::<JsBox<StreamManager>, _>(&mut cx)?;
+        let reader_group_name = cx.argument::<JsString>(0)?.value(&mut cx);
+        let scope_name = cx.argument::<JsString>(1)?.value(&mut cx);
+        let streams = cx
+            .argument::<JsArray>(2)?
+            .to_vec(&mut cx)?
+            .into_iter()
+            .map(|v| {
+                v.downcast_or_throw::<JsString, _>(&mut cx)
+                    .map(|v| v.value(&mut cx))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let stream_cut = cx.argument::<JsBox<StreamCut>>(3)?;
+
+        let stream_reader_group = stream_manager.create_reader_group(
+            &reader_group_name.to_string(),
+            &scope_name.to_string(),
+            streams,
+            &stream_cut.stream_cut,
+        );
+
+        Ok(cx.boxed(stream_reader_group))
     }
 
     pub fn js_to_str(mut cx: FunctionContext) -> JsResult<JsString> {

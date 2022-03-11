@@ -11,6 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { StreamCut, StreamReaderGroup } from './stream_reader_group.js';
+
 // Native modules are not currently supported with ES module imports.
 // https://nodejs.org/api/esm.html#esm_no_native_module_loading
 import { createRequire } from 'module';
@@ -33,6 +35,7 @@ const {
     StreamManagerSealStream,
     StreamManagerDeleteStream,
     StreamManagerListStreams,
+    StreamManagerCreateReaderGroup,
     StreamManagerToString,
 } = require('./index.node');
 
@@ -79,7 +82,7 @@ export const StreamManager = (
     tls_enabled: boolean = false,
     disable_cert_verification: boolean = true
 ) => {
-    const StreamManger = StreamManagerNew(controller_uri, auth_enabled, tls_enabled, disable_cert_verification);
+    const stream_manager = StreamManagerNew(controller_uri, auth_enabled, tls_enabled, disable_cert_verification);
 
     /**
      * Create a Pravega scope.
@@ -87,7 +90,7 @@ export const StreamManager = (
      * @param scope_name The scope name.
      * @returns The scope creation result. `false` indicates that the scope exists before creation.
      */
-    const create_scope = (scope_name: string): boolean => StreamManagerCreateScope.call(StreamManger, scope_name);
+    const create_scope = (scope_name: string): boolean => StreamManagerCreateScope.call(stream_manager, scope_name);
 
     /**
      * Delete a Pravega scope.
@@ -95,14 +98,14 @@ export const StreamManager = (
      * @param scope_name The scope name.
      * @returns The scope deletion result. `false` indicates that the scope does not exist before deletion.
      */
-    const delete_scope = (scope_name: string): boolean => StreamManagerDeleteScope.call(StreamManger, scope_name);
+    const delete_scope = (scope_name: string): boolean => StreamManagerDeleteScope.call(stream_manager, scope_name);
 
     /**
      * List all scopes in Pravega.
      *
      * @returns All scope names.
      */
-    const list_scopes = (): string[] => StreamManagerListScopes.call(StreamManger);
+    const list_scopes = (): string[] => StreamManagerListScopes.call(stream_manager);
 
     /**
      * Create a stream with or without specific policy in Pravega.
@@ -122,7 +125,7 @@ export const StreamManager = (
         tags: string[] = []
     ): boolean =>
         StreamManagerCreateStreamWithPolicy.call(
-            StreamManger,
+            stream_manager,
             scope_name,
             stream_name,
             scaling_policy,
@@ -148,7 +151,7 @@ export const StreamManager = (
         tags: string[] = []
     ): boolean =>
         StreamManagerUpdateStreamWithPolicy.call(
-            StreamManger,
+            stream_manager,
             scope_name,
             stream_name,
             scaling_policy,
@@ -164,7 +167,7 @@ export const StreamManager = (
      * @returns The stream tags.
      */
     const get_stream_tags = (scope_name: string, stream_name: string): string[] =>
-        StreamManagerGetStreamTags.call(StreamManger, scope_name, stream_name);
+        StreamManagerGetStreamTags.call(stream_manager, scope_name, stream_name);
 
     /**
      * Seal a Pravega stream. SEAL BEFORE DELETE!
@@ -174,7 +177,7 @@ export const StreamManager = (
      * @returns The seal result.
      */
     const seal_stream = (scope_name: string, stream_name: string): boolean =>
-        StreamManagerSealStream.call(StreamManger, scope_name, stream_name);
+        StreamManagerSealStream.call(stream_manager, scope_name, stream_name);
 
     /**
      * Deleta a Pravega stream. SEAL BEFORE DELETE!
@@ -184,7 +187,7 @@ export const StreamManager = (
      * @returns The deletion result.
      */
     const delete_stream = (scope_name: string, stream_name: string): boolean =>
-        StreamManagerDeleteStream.call(StreamManger, scope_name, stream_name);
+        StreamManagerDeleteStream.call(stream_manager, scope_name, stream_name);
 
     /**
      * List all scopes in Pravega.
@@ -192,14 +195,31 @@ export const StreamManager = (
      * @param scope_name The scope name.
      * @returns All stream names in this scope.
      */
-    const list_streams = (scope_name: string): string[] => StreamManagerListStreams.call(StreamManger, scope_name);
+    const list_streams = (scope_name: string): string[] => StreamManagerListStreams.call(stream_manager, scope_name);
+
+    /**
+     * Create a ReaderGroup for a given Stream.
+     *
+     * @param scope_name The scope name.
+     * @returns All stream names in this scope.
+     * @todo An optional element cannot follow a rest element. `...args: [...stream: string[], stream_cut?: StreamCut]`
+     */
+    const create_reader_group = (
+        stream_cut: StreamCut,
+        reader_group_name: string,
+        scope_name: string,
+        ...streams: string[]
+    ): StreamReaderGroup =>
+        StreamReaderGroup(
+            StreamManagerCreateReaderGroup.call(stream_manager, reader_group_name, scope_name, streams, stream_cut)
+        );
 
     /**
      * A detailed view of a StreamManager.
      *
      * @returns String representation of the StreamManager.
      */
-    const toString = (): string => StreamManagerToString.call(StreamManger);
+    const toString = (): string => StreamManagerToString.call(stream_manager);
 
     return {
         create_scope,
@@ -211,6 +231,7 @@ export const StreamManager = (
         seal_stream,
         delete_stream,
         list_streams,
+        create_reader_group,
         toString,
     };
 };
