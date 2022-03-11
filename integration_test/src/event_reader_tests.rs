@@ -150,51 +150,56 @@ fn test_multi_reader_multi_segments_tail_read(client_factory: &ClientFactoryAsyn
     let read_count = Arc::new(AtomicUsize::new(0));
     let read_count1 = read_count.clone();
     let read_count2 = read_count.clone();
+    let timeout = Duration::from_secs(60);
     let handle1 = h.spawn(async move {
-        while read_count1.load(Ordering::Relaxed) < NUM_EVENTS {
-            if let Some(mut slice) = reader1
-                .acquire_segment()
-                .await
-                .expect("Failed to acquire segment since the reader is offline")
-            {
-                info!("acquire segment for reader r1, {:?}", slice);
-                for event in &mut slice {
-                    assert_eq!(
-                        vec![1; EVENT_SIZE],
-                        event.value.as_slice(),
-                        "Corrupted event read"
-                    );
-                    let prev = read_count1.fetch_add(1, Ordering::SeqCst);
-                    info!("read count {}", prev + 1);
+        tokio::time::timeout(timeout, async move {
+            while read_count1.load(Ordering::SeqCst) < NUM_EVENTS {
+                if let Some(mut slice) = reader1
+                    .acquire_segment()
+                    .await
+                    .expect("Failed to acquire segment since the reader is offline")
+                {
+                    info!("acquire segment for reader r1, {:?}", slice);
+                    for event in &mut slice {
+                        assert_eq!(
+                            vec![1; EVENT_SIZE],
+                            event.value.as_slice(),
+                            "Corrupted event read"
+                        );
+                        let prev = read_count1.fetch_add(1, Ordering::SeqCst);
+                        info!("read count {}", prev + 1);
+                    }
+                    reader1.release_segment(slice).await.expect("release segment");
                 }
-                reader1.release_segment(slice).await.expect("release segment");
             }
-        }
+        }).await
     });
-    let handle2 = h.spawn(async move {
-        while read_count2.load(Ordering::Relaxed) < NUM_EVENTS {
-            if let Some(mut slice) = reader2
-                .acquire_segment()
-                .await
-                .expect("Failed to acquire segment since the reader is offline")
-            {
-                info!("acquire segment for reader r2 {:?}", slice);
-                for event in &mut slice {
-                    assert_eq!(
-                        vec![1; EVENT_SIZE],
-                        event.value.as_slice(),
-                        "Corrupted event read"
-                    );
-                    let prev = read_count2.fetch_add(1, Ordering::SeqCst);
-                    info!("read count {}", prev + 1);
+    let handle2 = h.spawn( async move {
+        tokio::time::timeout(timeout, async move {
+            while read_count2.load(Ordering::SeqCst) < NUM_EVENTS {
+                if let Some(mut slice) = reader2
+                    .acquire_segment()
+                    .await
+                    .expect("Failed to acquire segment since the reader is offline")
+                {
+                    info!("acquire segment for reader r2 {:?}", slice);
+                    for event in &mut slice {
+                        assert_eq!(
+                            vec![1; EVENT_SIZE],
+                            event.value.as_slice(),
+                            "Corrupted event read"
+                        );
+                        let prev = read_count2.fetch_add(1, Ordering::SeqCst);
+                        info!("read count {}", prev + 1);
+                    }
+                    reader2.release_segment(slice).await.expect("release segment");
                 }
-                reader2.release_segment(slice).await.expect("release segment");
             }
-        }
+        }).await
     });
-    h.block_on(handle1).expect("wait for reader1");
-    h.block_on(handle2).expect("wait for reader2");
-    assert_eq!(read_count.load(Ordering::Relaxed), NUM_EVENTS);
+    h.block_on(handle1).expect("wait for reader1").expect("Reader1 failed");
+    h.block_on(handle2).expect("wait for reader2").expect("Reader2 failed");
+    assert_eq!(read_count.load(Ordering::SeqCst), NUM_EVENTS);
 }
 
 async fn test_release_segment(client_factory: &ClientFactoryAsync) {
