@@ -38,12 +38,14 @@ interface Event {
      * @returns ArrayBuffer that contains raw data.
      */
     data: () => ArrayBuffer;
+
     /**
      * Return the event offset in the segment.
      * 
      * @returns offset
      */
     offset: () => number;
+
     toString: () => string;
 }
 
@@ -105,15 +107,18 @@ export interface StreamReader {
      * @returns Slice in Promise.
      */
     get_segment_slice: () => Promise<Slice>;
+
     /**
      * Mark the reader as offline.
      * This will ensure the segments owned by this reader is distributed to other readers in the ReaderGroup.
      */
     reader_offline: () => void;
+
     /**
      * Release a partially read segment slice back to event reader.
      */
     release_segment: (slice: Slice) => void;
+
     toString: () => string;
 }
 

@@ -200,8 +200,11 @@ export const StreamManager = (
     /**
      * Create a ReaderGroup for a given Stream.
      *
+     * @param stream_cut The offset you would like to read from.
+     * @param reader_group_name The reader group name.
      * @param scope_name The scope name.
-     * @returns All stream names in this scope.
+     * @param streams All stream names in this scope.
+     * @returns A StreamReaderGroup.
      * @todo An optional element cannot follow a rest element. `...args: [...stream: string[], stream_cut?: StreamCut]`
      */
     const create_reader_group = (

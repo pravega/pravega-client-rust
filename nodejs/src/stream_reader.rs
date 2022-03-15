@@ -148,7 +148,7 @@ impl StreamReader {
         // Spawn an `async` task on the tokio runtime.
         let reader = Arc::clone(&stream_reader.reader);
         stream_reader.runtime_handle.spawn(async move {
-            // expensive async procrdure executed in the tokio thread
+            // expensive async procedure executed in the tokio thread
             let slice_result = reader.lock().await.acquire_segment().await;
 
             // notify and execute in the javascript main thread

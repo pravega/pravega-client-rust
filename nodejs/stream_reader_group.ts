@@ -54,6 +54,7 @@ export interface StreamReaderGroup {
      * @returns The StreamReader
      */
     create_reader: (reader_name: string) => StreamReader;
+
     /**
      * Invoked when a reader that was added to the group is no longer consuming events. This will
      * cause the events that were going to that reader to be redistributed among the other
@@ -63,6 +64,7 @@ export interface StreamReaderGroup {
      * @param reader_name The name of the reader that is offline.
      */
     reader_offline: (reader_name: string) => void;
+
     toString: () => string;
 }
 
