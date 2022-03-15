@@ -17,12 +17,14 @@ extern crate derive_new;
 pub mod stream_manager;
 pub mod stream_reader;
 pub mod stream_reader_group;
+pub mod stream_writer;
 pub mod util;
 
 use neon::prelude::*;
 use stream_manager::{StreamManager, StreamRetentionPolicy, StreamScalingPolicy};
 use stream_reader::{EventData, Slice, StreamReader};
 use stream_reader_group::{StreamCut, StreamReaderGroup};
+use stream_writer::StreamWriter;
 
 #[neon::main]
 fn main(mut cx: ModuleContext) -> NeonResult<()> {
@@ -83,6 +85,14 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
     cx.export_function("StreamReaderReaderOffline", StreamReader::js_reader_offline)?;
     cx.export_function("StreamReaderReleaseSegment", StreamReader::js_release_segment)?;
     cx.export_function("StreamReaderToString", StreamReader::js_to_str)?;
+
+    cx.export_function(
+        "StreamManagerCreateWriter",
+        StreamManager::js_create_writer,
+    )?;
+    cx.export_function("StreamWriterWriteEventBytes", StreamWriter::js_write_event_bytes)?;
+    cx.export_function("StreamWriterFlush", StreamWriter::js_flush)?;
+    cx.export_function("StreamWriterToString", StreamWriter::js_to_str)?;
 
     Ok(())
 }
