@@ -83,7 +83,7 @@ impl StreamWriter {
         let channel = cx.channel();
         let (deferred, promise) = cx.promise();
 
-        // Spawn an `async` task on the tokio runtime.
+        // spawn an `async` task on the tokio runtime.
         let writer = Arc::clone(&stream_writer.writer);
         let inflight = Arc::clone(&stream_writer.inflight);
         stream_writer.runtime_handle.spawn(async move {
@@ -99,7 +99,6 @@ impl StreamWriter {
                 None => writer.lock().await.write_event(event.to_vec()).await,
             };
 
-            // let _guard = stream_writer.runtime_handle.enter();
             let result = timeout(
                 Duration::from_secs(TIMEOUT_IN_SECONDS),
                 inflight.lock().await.add(write_future),
@@ -129,7 +128,7 @@ impl StreamWriter {
         let channel = cx.channel();
         let (deferred, promise) = cx.promise();
 
-        // Spawn an `async` task on the tokio runtime.
+        // spawn an `async` task on the tokio runtime.
         let inflight = Arc::clone(&stream_writer.inflight);
         stream_writer.runtime_handle.spawn(async move {
             // expensive async procedure executed in the tokio thread
