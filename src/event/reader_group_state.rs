@@ -349,8 +349,17 @@ impl ReaderGroupState {
     }
 
     /// Compute the number of segments to acquire.
-    pub async fn compute_segments_to_acquire_or_release(&mut self, reader: &Reader) -> isize {
-        self.sync.fetch_updates().await.expect("should fetch updates");
+    pub async fn compute_segments_to_acquire_or_release(&mut self, reader: &Reader) -> Result<isize, ReaderGroupStateError> {
+        match self.sync.fetch_updates().await {
+            Ok(update_count) => debug!("Number of updates read is {:?}", update_count),
+            Err(TableError::TableDoesNotExist { .. }) => return Err(ReaderGroupStateError::ReaderAlreadyOfflineError {
+                error_msg: String::from("the ReaderGroup is deleted"),
+                source: SynchronizerError::SyncPreconditionError {
+                    error_msg: String::from("Precondition failure"),
+                },
+            }),
+            _ => panic!("Fetch updates failed after all retries"),
+        }
         let assigned_segment_map = self.sync.get_inner_map(ASSIGNED);
         let num_of_readers = assigned_segment_map.len();
         let mut num_assigned_segments = 0;
@@ -377,7 +386,7 @@ impl ReaderGroupState {
         });
         let expected: isize = expected_segment_count_per_reader.try_into().unwrap();
         let current: isize = current_segment_count.unwrap_or_default().try_into().unwrap();
-        expected - current
+        Ok(expected - current)
     }
 
     /// Return the list of all segments.
