@@ -275,10 +275,7 @@ impl EventReader {
         if self.meta.reader_offline {
             return Err(EventReaderError::StateError {
                 source: ReaderGroupStateError::ReaderAlreadyOfflineError {
-                    error_msg: format!(
-                        "Reader already marked offline {:?}",
-                        self.id
-                    ),
+                    error_msg: format!("Reader already marked offline {:?}", self.id),
                     source: SynchronizerError::SyncPreconditionError {
                         error_msg: String::from("Precondition failure"),
                     },
@@ -340,10 +337,7 @@ impl EventReader {
         if self.meta.reader_offline {
             return Err(EventReaderError::StateError {
                 source: ReaderGroupStateError::ReaderAlreadyOfflineError {
-                    error_msg: format!(
-                        "Reader already marked offline {:?} or the ReaderGroup is deleted",
-                        self.id
-                    ),
+                    error_msg: format!("Reader already marked offline {:?}", self.id),
                     source: SynchronizerError::SyncPreconditionError {
                         error_msg: String::from("Precondition failure"),
                     },
@@ -442,10 +436,7 @@ impl EventReader {
         if self.meta.reader_offline {
             return Err(EventReaderError::StateError {
                 source: ReaderGroupStateError::ReaderAlreadyOfflineError {
-                    error_msg: format!(
-                        "Reader already marked offline {:?}",
-                        self.id
-                    ),
+                    error_msg: format!("Reader already marked offline {:?}", self.id),
                     source: SynchronizerError::SyncPreconditionError {
                         error_msg: String::from("Precondition failure"),
                     },
@@ -458,9 +449,7 @@ impl EventReader {
             .await
             .compute_segments_to_acquire_or_release(&self.id)
             .await
-            .map_err(|err| {
-                EventReaderError::StateError { source: err }
-            })?;
+            .map_err(|err| EventReaderError::StateError { source: err })?;
         let segment = ScopedSegment::from(slice.meta.scoped_segment.as_str());
         // check if segments needs to be released from the reader
         if new_segments_to_release < 0 {
