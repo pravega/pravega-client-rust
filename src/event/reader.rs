@@ -367,9 +367,9 @@ impl EventReader {
                 rx_drop_fetch,
                 self.factory.clone(),
             ));
-        self.meta.add_stop_reading_tx(segment.clone(), tx_drop_fetch);
+            self.meta.add_stop_reading_tx(segment.clone(), tx_drop_fetch);
             self.meta.add_slices(slice_meta);
-            self.meta.slices_dished_out.remove(&segment);    
+            self.meta.slices_dished_out.remove(&segment);
         } else {
             self.release_segment(slice).await?;
         }
