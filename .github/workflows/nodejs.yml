@@ -2,6 +2,9 @@ name: packaging and publish to nodejs
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - master
 
 jobs:
   nodejs-github:
@@ -41,7 +44,7 @@ jobs:
           target: ${{ matrix.system.target }}
           override: true
       - name: Install modules
-        run: npm i
+        run: cd nodejs && npm i
       - name: Build
         id: build
         # Use bash, even on Windows.
@@ -50,10 +53,7 @@ jobs:
           PRE_GYP_PLATFORM: ${{ matrix.system.pre_gyp_platform }}
           PRE_GYP_ARCH: ${{ matrix.system.pre_gyp_arch }}
           CARGO_BUILD_TARGET: ${{ matrix.system.target }}
-        run: |
-          node publish.js
-          cd bin-package
-          echo "::set-output name=asset::$(echo *.tar.gz)"
+        run: npm run release
       - name: Upload release asset
         run: gh release upload ${{ github.event.release.tag_name }} bin-package/${{ steps.build.outputs.asset }} --clobber
         env:
