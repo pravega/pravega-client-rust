@@ -19,23 +19,10 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
 const {
-    StreamRetentionStreamCutHead,
-    StreamRetentionStreamCutTail,
     StreamReaderGroupCreateReader,
     StreamReaderGroupReaderOffline,
     StreamReaderGroupToString,
-} = require('./index.node');
-
-/**
- * Represent a consistent position in the stream.
- * Only `head` and `tail` are supported now.
- */
-export interface StreamCut {}
-
-export const StreamCut = {
-    head: (): StreamCut => StreamRetentionStreamCutHead(),
-    tail: (): StreamCut => StreamRetentionStreamCutTail(),
-};
+} = require('./pravega.node');
 
 /**
  * A reader group is a collection of readers that collectively read all the events in the

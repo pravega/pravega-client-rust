@@ -28,7 +28,7 @@ html/
 python_binding/.tox/
 
 # These are temp files of Nodejs bindings
-nodejs/target
+nodejs/dist
 nodejs/index.node
 **/node_modules
 **/.DS_Store

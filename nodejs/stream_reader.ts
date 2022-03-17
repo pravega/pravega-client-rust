@@ -25,7 +25,7 @@ const {
     StreamReaderReaderOffline,
     StreamReaderReleaseSegment,
     StreamReaderToString,
-} = require('./index.node');
+} = require('./pravega.node');
 
 /**
  * This represents an event that was read from a Pravega Segment and the offset at which the event

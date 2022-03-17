@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { StreamCut, StreamReaderGroup } from './stream_reader_group.js';
+import { StreamReaderGroup } from './stream_reader_group.js';
 import { StreamWriter } from './stream_writer.js';
 
 // Native modules are not currently supported with ES module imports.
@@ -36,10 +36,12 @@ const {
     StreamManagerSealStream,
     StreamManagerDeleteStream,
     StreamManagerListStreams,
+    StreamRetentionStreamCutHead,
+    StreamRetentionStreamCutTail,
     StreamManagerCreateReaderGroup,
     StreamManagerCreateWriter,
     StreamManagerToString,
-} = require('./index.node');
+} = require('./pravega.node');
 
 export interface StreamRetentionPolicy {}
 
@@ -63,6 +65,17 @@ export const StreamScalingPolicy = {
         scale_factor: number,
         initial_segments: number
     ): StreamScalingPolicy => StreamScalingPolicyByEventRate(target_events_per_sec, scale_factor, initial_segments),
+};
+
+/**
+ * Represent a consistent position in the stream.
+ * Only `head` and `tail` are supported now.
+ */
+export interface StreamCut {}
+
+export const StreamCut = {
+    head: (): StreamCut => StreamRetentionStreamCutHead(),
+    tail: (): StreamCut => StreamRetentionStreamCutTail(),
 };
 
 /**
@@ -221,11 +234,11 @@ export const StreamManager = (
 
     /**
      * Create a Writer for a given Stream.
-     * 
+     *
      * By default the max inflight events is configured for 0. The users can change this value
      * to ensure there are multiple inflight events at any given point in time and can use the
      * `flush()` API on the writer to wait until all the events are persisted.
-     * 
+     *
      * @param scope_name The scope name.
      * @param stream_name The stream name.
      * @param max_inflight_events How many event writes that are not persisted on the Pravega Stream

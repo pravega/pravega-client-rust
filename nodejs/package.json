@@ -1,13 +1,13 @@
 {
-  "name": "pravega_client",
+  "name": "pravega",
   "version": "0.3.0",
   "description": "Pravega client",
-  "main": "index.node",
+  "main": "dist/stream_manager.js",
   "scripts": {
-    "build": "cargo-cp-artifact -nc index.node -- cargo build --message-format=json-render-diagnostics",
+    "build": "cargo-cp-artifact -ac pravega_nodejs ./pravega.node -- cargo build --message-format=json-render-diagnostics",
     "build-debug": "npm run build --",
     "build-release": "npm run build -- --release",
-    "install": "npm run build-release",
+    "release": "npm run build-release && npx tsc && mv ./pravega.node ./dist/pravega.node",
     "test": "node --loader ts-node/esm --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand"
   },
   "author": "Pravega Community",
@@ -27,7 +27,9 @@
     "url": "git+https://github.com/pravega/pravega-client-rust.git"
   },
   "keywords": [
-    "streaming"
+    "streaming",
+    "client",
+    "pravega"
   ],
   "bugs": {
     "url": "https://github.com/pravega/pravega-client-rust/issues"

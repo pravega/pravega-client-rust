@@ -5,6 +5,13 @@
         "module": "esnext",
         "esModuleInterop": true,
         "moduleResolution": "node",
-        "rootDir": "./"
-    }
+        "rootDir": "./",
+        "declaration": true,
+        "outDir": "./dist"
+    },
+    "exclude": [
+        "node_modules",
+        "dist",
+        "**/tests/*.test.ts",
+    ]
 }

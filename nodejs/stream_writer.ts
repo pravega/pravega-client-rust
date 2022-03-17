@@ -16,7 +16,7 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
-const { StreamWriterWriteEventBytes, StreamWriterFlush, StreamWriterToString } = require('./index.node');
+const { StreamWriterWriteEventBytes, StreamWriterFlush, StreamWriterToString } = require('./pravega.node');
 
 /**
  * A writer for a stream.
