@@ -100,38 +100,8 @@ impl Table {
             .create_delegation_token_provider(ScopedStream::from(&segment))
             .await;
         let op = "Delete table segment";
-        retry_async(factory.config().retry_policy, || async {
-            let req = Requests::DeleteTableSegment(DeleteTableSegmentCommand {
-                request_id: get_request_id(),
-                segment: segment.to_string(),
-                must_be_empty: false,
-                delegation_token: delegation_token_provider
-                    .retrieve_token(factory.controller_client())
-                    .await,
-            });
-
-            let endpoint = factory
-                .controller_client()
-                .get_endpoint_for_segment(&segment)
-                .await
-                .expect("get endpoint for segment");
-            debug!("endpoint is {}", endpoint.to_string());
-
-            let result = factory
-                .create_raw_client_for_endpoint(endpoint.clone())
-                .send_request(&req)
-                .await;
-            match result {
-                Ok(reply) => RetryResult::Success(reply),
-                Err(e) => {
-                    if e.is_token_expired() {
-                        delegation_token_provider.signal_token_expiry();
-                        debug!("auth token needs to refresh");
-                    }
-                    debug!("retry on error {:?}", e);
-                    RetryResult::Retry(e)
-                }
-            }
+        retry_async(factory.config().retry_policy, || {
+            delete_table_segment(&factory, &segment, &delegation_token_provider)
         })
         .await
         .map_err(|e| TableError::ConnectionError {
@@ -952,6 +922,44 @@ impl Table {
                 }),
             }
         })
+    }
+}
+
+async fn delete_table_segment(
+    factory: &ClientFactoryAsync,
+    segment: &ScopedSegment,
+    delegation_token_provider: &DelegationTokenProvider,
+) -> RetryResult<Replies, RawClientError> {
+    let req = Requests::DeleteTableSegment(DeleteTableSegmentCommand {
+        request_id: get_request_id(),
+        segment: segment.to_string(),
+        must_be_empty: false,
+        delegation_token: delegation_token_provider
+            .retrieve_token(factory.controller_client())
+            .await,
+    });
+
+    let endpoint = factory
+        .controller_client()
+        .get_endpoint_for_segment(&segment)
+        .await
+        .expect("get endpoint for segment");
+    debug!("endpoint is {}", endpoint.to_string());
+
+    let result = factory
+        .create_raw_client_for_endpoint(endpoint.clone())
+        .send_request(&req)
+        .await;
+    match result {
+        Ok(reply) => RetryResult::Success(reply),
+        Err(e) => {
+            if e.is_token_expired() {
+                delegation_token_provider.signal_token_expiry();
+                debug!("auth token needs to refresh");
+            }
+            debug!("retry on error {:?}", e);
+            RetryResult::Retry(e)
+        }
     }
 }
 

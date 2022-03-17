@@ -349,15 +349,20 @@ impl ReaderGroupState {
     }
 
     /// Compute the number of segments to acquire.
-    pub async fn compute_segments_to_acquire_or_release(&mut self, reader: &Reader) -> Result<isize, ReaderGroupStateError> {
+    pub async fn compute_segments_to_acquire_or_release(
+        &mut self,
+        reader: &Reader,
+    ) -> Result<isize, ReaderGroupStateError> {
         match self.sync.fetch_updates().await {
             Ok(update_count) => debug!("Number of updates read is {:?}", update_count),
-            Err(TableError::TableDoesNotExist { .. }) => return Err(ReaderGroupStateError::ReaderAlreadyOfflineError {
-                error_msg: String::from("the ReaderGroup is deleted"),
-                source: SynchronizerError::SyncPreconditionError {
-                    error_msg: String::from("Precondition failure"),
-                },
-            }),
+            Err(TableError::TableDoesNotExist { .. }) => {
+                return Err(ReaderGroupStateError::ReaderAlreadyOfflineError {
+                    error_msg: String::from("the ReaderGroup is deleted"),
+                    source: SynchronizerError::SyncPreconditionError {
+                        error_msg: String::from("Precondition failure"),
+                    },
+                })
+            }
             _ => panic!("Fetch updates failed after all retries"),
         }
         let assigned_segment_map = self.sync.get_inner_map(ASSIGNED);
