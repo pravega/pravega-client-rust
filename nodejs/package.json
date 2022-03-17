@@ -8,10 +8,20 @@
     "build-debug": "npm run build --",
     "build-release": "npm run build -- --release",
     "release": "npm run build-release && npx tsc && mv ./pravega.node ./dist/pravega.node",
+    "install": "node-pre-gyp install",
     "test": "node --loader ts-node/esm --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand"
   },
   "author": "Pravega Community",
   "license": "Apache-2.0",
+  "os": [
+      "linux"
+  ],
+  "cpu": [
+      "x64"
+  ],
+  "dependencies": {
+      "@mapbox/node-pre-gyp": "^1.0.7"
+  },
   "devDependencies": {
     "@types/jest": "^27.4.1",
     "@types/node": "^17.0.21",
@@ -49,5 +59,12 @@
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.js$": "$1"
     }
+  },
+  "binary": {
+    "module_name": "pravega",
+    "module_path": "./dist",
+    "host": "https://github.com/thekingofcity/pravega-client-rust/releases/download/",
+    "package_name": "{module_name}-v{version}-{node_abi}-{platform}-{arch}-{libc}.tar.gz",
+    "remote_path": "{version}"
   }
 }
