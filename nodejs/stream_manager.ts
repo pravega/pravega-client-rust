@@ -11,13 +11,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { StreamReaderGroup } from './stream_reader_group.js';
-import { StreamWriter } from './stream_writer.js';
+// One line destructuring a CommonJs module is not possible. Break into two lines.
+import node_pre_gyp from '@mapbox/node-pre-gyp';
+const { find } = node_pre_gyp;
+import { resolve, join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 // Native modules are not currently supported with ES module imports.
 // https://nodejs.org/api/esm.html#esm_no_native_module_loading
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
+
+// __dirname is not defined in ES module scope, so get it manaully.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const {
     StreamManagerNew,
@@ -41,7 +48,11 @@ const {
     StreamManagerCreateReaderGroup,
     StreamManagerCreateWriter,
     StreamManagerToString,
-} = require('./pravega.node');
+    // the file will be run in ./dist, so popd.
+} = require(find(resolve(join(__dirname, process.env.dev ? '' : '..', './package.json'))));
+
+import { StreamReaderGroup } from './stream_reader_group.js';
+import { StreamWriter } from './stream_writer.js';
 
 export interface StreamRetentionPolicy {}
 
