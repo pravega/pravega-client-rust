@@ -98,7 +98,7 @@ pub struct TokioConnection {
 #[async_trait]
 impl Connection for TokioConnection {
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
-        assert!(!self.stream.is_none());
+        assert!(self.stream.is_some());
 
         let endpoint = self.endpoint.clone();
         self.stream
@@ -111,7 +111,7 @@ impl Connection for TokioConnection {
     }
 
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError> {
-        assert!(!self.stream.is_none());
+        assert!(self.stream.is_some());
 
         let endpoint = self.endpoint.clone();
         self.stream
@@ -124,7 +124,7 @@ impl Connection for TokioConnection {
     }
 
     fn split(&mut self) -> (Box<dyn ConnectionReadHalf>, Box<dyn ConnectionWriteHalf>) {
-        assert!(!self.stream.is_none());
+        assert!(self.stream.is_some());
 
         let (read_half, write_half) = tokio::io::split(self.stream.take().expect("take connection"));
         let read = Box::new(ConnectionReadHalfTokio {
@@ -178,7 +178,7 @@ pub struct TlsConnection {
 #[async_trait]
 impl Connection for TlsConnection {
     async fn send_async(&mut self, payload: &[u8]) -> Result<(), ConnectionError> {
-        assert!(!self.stream.is_none());
+        assert!(self.stream.is_some());
 
         let endpoint = self.endpoint.clone();
         self.stream
@@ -200,7 +200,7 @@ impl Connection for TlsConnection {
     }
 
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError> {
-        assert!(!self.stream.is_none());
+        assert!(self.stream.is_some());
 
         let endpoint = self.endpoint.clone();
         self.stream
@@ -213,7 +213,7 @@ impl Connection for TlsConnection {
     }
 
     fn split(&mut self) -> (Box<dyn ConnectionReadHalf>, Box<dyn ConnectionWriteHalf>) {
-        assert!(!self.stream.is_none());
+        assert!(self.stream.is_some());
 
         let (read_half, write_half) = tokio::io::split(self.stream.take().expect("take connection"));
         let read = Box::new(ConnectionReadHalfTls {

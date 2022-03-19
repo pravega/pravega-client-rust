@@ -162,7 +162,7 @@ impl ReaderGroupState {
         let res = self
             .sync
             .get_inner_map(ASSIGNED)
-            .get(&reader.to_string())
+            .get(&reader.name)
             .map(|v| (v.type_id != TOMBSTONE));
         res.unwrap_or(false)
     }
@@ -201,7 +201,7 @@ impl ReaderGroupState {
 
         Ok(deserialize_from(
             &assigned_segments
-                .get(&reader.to_string())
+                .get(&reader.name)
                 .expect("reader must exist")
                 .data,
         )
@@ -384,7 +384,7 @@ impl ReaderGroupState {
         } else {
             num_segments_per_reader + 1
         };
-        let current_segment_count = assigned_segment_map.get(&reader.to_string()).map(|v| {
+        let current_segment_count = assigned_segment_map.get(&reader.name).map(|v| {
             let seg: HashMap<ScopedSegment, Offset> =
                 deserialize_from(&v.data).expect("deserialize of assigned segments");
             seg.len()
@@ -702,7 +702,7 @@ impl ReaderGroupState {
         assigned: &HashMap<String, Value>,
         reader: &Reader,
     ) -> Result<(), SynchronizerError> {
-        if assigned.contains_key(&reader.to_string()) {
+        if assigned.contains_key(&reader.name) {
             Ok(())
         } else {
             Err(SynchronizerError::SyncPreconditionError {
