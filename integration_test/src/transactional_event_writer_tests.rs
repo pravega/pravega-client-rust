@@ -191,7 +191,7 @@ async fn test_multiple_transactions(factory: &ClientFactory, stream: ScopedStrea
     for mut transaction in transactions {
         let event = vec![1; 100];
         transaction.write_event(None, event).await.expect("write event");
-        let timestamp = Timestamp { 0: 0 };
+        let timestamp = Timestamp(0);
         transaction.commit(timestamp).await.expect("commit");
     }
 
@@ -208,7 +208,7 @@ async fn test_multiple_transactions(factory: &ClientFactory, stream: ScopedStrea
     for mut transaction in transactions {
         let event = vec![1; 100];
         transaction.write_event(None, event).await.expect("write event");
-        let timestamp = Timestamp { 0: 0 };
+        let timestamp = Timestamp(0);
         transaction.commit(timestamp).await.expect("commit");
     }
 }

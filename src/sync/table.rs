@@ -941,7 +941,7 @@ async fn delete_table_segment(
 
     let endpoint = factory
         .controller_client()
-        .get_endpoint_for_segment(&segment)
+        .get_endpoint_for_segment(segment)
         .await
         .expect("get endpoint for segment");
     debug!("endpoint is {}", endpoint.to_string());
