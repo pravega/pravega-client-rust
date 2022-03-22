@@ -36,7 +36,7 @@ const {
     StreamReaderReleaseSegment,
     StreamReaderToString,
     // the file will be run in ./dist, so popd.
-} = require(find(resolve(join(__dirname, process.env.dev ? '' : '..', './package.json'))));
+} = require(find(resolve(join(__dirname, process.env.PRAVEGA_NODEJS_DEV ? '' : '..', './package.json'))));
 
 /**
  * This represents an event that was read from a Pravega Segment and the offset at which the event

@@ -1,6 +1,6 @@
 # Pravega Nodejs Client
 
-This project provides a way to interact with [Pravega](https://cncf.pravega.io) with a Nodejs client.
+This project provides a way to interact with [Pravega](https://cncf.pravega.io) via a Nodejs client.
 
 Pravega is an open source distributed storage service implementing Streams. It offers Stream as the main primitive for the foundation of reliable storage systems: a high-performance, durable, elastic, and unlimited append-only byte stream with strict ordering and consistency.
 
@@ -16,11 +16,11 @@ yarn add @thekingofcity/pravega
 
 After the package is downloaded from the registry, a `node-pre-gyp install` will be triggered to pull the underlying Rust Node addon binary from the Github releases.
 
-Note your os and architecture matters. Only `Windows`, `MacOS`, and `linux` with `x86_64` comes with pre-built binary. If this fails or your platform is not supported, you need to build the native Node addon by pulling the repo and execute several commands to get the binary. They are stated below.
+Note your os and architecture matters. Only `Windows`, `MacOS`, and `linux` with `x86_64` comes with a pre-built binary. If this fails or your platform is not supported, you need to build the native Node addon by pulling the repo and execute several commands to get the binary. They are stated below in the development section.
 
 ## Example
 
-After a `npm init`, add `"type": "module",` to your `package.json` so `node` can load ECMAScript modules correctly.
+After an `npm init`, add `"type": "module",` to your `package.json` so `node` can load ECMAScript modules correctly.
 
 ```javascript
 import { StreamCut, StreamManager } from '@thekingofcity/pravega';
@@ -128,13 +128,13 @@ Event at 60 reads Hello World!
 
 ## Development
 
-To build and test this binding locally, Rust toolchain must be installed and `cargo build` can be executed without any problems in the parent project.
+To build or test this binding locally, Rust toolchain must be installed and `cargo build` can be executed without any problems in the parent project.
 
 Then you need to install Nodejs related packages via `npm i` in this folder.
 
 ### Tests
 
-1. `npm run build-release` to build a debug addon.
+1. `npm run build-debug` to build a debug addon.
 2. `/path/to/pravega/bin/pravega-standalone`
 3. `npm run test`
 

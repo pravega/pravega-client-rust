@@ -9,7 +9,7 @@
     "build-release": "npm run build -- --release",
     "release-native": "npm run build-release && rm -rf native && mkdir native && mv ./pravega.node ./native/pravega.node",
     "release-js": "npx tsc",
-    "test": "npm run release-native && dev=true node --loader ts-node/esm --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand"
+    "test": "npm run release-native && PRAVEGA_NODEJS_DEV=true node --loader ts-node/esm --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand"
   },
   "author": "Pravega Community",
   "license": "Apache-2.0",

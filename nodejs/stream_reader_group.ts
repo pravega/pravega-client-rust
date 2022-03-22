@@ -31,7 +31,7 @@ const {
     StreamReaderGroupReaderOffline,
     StreamReaderGroupToString,
     // the file will be run in ./dist, so popd.
-} = require(find(resolve(join(__dirname, process.env.dev ? '' : '..', './package.json'))));
+} = require(find(resolve(join(__dirname, process.env.PRAVEGA_NODEJS_DEV ? '' : '..', './package.json'))));
 
 import { StreamReader } from './stream_reader.js';
 
