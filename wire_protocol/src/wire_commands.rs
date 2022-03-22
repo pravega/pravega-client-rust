@@ -611,15 +611,10 @@ impl Encode for Replies {
 
 impl Encode for WireCommands {
     fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
-        let res;
-        match self {
-            WireCommands::Requests(request) => {
-                res = request.write_fields()?;
-            }
-            WireCommands::Replies(reply) => {
-                res = reply.write_fields()?;
-            }
-        }
+        let res = match self {
+            WireCommands::Requests(request) => request.write_fields()?,
+            WireCommands::Replies(reply) => reply.write_fields()?,
+        };
         Ok(res)
     }
 }

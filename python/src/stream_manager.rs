@@ -550,6 +550,32 @@ impl StreamManager {
     }
 
     ///
+    /// Delete a ReaderGroup.
+    ///
+    /// ```
+    /// import pravega_client;
+    /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
+    /// // Delete a ReaderGroup against an already created Pravega scope..
+    /// manager.delete_reader_group_with_config("rg1", "scope", rg_config)
+    ///
+    /// ```
+    ///
+    #[pyo3(text_signature = "($self, reader_group_name, scope_name)")]
+    pub fn delete_reader_group(&self, reader_group_name: &str, scope_name: &str) -> PyResult<()> {
+        let scope = Scope::from(scope_name.to_string());
+
+        let handle = self.cf.runtime_handle();
+
+        let delete_result =
+            handle.block_on(self.cf.delete_reader_group(scope, reader_group_name.to_string()));
+        info!("Delete ReaderGroup {:?}", delete_result);
+        match delete_result {
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyValueError::new_err(format!("{:?}", e))),
+        }
+    }
+
+    ///
     /// Create a Binary I/O representation of a Pravega Stream. This ByteStream implements the
     /// APIs provided by [io.IOBase](https://docs.python.org/3/library/io.html#io.IOBase)
     ///

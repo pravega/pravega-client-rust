@@ -137,11 +137,10 @@ impl PravegaService for PravegaStandaloneService {
         drop(src); // Close the file early
 
         // Run the replace operation in memory
-        let new_data: String;
-        if enable {
-            new_data = data.replace("INFO", "DEBUG");
+        let new_data = if enable {
+            data.replace("INFO", "DEBUG")
         } else {
-            new_data = data.replace("DEBUG", "INFO");
+            data.replace("DEBUG", "INFO")
         };
 
         // Recreate the file and dump the processed contents to it
