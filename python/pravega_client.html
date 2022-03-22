@@ -262,6 +262,18 @@ flush() API on the writer to wait until all the events are persisted.
 
 </code></pre></div>
 </dd>
+<dt id="pravega_client.pravega_client.StreamManager.delete_reader_group"><code class="name flex">
+<span>def <span class="ident">delete_reader_group</span></span>(<span>self, /, reader_group_name, scope_name)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Delete a ReaderGroup.</p>
+<pre><code>import pravega_client;
+manager=pravega_client.StreamManager(&quot;tcp://127.0.0.1:9090&quot;)
+// Delete a ReaderGroup against an already created Pravega scope..
+manager.delete_reader_group_with_config(&quot;rg1&quot;, &quot;scope&quot;, rg_config)
+
+</code></pre></div>
+</dd>
 <dt id="pravega_client.pravega_client.StreamManager.delete_scope"><code class="name flex">
 <span>def <span class="ident">delete_scope</span></span>(<span>self, /, scope_name)</span>
 </code></dt>
@@ -683,6 +695,7 @@ writer.write_event_bytes(e_bytes, &quot;key1&quot;)
 <li><code><a title="pravega_client.pravega_client.StreamManager.create_stream_with_policy" href="#pravega_client.pravega_client.StreamManager.create_stream_with_policy">create_stream_with_policy</a></code></li>
 <li><code><a title="pravega_client.pravega_client.StreamManager.create_transaction_writer" href="#pravega_client.pravega_client.StreamManager.create_transaction_writer">create_transaction_writer</a></code></li>
 <li><code><a title="pravega_client.pravega_client.StreamManager.create_writer" href="#pravega_client.pravega_client.StreamManager.create_writer">create_writer</a></code></li>
+<li><code><a title="pravega_client.pravega_client.StreamManager.delete_reader_group" href="#pravega_client.pravega_client.StreamManager.delete_reader_group">delete_reader_group</a></code></li>
 <li><code><a title="pravega_client.pravega_client.StreamManager.delete_scope" href="#pravega_client.pravega_client.StreamManager.delete_scope">delete_scope</a></code></li>
 <li><code><a title="pravega_client.pravega_client.StreamManager.delete_stream" href="#pravega_client.pravega_client.StreamManager.delete_stream">delete_stream</a></code></li>
 <li><code><a title="pravega_client.pravega_client.StreamManager.get_stream_tags" href="#pravega_client.pravega_client.StreamManager.get_stream_tags">get_stream_tags</a></code></li>

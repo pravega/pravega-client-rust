@@ -1,4 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src&#x2F;sync&#x2F;synchronizer.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>synchronizer.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../pravega_client/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">   1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src&#x2F;sync&#x2F;synchronizer.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>synchronizer.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><script defer src="../../../main.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script>
+    <noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.png" alt="logo"></div>
+        </a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.png" alt="logo"></a><nav class="sub"><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">   1</span>
 <span id="2">   2</span>
 <span id="3">   3</span>
 <span id="4">   4</span>
@@ -1096,15 +1098,6 @@
 <span id="1096">1096</span>
 <span id="1097">1097</span>
 <span id="1098">1098</span>
-<span id="1099">1099</span>
-<span id="1100">1100</span>
-<span id="1101">1101</span>
-<span id="1102">1102</span>
-<span id="1103">1103</span>
-<span id="1104">1104</span>
-<span id="1105">1105</span>
-<span id="1106">1106</span>
-<span id="1107">1107</span>
 </pre><pre class="rust"><code><span class="comment">//</span>
 <span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
 <span class="comment">//</span>
@@ -1352,7 +1345,7 @@
     }
 
     <span class="doccomment">/// Fetch the latest map from remote server and apply it to the local map.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">fetch_updates</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">i32</span>, <span class="ident">TableError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">fetch_updates</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">i32</span>, <span class="ident">TableError</span><span class="op">&gt;</span> {
         <span class="macro">debug!</span>(
             <span class="string">&quot;fetch the latest map and apply to the local map, fetch from position {}&quot;</span>,
             <span class="self">self</span>.<span class="ident">fetch_position</span>
@@ -1364,43 +1357,34 @@
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">counter</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">0</span>;
         <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">entry</span>) <span class="op">=</span> <span class="ident">reply</span>.<span class="ident">next</span>().<span class="kw">await</span> {
-            <span class="kw">match</span> <span class="ident">entry</span> {
-                <span class="prelude-val">Ok</span>((<span class="ident">k</span>, <span class="ident">v</span>, <span class="ident">version</span>, <span class="ident">last_position</span>)) =&gt; {
-                    <span class="macro">debug!</span>(<span class="string">&quot;fetched key with version {}&quot;</span>, <span class="ident">version</span>);
-                    <span class="kw">let</span> <span class="ident">internal_key</span> <span class="op">=</span> <span class="ident">InternalKey</span> { <span class="ident">key</span>: <span class="ident">k</span> };
-                    <span class="kw">let</span> (<span class="ident">outer_key</span>, <span class="ident">inner_key</span>) <span class="op">=</span> <span class="ident">internal_key</span>.<span class="ident">split</span>();
+            <span class="kw">let</span> (<span class="ident">k</span>, <span class="ident">v</span>, <span class="ident">version</span>, <span class="ident">last_position</span>) <span class="op">=</span> <span class="ident">entry</span><span class="question-mark">?</span>;
+            <span class="macro">debug!</span>(<span class="string">&quot;fetched key with version {}&quot;</span>, <span class="ident">version</span>);
+            <span class="kw">let</span> <span class="ident">internal_key</span> <span class="op">=</span> <span class="ident">InternalKey</span> { <span class="ident">key</span>: <span class="ident">k</span> };
+            <span class="kw">let</span> (<span class="ident">outer_key</span>, <span class="ident">inner_key</span>) <span class="op">=</span> <span class="ident">internal_key</span>.<span class="ident">split</span>();
 
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">inner</span>) <span class="op">=</span> <span class="ident">inner_key</span> {
-                        <span class="comment">// the key is a composite key, update the nested hashmap</span>
-                        <span class="kw">let</span> <span class="ident">inner_map_key</span> <span class="op">=</span> <span class="ident">Key</span> {
-                            <span class="ident">key</span>: <span class="ident">inner</span>,
-                            <span class="ident">key_version</span>: <span class="ident">version</span>,
-                        };
-                        <span class="kw">let</span> <span class="ident">inner_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">in_memory_map</span>.<span class="ident">entry</span>(<span class="ident">outer_key</span>).<span class="ident">or_insert_with</span>(<span class="ident">HashMap::new</span>);
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">inner</span>) <span class="op">=</span> <span class="ident">inner_key</span> {
+                <span class="comment">// the key is a composite key, update the nested hashmap</span>
+                <span class="kw">let</span> <span class="ident">inner_map_key</span> <span class="op">=</span> <span class="ident">Key</span> {
+                    <span class="ident">key</span>: <span class="ident">inner</span>,
+                    <span class="ident">key_version</span>: <span class="ident">version</span>,
+                };
+                <span class="kw">let</span> <span class="ident">inner_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">in_memory_map</span>.<span class="ident">entry</span>(<span class="ident">outer_key</span>).<span class="ident">or_insert_with</span>(<span class="ident">HashMap::new</span>);
 
-                        <span class="comment">// this is necessary since insert will not update the Key</span>
-                        <span class="ident">inner_map</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">inner_map_key</span>);
-                        <span class="ident">inner_map</span>.<span class="ident">insert</span>(<span class="ident">inner_map_key</span>, <span class="ident">v</span>);
-                    } <span class="kw">else</span> {
-                        <span class="comment">// the key is an outer key, update the map version</span>
-                        <span class="kw">let</span> <span class="ident">outer_map_key</span> <span class="op">=</span> <span class="ident">Key</span> {
-                            <span class="ident">key</span>: <span class="ident">outer_key</span>,
-                            <span class="ident">key_version</span>: <span class="ident">version</span>,
-                        };
-                        <span class="comment">// this is necessary since insert will not update the Key</span>
-                        <span class="self">self</span>.<span class="ident">in_memory_map_version</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">outer_map_key</span>.<span class="ident">clone</span>());
-                        <span class="self">self</span>.<span class="ident">in_memory_map_version</span>.<span class="ident">insert</span>(<span class="ident">outer_map_key</span>, <span class="ident">v</span>);
-                    }
-                    <span class="self">self</span>.<span class="ident">fetch_position</span> <span class="op">=</span> <span class="ident">last_position</span>;
-                    <span class="ident">counter</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-                }
-                <span class="kw">_</span> =&gt; {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">TableError::OperationError</span> {
-                        <span class="ident">operation</span>: <span class="string">&quot;fetch_updates&quot;</span>.<span class="ident">to_string</span>(),
-                        <span class="ident">error_msg</span>: <span class="string">&quot;fetch entries error&quot;</span>.<span class="ident">to_string</span>(),
-                    });
-                }
+                <span class="comment">// this is necessary since insert will not update the Key</span>
+                <span class="ident">inner_map</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">inner_map_key</span>);
+                <span class="ident">inner_map</span>.<span class="ident">insert</span>(<span class="ident">inner_map_key</span>, <span class="ident">v</span>);
+            } <span class="kw">else</span> {
+                <span class="comment">// the key is an outer key, update the map version</span>
+                <span class="kw">let</span> <span class="ident">outer_map_key</span> <span class="op">=</span> <span class="ident">Key</span> {
+                    <span class="ident">key</span>: <span class="ident">outer_key</span>,
+                    <span class="ident">key_version</span>: <span class="ident">version</span>,
+                };
+                <span class="comment">// this is necessary since insert will not update the Key</span>
+                <span class="self">self</span>.<span class="ident">in_memory_map_version</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">outer_map_key</span>.<span class="ident">clone</span>());
+                <span class="self">self</span>.<span class="ident">in_memory_map_version</span>.<span class="ident">insert</span>(<span class="ident">outer_map_key</span>, <span class="ident">v</span>);
             }
+            <span class="self">self</span>.<span class="ident">fetch_position</span> <span class="op">=</span> <span class="ident">last_position</span>;
+            <span class="ident">counter</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
         }
         <span class="macro">debug!</span>(<span class="string">&quot;finished fetching updates&quot;</span>);
         <span class="prelude-val">Ok</span>(<span class="ident">counter</span>)
@@ -1409,8 +1393,8 @@
     <span class="doccomment">/// Insert/Update a list of keys and applies it atomically to the local map.</span>
     <span class="doccomment">/// This will update the local map to the latest version.</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">insert</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">updates_generator</span>: <span class="kw">impl</span> <span class="ident">FnMut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Update</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span>,
+        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
+        <span class="ident">updates_generator</span>: <span class="kw">impl</span> <span class="ident">FnMut</span>(<span class="kw-2">&amp;mut</span> <span class="ident">Update</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
         <span class="ident">conditionally_write</span>(<span class="ident">updates_generator</span>, <span class="self">self</span>, <span class="ident">MAX_RETRIES</span>).<span class="kw">await</span>
     }
@@ -1418,8 +1402,8 @@
     <span class="doccomment">/// Remove a list of keys and apply it atomically to local map.</span>
     <span class="doccomment">/// This will update the local map to latest version.</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">remove</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">deletes_generator</span>: <span class="kw">impl</span> <span class="ident">FnMut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Update</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span>,
+        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
+        <span class="ident">deletes_generator</span>: <span class="kw">impl</span> <span class="ident">FnMut</span>(<span class="kw-2">&amp;mut</span> <span class="ident">Update</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
         <span class="ident">conditionally_remove</span>(<span class="ident">deletes_generator</span>, <span class="self">self</span>, <span class="ident">MAX_RETRIES</span>).<span class="kw">await</span>
     }
@@ -1443,7 +1427,7 @@
 <span class="kw">impl</span> <span class="ident">Eq</span> <span class="kw">for</span> <span class="ident">Key</span> {}
 
 <span class="kw">impl</span> <span class="ident">Hash</span> <span class="kw">for</span> <span class="ident">Key</span> {
-    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Hasher</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">H</span>) {
+    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Hasher</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="kw-2">&amp;mut</span> <span class="ident">H</span>) {
         <span class="self">self</span>.<span class="ident">key</span>.<span class="ident">hash</span>(<span class="ident">state</span>)
     }
 }
@@ -1518,7 +1502,7 @@
     <span class="doccomment">/// insert method needs an outer_key and an inner_key to find a value.</span>
     <span class="doccomment">/// It will update the map inside the Table.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">insert</span>(
-        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">outer_key</span>: <span class="ident">String</span>,
         <span class="ident">inner_key</span>: <span class="ident">String</span>,
         <span class="ident">type_id</span>: <span class="ident">String</span>,
@@ -1540,7 +1524,7 @@
     <span class="doccomment">/// key value pair is invalid and will be removed later. The reason of adding a tombstone is</span>
     <span class="doccomment">/// to guarantee the atomicity of a remove-and-insert operation.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">insert_tombstone</span>(
-        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">outer_key</span>: <span class="ident">String</span>,
         <span class="ident">inner_key</span>: <span class="ident">String</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
@@ -1592,7 +1576,7 @@
     }
 
     <span class="doccomment">/// remove takes an outer_key and an inner_key and removes a particular entry.</span>
-    <span class="kw">fn</span> <span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">outer_key</span>: <span class="ident">String</span>, <span class="ident">inner_key</span>: <span class="ident">String</span>) {
+    <span class="kw">fn</span> <span class="ident">remove</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">outer_key</span>: <span class="ident">String</span>, <span class="ident">inner_key</span>: <span class="ident">String</span>) {
         <span class="comment">//Also remove from the map.</span>
         <span class="kw">let</span> <span class="ident">inner_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">outer_key</span>).<span class="ident">expect</span>(<span class="string">&quot;should contain outer key&quot;</span>);
         <span class="ident">inner_map</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">inner_key</span>);
@@ -1606,7 +1590,7 @@
     <span class="doccomment">/// Notice that this method only needs to be called when this dependent map is not being updated,</span>
     <span class="doccomment">/// since any modifications to a map on server side will use a version to make sure the update</span>
     <span class="doccomment">/// is based on the latest change.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">retain</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">outer_key</span>: <span class="ident">String</span>) {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">retain</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">outer_key</span>: <span class="ident">String</span>) {
         <span class="self">self</span>.<span class="ident">increment_map_version</span>(<span class="ident">outer_key</span>);
     }
 
@@ -1682,7 +1666,7 @@
         <span class="self">self</span>.<span class="ident">remove</span>.<span class="ident">iter</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">increment_map_version</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">outer_key</span>: <span class="ident">String</span>) {
+    <span class="kw">fn</span> <span class="ident">increment_map_version</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">outer_key</span>: <span class="ident">String</span>) {
         <span class="comment">// the value is just a placeholder, the version information is stored in the Key.</span>
         <span class="self">self</span>.<span class="ident">map_version</span>.<span class="ident">entry</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>()).<span class="ident">or_insert</span>(<span class="ident">Value</span> {
             <span class="ident">type_id</span>: <span class="string">&quot;blob&quot;</span>.<span class="ident">to_owned</span>(),
@@ -1776,7 +1760,7 @@
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">ValueSerialize</span> {
     <span class="kw">fn</span> <span class="ident">serialize_value</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">seralizer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">CborSerializer</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">seralizer</span>: <span class="kw-2">&amp;mut</span> <span class="ident">CborSerializer</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">serde_cbor::error::Error</span><span class="op">&gt;</span>;
 }
 
@@ -1786,7 +1770,7 @@
 {
     <span class="kw">fn</span> <span class="ident">serialize_value</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">serializer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">CborSerializer</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">serializer</span>: <span class="kw-2">&amp;mut</span> <span class="ident">CborSerializer</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">serde_cbor::error::Error</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">serialize</span>(<span class="ident">serializer</span>)
     }
@@ -1796,7 +1780,7 @@
 <span class="doccomment">/// This method would be used by the insert method in table_synchronizer.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="ident">value</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">ValueData</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">serde_cbor::error::Error</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">vec</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-    <span class="ident">value</span>.<span class="ident">serialize_value</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">CborSerializer::new</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vec</span>))<span class="question-mark">?</span>;
+    <span class="ident">value</span>.<span class="ident">serialize_value</span>(<span class="kw-2">&amp;mut</span> <span class="ident">CborSerializer::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">vec</span>))<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(<span class="ident">vec</span>)
 }
 
@@ -1810,8 +1794,8 @@
 }
 
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">conditionally_write</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>(
-    <span class="kw-2">mut</span> <span class="ident">updates_generator</span>: <span class="kw">impl</span> <span class="ident">FnMut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Update</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span>,
-    <span class="ident">table_synchronizer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Synchronizer</span>,
+    <span class="kw-2">mut</span> <span class="ident">updates_generator</span>: <span class="kw">impl</span> <span class="ident">FnMut</span>(<span class="kw-2">&amp;mut</span> <span class="ident">Update</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span>,
+    <span class="ident">table_synchronizer</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Synchronizer</span>,
     <span class="kw-2">mut</span> <span class="ident">retry</span>: <span class="ident">i32</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">update_result</span> <span class="op">=</span> <span class="prelude-val">None</span>;
@@ -1827,7 +1811,7 @@
             <span class="ident">remove</span>: <span class="ident">Vec::new</span>(),
         };
 
-        <span class="ident">update_result</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">updates_generator</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">to_update</span>)<span class="question-mark">?</span>);
+        <span class="ident">update_result</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">updates_generator</span>(<span class="kw-2">&amp;mut</span> <span class="ident">to_update</span>)<span class="question-mark">?</span>);
         <span class="macro">debug!</span>(<span class="string">&quot;number of insert is {}&quot;</span>, <span class="ident">to_update</span>.<span class="ident">insert</span>.<span class="ident">len</span>());
         <span class="kw">if</span> <span class="ident">to_update</span>.<span class="ident">insert_is_empty</span>() {
             <span class="macro">debug!</span>(
@@ -1872,8 +1856,8 @@
                 }
             }
             <span class="prelude-val">Ok</span>(<span class="ident">res</span>) =&gt; {
-                <span class="ident">apply_inserts_to_localmap</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">to_update</span>, <span class="ident">res</span>, <span class="ident">table_synchronizer</span>);
-                <span class="ident">clear_tombstone</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">to_update</span>, <span class="ident">table_synchronizer</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                <span class="ident">apply_inserts_to_localmap</span>(<span class="kw-2">&amp;mut</span> <span class="ident">to_update</span>, <span class="ident">res</span>, <span class="ident">table_synchronizer</span>);
+                <span class="ident">clear_tombstone</span>(<span class="kw-2">&amp;mut</span> <span class="ident">to_update</span>, <span class="ident">table_synchronizer</span>).<span class="kw">await</span><span class="question-mark">?</span>;
                 <span class="kw">break</span>;
             }
         }
@@ -1884,8 +1868,8 @@
 }
 
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">conditionally_remove</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>(
-    <span class="kw-2">mut</span> <span class="ident">delete_generator</span>: <span class="kw">impl</span> <span class="ident">FnMut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Update</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span>,
-    <span class="ident">table_synchronizer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Synchronizer</span>,
+    <span class="kw-2">mut</span> <span class="ident">delete_generator</span>: <span class="kw">impl</span> <span class="ident">FnMut</span>(<span class="kw-2">&amp;mut</span> <span class="ident">Update</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span>,
+    <span class="ident">table_synchronizer</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Synchronizer</span>,
     <span class="kw-2">mut</span> <span class="ident">retry</span>: <span class="ident">i32</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">delete_result</span> <span class="op">=</span> <span class="prelude-val">None</span>;
@@ -1900,7 +1884,7 @@
             <span class="ident">insert</span>: <span class="ident">Vec::new</span>(),
             <span class="ident">remove</span>: <span class="ident">Vec::new</span>(),
         };
-        <span class="ident">delete_result</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">delete_generator</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">to_delete</span>)<span class="question-mark">?</span>);
+        <span class="ident">delete_result</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">delete_generator</span>(<span class="kw-2">&amp;mut</span> <span class="ident">to_delete</span>)<span class="question-mark">?</span>);
 
         <span class="kw">if</span> <span class="ident">to_delete</span>.<span class="ident">remove_is_empty</span>() {
             <span class="macro">debug!</span>(
@@ -1944,7 +1928,7 @@
                 }
             }
             <span class="prelude-val">Ok</span>(()) =&gt; {
-                <span class="ident">apply_deletes_to_localmap</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">to_delete</span>, <span class="ident">table_synchronizer</span>);
+                <span class="ident">apply_deletes_to_localmap</span>(<span class="kw-2">&amp;mut</span> <span class="ident">to_delete</span>, <span class="ident">table_synchronizer</span>);
                 <span class="kw">break</span>;
             }
         }
@@ -1955,8 +1939,8 @@
 }
 
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">clear_tombstone</span>(
-    <span class="ident">to_remove</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Update</span>,
-    <span class="ident">table_synchronizer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Synchronizer</span>,
+    <span class="ident">to_remove</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Update</span>,
+    <span class="ident">table_synchronizer</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Synchronizer</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
     <span class="ident">table_synchronizer</span>
         .<span class="ident">remove</span>(<span class="op">|</span><span class="ident">table</span><span class="op">|</span> {
@@ -1971,9 +1955,9 @@
 }
 
 <span class="kw">fn</span> <span class="ident">apply_inserts_to_localmap</span>(
-    <span class="ident">to_update</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Update</span>,
+    <span class="ident">to_update</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Update</span>,
     <span class="ident">new_version</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Version</span><span class="op">&gt;</span>,
-    <span class="ident">table_synchronizer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Synchronizer</span>,
+    <span class="ident">table_synchronizer</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Synchronizer</span>,
 ) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="number">0</span>;
     <span class="kw">for</span> <span class="ident">update</span> <span class="kw">in</span> <span class="ident">to_update</span>.<span class="ident">get_insert_iter</span>() {
@@ -2009,7 +1993,7 @@
     <span class="macro">debug!</span>(<span class="string">&quot;Updates {} entries in local map &quot;</span>, <span class="ident">i</span>);
 }
 
-<span class="kw">fn</span> <span class="ident">apply_deletes_to_localmap</span>(<span class="ident">to_delete</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Update</span>, <span class="ident">table_synchronizer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Synchronizer</span>) {
+<span class="kw">fn</span> <span class="ident">apply_deletes_to_localmap</span>(<span class="ident">to_delete</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Update</span>, <span class="ident">table_synchronizer</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Synchronizer</span>) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="number">0</span>;
     <span class="kw">for</span> <span class="ident">delete</span> <span class="kw">in</span> <span class="ident">to_delete</span>.<span class="ident">get_remove_iter</span>() {
         <span class="kw">let</span> <span class="ident">delete_key</span> <span class="op">=</span> <span class="ident">Key</span> {
@@ -2213,6 +2197,5 @@
     }
 }
 </code></pre></div>
-</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
-    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script>
+</section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>
 </body></html>
