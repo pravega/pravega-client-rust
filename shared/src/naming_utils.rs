@@ -43,7 +43,7 @@ impl NameUtils {
                 segment_name,
                 TRANSACTION_DELIMITER,
                 (transaction_id.0 >> 64) as i64,
-                transaction_id.0 as i64
+                transaction_id.0 as i64,
             )
         } else {
             segment_name

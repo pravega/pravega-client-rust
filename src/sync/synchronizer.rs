@@ -257,43 +257,34 @@ impl Synchronizer {
 
         let mut counter: i32 = 0;
         while let Some(entry) = reply.next().await {
-            match entry {
-                Ok((k, v, version, last_position)) => {
-                    debug!("fetched key with version {}", version);
-                    let internal_key = InternalKey { key: k };
-                    let (outer_key, inner_key) = internal_key.split();
+            let (k, v, version, last_position) = entry?;
+            debug!("fetched key with version {}", version);
+            let internal_key = InternalKey { key: k };
+            let (outer_key, inner_key) = internal_key.split();
 
-                    if let Some(inner) = inner_key {
-                        // the key is a composite key, update the nested hashmap
-                        let inner_map_key = Key {
-                            key: inner,
-                            key_version: version,
-                        };
-                        let inner_map = self.in_memory_map.entry(outer_key).or_insert_with(HashMap::new);
+            if let Some(inner) = inner_key {
+                // the key is a composite key, update the nested hashmap
+                let inner_map_key = Key {
+                    key: inner,
+                    key_version: version,
+                };
+                let inner_map = self.in_memory_map.entry(outer_key).or_insert_with(HashMap::new);
 
-                        // this is necessary since insert will not update the Key
-                        inner_map.remove(&inner_map_key);
-                        inner_map.insert(inner_map_key, v);
-                    } else {
-                        // the key is an outer key, update the map version
-                        let outer_map_key = Key {
-                            key: outer_key,
-                            key_version: version,
-                        };
-                        // this is necessary since insert will not update the Key
-                        self.in_memory_map_version.remove(&outer_map_key.clone());
-                        self.in_memory_map_version.insert(outer_map_key, v);
-                    }
-                    self.fetch_position = last_position;
-                    counter += 1;
-                }
-                _ => {
-                    return Err(TableError::OperationError {
-                        operation: "fetch_updates".to_string(),
-                        error_msg: "fetch entries error".to_string(),
-                    });
-                }
+                // this is necessary since insert will not update the Key
+                inner_map.remove(&inner_map_key);
+                inner_map.insert(inner_map_key, v);
+            } else {
+                // the key is an outer key, update the map version
+                let outer_map_key = Key {
+                    key: outer_key,
+                    key_version: version,
+                };
+                // this is necessary since insert will not update the Key
+                self.in_memory_map_version.remove(&outer_map_key.clone());
+                self.in_memory_map_version.insert(outer_map_key, v);
             }
+            self.fetch_position = last_position;
+            counter += 1;
         }
         debug!("finished fetching updates");
         Ok(counter)
