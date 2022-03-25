@@ -101,6 +101,8 @@ Event at 60 reads Hello World!
 
 ## Supported APIs
 
+A full API reference may be found [here](https://pravega.github.io/pravega-client-rust/nodejs/index.html)
+
 | API details                   | Java | RUST | Python 3.6, 3.7, 3.8, 3.9 | NodeJs |
 |-------------------------------|------|------|---------------------------|--------|
 | EventWriter                   | X    | X    | X                         | X      |

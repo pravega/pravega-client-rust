@@ -34,7 +34,8 @@ const {
 } = require(find(resolve(join(__dirname, process.env.PRAVEGA_NODEJS_DEV ? '' : '..', './package.json'))));
 
 /**
- * A writer for a stream.
+ * A writer for a Stream.
+ *
  * Note: A StreamWriter cannot be created directly without using the StreamManager.
  */
 export interface StreamWriter {
@@ -82,8 +83,13 @@ export interface StreamWriter {
     toString: () => string;
 }
 
+/**
+ * Returns a wrapped StreamWriter that helps users to call Rust code.
+ *
+ * Note: A StreamWriter cannot be created directly without using the StreamManager.
+ */
 export const StreamWriter = (stream_writer): StreamWriter => {
-    const enc = new TextEncoder(); // string -> Uint8Array
+    const enc = new TextEncoder(); // A `string` to `Uint8Array` serializer.
 
     const write_event = async (event: string, routing_key?: string): Promise<undefined> =>
         await StreamWriterWriteEventBytes.call(stream_writer, enc.encode(event), routing_key);

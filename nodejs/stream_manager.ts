@@ -62,6 +62,9 @@ import { StreamWriter } from './stream_writer.js';
  */
 export interface StreamRetentionPolicy {}
 
+/**
+ * Contains factory methods to create different StreamRetentionPolicy.
+ */
 export const StreamRetentionPolicy = {
     /**
      * Every event is retained in the Stream. No deletion.
@@ -82,6 +85,9 @@ export const StreamRetentionPolicy = {
  */
 export interface StreamScalingPolicy {}
 
+/**
+ * Contains factory methods to create different StreamScalingPolicy.
+ */
 export const StreamScalingPolicy = {
     /**
      * No scaling, there will only ever be initial_segmentsat any given time.
@@ -111,23 +117,16 @@ export const StreamScalingPolicy = {
  */
 export interface StreamCut {}
 
+/**
+ * Contains factory methods to create different StreamCut.
+ */
 export const StreamCut = {
     head: (): StreamCut => StreamRetentionStreamCutHead(),
     tail: (): StreamCut => StreamRetentionStreamCutTail(),
 };
 
 /**
- * Create a StreamManager by providing a controller uri.
- *
- * ```typescript
- * const stream_manager = StreamManger('tcp://127.0.0.1:9090', false, false, true);
- * ```
- *
- * Optionally enable tls support using tls:// scheme.
- *
- * ```typescript
- * const stream_manager = StreamManger('tls://127.0.0.1:9090', false, false, true);
- * ```
+ * Used to create, delete, and manage Streams, ReaderGroups, and Writers.
  */
 export interface StreamManager {
     /**
@@ -264,6 +263,25 @@ export interface StreamManager {
     toString: () => string;
 }
 
+/**
+ * Create a StreamManager by providing a controller uri.
+ *
+ * ```typescript
+ * const stream_manager = StreamManger('tcp://127.0.0.1:9090', false, false, true);
+ * ```
+ *
+ * Optionally enable tls support using tls:// scheme.
+ *
+ * ```typescript
+ * const stream_manager = StreamManger('tls://127.0.0.1:9090', false, false, true);
+ * ```
+ * 
+ * @param controller_uri The Pravega controller RPC uri, start with tcp or tls.
+ * @param auth_enabled Whether authentication is enabled or not.
+ * @param tls_enabled Whether TLS is enabled or not.
+ * @param disable_cert_verification Disable certificate verification or not.
+ * @returns 
+ */
 export const StreamManager = (
     controller_uri: string,
     auth_enabled: boolean = false,

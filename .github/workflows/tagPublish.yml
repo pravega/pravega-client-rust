@@ -68,7 +68,7 @@ jobs:
 
       - uses: actions/setup-node@v2
         with:
-          node-version: ${{ matrix.node_version }}
+          node-version: '16'
           # Url is important! This makes NODE_AUTH_TOKEN accessible to npm publish.
           registry-url: 'https://registry.npmjs.org'
       - name: Install modules

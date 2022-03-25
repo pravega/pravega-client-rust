@@ -15,6 +15,8 @@ Please choose from the chapters on the left to jump to individual topics, or con
 
 * Python API Documentation: [stable]() | [master](./python/pravega_client.html)
 
+* Nodejs Documentation: [Tutorial](./Nodejs/NodejsBindings.html) | [API](./nodejs/index.html)
+
 {{#include ../../README.md}}
 
 ## License

@@ -60,6 +60,11 @@ export interface Event {
     toString: () => string;
 }
 
+/**
+ * Returns a wrapped Event that helps users to get raw data and/or offset.
+ *
+ * Note: A Event cannot be created directly without using the Slice.
+ */
 const Event = (event): Event => {
     const data = (): ArrayBuffer => EventDataData.call(event);
     const offset = (): number => EventDataOffset.call(event);
@@ -69,17 +74,31 @@ const Event = (event): Event => {
 
 /**
  * This represents a segment slice which can be used to read events from a Pravega segment as an iterator.
+ * 
+ * Individual events can be read from the Slice using the following snippets.
+ * ```javascript
+ * const seg_slice: Slice = await stream_reader.get_segment_slice();
+ * for (const event of seg_slice) {
+ *     const raw_value: ArrayBuffer = event.data();
+ *     // do your things
+ * }
+ * ```
  */
 export interface Slice extends IterableIterator<Event> {
     /**
      * The internal rust object used to release segment. Should **not** be used in user code!
      */
-    readonly slice;
+    readonly internal_slice;
 }
 
+/**
+ * Returns a wrapped Slice that helps users to iterate.
+ *
+ * Note: A Slice cannot be created directly without using the StreamReader.
+ */
 const Slice = (slice): Slice => {
     return {
-        slice: slice,
+        internal_slice: slice,
         next: (): IteratorResult<Event> => {
             let event: Event;
             try {
@@ -103,22 +122,24 @@ const Slice = (slice): Slice => {
 
 /**
  * A reader for a stream.
+ *
  * Note: A StreamReader cannot be created directly without using the StreamReaderGroup.
  */
 export interface StreamReader {
     /**
      * This function returns a SegmentSlice from the SegmentStore(s).
-     * Individual events can be read from the data received using the following snippets.
+     * Individual events can be read from the Slice using the following snippets.
      * ```javascript
      * const seg_slice: Slice = await stream_reader.get_segment_slice();
      * for (const event of seg_slice) {
      *     const raw_value: ArrayBuffer = event.data();
+     *     // do your things
      * }
      * ```
      *
      * Invoking this function multiple times ensure multiple SegmentSlices corresponding
      * to different Segments of the stream are received. In-case we receive data for an already
-     * acquired SegmentSlice this method waits until SegmentSlice is completely consumed before
+     * acquired SegmentSlice, this method waits until SegmentSlice is completely consumed before
      * returning the data.
      *
      * @returns Slice in Promise.
@@ -127,6 +148,7 @@ export interface StreamReader {
 
     /**
      * Mark the reader as offline.
+     *
      * This will ensure the segments owned by this reader is distributed to other readers in the ReaderGroup.
      */
     reader_offline: () => void;
@@ -139,10 +161,15 @@ export interface StreamReader {
     toString: () => string;
 }
 
+/**
+ * Returns a wrapped StreamReader that helps users to call Rust code.
+ *
+ * Note: A StreamReader cannot be created directly without using the StreamReaderGroup.
+ */
 export const StreamReader = (stream_reader): StreamReader => {
     const get_segment_slice = async (): Promise<Slice> => Slice(await StreamReaderGetSegementSlice.call(stream_reader));
     const reader_offline = (): void => StreamReaderReaderOffline.call(stream_reader);
-    const release_segment = (slice: Slice): void => StreamReaderReleaseSegment.call(stream_reader, slice.slice);
+    const release_segment = (slice: Slice): void => StreamReaderReleaseSegment.call(stream_reader, slice.internal_slice);
     const toString = (): string => StreamReaderToString.call(stream_reader);
 
     return { get_segment_slice, reader_offline, release_segment, toString };

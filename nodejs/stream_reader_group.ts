@@ -66,6 +66,11 @@ export interface StreamReaderGroup {
     toString: () => string;
 }
 
+/**
+ * Returns a wrapped StreamReaderGroup that helps users to call Rust code.
+ *
+ * Note: A StreamReaderGroup cannot be created directly without using the StreamManager.
+ */
 export const StreamReaderGroup = (stream_reader_group): StreamReaderGroup => {
     const create_reader = (reader_name: string): StreamReader =>
         StreamReader(StreamReaderGroupCreateReader.call(stream_reader_group, reader_name));
