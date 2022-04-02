@@ -49,21 +49,16 @@ describe('Tests on StreamReader', () => {
         );
         const stream_reader = stream_reader_group.create_reader(reader_name);
 
-        try {
-            const seg_slice = await stream_reader.get_segment_slice();
-            const dec = new TextDecoder('utf-8');
-            const events = [...seg_slice].map(event => dec.decode(event.data()));
-            assert.equal(events.length, 2);
-            events.map(event => assert.equal(event, DATA));
-            // for (const event of seg_slice) {
-            //     const raw_value = event.data();
-            //     console.log(`Event at ${event.offset()} reads ${dec.decode(raw_value)}`);
-            // }
-        } catch (e) {
-            console.log(e);
-        } finally {
-            stream_reader_group.reader_offline(reader_name);
-        }
+        const seg_slice = await stream_reader.get_segment_slice();
+        const dec = new TextDecoder('utf-8');
+        const events = [...seg_slice].map(event => dec.decode(event.data()));
+        assert.equal(events.length, 2);
+        events.map(event => assert.equal(event, DATA));
+        // for (const event of seg_slice) {
+        //     const raw_value = event.data();
+        //     console.log(`Event at ${event.offset()} reads ${dec.decode(raw_value)}`);
+        // }
+        stream_reader.reader_offline();
 
         stream_manager.seal_stream(SCOPE, STREAM);
         stream_manager.delete_stream(SCOPE, STREAM);
@@ -97,17 +92,12 @@ describe('Tests on StreamReader', () => {
         );
         const stream_reader = stream_reader_group.create_reader(reader_name);
 
-        try {
-            const seg_slice = await stream_reader.get_segment_slice();
-            const dec = new TextDecoder('utf-8');
-            const events = [...seg_slice].map(event => dec.decode(event.data()));
-            assert.equal(events.length, 10);
-            events.map(event => assert.equal(event, DATA));
-        } catch (e) {
-            console.log(e);
-        } finally {
-            stream_reader_group.reader_offline(reader_name);
-        }
+        const seg_slice = await stream_reader.get_segment_slice();
+        const dec = new TextDecoder('utf-8');
+        const events = [...seg_slice].map(event => dec.decode(event.data()));
+        assert.equal(events.length, 10);
+        events.map(event => assert.equal(event, DATA));
+        stream_reader.reader_offline();
 
         stream_manager.seal_stream(SCOPE, STREAM);
         stream_manager.delete_stream(SCOPE, STREAM);
@@ -151,40 +141,29 @@ describe('Tests on StreamReader', () => {
         // consume the just 1 event from the first segment slice.
         let count = 0;
         const stream_reader_1 = stream_reader_group.create_reader('r1');
-        try {
-            const seg_slice = await stream_reader_1.get_segment_slice();
-            const dec = new TextDecoder('utf-8');
-            const event = dec.decode((seg_slice.next().value as Event).data())
-            assert.equal(event, DATA)
-            count += 1;
+        const seg_slice_1 = await stream_reader_1.get_segment_slice();
+        const dec = new TextDecoder('utf-8');
+        const event = dec.decode((seg_slice_1.next().value as Event).data());
+        assert.equal(event, DATA);
+        count += 1;
 
-            // release the partially read segment slice.
-            stream_reader_1.release_segment(seg_slice);
-        } catch (e) {
-            console.log(e);
-        } finally {
-            stream_reader_1.reader_offline();
-        }
+        // release the partially read segment slice.
+        stream_reader_1.release_segment(seg_slice_1);
+        stream_reader_1.reader_offline();
 
         // consume the rest 99 events
         const stream_reader_2 = stream_reader_group.create_reader('r2');
-        try {
-            const dec = new TextDecoder('utf-8');
-            const seg_slice = await stream_reader_2.get_segment_slice();
-            const events = [...seg_slice].map(event => dec.decode(event.data()));
+        const seg_slice_2 = await stream_reader_2.get_segment_slice();
+        const events = [...seg_slice_2].map(event => dec.decode(event.data()));
+        count += events.length;
+        events.map(event => assert.equal(event, DATA));
+        while (count !== 100) {
+            const seg_slice_2 = await stream_reader_2.get_segment_slice();
+            const events = [...seg_slice_2].map(event => dec.decode(event.data()));
             count += events.length;
             events.map(event => assert.equal(event, DATA));
-            while (count !== 100) {
-                const seg_slice = await stream_reader_2.get_segment_slice();
-                const events = [...seg_slice].map(event => dec.decode(event.data()));
-                count += events.length;
-                events.map(event => assert.equal(event, DATA));
-            }
-        } catch (e) {
-            console.log(e);
-        } finally {
-            stream_reader_2.reader_offline();
         }
+        stream_reader_2.reader_offline();
 
         assert.equal(count, 100);
 
@@ -243,5 +222,4 @@ describe('Tests on StreamReader', () => {
         stream_manager.delete_stream(SCOPE, STREAM);
         stream_manager.delete_scope(SCOPE);
     });
-
 });

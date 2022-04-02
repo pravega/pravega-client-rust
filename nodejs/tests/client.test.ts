@@ -53,21 +53,16 @@ describe('Basic test on manager, reader, and writer', () => {
         );
         const stream_reader = stream_reader_group.create_reader(reader_name);
 
-        try {
-            const seg_slice = await stream_reader.get_segment_slice();
-            const dec = new TextDecoder('utf-8');
-            const events = [...seg_slice].map(event => dec.decode(event.data()));
-            assert.equal(events.length, 4);
-            events.map(event => assert.equal(event, DATA));
-            // for (const event of seg_slice) {
-            //     const raw_value = event.data();
-            //     console.log(`Event at ${event.offset()} reads ${dec.decode(raw_value)}`);
-            // }
-        } catch (e) {
-            console.log(e);
-        } finally {
-            stream_reader_group.reader_offline(reader_name);
-        }
+        const seg_slice = await stream_reader.get_segment_slice();
+        const dec = new TextDecoder('utf-8');
+        const events = [...seg_slice].map(event => dec.decode(event.data()));
+        assert.equal(events.length, 4);
+        events.map(event => assert.equal(event, DATA));
+        // for (const event of seg_slice) {
+        //     const raw_value = event.data();
+        //     console.log(`Event at ${event.offset()} reads ${dec.decode(raw_value)}`);
+        // }
+        stream_reader.reader_offline();
 
         stream_manager.seal_stream(SCOPE, STREAM);
         stream_manager.delete_stream(SCOPE, STREAM);
