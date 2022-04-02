@@ -65,23 +65,17 @@ const stream_reader_group = stream_manager.create_reader_group(
 );
 const stream_reader = stream_reader_group.create_reader(reader_name);
 
-try {
-    // One `get_segment_slice()` call per segment.
-    const seg_slice = await stream_reader.get_segment_slice();
-    const dec = new TextDecoder('utf-8');
-    for (const event of seg_slice) {
-        const raw_bytes = event.data();
-        console.log(`Event at ${event.offset()} reads ${dec.decode(raw_bytes)}`);
-    }
-    // Release the current slice so other reader can lock and read this slice.
-    stream_reader.release_segment(seg_slice);
-} catch (e) {
-    console.log(e);
-} finally {
-    stream_reader_group.reader_offline(reader_name);
+// One `get_segment_slice()` call per segment.
+const seg_slice = await stream_reader.get_segment_slice();
+const dec = new TextDecoder('utf-8');
+for (const event of seg_slice) {
+    const raw_bytes = event.data();
+    console.log(`Event at ${event.offset()} reads ${dec.decode(raw_bytes)}`);
 }
+// Release the current slice so other reader can lock and read this slice.
+stream_reader.release_segment(seg_slice);
+stream_reader.reader_offline();
 
-// Clean up.
 stream_manager.seal_stream(SCOPE, STREAM);
 stream_manager.delete_stream(SCOPE, STREAM);
 stream_manager.delete_scope(SCOPE);
