@@ -59,7 +59,7 @@ impl Credentials {
 
     pub fn keycloak(path: &str, disable_cert_verification: bool) -> Self {
         // read keycloak json
-        let file = File::open(path.to_string()).expect("open keycloak.json");
+        let file = File::open(path).expect("open keycloak.json");
         let mut buf_reader = BufReader::new(file);
         let mut buffer = Vec::new();
         buf_reader.read_to_end(&mut buffer).expect("read to the end");
