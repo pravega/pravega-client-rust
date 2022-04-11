@@ -176,7 +176,6 @@ impl StreamManager {
         let controller = self.cf.controller_client();
         let scope_name = Scope::from(scope_name.to_string());
 
-        // TODO: async?
         handle.block_on(controller.create_scope(&scope_name))
     }
 

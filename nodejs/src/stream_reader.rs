@@ -100,7 +100,6 @@ impl Slice {
 
         match event_data {
             Some(event_data) => Ok(cx.boxed(event_data)),
-            // TODO: better return something like undefined instead of throwing an error?
             None => cx.throw_error("No more data in the stream!"),
         }
     }
