@@ -34,14 +34,14 @@ const {
 export interface Event {
     /**
      * Return the event data as `ArrayBuffer`.
-     * 
+     *
      * @returns ArrayBuffer that contains raw data.
      */
     data: () => ArrayBuffer;
 
     /**
      * Return the event offset in the segment.
-     * 
+     *
      * @returns offset
      */
     offset: () => number;

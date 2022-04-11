@@ -14,6 +14,7 @@ use crate::sync::synchronizer::*;
 
 use pravega_client_shared::{Reader, Scope, ScopedSegment, Segment, SegmentWithRange};
 
+use crate::sync::table::TableError;
 #[cfg(test)]
 use mockall::automock;
 use serde::{Deserialize, Serialize};
@@ -153,11 +154,15 @@ impl ReaderGroupState {
     }
 
     pub async fn check_online(&mut self, reader: &Reader) -> bool {
-        self.sync.fetch_updates().await.expect("should fetch updates");
+        match self.sync.fetch_updates().await {
+            Ok(update_count) => debug!("Number of updates read is {:?}", update_count),
+            Err(TableError::TableDoesNotExist { .. }) => return false,
+            _ => panic!("Fetch updates failed after all retries"),
+        }
         let res = self
             .sync
             .get_inner_map(ASSIGNED)
-            .get(&reader.to_string())
+            .get(&reader.name)
             .map(|v| (v.type_id != TOMBSTONE));
         res.unwrap_or(false)
     }
@@ -196,7 +201,7 @@ impl ReaderGroupState {
 
         Ok(deserialize_from(
             &assigned_segments
-                .get(&reader.to_string())
+                .get(&reader.name)
                 .expect("reader must exist")
                 .data,
         )
@@ -344,8 +349,22 @@ impl ReaderGroupState {
     }
 
     /// Compute the number of segments to acquire.
-    pub async fn compute_segments_to_acquire_or_release(&mut self, reader: &Reader) -> isize {
-        self.sync.fetch_updates().await.expect("should fetch updates");
+    pub async fn compute_segments_to_acquire_or_release(
+        &mut self,
+        reader: &Reader,
+    ) -> Result<isize, ReaderGroupStateError> {
+        match self.sync.fetch_updates().await {
+            Ok(update_count) => debug!("Number of updates read is {:?}", update_count),
+            Err(TableError::TableDoesNotExist { .. }) => {
+                return Err(ReaderGroupStateError::ReaderAlreadyOfflineError {
+                    error_msg: String::from("the ReaderGroup is deleted"),
+                    source: SynchronizerError::SyncPreconditionError {
+                        error_msg: String::from("Precondition failure"),
+                    },
+                })
+            }
+            _ => panic!("Fetch updates failed after all retries"),
+        }
         let assigned_segment_map = self.sync.get_inner_map(ASSIGNED);
         let num_of_readers = assigned_segment_map.len();
         let mut num_assigned_segments = 0;
@@ -365,14 +384,14 @@ impl ReaderGroupState {
         } else {
             num_segments_per_reader + 1
         };
-        let current_segment_count = assigned_segment_map.get(&reader.to_string()).map(|v| {
+        let current_segment_count = assigned_segment_map.get(&reader.name).map(|v| {
             let seg: HashMap<ScopedSegment, Offset> =
                 deserialize_from(&v.data).expect("deserialize of assigned segments");
             seg.len()
         });
         let expected: isize = expected_segment_count_per_reader.try_into().unwrap();
         let current: isize = current_segment_count.unwrap_or_default().try_into().unwrap();
-        expected - current
+        Ok(expected - current)
     }
 
     /// Return the list of all segments.
@@ -683,7 +702,7 @@ impl ReaderGroupState {
         assigned: &HashMap<String, Value>,
         reader: &Reader,
     ) -> Result<(), SynchronizerError> {
-        if assigned.contains_key(&reader.to_string()) {
+        if assigned.contains_key(&reader.name) {
             Ok(())
         } else {
             Err(SynchronizerError::SyncPreconditionError {

@@ -154,7 +154,8 @@ impl EventReader {
             .lock()
             .await
             .compute_segments_to_acquire_or_release(&reader)
-            .await;
+            .await
+            .expect("should compute segments");
         // attempt acquiring the desired number of segments.
         if new_segments_to_acquire > 0 {
             for _ in 0..new_segments_to_acquire {
@@ -267,9 +268,20 @@ impl EventReader {
     /// is assumed dead.
     pub async fn release_segment(&mut self, mut slice: SegmentSlice) -> Result<(), EventReaderError> {
         info!(
-            "releasing segment slice {} from reader {}",
+            "releasing segment slice {} from reader {:?}",
             slice.meta.scoped_segment, self.id
         );
+        // check if the reader is already offline.
+        if self.meta.reader_offline {
+            return Err(EventReaderError::StateError {
+                source: ReaderGroupStateError::ReaderAlreadyOfflineError {
+                    error_msg: format!("Reader already marked offline {:?}", self.id),
+                    source: SynchronizerError::SyncPreconditionError {
+                        error_msg: String::from("Precondition failure"),
+                    },
+                },
+            });
+        }
         //update meta data.
         let scoped_segment = ScopedSegment::from(slice.meta.scoped_segment.clone().as_str());
         self.meta.add_slices(slice.meta.clone());
@@ -322,6 +334,16 @@ impl EventReader {
             slice.meta.end_offset >= offset,
             "the offset where the segment slice is released should be less than the end offset"
         );
+        if self.meta.reader_offline {
+            return Err(EventReaderError::StateError {
+                source: ReaderGroupStateError::ReaderAlreadyOfflineError {
+                    error_msg: format!("Reader already marked offline {:?}", self.id),
+                    source: SynchronizerError::SyncPreconditionError {
+                        error_msg: String::from("Precondition failure"),
+                    },
+                },
+            });
+        }
         let segment = ScopedSegment::from(slice.meta.scoped_segment.as_str());
         if slice.meta.read_offset != offset {
             self.meta.stop_reading(&segment);
@@ -361,7 +383,7 @@ impl EventReader {
     /// that another thread removes this reader from the ReaderGroup probably due to the host of this reader
     /// is assumed dead.
     pub async fn reader_offline(&mut self) -> Result<(), EventReaderError> {
-        if !self.meta.reader_offline {
+        if !self.meta.reader_offline && self.rg_state.lock().await.check_online(&self.id).await {
             info!("Putting reader {:?} offline", self.id);
             // stop reading from all the segments.
             self.meta.stop_reading_all();
@@ -411,12 +433,23 @@ impl EventReader {
         mut slice: SegmentSlice,
         read_offset: i64,
     ) -> Result<(), EventReaderError> {
+        if self.meta.reader_offline {
+            return Err(EventReaderError::StateError {
+                source: ReaderGroupStateError::ReaderAlreadyOfflineError {
+                    error_msg: format!("Reader already marked offline {:?}", self.id),
+                    source: SynchronizerError::SyncPreconditionError {
+                        error_msg: String::from("Precondition failure"),
+                    },
+                },
+            });
+        }
         let new_segments_to_release = self
             .rg_state
             .lock()
             .await
             .compute_segments_to_acquire_or_release(&self.id)
-            .await;
+            .await
+            .map_err(|err| EventReaderError::StateError { source: err })?;
         let segment = ScopedSegment::from(slice.meta.scoped_segment.as_str());
         // check if segments needs to be released from the reader
         if new_segments_to_release < 0 {
@@ -462,7 +495,10 @@ impl EventReader {
         if self.meta.reader_offline || !self.rg_state.lock().await.check_online(&self.id).await {
             return Err(EventReaderError::StateError {
                 source: ReaderGroupStateError::ReaderAlreadyOfflineError {
-                    error_msg: format!("Reader already marked offline {:?}", self.id),
+                    error_msg: format!(
+                        "Reader already marked offline {:?} or the ReaderGroup is deleted",
+                        self.id
+                    ),
                     source: SynchronizerError::SyncPreconditionError {
                         error_msg: String::from("Precondition failure"),
                     },
@@ -666,7 +702,8 @@ impl EventReader {
             .lock()
             .await
             .compute_segments_to_acquire_or_release(&self.id)
-            .await;
+            .await
+            .expect("should compute segments");
         if new_segments_to_acquire <= 0 {
             Ok(None)
         } else {
@@ -1288,7 +1325,7 @@ mod tests {
         rg_mock.expect_check_online().return_const(true);
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
-            .return_const(0 as isize);
+            .return_once(move |_| Ok(0 as isize));
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
@@ -1356,7 +1393,7 @@ mod tests {
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
             .with(predicate::eq(Reader::from("r1".to_string())))
-            .return_const(1 as isize);
+            .return_once(move |_| Ok(1 as isize));
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         rg_mock.expect_check_online().return_const(true);
 
@@ -1460,7 +1497,7 @@ mod tests {
         let mut rg_mock: ReaderGroupState = ReaderGroupState::default();
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
-            .return_const(0 as isize);
+            .return_once(move |_| Ok(0 as isize));
         rg_mock.expect_check_online().return_const(true);
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
@@ -1535,7 +1572,7 @@ mod tests {
         rg_mock.expect_check_online().return_const(true);
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
-            .return_const(0 as isize);
+            .return_once(move |_| Ok(0 as isize));
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
@@ -1619,7 +1656,7 @@ mod tests {
         rg_mock.expect_check_online().return_const(true);
         rg_mock
             .expect_compute_segments_to_acquire_or_release()
-            .return_const(0 as isize);
+            .return_once(move |_| Ok(0 as isize));
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(

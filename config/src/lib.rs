@@ -211,7 +211,7 @@ impl ClientConfigBuilder {
             Err(format!(
                 "is_tls_enabled option {} does not match scheme in uri {}",
                 is_tls_enabled,
-                self.controller_uri.as_ref().unwrap().to_string()
+                **self.controller_uri.as_ref().unwrap()
             ))
         } else {
             Ok(())

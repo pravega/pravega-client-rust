@@ -115,7 +115,7 @@ impl StreamReaderGroup {
             .downcast_or_throw::<JsBox<StreamReaderGroup>, _>(&mut cx)?;
         let reader_name = cx.argument::<JsString>(0)?.value(&mut cx);
 
-        Ok(cx.boxed(stream_reader_group.create_reader(&reader_name.to_string())))
+        Ok(cx.boxed(stream_reader_group.create_reader(&reader_name)))
     }
 
     pub fn js_reader_offline(mut cx: FunctionContext) -> JsResult<JsUndefined> {
@@ -124,7 +124,7 @@ impl StreamReaderGroup {
             .downcast_or_throw::<JsBox<StreamReaderGroup>, _>(&mut cx)?;
         let reader_name = cx.argument::<JsString>(0)?.value(&mut cx);
 
-        let res = stream_reader_group.reader_offline(&reader_name.to_string());
+        let res = stream_reader_group.reader_offline(&reader_name);
         match res {
             Ok(()) => Ok(cx.undefined()),
             Err(e) => cx.throw_error(e.to_string()),

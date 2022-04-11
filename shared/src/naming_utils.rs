@@ -39,11 +39,11 @@ impl NameUtils {
         );
         if let Some(transaction_id) = tx_id {
             format!(
-                "{}{}{}{}",
+                "{}{}{:016x}{:016x}",
                 segment_name,
                 TRANSACTION_DELIMITER,
-                format!("{:016x}", (transaction_id.0 >> 64) as i64),
-                format!("{:016x}", transaction_id.0 as i64)
+                (transaction_id.0 >> 64) as i64,
+                transaction_id.0 as i64,
             )
         } else {
             segment_name
