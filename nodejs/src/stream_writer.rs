@@ -30,7 +30,7 @@ impl Finalize for StreamWriter {
 
 ///
 /// This represents a Stream writer for a given Stream.
-/// Note: A python object of StreamWriter cannot be created directly without using the StreamManager.
+/// Note: A StreamWriter cannot be created directly without using the StreamManager.
 ///
 pub(crate) struct StreamWriter {
     writer: Arc<Mutex<EventWriter>>,
