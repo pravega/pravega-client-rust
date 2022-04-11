@@ -149,7 +149,7 @@ impl StreamWriter {
             // notify and execute in the javascript main thread
             deferred.settle_with(&channel, move |mut cx| match flush_result {
                 Ok(_) => Ok(cx.undefined()),
-                Err(e) => cx.throw_error(e.to_string()),
+                Err(e) => cx.throw_error(e),
             })
         });
 

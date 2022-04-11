@@ -649,11 +649,7 @@ impl StreamManager {
         let stream_name = cx.argument::<JsString>(1)?.value(&mut cx);
         let max_inflight_events = cx.argument::<JsNumber>(2)?.value(&mut cx) as usize;
 
-        let stream_writer = stream_manager.create_writer(
-            &scope_name.to_string(),
-            &stream_name.to_string(),
-            max_inflight_events,
-        );
+        let stream_writer = stream_manager.create_writer(&scope_name, &stream_name, max_inflight_events);
 
         Ok(cx.boxed(stream_writer))
     }
