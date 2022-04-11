@@ -86,10 +86,7 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
     cx.export_function("StreamReaderReleaseSegment", StreamReader::js_release_segment)?;
     cx.export_function("StreamReaderToString", StreamReader::js_to_str)?;
 
-    cx.export_function(
-        "StreamManagerCreateWriter",
-        StreamManager::js_create_writer,
-    )?;
+    cx.export_function("StreamManagerCreateWriter", StreamManager::js_create_writer)?;
     cx.export_function("StreamWriterWriteEventBytes", StreamWriter::js_write_event_bytes)?;
     cx.export_function("StreamWriterFlush", StreamWriter::js_flush)?;
     cx.export_function("StreamWriterToString", StreamWriter::js_to_str)?;

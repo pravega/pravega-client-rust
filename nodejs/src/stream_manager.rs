@@ -11,8 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::stream_writer::StreamWriter;
 use crate::stream_reader_group::{StreamCut, StreamReaderGroup};
+use crate::stream_writer::StreamWriter;
 use neon::prelude::*;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client::event::reader_group::{ReaderGroupConfigBuilder, StreamCutVersioned};
