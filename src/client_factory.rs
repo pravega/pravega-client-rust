@@ -22,7 +22,7 @@ use crate::segment::metadata::SegmentMetadataClient;
 use crate::segment::raw_client::RawClientImpl;
 use crate::segment::reader::AsyncSegmentReaderImpl;
 use crate::sync::synchronizer::Synchronizer;
-use crate::sync::table::Table;
+use crate::sync::table::{Table, TableError};
 cfg_if::cfg_if! {
     if #[cfg(feature = "integration-test")] {
         use crate::test_utils::{RawClientWrapper, SegmentReaderWrapper};
@@ -152,6 +152,23 @@ impl ClientFactory {
         );
         self.client_factory_async
             .create_reader_group_with_config(scope, reader_group_name, reader_group_config)
+            .await
+    }
+
+    ///
+    /// Delete a ReaderGroup.
+    ///
+    pub async fn delete_reader_group(
+        &self,
+        scope: Scope,
+        reader_group_name: String,
+    ) -> Result<(), TableError> {
+        info!(
+            "Deleting reader group {:?} under scope {:?}",
+            reader_group_name, scope
+        );
+        self.client_factory_async
+            .delete_reader_group(scope, reader_group_name)
             .await
     }
 
@@ -314,6 +331,17 @@ impl ClientFactoryAsync {
         rg_config: ReaderGroupConfig,
     ) -> ReaderGroup {
         ReaderGroup::create(scope, reader_group_name, rg_config, self.clone()).await
+    }
+
+    ///
+    /// Delete a ReaderGroup given for a given scope.
+    ///
+    pub async fn delete_reader_group(
+        &self,
+        scope: Scope,
+        reader_group_name: String,
+    ) -> Result<(), TableError> {
+        ReaderGroup::delete(scope, reader_group_name, self.clone()).await
     }
 
     pub async fn create_transactional_event_writer(

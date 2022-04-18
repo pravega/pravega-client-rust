@@ -30,7 +30,7 @@ impl Finalize for StreamWriter {
 
 ///
 /// This represents a Stream writer for a given Stream.
-/// Note: A python object of StreamWriter cannot be created directly without using the StreamManager.
+/// Note: A StreamWriter cannot be created directly without using the StreamManager.
 ///
 pub(crate) struct StreamWriter {
     writer: Arc<Mutex<EventWriter>>,
@@ -149,7 +149,7 @@ impl StreamWriter {
             // notify and execute in the javascript main thread
             deferred.settle_with(&channel, move |mut cx| match flush_result {
                 Ok(_) => Ok(cx.undefined()),
-                Err(e) => cx.throw_error(e.to_string()),
+                Err(e) => cx.throw_error(e),
             })
         });
 

@@ -39,7 +39,7 @@ impl EventData {
     ///
     pub fn js_data(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
         let event_data = cx.this().downcast_or_throw::<JsBox<EventData>, _>(&mut cx)?;
-        let data = event_data.value.as_slice().clone();
+        let data = event_data.value.as_slice();
 
         Ok(JsArrayBuffer::external(&mut cx, data.to_owned()))
     }
@@ -100,7 +100,6 @@ impl Slice {
 
         match event_data {
             Some(event_data) => Ok(cx.boxed(event_data)),
-            // TODO: better return something like undefined instead of throwing an error?
             None => cx.throw_error("No more data in the stream!"),
         }
     }

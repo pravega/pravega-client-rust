@@ -78,7 +78,7 @@ impl StreamRetentionPolicy {
     pub fn by_time(time_in_millis: i64) -> StreamRetentionPolicy {
         StreamRetentionPolicy {
             retention: Retention {
-                retention_type: RetentionType::Size,
+                retention_type: RetentionType::Time,
                 retention_param: time_in_millis,
             },
         }
@@ -228,7 +228,7 @@ impl StreamManager {
     }
 
     ///
-    /// Create a Stream in Pravega
+    /// Create a Stream in Pravega.
     ///
     #[pyo3(text_signature = "($self, scope_name, stream_name, scaling_policy, retention_policy, tags)")]
     #[args(
@@ -288,7 +288,7 @@ impl StreamManager {
     }
 
     ///
-    /// Update Stream Configuration in Pravega
+    /// Update Stream Configuration in Pravega.
     ///
     #[pyo3(text_signature = "($self, scope_name, stream_name, scaling_policy, retention_policy, tags)")]
     #[args(
@@ -329,7 +329,7 @@ impl StreamManager {
     }
 
     ///
-    /// Get Stream tags from Pravega
+    /// Get Stream tags from Pravega.
     ///
     #[pyo3(text_signature = "($self, scope_name, stream_name, scaling_policy, retention_policy, tags)")]
     pub fn get_stream_tags(&self, scope_name: &str, stream_name: &str) -> PyResult<Option<Vec<String>>> {
@@ -353,7 +353,7 @@ impl StreamManager {
     }
 
     ///
-    /// Create a Stream in Pravega.
+    /// Seal a Stream in Pravega.
     ///
     #[pyo3(text_signature = "($self, scope_name, stream_name)")]
     pub fn seal_stream(&self, scope_name: &str, stream_name: &str) -> PyResult<bool> {
@@ -547,6 +547,32 @@ impl StreamManager {
         ));
         let reader_group = StreamReaderGroup::new(rg, self.cf.runtime_handle());
         Ok(reader_group)
+    }
+
+    ///
+    /// Delete a ReaderGroup.
+    ///
+    /// ```
+    /// import pravega_client;
+    /// manager=pravega_client.StreamManager("tcp://127.0.0.1:9090")
+    /// // Delete a ReaderGroup against an already created Pravega scope..
+    /// manager.delete_reader_group_with_config("rg1", "scope", rg_config)
+    ///
+    /// ```
+    ///
+    #[pyo3(text_signature = "($self, reader_group_name, scope_name)")]
+    pub fn delete_reader_group(&self, reader_group_name: &str, scope_name: &str) -> PyResult<()> {
+        let scope = Scope::from(scope_name.to_string());
+
+        let handle = self.cf.runtime_handle();
+
+        let delete_result =
+            handle.block_on(self.cf.delete_reader_group(scope, reader_group_name.to_string()));
+        info!("Delete ReaderGroup {:?}", delete_result);
+        match delete_result {
+            Ok(_) => Ok(()),
+            Err(e) => Err(exceptions::PyValueError::new_err(format!("{:?}", e))),
+        }
     }
 
     ///

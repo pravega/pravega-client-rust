@@ -11,8 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::stream_writer::StreamWriter;
 use crate::stream_reader_group::{StreamCut, StreamReaderGroup};
+use crate::stream_writer::StreamWriter;
 use neon::prelude::*;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client::event::reader_group::{ReaderGroupConfigBuilder, StreamCutVersioned};
@@ -176,7 +176,6 @@ impl StreamManager {
         let controller = self.cf.controller_client();
         let scope_name = Scope::from(scope_name.to_string());
 
-        // TODO: async?
         handle.block_on(controller.create_scope(&scope_name))
     }
 
@@ -426,7 +425,7 @@ impl StreamManager {
         let disable_cert_verification = cx.argument::<JsBoolean>(3)?.value(&mut cx);
 
         let stream_manager = StreamManager::new(
-            &controller_uri.to_string(),
+            &controller_uri,
             auth_enabled,
             tls_enabled,
             disable_cert_verification,
@@ -439,7 +438,7 @@ impl StreamManager {
         let stream_manager = cx.this().downcast_or_throw::<JsBox<StreamManager>, _>(&mut cx)?;
         let scope_name = cx.argument::<JsString>(0)?.value(&mut cx);
 
-        let scope_result = stream_manager.create_scope(&scope_name.to_string());
+        let scope_result = stream_manager.create_scope(&scope_name);
         match scope_result {
             Ok(t) => Ok(cx.boolean(t)),
             Err(e) => cx.throw_error(e.to_string()),
@@ -450,7 +449,7 @@ impl StreamManager {
         let stream_manager = cx.this().downcast_or_throw::<JsBox<StreamManager>, _>(&mut cx)?;
         let scope_name = cx.argument::<JsString>(0)?.value(&mut cx);
 
-        let scope_result = stream_manager.delete_scope(&scope_name.to_string());
+        let scope_result = stream_manager.delete_scope(&scope_name);
         match scope_result {
             Ok(t) => Ok(cx.boolean(t)),
             Err(e) => cx.throw_error(e.to_string()),
@@ -495,15 +494,15 @@ impl StreamManager {
             .collect::<Result<Vec<_>, _>>()?;
 
         let stream_result = stream_manager.create_stream_with_policy(
-            &scope_name.to_string(),
-            &stream_name.to_string(),
+            &scope_name,
+            &stream_name,
             // TODO: Handle<JsBox<T>> auto dereferencing won't work for this (no idea why),
             //       so manually getting the internal scaling and retention is required.
             // https://docs.rs/neon/latest/neon/types/struct.JsBox.html#deref-behavior
             scaling_policy.scaling.clone(),
             retention_policy.retention.clone(),
             match tags.len() {
-                l if l <= 0 => None,
+                l if l == 0 => None,
                 _ => Some(tags),
             },
         );
@@ -530,12 +529,12 @@ impl StreamManager {
             .collect::<Result<Vec<_>, _>>()?;
 
         let stream_result = stream_manager.update_stream_with_policy(
-            &scope_name.to_string(),
-            &stream_name.to_string(),
+            &scope_name,
+            &stream_name,
             scaling_policy.scaling.clone(),
             retention_policy.retention.clone(),
             match tags.len() {
-                l if l <= 0 => None,
+                l if l == 0 => None,
                 _ => Some(tags),
             },
         );
@@ -552,7 +551,7 @@ impl StreamManager {
         let scope_name = cx.argument::<JsString>(0)?.value(&mut cx);
         let stream_name = cx.argument::<JsString>(1)?.value(&mut cx);
 
-        let tags = match stream_manager.get_stream_tags(&scope_name.to_string(), &stream_name.to_string()) {
+        let tags = match stream_manager.get_stream_tags(&scope_name, &stream_name) {
             Ok(val) => match val {
                 Some(val) => val,
                 None => return Ok(cx.empty_array()),
@@ -580,7 +579,7 @@ impl StreamManager {
         let scope_name = cx.argument::<JsString>(0)?.value(&mut cx);
         let stream_name = cx.argument::<JsString>(1)?.value(&mut cx);
 
-        let scope_result = stream_manager.seal_stream(&scope_name.to_string(), &stream_name.to_string());
+        let scope_result = stream_manager.seal_stream(&scope_name, &stream_name);
         match scope_result {
             Ok(t) => Ok(cx.boolean(t)),
             Err(e) => cx.throw_error(e.to_string()),
@@ -592,7 +591,7 @@ impl StreamManager {
         let scope_name = cx.argument::<JsString>(0)?.value(&mut cx);
         let stream_name = cx.argument::<JsString>(1)?.value(&mut cx);
 
-        let scope_result = stream_manager.delete_stream(&scope_name.to_string(), &stream_name.to_string());
+        let scope_result = stream_manager.delete_stream(&scope_name, &stream_name);
         match scope_result {
             Ok(t) => Ok(cx.boolean(t)),
             Err(e) => cx.throw_error(e.to_string()),
@@ -605,7 +604,7 @@ impl StreamManager {
         let stream_manager = cx.this().downcast_or_throw::<JsBox<StreamManager>, _>(&mut cx)?;
         let scope_name = cx.argument::<JsString>(0)?.value(&mut cx);
 
-        let streams = stream_manager.list_streams(&scope_name.to_string());
+        let streams = stream_manager.list_streams(&scope_name);
         let streams_length: u32 = match streams.len().try_into() {
             Ok(val) => val,
             Err(_err) => return cx.throw_error("Too many streams"),
@@ -635,8 +634,8 @@ impl StreamManager {
         let stream_cut = cx.argument::<JsBox<StreamCut>>(3)?;
 
         let stream_reader_group = stream_manager.create_reader_group(
-            &reader_group_name.to_string(),
-            &scope_name.to_string(),
+            &reader_group_name,
+            &scope_name,
             streams,
             &stream_cut.stream_cut,
         );
@@ -650,11 +649,7 @@ impl StreamManager {
         let stream_name = cx.argument::<JsString>(1)?.value(&mut cx);
         let max_inflight_events = cx.argument::<JsNumber>(2)?.value(&mut cx) as usize;
 
-        let stream_writer = stream_manager.create_writer(
-            &scope_name.to_string(),
-            &stream_name.to_string(),
-            max_inflight_events,
-        );
+        let stream_writer = stream_manager.create_writer(&scope_name, &stream_name, max_inflight_events);
 
         Ok(cx.boxed(stream_writer))
     }
