@@ -11,22 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// One line destructuring a CommonJs module is not possible. Break into two lines.
-import node_pre_gyp from '@mapbox/node-pre-gyp';
-const { find } = node_pre_gyp;
-import { resolve, join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-// Native modules are not currently supported with ES module imports.
-// https://nodejs.org/api/esm.html#esm_no_native_module_loading
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-
-// __dirname is not defined in ES module scope, so get it manaully.
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const {
+import {
     EventDataData,
     EventDataOffset,
     EventDataToString,
@@ -35,8 +20,7 @@ const {
     StreamReaderReaderOffline,
     StreamReaderReleaseSegment,
     StreamReaderToString,
-    // the file will be run in ./dist, so popd.
-} = require(find(resolve(join(__dirname, process.env.PRAVEGA_NODEJS_DEV ? '' : '..', './package.json'))));
+} from './native_esm.js';
 
 /**
  * This represents an event that was read from a Pravega Segment and the offset at which the event
@@ -45,14 +29,14 @@ const {
 export interface Event {
     /**
      * Return the event data as `ArrayBuffer`.
-     * 
+     *
      * @returns ArrayBuffer that contains raw data.
      */
     data: () => ArrayBuffer;
 
     /**
      * Return the event offset in the segment.
-     * 
+     *
      * @returns offset
      */
     offset: () => number;
@@ -74,7 +58,7 @@ const Event = (event): Event => {
 
 /**
  * This represents a segment slice which can be used to read events from a Pravega segment as an iterator.
- * 
+ *
  * Individual events can be read from the Slice using the following snippets.
  * ```javascript
  * const seg_slice: Slice = await stream_reader.get_segment_slice();
@@ -169,7 +153,8 @@ export interface StreamReader {
 export const StreamReader = (stream_reader): StreamReader => {
     const get_segment_slice = async (): Promise<Slice> => Slice(await StreamReaderGetSegementSlice.call(stream_reader));
     const reader_offline = (): void => StreamReaderReaderOffline.call(stream_reader);
-    const release_segment = (slice: Slice): void => StreamReaderReleaseSegment.call(stream_reader, slice.internal_slice);
+    const release_segment = (slice: Slice): void =>
+        StreamReaderReleaseSegment.call(stream_reader, slice.internal_slice);
     const toString = (): string => StreamReaderToString.call(stream_reader);
 
     return { get_segment_slice, reader_offline, release_segment, toString };

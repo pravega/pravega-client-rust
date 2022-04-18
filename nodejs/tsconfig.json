@@ -7,11 +7,7 @@
         "moduleResolution": "node",
         "rootDir": "./",
         "declaration": true,
-        "outDir": "./dist"
+        "outDir": "./dist/esm"
     },
-    "exclude": [
-        "node_modules",
-        "dist",
-        "**/tests/*.test.ts",
-    ]
+    "exclude": ["native_cjs.ts", "node_modules", "dist", "**/tests/*.test.ts"]
 }
