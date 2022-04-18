@@ -16,11 +16,11 @@ yarn add @thekingofcity/pravega
 
 After the package is downloaded from the registry, a `node-pre-gyp install` will be triggered to pull the underlying Rust Node addon binary from the Github releases.
 
-Note your os and architecture matters. Only `Windows`, `MacOS`, and `linux` with `x86_64` comes with a pre-built binary. If this fails or your platform is not supported, you need to build the native Node addon by pulling the repo and execute several commands to get the binary. They are stated below in the development section.
+Note your os and architecture matters. Only `Windows`, `MacOS`, and `linux` with `x86_64` architecture come with a pre-built binary. If this fails or your platform is not supported, you need to build the native Node addon by pulling the repo and execute several commands to get the binary. They are stated below in the development section.
 
 ## Example
 
-After an `npm init`, add `"type": "module",` to your `package.json` so `node` can load ECMAScript modules correctly.
+After an `npm init`, add `"type": "module",` to your `package.json` so `node` can load ECMAScript modules correctly. We do provide a commonJS distribution for legacy compatibility, so feel free to use `require()`.
 
 ```javascript
 import { StreamCut, StreamManager } from '@thekingofcity/pravega';
@@ -139,4 +139,4 @@ Then you need to install Nodejs related packages via `npm i` in this folder.
 1. `npm run release-native` to build a release addon.
 2. `npm run release-js` to build a release dist.
 3. `npm pack` to pack a local npm package.
-4. `npm i pravega-0.4.0.tgz` in your project and use it.
+4. `npm i pravega-0.5.0.tgz` in your project and use it.

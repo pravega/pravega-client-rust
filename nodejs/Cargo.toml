@@ -6,10 +6,10 @@ edition = "2018"
 exclude = ["pravega.node"]
 keywords = ["streaming", "client", "pravega"]
 license = "Apache-2.0"
-name = "pravega-nodejs"
+name = "pravega_nodejs"
 readme = "README.md"
 repository = "https://github.com/pravega/pravega-client-rust"
-version = "0.4.6"
+version = "0.5.0"
 
 [lib]
 crate-type = ["cdylib"]
