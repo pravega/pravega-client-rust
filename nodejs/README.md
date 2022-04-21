@@ -31,14 +31,8 @@ const DATA = 'Hello World!';
 
 // Assume Pravega controller is listening at 127.0.0.1:9090
 const stream_manager = StreamManager('tcp://127.0.0.1:9090', false, false, true);
-// (Re)create a scope and stream.
-if (!stream_manager.list_scopes().includes(SCOPE)) {
-    stream_manager.create_scope(SCOPE);
-}
-if (stream_manager.list_streams(SCOPE).includes(STREAM)) {
-    stream_manager.seal_stream(SCOPE, STREAM);
-    stream_manager.delete_stream(SCOPE, STREAM);
-}
+// Assume the scope and stream don't exist.
+stream_manager.create_scope(SCOPE);
 // This will create a stream with only 1 segment.
 stream_manager.create_stream(SCOPE, STREAM);
 
@@ -48,10 +42,10 @@ await stream_writer_1.write_event(DATA);
 await stream_writer_1.write_event(DATA, 'routing_key');
 // Write event as bytes.
 const enc = new TextEncoder();
-const stream_writer_2 = stream_manager.create_writer(SCOPE, STREAM, 2);
-await stream_writer_2.write_event_bytes(enc.encode(DATA));
-await stream_writer_2.write_event_bytes(enc.encode(DATA), 'routing_key');
-// Since there can be max 2 inflight events not persisted, call `flush`.
+const stream_writer_2 = stream_manager.create_writer(SCOPE, STREAM);
+stream_writer_2.write_event_bytes(enc.encode(DATA));
+stream_writer_2.write_event_bytes(enc.encode(DATA), 'routing_key');
+// You can also write them in parallel and await flush.
 await stream_writer_2.flush();
 
 // Create a reader group and a reader.
@@ -76,6 +70,7 @@ for (const event of seg_slice) {
 stream_reader.release_segment(seg_slice);
 stream_reader.reader_offline();
 
+// Clean up.
 stream_manager.seal_stream(SCOPE, STREAM);
 stream_manager.delete_stream(SCOPE, STREAM);
 stream_manager.delete_scope(SCOPE);
