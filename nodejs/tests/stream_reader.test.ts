@@ -75,9 +75,9 @@ describe('Tests on StreamReader', () => {
         }
         stream_manager.create_stream(SCOPE, STREAM);
 
-        const stream_writer = stream_manager.create_writer(SCOPE, STREAM, 10);
-        [...Array(10).keys()].map(async _ => {
-            await stream_writer.write_event(DATA);
+        const stream_writer = stream_manager.create_writer(SCOPE, STREAM);
+        [...Array(10).keys()].map(_ => {
+            stream_writer.write_event(DATA);
         });
         await stream_writer.flush();
 
@@ -123,9 +123,9 @@ describe('Tests on StreamReader', () => {
         );
 
         // write 100 events
-        const stream_writer = stream_manager.create_writer(SCOPE, STREAM, 10);
-        [...Array(100)].map(async _ => {
-            await stream_writer.write_event(DATA);
+        const stream_writer = stream_manager.create_writer(SCOPE, STREAM);
+        [...Array(100)].map(_ => {
+            stream_writer.write_event(DATA);
         });
         await stream_writer.flush();
 
@@ -185,9 +185,9 @@ describe('Tests on StreamReader', () => {
         // write 1000 large events
         const enc = new TextEncoder();
         const buf = enc.encode('a'.repeat(100000));
-        const stream_writer = stream_manager.create_writer(SCOPE, STREAM, 100);
-        [...Array(1000)].map(async _ => {
-            await stream_writer.write_event_bytes(buf);
+        const stream_writer = stream_manager.create_writer(SCOPE, STREAM);
+        [...Array(1000)].map(_ => {
+            stream_writer.write_event_bytes(buf);
         });
         await stream_writer.flush();
 

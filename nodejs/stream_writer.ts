@@ -29,9 +29,9 @@ export interface StreamWriter {
      *
      * @param event String that want to be written to the Pravega Stream.
      * @param routing_key (optional) The user specified routing key.
-     * @returns Promise<undefined>
+     * @returns Promise<void>
      */
-    write_event: (event: string, routing_key?: string) => Promise<undefined>;
+    write_event: (event: string, routing_key?: string) => Promise<void>;
 
     /**
      * Write a byte array into the Pravega Stream. This is similar to `write_event(...)` api except
@@ -43,9 +43,9 @@ export interface StreamWriter {
      *
      * @param buf Byte array that want to be written to the Pravega Stream.
      * @param routing_key (optional) The user specified routing key.
-     * @returns Promise<undefined>
+     * @returns Promise<void>
      */
-    write_event_bytes: (buf: Uint8Array, routing_key?: string) => Promise<undefined>;
+    write_event_bytes: (buf: Uint8Array, routing_key?: string) => Promise<void>;
 
     /**
      * Flush all the inflight events into Pravega Stream.
@@ -56,9 +56,9 @@ export interface StreamWriter {
      * to the reactor. If the `max_inflight_events` is not 0 when creating the writer, there may be some
      * events that are not persisted on the Pravega Stream.
      *
-     * @returns Promise<undefined>
+     * @returns Promise<void>
      */
-    flush: () => Promise<undefined>;
+    flush: () => Promise<void>;
 
     toString: () => string;
 }

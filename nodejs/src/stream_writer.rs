@@ -13,19 +13,18 @@
 
 use neon::prelude::*;
 use neon::types::buffer::TypedArray;
-use pravega_client::error::Error as WriterError;
 use pravega_client::event::writer::EventWriter;
-use pravega_client::util::oneshot_holder::OneShotHolder;
 use pravega_client_shared::ScopedStream;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::runtime::Handle;
-use tokio::sync::oneshot::Receiver;
 use tokio::sync::Mutex;
-use tokio::time::timeout;
 
 impl Finalize for StreamWriter {
-    // TODO: impl finalize for this so events will be flushed
+    fn finalize<'a, C: Context<'a>>(self, _cx: &mut C) {
+        self.runtime_handle.block_on(async {
+            let _ = self.writer.lock().await.flush().await;
+        });
+    }
 }
 
 ///
@@ -36,31 +35,20 @@ pub(crate) struct StreamWriter {
     writer: Arc<Mutex<EventWriter>>,
     runtime_handle: Handle,
     stream: ScopedStream,
-    inflight: Arc<Mutex<OneShotHolder<WriterError>>>,
 }
 
-// The amount of time the python api will wait for the underlying write to be completed.
-const TIMEOUT_IN_SECONDS: u64 = 120;
-
 impl StreamWriter {
-    pub fn new(
-        writer: EventWriter,
-        runtime_handle: Handle,
-        stream: ScopedStream,
-        max_inflight_count: usize,
-    ) -> Self {
+    pub fn new(writer: EventWriter, runtime_handle: Handle, stream: ScopedStream) -> Self {
         StreamWriter {
             writer: Arc::new(Mutex::new(writer)),
             runtime_handle,
             stream,
-            inflight: Arc::new(Mutex::new(OneShotHolder::new(max_inflight_count))),
         }
     }
 
     ///
-    /// Return the write result in an asynchronous call.
-    /// When max_inflight_count is not 0 during creation,
-    /// this will return after the background task called reactor is called.
+    /// Return the write result in an asynchronous call by
+    /// sending the payload to a background task called reactor to process.
     ///
     /// See the tokio-fetch example for more details on how to return a Promise and await.
     /// https://github.com/neon-bindings/examples/tree/2dbbef55f483635d0118c20c9902bf4c6faa1ecc/examples/tokio-fetch
@@ -85,10 +73,9 @@ impl StreamWriter {
 
         // spawn an `async` task on the tokio runtime.
         let writer = Arc::clone(&stream_writer.writer);
-        let inflight = Arc::clone(&stream_writer.inflight);
         stream_writer.runtime_handle.spawn(async move {
-            // expensive async procedure executed in the tokio thread
-            let write_future: Receiver<Result<(), WriterError>> = match routing_key {
+            // run an async function in the tokio thread
+            let result = match routing_key {
                 Some(routing_key) => {
                     writer
                         .lock()
@@ -97,17 +84,15 @@ impl StreamWriter {
                         .await
                 }
                 None => writer.lock().await.write_event(event.to_vec()).await,
-            };
-
-            let result = timeout(
-                Duration::from_secs(TIMEOUT_IN_SECONDS),
-                inflight.lock().await.add(write_future),
-            )
+            }
             .await;
 
             // notify and execute in the javascript main thread
             deferred.settle_with(&channel, move |mut cx| match result {
-                Ok(_) => Ok(cx.undefined()),
+                Ok(result) => match result {
+                    Ok(_) => Ok(cx.undefined()),
+                    Err(e) => cx.throw_error(e.to_string()),
+                },
                 Err(e) => cx.throw_error(e.to_string()),
             })
         });
@@ -116,8 +101,8 @@ impl StreamWriter {
     }
 
     ///
-    /// Flush all the inflight events into Pravega Stream.
-    /// This will ensure all the inflight events are completely persisted on the Pravega Stream.
+    /// Flush data.
+    /// It will notify the js thread when all the pending appends are acknowledged by Pravega.
     ///
     /// See the tokio-fetch example for more details on how to return a Promise and await.
     /// https://github.com/neon-bindings/examples/tree/2dbbef55f483635d0118c20c9902bf4c6faa1ecc/examples/tokio-fetch
@@ -129,27 +114,15 @@ impl StreamWriter {
         let (deferred, promise) = cx.promise();
 
         // spawn an `async` task on the tokio runtime.
-        let inflight = Arc::clone(&stream_writer.inflight);
+        let writer = Arc::clone(&stream_writer.writer);
         stream_writer.runtime_handle.spawn(async move {
-            // expensive async procedure executed in the tokio thread
-            let mut flush_result: Result<(), _> = Ok(());
-            for x in inflight.lock().await.drain() {
-                let res = x.await;
-                // fail fast on error.
-                if let Err(e) = res {
-                    flush_result = Err(format!("RecvError observed while writing an event {:?}", e));
-                    break;
-                } else if let Err(e) = res.unwrap() {
-                    flush_result = Err(format!("Error observed while writing an event {:?}", e));
-                    break;
-                }
-                flush_result = Ok(());
-            }
+            // run an async function in the tokio thread
+            let result = writer.lock().await.flush().await;
 
             // notify and execute in the javascript main thread
-            deferred.settle_with(&channel, move |mut cx| match flush_result {
+            deferred.settle_with(&channel, move |mut cx| match result {
                 Ok(_) => Ok(cx.undefined()),
-                Err(e) => cx.throw_error(e),
+                Err(e) => cx.throw_error(e.to_string()),
             })
         });
 
