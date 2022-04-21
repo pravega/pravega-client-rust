@@ -38,9 +38,9 @@ describe('Basic test on manager, reader, and writer', () => {
         await stream_writer_1.write_event(DATA);
         await stream_writer_1.write_event(DATA, 'routing_key');
         const enc = new TextEncoder();
-        const stream_writer_2 = stream_manager.create_writer(SCOPE, STREAM, 2);
-        await stream_writer_2.write_event_bytes(enc.encode(DATA));
-        await stream_writer_2.write_event_bytes(enc.encode(DATA), 'routing_key');
+        const stream_writer_2 = stream_manager.create_writer(SCOPE, STREAM);
+        stream_writer_2.write_event_bytes(enc.encode(DATA));
+        stream_writer_2.write_event_bytes(enc.encode(DATA), 'routing_key');
         await stream_writer_2.flush();
 
         const reader_group_name = Math.random().toString(36).slice(2, 10);

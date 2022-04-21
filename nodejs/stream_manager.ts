@@ -221,19 +221,13 @@ export const StreamManager = (
 
     /**
      * Create a Writer for a given Stream.
-     * 
-     * By default the max inflight events is configured for 0. The users can change this value
-     * to ensure there are multiple inflight events at any given point in time and can use the
-     * `flush()` API on the writer to wait until all the events are persisted.
-     * 
+     *
      * @param scope_name The scope name.
      * @param stream_name The stream name.
-     * @param max_inflight_events How many event writes that are not persisted on the Pravega Stream
-     *  when `write_event(...)` and `write_event_bytes(...)` are returned.
      * @returns A StreamWriter.
      */
-    const create_writer = (scope_name: string, stream_name: string, max_inflight_events: number = 0): StreamWriter =>
-        StreamWriter(StreamManagerCreateWriter.call(stream_manager, scope_name, stream_name, max_inflight_events));
+    const create_writer = (scope_name: string, stream_name: string): StreamWriter =>
+        StreamWriter(StreamManagerCreateWriter.call(stream_manager, scope_name, stream_name));
 
     /**
      * A detailed view of a StreamManager.

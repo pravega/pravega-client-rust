@@ -395,12 +395,7 @@ impl StreamManager {
     ///
     /// Create a Writer for a given Stream.
     ///
-    pub fn create_writer(
-        &self,
-        scope_name: &str,
-        stream_name: &str,
-        max_inflight_events: usize,
-    ) -> StreamWriter {
+    pub fn create_writer(&self, scope_name: &str, stream_name: &str) -> StreamWriter {
         let scoped_stream = ScopedStream {
             scope: Scope::from(scope_name.to_string()),
             stream: Stream::from(stream_name.to_string()),
@@ -409,7 +404,6 @@ impl StreamManager {
             self.cf.create_event_writer(scoped_stream.clone()),
             self.cf.runtime_handle(),
             scoped_stream,
-            max_inflight_events,
         )
     }
 }
@@ -647,9 +641,8 @@ impl StreamManager {
         let stream_manager = cx.this().downcast_or_throw::<JsBox<StreamManager>, _>(&mut cx)?;
         let scope_name = cx.argument::<JsString>(0)?.value(&mut cx);
         let stream_name = cx.argument::<JsString>(1)?.value(&mut cx);
-        let max_inflight_events = cx.argument::<JsNumber>(2)?.value(&mut cx) as usize;
 
-        let stream_writer = stream_manager.create_writer(&scope_name, &stream_name, max_inflight_events);
+        let stream_writer = stream_manager.create_writer(&scope_name, &stream_name);
 
         Ok(cx.boxed(stream_writer))
     }
