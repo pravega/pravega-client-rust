@@ -20,7 +20,11 @@ use tokio::runtime::Handle;
 use tokio::sync::Mutex;
 
 impl Finalize for StreamWriter {
-    // TODO: impl finalize for this so events will be flushed
+    fn finalize<'a, C: Context<'a>>(self, _cx: &mut C) {
+        self.runtime_handle.block_on(async {
+            let _ = self.writer.lock().await.flush().await;
+        });
+    }
 }
 
 ///
