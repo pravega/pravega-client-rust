@@ -77,7 +77,7 @@ impl RetryWithBackoff {
         self
     }
 
-    #[deprecated(since = "0.4.0", note = "please use `new_method` instead")]
+    #[deprecated(since = "0.4.0", note = "please use `initial_delay` instead")]
     /// Constructs a new exponential back-off strategy,
     /// given a base duration in milliseconds.
     pub fn from_millis(base: u64) -> RetryWithBackoff {
@@ -92,7 +92,7 @@ impl RetryWithBackoff {
         }
     }
 
-    #[deprecated(since = "0.4.0", note = "please use `new_method` instead")]
+    #[deprecated(since = "0.4.0", note = "please use `max_attempt` instead")]
     /// Apply a the max number of tries.
     pub fn max_tries(self, tries: i32) -> std::iter::Take<RetryWithBackoff> {
         self.take(tries as usize)
@@ -150,6 +150,7 @@ fn test_returns_some_exponential_base_10() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_returns_with_finite_retries() {
     let mut s = RetryWithBackoff::from_millis(10).max_tries(5);
     assert_eq!(s.next(), Some(Duration::from_millis(10)));
