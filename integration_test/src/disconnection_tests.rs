@@ -58,6 +58,7 @@ pub fn disconnection_test_wrapper() {
     rt.block_on(test_with_mock_server());
 }
 
+#[allow(deprecated)]
 async fn test_retry_with_no_connection() {
     let retry_policy = RetryWithBackoff::default().max_tries(4);
     // give a wrong endpoint
@@ -88,11 +89,13 @@ async fn test_retry_with_no_connection() {
     }
 }
 
+#[allow(deprecated)]
 fn test_retry_while_start_pravega(cf: &ClientFactory) {
     let controller_client = cf.controller_client();
     cf.runtime().block_on(create_scope_stream(controller_client));
 }
 
+#[allow(deprecated)]
 async fn create_scope_stream(controller_client: &dyn ControllerClient) {
     let retry_policy = RetryWithBackoff::default().max_tries(10);
     let scope_name = Scope::from("retryScope".to_owned());
@@ -139,6 +142,7 @@ async fn create_scope_stream(controller_client: &dyn ControllerClient) {
     assert!(result);
 }
 
+#[allow(deprecated)]
 fn test_retry_with_unexpected_reply(cf: &ClientFactory) {
     let retry_policy = RetryWithBackoff::default().max_tries(4);
     let scope_name = Scope::from("retryScope".to_owned());
@@ -199,6 +203,7 @@ impl Server {
     }
 }
 
+#[allow(deprecated)]
 async fn test_with_mock_server() {
     let server = Server::new();
     let endpoint = PravegaNodeUri::from(format!("{}:{}", server.address.ip(), server.address.port()));
