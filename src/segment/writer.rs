@@ -153,7 +153,7 @@ impl SegmentWriter {
                     Ok((reply, connection)) => RetryResult::Success((reply, connection)),
                     Err(e) => {
                         info!("failed to setup append using rawclient due to {:?}", e);
-                        RetryResult::Retry(e)
+                        RetryResult::Fail(e)
                     }
                 }
             })
