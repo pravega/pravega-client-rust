@@ -36,6 +36,7 @@ describe('Tests on StreamManager', () => {
 
         // assert list scope and stream
         assert.deepEqual(stream_manager.list_scopes(), ['scope1', '_system']);
+        assert.deepEqual(await stream_manager.list_scopes_async(), ['scope1', '_system']);
         assert.deepEqual(stream_manager.list_streams('scope1'), [
             'stream2withoutpolicy',
             '_MARKstream2withoutpolicy',

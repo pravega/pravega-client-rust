@@ -469,6 +469,40 @@ impl StreamManager {
         Ok(array)
     }
 
+    pub fn js_list_scopes_async(mut cx: FunctionContext) -> JsResult<JsPromise> {
+        let stream_manager = cx.this().downcast_or_throw::<JsBox<StreamManager>, _>(&mut cx)?;
+        let channel = cx.channel();
+        let (deferred, promise) = cx.promise();
+        use std::sync::Arc;
+        let cf = Arc::new(stream_manager.cf.to_async());
+        //let controller_arc = controller.clone();
+        //let s = stream_manager.clone().cf.controller_client();
+        let handle = stream_manager.cf.runtime_handle();
+        handle.spawn(async move {
+            use futures::stream::StreamExt;
+            use pravega_controller_client::paginator::list_scopes;
+            let cf = cf.clone();
+            let controller = cf.controller_client();
+            let scope = list_scopes(controller);
+            let scopes = scope.map(|str| str.unwrap()).collect::<Vec<Scope>>().await;
+            // notify and execute in the javascript main thread
+            deferred.settle_with(&channel, move |mut cx| {
+                use std::convert::TryInto;
+                let scopes_length: u32 = match scopes.len().try_into() {
+                    Ok(val) => val,
+                    Err(_err) => return cx.throw_error("Too many scopes"),
+                };
+                let array: Handle<JsArray> = JsArray::new(&mut cx, scopes_length);
+                for (pos, e) in scopes.iter().enumerate() {
+                    let scope_name = cx.string(e.name.clone());
+                    array.set(&mut cx, pos as u32, scope_name)?;
+                }
+                Ok(array)
+            });
+        });
+        Ok(promise)
+    }
+
     pub fn js_create_stream_with_policy(mut cx: FunctionContext) -> JsResult<JsBoolean> {
         let stream_manager = cx.this().downcast_or_throw::<JsBox<StreamManager>, _>(&mut cx)?;
         let scope_name = cx.argument::<JsString>(0)?.value(&mut cx);

@@ -32,6 +32,7 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
     cx.export_function("StreamManagerCreateScope", StreamManager::js_create_scope)?;
     cx.export_function("StreamManagerDeleteScope", StreamManager::js_delete_scope)?;
     cx.export_function("StreamManagerListScopes", StreamManager::js_list_scopes)?;
+    cx.export_function("StreamManagerListScopesAsync", StreamManager::js_list_scopes_async)?;
     cx.export_function("StreamRetentionPolicyNone", StreamRetentionPolicy::js_none)?;
     cx.export_function("StreamRetentionPolicyBySize", StreamRetentionPolicy::js_by_size)?;
     cx.export_function("StreamRetentionPolicyByTime", StreamRetentionPolicy::js_by_time)?;
