@@ -2,12 +2,13 @@
     "name": "@thekingofcity/pravega",
     "version": "0.5.0",
     "description": "Pravega client",
-    "main": "dist/cjs/index.js",
-    "module": "dist/esm/index.js",
+    "main": "dist/cjs/stream_manager.js",
+    "module": "dist/esm/stream_manager.js",
+    "types": "dist/esm/index.d.ts",
     "exports": {
         ".": {
-            "import": "./dist/esm/index.js",
-            "require": "./dist/cjs/index.js"
+            "import": "./dist/esm/stream_manager.js",
+            "require": "./dist/cjs/stream_manager.js"
         }
     },
     "scripts": {
