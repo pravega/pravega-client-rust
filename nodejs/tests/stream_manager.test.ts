@@ -35,9 +35,8 @@ describe('Tests on StreamManager', () => {
         assert.equal(stream_manager.create_stream('scope1', 'stream2withoutpolicy'), true);
 
         // assert list scope and stream
-        assert.deepEqual(stream_manager.list_scopes(), ['scope1', '_system']);
-        assert.deepEqual(await stream_manager.list_scopes_async(), ['scope1', '_system']);
-        assert.deepEqual(stream_manager.list_streams('scope1'), [
+        assert.deepEqual(await stream_manager.list_scopes(), ['scope1', '_system']);
+        assert.deepEqual(await stream_manager.list_streams('scope1'), [
             'stream2withoutpolicy',
             '_MARKstream2withoutpolicy',
             '_MARKstream1',
@@ -49,9 +48,9 @@ describe('Tests on StreamManager', () => {
         assert.equal(stream_manager.delete_stream('scope1', 'stream1'), true);
         assert.equal(stream_manager.seal_stream('scope1', 'stream2withoutpolicy'), true);
         assert.equal(stream_manager.delete_stream('scope1', 'stream2withoutpolicy'), true);
-        assert.deepEqual(stream_manager.list_streams('scope1'), []);
+        assert.deepEqual(await stream_manager.list_streams('scope1'), []);
         assert.equal(stream_manager.delete_scope('scope1'), true);
-        assert.deepEqual(stream_manager.list_scopes(), ['_system']);
+        assert.deepEqual(await stream_manager.list_scopes(), ['_system']);
     });
 
     it('Add tags', async () => {

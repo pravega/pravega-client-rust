@@ -16,7 +16,6 @@ import {
     StreamManagerCreateScope,
     StreamManagerDeleteScope,
     StreamManagerListScopes,
-    StreamManagerListScopesAsync,
     StreamRetentionPolicyNone,
     StreamRetentionPolicyBySize,
     StreamRetentionPolicyByTime,
@@ -132,10 +131,10 @@ export interface StreamManager {
     /**
      * List all scopes in Pravega.
      *
-     * @returns All scope names.
+     * @returns Scope names in Promise.
      */
-    list_scopes: () => string[];
-    list_scopes_async: () => Promise<string[]>;
+    list_scopes: () => Promise<string[]>;
+
     /**
      * Create a stream with or without specific policy in Pravega.
      *
@@ -203,9 +202,9 @@ export interface StreamManager {
      * List all streams in the specified Pravega scope.
      *
      * @param scope_name The scope name.
-     * @returns All stream names in this scope.
+     * @returns Stream names in Promise.
      */
-    list_streams: (scope_name: string) => string[];
+    list_streams: (scope_name: string) => Promise<string[]>;
 
     /**
      * Create a ReaderGroup for a given Stream.
@@ -271,8 +270,7 @@ export const StreamManager = (
 
     const create_scope = (scope_name: string): boolean => StreamManagerCreateScope.call(stream_manager, scope_name);
     const delete_scope = (scope_name: string): boolean => StreamManagerDeleteScope.call(stream_manager, scope_name);
-    const list_scopes = (): string[] => StreamManagerListScopes.call(stream_manager);
-    const list_scopes_async = async (): Promise<string[]> => await StreamManagerListScopesAsync.call(stream_manager);
+    const list_scopes = async (): Promise<string[]> => await StreamManagerListScopes.call(stream_manager);
     const create_stream = (
         scope_name: string,
         stream_name: string,
@@ -309,7 +307,8 @@ export const StreamManager = (
         StreamManagerSealStream.call(stream_manager, scope_name, stream_name);
     const delete_stream = (scope_name: string, stream_name: string): boolean =>
         StreamManagerDeleteStream.call(stream_manager, scope_name, stream_name);
-    const list_streams = (scope_name: string): string[] => StreamManagerListStreams.call(stream_manager, scope_name);
+    const list_streams = async (scope_name: string): Promise<string[]> =>
+        await StreamManagerListStreams.call(stream_manager, scope_name);
     const create_reader_group = (
         stream_cut: StreamCut,
         reader_group_name: string,
@@ -327,7 +326,6 @@ export const StreamManager = (
         create_scope,
         delete_scope,
         list_scopes,
-        list_scopes_async,
         create_stream,
         update_stream,
         get_stream_tags,

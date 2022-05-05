@@ -25,10 +25,10 @@ const DATA = 'Hello World!';
 describe('Tests on StreamReader', () => {
     it('Write event and read', async () => {
         const stream_manager = StreamManager('tcp://127.0.0.1:9090', false, false, true);
-        if (!stream_manager.list_scopes().includes(SCOPE)) {
+        if (!(await stream_manager.list_scopes()).includes(SCOPE)) {
             stream_manager.create_scope(SCOPE);
         }
-        if (stream_manager.list_streams(SCOPE).includes(STREAM)) {
+        if ((await stream_manager.list_streams(SCOPE)).includes(STREAM)) {
             stream_manager.seal_stream(SCOPE, STREAM);
             stream_manager.delete_stream(SCOPE, STREAM);
         }
@@ -66,10 +66,10 @@ describe('Tests on StreamReader', () => {
 
     it('Write event with inflight and read', async () => {
         const stream_manager = StreamManager('tcp://127.0.0.1:9090', false, false, true);
-        if (!stream_manager.list_scopes().includes(SCOPE)) {
+        if (!(await stream_manager.list_scopes()).includes(SCOPE)) {
             stream_manager.create_scope(SCOPE);
         }
-        if (stream_manager.list_streams(SCOPE).includes(STREAM)) {
+        if ((await stream_manager.list_streams(SCOPE)).includes(STREAM)) {
             stream_manager.seal_stream(SCOPE, STREAM);
             stream_manager.delete_stream(SCOPE, STREAM);
         }
@@ -108,10 +108,10 @@ describe('Tests on StreamReader', () => {
     // reader as offline. This test verifies if we are able to read all the 100 elements.
     it('Multiple reader', async () => {
         const stream_manager = StreamManager('tcp://127.0.0.1:9090', false, false, true);
-        if (!stream_manager.list_scopes().includes(SCOPE)) {
+        if (!(await stream_manager.list_scopes()).includes(SCOPE)) {
             stream_manager.create_scope(SCOPE);
         }
-        if (stream_manager.list_streams(SCOPE).includes(STREAM)) {
+        if ((await stream_manager.list_streams(SCOPE)).includes(STREAM)) {
             stream_manager.seal_stream(SCOPE, STREAM);
             stream_manager.delete_stream(SCOPE, STREAM);
         }
@@ -173,10 +173,10 @@ describe('Tests on StreamReader', () => {
 
     it('Large events', async () => {
         const stream_manager = StreamManager('tcp://127.0.0.1:9090', false, false, true);
-        if (!stream_manager.list_scopes().includes(SCOPE)) {
+        if (!(await stream_manager.list_scopes()).includes(SCOPE)) {
             stream_manager.create_scope(SCOPE);
         }
-        if (stream_manager.list_streams(SCOPE).includes(STREAM)) {
+        if ((await stream_manager.list_streams(SCOPE)).includes(STREAM)) {
             stream_manager.seal_stream(SCOPE, STREAM);
             stream_manager.delete_stream(SCOPE, STREAM);
         }

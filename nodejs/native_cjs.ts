@@ -19,7 +19,6 @@ export const {
     StreamManagerCreateScope,
     StreamManagerDeleteScope,
     StreamManagerListScopes,
-    StreamManagerListScopesAsync,
     StreamRetentionPolicyNone,
     StreamRetentionPolicyBySize,
     StreamRetentionPolicyByTime,
