@@ -74,6 +74,7 @@ where
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::super::retry_policy::RetryWithBackoff;
     use super::retry_sync;
