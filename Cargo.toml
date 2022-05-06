@@ -36,7 +36,8 @@ members = [
     "config",
     "examples",
     "macros",
-    "pravegactl"
+    "pravegactl",
+    "nodejs"
 ]
 
 [dependencies]
