@@ -53,6 +53,7 @@ pub enum Requests {
     ReadTableEntries(ReadTableEntriesCommand),
     ReadTableEntriesDelta(ReadTableEntriesDeltaCommand),
     ConditionalBlockEnd(ConditionalBlockEndCommand),
+    CreateTransientSegment(CreateTransientSegmentCommand),
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -144,6 +145,9 @@ impl Request for Requests {
             }
             Requests::ConditionalBlockEnd(conditional_block_end_cmd) => {
                 conditional_block_end_cmd.get_request_id()
+            }
+            Requests::CreateTransientSegment(create_transient_segment_cmd) => {
+                create_transient_segment_cmd.get_request_id()
             }
             _ => -1,
         }
@@ -400,6 +404,12 @@ impl Encode for Requests {
             Requests::ConditionalBlockEnd(conditional_block_end_cmd) => {
                 res.extend_from_slice(&ConditionalBlockEndCommand::TYPE_CODE.to_be_bytes());
                 let se = conditional_block_end_cmd.write_fields()?;
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
+                res.extend(se);
+            }
+            Requests::CreateTransientSegment(create_transient_segment_cmd) => {
+                res.extend_from_slice(&CreateTransientSegmentCommand::TYPE_CODE.to_be_bytes());
+                let se = create_transient_segment_cmd.write_fields()?;
                 res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
@@ -703,6 +713,10 @@ impl Decode for Requests {
 
             ConditionalBlockEndCommand::TYPE_CODE => Ok(Requests::ConditionalBlockEnd(
                 ConditionalBlockEndCommand::read_from(input)?,
+            )),
+
+            CreateTransientSegmentCommand::TYPE_CODE => Ok(Requests::CreateTransientSegment(
+                CreateTransientSegmentCommand::read_from(input)?,
             )),
 
             _ => InvalidType {

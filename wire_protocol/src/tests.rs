@@ -836,6 +836,20 @@ fn test_conditional_block_end() {
     }
 }
 
+#[test]
+fn test_create_transient_segment() {
+    let writer_id_number: u128 = 123;
+    let segment_name = String::from("segment-1");
+    let token = String::from("delegation_token");
+    let create_transient_segment_command = WireCommands::Requests(Requests::CreateTransientSegment(CreateTransientSegmentCommandCommand {
+        request_id: 1,
+        writer_id: writer_id_number,
+        segment: segment_name,
+        delegation_token: token,
+    }));
+    test_command(create_transient_segment_command);
+}
+
 fn test_command(command: WireCommands) -> WireCommands {
     let encoded: Vec<u8> = command.write_fields().unwrap();
     let decoded = WireCommands::read_from(&encoded).unwrap();

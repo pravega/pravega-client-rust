@@ -2340,3 +2340,38 @@ impl Request for ConditionalBlockEndCommand {
         self.request_id
     }
 }
+
+/**
+ * 61. CreateTransientSegment Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct CreateTransientSegmentCommand {
+    pub request_id: i64,
+    pub writer_id: u128,
+    pub segment: String,
+    pub delegation_token: String,
+}
+
+impl Command for CreateTransientSegmentCommand {
+    const TYPE_CODE: i32 = 40;
+
+    fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
+        let encoded = CONFIG.serialize(&self).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(encoded)
+    }
+
+    fn read_from(input: &[u8]) -> Result<Self, CommandError> {
+        let decoded: CreateTransientSegmentCommand = CONFIG.deserialize(input).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(decoded)
+    }
+}
+
+impl Request for CreateTransientSegmentCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
