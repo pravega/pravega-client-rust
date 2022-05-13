@@ -842,7 +842,7 @@ fn test_create_transient_segment() {
     let segment_name = String::from("segment-1");
     let token = String::from("delegation_token");
     let create_transient_segment_command = WireCommands::Requests(Requests::CreateTransientSegment(
-        CreateTransientSegmentCommandCommand {
+        CreateTransientSegmentCommand {
             request_id: 1,
             writer_id: writer_id_number,
             segment: segment_name,
