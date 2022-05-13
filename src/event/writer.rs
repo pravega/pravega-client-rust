@@ -124,6 +124,13 @@ impl EventWriter {
         let (tx, rx) = oneshot::channel();
         let (tx_flush, rx_flush) = oneshot::channel();
         let routing_info = RoutingInfo::RoutingKey(None);
+        if event.len() > EventWriter::MAX_EVENT_SIZE {
+            if let Err(err) = self.flush().await {
+                let (tx_error, rx_error) = oneshot::channel();
+                tx_error.send(Err(err)).expect("send error");
+                return rx_error;
+            }
+        };
         if let Some(pending_event) =
             PendingEvent::with_header_flush(routing_info, event, None, tx, Some(tx_flush))
         {
@@ -146,6 +153,13 @@ impl EventWriter {
         let (tx, rx) = oneshot::channel();
         let (tx_flush, rx_flush) = oneshot::channel();
         let routing_info = RoutingInfo::RoutingKey(Some(routing_key));
+        if event.len() > EventWriter::MAX_EVENT_SIZE {
+            if let Err(err) = self.flush().await {
+                let (tx_error, rx_error) = oneshot::channel();
+                tx_error.send(Err(err)).expect("send error");
+                return rx_error;
+            }
+        };
         if let Some(pending_event) =
             PendingEvent::with_header_flush(routing_info, event, None, tx, Some(tx_flush))
         {

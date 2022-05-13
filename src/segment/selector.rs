@@ -87,6 +87,14 @@ impl SegmentSelector {
             .expect("must have corresponding writer")
     }
 
+    /// Get a segment by providing an optional routing key. The stream at least owns one
+    /// segment so this method should always has segment to return.
+    pub(crate) fn get_segment(&mut self, routing_key: &Option<String>) -> &ScopedSegment {
+        self
+            .current_segments
+            .get_segment_for_routing_key(routing_key, get_random_f64)
+    }
+
     /// Get a segment writer by providing the segment name.
     pub(crate) fn get_segment_writer_by_key(&mut self, segment: &ScopedSegment) -> &mut SegmentWriter {
         self.writers

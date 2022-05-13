@@ -13,8 +13,10 @@ use pravega_client_config::ClientConfigBuilder;
 use pravega_client_shared::{
     Retention, RetentionType, ScaleType, Scaling, Scope, ScopedStream, Stream, StreamConfiguration,
 };
+use std::time::{SystemTime, UNIX_EPOCH};
 
 fn main() {
+    env_logger::init();
     println!("start event write and read example");
     // assuming Pravega standalone is listening at localhost:9090
     let config = ClientConfigBuilder::default()
@@ -72,8 +74,16 @@ fn main() {
         assert!(result.await.is_ok());
         println!("event writer sent and flushed data");
 
+        // write large payload
+        let payload = vec![54; 9437184];
+        let result = event_writer.write_event(payload).await;
+        assert!(result.await.is_ok());
+        println!("event writer sent and flushed large data");
+
         // create event stream reader
-        let rg = client_factory.create_reader_group("rg".to_string(), stream).await;
+        let n = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let rg = format!("rg_{}", n.as_secs());
+        let rg = client_factory.create_reader_group(rg, stream).await;
         let mut reader = rg.create_reader("r1".to_string()).await;
         println!("event reader created");
 
@@ -87,14 +97,35 @@ fn main() {
             assert!(read_event.is_some(), "event slice should have event to read");
             assert_eq!(b"hello world", read_event.unwrap().value.as_slice());
             println!("event reader read data");
+            // let read_event = slice.next();
+            // if read_event.is_some() {
+            //     assert_eq!(read_event.unwrap().value.as_slice().len(), 9437184);
+            //     println!("event reader read data");
+            // } else {
+            //     if let Some(mut slice) = reader
+            //         .acquire_segment()
+            //         .await
+            //         .expect("Failed to acquire segment since the reader is offline")
+            //     {
+            //         let read_event = slice.next();
+            //         assert!(read_event.is_some(), "event slice should have event to read");
+            //         assert_eq!(read_event.unwrap().value.as_slice().len(), 9437184);
+            //         println!("event reader read data");
+            //     } else {
+            //         println!("no data to read from the Pravega stream");
+            //         assert!(false, "read should return the written event.")
+            //     }
+            // }
         } else {
             println!("no data to read from the Pravega stream");
             assert!(false, "read should return the written event.")
         }
+
         reader
             .reader_offline()
             .await
             .expect("failed to mark the reader offline");
         println!("event write and read example finished");
+
     });
 }
