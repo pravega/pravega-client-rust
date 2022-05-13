@@ -263,11 +263,8 @@ mod tests {
         let data = vec![0; (PendingEvent::MAX_WRITE_SIZE + 1) as usize];
         let routing_info = RoutingInfo::RoutingKey(None);
 
-        let event = PendingEvent::without_header(routing_info, data, None, tx).expect("create pending event");
-        assert!(event.is_empty());
+        let event = PendingEvent::with_header(routing_info, data, None, tx);
+        assert!(event.is_some());
 
-        let rt = Runtime::new().expect("get runtime");
-        let reply = rt.block_on(rx).expect("get reply");
-        assert!(reply.is_err());
     }
 }
