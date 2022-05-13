@@ -9,6 +9,7 @@
 //
 
 use crate::client_factory::ClientFactoryAsync;
+use crate::event::writer::EventWriter;
 use crate::segment::event::{PendingEvent, RoutingInfo};
 use crate::segment::raw_client::{RawClient, RawClientError};
 use crate::segment::selector::SegmentSelector;
@@ -135,33 +136,48 @@ impl LargeEventWriter {
                 });
             }
         };
+        let mut payload = event.data;
+        let mut event_number:i64 = 0;
+        let mut expected_offset:i64 = 0;
+        loop {
+            let payload_left = if payload.len() > EventWriter::MAX_EVENT_SIZE {
+                payload.split_off(EventWriter::MAX_EVENT_SIZE) 
+            } else {
+                Vec::new()
+            };
+            // send ConditionalBlockEnd
+            let request = Requests::ConditionalBlockEnd(ConditionalBlockEndCommand {
+                writer_id: self.id.0,
+                event_number,
+                expected_offset,
+                data: payload,
+                request_id: get_request_id(),
+            });
+            connection.write(&request).await.context(SegmentWriting {})?;
 
-        // send ConditionalBlockEnd
-        let request = Requests::ConditionalBlockEnd(ConditionalBlockEndCommand {
-            writer_id: self.id.0,
-            event_number: 0,
-            expected_offset: 0,
-            data: event.data,
-            request_id: get_request_id(),
-        });
-        connection.write(&request).await.context(SegmentWriting {})?;
-
-        let reply = connection.read().await.context(SegmentReading {})?;
-        match reply {
-            Replies::DataAppended(cmd) => {
-                debug!(
-                    "data appended for writer {:?}, latest event id is: {:?}",
-                    self.id, cmd.event_number
-                );
+            let reply = connection.read().await.context(SegmentReading {})?;
+            match reply {
+                Replies::DataAppended(cmd) => {
+                    debug!(
+                        "data appended for writer {:?}, latest event id is: {:?}",
+                        self.id, cmd.event_number
+                    );
+                }
+                _ => {
+                    info!("append data failed due to {:?}", reply);
+                    return Err(LargeEventWriterError::WrongReply {
+                        expected: String::from("DataAppended"),
+                        actual: reply,
+                    });
+                }
+            };
+            if payload_left.is_empty() {
+                break;
             }
-            _ => {
-                info!("append data failed due to {:?}", reply);
-                return Err(LargeEventWriterError::WrongReply {
-                    expected: String::from("DataAppended"),
-                    actual: reply,
-                });
-            }
-        };
+            payload = payload_left;
+            event_number += 1;
+            expected_offset += EventWriter::MAX_EVENT_SIZE as i64;
+        }
 
         // merge segments
         let request = Requests::MergeSegments(MergeSegmentsCommand {

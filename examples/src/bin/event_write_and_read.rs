@@ -97,25 +97,28 @@ fn main() {
             assert!(read_event.is_some(), "event slice should have event to read");
             assert_eq!(b"hello world", read_event.unwrap().value.as_slice());
             println!("event reader read data");
-            // let read_event = slice.next();
-            // if read_event.is_some() {
-            //     assert_eq!(read_event.unwrap().value.as_slice().len(), 9437184);
-            //     println!("event reader read data");
-            // } else {
-            //     if let Some(mut slice) = reader
-            //         .acquire_segment()
-            //         .await
-            //         .expect("Failed to acquire segment since the reader is offline")
-            //     {
-            //         let read_event = slice.next();
-            //         assert!(read_event.is_some(), "event slice should have event to read");
-            //         assert_eq!(read_event.unwrap().value.as_slice().len(), 9437184);
-            //         println!("event reader read data");
-            //     } else {
-            //         println!("no data to read from the Pravega stream");
-            //         assert!(false, "read should return the written event.")
-            //     }
-            // }
+
+            loop {
+                let read_event = slice.next();
+                if read_event.is_some() {
+                    assert_eq!(read_event.unwrap().value.as_slice().len(), 9437184);
+                    println!("event reader read large data");
+                    break;
+                } else {
+                    reader.release_segment(slice).await.unwrap();
+                    if let Some(new_slice) = reader
+                        .acquire_segment()
+                        .await
+                        .expect("Failed to acquire segment since the reader is offline")
+                    {
+                        slice = new_slice;
+                    } else {
+                        println!("no data to read from the Pravega stream");
+                        assert!(false, "read should return the written event.");
+                        break;
+                    }
+                }
+            }
         } else {
             println!("no data to read from the Pravega stream");
             assert!(false, "read should return the written event.")
