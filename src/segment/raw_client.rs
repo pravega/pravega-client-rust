@@ -60,7 +60,11 @@ impl RawClientError {
 #[async_trait]
 pub(crate) trait RawClient<'a>: Send + Sync {
     // Asynchronously send a request to the server and receive a response.
-    async fn send_request_with_connection(&self, request: &Requests, client_connection: &mut ClientConnection) -> Result<Replies, RawClientError> 
+    async fn send_request_with_connection(
+        &self,
+        request: &Requests,
+        client_connection: &mut ClientConnection,
+    ) -> Result<Replies, RawClientError>
     where
         'a: 'async_trait;
 
@@ -108,8 +112,10 @@ impl<'a> RawClientImpl<'a> {
 #[async_trait]
 impl<'a> RawClient<'a> for RawClientImpl<'a> {
     async fn send_request_with_connection(
-        &self, request: &Requests, 
-        client_connection: &mut ClientConnection) -> Result<Replies, RawClientError> {
+        &self,
+        request: &Requests,
+        client_connection: &mut ClientConnection,
+    ) -> Result<Replies, RawClientError> {
         client_connection.write(request).await.context(WriteRequest {})?;
         let read_future = client_connection.read();
         let result = timeout(self.timeout, read_future)

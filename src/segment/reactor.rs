@@ -51,10 +51,12 @@ impl Reactor {
         match event {
             Incoming::AppendEvent(pending_event) => {
                 if pending_event.data.len() > PendingEvent::MAX_WRITE_SIZE {
-                    let mut large_event_writer = LargeEventWriter::new(
-                        selector.delegation_token_provider.clone(),
-                    );
-                    large_event_writer.write(factory, selector, pending_event).await.map_err(|_|"large event writer failed to write")?;
+                    let mut large_event_writer =
+                        LargeEventWriter::new(selector.delegation_token_provider.clone());
+                    large_event_writer
+                        .write(factory, selector, pending_event)
+                        .await
+                        .map_err(|_| "large event writer failed to write")?;
                     return Ok(());
                 }
                 let event_segment_writer = match &pending_event.routing_info {

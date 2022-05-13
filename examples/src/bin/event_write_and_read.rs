@@ -13,7 +13,6 @@ use pravega_client_config::ClientConfigBuilder;
 use pravega_client_shared::{
     Retention, RetentionType, ScaleType, Scaling, Scope, ScopedStream, Stream, StreamConfiguration,
 };
-use std::time::{SystemTime, UNIX_EPOCH};
 
 fn main() {
     env_logger::init();
@@ -81,9 +80,7 @@ fn main() {
         println!("event writer sent and flushed large data");
 
         // create event stream reader
-        let n = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        let rg = format!("rg_{}", n.as_secs());
-        let rg = client_factory.create_reader_group(rg, stream).await;
+        let rg = client_factory.create_reader_group("rg".to_string(), stream).await;
         let mut reader = rg.create_reader("r1".to_string()).await;
         println!("event reader created");
 
@@ -114,14 +111,13 @@ fn main() {
                         slice = new_slice;
                     } else {
                         println!("no data to read from the Pravega stream");
-                        assert!(false, "read should return the written event.");
-                        break;
+                        panic!("read should return the written event.");
                     }
                 }
             }
         } else {
             println!("no data to read from the Pravega stream");
-            assert!(false, "read should return the written event.")
+            panic!("read should return the written event.")
         }
 
         reader
@@ -129,6 +125,5 @@ fn main() {
             .await
             .expect("failed to mark the reader offline");
         println!("event write and read example finished");
-
     });
 }

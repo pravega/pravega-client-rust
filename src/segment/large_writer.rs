@@ -20,9 +20,8 @@ use pravega_client_retry::retry_result::RetryError;
 use pravega_client_shared::*;
 use pravega_controller_client::ControllerError;
 use pravega_wire_protocol::commands::{
-    NULL_ATTRIBUTE_VALUE, ConditionalBlockEndCommand,
-    CreateTransientSegmentCommand, MergeSegmentsCommand,
-    SetupAppendCommand
+    ConditionalBlockEndCommand, CreateTransientSegmentCommand, MergeSegmentsCommand, SetupAppendCommand,
+    NULL_ATTRIBUTE_VALUE,
 };
 use pravega_wire_protocol::error::ClientConnectionError;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
@@ -31,7 +30,7 @@ use snafu::{ResultExt, Snafu};
 use std::sync::Arc;
 use tracing::{debug, field, info, trace};
 
-pub(crate) struct LargeEventWriter { 
+pub(crate) struct LargeEventWriter {
     /// Unique id for each SegmentWriter.
     pub(crate) id: WriterId,
     // Delegation token provider used to authenticate client when communicating with segmentstore.
@@ -39,9 +38,7 @@ pub(crate) struct LargeEventWriter {
 }
 
 impl LargeEventWriter {
-    pub(crate) fn new(
-        delegation_token_provider: Arc<DelegationTokenProvider>,
-    ) -> Self {
+    pub(crate) fn new(delegation_token_provider: Arc<DelegationTokenProvider>) -> Self {
         LargeEventWriter {
             id: WriterId::from(get_random_u128()),
             delegation_token_provider,
@@ -54,7 +51,7 @@ impl LargeEventWriter {
         selector: &mut SegmentSelector,
         event: PendingEvent,
     ) -> Result<(), LargeEventWriterError> {
-        let segment  = match &event.routing_info {
+        let segment = match &event.routing_info {
             RoutingInfo::RoutingKey(key) => selector.get_segment(key),
             RoutingInfo::Segment(segment) => segment,
         };
@@ -63,11 +60,11 @@ impl LargeEventWriter {
                 .controller_client()
                 .get_endpoint_for_segment(segment) // retries are internal to the controller client.
                 .await
-            {
-                Ok(uri) => uri,
-                Err(e) => return Err(LargeEventWriterError::RetryControllerWriting { err: e }),
-            };
-            current_span().record("host", &field::debug(&uri));
+        {
+            Ok(uri) => uri,
+            Err(e) => return Err(LargeEventWriterError::RetryControllerWriting { err: e }),
+        };
+        current_span().record("host", &field::debug(&uri));
 
         let raw_client = factory.create_raw_client_for_endpoint(uri);
 
@@ -85,7 +82,10 @@ impl LargeEventWriter {
             "creating transient segment for writer:{:?}/segment:{:?}",
             self.id, segment
         );
-        let (reply, mut connection) =  raw_client.send_setup_request(&request).await.map_err(|e| LargeEventWriterError::RetryRawClient { err: e })?;
+        let (reply, mut connection) = raw_client
+            .send_setup_request(&request)
+            .await
+            .map_err(|e| LargeEventWriterError::RetryRawClient { err: e })?;
         let created_segment = match reply {
             Replies::SegmentCreated(cmd) => {
                 debug!(
@@ -117,7 +117,10 @@ impl LargeEventWriter {
             "setting up append for writer:{:?}/segment:{:?}",
             self.id, created_segment
         );
-        let reply = raw_client.send_request_with_connection(&request, &mut *connection).await.map_err(|e| LargeEventWriterError::RetryRawClient { err: e })?;
+        let reply = raw_client
+            .send_request_with_connection(&request, &mut *connection)
+            .await
+            .map_err(|e| LargeEventWriterError::RetryRawClient { err: e })?;
         match reply {
             Replies::AppendSetup(cmd) => {
                 debug!(
@@ -125,7 +128,9 @@ impl LargeEventWriter {
                     self.id, created_segment, cmd.last_event_number
                 );
                 if cmd.last_event_number != NULL_ATTRIBUTE_VALUE {
-                    return Err(LargeEventWriterError::IllegalState { segment: created_segment.to_string() });
+                    return Err(LargeEventWriterError::IllegalState {
+                        segment: created_segment.to_string(),
+                    });
                 }
             }
             _ => {
@@ -137,11 +142,11 @@ impl LargeEventWriter {
             }
         };
         let mut payload = event.data;
-        let mut event_number:i64 = 0;
-        let mut expected_offset:i64 = 0;
+        let mut event_number: i64 = 0;
+        let mut expected_offset: i64 = 0;
         loop {
             let payload_left = if payload.len() > EventWriter::MAX_EVENT_SIZE {
-                payload.split_off(EventWriter::MAX_EVENT_SIZE) 
+                payload.split_off(EventWriter::MAX_EVENT_SIZE)
             } else {
                 Vec::new()
             };
@@ -193,7 +198,10 @@ impl LargeEventWriter {
             "merge segments {} for writer:{:?}/segment:{:?}",
             created_segment, self.id, segment
         );
-        let reply = raw_client.send_request_with_connection(&request, &mut *connection).await.map_err(|e| LargeEventWriterError::RetryRawClient { err: e })?;
+        let reply = raw_client
+            .send_request_with_connection(&request, &mut *connection)
+            .await
+            .map_err(|e| LargeEventWriterError::RetryRawClient { err: e })?;
         match reply {
             Replies::SegmentsMerged(_) => {
                 debug!(
@@ -210,15 +218,11 @@ impl LargeEventWriter {
             }
         };
         if event.oneshot_sender.send(Result::Ok(())).is_err() {
-            trace!(
-                "failed to send ack back to caller using oneshot due to Receiver dropped"
-            );
+            trace!("failed to send ack back to caller using oneshot due to Receiver dropped");
         }
         if let Some(flush_sender) = event.flush_oneshot_sender {
             if flush_sender.send(Result::Ok(())).is_err() {
-                info!(
-                    "failed to send ack back to caller using oneshot due to Receiver dropped: event id"
-                );
+                info!("failed to send ack back to caller using oneshot due to Receiver dropped: event id");
             }
         }
         Ok(())
