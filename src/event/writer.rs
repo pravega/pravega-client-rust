@@ -82,8 +82,8 @@ pub struct EventWriter {
 
 impl EventWriter {
     pub(crate) const MAX_EVENT_SIZE: usize = 8 * 1024 * 1024;
-    // maximum 16 MB total size of events could be held in memory
-    const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
+    // maximum 1GB + 8B total size of events could be held in memory
+    const CHANNEL_CAPACITY: usize = 1024 * 1024 * 1024 + 8;
 
     pub(crate) fn new(stream: ScopedStream, factory: ClientFactoryAsync) -> Self {
         let (tx, rx) = create_channel(Self::CHANNEL_CAPACITY);
@@ -243,8 +243,6 @@ impl Drop for EventWriter {
 
 #[cfg(test)]
 mod tests {
-    use tokio::runtime::Runtime;
-
     use super::*;
     use crate::segment::event::{PendingEvent, RoutingInfo};
 
@@ -259,12 +257,11 @@ mod tests {
         assert!(event.is_empty());
 
         // test with large event size
-        let (tx, rx) = oneshot::channel();
+        let (tx, _rx) = oneshot::channel();
         let data = vec![0; (PendingEvent::MAX_WRITE_SIZE + 1) as usize];
         let routing_info = RoutingInfo::RoutingKey(None);
 
         let event = PendingEvent::with_header(routing_info, data, None, tx);
         assert!(event.is_some());
-
     }
 }

@@ -9,6 +9,7 @@
 //
 
 use crate::client_factory::ClientFactoryAsync;
+use crate::error::Error;
 use crate::event::writer::EventWriter;
 use crate::segment::event::{PendingEvent, RoutingInfo};
 use crate::segment::raw_client::{RawClient, RawClientError};
@@ -50,6 +51,54 @@ impl LargeEventWriter {
         factory: &ClientFactoryAsync,
         selector: &mut SegmentSelector,
         event: PendingEvent,
+    ) -> Result<(), LargeEventWriterError> {
+        while let Err(err) = self.write_internal(factory, selector, &event).await {
+            if let LargeEventWriterError::SegmentSealed { segment } = err {
+                let segment = ScopedSegment::from(&*segment);
+                if selector
+                    .refresh_segment_event_writers_upon_sealed(&segment)
+                    .await
+                    .is_some()
+                {
+                    selector.remove_segment_writer(&segment);
+                } else {
+                    let sealed_err = LargeEventWriterError::StreamSealed {
+                        stream: segment.stream.name,
+                    };
+                    if event
+                        .oneshot_sender
+                        .send(Err(Error::InternalFailure {
+                            msg: sealed_err.to_string(),
+                        }))
+                        .is_err()
+                    {
+                        trace!("failed to send ack back to caller using oneshot due to Receiver dropped");
+                    }
+                    if let Some(flush_sender) = event.flush_oneshot_sender {
+                        if flush_sender.send(Result::Ok(())).is_err() {
+                            info!("failed to send ack back to caller using oneshot due to Receiver dropped: event id");
+                        }
+                    }
+                    return Err(sealed_err);
+                }
+            }
+        }
+        if event.oneshot_sender.send(Result::Ok(())).is_err() {
+            trace!("failed to send ack back to caller using oneshot due to Receiver dropped");
+        }
+        if let Some(flush_sender) = event.flush_oneshot_sender {
+            if flush_sender.send(Result::Ok(())).is_err() {
+                info!("failed to send ack back to caller using oneshot due to Receiver dropped: event id");
+            }
+        }
+        Ok(())
+    }
+
+    async fn write_internal(
+        &mut self,
+        factory: &ClientFactoryAsync,
+        selector: &mut SegmentSelector,
+        event: &PendingEvent,
     ) -> Result<(), LargeEventWriterError> {
         let segment = match &event.routing_info {
             RoutingInfo::RoutingKey(key) => selector.get_segment(key),
@@ -141,32 +190,42 @@ impl LargeEventWriter {
                 });
             }
         };
-        let mut payload = event.data;
-        let mut event_number: i64 = 0;
         let mut expected_offset: i64 = 0;
-        loop {
-            let payload_left = if payload.len() > EventWriter::MAX_EVENT_SIZE {
-                payload.split_off(EventWriter::MAX_EVENT_SIZE)
-            } else {
-                Vec::new()
-            };
+        let chunks = event.data.chunks(EventWriter::MAX_EVENT_SIZE);
+        for (event_number, chunk) in (0_i64..).zip(chunks) {
+            let data = chunk.to_vec();
+
             // send ConditionalBlockEnd
             let request = Requests::ConditionalBlockEnd(ConditionalBlockEndCommand {
                 writer_id: self.id.0,
                 event_number,
                 expected_offset,
-                data: payload,
+                data,
                 request_id: get_request_id(),
             });
             connection.write(&request).await.context(SegmentWriting {})?;
 
-            let reply = connection.read().await.context(SegmentReading {})?;
+            let reply = connection.read().await.context(SegmentWriting {})?;
             match reply {
                 Replies::DataAppended(cmd) => {
                     debug!(
                         "data appended for writer {:?}, latest event id is: {:?}",
                         self.id, cmd.event_number
                     );
+                }
+                Replies::SegmentIsSealed(cmd) => {
+                    debug!(
+                        "segment {:?} sealed: stack trace {}",
+                        cmd.segment, cmd.server_stack_trace
+                    );
+                    return Err(LargeEventWriterError::SegmentSealed { segment: cmd.segment });
+                }
+                Replies::NoSuchSegment(cmd) => {
+                    debug!(
+                        "no such segment {:?} due to segment truncation: stack trace {}",
+                        cmd.segment, cmd.server_stack_trace
+                    );
+                    return Err(LargeEventWriterError::SegmentSealed { segment: cmd.segment });
                 }
                 _ => {
                     info!("append data failed due to {:?}", reply);
@@ -176,11 +235,6 @@ impl LargeEventWriter {
                     });
                 }
             };
-            if payload_left.is_empty() {
-                break;
-            }
-            payload = payload_left;
-            event_number += 1;
             expected_offset += EventWriter::MAX_EVENT_SIZE as i64;
         }
 
@@ -217,14 +271,6 @@ impl LargeEventWriter {
                 });
             }
         };
-        if event.oneshot_sender.send(Result::Ok(())).is_err() {
-            trace!("failed to send ack back to caller using oneshot due to Receiver dropped");
-        }
-        if let Some(flush_sender) = event.flush_oneshot_sender {
-            if flush_sender.send(Result::Ok(())).is_err() {
-                info!("failed to send ack back to caller using oneshot due to Receiver dropped: event id");
-            }
-        }
         Ok(())
     }
 }
@@ -233,9 +279,6 @@ impl LargeEventWriter {
 pub enum LargeEventWriterError {
     #[snafu(display("Failed to send request to segmentstore due to: {:?}", source))]
     SegmentWriting { source: ClientConnectionError },
-
-    #[snafu(display("Failed to read response to segmentstore due to: {:?}", source))]
-    SegmentReading { source: ClientConnectionError },
 
     #[snafu(display("Retry failed due to error: {:?}", err))]
     RetryControllerWriting { err: RetryError<ControllerError> },
@@ -246,15 +289,12 @@ pub enum LargeEventWriterError {
     #[snafu(display("Wrong reply, expected {:?} but get {:?}", expected, actual))]
     WrongReply { expected: String, actual: Replies },
 
-    #[snafu(display("Wrong host: {:?}", error_msg))]
-    WrongHost { error_msg: String },
+    #[snafu(display("Segment {} is either sealed or truncated", segment))]
+    SegmentSealed { segment: String },
 
-    #[snafu(display("Conditional check failed: {}", msg))]
-    ConditionalCheckFailure { msg: String },
+    #[snafu(display("Stream {} is sealed", stream))]
+    StreamSealed { stream: String },
 
     #[snafu(display("Server indicates that transient segment was already written to: {}", segment))]
     IllegalState { segment: String },
-
-    #[snafu(display("Connection isn't a ClientConnectionImpl"))]
-    InvalidConnection {},
 }
