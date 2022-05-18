@@ -82,8 +82,8 @@ pub struct EventWriter {
 
 impl EventWriter {
     pub(crate) const MAX_EVENT_SIZE: usize = 8 * 1024 * 1024;
-    // maximum 1GB + 8B total size of events could be held in memory
-    const CHANNEL_CAPACITY: usize = 1024 * 1024 * 1024 + 8;
+    // maximum 16 MB total size of events could be held in memory
+    const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
     pub(crate) fn new(stream: ScopedStream, factory: ClientFactoryAsync) -> Self {
         let (tx, rx) = create_channel(Self::CHANNEL_CAPACITY);

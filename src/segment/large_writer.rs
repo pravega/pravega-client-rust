@@ -12,14 +12,15 @@ use crate::client_factory::ClientFactoryAsync;
 use crate::error::Error;
 use crate::event::writer::EventWriter;
 use crate::segment::event::{PendingEvent, RoutingInfo};
-use crate::segment::raw_client::{RawClient, RawClientError};
+use crate::segment::raw_client::{RawClient, RawClientError, RawClientImpl};
 use crate::segment::selector::SegmentSelector;
-use crate::util::{current_span, get_random_u128, get_request_id};
+use crate::util::{get_random_u128, get_request_id};
 
 use pravega_client_auth::DelegationTokenProvider;
 use pravega_client_retry::retry_result::RetryError;
 use pravega_client_shared::*;
 use pravega_controller_client::ControllerError;
+use pravega_wire_protocol::client_connection::ClientConnection;
 use pravega_wire_protocol::commands::{
     ConditionalBlockEndCommand, CreateTransientSegmentCommand, MergeSegmentsCommand, SetupAppendCommand,
     NULL_ATTRIBUTE_VALUE,
@@ -29,7 +30,7 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
 use snafu::{ResultExt, Snafu};
 use std::sync::Arc;
-use tracing::{debug, field, info, trace};
+use tracing::{debug, info, trace};
 
 pub(crate) struct LargeEventWriter {
     /// Unique id for each SegmentWriter.
@@ -105,19 +106,35 @@ impl LargeEventWriter {
             RoutingInfo::Segment(segment) => segment,
         };
 
-        let uri = match factory
-                .controller_client()
-                .get_endpoint_for_segment(segment) // retries are internal to the controller client.
-                .await
-        {
-            Ok(uri) => uri,
-            Err(e) => return Err(LargeEventWriterError::RetryControllerWriting { err: e }),
-        };
-        current_span().record("host", &field::debug(&uri));
+        let raw_client = factory.create_raw_client(segment).await;
 
-        let raw_client = factory.create_raw_client_for_endpoint(uri);
+        let (created_segment, mut connection) = self
+            .create_transient_segment(factory, &raw_client, segment)
+            .await?;
 
-        // create transient segment
+        self.setup_append(factory, &raw_client, &mut *connection, created_segment.clone())
+            .await?;
+
+        let mut expected_offset: i64 = 0;
+        let chunks = event.data.chunks(EventWriter::MAX_EVENT_SIZE);
+        for (event_number, chunk) in (0_i64..).zip(chunks) {
+            let data = chunk.to_vec();
+            self.append_data_chunck(&mut *connection, event_number, expected_offset, data)
+                .await?;
+            expected_offset += EventWriter::MAX_EVENT_SIZE as i64;
+        }
+
+        self.merge_segments(factory, &raw_client, &mut *connection, segment, created_segment)
+            .await?;
+        Ok(())
+    }
+
+    async fn create_transient_segment<'a>(
+        &mut self,
+        factory: &ClientFactoryAsync,
+        raw_client: &RawClientImpl<'a>,
+        segment: &ScopedSegment,
+    ) -> Result<(String, Box<dyn ClientConnection + 'a>), LargeEventWriterError> {
         let request = Requests::CreateTransientSegment(CreateTransientSegmentCommand {
             request_id: get_request_id(),
             writer_id: self.id.0,
@@ -131,7 +148,7 @@ impl LargeEventWriter {
             "creating transient segment for writer:{:?}/segment:{:?}",
             self.id, segment
         );
-        let (reply, mut connection) = raw_client
+        let (reply, connection) = raw_client
             .send_setup_request(&request)
             .await
             .map_err(|e| LargeEventWriterError::RetryRawClient { err: e })?;
@@ -151,35 +168,38 @@ impl LargeEventWriter {
                 });
             }
         };
+        Ok((created_segment, connection))
+    }
 
-        // setup append
+    async fn setup_append(
+        &mut self,
+        factory: &ClientFactoryAsync,
+        raw_client: &RawClientImpl<'_>,
+        connection: &mut ClientConnection,
+        segment: String,
+    ) -> Result<(), LargeEventWriterError> {
         let request = Requests::SetupAppend(SetupAppendCommand {
             request_id: get_request_id(),
             writer_id: self.id.0,
-            segment: created_segment.clone(),
+            segment: segment.clone(),
             delegation_token: self
                 .delegation_token_provider
                 .retrieve_token(factory.controller_client())
                 .await,
         });
-        debug!(
-            "setting up append for writer:{:?}/segment:{:?}",
-            self.id, created_segment
-        );
+        debug!("setting up append for writer:{:?}/segment:{:?}", self.id, segment);
         let reply = raw_client
-            .send_request_with_connection(&request, &mut *connection)
+            .send_request_with_connection(&request, connection)
             .await
             .map_err(|e| LargeEventWriterError::RetryRawClient { err: e })?;
         match reply {
             Replies::AppendSetup(cmd) => {
                 debug!(
                     "append setup completed for writer:{:?}/segment:{:?} with latest event number {}",
-                    self.id, created_segment, cmd.last_event_number
+                    self.id, segment, cmd.last_event_number
                 );
                 if cmd.last_event_number != NULL_ATTRIBUTE_VALUE {
-                    return Err(LargeEventWriterError::IllegalState {
-                        segment: created_segment.to_string(),
-                    });
+                    return Err(LargeEventWriterError::IllegalState { segment });
                 }
             }
             _ => {
@@ -190,59 +210,70 @@ impl LargeEventWriter {
                 });
             }
         };
-        let mut expected_offset: i64 = 0;
-        let chunks = event.data.chunks(EventWriter::MAX_EVENT_SIZE);
-        for (event_number, chunk) in (0_i64..).zip(chunks) {
-            let data = chunk.to_vec();
+        Ok(())
+    }
 
-            // send ConditionalBlockEnd
-            let request = Requests::ConditionalBlockEnd(ConditionalBlockEndCommand {
-                writer_id: self.id.0,
-                event_number,
-                expected_offset,
-                data,
-                request_id: get_request_id(),
-            });
-            connection.write(&request).await.context(SegmentWriting {})?;
+    async fn append_data_chunck(
+        &mut self,
+        connection: &mut ClientConnection,
+        event_number: i64,
+        expected_offset: i64,
+        data: Vec<u8>,
+    ) -> Result<(), LargeEventWriterError> {
+        let request = Requests::ConditionalBlockEnd(ConditionalBlockEndCommand {
+            writer_id: self.id.0,
+            event_number,
+            expected_offset,
+            data,
+            request_id: get_request_id(),
+        });
+        connection.write(&request).await.context(SegmentWriting {})?;
 
-            let reply = connection.read().await.context(SegmentWriting {})?;
-            match reply {
-                Replies::DataAppended(cmd) => {
-                    debug!(
-                        "data appended for writer {:?}, latest event id is: {:?}",
-                        self.id, cmd.event_number
-                    );
-                }
-                Replies::SegmentIsSealed(cmd) => {
-                    debug!(
-                        "segment {:?} sealed: stack trace {}",
-                        cmd.segment, cmd.server_stack_trace
-                    );
-                    return Err(LargeEventWriterError::SegmentSealed { segment: cmd.segment });
-                }
-                Replies::NoSuchSegment(cmd) => {
-                    debug!(
-                        "no such segment {:?} due to segment truncation: stack trace {}",
-                        cmd.segment, cmd.server_stack_trace
-                    );
-                    return Err(LargeEventWriterError::SegmentSealed { segment: cmd.segment });
-                }
-                _ => {
-                    info!("append data failed due to {:?}", reply);
-                    return Err(LargeEventWriterError::WrongReply {
-                        expected: String::from("DataAppended"),
-                        actual: reply,
-                    });
-                }
-            };
-            expected_offset += EventWriter::MAX_EVENT_SIZE as i64;
-        }
+        let reply = connection.read().await.context(SegmentWriting {})?;
+        match reply {
+            Replies::DataAppended(cmd) => {
+                debug!(
+                    "data appended for writer {:?}, latest event id is: {:?}",
+                    self.id, cmd.event_number
+                );
+            }
+            Replies::SegmentIsSealed(cmd) => {
+                debug!(
+                    "segment {:?} sealed: stack trace {}",
+                    cmd.segment, cmd.server_stack_trace
+                );
+                return Err(LargeEventWriterError::SegmentSealed { segment: cmd.segment });
+            }
+            Replies::NoSuchSegment(cmd) => {
+                debug!(
+                    "no such segment {:?} due to segment truncation: stack trace {}",
+                    cmd.segment, cmd.server_stack_trace
+                );
+                return Err(LargeEventWriterError::SegmentSealed { segment: cmd.segment });
+            }
+            _ => {
+                info!("append data failed due to {:?}", reply);
+                return Err(LargeEventWriterError::WrongReply {
+                    expected: String::from("DataAppended"),
+                    actual: reply,
+                });
+            }
+        };
+        Ok(())
+    }
 
-        // merge segments
+    async fn merge_segments(
+        &mut self,
+        factory: &ClientFactoryAsync,
+        raw_client: &RawClientImpl<'_>,
+        connection: &mut ClientConnection,
+        segment: &ScopedSegment,
+        source_segment: String,
+    ) -> Result<(), LargeEventWriterError> {
         let request = Requests::MergeSegments(MergeSegmentsCommand {
             request_id: get_request_id(),
             target: segment.to_string(),
-            source: created_segment.clone(),
+            source: source_segment.clone(),
             delegation_token: self
                 .delegation_token_provider
                 .retrieve_token(factory.controller_client())
@@ -250,7 +281,7 @@ impl LargeEventWriter {
         });
         debug!(
             "merge segments {} for writer:{:?}/segment:{:?}",
-            created_segment, self.id, segment
+            source_segment, self.id, segment
         );
         let reply = raw_client
             .send_request_with_connection(&request, &mut *connection)
