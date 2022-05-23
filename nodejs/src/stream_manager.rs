@@ -12,6 +12,7 @@
 // limitations under the License.
 
 use crate::stream_reader_group::{StreamCut, StreamReaderGroup};
+use crate::stream_writer::StreamWriter;
 use neon::prelude::*;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client::event::reader_group::{ReaderGroupConfigBuilder, StreamCutVersioned};
@@ -390,6 +391,21 @@ impl StreamManager {
         ));
         StreamReaderGroup::new(rg, self.cf.runtime_handle())
     }
+
+    ///
+    /// Create a Writer for a given Stream.
+    ///
+    pub fn create_writer(&self, scope_name: &str, stream_name: &str) -> StreamWriter {
+        let scoped_stream = ScopedStream {
+            scope: Scope::from(scope_name.to_string()),
+            stream: Stream::from(stream_name.to_string()),
+        };
+        StreamWriter::new(
+            self.cf.create_event_writer(scoped_stream.clone()),
+            self.cf.runtime_handle(),
+            scoped_stream,
+        )
+    }
 }
 
 ///
@@ -621,6 +637,16 @@ impl StreamManager {
         );
 
         Ok(cx.boxed(stream_reader_group))
+    }
+
+    pub fn js_create_writer(mut cx: FunctionContext) -> JsResult<JsBox<StreamWriter>> {
+        let stream_manager = cx.this().downcast_or_throw::<JsBox<StreamManager>, _>(&mut cx)?;
+        let scope_name = cx.argument::<JsString>(0)?.value(&mut cx);
+        let stream_name = cx.argument::<JsString>(1)?.value(&mut cx);
+
+        let stream_writer = stream_manager.create_writer(&scope_name, &stream_name);
+
+        Ok(cx.boxed(stream_writer))
     }
 
     pub fn js_to_str(mut cx: FunctionContext) -> JsResult<JsString> {

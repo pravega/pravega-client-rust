@@ -12,6 +12,7 @@
 // limitations under the License.
 
 import { StreamCut, StreamReaderGroup } from './stream_reader_group.js';
+import { StreamWriter } from './stream_writer.js';
 
 // Native modules are not currently supported with ES module imports.
 // https://nodejs.org/api/esm.html#esm_no_native_module_loading
@@ -36,6 +37,7 @@ const {
     StreamManagerDeleteStream,
     StreamManagerListStreams,
     StreamManagerCreateReaderGroup,
+    StreamManagerCreateWriter,
     StreamManagerToString,
 } = require('./index.node');
 
@@ -218,6 +220,16 @@ export const StreamManager = (
         );
 
     /**
+     * Create a Writer for a given Stream.
+     *
+     * @param scope_name The scope name.
+     * @param stream_name The stream name.
+     * @returns A StreamWriter.
+     */
+    const create_writer = (scope_name: string, stream_name: string): StreamWriter =>
+        StreamWriter(StreamManagerCreateWriter.call(stream_manager, scope_name, stream_name));
+
+    /**
      * A detailed view of a StreamManager.
      *
      * @returns String representation of the StreamManager.
@@ -235,6 +247,7 @@ export const StreamManager = (
         delete_stream,
         list_streams,
         create_reader_group,
+        create_writer,
         toString,
     };
 };
