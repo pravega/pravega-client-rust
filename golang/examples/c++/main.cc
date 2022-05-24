@@ -1,5 +1,8 @@
-#include "pravega_client.h"
 #include <iostream>
+extern "C"
+{
+    #include <pravega_client.h>
+}
 
 int main() {
     StreamManager* manager = stream_manager_new("127.0.0.1:9090");

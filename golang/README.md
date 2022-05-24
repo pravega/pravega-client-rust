@@ -11,3 +11,17 @@ The idea is use a poller which blocks the go-routine until the future is complet
 a slightly different approach. More details will be added based on the performance results.
 
 
+## Build
+```
+# build dynamic library & generate header
+cargo build
+
+# test go code
+go build examples/go/main.go
+./main
+
+# test c++ code
+cd examples/c++
+make
+./main
+```
