@@ -26,6 +26,15 @@ func (manager *StreamManager) CreateScope(scope string) bool {
 	return bool(result)
 }
 
+func (manager *StreamManager) CreateStream(scope string, stream string, num int32) bool {
+	scopeCString := C.CString(scope)
+	streamCString := C.CString(stream)
+	numInt32 := C.int32_t(num)
+	result := C.stream_manager_create_stream(manager.Manager, scopeCString, streamCString, numInt32)
+
+	return bool(result)
+}
+
 func (manager *StreamManager) Close() {
 	C.stream_manager_destroy(manager.Manager)
 }
