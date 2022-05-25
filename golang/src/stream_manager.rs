@@ -4,6 +4,9 @@ use pravega_client_shared::*;
 use std::ptr;
 use libc::c_char;
 use std::ffi::CStr;
+use std::panic::catch_unwind;
+use crate::error::set_error;
+use crate::memory::Buffer;
 
 pub struct StreamManager {
     cf: ClientFactory,
@@ -27,17 +30,13 @@ impl StreamManager {
         }
     }
 
-    pub fn create_scope(&self, scope_name: &str) -> bool {
+    pub fn create_scope(&self, scope_name: &str) -> Result<bool, String> {
         let handle = self.cf.runtime_handle();
     
         let controller = self.cf.controller_client();
         let scope_name = Scope::from(scope_name.to_string());
     
-        let result = handle.block_on(controller.create_scope(&scope_name));
-        match result {
-            Ok(t) => t,
-            Err(_) => false,
-        }
+        handle.block_on(controller.create_scope(&scope_name)).map_err(|e| format!("{:?}", e))
     }
 
     pub fn create_stream(
@@ -45,7 +44,7 @@ impl StreamManager {
         scope_name: &str,
         stream_name: &str,
         initial_segments: i32,
-    ) -> bool {
+    ) -> Result<bool, String> {
         let handle = self.cf.runtime_handle();
         let stream_cfg = StreamConfiguration {
             scoped_stream: ScopedStream {
@@ -62,77 +61,94 @@ impl StreamManager {
             tags: None,
         };
         let controller = self.cf.controller_client();
-        let stream_result = handle.block_on(controller.create_stream(&stream_cfg));
-        match stream_result {
-            Ok(t) => t,
-            Err(_) => false,
+        handle.block_on(controller.create_stream(&stream_cfg)).map_err(|e| format!("{:?}", e))
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn stream_manager_new(uri: *const c_char, err: Option<&mut Buffer>) -> *mut StreamManager {
+    let raw = CStr::from_ptr(uri);
+
+    let uri_as_str = match raw.to_str() {
+        Ok(s) => s,
+        Err(_) => {
+            set_error("failed to parse uri".to_string(), err);
+            return ptr::null_mut();
+        }
+    };
+
+    let result = catch_unwind(|| StreamManager::new(uri_as_str));
+    match result {
+        Ok(manager) => Box::into_raw(Box::new(manager)),
+        Err(_) => {
+            set_error("caught panic".to_string(), err);
+            ptr::null_mut()
+        }
+    }
+}
+
+
+#[no_mangle]
+pub extern "C" fn stream_manager_destroy(manager: *mut StreamManager) {
+    if !manager.is_null() {
+        unsafe {
+            Box::from_raw(manager);
         }
     }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn stream_manager_new(uri: *const c_char) -> *mut StreamManager {
-    if uri.is_null() {
-        return ptr::null_mut();
-    }
-
-    let raw = CStr::from_ptr(uri);
-
-    let uri_as_str = match raw.to_str() {
-        Ok(s) => s,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    let manager = StreamManager::new(uri_as_str);
-    Box::into_raw(Box::new(manager))
-}
-
-
-#[no_mangle]
-pub unsafe extern "C" fn stream_manager_destroy(manager: *mut StreamManager) {
-    if !manager.is_null() {
-        let manager = Box::from_raw(manager);
-        drop(manager);
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn stream_manager_create_scope(manager: *const StreamManager, scope: *const c_char) -> bool {
-    if scope.is_null() {
-        return false;
-    }
-
+pub unsafe extern "C" fn stream_manager_create_scope(manager: *const StreamManager, scope: *const c_char, err: Option<&mut Buffer>) -> bool {
     let raw = CStr::from_ptr(scope);
 
     let scope_as_str = match raw.to_str() {
         Ok(s) => s,
-        Err(_) => return false,
+        Err(_) => {
+            set_error("failed to parse scope".to_string(), err);
+            return false;
+        },
     };
+
     let stream_manager = &*manager;
-    stream_manager.create_scope(scope_as_str)
+    let result = stream_manager.create_scope(scope_as_str);
+    match result {
+        Ok(val) => val,
+        Err(e) => {
+            set_error(e, err);
+            false
+        }
+    }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn stream_manager_create_stream(manager: *const StreamManager, scope: *const c_char, stream: *const c_char, num: i32) -> bool {
-    if scope.is_null() || stream.is_null() || num <= 0 {
-        return false;
-    }
-
+pub unsafe extern "C" fn stream_manager_create_stream(manager: *const StreamManager, scope: *const c_char, stream: *const c_char, num: i32, err: Option<&mut Buffer>) -> bool {
     let raw = CStr::from_ptr(scope);
     let scope_as_str = match raw.to_str() {
         Ok(s) => s,
-        Err(_) => return false,
+        Err(_) => {
+            set_error("failed to parse scope".to_string(), err);
+            return false;
+        }
     };
 
     let raw = CStr::from_ptr(stream);
     let stream_as_str = match raw.to_str() {
         Ok(s) => s,
-        Err(_) => return false,
+        Err(_) => {
+            set_error("failed to parse stream".to_string(), err);
+            return false;
+        }
     };
     let stream_manager = &*manager;
-    stream_manager.create_stream(scope_as_str, stream_as_str, num)
+    let result = stream_manager.create_stream(scope_as_str, stream_as_str, num);
+    match result {
+        Ok(val) => val,
+        Err(e) => {
+            set_error(e, err);
+            false
+        }
+    }
 }
-
 
 pub struct StreamScalingPolicy {
     scaling: Scaling,

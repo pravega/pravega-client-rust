@@ -13,14 +13,12 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 build = "build.rs"
 
 [dependencies]
-libc = "0.2.126"
+errno = "0.2"
+libc = "0.2"
 pravega-client = { path = "../", version = "0.3"}
+pravega-client-config = {path = "../config", version = "0.3"}
 pravega-client-shared = { path = "../shared", version = "0.3"}
 pravega-controller-client = { path = "../controller-client", version = "0.3"}
-pravega-wire-protocol = { path = "../wire_protocol", version = "0.3"}
-pravega-client-retry = {path = "../retry", version = "0.3"}
-pravega-connection-pool = {path = "../connection_pool", version = "0.3"}
-pravega-client-config = {path = "../config", version = "0.3"}
 
 [build-dependencies]
 cbindgen = "0.23.0"
