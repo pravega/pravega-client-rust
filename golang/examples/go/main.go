@@ -5,7 +5,7 @@ import (
 )
 
 func main() {
-	manager, err := stream_manager.NewStreamManager("")
+	manager, err := stream_manager.NewStreamManager("127.0.0.1:9090")
 	if err != nil {
 		println("fail to create stream manager:", err.Error())
 		return
@@ -24,5 +24,5 @@ func main() {
 		println("fail to create stream bar:", err.Error())
 		return
 	}
-	println("create stream bar:", )
+	println("create stream bar:", res)
 }
