@@ -8,7 +8,7 @@ use tokio::runtime::Handle;
 use tokio::sync::oneshot::error::RecvError;
 use tokio::time::timeout;
 use crate::error::set_error;
-use crate::memory::Buffer;
+use crate::memory::{Buffer, ByteSliceView};
 
 // The amount of time the python api will wait for the underlying write to be completed.
 const TIMEOUT_IN_SECONDS: u64 = 120;
@@ -92,14 +92,24 @@ impl StreamWriter {
     }
 }
 
-// #[no_mangle]
-// pub unsafe extern "C" fn stream_writer_write_event(writer: *mut StreamWriter, routing_key: Buffer, err: Option<&mut Buffer>) {
-//     let key = routing_key.read().map(|v|v.to_vec().to_string());
-//     let stream_writer = &mut *writer;
-//     if let Err(e) = stream_writer.write_event_bytes(event, routing_key) {
-//         set_error(e, err);
-//     }
-// }
+#[no_mangle]
+pub unsafe extern "C" fn stream_writer_write_event(writer: *mut StreamWriter, event: ByteSliceView, routing_key: ByteSliceView, err: Option<&mut Buffer>) {
+    let stream_writer = &mut *writer;
+    match catch_unwind(AssertUnwindSafe(move || {
+        let event = event.read().unwrap();
+        let routing_key = routing_key.read().map(|v|std::str::from_utf8(v).unwrap().to_string());
+        stream_writer.write_event_bytes(event, routing_key)
+    })) {
+        Ok(result) => {
+            if let Err(e) = result {
+                set_error(e, err);
+            }
+        },
+        Err(_) => {
+            set_error("caught panic".to_string(), err);
+        }
+    }
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn stream_writer_flush(writer: *mut StreamWriter, err: Option<&mut Buffer>) {

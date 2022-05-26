@@ -33,10 +33,16 @@ func main() {
 	}
 	defer writer.Close()
 	println("stream writer created")
+	
+	err = writer.WriteEvent("hello", "world")
+	if err != nil {
+		println("fail to write event:", err.Error())
+		return
+	}
+	println("event wrote")
 
 	err = writer.Flush()
 	if err != nil {
 		println("fail to flush:", err.Error())
-		return
 	}
 }

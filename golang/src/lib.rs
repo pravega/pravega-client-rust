@@ -1,6 +1,6 @@
 mod error;
 mod memory;
-pub use memory::{free_buffer, Buffer};
+pub use memory::{free_buffer, Buffer, ByteSliceView};
 
 mod stream_manager;
 pub use stream_manager::StreamManager;
