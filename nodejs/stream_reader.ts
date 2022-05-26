@@ -31,7 +31,7 @@ const {
  * This represents an event that was read from a Pravega Segment and the offset at which the event
  * was read from.
  */
-interface Event {
+export interface Event {
     /**
      * Return the event data as `ArrayBuffer`.
      *
@@ -59,10 +59,16 @@ const Event = (event): Event => {
 /**
  * This represents a segment slice which can be used to read events from a Pravega segment as an iterator.
  */
-interface Slice extends IterableIterator<Event> {}
+export interface Slice extends IterableIterator<Event> {
+    /**
+     * The internal rust object used to release segment. Should **not** be used in user code!
+     */
+    readonly slice;
+}
 
 const Slice = (slice): Slice => {
     return {
+        slice: slice,
         next: (): IteratorResult<Event> => {
             let event: Event;
             try {
@@ -125,7 +131,7 @@ export interface StreamReader {
 export const StreamReader = (stream_reader): StreamReader => {
     const get_segment_slice = async (): Promise<Slice> => Slice(await StreamReaderGetSegementSlice.call(stream_reader));
     const reader_offline = (): void => StreamReaderReaderOffline.call(stream_reader);
-    const release_segment = (slice: Slice): void => StreamReaderReleaseSegment.call(stream_reader, slice);
+    const release_segment = (slice: Slice): void => StreamReaderReleaseSegment.call(stream_reader, slice.slice);
     const toString = (): string => StreamReaderToString.call(stream_reader);
 
     return { get_segment_slice, reader_offline, release_segment, toString };
