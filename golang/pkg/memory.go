@@ -11,9 +11,13 @@ import (
 	"unsafe"
 )
 
-type u8_ptr = *C.uint8_t
-type usize = C.uintptr_t
-type cint = C.int
+type (
+	u8_ptr  = *C.uint8_t
+	usize   = C.uintptr_t
+	cusize  = C.size_t
+	cint    = C.int
+	ci32    = C.int32_t
+)
 
 func receiveSlice(b C.Buffer) []byte {
 	if emptyBuf(b) {
@@ -34,4 +38,8 @@ func errorWithMessage(err error, b C.Buffer) error {
 		return err
 	}
 	return fmt.Errorf("%s", string(msg))
+}
+
+func freeCString(str *C.char) {
+	C.free(unsafe.Pointer(str))
 }

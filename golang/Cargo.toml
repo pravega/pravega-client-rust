@@ -19,6 +19,7 @@ pravega-client = { path = "../", version = "0.3"}
 pravega-client-config = {path = "../config", version = "0.3"}
 pravega-client-shared = { path = "../shared", version = "0.3"}
 pravega-controller-client = { path = "../controller-client", version = "0.3"}
+tokio = { version = "1", features = ["full"] }
 
 [build-dependencies]
 cbindgen = "0.23.0"

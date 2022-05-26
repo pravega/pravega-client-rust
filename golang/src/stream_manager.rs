@@ -1,12 +1,13 @@
+use libc::c_char;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client_config::ClientConfigBuilder;
 use pravega_client_shared::*;
-use std::ptr;
-use libc::c_char;
 use std::ffi::CStr;
-use std::panic::catch_unwind;
+use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::ptr;
 use crate::error::set_error;
 use crate::memory::Buffer;
+use crate::stream_writer::StreamWriter;
 
 pub struct StreamManager {
     cf: ClientFactory,
@@ -63,6 +64,24 @@ impl StreamManager {
         let controller = self.cf.controller_client();
         handle.block_on(controller.create_stream(&stream_cfg)).map_err(|e| format!("{:?}", e))
     }
+
+    pub fn create_writer(
+        &self,
+        scope_name: &str,
+        stream_name: &str,
+        max_inflight_events: usize,
+    ) -> StreamWriter {
+        let scoped_stream = ScopedStream {
+            scope: Scope::from(scope_name.to_string()),
+            stream: Stream::from(stream_name.to_string()),
+        };
+        StreamWriter::new(
+            self.cf.create_event_writer(scoped_stream.clone()),
+            self.cf.runtime_handle(),
+            scoped_stream,
+            max_inflight_events,
+        )
+    }
 }
 
 #[no_mangle]
@@ -87,7 +106,6 @@ pub unsafe extern "C" fn stream_manager_new(uri: *const c_char, err: Option<&mut
     }
 }
 
-
 #[no_mangle]
 pub extern "C" fn stream_manager_destroy(manager: *mut StreamManager) {
     if !manager.is_null() {
@@ -110,11 +128,18 @@ pub unsafe extern "C" fn stream_manager_create_scope(manager: *const StreamManag
     };
 
     let stream_manager = &*manager;
-    let result = stream_manager.create_scope(scope_as_str);
-    match result {
-        Ok(val) => val,
-        Err(e) => {
-            set_error(e, err);
+    match catch_unwind(AssertUnwindSafe(move || stream_manager.create_scope(scope_as_str))) {
+        Ok(result) => {
+            match result {
+                Ok(val) => val,
+                Err(e) => {
+                    set_error(e, err);
+                    false
+                }
+            }
+        },
+        Err(_) => {
+            set_error("caught panic".to_string(), err);
             false
         }
     }
@@ -140,12 +165,57 @@ pub unsafe extern "C" fn stream_manager_create_stream(manager: *const StreamMana
         }
     };
     let stream_manager = &*manager;
-    let result = stream_manager.create_stream(scope_as_str, stream_as_str, num);
-    match result {
-        Ok(val) => val,
-        Err(e) => {
-            set_error(e, err);
+    match catch_unwind(AssertUnwindSafe(move || stream_manager.create_stream(scope_as_str, stream_as_str, num))) {
+        Ok(result) => {
+            match result {
+                Ok(val) => val,
+                Err(e) => {
+                    set_error(e, err);
+                    false
+                }
+            }
+        },
+        Err(_) => {
+            set_error("caught panic".to_string(), err);
             false
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn stream_writer_new(manager: *const StreamManager, scope: *const c_char, stream: *const c_char, max_inflight_events: usize, err: Option<&mut Buffer>) -> *mut StreamWriter {
+    let raw = CStr::from_ptr(scope);
+    let scope_as_str = match raw.to_str() {
+        Ok(s) => s,
+        Err(_) => {
+            set_error("failed to parse scope".to_string(), err);
+            return ptr::null_mut();
+        }
+    };
+
+    let raw = CStr::from_ptr(stream);
+    let stream_as_str = match raw.to_str() {
+        Ok(s) => s,
+        Err(_) => {
+            set_error("failed to parse stream".to_string(), err);
+            return ptr::null_mut();
+        }
+    };
+    let stream_manager = &*manager;
+    match catch_unwind(AssertUnwindSafe(move || stream_manager.create_writer(scope_as_str, stream_as_str, max_inflight_events))) {
+        Ok(writer) => Box::into_raw(Box::new(writer)),
+        Err(_) => {
+            set_error("caught panic".to_string(), err);
+            ptr::null_mut()
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn stream_writer_destroy(writer: *mut StreamWriter) {
+    if !writer.is_null() {
+        unsafe {
+            Box::from_raw(writer);
         }
     }
 }

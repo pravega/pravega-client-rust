@@ -25,4 +25,18 @@ func main() {
 		return
 	}
 	println("create stream bar:", res)
+
+	writer, err := manager.CreateWriter("foo", "bar", 10)
+	if err != nil {
+		println("fail to create stream bar:", err.Error())
+		return
+	}
+	defer writer.Close()
+	println("stream writer created")
+
+	err = writer.Flush()
+	if err != nil {
+		println("fail to flush:", err.Error())
+		return
+	}
 }

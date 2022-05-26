@@ -1,4 +1,5 @@
 use std::mem;
+use std::slice;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -17,6 +18,16 @@ pub extern "C" fn free_buffer(buf: Buffer) {
 }
 
 impl Buffer {
+    // read provides a reference to the included data to be parsed or copied elsewhere
+    // data is only guaranteed to live as long as the Buffer
+    // (or the scope of the extern "C" call it came from)
+    pub fn read(&self) -> Option<&[u8]> {
+        if self.is_empty() {
+            None
+        } else {
+            unsafe { Some(slice::from_raw_parts(self.ptr, self.len)) }
+        }
+    }
     // consume must only be used on memory previously released by from_vec
     // when the Vec is out of scope, it will deallocate the memory previously referenced by Buffer
     pub unsafe fn consume(self) -> Vec<u8> {
