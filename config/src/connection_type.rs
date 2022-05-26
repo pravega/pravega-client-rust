@@ -32,9 +32,6 @@ impl Default for ConnectionType {
 
 impl fmt::Display for ConnectionType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::Tokio => write!(f, "Tokio"),
-            Self::Mock(_) => write!(f, "Mock"),
-        }
+        write!(f, "{:?}", self),
     }
 }
