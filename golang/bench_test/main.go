@@ -10,7 +10,7 @@ import (
 	"runtime/pprof"
 	"time"
 
-	stream_manager "github.com/vangork/pravega-client-rust/golang/pkg"
+	stream_manager "github.com/pravega/pravega-client-rust/golang/pkg"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -66,9 +66,8 @@ func main() {
 	for i := 0; i < *writerCount; i++ {
 		sem.Acquire(ctx, 1)
 		go func() {
-
 			//runtime.LockOSThread()
-			fmt.Println("threadId", C.pthread_self())
+			//fmt.Println("threadId", C.pthread_self())
 			sw, err := sm.CreateWriter(*scope, *streamName, uint(*inflight))
 			if err != nil {
 				log.Errorf("failed to create stream writer:%v", err)
@@ -76,7 +75,7 @@ func main() {
 			num := *count
 
 			for i := 0; i < num; i++ {
-				sw.WriteEvent(string(data))
+				sw.WriteEvent(data)
 			}
 			sw.Flush()
 			sem.Release(1)

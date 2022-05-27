@@ -14,12 +14,12 @@ func (writer *StreamWriter) Close() {
 	C.stream_writer_destroy(writer.Writer)
 }
 
-func (writer *StreamWriter) WriteEventByRoutingKey(routingKey string, event string) error {
+func (writer *StreamWriter) WriteEventByRoutingKey(routingKey string, event []byte) error {
 	buf := C.Buffer{}
 	defer runtime.KeepAlive(event)
 	defer runtime.KeepAlive(routingKey)
-	e := makeView(event)
-	r := makeView(routingKey)
+	e := makeViewFromSlice(event)
+	r := makeViewFromString(routingKey)
 	_, err := C.stream_writer_write_event(writer.Writer, e, r, &buf)
 	if err != nil {
 		return errorWithMessage(err, buf)
@@ -27,7 +27,7 @@ func (writer *StreamWriter) WriteEventByRoutingKey(routingKey string, event stri
 	return nil
 }
 
-func (writer *StreamWriter) WriteEvent(event string) error {
+func (writer *StreamWriter) WriteEvent(event []byte) error {
 	return writer.WriteEventByRoutingKey("", event)
 }
 

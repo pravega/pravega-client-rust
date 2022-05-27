@@ -1,7 +1,7 @@
 package main
 
 import (
-	stream_manager "pravega-client/pkg"
+	stream_manager "github.com/pravega/pravega-client-rust/golang/pkg"
 )
 
 func main() {
@@ -34,7 +34,7 @@ func main() {
 	defer writer.Close()
 	println("stream writer created")
 	
-	err = writer.WriteEvent("hello")
+	err = writer.WriteEvent([]byte("hello"))
 	if err != nil {
 		println("fail to write event:", err.Error())
 		return

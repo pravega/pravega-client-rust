@@ -1,7 +1,7 @@
 package pkg
 
 /*
-#cgo LDFLAGS: -L../../target/debug/ -lpravega_client_c -Wl,-rpath,../target/debug/,-rpath,../../target/debug/
+#cgo LDFLAGS: -L${SRCDIR}/../../target/debug/ -lpravega_client_c -Wl,-rpath,${SRCDIR}/../../target/debug/
 
 #include "pravega_client.h"
 */
@@ -49,8 +49,17 @@ func freeCString(str *C.char) {
 // makeView creates a view into the given byte slice what allows Rust code to read it.
 // The byte slice is managed by Go and will be garbage collected. Use runtime.KeepAlive
 // to ensure the byte slice lives long enough.
-func makeView(s string) C.ByteSliceView {
+func makeViewFromString(s string) C.ByteSliceView {
 	p := (*reflect.StringHeader)(unsafe.Pointer(&s))
+
+	return C.ByteSliceView{
+		ptr: cu8_ptr(unsafe.Pointer(p.Data)),
+		len: cusize(len(s)),
+	}
+}
+
+func makeViewFromSlice(s []byte) C.ByteSliceView {
+	p := (*reflect.SliceHeader)(unsafe.Pointer(&s))
 
 	return C.ByteSliceView{
 		ptr: cu8_ptr(unsafe.Pointer(p.Data)),
