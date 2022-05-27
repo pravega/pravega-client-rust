@@ -1,10 +1,13 @@
 package main
 
+// #include <pthread.h>
+import "C"
+
 import (
 	"flag"
 	"fmt"
 	"os"
-	stream_manager "pravega-client/pkg"
+	stream_manager "github.com/vangork/pravega-client-rust/golang/pkg"
 	"runtime/pprof"
 	"time"
 
@@ -63,6 +66,9 @@ func main() {
 	for i := 0; i < *writerCount; i++ {
 		sem.Acquire(ctx, 1)
 		go func() {
+
+			//runtime.LockOSThread()
+			fmt.Println("threadId", C.pthread_self())
 			sw, err := sm.CreateWriter(*scope, *streamName, uint(*inflight))
 			if err != nil {
 				log.Errorf("failed to create stream writer:%v", err)
