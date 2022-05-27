@@ -1,11 +1,11 @@
 package main
 
 import (
-	stream_manager "github.com/pravega/pravega-client-rust/golang/pkg"
+	client "github.com/pravega/pravega-client-rust/golang/pkg"
 )
 
 func main() {
-	manager, err := stream_manager.NewStreamManager("127.0.0.1:9090")
+	manager, err := client.NewStreamManager("127.0.0.1:9090")
 	if err != nil {
 		println("fail to create stream manager:", err.Error())
 		return

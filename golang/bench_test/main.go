@@ -10,7 +10,7 @@ import (
 	"runtime/pprof"
 	"time"
 
-	stream_manager "github.com/pravega/pravega-client-rust/golang/pkg"
+	client "github.com/pravega/pravega-client-rust/golang/pkg"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -41,7 +41,7 @@ func main() {
 		data[i] = 'a'
 	}
 
-	sm, err := stream_manager.NewStreamManager(*url)
+	sm, err := client.NewStreamManager(*url)
 
 	if err != nil {
 		log.Errorf("failed to create sm:%v", err)
