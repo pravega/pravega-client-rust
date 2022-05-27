@@ -12,7 +12,7 @@ import (
 )
 
 type (
-	cu8_ptr  = *C.uint8_t
+	cu8_ptr = *C.uint8_t
 	usize   = C.uintptr_t
 	cusize  = C.size_t
 	cint    = C.int

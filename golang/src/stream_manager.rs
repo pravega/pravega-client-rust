@@ -1,3 +1,4 @@
+use errno::{set_errno, Errno};
 use libc::c_char;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client_config::ClientConfigBuilder;
@@ -17,6 +18,9 @@ impl StreamManager {
     fn new(
         controller_uri: &str,
     ) -> Self {
+        // make sure the error number is 0 during startup
+        set_errno(Errno(0));
+
         let mut builder = ClientConfigBuilder::default();
 
         builder
@@ -97,6 +101,7 @@ pub unsafe extern "C" fn stream_manager_new(uri: *const c_char, err: Option<&mut
     };
 
     let result = catch_unwind(|| StreamManager::new(uri_as_str));
+
     match result {
         Ok(manager) => Box::into_raw(Box::new(manager)),
         Err(_) => {

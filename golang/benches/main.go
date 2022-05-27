@@ -42,11 +42,19 @@ func main() {
 
 	if err != nil {
 		log.Errorf("failed to create sm:%v", err)
+		os.Exit(1)
+	}
+
+	_, err = sm.CreateScope(*scope)
+	if err != nil {
+		log.Errorf("failed to create scope:%v", err)
+		os.Exit(1)
 	}
 
 	_, err = sm.CreateStream(*scope, *streamName, 3)
 	if err != nil {
 		log.Errorf("failed to create stream:%v", err)
+		os.Exit(1)
 	}
 
 	sem := semaphore.NewWeighted(int64(*writerCount))

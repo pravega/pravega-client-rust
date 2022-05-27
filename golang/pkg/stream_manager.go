@@ -17,7 +17,7 @@ func NewStreamManager(uri string) (*StreamManager, error) {
 	}
 	return &StreamManager{
 		Manager: manager,
-	}, err
+	}, nil
 }
 
 func (manager *StreamManager) Close() {
