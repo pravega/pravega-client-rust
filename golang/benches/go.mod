@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/google/uuid v1.3.0
 	github.com/sirupsen/logrus v1.8.1
-	github.com/vangork/pravega-client-rust/golang v0.0.0-20220527083406-55de1c849a3b
+	github.com/vangork/pravega-client-rust/golang v0.0.0-20220527085018-f0cc5852b9bd
 	golang.org/x/net v0.0.0-20220526153639-5463443f8c37
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
 )
