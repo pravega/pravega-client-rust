@@ -1,7 +1,7 @@
 package pkg
 
 /*
-#cgo LDFLAGS: -L../../target/debug/ -lpravega_client_c -Wl,-rpath,../target/debug/
+#cgo LDFLAGS: -L../../target/debug/ -lpravega_client_c -Wl,-rpath,../target/debug/,-rpath,../../target/debug/
 
 #include "pravega_client.h"
 */
