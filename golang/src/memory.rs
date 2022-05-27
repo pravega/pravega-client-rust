@@ -62,8 +62,6 @@ impl Buffer {
 /// Go's nil value is fully supported, such that we can differentiate between nil and an empty slice.
 #[repr(C)]
 pub struct ByteSliceView {
-    /// True if and only if the byte slice is nil in Go. If this is true, the other fields must be ignored.
-    is_nil: bool,
     ptr: *const u8,
     len: usize,
 }
@@ -72,7 +70,7 @@ impl ByteSliceView {
     /// Provides a reference to the included data to be parsed or copied elsewhere
     /// This is safe as long as the `ByteSliceView` is constructed correctly.
     pub fn read(&self) -> Option<&[u8]> {
-        if self.is_nil {
+        if self.len == 0 {
             None
         } else {
             Some(unsafe { slice::from_raw_parts(self.ptr, self.len) })

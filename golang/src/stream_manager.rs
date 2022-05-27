@@ -1,4 +1,3 @@
-use errno::{set_errno, Errno};
 use libc::c_char;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client_config::ClientConfigBuilder;
@@ -6,7 +5,7 @@ use pravega_client_shared::*;
 use std::ffi::CStr;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
-use crate::error::set_error;
+use crate::error::{set_error, clear_error};
 use crate::memory::Buffer;
 use crate::stream_writer::StreamWriter;
 
@@ -19,10 +18,9 @@ impl StreamManager {
         controller_uri: &str,
     ) -> Self {
         // make sure the error number is 0 during startup
-        set_errno(Errno(0));
+        clear_error();
 
         let mut builder = ClientConfigBuilder::default();
-
         builder
             .controller_uri(controller_uri)
             .is_auth_enabled(false)
@@ -100,9 +98,7 @@ pub unsafe extern "C" fn stream_manager_new(uri: *const c_char, err: Option<&mut
         }
     };
 
-    let result = catch_unwind(|| StreamManager::new(uri_as_str));
-
-    match result {
+    match catch_unwind(|| StreamManager::new(uri_as_str)) {
         Ok(manager) => Box::into_raw(Box::new(manager)),
         Err(_) => {
             set_error("caught panic".to_string(), err);
@@ -169,6 +165,7 @@ pub unsafe extern "C" fn stream_manager_create_stream(manager: *const StreamMana
             return false;
         }
     };
+
     let stream_manager = &*manager;
     match catch_unwind(AssertUnwindSafe(move || stream_manager.create_stream(scope_as_str, stream_as_str, num))) {
         Ok(result) => {
@@ -206,6 +203,7 @@ pub unsafe extern "C" fn stream_writer_new(manager: *const StreamManager, scope:
             return ptr::null_mut();
         }
     };
+
     let stream_manager = &*manager;
     match catch_unwind(AssertUnwindSafe(move || stream_manager.create_writer(scope_as_str, stream_as_str, max_inflight_events))) {
         Ok(writer) => Box::into_raw(Box::new(writer)),

@@ -62,5 +62,5 @@ func (manager *StreamManager) CreateWriter(scope string, stream string, maxInfli
 	}
 	return &StreamWriter{
 		Writer: writer,
-	}, err
+	}, nil
 }

@@ -12,7 +12,6 @@ import (
 
 	stream_manager "github.com/vangork/pravega-client-rust/golang/pkg"
 
-	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/semaphore"
@@ -77,8 +76,7 @@ func main() {
 			num := *count
 
 			for i := 0; i < num; i++ {
-				s := uuid.New().String()
-				sw.WriteEvent(string(data), s)
+				sw.WriteEvent(string(data))
 			}
 			sw.Flush()
 			sem.Release(1)
