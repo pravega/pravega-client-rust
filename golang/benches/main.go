@@ -7,9 +7,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	stream_manager "github.com/vangork/pravega-client-rust/golang/pkg"
 	"runtime/pprof"
 	"time"
+
+	stream_manager "github.com/vangork/pravega-client-rust/golang/pkg"
 
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
