@@ -12,8 +12,8 @@ int main() {
     std::cout << "stream writer created\n";
     const char* event = "hello";
     const char* routing_key = "world";
-    ByteSliceView b_event {(const uint8_t*)event, 5};
-    ByteSliceView b_routing_key {(const uint8_t*)routing_key, 5};
+    Buffer b_event {(uint8_t*)event, 5, 5};
+    Buffer b_routing_key {(uint8_t*)routing_key, 5, 5};
     stream_writer_write_event(writer, b_event, b_routing_key, nullptr);
     std::cout << "event wrote\n";
     stream_writer_flush(writer, nullptr);
