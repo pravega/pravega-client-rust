@@ -49,20 +49,22 @@ func freeCString(str *C.char) {
 // makeView creates a view into the given byte slice what allows Rust code to read it.
 // The byte slice is managed by Go and will be garbage collected. Use runtime.KeepAlive
 // to ensure the byte slice lives long enough.
-func makeViewFromString(s string) C.ByteSliceView {
+func makeViewFromString(s string) C.Buffer {
 	p := (*reflect.StringHeader)(unsafe.Pointer(&s))
 
-	return C.ByteSliceView{
+	return C.Buffer{
 		ptr: cu8_ptr(unsafe.Pointer(p.Data)),
-		len: cusize(len(s)),
+		len: cusize(p.Len),
+		cap: cusize(p.Len),
 	}
 }
 
-func makeViewFromSlice(s []byte) C.ByteSliceView {
+func makeViewFromSlice(s []byte) C.Buffer {
 	p := (*reflect.SliceHeader)(unsafe.Pointer(&s))
 
-	return C.ByteSliceView{
+	return C.Buffer{
 		ptr: cu8_ptr(unsafe.Pointer(p.Data)),
-		len: cusize(len(s)),
+		len: cusize(p.Len),
+		cap: cusize(p.Cap),
 	}
 }

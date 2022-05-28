@@ -8,7 +8,7 @@ use tokio::runtime::Handle;
 use tokio::sync::oneshot::error::RecvError;
 use tokio::time::timeout;
 use crate::error::set_error;
-use crate::memory::{Buffer, ByteSliceView};
+use crate::memory::Buffer;
 
 // The amount of time the python api will wait for the underlying write to be completed.
 const TIMEOUT_IN_SECONDS: u64 = 120;
@@ -93,7 +93,7 @@ impl StreamWriter {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn stream_writer_write_event(writer: *mut StreamWriter, event: ByteSliceView, routing_key: ByteSliceView, err: Option<&mut Buffer>) {
+pub unsafe extern "C" fn stream_writer_write_event(writer: *mut StreamWriter, event: Buffer, routing_key: Buffer, err: Option<&mut Buffer>) {
     let stream_writer = &mut *writer;
     match catch_unwind(AssertUnwindSafe(move || {
         let event = event.read().unwrap();

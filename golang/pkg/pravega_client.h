@@ -24,18 +24,6 @@ typedef struct Buffer {
   uintptr_t cap;
 } Buffer;
 
-/**
- * A view into an externally owned byte slice (Go `[]byte`).
- * Use this for the current call only. A view cannot be copied for safety reasons.
- * If you need a copy, use [`ByteSliceView::to_owned`].
- *
- * Go's nil value is fully supported, such that we can differentiate between nil and an empty slice.
- */
-typedef struct ByteSliceView {
-  const uint8_t *ptr;
-  uintptr_t len;
-} ByteSliceView;
-
 void free_buffer(struct Buffer buf);
 
 struct StreamManager *stream_manager_new(const char *uri, struct Buffer *err);
@@ -65,8 +53,8 @@ struct StreamScalingPolicy *fixed_scaling_policy(int32_t num);
 void scaling_policy_destroy(struct StreamScalingPolicy *policy);
 
 void stream_writer_write_event(struct StreamWriter *writer,
-                               struct ByteSliceView event,
-                               struct ByteSliceView routing_key,
+                               struct Buffer event,
+                               struct Buffer routing_key,
                                struct Buffer *err);
 
 void stream_writer_flush(struct StreamWriter *writer, struct Buffer *err);
