@@ -50,7 +50,16 @@ impl Reactor {
         let (event, cap_guard) = receiver.recv().await.expect("sender closed, processor exit");
         match event {
             Incoming::AppendEvent(pending_event) => {
+                let event_segment_writer = match &pending_event.routing_info {
+                    RoutingInfo::RoutingKey(key) => selector.get_segment_writer(key),
+                    RoutingInfo::Segment(segment) => selector.get_segment_writer_by_key(segment),
+                };
+
                 if pending_event.data.len() > PendingEvent::MAX_WRITE_SIZE {
+                    if event_segment_writer.get_pending_queue_size() != 0 {
+                        error!("segment writer pending queue length is expected to be zero before write large event");
+                        return Err("segment writer pending queue length is expected to be zero before write large event");
+                    }
                     let mut large_event_writer =
                         LargeEventWriter::new(selector.delegation_token_provider.clone());
                     large_event_writer
@@ -59,10 +68,6 @@ impl Reactor {
                         .map_err(|_| "large event writer failed to write")?;
                     return Ok(());
                 }
-                let event_segment_writer = match &pending_event.routing_info {
-                    RoutingInfo::RoutingKey(key) => selector.get_segment_writer(key),
-                    RoutingInfo::Segment(segment) => selector.get_segment_writer_by_key(segment),
-                };
 
                 if event_segment_writer.need_reset {
                     // ignore the send result since error means the receiver is dropped
