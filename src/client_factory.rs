@@ -35,7 +35,7 @@ use pravega_client_config::ClientConfig;
 use pravega_client_shared::{DelegationToken, PravegaNodeUri, Scope, ScopedSegment, ScopedStream, WriterId};
 use pravega_connection_pool::connection_pool::ConnectionPool;
 use pravega_controller_client::mock_controller::MockController;
-use pravega_controller_client::{ControllerClient, ControllerClientImpl};
+use pravega_controller_client::{ControllerClient, ControllerClientImpl, ResultRetry};
 use pravega_wire_protocol::connection_factory::{
     ConnectionFactory, ConnectionFactoryConfig, SegmentConnectionManager,
 };
@@ -182,18 +182,18 @@ impl ClientFactory {
             .await
     }
 
-    pub async fn create_byte_writer(&self, stream: ScopedStream) -> ByteWriter {
+    pub async fn create_byte_writer(&self, stream: ScopedStream) -> ResultRetry<ByteWriter> {
         self.client_factory_async.create_byte_writer(stream).await
     }
 
-    pub async fn create_byte_reader(&self, stream: ScopedStream) -> ByteReader {
+    pub async fn create_byte_reader(&self, stream: ScopedStream) -> ResultRetry<ByteReader> {
         self.client_factory_async.create_byte_reader(stream).await
     }
 
     pub async fn create_index_writer<T: Fields + PartialOrd + PartialEq + Debug>(
         &self,
         stream: ScopedStream,
-    ) -> IndexWriter<T> {
+    ) -> ResultRetry<IndexWriter<T>> {
         self.client_factory_async.create_index_writer(stream).await
     }
 
@@ -352,18 +352,18 @@ impl ClientFactoryAsync {
         TransactionalEventWriter::new(stream, writer_id, self.clone()).await
     }
 
-    pub async fn create_byte_writer(&self, stream: ScopedStream) -> ByteWriter {
+    pub async fn create_byte_writer(&self, stream: ScopedStream) -> ResultRetry<ByteWriter> {
         ByteWriter::new(stream, self.clone()).await
     }
 
-    pub async fn create_byte_reader(&self, stream: ScopedStream) -> ByteReader {
+    pub async fn create_byte_reader(&self, stream: ScopedStream) -> ResultRetry<ByteReader> {
         ByteReader::new(stream, self.clone(), self.config().reader_wrapper_buffer_size()).await
     }
 
     pub async fn create_index_writer<T: Fields + PartialOrd + PartialEq + Debug>(
         &self,
         stream: ScopedStream,
-    ) -> IndexWriter<T> {
+    ) -> ResultRetry<IndexWriter<T>> {
         IndexWriter::new(self.clone(), stream).await
     }
 

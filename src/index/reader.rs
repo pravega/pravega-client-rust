@@ -208,7 +208,13 @@ impl IndexReader {
         }
         Ok(try_stream! {
             let stream = self.stream.clone();
-            let mut byte_reader = self.factory.create_byte_reader(stream).await;
+            let mut byte_reader =
+                self.factory
+                    .create_byte_reader(stream)
+                    .await
+                    .map_err(|e| IndexReaderError::Internal {
+                        msg: format!("unable to create reader {:?}", e),
+                    })?;
             let mut num_of_records_to_read = if end_offset == u64::MAX {
                 u64::MAX
             } else {
