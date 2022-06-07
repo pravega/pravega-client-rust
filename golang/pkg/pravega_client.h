@@ -12,7 +12,13 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+typedef struct Slice Slice;
+
 typedef struct StreamManager StreamManager;
+
+typedef struct StreamReader StreamReader;
+
+typedef struct StreamReaderGroup StreamReaderGroup;
 
 typedef struct StreamScalingPolicy StreamScalingPolicy;
 
@@ -37,7 +43,7 @@ bool stream_manager_create_scope(const struct StreamManager *manager,
 bool stream_manager_create_stream(const struct StreamManager *manager,
                                   const char *scope,
                                   const char *stream,
-                                  int32_t num,
+                                  int32_t initial_segments,
                                   struct Buffer *err);
 
 struct StreamWriter *stream_writer_new(const struct StreamManager *manager,
@@ -47,6 +53,15 @@ struct StreamWriter *stream_writer_new(const struct StreamManager *manager,
                                        struct Buffer *err);
 
 void stream_writer_destroy(struct StreamWriter *writer);
+
+struct StreamReaderGroup *stream_reader_group_new(const struct StreamManager *manager,
+                                                  const char *reader_group,
+                                                  const char *scope,
+                                                  const char *stream,
+                                                  bool read_from_tail,
+                                                  struct Buffer *err);
+
+void stream_reader_group_destroy(struct StreamReaderGroup *rg);
 
 struct StreamScalingPolicy *fixed_scaling_policy(int32_t num);
 
@@ -58,5 +73,17 @@ void stream_writer_write_event(struct StreamWriter *writer,
                                struct Buffer *err);
 
 void stream_writer_flush(struct StreamWriter *writer, struct Buffer *err);
+
+struct StreamReader *stream_reader_group_create_reader(const struct StreamReaderGroup *reader_group,
+                                                       const char *reader,
+                                                       struct Buffer *err);
+
+void stream_reader_destroy(struct StreamReader *reader);
+
+struct Slice *stream_reader_get_segment_slice(struct StreamReader *reader, struct Buffer *err);
+
+void stream_reader_release_segment_slice(struct StreamReader *reader,
+                                         struct Slice *slice,
+                                         struct Buffer *err);
 
 #endif /* PRAVEGA_CLIENT_H */

@@ -8,3 +8,9 @@ pub use stream_manager::StreamScalingPolicy;
 
 mod stream_writer;
 pub use stream_writer::StreamWriter;
+
+mod stream_reader_group;
+pub use stream_reader_group::StreamReaderGroup;
+
+mod stream_reader;
+pub use stream_reader::StreamReader;

@@ -1,5 +1,6 @@
 use libc::c_char;
 use pravega_client::client_factory::ClientFactory;
+use pravega_client::event::reader_group::ReaderGroupConfigBuilder;
 use pravega_client_config::ClientConfigBuilder;
 use pravega_client_shared::*;
 use std::ffi::CStr;
@@ -7,6 +8,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
 use crate::error::{set_error, clear_error};
 use crate::memory::Buffer;
+use crate::stream_reader_group::StreamReaderGroup;
 use crate::stream_writer::StreamWriter;
 
 pub struct StreamManager {
@@ -84,13 +86,44 @@ impl StreamManager {
             max_inflight_events,
         )
     }
+
+    pub fn create_reader_group(
+        &self,
+        reader_group_name: &str,
+        scope_name: &str,
+        stream_name: &str,
+        read_from_tail: bool,
+    ) -> StreamReaderGroup {
+        let scope = Scope::from(scope_name.to_string());
+        let scoped_stream = ScopedStream {
+            scope: scope.clone(),
+            stream: Stream::from(stream_name.to_string()),
+        };
+        let handle = self.cf.runtime_handle();
+        let rg_config = if read_from_tail {
+            // Create a reader group to read from the current TAIL/end of the Stream.
+            ReaderGroupConfigBuilder::default()
+                .read_from_tail_of_stream(scoped_stream)
+                .build()
+        } else {
+            // Create a reader group to read from current HEAD/start of the Stream.
+            ReaderGroupConfigBuilder::default()
+                .read_from_head_of_stream(scoped_stream)
+                .build()
+        };
+        let rg = handle.block_on(self.cf.create_reader_group_with_config(
+            reader_group_name.to_string(),
+            rg_config,
+            scope,
+        ));
+        StreamReaderGroup::new(rg, self.cf.runtime_handle())
+    }
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn stream_manager_new(uri: *const c_char, err: Option<&mut Buffer>) -> *mut StreamManager {
     let raw = CStr::from_ptr(uri);
-
-    let uri_as_str = match raw.to_str() {
+    let controller_uri = match raw.to_str() {
         Ok(s) => s,
         Err(_) => {
             set_error("failed to parse uri".to_string(), err);
@@ -98,7 +131,7 @@ pub unsafe extern "C" fn stream_manager_new(uri: *const c_char, err: Option<&mut
         }
     };
 
-    match catch_unwind(|| StreamManager::new(uri_as_str)) {
+    match catch_unwind(|| StreamManager::new(controller_uri)) {
         Ok(manager) => Box::into_raw(Box::new(manager)),
         Err(_) => {
             set_error("caught panic".to_string(), err);
@@ -119,8 +152,7 @@ pub extern "C" fn stream_manager_destroy(manager: *mut StreamManager) {
 #[no_mangle]
 pub unsafe extern "C" fn stream_manager_create_scope(manager: *const StreamManager, scope: *const c_char, err: Option<&mut Buffer>) -> bool {
     let raw = CStr::from_ptr(scope);
-
-    let scope_as_str = match raw.to_str() {
+    let scope_name = match raw.to_str() {
         Ok(s) => s,
         Err(_) => {
             set_error("failed to parse scope".to_string(), err);
@@ -129,7 +161,7 @@ pub unsafe extern "C" fn stream_manager_create_scope(manager: *const StreamManag
     };
 
     let stream_manager = &*manager;
-    match catch_unwind(AssertUnwindSafe(move || stream_manager.create_scope(scope_as_str))) {
+    match catch_unwind(AssertUnwindSafe(move || stream_manager.create_scope(scope_name))) {
         Ok(result) => {
             match result {
                 Ok(val) => val,
@@ -147,9 +179,9 @@ pub unsafe extern "C" fn stream_manager_create_scope(manager: *const StreamManag
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn stream_manager_create_stream(manager: *const StreamManager, scope: *const c_char, stream: *const c_char, num: i32, err: Option<&mut Buffer>) -> bool {
+pub unsafe extern "C" fn stream_manager_create_stream(manager: *const StreamManager, scope: *const c_char, stream: *const c_char, initial_segments: i32, err: Option<&mut Buffer>) -> bool {
     let raw = CStr::from_ptr(scope);
-    let scope_as_str = match raw.to_str() {
+    let scope_name = match raw.to_str() {
         Ok(s) => s,
         Err(_) => {
             set_error("failed to parse scope".to_string(), err);
@@ -158,7 +190,7 @@ pub unsafe extern "C" fn stream_manager_create_stream(manager: *const StreamMana
     };
 
     let raw = CStr::from_ptr(stream);
-    let stream_as_str = match raw.to_str() {
+    let stream_name = match raw.to_str() {
         Ok(s) => s,
         Err(_) => {
             set_error("failed to parse stream".to_string(), err);
@@ -167,7 +199,7 @@ pub unsafe extern "C" fn stream_manager_create_stream(manager: *const StreamMana
     };
 
     let stream_manager = &*manager;
-    match catch_unwind(AssertUnwindSafe(move || stream_manager.create_stream(scope_as_str, stream_as_str, num))) {
+    match catch_unwind(AssertUnwindSafe(move || stream_manager.create_stream(scope_name, stream_name, initial_segments))) {
         Ok(result) => {
             match result {
                 Ok(val) => val,
@@ -187,7 +219,7 @@ pub unsafe extern "C" fn stream_manager_create_stream(manager: *const StreamMana
 #[no_mangle]
 pub unsafe extern "C" fn stream_writer_new(manager: *const StreamManager, scope: *const c_char, stream: *const c_char, max_inflight_events: usize, err: Option<&mut Buffer>) -> *mut StreamWriter {
     let raw = CStr::from_ptr(scope);
-    let scope_as_str = match raw.to_str() {
+    let scope_name = match raw.to_str() {
         Ok(s) => s,
         Err(_) => {
             set_error("failed to parse scope".to_string(), err);
@@ -196,7 +228,7 @@ pub unsafe extern "C" fn stream_writer_new(manager: *const StreamManager, scope:
     };
 
     let raw = CStr::from_ptr(stream);
-    let stream_as_str = match raw.to_str() {
+    let stream_name = match raw.to_str() {
         Ok(s) => s,
         Err(_) => {
             set_error("failed to parse stream".to_string(), err);
@@ -205,7 +237,7 @@ pub unsafe extern "C" fn stream_writer_new(manager: *const StreamManager, scope:
     };
 
     let stream_manager = &*manager;
-    match catch_unwind(AssertUnwindSafe(move || stream_manager.create_writer(scope_as_str, stream_as_str, max_inflight_events))) {
+    match catch_unwind(AssertUnwindSafe(move || stream_manager.create_writer(scope_name, stream_name, max_inflight_events))) {
         Ok(writer) => Box::into_raw(Box::new(writer)),
         Err(_) => {
             set_error("caught panic".to_string(), err);
@@ -219,6 +251,54 @@ pub extern "C" fn stream_writer_destroy(writer: *mut StreamWriter) {
     if !writer.is_null() {
         unsafe {
             Box::from_raw(writer);
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn stream_reader_group_new(manager: *const StreamManager, reader_group: *const c_char, scope: *const c_char, stream: *const c_char, read_from_tail: bool, err: Option<&mut Buffer>) -> *mut StreamReaderGroup {
+    let raw = CStr::from_ptr(reader_group);
+    let reader_group_name = match raw.to_str() {
+        Ok(s) => s,
+        Err(_) => {
+            set_error("failed to parse reader group".to_string(), err);
+            return ptr::null_mut();
+        }
+    };
+
+    let raw = CStr::from_ptr(scope);
+    let scope_name = match raw.to_str() {
+        Ok(s) => s,
+        Err(_) => {
+            set_error("failed to parse scope".to_string(), err);
+            return ptr::null_mut();
+        }
+    };
+
+    let raw = CStr::from_ptr(stream);
+    let stream_name = match raw.to_str() {
+        Ok(s) => s,
+        Err(_) => {
+            set_error("failed to parse stream".to_string(), err);
+            return ptr::null_mut();
+        }
+    };
+
+    let stream_manager = &*manager;
+    match catch_unwind(AssertUnwindSafe(move || stream_manager.create_reader_group(reader_group_name, scope_name, stream_name, read_from_tail))) {
+        Ok(rg) => Box::into_raw(Box::new(rg)),
+        Err(_) => {
+            set_error("caught panic".to_string(), err);
+            ptr::null_mut()
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn stream_reader_group_destroy(rg: *mut StreamReaderGroup) {
+    if !rg.is_null() {
+        unsafe {
+            Box::from_raw(rg);
         }
     }
 }
