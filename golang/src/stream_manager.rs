@@ -6,7 +6,7 @@ use pravega_client_shared::*;
 use std::ffi::CStr;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
-use crate::error::{set_error, clear_error};
+use crate::error::{clear_error, set_error};
 use crate::memory::Buffer;
 use crate::stream_reader_group::StreamReaderGroup;
 use crate::stream_writer::StreamWriter;
@@ -286,7 +286,11 @@ pub unsafe extern "C" fn stream_reader_group_new(manager: *const StreamManager, 
 
     let stream_manager = &*manager;
     match catch_unwind(AssertUnwindSafe(move || stream_manager.create_reader_group(reader_group_name, scope_name, stream_name, read_from_tail))) {
-        Ok(rg) => Box::into_raw(Box::new(rg)),
+        Ok(rg) => {
+            // TODO: to check what cause the error
+            clear_error();
+            Box::into_raw(Box::new(rg))
+        },
         Err(_) => {
             set_error("caught panic".to_string(), err);
             ptr::null_mut()

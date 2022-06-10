@@ -1,6 +1,5 @@
 package main
 
-// #include <pthread.h>
 import "C"
 
 import (
@@ -23,7 +22,7 @@ func main() {
 	defer pprof.StopCPUProfile()
 	url := flag.String("uri", "127.0.0.1:9090", "controller uri")
 	scope := flag.String("scope", "foo", "scope")
-	streamName := flag.String("stream", "bar", "stream")
+	stream := flag.String("stream", "bar", "stream")
 	size := flag.Int("size", 1024 * 1024, "event size")
 	count := flag.Int("events", 100, "number of events")
 	writerCount := flag.Int("writers", 1, "number of writers")
@@ -31,7 +30,7 @@ func main() {
 	flag.Parse()
 	fmt.Println("url:", *url)
 	fmt.Println("scope:", *scope)
-	fmt.Println("stream:", *streamName)
+	fmt.Println("stream:", *stream)
 	fmt.Println("size:", *size)
 	fmt.Println("count:", *count)
 	fmt.Println("writers", *writerCount)
@@ -41,22 +40,22 @@ func main() {
 		data[i] = 'a'
 	}
 
-	sm, err := client.NewStreamManager(*url)
-
+	manager, err := client.NewStreamManager(*url)
 	if err != nil {
-		log.Errorf("failed to create sm:%v", err)
+		log.Errorf("failed to create sm: %v", err)
+		os.Exit(1)
+	}
+	defer manager.Close()
+
+	_, err = manager.CreateScope(*scope)
+	if err != nil {
+		log.Errorf("failed to create scope: %v", err)
 		os.Exit(1)
 	}
 
-	_, err = sm.CreateScope(*scope)
+	_, err = manager.CreateStream(*scope, *stream, 3)
 	if err != nil {
-		log.Errorf("failed to create scope:%v", err)
-		os.Exit(1)
-	}
-
-	_, err = sm.CreateStream(*scope, *streamName, 3)
-	if err != nil {
-		log.Errorf("failed to create stream:%v", err)
+		log.Errorf("failed to create stream: %v", err)
 		os.Exit(1)
 	}
 
@@ -66,18 +65,17 @@ func main() {
 	for i := 0; i < *writerCount; i++ {
 		sem.Acquire(ctx, 1)
 		go func() {
-			//runtime.LockOSThread()
-			//fmt.Println("threadId", C.pthread_self())
-			sw, err := sm.CreateWriter(*scope, *streamName, uint(*inflight))
+			writer, err := manager.CreateWriter(*scope, *stream, uint(*inflight))
 			if err != nil {
-				log.Errorf("failed to create stream writer:%v", err)
+				log.Errorf("failed to create stream writer: %v", err)
 			}
+			defer writer.Close()
 			num := *count
 
 			for i := 0; i < num; i++ {
-				sw.WriteEvent(data)
+				writer.WriteEvent(data)
 			}
-			sw.Flush()
+			writer.Flush()
 			sem.Release(1)
 		}()
 	}

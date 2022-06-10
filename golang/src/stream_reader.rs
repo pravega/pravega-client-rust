@@ -3,8 +3,8 @@ use pravega_client_shared::ScopedStream;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
 use tokio::runtime::Handle;
-use crate::error::set_error;
-use crate::memory::Buffer;
+use crate::error::{clear_error, set_error};
+use crate::memory::{Buffer, set_buffer};
 
 pub struct StreamReader {
     reader: EventReader,
@@ -39,7 +39,10 @@ pub unsafe extern "C" fn stream_reader_get_segment_slice(reader: *mut StreamRead
     match catch_unwind(AssertUnwindSafe(move || { stream_reader.get_segment_slice()})) {
         Ok(result) => {
             match result {
-                Ok(seg_slice) => Box::into_raw(Box::new(Slice{ seg_slice })),
+                Ok(seg_slice) => {
+                    clear_error();
+                    Box::into_raw(Box::new(Slice{ seg_slice }))
+                },
                 Err(e) => {
                     set_error(format!("Error while attempting to acquire segment {:?}", e), err);
                     ptr::null_mut()
@@ -49,6 +52,15 @@ pub unsafe extern "C" fn stream_reader_get_segment_slice(reader: *mut StreamRead
         Err(_) => {
             set_error("caught panic".to_string(), err);
             ptr::null_mut()
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn segment_slice_destroy(slice: *mut Slice) {
+    if !slice.is_null() {
+        unsafe {
+            Box::from_raw(slice);
         }
     }
 }
@@ -81,7 +93,7 @@ impl Slice {
 }
 
 impl Slice {
-    fn next(mut self) -> Option<EventData> {
+    fn next(&mut self) -> Option<EventData> {
         if let Some(mut slice) = self.seg_slice.take() {
             let next_event: Option<Event> = slice.next();
             self.seg_slice = Some(slice);
@@ -91,6 +103,26 @@ impl Slice {
             })
         } else {
             None
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn segment_slice_next(slice: *mut Slice, event: Option<&mut Buffer>, err: Option<&mut Buffer>) {
+    let slice = &mut *slice;
+    match catch_unwind(AssertUnwindSafe(move || { slice.next()})) {
+        Ok(result) => {
+            match result {
+                Some(data) => {
+                    set_buffer(data.value, event);
+                },
+                None => {
+                    set_buffer(Vec::new(), event);
+                }
+            }
+        }
+        Err(_) => {
+            set_error("caught panic".to_string(), err);
         }
     }
 }
@@ -109,4 +141,13 @@ impl EventData {
     fn to_str(&self) -> String {
         format!("offset {:?} data :{:?}", self.offset_in_segment, self.value)
     }
+}
+
+extern "C" {
+    pub fn publishString();
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn stream_reader_test() {
+    publishString();
 }

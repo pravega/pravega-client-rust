@@ -61,3 +61,9 @@ impl Buffer {
         self.ptr.is_null() || self.len == 0 || self.cap == 0
     }
 }
+
+pub fn set_buffer(msg: Vec<u8>, data: Option<&mut Buffer>) {
+    if let Some(mb) = data {
+        *mb = Buffer::from_vec(msg);
+    }
+}

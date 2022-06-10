@@ -82,8 +82,16 @@ void stream_reader_destroy(struct StreamReader *reader);
 
 struct Slice *stream_reader_get_segment_slice(struct StreamReader *reader, struct Buffer *err);
 
+void segment_slice_destroy(struct Slice *slice);
+
 void stream_reader_release_segment_slice(struct StreamReader *reader,
                                          struct Slice *slice,
                                          struct Buffer *err);
+
+void segment_slice_next(struct Slice *slice, struct Buffer *event, struct Buffer *err);
+
+extern void publishString(void);
+
+void stream_reader_test(void);
 
 #endif /* PRAVEGA_CLIENT_H */

@@ -4,7 +4,7 @@ use std::ffi::CStr;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
 use tokio::runtime::Handle;
-use crate::error::set_error;
+use crate::error::{clear_error, set_error};
 use crate::memory::Buffer;
 use crate::stream_reader::StreamReader;
 
@@ -46,7 +46,10 @@ pub unsafe extern "C" fn stream_reader_group_create_reader(reader_group: *const 
 
     let rg = &*reader_group;
     match catch_unwind(AssertUnwindSafe(move || { rg.create_reader(reader_name)})) {
-        Ok(reader) => Box::into_raw(Box::new(reader)),
+        Ok(reader) => {
+            clear_error();
+            Box::into_raw(Box::new(reader))
+        },
         Err(_) => {
             set_error("caught panic".to_string(), err);
             ptr::null_mut()

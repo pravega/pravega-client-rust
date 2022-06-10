@@ -8,6 +8,9 @@ type StreamManager struct {
 }
 
 func NewStreamManager(uri string) (*StreamManager, error) {
+	reactor := NewReactor("some reactor")
+	reactor.Run()
+
 	buf := C.Buffer{}
 	cUri := C.CString(uri)
 	manager, err := C.stream_manager_new(cUri, &buf)
@@ -62,5 +65,23 @@ func (manager *StreamManager) CreateWriter(scope string, stream string, maxInfli
 	}
 	return &StreamWriter{
 		Writer: writer,
+	}, nil
+}
+
+func (manager *StreamManager) CreateReaderGroup(readerGroup string, scope string, stream string, readFromTail bool) (*StreamReaderGroup, error) {
+	buf := C.Buffer{}
+	cReaderGroup := C.CString(readerGroup)
+	cScope := C.CString(scope)
+	cStream := C.CString(stream)
+	cReadFromTail := cbool(readFromTail)
+	rg, err := C.stream_reader_group_new(manager.Manager, cReaderGroup, cScope, cStream, cReadFromTail, &buf)
+	freeCString(cReaderGroup)
+	freeCString(cScope)
+	freeCString(cStream)
+	if err != nil {
+		return nil, errorWithMessage(err, buf)
+	}
+	return &StreamReaderGroup{
+		ReaderGroup: rg,
 	}, nil
 }
