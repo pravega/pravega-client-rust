@@ -1,31 +1,46 @@
 package pkg
 
+/*
+#include <stdlib.h>
+
+#include "common.h"
+*/
+import "C"
+
 import (
 	"fmt"
+	"sync"
 )
 
 // We declare the channel at this level, chan.go needs to see this too!
-var stringChannel chan string
-
-type Reactor struct {
-	name string
+type Bridge struct {
+	chanId int32
+	objPtr uintptr
 }
+var bridgeChannel chan Bridge
 
-func NewReactor(name string) *Reactor {
-	// Initializes a channel with "string" type.
-	stringChannel = make(chan string)
+var channelMap sync.Map
 
-	return &Reactor{
-		name: name,
+// This is an exported function. It takes a *C.Char, converts it to a Go string and sends it to the channel.
+//export publishString
+func publishBridge(chanId int32, objPtr uintptr) {
+	var bridge Bridge = Bridge {
+		chanId: chanId,
+		objPtr: objPtr,
 	}
+	bridgeChannel <- bridge
 }
 
-func (r *Reactor) Run() {
+func ReactorRun() {
+	bridgeChannel = make(chan Bridge)
+
 	go func() {
 		for {
 			select {
-			case receivedString := <-stringChannel:
-			  fmt.Println("stringChannel receives:", receivedString)
+			case bridge := <-bridgeChannel:
+				channelInterface := channelMap.LoadAndDelete(bridge.chanId)
+				channel := channelInterface.(chan uintptr)
+				channel <- bridge.objPtr
 			}
 		}
 	}()

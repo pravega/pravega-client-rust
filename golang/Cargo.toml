@@ -14,6 +14,7 @@ build = "build.rs"
 
 [dependencies]
 errno = "0.2"
+derive-new = "0.5"
 libc = "0.2"
 pravega-client = { path = "../", version = "0.3"}
 pravega-client-config = {path = "../config", version = "0.3"}

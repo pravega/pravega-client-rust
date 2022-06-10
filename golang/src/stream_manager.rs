@@ -6,13 +6,16 @@ use pravega_client_shared::*;
 use std::ffi::CStr;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use crate::error::{clear_error, set_error};
 use crate::memory::Buffer;
+use crate::reactor::Incoming;
 use crate::stream_reader_group::StreamReaderGroup;
 use crate::stream_writer::StreamWriter;
 
 pub struct StreamManager {
     cf: ClientFactory,
+    sender: UnboundedSender<Incoming>
 }
 
 impl StreamManager {
@@ -21,6 +24,9 @@ impl StreamManager {
     ) -> Self {
         // make sure the error number is 0 during startup
         clear_error();
+        // start reactor
+        let (tx, rx) = unbounded_channel();
+
 
         let mut builder = ClientConfigBuilder::default();
         builder
@@ -32,6 +38,7 @@ impl StreamManager {
 
         StreamManager {
             cf: client_factory,
+            sender: tx,
         }
     }
 

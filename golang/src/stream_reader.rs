@@ -34,26 +34,14 @@ impl StreamReader {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn stream_reader_get_segment_slice(reader: *mut StreamReader, err: Option<&mut Buffer>) -> *mut Slice {
+pub unsafe extern "C" fn stream_reader_get_segment_slice(reader: *mut StreamReader, chan_id:i32, err: Option<&mut Buffer>) {
     let stream_reader = &mut *reader;
-    match catch_unwind(AssertUnwindSafe(move || { stream_reader.get_segment_slice()})) {
-        Ok(result) => {
-            match result {
-                Ok(seg_slice) => {
-                    clear_error();
-                    Box::into_raw(Box::new(Slice{ seg_slice }))
-                },
-                Err(e) => {
-                    set_error(format!("Error while attempting to acquire segment {:?}", e), err);
-                    ptr::null_mut()
-                }
-            }
-        }
-        Err(_) => {
-            set_error("caught panic".to_string(), err);
-            ptr::null_mut()
-        }
-    }
+    self.sender.send(Incoming {
+        id: chan_id,
+        operation: Operation::GetSegmentSlice(stream_reader)
+    }}
+
+    return;
 }
 
 #[no_mangle]
@@ -141,13 +129,4 @@ impl EventData {
     fn to_str(&self) -> String {
         format!("offset {:?} data :{:?}", self.offset_in_segment, self.value)
     }
-}
-
-extern "C" {
-    pub fn publishString();
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn stream_reader_test() {
-    publishString();
 }
