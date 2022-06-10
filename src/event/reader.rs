@@ -863,9 +863,10 @@ impl ReaderState {
 
     // Store a Sender which is used to stop the read task for a given Segment.
     fn add_stop_reading_tx(&mut self, segment: ScopedSegment, tx: oneshot::Sender<()>) {
-        if self.slice_stop_reading.insert(segment, tx).is_some() {
-            panic!("Pre-condition check failure. Sender used to stop fetching data is already present");
-        }
+        assert!(
+            self.slice_stop_reading.insert(segment, tx).is_none(),
+            "Pre-condition check failure. Sender used to stop fetching data is already present"
+        );
     }
 
     // Use the stored oneshot::Sender to stop segment reading background task.
