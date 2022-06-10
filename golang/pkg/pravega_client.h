@@ -32,6 +32,8 @@ typedef struct Buffer {
 
 void free_buffer(struct Buffer buf);
 
+extern void publishBridge(int32_t chan_id, uintptr_t obj_ptr, const char *errorMessage);
+
 struct StreamManager *stream_manager_new(const char *uri, struct Buffer *err);
 
 void stream_manager_destroy(struct StreamManager *manager);
@@ -91,7 +93,5 @@ void stream_reader_release_segment_slice(struct StreamReader *reader,
                                          struct Buffer *err);
 
 void segment_slice_next(struct Slice *slice, struct Buffer *event, struct Buffer *err);
-
-extern void publishBridge(int32_t chan_id, uintptr_t obj_ptr);
 
 #endif /* PRAVEGA_CLIENT_H */

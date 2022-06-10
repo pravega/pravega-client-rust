@@ -5,19 +5,22 @@ use std::ptr;
 use tokio::runtime::Handle;
 use crate::error::{clear_error, set_error};
 use crate::memory::{Buffer, set_buffer};
-
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use crate::reactor::*;
 pub struct StreamReader {
     reader: EventReader,
     runtime_handle: Handle,
     streams: Vec<ScopedStream>,
+    sender: * const UnboundedSender<Incoming>
 }
 
 impl StreamReader {
-    pub fn new(reader: EventReader, runtime_handle: Handle, streams: Vec<ScopedStream>) -> Self {
+    pub fn new(reader: EventReader, runtime_handle: Handle, streams: Vec<ScopedStream>,sender: *const UnboundedSender<Incoming>) -> Self {
         StreamReader {
             reader,
             runtime_handle,
             streams,
+            sender
         }
     }
 
@@ -35,14 +38,12 @@ impl StreamReader {
 
 #[no_mangle]
 pub unsafe extern "C" fn stream_reader_get_segment_slice(reader: *mut StreamReader, chan_id:i32, err: Option<&mut Buffer>) {
-    let stream_reader = &mut *reader;
-    self.sender.send(Incoming {
+   (*(*reader).sender).send(Incoming {
         id: chan_id,
-        operation: Operation::GetSegmentSlice(stream_reader)
-    }}
-
-    return;
+        operation: Operation::GetSegmentSlice(reader)
+    });
 }
+
 
 #[no_mangle]
 pub extern "C" fn segment_slice_destroy(slice: *mut Slice) {

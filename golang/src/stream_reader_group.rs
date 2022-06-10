@@ -7,17 +7,21 @@ use tokio::runtime::Handle;
 use crate::error::{clear_error, set_error};
 use crate::memory::Buffer;
 use crate::stream_reader::StreamReader;
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use crate::reactor::*;
 
 pub struct StreamReaderGroup {
     reader_group: ReaderGroup,
     runtime_handle: Handle,
+    sender: * const UnboundedSender<Incoming>
 }
 
 impl StreamReaderGroup {
-    pub fn new(reader_group: ReaderGroup, runtime_handle: Handle) -> Self {
+    pub fn new(reader_group: ReaderGroup, runtime_handle: Handle,sender: * const UnboundedSender<Incoming>) -> Self {
         StreamReaderGroup {
             reader_group,
             runtime_handle,
+            sender
         }
     }
 
@@ -29,6 +33,7 @@ impl StreamReaderGroup {
             reader,
             self.runtime_handle.clone(),
             self.reader_group.get_managed_streams(),
+            self.sender
         )
     }
 }

@@ -4,7 +4,7 @@ package pkg
 #include "pravega_client.h"
 */
 import "C"
-import "unsafe"
+import "fmt"
 
 type StreamReader struct {
 	Reader *C.StreamReader
@@ -15,7 +15,7 @@ func (reader *StreamReader) Close() {
 }
 
 func (reader *StreamReader) GetSegmentSlice() (*SegmentSlice, error) {
-	channel := make(chan uintptr)
+	channel := make(chan Bridge)
 
 	// invoke rust code to get segment slice
 	// register the id and channel
@@ -29,8 +29,11 @@ func (reader *StreamReader) GetSegmentSlice() (*SegmentSlice, error) {
 	}
 
 	// wait to the ack
-	slicePtr := <-channel
-	slice := (*C.Slice)(unsafe.Pointer(slicePtr))
+	result := <-channel
+	if !len(result.ErrorMsg) == 0 {
+		return nil, fmt.Errorf("%s", result.ErrorMsg)
+	}
+	slice := (*C.Slice)(result.ObjPtr)
 
 	return &SegmentSlice{
 		Slice: slice,
@@ -38,7 +41,6 @@ func (reader *StreamReader) GetSegmentSlice() (*SegmentSlice, error) {
 }
 
 func (reader *StreamReader) Read() {
-	C.stream_reader_test()
 }
 
 type SegmentSlice struct {

@@ -1,32 +1,30 @@
 package pkg
 
-/*
-#include <stdlib.h>
-
-#include "common.h"
-*/
 import "C"
 
 import (
 	"fmt"
 	"sync"
+	"unsafe"
 )
 
 // We declare the channel at this level, chan.go needs to see this too!
 type Bridge struct {
-	chanId int32
-	objPtr uintptr
+	ChanId   int32
+	ObjPtr   unsafe.Pointer
+	ErrorMsg string
 }
+
 var bridgeChannel chan Bridge
 
 var channelMap sync.Map
 
-// This is an exported function. It takes a *C.Char, converts it to a Go string and sends it to the channel.
-//export publishString
-func publishBridge(chanId int32, objPtr uintptr) {
-	var bridge Bridge = Bridge {
-		chanId: chanId,
-		objPtr: objPtr,
+//export publishBridge
+func publishBridge(chanId int32, objPtr uintptr, errorMsg *C.char) {
+	var bridge Bridge = Bridge{
+		ChanId:   chanId,
+		ObjPtr:   unsafe.Pointer(objPtr),
+		ErrorMsg: C.GoString(errorMsg),
 	}
 	bridgeChannel <- bridge
 }
@@ -38,9 +36,16 @@ func ReactorRun() {
 		for {
 			select {
 			case bridge := <-bridgeChannel:
-				channelInterface := channelMap.LoadAndDelete(bridge.chanId)
-				channel := channelInterface.(chan uintptr)
-				channel <- bridge.objPtr
+				{
+					itf, loaded := channelMap.LoadAndDelete(bridge.ChanId)
+					if !loaded {
+						fmt.Printf("unexpect channelId: %d", bridge.ChanId)
+						continue
+					}
+					channel := (itf).(chan Bridge)
+					channel <- bridge
+				}
+
 			}
 		}
 	}()

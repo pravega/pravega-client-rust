@@ -12,10 +12,10 @@ use crate::memory::Buffer;
 use crate::reactor::Incoming;
 use crate::stream_reader_group::StreamReaderGroup;
 use crate::stream_writer::StreamWriter;
-
+use crate::reactor::*;
 pub struct StreamManager {
     cf: ClientFactory,
-    sender: UnboundedSender<Incoming>
+    sender: * const UnboundedSender<Incoming>
 }
 
 impl StreamManager {
@@ -27,7 +27,6 @@ impl StreamManager {
         // start reactor
         let (tx, rx) = unbounded_channel();
 
-
         let mut builder = ClientConfigBuilder::default();
         builder
             .controller_uri(controller_uri)
@@ -35,11 +34,12 @@ impl StreamManager {
             .is_tls_enabled(false);
         let config = builder.build().expect("creating config");
         let client_factory = ClientFactory::new(config.clone());
-
+        Reactor::run(rx);
         StreamManager {
             cf: client_factory,
-            sender: tx,
+            sender: &tx,
         }
+
     }
 
     pub fn create_scope(&self, scope_name: &str) -> Result<bool, String> {
@@ -123,7 +123,7 @@ impl StreamManager {
             rg_config,
             scope,
         ));
-        StreamReaderGroup::new(rg, self.cf.runtime_handle())
+        StreamReaderGroup::new(rg, self.cf.runtime_handle(),self.sender)
     }
 }
 
