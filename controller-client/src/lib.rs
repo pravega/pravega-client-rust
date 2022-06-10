@@ -350,7 +350,7 @@ pub struct ControllerClientImpl {
     channel: RwLock<ControllerServiceClient<InterceptedService<Channel, AuthInterceptor>>>,
 }
 
-async fn get_channel(config: &ClientConfig) -> Channel {
+fn get_channel(config: &ClientConfig) -> Channel {
     const HTTP_PREFIX: &str = "http://";
     const HTTPS_PREFIX: &str = "https://";
 
@@ -421,7 +421,7 @@ async fn get_channel(config: &ClientConfig) -> Channel {
             .collect::<Vec<Endpoint>>()
     };
 
-    async { Channel::balance_list(endpoints.into_iter()) }.await
+    Channel::balance_list(endpoints.into_iter())
 }
 
 #[allow(deprecated)]
@@ -657,7 +657,8 @@ impl ControllerClientImpl {
     ///
     pub fn new(config: ClientConfig, handle: &Handle) -> Self {
         // actual connection is established lazily.
-        let ch = handle.block_on(get_channel(&config));
+        let _guard = handle.enter();
+        let ch = get_channel(&config);
         let client = if config.is_auth_enabled {
             let token = handle.block_on(config.credentials.get_request_metadata());
             let auth_interceptor = AuthInterceptor { token: Some(token) };
@@ -682,7 +683,7 @@ impl ControllerClientImpl {
         if self.config.is_auth_enabled {
             self.refresh_token_if_needed().await;
         } else {
-            let ch = get_channel(&self.config).await;
+            let ch = get_channel(&self.config);
             let mut x = self.channel.write().await;
             let auth_interceptor = AuthInterceptor { token: None };
             *x = ControllerServiceClient::with_interceptor(ch, auth_interceptor);
@@ -707,7 +708,7 @@ impl ControllerClientImpl {
     }
 
     async fn refresh_token_if_needed(&self) {
-        let ch = get_channel(&self.config).await;
+        let ch = get_channel(&self.config);
         let mut x = self.channel.write().await;
         let token = self.config.credentials.get_request_metadata().await;
         let auth_interceptor = AuthInterceptor { token: Some(token) };

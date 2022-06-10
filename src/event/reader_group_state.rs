@@ -706,7 +706,7 @@ impl ReaderGroupState {
             Ok(())
         } else {
             Err(SynchronizerError::SyncPreconditionError {
-                error_msg: format!("reader {} is not online", reader),
+                error_msg: format!("reader {} is not online", reader.name),
             })
         }
     }
