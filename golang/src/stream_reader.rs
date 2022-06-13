@@ -60,7 +60,7 @@ impl Clone for SafeStreamReader {
 impl Copy for SafeStreamReader {}
 
 #[no_mangle]
-pub unsafe extern "C" fn stream_reader_get_segment_slice(reader: *mut StreamReader, chan_id:i32, err: Option<&mut Buffer>) {
+pub unsafe extern "C" fn stream_reader_get_segment_slice(reader: *mut StreamReader, chan_id: i64, err: Option<&mut Buffer>) {
     let stream_reader = &mut *reader;
 
     if let Err(_) = stream_reader.sender.send(Incoming::new(

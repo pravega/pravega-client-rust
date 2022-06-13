@@ -18,6 +18,7 @@ type (
 	cusize  = C.size_t
 	cint    = C.int
 	ci32    = C.int32_t
+	ci64    = C.int64_t
 	cbool   = C.bool
 )
 

@@ -32,7 +32,7 @@ typedef struct Buffer {
 
 void free_buffer(struct Buffer buf);
 
-extern void publishBridge(int32_t chan_id, uintptr_t obj_ptr);
+extern void publishBridge(int64_t chan_id, uintptr_t obj_ptr);
 
 struct StreamManager *stream_manager_new(const char *uri, struct Buffer *err);
 
@@ -83,7 +83,7 @@ struct StreamReader *stream_reader_group_create_reader(const struct StreamReader
 void stream_reader_destroy(struct StreamReader *reader);
 
 void stream_reader_get_segment_slice(struct StreamReader *reader,
-                                     int32_t chan_id,
+                                     int64_t chan_id,
                                      struct Buffer *err);
 
 void segment_slice_destroy(struct Slice *slice);

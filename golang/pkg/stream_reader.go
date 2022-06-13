@@ -17,7 +17,7 @@ func (reader *StreamReader) GetSegmentSlice() (*SegmentSlice, error) {
 	id, channel := CreateChannel()
 
 	buf := C.Buffer{}
-	cId := ci32(id)
+	cId := ci64(id)
 
 	// in the rust side, it will prepare the segment slice 
 	// and send through the channel once it is ready

@@ -8,7 +8,7 @@ pub enum Operation {
 
 #[derive(new)]
 pub struct Incoming {
-    chan_id: i32,
+    chan_id: i64,
     operation: Operation
 }
 
@@ -52,5 +52,5 @@ impl Reactor {
 }
 
 extern "C" {
-    pub fn publishBridge(chan_id:i32, obj_ptr:usize);
+    pub fn publishBridge(chan_id: i64, obj_ptr: usize);
 }
