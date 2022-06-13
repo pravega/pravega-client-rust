@@ -8,12 +8,12 @@ import (
 	"unsafe"
 )
 
-// We declare the channel at this level, chan.go needs to see this too!
 type Bridge struct {
 	ChanId   int32
 	ObjPtr   unsafe.Pointer
 }
 
+// We declare the channel at this level, as the exported method `publishBridge` needs to notify this channel 
 var bridgeChannel chan Bridge
 
 var channelMap sync.Map
