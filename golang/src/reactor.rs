@@ -40,10 +40,9 @@ impl Reactor {
                             publishBridge(chan_id, ptr as usize);
                         };
                     },
-                    Err(_) => {
-                        unsafe {
-                            publishBridge(chan_id,0);
-                        };
+                    Err(err) => {
+                        // TODO: send error msg through the bridge channel
+                        println!("Error while getting segment slice {:?}", err);
                     }
                 }
             },

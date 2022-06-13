@@ -14,11 +14,7 @@ func (reader *StreamReader) Close() {
 }
 
 func (reader *StreamReader) GetSegmentSlice() (*SegmentSlice, error) {
-	channel := make(chan Bridge)
-
-	// register the id and channel
-	var id int32 = 12345
-	channelMap.Store(id, channel)
+	id, channel := CreateChannel()
 
 	buf := C.Buffer{}
 	cId := ci32(id)
@@ -31,8 +27,9 @@ func (reader *StreamReader) GetSegmentSlice() (*SegmentSlice, error) {
 	}
 
 	// wait for the ack
-	result := <-channel
-	slice := (*C.Slice)(result.ObjPtr)
+	// TODO: may add timeout here
+	ptr := <- channel
+	slice := (*C.Slice)(ptr)
 
 	return &SegmentSlice{
 		Slice: slice,
