@@ -12,7 +12,6 @@ import (
 type Bridge struct {
 	ChanId   int32
 	ObjPtr   unsafe.Pointer
-	ErrorMsg string
 }
 
 var bridgeChannel chan Bridge
@@ -24,12 +23,11 @@ func publishBridge(chanId int32, objPtr uintptr, errorMsg *C.char) {
 	var bridge Bridge = Bridge{
 		ChanId:   chanId,
 		ObjPtr:   unsafe.Pointer(objPtr),
-		ErrorMsg: C.GoString(errorMsg),
 	}
 	bridgeChannel <- bridge
 }
 
-func ReactorRun() {
+func RunReactor() {
 	bridgeChannel = make(chan Bridge)
 
 	go func() {
@@ -37,12 +35,12 @@ func ReactorRun() {
 			select {
 			case bridge := <-bridgeChannel:
 				{
-					itf, loaded := channelMap.LoadAndDelete(bridge.ChanId)
+					value, loaded := channelMap.LoadAndDelete(bridge.ChanId)
 					if !loaded {
 						fmt.Printf("unexpect channelId: %d", bridge.ChanId)
-						continue
+						break
 					}
-					channel := (itf).(chan Bridge)
+					channel := (value).(chan Bridge)
 					channel <- bridge
 				}
 

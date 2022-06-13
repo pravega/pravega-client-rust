@@ -5,17 +5,17 @@ use std::ptr;
 use tokio::runtime::Handle;
 use crate::error::{clear_error, set_error};
 use crate::memory::{Buffer, set_buffer};
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::UnboundedSender;
 use crate::reactor::*;
 pub struct StreamReader {
     reader: EventReader,
     runtime_handle: Handle,
     streams: Vec<ScopedStream>,
-    sender: * const UnboundedSender<Incoming>
+    sender: UnboundedSender<Incoming>
 }
 
 impl StreamReader {
-    pub fn new(reader: EventReader, runtime_handle: Handle, streams: Vec<ScopedStream>,sender: *const UnboundedSender<Incoming>) -> Self {
+    pub fn new(reader: EventReader, runtime_handle: Handle, streams: Vec<ScopedStream>, sender: UnboundedSender<Incoming>) -> Self {
         StreamReader {
             reader,
             runtime_handle,
@@ -24,8 +24,8 @@ impl StreamReader {
         }
     }
 
-    pub fn get_segment_slice(&mut self) -> Result<Option<SegmentSlice>, EventReaderError> {
-        self.runtime_handle.block_on(self.reader.acquire_segment())
+    pub async fn get_segment_slice(&mut self) -> Result<Option<SegmentSlice>, EventReaderError> {
+        self.reader.acquire_segment().await
     }
 
     pub fn release_segment(&mut self, slice: Option<SegmentSlice>) -> Result<(), EventReaderError> {
@@ -36,12 +36,40 @@ impl StreamReader {
     }
 }
 
+pub struct SafeStreamReader {
+    v: *mut StreamReader
+}
+
+impl SafeStreamReader {
+    pub fn new(v: *mut StreamReader) -> Self {
+        Self { v }
+    }
+    pub fn get(&self) -> &mut StreamReader {
+        unsafe { &mut *(self.v) }
+    }
+}
+
+unsafe impl Send for SafeStreamReader {}
+
+impl Clone for SafeStreamReader {
+    fn clone(&self) -> Self {
+        Self { v: self.v.clone() }
+    }
+}
+
+impl Copy for SafeStreamReader {}
+
 #[no_mangle]
 pub unsafe extern "C" fn stream_reader_get_segment_slice(reader: *mut StreamReader, chan_id:i32, err: Option<&mut Buffer>) {
-   (*(*reader).sender).send(Incoming {
-        id: chan_id,
-        operation: Operation::GetSegmentSlice(reader)
-    });
+    let stream_reader = &mut *reader;
+
+    if let Err(_) = stream_reader.sender.send(Incoming::new(
+        chan_id,
+        Operation::GetSegmentSlice(SafeStreamReader::new(reader))
+    )) {
+        set_error("Error while getting segment slice".to_string(), err);
+    }
+
 }
 
 
@@ -76,6 +104,12 @@ pub struct Slice {
 }
 
 impl Slice {
+    pub fn new(seg_slice: Option<SegmentSlice>) -> Self {
+        Self {
+            seg_slice
+        }
+    }
+
     fn get_set_to_none(&mut self) -> Option<SegmentSlice> {
         self.seg_slice.take()
     }

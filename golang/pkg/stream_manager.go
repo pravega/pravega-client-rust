@@ -8,8 +8,7 @@ type StreamManager struct {
 }
 
 func NewStreamManager(uri string) (*StreamManager, error) {
-	reactor := NewReactor("some reactor")
-	reactor.Run()
+	RunReactor()
 
 	buf := C.Buffer{}
 	cUri := C.CString(uri)

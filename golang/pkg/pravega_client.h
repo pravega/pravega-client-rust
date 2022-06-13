@@ -32,7 +32,7 @@ typedef struct Buffer {
 
 void free_buffer(struct Buffer buf);
 
-extern void publishBridge(int32_t chan_id, uintptr_t obj_ptr, const char *errorMessage);
+extern void publishBridge(int32_t chan_id, uintptr_t obj_ptr);
 
 struct StreamManager *stream_manager_new(const char *uri, struct Buffer *err);
 

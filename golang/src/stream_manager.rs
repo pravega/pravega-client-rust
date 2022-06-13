@@ -15,7 +15,7 @@ use crate::stream_writer::StreamWriter;
 use crate::reactor::*;
 pub struct StreamManager {
     cf: ClientFactory,
-    sender: * const UnboundedSender<Incoming>
+    sender: UnboundedSender<Incoming>
 }
 
 impl StreamManager {
@@ -24,8 +24,6 @@ impl StreamManager {
     ) -> Self {
         // make sure the error number is 0 during startup
         clear_error();
-        // start reactor
-        let (tx, rx) = unbounded_channel();
 
         let mut builder = ClientConfigBuilder::default();
         builder
@@ -34,10 +32,15 @@ impl StreamManager {
             .is_tls_enabled(false);
         let config = builder.build().expect("creating config");
         let client_factory = ClientFactory::new(config.clone());
-        Reactor::run(rx);
+
+        // start reactor
+        let handle = client_factory.runtime_handle();
+        let (tx, rx) = unbounded_channel();
+        handle.spawn(Reactor::run(rx));
+
         StreamManager {
             cf: client_factory,
-            sender: &tx,
+            sender: tx,
         }
 
     }
@@ -123,7 +126,7 @@ impl StreamManager {
             rg_config,
             scope,
         ));
-        StreamReaderGroup::new(rg, self.cf.runtime_handle(),self.sender)
+        StreamReaderGroup::new(rg, self.cf.runtime_handle(), self.sender.clone())
     }
 }
 
