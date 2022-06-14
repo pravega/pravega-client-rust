@@ -322,7 +322,7 @@ mod tests {
                             cnt += 1;
                             if cnt == 1 {
                                 let reply = Replies::Hello(HelloCommand {
-                                    high_version: 11,
+                                    high_version: 15,
                                     low_version: 5,
                                 });
                                 let bytes = reply.write_fields().expect("serialize reply");
@@ -341,7 +341,7 @@ mod tests {
                             cnt += 1;
                             if cnt == 1 {
                                 let reply = Replies::Hello(HelloCommand {
-                                    high_version: 11,
+                                    high_version: 15,
                                     low_version: 5,
                                 });
                                 let bytes = reply.write_fields().expect("serialize reply");
