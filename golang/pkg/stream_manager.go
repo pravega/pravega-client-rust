@@ -7,13 +7,12 @@ type StreamManager struct {
 	Manager *C.StreamManager
 }
 
-func NewStreamManager(uri string) (*StreamManager, error) {
+func NewStreamManager(config *ClientConfig) (*StreamManager, error) {
 	RunReactor()
 
 	buf := C.Buffer{}
-	cUri := C.CString(uri)
-	manager, err := C.stream_manager_new(cUri, &buf)
-	freeCString(cUri)
+
+	manager, err := C.stream_manager_new(config.toCtype(), &buf)
 	if err != nil {
 		return nil, errorWithMessage(err, buf)
 	}

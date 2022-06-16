@@ -4,6 +4,9 @@ pub use memory::{free_buffer, Buffer};
 
 mod reactor;
 
+mod config;
+
+
 mod stream_manager;
 pub use stream_manager::StreamManager;
 pub use stream_manager::StreamScalingPolicy;

@@ -3,6 +3,7 @@ use pravega_client::client_factory::ClientFactory;
 use pravega_client::event::reader_group::ReaderGroupConfigBuilder;
 use pravega_client_config::ClientConfigBuilder;
 use pravega_client_shared::*;
+use pravega_client_config::*;
 use std::ffi::CStr;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
@@ -13,6 +14,9 @@ use crate::reactor::Incoming;
 use crate::stream_reader_group::StreamReaderGroup;
 use crate::stream_writer::StreamWriter;
 use crate::reactor::*;
+use crate::config::*;
+
+
 pub struct StreamManager {
     cf: ClientFactory,
     sender: UnboundedSender<Incoming>
@@ -20,18 +24,11 @@ pub struct StreamManager {
 
 impl StreamManager {
     fn new(
-        controller_uri: &str,
+        client_config :ClientConfig
     ) -> Self {
         // make sure the error number is 0 during startup
         clear_error();
-
-        let mut builder = ClientConfigBuilder::default();
-        builder
-            .controller_uri(controller_uri)
-            .is_auth_enabled(false)
-            .is_tls_enabled(false);
-        let config = builder.build().expect("creating config");
-        let client_factory = ClientFactory::new(config.clone());
+        let client_factory = ClientFactory::new(client_config);
 
         // start reactor
         let handle = client_factory.runtime_handle();
@@ -131,18 +128,12 @@ impl StreamManager {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn stream_manager_new(uri: *const c_char, err: Option<&mut Buffer>) -> *mut StreamManager {
-    let raw = CStr::from_ptr(uri);
-    let controller_uri = match raw.to_str() {
-        Ok(s) => s,
-        Err(_) => {
-            set_error("failed to parse uri".to_string(), err);
-            return ptr::null_mut();
-        }
-    };
-
-    match catch_unwind(|| StreamManager::new(controller_uri)) {
-        Ok(manager) => Box::into_raw(Box::new(manager)),
+pub unsafe extern "C" fn stream_manager_new(clientConfig: BClientConfig, err: Option<&mut Buffer>) -> *mut StreamManager {
+    match catch_unwind(|| {
+        let config = clientConfig.to_client_config();
+        println!("{:?}",config);
+        StreamManager::new(config)}) {
+        Ok(manager) =>         {clear_error(); Box::into_raw(Box::new(manager))},
         Err(_) => {
             set_error("caught panic".to_string(), err);
             ptr::null_mut()

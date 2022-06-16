@@ -2,9 +2,6 @@
 use libc::c_char;
 use pravega_client_shared::*;
 use pravega_client_config::*;
-use pravega_client_config::connection_type::ConnectionType;
-use pravega_client_config::connection_type::MockType::Happy;
-use crate::config::BConnectionType::Tokio;
 use std::ffi::{CStr, CString};
 use std::str::FromStr;
 use std::time::Duration;
@@ -57,25 +54,18 @@ unsafe fn to_str<'a>(p_str: *const c_char) -> &'a str {
 #[repr(C)]
 pub struct BRetention {
     pub retention_type: BRetentionType,
-    pub retention_param: i64,
+    pub retention_param: usize,
 }
 
 impl BRetention {
     fn to_retention(&self) -> Retention {
         Retention {
             retention_type: self.retention_type.to_retention_type(),
-            retention_param: self.retention_param,
+            retention_param: self.retention_param as i64,
         }
     }
 }
 
-#[test]
-fn test_retention() {
-    let b = BRetention { retention_type: BRetentionType::Time, retention_param: 100 };
-    let retention = b.to_retention();
-    assert_eq!(retention.retention_type, RetentionType::Time);
-    assert_eq!(retention.retention_param, 100);
-}
 
 #[repr(C)]
 pub enum BRetentionType {
@@ -98,9 +88,9 @@ impl BRetentionType {
 #[repr(C)]
 pub struct BScaling {
     pub scale_type: BScaleType,
-    pub target_rate: i32,
-    pub scale_factor: i32,
-    pub min_num_segments: i32,
+    pub target_rate: usize,
+    pub scale_factor: usize,
+    pub min_num_segments: usize,
 }
 
 
@@ -108,9 +98,9 @@ impl BScaling {
     fn to_scaling(&self) -> Scaling {
         Scaling {
             scale_type: self.scale_type.to_scale_type(),
-            target_rate: self.target_rate,
-            scale_factor: self.scale_factor,
-            min_num_segments: self.min_num_segments,
+            target_rate: self.target_rate as i32,
+            scale_factor: self.scale_factor as i32,
+            min_num_segments: self.min_num_segments as i32,
         }
     }
 }
@@ -132,41 +122,20 @@ impl BScaleType {
         }
     }
 }
-#[repr(C)]
-pub enum BConnectionType {
-    Tokio = 0,
-    Mock = 1,
-}
 
 
-impl BConnectionType {
-    unsafe fn to_connection_type(&self) -> ConnectionType {
-        match self {
-            BConnectionType::Tokio =>{
-                ConnectionType::Tokio
-            }
-            BConnectionType::Mock => {
-                ConnectionType::Mock(Happy)
-            }
-        }
-    }
-}
 
 #[repr(C)]
 pub struct BClientConfig {
-    pub max_connections_in_pool: u32,
+    pub max_connections_in_pool: usize,
 
-    pub max_controller_connections: u32,
-
-    pub connection_type: BConnectionType,
+    pub max_controller_connections: usize,
 
     pub retry_policy: BRetryWithBackoff,
 
     pub controller_uri: *const c_char,
 
-    pub transaction_timeout_time: u64,
-
-    pub mock: bool,
+    pub transaction_timeout_time: usize,
 
     pub is_tls_enabled: bool,
 
@@ -174,13 +143,13 @@ pub struct BClientConfig {
 
     pub trustcerts: *const c_char,
 
-    pub credentials: Credentials_B,
+    pub credentials: BCredentials,
 
     pub is_auth_enabled: bool,
 
-    pub reader_wrapper_buffer_size: i32,
+    pub reader_wrapper_buffer_size: usize,
 
-    pub request_timeout: u64,
+    pub request_timeout: usize,
 }
 
 impl BClientConfig {
@@ -190,16 +159,14 @@ impl BClientConfig {
         let mut config: ClientConfig = ClientConfigBuilder::default()
             .controller_uri(controller_uri)
             .build().unwrap();
-        config.connection_type = self.connection_type.to_connection_type();
-        config.max_connections_in_pool = self.max_connections_in_pool;
-        config.max_controller_connections = self.max_controller_connections;
+        config.max_connections_in_pool = self.max_connections_in_pool as u32;
+        config.max_controller_connections = self.max_controller_connections as u32;
         config.disable_cert_verification = self.disable_cert_verification;
         config.is_auth_enabled = self.is_auth_enabled;
         config.is_tls_enabled = self.is_tls_enabled;
-        config.mock = self.mock;
         config.reader_wrapper_buffer_size = self.reader_wrapper_buffer_size as usize;
-        config.transaction_timeout_time = self.transaction_timeout_time;
-        config.request_timeout = Duration::from_millis(self.request_timeout);
+        config.transaction_timeout_time = self.transaction_timeout_time as u64;
+        config.request_timeout = Duration::from_millis(self.request_timeout as u64);
         config.trustcerts = split_to_vec(self.trustcerts);
         config.credentials = self.credentials.to_credentials();
         config.retry_policy = self.retry_policy.to_retry_with_backoff();
@@ -237,19 +204,19 @@ fn test_str_to_tags() {
 }
 #[repr(C)]
 pub struct BRetryWithBackoff {
-    initial_delay: u64,
-    backoff_coefficient: i32,
-    max_attempt: i32,
-    max_delay: u64,
-    expiration_time: u64,
+    initial_delay: usize,
+    backoff_coefficient: usize,
+    max_attempt: usize,
+    max_delay: usize,
+    expiration_time: usize,
 }
 
 impl BRetryWithBackoff {
     pub unsafe fn to_retry_with_backoff(&self) -> RetryWithBackoff {
         //TODO: set expiration_time
         let backoff_coefficient = self.backoff_coefficient as u32;
-        let initial_delay = Duration::from_millis(self.initial_delay);
-        let max_delay = Duration::from_millis(self.max_delay);
+        let initial_delay = Duration::from_millis(self.initial_delay as u64);
+        let max_delay = Duration::from_millis(self.max_delay as u64);
         return  RetryWithBackoff::default().backoff_coefficient(backoff_coefficient).initial_delay(initial_delay)
             .max_attempt(self.max_attempt as usize).max_delay(max_delay);
     }
@@ -257,7 +224,7 @@ impl BRetryWithBackoff {
 }
 
 #[repr(C)]
-pub struct Credentials_B {
+pub struct BCredentials {
     credential_type: CredentialsType,
     username: *const c_char,
     password: *const c_char,
@@ -267,7 +234,7 @@ pub struct Credentials_B {
     disable_cert_verification: bool,
 }
 
-impl Credentials_B {
+impl BCredentials {
     unsafe fn to_credentials(&self) -> Credentials {
         return match self.credential_type {
             CredentialsType::Basic => unsafe {

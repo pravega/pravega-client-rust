@@ -12,6 +12,13 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+typedef enum CredentialsType {
+  Basic = 0,
+  BasicWithToken = 1,
+  Keycloak = 2,
+  KeycloakFromJsonString = 3,
+} CredentialsType;
+
 typedef struct Slice Slice;
 
 typedef struct StreamManager StreamManager;
@@ -30,11 +37,44 @@ typedef struct Buffer {
   uintptr_t cap;
 } Buffer;
 
+typedef struct BRetryWithBackoff {
+  uintptr_t initial_delay;
+  uintptr_t backoff_coefficient;
+  uintptr_t max_attempt;
+  uintptr_t max_delay;
+  uintptr_t expiration_time;
+} BRetryWithBackoff;
+
+typedef struct BCredentials {
+  enum CredentialsType credential_type;
+  const char *username;
+  const char *password;
+  const char *token;
+  const char *path;
+  const char *json;
+  bool disable_cert_verification;
+} BCredentials;
+
+typedef struct BClientConfig {
+  uintptr_t max_connections_in_pool;
+  uintptr_t max_controller_connections;
+  struct BRetryWithBackoff retry_policy;
+  const char *controller_uri;
+  uintptr_t transaction_timeout_time;
+  bool is_tls_enabled;
+  bool disable_cert_verification;
+  const char *trustcerts;
+  struct BCredentials credentials;
+  bool is_auth_enabled;
+  uintptr_t reader_wrapper_buffer_size;
+  uintptr_t request_timeout;
+} BClientConfig;
+
 void free_buffer(struct Buffer buf);
 
 extern void publishBridge(int64_t chan_id, uintptr_t obj_ptr);
 
-struct StreamManager *stream_manager_new(const char *uri, struct Buffer *err);
+struct StreamManager *stream_manager_new(struct BClientConfig clientConfig, struct Buffer *err);
 
 void stream_manager_destroy(struct StreamManager *manager);
 
