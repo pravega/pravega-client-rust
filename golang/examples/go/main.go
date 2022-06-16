@@ -8,11 +8,14 @@ import (
 )
 
 func main() {
-	controllerUri := "127.0.0.1:9090"
+	//controllerUri := "127.0.0.1:9090"
 	scope := "foo"
 	stream := "bar"
 
-	manager, err := client.NewStreamManager(controllerUri)
+	config := client.NewClientConfig()
+	config.ControllerUri = "127.0.0.1:9090"
+	config.RequestTimeout = uint64(500 * time.Second.Milliseconds())
+	manager, err := client.NewStreamManager(config)
 	if err != nil {
 		println("fail to create stream manager:", err.Error())
 		return
