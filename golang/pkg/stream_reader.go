@@ -19,7 +19,7 @@ func (reader *StreamReader) GetSegmentSlice() (*SegmentSlice, error) {
 	buf := C.Buffer{}
 	cId := ci64(id)
 
-	// in the rust side, it will prepare the segment slice 
+	// in the rust side, it will prepare the segment slice
 	// and send through the channel once it is ready
 	_, err := C.stream_reader_get_segment_slice(reader.Reader, cId, &buf)
 	if err != nil {
@@ -28,15 +28,12 @@ func (reader *StreamReader) GetSegmentSlice() (*SegmentSlice, error) {
 
 	// wait for the ack
 	// TODO: may add timeout here
-	ptr := <- channel
+	ptr := <-channel
 	slice := (*C.Slice)(ptr)
 
 	return &SegmentSlice{
 		Slice: slice,
 	}, nil
-}
-
-func (reader *StreamReader) Read() {
 }
 
 type SegmentSlice struct {
@@ -54,6 +51,6 @@ func (slice *SegmentSlice) Next() ([]byte, error) {
 	if err != nil {
 		return nil, errorWithMessage(err, buf)
 	}
-	data := receiveSlice(event)
+	data := copyAndDestroyBuffer(event)
 	return data, nil
 }

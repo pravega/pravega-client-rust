@@ -70,7 +70,7 @@ typedef struct BClientConfig {
   uintptr_t request_timeout;
 } BClientConfig;
 
-void free_buffer(struct Buffer buf);
+void free_buffer(struct Buffer buffer);
 
 extern void publishBridge(int64_t chan_id, uintptr_t obj_ptr);
 

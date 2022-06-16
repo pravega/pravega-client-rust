@@ -17,11 +17,6 @@ a slightly different approach. More details will be added based on the performan
 cargo build
 
 # test go code
-go build examples/go/main.go
-./main
-
-# test c++ code
-cd examples/c++
-make
+go build examples/main.go
 ./main
 ```

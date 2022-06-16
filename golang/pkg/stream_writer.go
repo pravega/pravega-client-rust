@@ -16,10 +16,12 @@ func (writer *StreamWriter) Close() {
 
 func (writer *StreamWriter) WriteEventByRoutingKey(routingKey string, event []byte) error {
 	buf := C.Buffer{}
-	defer runtime.KeepAlive(event)
-	defer runtime.KeepAlive(routingKey)
+	
 	e := makeViewFromSlice(event)
+	defer runtime.KeepAlive(event)
 	r := makeViewFromString(routingKey)
+	defer runtime.KeepAlive(routingKey)
+	
 	_, err := C.stream_writer_write_event(writer.Writer, e, r, &buf)
 	if err != nil {
 		return errorWithMessage(err, buf)

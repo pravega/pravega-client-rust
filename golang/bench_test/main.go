@@ -23,7 +23,7 @@ func main() {
 	url := flag.String("uri", "127.0.0.1:9090", "controller uri")
 	scope := flag.String("scope", "foo", "scope")
 	stream := flag.String("stream", "bar", "stream")
-	size := flag.Int("size", 1024 * 1024, "event size")
+	size := flag.Int("size", 1024, "event size")
 	count := flag.Int("events", 100, "number of events")
 	writerCount := flag.Int("writers", 1, "number of writers")
 	inflight := flag.Int("inflight", 0, "inflight")

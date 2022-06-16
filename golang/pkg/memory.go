@@ -13,7 +13,7 @@ import (
 )
 
 type (
-	cu8_ptr = *C.uint8_t
+	cu8ptr  = *C.uint8_t
 	usize   = C.uintptr_t
 	cusize  = C.size_t
 	cint    = C.int
@@ -22,8 +22,8 @@ type (
 	cbool   = C.bool
 )
 
-func receiveSlice(b C.Buffer) []byte {
-	if emptyBuf(b) {
+func copyAndDestroyBuffer(b C.Buffer) []byte {
+	if emptyBuffer(b) {
 		return nil
 	}
 	res := C.GoBytes(unsafe.Pointer(b.ptr), cint(b.len))
@@ -31,12 +31,12 @@ func receiveSlice(b C.Buffer) []byte {
 	return res
 }
 
-func emptyBuf(b C.Buffer) bool {
-	return b.ptr == cu8_ptr(nil) || b.len == usize(0) || b.cap == usize(0)
+func emptyBuffer(b C.Buffer) bool {
+	return b.ptr == cu8ptr(nil) || b.len == usize(0) || b.cap == usize(0)
 }
 
 func errorWithMessage(err error, b C.Buffer) error {
-	msg := receiveSlice(b)
+	msg := copyAndDestroyBuffer(b)
 	if msg == nil {
 		return err
 	}
@@ -48,14 +48,15 @@ func freeCString(str *C.char) {
 }
 
 // https://chai2010.cn/advanced-go-programming-book/ch2-cgo/ch2-07-memory.html
-// makeView creates a view into the given byte slice what allows Rust code to read it.
+// https://github.com/CosmWasm/wasmvm/blob/main/api/memory.go
+// makeView creates a view into the given byte slice which allows Rust code to read it.
 // The byte slice is managed by Go and will be garbage collected. Use runtime.KeepAlive
 // to ensure the byte slice lives long enough.
 func makeViewFromString(s string) C.Buffer {
 	p := (*reflect.StringHeader)(unsafe.Pointer(&s))
 
-	return C.Buffer{
-		ptr: cu8_ptr(unsafe.Pointer(p.Data)),
+	return C.Buffer {
+		ptr: cu8ptr(unsafe.Pointer(p.Data)),
 		len: cusize(p.Len),
 		cap: cusize(p.Len),
 	}
@@ -64,8 +65,8 @@ func makeViewFromString(s string) C.Buffer {
 func makeViewFromSlice(s []byte) C.Buffer {
 	p := (*reflect.SliceHeader)(unsafe.Pointer(&s))
 
-	return C.Buffer{
-		ptr: cu8_ptr(unsafe.Pointer(p.Data)),
+	return C.Buffer {
+		ptr: cu8ptr(unsafe.Pointer(p.Data)),
 		len: cusize(p.Len),
 		cap: cusize(p.Cap),
 	}

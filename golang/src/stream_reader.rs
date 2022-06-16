@@ -69,7 +69,6 @@ pub unsafe extern "C" fn stream_reader_get_segment_slice(reader: *mut StreamRead
     )) {
         set_error("Error while getting segment slice".to_string(), err);
     }
-
 }
 
 

@@ -88,6 +88,4 @@ func main() {
 	if event != nil {
 		println(string(event))
 	}
-
-	reader.Read()
 }

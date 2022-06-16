@@ -34,16 +34,16 @@ impl StreamWriter {
         }
     }
 
-    pub fn write_event_bytes(&mut self, event: &[u8], routing_key: Option<String>) -> Result<(), String> {
+    pub fn write_event_bytes(&mut self, event: Vec<u8>, routing_key: Option<String>) -> Result<(), String> {
         // to_vec creates an owned copy of the byte array object.
         let write_future: tokio::sync::oneshot::Receiver<Result<(), WriterError>> = match routing_key {
             Option::None => {
                 self.runtime_handle
-                    .block_on(self.writer.write_event(event.to_vec()))
+                    .block_on(self.writer.write_event(event))
             }
             Option::Some(key) => {
                 self.runtime_handle
-                    .block_on(self.writer.write_event_by_routing_key(key, event.to_vec()))
+                    .block_on(self.writer.write_event_by_routing_key(key, event))
             }
         };
         let _guard = self.runtime_handle.enter();
@@ -96,7 +96,7 @@ impl StreamWriter {
 pub unsafe extern "C" fn stream_writer_write_event(writer: *mut StreamWriter, event: Buffer, routing_key: Buffer, err: Option<&mut Buffer>) {
     let stream_writer = &mut *writer;
     match catch_unwind(AssertUnwindSafe(move || {
-        let event = event.read().unwrap();
+        let event = event.read().unwrap().to_vec();
         let routing_key = routing_key.read().map(|v|std::str::from_utf8(v).unwrap().to_string());
         stream_writer.write_event_bytes(event, routing_key)
     })) {
