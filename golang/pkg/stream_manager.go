@@ -14,7 +14,7 @@ func NewStreamManager(config *ClientConfig) (*StreamManager, error) {
 
 	manager, err := C.stream_manager_new(config.toCtype(), &buf)
 	if err != nil {
-		return nil, errorWithMessage(err, buf)
+		return nil, errorWithMessage(err, msg)
 	}
 	return &StreamManager{
 		Manager: manager,
@@ -26,40 +26,40 @@ func (manager *StreamManager) Close() {
 }
 
 func (manager *StreamManager) CreateScope(scope string) (bool, error) {
-	buf := C.Buffer{}
+	msg := C.Buffer{}
 	cScope := C.CString(scope)
-	result, err := C.stream_manager_create_scope(manager.Manager, cScope, &buf)
+	result, err := C.stream_manager_create_scope(manager.Manager, cScope, &msg)
 	freeCString(cScope)
 	if err != nil {
-		return false, errorWithMessage(err, buf)
+		return false, errorWithMessage(err, msg)
 	}
 	return bool(result), nil
 }
 
 func (manager *StreamManager) CreateStream(scope string, stream string, num int32) (bool, error) {
-	buf := C.Buffer{}
+	msg := C.Buffer{}
 	cScope := C.CString(scope)
 	cStream := C.CString(stream)
 	cNum := ci32(num)
-	result, err := C.stream_manager_create_stream(manager.Manager, cScope, cStream, cNum, &buf)
+	result, err := C.stream_manager_create_stream(manager.Manager, cScope, cStream, cNum, &msg)
 	freeCString(cScope)
 	freeCString(cStream)
 	if err != nil {
-		return false, errorWithMessage(err, buf)
+		return false, errorWithMessage(err, msg)
 	}
 	return bool(result), nil
 }
 
 func (manager *StreamManager) CreateWriter(scope string, stream string, maxInflightCount uint) (*StreamWriter, error) {
-	buf := C.Buffer{}
+	msg := C.Buffer{}
 	cScope := C.CString(scope)
 	cStream := C.CString(stream)
 	count := cusize(maxInflightCount)
-	writer, err := C.stream_writer_new(manager.Manager, cScope, cStream, count, &buf)
+	writer, err := C.stream_writer_new(manager.Manager, cScope, cStream, count, &msg)
 	freeCString(cScope)
 	freeCString(cStream)
 	if err != nil {
-		return nil, errorWithMessage(err, buf)
+		return nil, errorWithMessage(err, msg)
 	}
 	return &StreamWriter{
 		Writer: writer,
@@ -67,17 +67,17 @@ func (manager *StreamManager) CreateWriter(scope string, stream string, maxInfli
 }
 
 func (manager *StreamManager) CreateReaderGroup(readerGroup string, scope string, stream string, readFromTail bool) (*StreamReaderGroup, error) {
-	buf := C.Buffer{}
+	msg := C.Buffer{}
 	cReaderGroup := C.CString(readerGroup)
 	cScope := C.CString(scope)
 	cStream := C.CString(stream)
 	cReadFromTail := cbool(readFromTail)
-	rg, err := C.stream_reader_group_new(manager.Manager, cReaderGroup, cScope, cStream, cReadFromTail, &buf)
+	rg, err := C.stream_reader_group_new(manager.Manager, cReaderGroup, cScope, cStream, cReadFromTail, &msg)
 	freeCString(cReaderGroup)
 	freeCString(cScope)
 	freeCString(cStream)
 	if err != nil {
-		return nil, errorWithMessage(err, buf)
+		return nil, errorWithMessage(err, msg)
 	}
 	return &StreamReaderGroup{
 		ReaderGroup: rg,

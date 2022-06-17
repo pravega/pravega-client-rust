@@ -14,12 +14,12 @@ func (readerGroup *StreamReaderGroup) Close() {
 }
 
 func (readerGroup *StreamReaderGroup) CreateReader(reader string) (*StreamReader, error) {
-	buf := C.Buffer{}
+	msg := C.Buffer{}
 	cReader := C.CString(reader)
-	r, err := C.stream_reader_group_create_reader(readerGroup.ReaderGroup, cReader, &buf)
+	r, err := C.stream_reader_group_create_reader(readerGroup.ReaderGroup, cReader, &msg)
 	freeCString(cReader)
 	if err != nil {
-		return nil, errorWithMessage(err, buf)
+		return nil, errorWithMessage(err, msg)
 	}
 	return &StreamReader{
 		Reader: r,

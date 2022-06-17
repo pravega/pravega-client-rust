@@ -44,13 +44,13 @@ impl Buffer {
     }
 }
 
-pub fn set_buffer(msg: Vec<u8>, data: Option<&mut Buffer>) {
-    if let Some(mb) = data {
-        *mb = Buffer::from_vec(msg);
+pub fn set_buffer(v: Vec<u8>, buf: Option<&mut Buffer>) {
+    if let Some(mb) = buf {
+        *mb = Buffer::from_vec(v);
     }
 }
 
 #[no_mangle]
-pub extern "C" fn free_buffer(buffer: Buffer) {
-    buffer.to_vec();
+pub extern "C" fn free_buffer(buf: Buffer) {
+    buf.to_vec();
 }

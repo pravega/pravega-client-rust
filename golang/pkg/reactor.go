@@ -30,7 +30,7 @@ type Bridge struct {
 var bridgeChannel chan Bridge
 
 //export publishBridge
-func publishBridge(chanId int64, objPtr uintptr, errorMsg *C.char) {
+func publishBridge(chanId int64, objPtr uintptr) {
 	var bridge Bridge = Bridge {
 		ChanId: chanId,
 		ObjPtr: unsafe.Pointer(objPtr),
