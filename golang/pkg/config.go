@@ -14,38 +14,38 @@ import (
 type CredentialsType int
 
 const (
-	Credentials_Basic          CredentialsType = 0
-	Credentials_BasicWithToken CredentialsType = 1
-	Credentials_Keycloak       CredentialsType = 2
-	Credentials_Json           CredentialsType = 3
+	CredentialsBasic          CredentialsType = 0
+	CredentialsBasicWithToken CredentialsType = 1
+	CredentialsKeycloak       CredentialsType = 2
+	CredentialsJson           CredentialsType = 3
 )
 
 type RetryWithBackoff struct {
-	Initial_delay       uint64
-	Backoff_coefficient uint32
-	Max_attempt         int32
-	Max_delay           uint64
-	Expiration_time     int64
+	InitialDelay       uint64
+	BackoffCoefficient uint32
+	MaxAttempt         int32
+	MaxDelay           uint64
+	ExpirationTime     int64
 }
 
-func (r *RetryWithBackoff) toCtype() *C.BRetryWithBackoff {
-	backoff := &C.BRetryWithBackoff{}
-	backoff.initial_delay = usize(r.Initial_delay)
-	backoff.backoff_coefficient = usize(r.Backoff_coefficient)
-	backoff.max_attempt = usize(r.Max_attempt)
-	backoff.max_delay = usize(r.Max_delay)
-	backoff.expiration_time = usize(r.Expiration_time)
+func (r *RetryWithBackoff) toCtype() *C.RetryWithBackoffMapping {
+	backoff := &C.RetryWithBackoffMapping{}
+	backoff.initial_delay = cu64(r.InitialDelay)
+	backoff.backoff_coefficient = cu32(r.BackoffCoefficient)
+	backoff.max_attempt = ci32(r.MaxAttempt)
+	backoff.max_delay = cu64(r.MaxDelay)
+	backoff.expiration_time = ci64(r.ExpirationTime)
 	return backoff
 
 }
 
 func NewRetryWithBackoff() *RetryWithBackoff {
 	return &RetryWithBackoff{
-		Initial_delay:       1,
-		Backoff_coefficient: 10,
-		Max_delay:           10000,
-		Expiration_time:     -1,
-		Max_attempt:         -1,
+		InitialDelay:       1,
+		BackoffCoefficient: 10,
+		MaxDelay:           10000,
+		ExpirationTime:     -1,
+		MaxAttempt:         -1,
 	}
 }
 
@@ -61,21 +61,21 @@ type Credentials struct {
 
 func NewCredentials() *Credentials {
 	return &Credentials{
-		Type:                    Credentials_Basic,
+		Type:                    CredentialsBasic,
 		DisableCertVerification: false,
 	}
 }
 
-func (c *Credentials) toCtype() *C.BCredentials {
-	bc := &C.BCredentials{}
+func (c *Credentials) toCtype() *C.CredentialsMapping {
+	bc := &C.CredentialsMapping{}
 	switch c.Type {
-	case Credentials_Basic:
+	case CredentialsBasic:
 		bc.credential_type = C.Basic
-	case Credentials_BasicWithToken:
+	case CredentialsBasicWithToken:
 		bc.credential_type = C.BasicWithToken
-	case Credentials_Keycloak:
+	case CredentialsKeycloak:
 		bc.credential_type = C.Keycloak
-	case Credentials_Json:
+	case CredentialsJson:
 		bc.credential_type = C.KeycloakFromJsonString
 	}
 	bc.username = C.CString(c.Username)
@@ -119,10 +119,10 @@ func NewClientConfig() *ClientConfig {
 	}
 }
 
-func (clientConfig *ClientConfig) toCtype() C.BClientConfig {
-	bconfig := C.BClientConfig{}
-	bconfig.max_connections_in_pool = usize(clientConfig.MaxConnectionsInPool)
-	bconfig.max_controller_connections = usize(clientConfig.MaxControllerConnections)
+func (clientConfig *ClientConfig) toCtype() C.ClientConfigMapping {
+	bconfig := C.ClientConfigMapping{}
+	bconfig.max_connections_in_pool = cu32(clientConfig.MaxConnectionsInPool)
+	bconfig.max_controller_connections = cu32(clientConfig.MaxControllerConnections)
 	bconfig.controller_uri = C.CString(clientConfig.ControllerUri)
 	bconfig.transaction_timeout_time = usize(clientConfig.TransactionTimeout)
 	bconfig.is_tls_enabled = C.bool(clientConfig.TlsEnabled)
@@ -133,4 +133,106 @@ func (clientConfig *ClientConfig) toCtype() C.BClientConfig {
 	bconfig.disable_cert_verification = C.bool(clientConfig.DisableCertVerification)
 	bconfig.request_timeout = usize(clientConfig.RequestTimeout)
 	return bconfig
+}
+
+func freeClientConfig(c *C.ClientConfigMapping) {
+	//The C.CString and C.CBytes functions are documented as doing so internally, and requiring the use of C.free, but other structs are managed by go GC
+	freeCString(c.credentials.json)
+	freeCString(c.credentials.password)
+	freeCString(c.credentials.path)
+	freeCString(c.credentials.token)
+	freeCString(c.credentials.username)
+	freeCString(c.controller_uri)
+	freeCString(c.trustcerts)
+}
+
+type RetentionType int
+type ScaleType int
+
+const (
+	RetentionNone        RetentionType = 0
+	RetentionTime        RetentionType = 1
+	RetentionSize        RetentionType = 2
+	FixedNumSegments     ScaleType     = 0
+	ByRateInKbytesPerSec ScaleType     = 1
+	ByRateInEventsPerSec ScaleType     = 2
+)
+
+type ScalePolicy struct {
+	Type        ScaleType
+	TargetRate  int32
+	ScaleFactor int32
+	MinSegments int32
+}
+type RetentionPolicy struct {
+	Type           RetentionType
+	RetentionParam int64
+}
+
+type StreamConfiguration struct {
+	Scope     string
+	Stream    string
+	Scale     ScalePolicy
+	Retention RetentionPolicy
+	Tags      string
+}
+
+func NewStreamConfiguration(scope, stream string) *StreamConfiguration {
+	return &StreamConfiguration{
+		Scope:  scope,
+		Stream: stream,
+		Scale: ScalePolicy{
+			Type:        FixedNumSegments,
+			TargetRate:  0,
+			ScaleFactor: 0,
+			MinSegments: 3,
+		},
+		Retention: RetentionPolicy{
+			Type:           RetentionNone,
+			RetentionParam: 0,
+		},
+	}
+}
+
+func (sp *ScalePolicy) toCtype() C.ScalingMapping {
+	scaling := C.ScalingMapping{}
+	switch sp.Type {
+	case FixedNumSegments:
+		scaling.scale_type = C.FixedNumSegments
+	case ByRateInKbytesPerSec:
+		scaling.scale_type = C.ByRateInKbytesPerSec
+	case ByRateInEventsPerSec:
+		scaling.scale_type = C.ByRateInEventsPerSec
+	}
+	scaling.target_rate = ci32(sp.TargetRate)
+	scaling.scale_factor = ci32(sp.ScaleFactor)
+	scaling.min_num_segments = ci32(sp.MinSegments)
+	return scaling
+}
+
+func (rp *RetentionPolicy) toCtype() C.RetentionMapping {
+	retention := C.RetentionMapping{}
+	switch rp.Type {
+	case RetentionNone:
+		retention.retention_type = C.FixedNumSegments
+	case RetentionTime:
+		retention.retention_type = C.ByRateInKbytesPerSec
+	case RetentionSize:
+		retention.retention_type = C.ByRateInEventsPerSec
+	}
+	retention.retention_param = ci64(rp.RetentionParam)
+	return retention
+}
+
+func (cfg *StreamConfiguration) toCtype() *C.StreamConfigurationMapping {
+	c_stream_config := &C.StreamConfigurationMapping{}
+	c_stream_config.scope = C.CString(cfg.Scope)
+	c_stream_config.stream = C.CString(cfg.Stream)
+	c_stream_config.scaling = cfg.Scale.toCtype()
+	c_stream_config.retention = cfg.Retention.toCtype()
+	return c_stream_config
+}
+
+func freeStreamConfiguration(scf *C.StreamConfigurationMapping) {
+	freeCString(scf.tags)
 }

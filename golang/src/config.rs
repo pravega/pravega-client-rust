@@ -13,15 +13,19 @@ const SPLIT: &str = ",";
 
 
 #[repr(C)]
-pub struct BStreamConfiguration {
-    pub scoped_stream: BScopedStream,
-    pub scaling: BScaling,
-    pub retention: BRetention,
+pub struct StreamConfigurationMapping {
+    pub scope :*const c_char,
+    pub stream : *const c_char,
+    pub scaling: ScalingMapping,
+    pub retention: RetentionMapping,
     pub tags: *const c_char, // split by ','
 }
 
-impl BStreamConfiguration {
-    unsafe fn to_stream_configuration(&self) -> StreamConfiguration {
+impl StreamConfigurationMapping {
+    pub  fn to_stream_configuration(&self) -> StreamConfiguration {
+        let scope = to_str(self.scope);
+        let stream = to_str(self.stream);
+        let scope_stream = scope.to_string() + "/" + stream;
         StreamConfiguration {
             scoped_stream: self.scoped_stream.to_scoped_stream(),
             scaling: self.scaling.to_scaling(),
@@ -52,12 +56,12 @@ unsafe fn to_str<'a>(p_str: *const c_char) -> &'a str {
 }
 
 #[repr(C)]
-pub struct BRetention {
-    pub retention_type: BRetentionType,
-    pub retention_param: usize,
+pub struct RetentionMapping {
+    pub retention_type: RetentionTypeMapping,
+    pub retention_param: i64,
 }
 
-impl BRetention {
+impl RetentionMapping {
     fn to_retention(&self) -> Retention {
         Retention {
             retention_type: self.retention_type.to_retention_type(),
@@ -68,33 +72,33 @@ impl BRetention {
 
 
 #[repr(C)]
-pub enum BRetentionType {
+pub enum RetentionTypeMapping {
     None = 0,
     Time = 1,
     Size = 2,
 }
 
-impl BRetentionType {
+impl RetentionTypeMapping {
     fn to_retention_type(&self) -> RetentionType {
         match self {
-            BRetentionType::None => { RetentionType::None }
-            BRetentionType::Time => { RetentionType::Time }
-            BRetentionType::Size => { RetentionType::Size }
+            RetentionTypeMapping::None => { RetentionType::None }
+            RetentionTypeMapping::Time => { RetentionType::Time }
+            RetentionTypeMapping::Size => { RetentionType::Size }
         }
     }
 }
 
 
 #[repr(C)]
-pub struct BScaling {
-    pub scale_type: BScaleType,
-    pub target_rate: usize,
-    pub scale_factor: usize,
-    pub min_num_segments: usize,
+pub struct ScalingMapping {
+    pub scale_type: ScaleTypeMapping,
+    pub target_rate: i32,
+    pub scale_factor: i32,
+    pub min_num_segments: i32,
 }
 
 
-impl BScaling {
+impl ScalingMapping {
     fn to_scaling(&self) -> Scaling {
         Scaling {
             scale_type: self.scale_type.to_scale_type(),
@@ -107,18 +111,18 @@ impl BScaling {
 
 
 #[repr(C)]
-pub enum BScaleType {
+pub enum ScaleTypeMapping {
     FixedNumSegments = 0,
     ByRateInKbytesPerSec = 1,
     ByRateInEventsPerSec = 2,
 }
 
-impl BScaleType {
+impl ScaleTypeMapping {
     fn to_scale_type(&self) -> ScaleType {
         match self {
-            BScaleType::FixedNumSegments => { ScaleType::FixedNumSegments }
-            BScaleType::ByRateInKbytesPerSec => { ScaleType::ByRateInKbytesPerSec }
-            BScaleType::ByRateInEventsPerSec => { ScaleType::ByRateInEventsPerSec }
+            ScaleTypeMapping::FixedNumSegments => { ScaleType::FixedNumSegments }
+            ScaleTypeMapping::ByRateInKbytesPerSec => { ScaleType::ByRateInKbytesPerSec }
+            ScaleTypeMapping::ByRateInEventsPerSec => { ScaleType::ByRateInEventsPerSec }
         }
     }
 }
@@ -126,12 +130,12 @@ impl BScaleType {
 
 
 #[repr(C)]
-pub struct BClientConfig {
-    pub max_connections_in_pool: usize,
+pub struct ClientConfigMapping {
+    pub max_connections_in_pool: u32,
 
     pub max_controller_connections: usize,
 
-    pub retry_policy: BRetryWithBackoff,
+    pub retry_policy: RetryWithBackoffMapping,
 
     pub controller_uri: *const c_char,
 
@@ -143,7 +147,7 @@ pub struct BClientConfig {
 
     pub trustcerts: *const c_char,
 
-    pub credentials: BCredentials,
+    pub credentials: CredentialsMapping,
 
     pub is_auth_enabled: bool,
 
@@ -152,7 +156,7 @@ pub struct BClientConfig {
     pub request_timeout: usize,
 }
 
-impl BClientConfig {
+impl ClientConfigMapping {
     pub unsafe fn to_client_config(&self) -> ClientConfig {
         let raw = CStr::from_ptr(self.controller_uri);
         let controller_uri = raw.to_str().unwrap();
@@ -192,26 +196,16 @@ unsafe fn str_to_tags(s: *const c_char) -> Option<Vec<String>> {
     return Some(split_to_vec(s));
 }
 
-#[test]
-fn test_str_to_tags() {
-    let strs = CString::new("Hello,World").unwrap().into_raw();
-    unsafe {
-        let vec = str_to_tags(strs).unwrap();
-        println!("{:?}",vec);
-        assert_eq!(vec[0], "Hello")
-    }
-
-}
 #[repr(C)]
-pub struct BRetryWithBackoff {
-    initial_delay: usize,
-    backoff_coefficient: usize,
-    max_attempt: usize,
-    max_delay: usize,
-    expiration_time: usize,
+pub struct RetryWithBackoffMapping {
+    initial_delay: u64,
+    backoff_coefficient: u32,
+    max_delay: u64,
+    max_attempt: i32,
+    expiration_time: i64,
 }
 
-impl BRetryWithBackoff {
+impl RetryWithBackoffMapping {
     pub unsafe fn to_retry_with_backoff(&self) -> RetryWithBackoff {
         //TODO: set expiration_time
         let backoff_coefficient = self.backoff_coefficient as u32;
@@ -224,7 +218,7 @@ impl BRetryWithBackoff {
 }
 
 #[repr(C)]
-pub struct BCredentials {
+pub struct CredentialsMapping {
     credential_type: CredentialsType,
     username: *const c_char,
     password: *const c_char,
@@ -234,10 +228,10 @@ pub struct BCredentials {
     disable_cert_verification: bool,
 }
 
-impl BCredentials {
+impl CredentialsMapping {
     unsafe fn to_credentials(&self) -> Credentials {
         return match self.credential_type {
-            CredentialsType::Basic => unsafe {
+            CredentialsType::Basic =>  {
                 let username = String::from(to_str(self.username));
                 let password = String::from(to_str(self.password));
                 Credentials::basic(username, password)

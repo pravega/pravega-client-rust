@@ -128,7 +128,7 @@ impl StreamManager {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn stream_manager_new(clientConfig: BClientConfig, err: Option<&mut Buffer>) -> *mut StreamManager {
+pub unsafe extern "C" fn stream_manager_new(client_config: ClientConfigMapping, err: Option<&mut Buffer>) -> *mut StreamManager {
     match catch_unwind(|| {
         let config = clientConfig.to_client_config();
         println!("{:?}",config);
@@ -180,25 +180,7 @@ pub unsafe extern "C" fn stream_manager_create_scope(manager: *const StreamManag
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn stream_manager_create_stream(manager: *const StreamManager, scope: *const c_char, stream: *const c_char, initial_segments: i32, err: Option<&mut Buffer>) -> bool {
-    let raw = CStr::from_ptr(scope);
-    let scope_name = match raw.to_str() {
-        Ok(s) => s,
-        Err(_) => {
-            set_error("failed to parse scope".to_string(), err);
-            return false;
-        }
-    };
-
-    let raw = CStr::from_ptr(stream);
-    let stream_name = match raw.to_str() {
-        Ok(s) => s,
-        Err(_) => {
-            set_error("failed to parse stream".to_string(), err);
-            return false;
-        }
-    };
-
+pub unsafe extern "C" fn stream_manager_create_stream(manager: *const StreamManager, stream_config: StreamConfigurationMapping,err: Option<&mut Buffer>) -> bool {
     let stream_manager = &*manager;
     match catch_unwind(AssertUnwindSafe(move || stream_manager.create_stream(scope_name, stream_name, initial_segments))) {
         Ok(result) => {

@@ -19,6 +19,18 @@ typedef enum CredentialsType {
   KeycloakFromJsonString = 3,
 } CredentialsType;
 
+typedef enum RetentionTypeMapping {
+  None = 0,
+  Time = 1,
+  Size = 2,
+} RetentionTypeMapping;
+
+typedef enum ScaleTypeMapping {
+  FixedNumSegments = 0,
+  ByRateInKbytesPerSec = 1,
+  ByRateInEventsPerSec = 2,
+} ScaleTypeMapping;
+
 typedef struct Slice Slice;
 
 typedef struct StreamManager StreamManager;
@@ -37,15 +49,15 @@ typedef struct Buffer {
   uintptr_t cap;
 } Buffer;
 
-typedef struct BRetryWithBackoff {
-  uintptr_t initial_delay;
-  uintptr_t backoff_coefficient;
-  uintptr_t max_attempt;
-  uintptr_t max_delay;
-  uintptr_t expiration_time;
-} BRetryWithBackoff;
+typedef struct RetryWithBackoffMapping {
+  uint64_t initial_delay;
+  uint32_t backoff_coefficient;
+  uint64_t max_delay;
+  int32_t max_attempt;
+  int64_t expiration_time;
+} RetryWithBackoffMapping;
 
-typedef struct BCredentials {
+typedef struct CredentialsMapping {
   enum CredentialsType credential_type;
   const char *username;
   const char *password;
@@ -53,28 +65,49 @@ typedef struct BCredentials {
   const char *path;
   const char *json;
   bool disable_cert_verification;
-} BCredentials;
+} CredentialsMapping;
 
-typedef struct BClientConfig {
-  uintptr_t max_connections_in_pool;
+typedef struct ClientConfigMapping {
+  uint32_t max_connections_in_pool;
   uintptr_t max_controller_connections;
-  struct BRetryWithBackoff retry_policy;
+  struct RetryWithBackoffMapping retry_policy;
   const char *controller_uri;
   uintptr_t transaction_timeout_time;
   bool is_tls_enabled;
   bool disable_cert_verification;
   const char *trustcerts;
-  struct BCredentials credentials;
+  struct CredentialsMapping credentials;
   bool is_auth_enabled;
   uintptr_t reader_wrapper_buffer_size;
   uintptr_t request_timeout;
-} BClientConfig;
+} ClientConfigMapping;
 
-void free_buffer(struct Buffer buffer);
+typedef struct ScalingMapping {
+  enum ScaleTypeMapping scale_type;
+  int32_t target_rate;
+  int32_t scale_factor;
+  int32_t min_num_segments;
+} ScalingMapping;
+
+typedef struct RetentionMapping {
+  enum RetentionTypeMapping retention_type;
+  int64_t retention_param;
+} RetentionMapping;
+
+typedef struct StreamConfigurationMapping {
+  const char *scope;
+  const char *stream;
+  struct ScalingMapping scaling;
+  struct RetentionMapping retention;
+  const char *tags;
+} StreamConfigurationMapping;
+
+void free_buffer(struct Buffer buf);
 
 extern void publishBridge(int64_t chan_id, uintptr_t obj_ptr);
 
-struct StreamManager *stream_manager_new(struct BClientConfig clientConfig, struct Buffer *err);
+struct StreamManager *stream_manager_new(struct ClientConfigMapping client_config,
+                                         struct Buffer *err);
 
 void stream_manager_destroy(struct StreamManager *manager);
 
@@ -83,9 +116,7 @@ bool stream_manager_create_scope(const struct StreamManager *manager,
                                  struct Buffer *err);
 
 bool stream_manager_create_stream(const struct StreamManager *manager,
-                                  const char *scope,
-                                  const char *stream,
-                                  int32_t initial_segments,
+                                  struct StreamConfigurationMapping stream_config,
                                   struct Buffer *err);
 
 struct StreamWriter *stream_writer_new(const struct StreamManager *manager,
