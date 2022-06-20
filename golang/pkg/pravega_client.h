@@ -104,7 +104,7 @@ typedef struct StreamConfigurationMapping {
 
 void free_buffer(struct Buffer buf);
 
-extern void publishBridge(int64_t chan_id, uintptr_t obj_ptr);
+extern void ackOperationDone(int64_t operation_id, uintptr_t obj_ptr);
 
 struct StreamManager *stream_manager_new(struct ClientConfigMapping client_config,
                                          struct Buffer *err);
@@ -153,9 +153,7 @@ struct StreamReader *stream_reader_group_create_reader(const struct StreamReader
 
 void stream_reader_destroy(struct StreamReader *reader);
 
-void stream_reader_get_segment_slice(struct StreamReader *reader,
-                                     int64_t chan_id,
-                                     struct Buffer *err);
+void stream_reader_get_segment_slice(struct StreamReader *reader, int64_t id);
 
 void segment_slice_destroy(struct Slice *slice);
 

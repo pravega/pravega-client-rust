@@ -9,53 +9,54 @@ import (
 	"sync/atomic"
 )
 
-var channelMap sync.Map
+var operationMap sync.Map
 
-var chanIdCounter int64 = 0
-func CreateChannel() (int64, chan unsafe.Pointer) {
+var operationIdCounter int64 = 0
+func registerOperation() (int64, chan unsafe.Pointer) {
 	channel := make(chan unsafe.Pointer)
 
 	// register the id and channel
-	chanId := atomic.AddInt64(&chanIdCounter, 1)
-	channelMap.Store(chanId, channel)
-	return chanId, channel
+	id := atomic.AddInt64(&operationIdCounter, 1)
+	operationMap.Store(id, channel)
+	return id, channel
 }
 
-type Bridge struct {
-	ChanId   int64
-	ObjPtr   unsafe.Pointer
+type Operation struct {
+	Id      int64
+	ObjPtr  unsafe.Pointer
 }
 
 // We declare the channel at this level, as the exported method `publishBridge` needs to notify this channel 
-var bridgeChannel chan Bridge
+var operationDoneAckChannel chan Operation
 
-//export publishBridge
-func publishBridge(chanId int64, objPtr uintptr) {
-	var bridge Bridge = Bridge {
-		ChanId: chanId,
+//export ackOperationDone
+func ackOperationDone(id int64, objPtr uintptr) {
+	var op Operation = Operation {
+		Id: 	id,
 		ObjPtr: unsafe.Pointer(objPtr),
 	}
-	bridgeChannel <- bridge
+	operationDoneAckChannel <- op
 }
 
-func RunReactor() {
-	bridgeChannel = make(chan Bridge)
-
-	go func() {
-		for {
-			select {
-			case bridge := <- bridgeChannel:
-				{
-					value, loaded := channelMap.LoadAndDelete(bridge.ChanId)
-					if !loaded {
-						fmt.Printf("unexpect channelId: %d", bridge.ChanId)
-						break
+var runReactorOnce sync.Once
+func runReactor() {
+	runReactorOnce.Do(func() {
+		operationDoneAckChannel = make(chan Operation)
+		go func() {
+			for {
+				select {
+				case op := <- operationDoneAckChannel:
+					{
+						value, loaded := operationMap.LoadAndDelete(op.Id)
+						if !loaded {
+							fmt.Printf("unexpect channelId: %d", op.Id)
+							break
+						}
+						channel := (value).(chan unsafe.Pointer)
+						channel <- op.ObjPtr
 					}
-					channel := (value).(chan unsafe.Pointer)
-					channel <- bridge.ObjPtr
 				}
-
 			}
-		}
-	}()
+		}()
+	})
 }

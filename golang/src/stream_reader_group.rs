@@ -4,24 +4,20 @@ use std::ffi::CStr;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
 use tokio::runtime::Handle;
-use tokio::sync::mpsc::UnboundedSender;
 use crate::error::{clear_error, set_error};
 use crate::memory::Buffer;
 use crate::stream_reader::StreamReader;
-use crate::reactor::*;
 
 pub struct StreamReaderGroup {
     reader_group: ReaderGroup,
     runtime_handle: Handle,
-    sender: UnboundedSender<Incoming>
 }
 
 impl StreamReaderGroup {
-    pub fn new(reader_group: ReaderGroup, runtime_handle: Handle, sender:UnboundedSender<Incoming>) -> Self {
+    pub fn new(reader_group: ReaderGroup, runtime_handle: Handle) -> Self {
         StreamReaderGroup {
             reader_group,
             runtime_handle,
-            sender
         }
     }
 
@@ -33,7 +29,6 @@ impl StreamReaderGroup {
             reader,
             self.runtime_handle.clone(),
             self.reader_group.get_managed_streams(),
-            self.sender.clone(),
         )
     }
 }

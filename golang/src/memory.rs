@@ -54,3 +54,7 @@ pub fn set_buffer(v: Vec<u8>, buf: Option<&mut Buffer>) {
 pub extern "C" fn free_buffer(buf: Buffer) {
     buf.to_vec();
 }
+
+extern "C" {
+    pub fn ackOperationDone(operation_id: i64, obj_ptr: usize);
+}

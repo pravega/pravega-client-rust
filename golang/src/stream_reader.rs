@@ -1,26 +1,22 @@
 use pravega_client::event::reader::{Event, EventReader, EventReaderError, SegmentSlice};
 use pravega_client_shared::ScopedStream;
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::ptr;
 use tokio::runtime::Handle;
 use crate::error::{clear_error, set_error};
-use crate::memory::{Buffer, set_buffer};
-use tokio::sync::mpsc::UnboundedSender;
-use crate::reactor::*;
+use crate::memory::{Buffer, set_buffer, ackOperationDone};
+
 pub struct StreamReader {
     reader: EventReader,
     runtime_handle: Handle,
     streams: Vec<ScopedStream>,
-    sender: UnboundedSender<Incoming>
 }
 
 impl StreamReader {
-    pub fn new(reader: EventReader, runtime_handle: Handle, streams: Vec<ScopedStream>, sender: UnboundedSender<Incoming>) -> Self {
+    pub fn new(reader: EventReader, runtime_handle: Handle, streams: Vec<ScopedStream>) -> Self {
         StreamReader {
             reader,
             runtime_handle,
             streams,
-            sender
         }
     }
 
@@ -36,41 +32,26 @@ impl StreamReader {
     }
 }
 
-pub struct SafeStreamReader {
-    v: *mut StreamReader
-}
-
-impl SafeStreamReader {
-    pub fn new(v: *mut StreamReader) -> Self {
-        Self { v }
-    }
-    pub fn get(&self) -> &mut StreamReader {
-        unsafe { &mut *(self.v) }
-    }
-}
-
-unsafe impl Send for SafeStreamReader {}
-
-impl Clone for SafeStreamReader {
-    fn clone(&self) -> Self {
-        Self { v: self.v.clone() }
-    }
-}
-
-impl Copy for SafeStreamReader {}
-
 #[no_mangle]
-pub unsafe extern "C" fn stream_reader_get_segment_slice(reader: *mut StreamReader, chan_id: i64, err: Option<&mut Buffer>) {
-    let stream_reader = &mut *reader;
+pub extern "C" fn stream_reader_get_segment_slice(reader: *mut StreamReader, id: i64) {
+    let stream_reader = unsafe { &mut *reader };
 
-    if let Err(_) = stream_reader.sender.send(Incoming::new(
-        chan_id,
-        Operation::GetSegmentSlice(SafeStreamReader::new(reader))
-    )) {
-        set_error("Error while getting segment slice".to_string(), err);
-    }
+    let handle = stream_reader.runtime_handle.clone();
+    handle.spawn(async move {
+        match stream_reader.get_segment_slice().await {
+            Ok(seg_slice) => {
+                let ptr = Box::into_raw(Box::new(Slice::new(seg_slice)));
+                unsafe {
+                    ackOperationDone(id, ptr as usize);
+                };
+            },
+            Err(err) => {
+                // TODO: send error msg through the channel
+                println!("Error while getting segment slice {:?}", err);
+            }
+        }
+    });
 }
-
 
 #[no_mangle]
 pub extern "C" fn segment_slice_destroy(slice: *mut Slice) {

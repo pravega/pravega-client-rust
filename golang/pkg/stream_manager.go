@@ -8,11 +8,12 @@ type StreamManager struct {
 }
 
 func NewStreamManager(config *ClientConfig) (*StreamManager, error) {
-	RunReactor()
+	runReactor()
 
-	buf := C.Buffer{}
-
-	manager, err := C.stream_manager_new(config.toCtype(), &buf)
+	msg := C.Buffer{}
+	cConfig := config.toCtype()
+	manager, err := C.stream_manager_new(cConfig, &msg)
+	freeClientConfig(&cConfig)
 	if err != nil {
 		return nil, errorWithMessage(err, msg)
 	}
@@ -38,12 +39,9 @@ func (manager *StreamManager) CreateScope(scope string) (bool, error) {
 
 func (manager *StreamManager) CreateStream(scope string, stream string, num int32) (bool, error) {
 	msg := C.Buffer{}
-	cScope := C.CString(scope)
-	cStream := C.CString(stream)
-	cNum := ci32(num)
-	result, err := C.stream_manager_create_stream(manager.Manager, cScope, cStream, cNum, &msg)
-	freeCString(cScope)
-	freeCString(cStream)
+	scf := streamConfig.toCtype()
+	result, err := C.stream_manager_create_stream(manager.Manager, *scf, &msg)
+	freeStreamConfiguration(scf)
 	if err != nil {
 		return false, errorWithMessage(err, msg)
 	}

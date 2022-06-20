@@ -209,10 +209,17 @@ impl RetryWithBackoffMapping {
     pub unsafe fn to_retry_with_backoff(&self) -> RetryWithBackoff {
         //TODO: set expiration_time
         let backoff_coefficient = self.backoff_coefficient as u32;
-        let initial_delay = Duration::from_millis(self.initial_delay as u64);
-        let max_delay = Duration::from_millis(self.max_delay as u64);
-        return  RetryWithBackoff::default().backoff_coefficient(backoff_coefficient).initial_delay(initial_delay)
-            .max_attempt(self.max_attempt as usize).max_delay(max_delay);
+        let initial_delay = Duration::from_millis(self.initial_delay);
+        let max_delay = Duration::from_millis(self.max_delay);
+        let backoff = RetryWithBackoff::default().backoff_coefficient(backoff_coefficient).initial_delay(initial_delay)
+            .max_delay(max_delay);
+        if self.max_attempt > 0 {
+            backoff.max_attempt(self.max_attempt as usize );
+        }
+        if self.expiration_time > 0 {
+            //TODO: set expiration_time
+        }
+        return backoff
     }
 
 }

@@ -7,39 +7,25 @@ use pravega_client_config::*;
 use std::ffi::CStr;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use crate::error::{clear_error, set_error};
 use crate::memory::Buffer;
-use crate::reactor::Incoming;
 use crate::stream_reader_group::StreamReaderGroup;
 use crate::stream_writer::StreamWriter;
-use crate::reactor::*;
 use crate::config::*;
-
 
 pub struct StreamManager {
     cf: ClientFactory,
-    sender: UnboundedSender<Incoming>
 }
 
 impl StreamManager {
     fn new(
         client_config :ClientConfig
     ) -> Self {
-        // make sure the error number is 0 during startup
-        clear_error();
         let client_factory = ClientFactory::new(client_config);
-
-        // start reactor
-        let handle = client_factory.runtime_handle();
-        let (tx, rx) = unbounded_channel();
-        handle.spawn(Reactor::run(rx));
 
         StreamManager {
             cf: client_factory,
-            sender: tx,
         }
-
     }
 
     pub fn create_scope(&self, scope_name: &str) -> Result<bool, String> {
@@ -123,17 +109,20 @@ impl StreamManager {
             rg_config,
             scope,
         ));
-        StreamReaderGroup::new(rg, self.cf.runtime_handle(), self.sender.clone())
+        StreamReaderGroup::new(rg, self.cf.runtime_handle())
     }
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn stream_manager_new(client_config: ClientConfigMapping, err: Option<&mut Buffer>) -> *mut StreamManager {
     match catch_unwind(|| {
-        let config = clientConfig.to_client_config();
-        println!("{:?}",config);
-        StreamManager::new(config)}) {
-        Ok(manager) =>         {clear_error(); Box::into_raw(Box::new(manager))},
+        let config = client_config.to_client_config();
+        StreamManager::new(config)
+    }) {
+        Ok(manager) => {
+            clear_error();
+            Box::into_raw(Box::new(manager))
+        },
         Err(_) => {
             set_error("caught panic".to_string(), err);
             ptr::null_mut()
