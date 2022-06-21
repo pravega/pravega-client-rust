@@ -1,5 +1,5 @@
-use errno::{set_errno, Errno};
 use crate::memory::Buffer;
+use errno::{set_errno, Errno};
 
 pub fn clear_error() {
     set_errno(Errno(0));

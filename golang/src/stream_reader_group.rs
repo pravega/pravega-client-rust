@@ -1,12 +1,12 @@
+use crate::error::{clear_error, set_error};
+use crate::memory::Buffer;
+use crate::stream_reader::StreamReader;
 use libc::c_char;
 use pravega_client::event::reader_group::ReaderGroup;
 use std::ffi::CStr;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
 use tokio::runtime::Handle;
-use crate::error::{clear_error, set_error};
-use crate::memory::Buffer;
-use crate::stream_reader::StreamReader;
 
 pub struct StreamReaderGroup {
     reader_group: ReaderGroup,
@@ -34,7 +34,11 @@ impl StreamReaderGroup {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn stream_reader_group_create_reader(reader_group: *const StreamReaderGroup, reader: *const c_char, err: Option<&mut Buffer>) -> *mut StreamReader {
+pub unsafe extern "C" fn stream_reader_group_create_reader(
+    reader_group: *const StreamReaderGroup,
+    reader: *const c_char,
+    err: Option<&mut Buffer>,
+) -> *mut StreamReader {
     let raw = CStr::from_ptr(reader);
     let reader_name = match raw.to_str() {
         Ok(s) => s,
@@ -45,11 +49,11 @@ pub unsafe extern "C" fn stream_reader_group_create_reader(reader_group: *const 
     };
 
     let rg = &*reader_group;
-    match catch_unwind(AssertUnwindSafe(move || { rg.create_reader(reader_name)})) {
+    match catch_unwind(AssertUnwindSafe(move || rg.create_reader(reader_name))) {
         Ok(reader) => {
             clear_error();
             Box::into_raw(Box::new(reader))
-        },
+        }
         Err(_) => {
             set_error("caught panic".to_string(), err);
             ptr::null_mut()

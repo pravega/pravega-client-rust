@@ -1,3 +1,5 @@
+use crate::error::set_error;
+use crate::memory::Buffer;
 use pravega_client::error::Error as WriterError;
 use pravega_client::event::writer::EventWriter;
 use pravega_client::util::oneshot_holder::OneShotHolder;
@@ -7,8 +9,6 @@ use std::time::Duration;
 use tokio::runtime::Handle;
 use tokio::sync::oneshot::error::RecvError;
 use tokio::time::timeout;
-use crate::error::set_error;
-use crate::memory::Buffer;
 
 // The amount of time the python api will wait for the underlying write to be completed.
 const TIMEOUT_IN_SECONDS: u64 = 120;
@@ -37,14 +37,10 @@ impl StreamWriter {
     pub fn write_event_bytes(&mut self, event: Vec<u8>, routing_key: Option<String>) -> Result<(), String> {
         // to_vec creates an owned copy of the byte array object.
         let write_future: tokio::sync::oneshot::Receiver<Result<(), WriterError>> = match routing_key {
-            Option::None => {
-                self.runtime_handle
-                    .block_on(self.writer.write_event(event))
-            }
-            Option::Some(key) => {
-                self.runtime_handle
-                    .block_on(self.writer.write_event_by_routing_key(key, event))
-            }
+            Option::None => self.runtime_handle.block_on(self.writer.write_event(event)),
+            Option::Some(key) => self
+                .runtime_handle
+                .block_on(self.writer.write_event_by_routing_key(key, event)),
         };
         let _guard = self.runtime_handle.enter();
         let timeout_fut = timeout(
@@ -58,15 +54,9 @@ impl StreamWriter {
             Ok(t) => match t {
                 Ok(t1) => match t1 {
                     Ok(_) => Ok(()),
-                    Err(e) => Err(format!(
-                        "Error observed while writing an event {:?}",
-                        e
-                    )),
+                    Err(e) => Err(format!("Error observed while writing an event {:?}", e)),
                 },
-                Err(e) => Err(format!(
-                    "Error observed while writing an event {:?}",
-                    e
-                )),
+                Err(e) => Err(format!("Error observed while writing an event {:?}", e)),
             },
             Err(_) => Err("Write timed out, please check connectivity with Pravega.".to_string()),
         }
@@ -77,15 +67,9 @@ impl StreamWriter {
             let res = self.runtime_handle.block_on(x);
             // fail fast on error.
             if let Err(e) = res {
-                return Err(format!(
-                    "RecvError observed while writing an event {:?}",
-                    e
-                ));
+                return Err(format!("RecvError observed while writing an event {:?}", e));
             } else if let Err(e) = res.unwrap() {
-                return Err(format!(
-                    "Error observed while writing an event {:?}",
-                    e
-                ));
+                return Err(format!("Error observed while writing an event {:?}", e));
             }
         }
         Ok(())
@@ -93,18 +77,25 @@ impl StreamWriter {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn stream_writer_write_event(writer: *mut StreamWriter, event: Buffer, routing_key: Buffer, err: Option<&mut Buffer>) {
+pub unsafe extern "C" fn stream_writer_write_event(
+    writer: *mut StreamWriter,
+    event: Buffer,
+    routing_key: Buffer,
+    err: Option<&mut Buffer>,
+) {
     let stream_writer = &mut *writer;
     match catch_unwind(AssertUnwindSafe(move || {
         let event = event.read().unwrap().to_vec();
-        let routing_key = routing_key.read().map(|v|std::str::from_utf8(v).unwrap().to_string());
+        let routing_key = routing_key
+            .read()
+            .map(|v| std::str::from_utf8(v).unwrap().to_string());
         stream_writer.write_event_bytes(event, routing_key)
     })) {
         Ok(result) => {
             if let Err(e) = result {
                 set_error(e, err);
             }
-        },
+        }
         Err(_) => {
             set_error("caught panic".to_string(), err);
         }
@@ -119,7 +110,7 @@ pub unsafe extern "C" fn stream_writer_flush(writer: *mut StreamWriter, err: Opt
             if let Err(e) = result {
                 set_error(e, err);
             }
-        },
+        }
         Err(_) => {
             set_error("caught panic".to_string(), err);
         }

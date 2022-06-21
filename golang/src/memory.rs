@@ -24,9 +24,7 @@ impl Buffer {
         if self.is_empty() {
             return Vec::new();
         }
-        let mut v = unsafe { 
-            Vec::from_raw_parts(self.ptr, self.len, self.cap) 
-        };
+        let mut v = unsafe { Vec::from_raw_parts(self.ptr, self.len, self.cap) };
         v.shrink_to_fit();
         v
     }

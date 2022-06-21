@@ -1,9 +1,9 @@
+use crate::error::set_error;
+use crate::memory::{ackOperationDone, set_buffer, Buffer};
 use pravega_client::event::reader::{Event, EventReader, EventReaderError, SegmentSlice};
 use pravega_client_shared::ScopedStream;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use tokio::runtime::Handle;
-use crate::error::{clear_error, set_error};
-use crate::memory::{Buffer, set_buffer, ackOperationDone};
 
 pub struct StreamReader {
     reader: EventReader,
@@ -44,7 +44,7 @@ pub extern "C" fn stream_reader_get_segment_slice(reader: *mut StreamReader, id:
                 unsafe {
                     ackOperationDone(id, ptr as usize);
                 };
-            },
+            }
             Err(err) => {
                 // TODO: send error msg through the channel
                 println!("Error while getting segment slice {:?}", err);
@@ -63,15 +63,20 @@ pub extern "C" fn segment_slice_destroy(slice: *mut Slice) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn stream_reader_release_segment_slice(reader: *mut StreamReader, slice: *mut Slice, err: Option<&mut Buffer>) {
+pub unsafe extern "C" fn stream_reader_release_segment_slice(
+    reader: *mut StreamReader,
+    slice: *mut Slice,
+    err: Option<&mut Buffer>,
+) {
     let stream_reader = &mut *reader;
     let slice = &mut *slice;
-    match catch_unwind(AssertUnwindSafe(move || { stream_reader.release_segment(slice.get_set_to_none())})) {
+    match catch_unwind(AssertUnwindSafe(move || {
+        stream_reader.release_segment(slice.get_set_to_none())
+    })) {
         Ok(result) => {
             if let Err(e) = result {
                 set_error(format!("Error while releasing segment {:?}", e), err);
             }
-        
         }
         Err(_) => {
             set_error("caught panic".to_string(), err);
@@ -85,9 +90,7 @@ pub struct Slice {
 
 impl Slice {
     pub fn new(seg_slice: Option<SegmentSlice>) -> Self {
-        Self {
-            seg_slice
-        }
+        Self { seg_slice }
     }
 
     fn get_set_to_none(&mut self) -> Option<SegmentSlice> {
@@ -111,19 +114,21 @@ impl Slice {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn segment_slice_next(slice: *mut Slice, event: Option<&mut Buffer>, err: Option<&mut Buffer>) {
+pub unsafe extern "C" fn segment_slice_next(
+    slice: *mut Slice,
+    event: Option<&mut Buffer>,
+    err: Option<&mut Buffer>,
+) {
     let slice = &mut *slice;
-    match catch_unwind(AssertUnwindSafe(move || { slice.next()})) {
-        Ok(result) => {
-            match result {
-                Some(data) => {
-                    set_buffer(data.value, event);
-                },
-                None => {
-                    set_buffer(Vec::new(), event);
-                }
+    match catch_unwind(AssertUnwindSafe(move || slice.next())) {
+        Ok(result) => match result {
+            Some(data) => {
+                set_buffer(data.value, event);
             }
-        }
+            None => {
+                set_buffer(Vec::new(), event);
+            }
+        },
         Err(_) => {
             set_error("caught panic".to_string(), err);
         }

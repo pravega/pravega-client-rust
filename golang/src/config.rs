@@ -1,28 +1,24 @@
-
 use libc::c_char;
-use pravega_client_shared::*;
-use pravega_client_config::*;
-use std::ffi::{CStr, CString};
-use std::str::FromStr;
-use std::time::Duration;
 use pravega_client_config::credentials::Credentials;
+use pravega_client_config::*;
 use pravega_client_retry::retry_policy::RetryWithBackoff;
-
+use pravega_client_shared::*;
+use std::ffi::CStr;
+use std::time::Duration;
 
 const SPLIT: &str = ",";
 
-
 #[repr(C)]
 pub struct StreamConfigurationMapping {
-    pub scope :*const c_char,
-    pub stream : *const c_char,
+    pub scope: *const c_char,
+    pub stream: *const c_char,
     pub scaling: ScalingMapping,
     pub retention: RetentionMapping,
     pub tags: *const c_char, // split by ','
 }
 
 impl StreamConfigurationMapping {
-    pub  fn to_stream_configuration(&self) -> StreamConfiguration {
+    pub fn to_stream_configuration(&self) -> StreamConfiguration {
         let scope = to_str(self.scope);
         let stream = to_str(self.stream);
         let scope_stream = scope.to_string() + "/" + stream;
@@ -35,24 +31,11 @@ impl StreamConfigurationMapping {
     }
 }
 
-#[repr(C)]
-pub struct BScopedStream {
-    pub scope: *const c_char,
-    pub stream: *const c_char,
-}
-
-impl BScopedStream {
-    unsafe fn to_scoped_stream(&self) -> ScopedStream {
-        return ScopedStream {
-            scope: Scope { name: String::from(to_str(self.scope)) },
-            stream: Stream { name: String::from(to_str(self.stream)) },
-        };
+fn to_str<'a>(p_str: *const c_char) -> &'a str {
+    unsafe {
+        let raw = CStr::from_ptr(p_str);
+        return raw.to_str().unwrap();
     }
-}
-
-unsafe fn to_str<'a>(p_str: *const c_char) -> &'a str {
-    let raw = CStr::from_ptr(p_str);
-    return raw.to_str().unwrap();
 }
 
 #[repr(C)]
@@ -70,7 +53,6 @@ impl RetentionMapping {
     }
 }
 
-
 #[repr(C)]
 pub enum RetentionTypeMapping {
     None = 0,
@@ -81,13 +63,12 @@ pub enum RetentionTypeMapping {
 impl RetentionTypeMapping {
     fn to_retention_type(&self) -> RetentionType {
         match self {
-            RetentionTypeMapping::None => { RetentionType::None }
-            RetentionTypeMapping::Time => { RetentionType::Time }
-            RetentionTypeMapping::Size => { RetentionType::Size }
+            RetentionTypeMapping::None => RetentionType::None,
+            RetentionTypeMapping::Time => RetentionType::Time,
+            RetentionTypeMapping::Size => RetentionType::Size,
         }
     }
 }
-
 
 #[repr(C)]
 pub struct ScalingMapping {
@@ -97,18 +78,16 @@ pub struct ScalingMapping {
     pub min_num_segments: i32,
 }
 
-
 impl ScalingMapping {
     fn to_scaling(&self) -> Scaling {
         Scaling {
             scale_type: self.scale_type.to_scale_type(),
-            target_rate: self.target_rate as i32,
-            scale_factor: self.scale_factor as i32,
-            min_num_segments: self.min_num_segments as i32,
+            target_rate: self.target_rate,
+            scale_factor: self.scale_factor,
+            min_num_segments: self.min_num_segments,
         }
     }
 }
-
 
 #[repr(C)]
 pub enum ScaleTypeMapping {
@@ -120,14 +99,12 @@ pub enum ScaleTypeMapping {
 impl ScaleTypeMapping {
     fn to_scale_type(&self) -> ScaleType {
         match self {
-            ScaleTypeMapping::FixedNumSegments => { ScaleType::FixedNumSegments }
-            ScaleTypeMapping::ByRateInKbytesPerSec => { ScaleType::ByRateInKbytesPerSec }
-            ScaleTypeMapping::ByRateInEventsPerSec => { ScaleType::ByRateInEventsPerSec }
+            ScaleTypeMapping::FixedNumSegments => ScaleType::FixedNumSegments,
+            ScaleTypeMapping::ByRateInKbytesPerSec => ScaleType::ByRateInKbytesPerSec,
+            ScaleTypeMapping::ByRateInEventsPerSec => ScaleType::ByRateInEventsPerSec,
         }
     }
 }
-
-
 
 #[repr(C)]
 pub struct ClientConfigMapping {
@@ -162,15 +139,16 @@ impl ClientConfigMapping {
         let controller_uri = raw.to_str().unwrap();
         let mut config: ClientConfig = ClientConfigBuilder::default()
             .controller_uri(controller_uri)
-            .build().unwrap();
-        config.max_connections_in_pool = self.max_connections_in_pool as u32;
-        config.max_controller_connections = self.max_controller_connections as u32;
+            .build()
+            .unwrap();
+        config.max_connections_in_pool = self.max_connections_in_pool;
+        config.max_controller_connections = self.max_controller_connections;
         config.disable_cert_verification = self.disable_cert_verification;
         config.is_auth_enabled = self.is_auth_enabled;
         config.is_tls_enabled = self.is_tls_enabled;
-        config.reader_wrapper_buffer_size = self.reader_wrapper_buffer_size as usize;
-        config.transaction_timeout_time = self.transaction_timeout_time as u64;
-        config.request_timeout = Duration::from_millis(self.request_timeout as u64);
+        config.reader_wrapper_buffer_size = self.reader_wrapper_buffer_size;
+        config.transaction_timeout_time = self.transaction_timeout_time;
+        config.request_timeout = Duration::from_millis(self.request_timeout);
         config.trustcerts = split_to_vec(self.trustcerts);
         config.credentials = self.credentials.to_credentials();
         config.retry_policy = self.retry_policy.to_retry_with_backoff();
@@ -178,9 +156,8 @@ impl ClientConfigMapping {
     }
 }
 
-
 unsafe fn split_to_vec(s: *const c_char) -> Vec<String> {
-    let mut splits = to_str(s).split(SPLIT);
+    let splits = to_str(s).split(SPLIT);
     let vec = splits.collect::<Vec<&str>>();
     let mut v: Vec<String> = Vec::new();
     for x in vec {
@@ -189,11 +166,11 @@ unsafe fn split_to_vec(s: *const c_char) -> Vec<String> {
     return v;
 }
 
-unsafe fn str_to_tags(s: *const c_char) -> Option<Vec<String>> {
+fn str_to_tags(s: *const c_char) -> Option<Vec<String>> {
     if s.is_null() {
         return Option::None;
     }
-    return Some(split_to_vec(s));
+    unsafe { Some(split_to_vec(s)) }
 }
 
 #[repr(C)]
@@ -207,21 +184,21 @@ pub struct RetryWithBackoffMapping {
 
 impl RetryWithBackoffMapping {
     pub unsafe fn to_retry_with_backoff(&self) -> RetryWithBackoff {
-        //TODO: set expiration_time
         let backoff_coefficient = self.backoff_coefficient as u32;
         let initial_delay = Duration::from_millis(self.initial_delay);
         let max_delay = Duration::from_millis(self.max_delay);
-        let backoff = RetryWithBackoff::default().backoff_coefficient(backoff_coefficient).initial_delay(initial_delay)
+        let backoff = RetryWithBackoff::default()
+            .backoff_coefficient(backoff_coefficient)
+            .initial_delay(initial_delay)
             .max_delay(max_delay);
         if self.max_attempt > 0 {
-            backoff.max_attempt(self.max_attempt as usize );
+            backoff.max_attempt(self.max_attempt as usize);
         }
         if self.expiration_time > 0 {
             //TODO: set expiration_time
         }
-        return backoff
+        return backoff;
     }
-
 }
 
 #[repr(C)]
@@ -238,7 +215,7 @@ pub struct CredentialsMapping {
 impl CredentialsMapping {
     unsafe fn to_credentials(&self) -> Credentials {
         return match self.credential_type {
-            CredentialsType::Basic =>  {
+            CredentialsType::Basic => {
                 let username = String::from(to_str(self.username));
                 let password = String::from(to_str(self.password));
                 Credentials::basic(username, password)
