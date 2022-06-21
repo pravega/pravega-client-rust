@@ -23,6 +23,7 @@ func NewStreamManager(config *ClientConfig) (*StreamManager, error) {
 }
 
 func (manager *StreamManager) Close() {
+	stopReactor()
 	C.stream_manager_destroy(manager.Manager)
 }
 
