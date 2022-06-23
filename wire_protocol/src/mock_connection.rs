@@ -22,6 +22,7 @@ use crate::wire_commands::{Decode, Encode, Replies, Requests};
 use async_trait::async_trait;
 use pravega_client_config::connection_type::MockType;
 use pravega_client_shared::{PravegaNodeUri, ScopedSegment, SegmentInfo};
+use snafu::{Backtrace, GenerateBacktrace};
 use std::cmp;
 use std::collections::HashMap;
 use std::fmt;
@@ -197,9 +198,16 @@ pub struct MockWritingConnection {
 impl ConnectionReadHalf for MockReadingConnection {
     async fn read_async(&mut self, buf: &mut [u8]) -> Result<(), ConnectionError> {
         if self.index == self.buffer.len() {
-            let reply: Replies = self.receiver.recv().await.expect("read");
-            self.buffer = reply.write_fields().expect("serialize reply");
-            self.index = 0;
+            if let Some(reply) = self.receiver.recv().await {
+                self.buffer = reply.write_fields().expect("serialize reply");
+                self.index = 0;
+            } else {
+                return Err(ConnectionError::ReadData {
+                    endpoint: PravegaNodeUri("mock".into()),
+                    source: std::io::Error::from(std::io::ErrorKind::NotConnected),
+                    backtrace: Backtrace::generate(),
+                });
+            }
         }
         buf.copy_from_slice(&self.buffer[self.index..self.index + buf.len()]);
         self.index += buf.len();
