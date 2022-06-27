@@ -22,7 +22,7 @@ import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
-// __dirname is not defined in ES module scope, so get it manaully.
+// __dirname is not defined in ES module scope, so get it manually.
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -31,6 +31,7 @@ export const {
     StreamManagerCreateScope,
     StreamManagerDeleteScope,
     StreamManagerListScopes,
+    StreamManagerAsyncSleep,
     StreamRetentionPolicyNone,
     StreamRetentionPolicyBySize,
     StreamRetentionPolicyByTime,

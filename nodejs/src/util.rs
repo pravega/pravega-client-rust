@@ -22,3 +22,26 @@ pub fn js_log<'a, C: Context<'a>>(cx: &mut C, s: String) -> NeonResult<()> {
 
     Ok(())
 }
+
+use once_cell::sync::Lazy;
+use std::time::Duration;
+use tokio::{runtime::Runtime, time};
+static RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
+
+pub fn js_async_sleep(mut cx: FunctionContext) -> JsResult<JsPromise> {
+    let channel = cx.channel();
+    let (deferred, promise) = cx.promise();
+
+    let _rt = RUNTIME.enter();
+    // spawn an `async` task on the tokio runtime.
+    tokio::spawn(time::timeout(Duration::from_millis(1000), async move {
+        // use std::thread::sleep;
+
+        time::sleep(Duration::from_millis(100)).await;
+
+        // notify and execute in the javascript main thread
+        deferred.settle_with(&channel, move |mut cx| Ok(cx.number(7)));
+    }));
+
+    Ok(promise)
+}

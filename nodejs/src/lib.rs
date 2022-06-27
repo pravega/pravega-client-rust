@@ -25,6 +25,7 @@ use stream_manager::{StreamManager, StreamRetentionPolicy, StreamScalingPolicy};
 use stream_reader::{EventData, Slice, StreamReader};
 use stream_reader_group::{StreamCut, StreamReaderGroup};
 use stream_writer::StreamWriter;
+use util::js_async_sleep;
 
 #[neon::main]
 fn main(mut cx: ModuleContext) -> NeonResult<()> {
@@ -32,6 +33,7 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
     cx.export_function("StreamManagerCreateScope", StreamManager::js_create_scope)?;
     cx.export_function("StreamManagerDeleteScope", StreamManager::js_delete_scope)?;
     cx.export_function("StreamManagerListScopes", StreamManager::js_list_scopes)?;
+    cx.export_function("StreamManagerAsyncSleep", js_async_sleep)?;
     cx.export_function("StreamRetentionPolicyNone", StreamRetentionPolicy::js_none)?;
     cx.export_function("StreamRetentionPolicyBySize", StreamRetentionPolicy::js_by_size)?;
     cx.export_function("StreamRetentionPolicyByTime", StreamRetentionPolicy::js_by_time)?;
