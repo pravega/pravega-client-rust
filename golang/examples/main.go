@@ -44,11 +44,7 @@ func main() {
 	defer writer.Close()
 	println("stream writer created")
 
-	err = writer.WriteEvent([]byte("hello"))
-	if err != nil {
-		println("fail to write event:", err.Error())
-		return
-	}
+	writer.WriteEvent([]byte("hello"))
 
 	err = writer.Flush()
 	if err != nil {
