@@ -3,12 +3,6 @@ package pkg
 // #include "pravega_client.h"
 import "C"
 
-import (
-	"golang.org/x/net/context"
-	"golang.org/x/sync/semaphore"
-	"runtime"
-)
-
 type StreamManager struct {
 	Manager *C.StreamManager
 }
@@ -66,37 +60,9 @@ func (manager *StreamManager) CreateWriter(scope string, stream string, maxInfli
 	if err != nil {
 		return nil, errorWithMessage(err, msg)
 	}
-	
-	// TODO: size buffer channel
-	sem := semaphore.NewWeighted(CHANNEL_CAPACITY)
-	ctx := context.TODO()
-
-	eventChannel := make(chan Event, 100000)
-	go func(eventChannel chan Event, sem *semaphore.Weighted) {
-		for {
-			select {
-			case event := <-eventChannel:
-				{
-					size := len(event.Payload)
-					sem.Release(int64(size))
-					msg := C.Buffer{}
-					e := makeViewFromSlice(event.Payload)
-					r := makeViewFromString(event.RoutingKey)
-					defer runtime.KeepAlive(event)
-					_, err := C.stream_writer_write_event(writer, e, r, &msg)
-					if err != nil {
-						//return errorWithMessage(err, msg)
-					}
-				}
-			}
-		}
-	}(eventChannel, sem)
 
 	return &StreamWriter{
 		Writer: writer,
-		EventChannel: eventChannel,
-		Ctx: ctx,
-		Sem: sem,
 	}, nil
 }
 

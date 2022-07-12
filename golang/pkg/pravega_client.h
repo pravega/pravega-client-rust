@@ -143,9 +143,10 @@ void scaling_policy_destroy(struct StreamScalingPolicy *policy);
 void stream_writer_write_event(struct StreamWriter *writer,
                                struct Buffer event,
                                struct Buffer routing_key,
+                               int64_t id,
                                struct Buffer *err);
 
-void stream_writer_flush(struct StreamWriter *writer, struct Buffer *err);
+void stream_writer_flush(struct StreamWriter *writer, int64_t id);
 
 struct StreamReader *stream_reader_group_create_reader(const struct StreamReaderGroup *reader_group,
                                                        const char *reader,

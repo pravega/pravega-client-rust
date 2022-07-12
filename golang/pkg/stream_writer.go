@@ -2,43 +2,32 @@ package pkg
 
 // #include "pravega_client.h"
 import "C"
-
-import (
-	"golang.org/x/net/context"
-	"golang.org/x/sync/semaphore"
-)
-
-const CHANNEL_CAPACITY int64 = 16 * 1024 * 1024
-const MAX_INT int = int(^uint(0) >> 1)
-
-type Event struct {
-	RoutingKey  	string
-	Payload 		[]byte
-}
+import "runtime"
 
 type StreamWriter struct {
-	Writer 		  	*C.StreamWriter
-	EventChannel  	chan Event
-	Ctx				context.Context
-	Sem				*semaphore.Weighted
+	Writer *C.StreamWriter
 }
 
 func (writer *StreamWriter) Close() {
 	C.stream_writer_destroy(writer.Writer)
 }
 
-func (writer *StreamWriter) WriteEventByRoutingKey(routingKey string, payload []byte) error {
-	var event Event = Event {
-		RoutingKey: routingKey,
-		Payload: 	payload,
-	}
+func (writer *StreamWriter) WriteEventByRoutingKey(routingKey string, event []byte) error {
+	msg := C.Buffer{}
 
-	size := len(payload)
-	println("send", size)
-	if err := writer.Sem.Acquire(writer.Ctx, int64(size)); err != nil {
-		return err
+	e := makeViewFromSlice(event)
+	defer runtime.KeepAlive(event)
+	r := makeViewFromString(routingKey)
+	defer runtime.KeepAlive(routingKey)
+
+	id, channel := registerOperation()
+	cId := ci64(id)
+	_, err := C.stream_writer_write_event(writer.Writer, e, r, cId, &msg)
+	if err != nil {
+		return errorWithMessage(err, msg)
 	}
-	writer.EventChannel <- event
+	// TODO: may add timeout here
+	_ = <-channel
 
 	return nil
 }
@@ -48,10 +37,12 @@ func (writer *StreamWriter) WriteEvent(event []byte) {
 }
 
 func (writer *StreamWriter) Flush() error {
-	msg := C.Buffer{}
-	_, err := C.stream_writer_flush(writer.Writer, &msg)
-	if err != nil {
-		return errorWithMessage(err, msg)
-	}
+	id, channel := registerOperation()
+	cId := ci64(id)
+
+	C.stream_writer_flush(writer.Writer, cId)
+	// TODO: may add timeout here
+	_ = <-channel
+
 	return nil
 }
