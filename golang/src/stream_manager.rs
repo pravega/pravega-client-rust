@@ -60,7 +60,6 @@ impl StreamManager {
         &self,
         scope_name: &str,
         stream_name: &str,
-        max_inflight_events: usize,
     ) -> StreamWriter {
         let scoped_stream = ScopedStream {
             scope: Scope::from(scope_name.to_string()),
@@ -70,7 +69,6 @@ impl StreamManager {
             self.cf.create_event_writer(scoped_stream.clone()),
             self.cf.runtime_handle(),
             scoped_stream,
-            max_inflight_events,
         )
     }
 
@@ -197,7 +195,6 @@ pub unsafe extern "C" fn stream_writer_new(
     manager: *const StreamManager,
     scope: *const c_char,
     stream: *const c_char,
-    max_inflight_events: usize,
     err: Option<&mut Buffer>,
 ) -> *mut StreamWriter {
     let raw = CStr::from_ptr(scope);
@@ -220,7 +217,7 @@ pub unsafe extern "C" fn stream_writer_new(
 
     let stream_manager = &*manager;
     match catch_unwind(AssertUnwindSafe(move || {
-        stream_manager.create_writer(scope_name, stream_name, max_inflight_events)
+        stream_manager.create_writer(scope_name, stream_name)
     })) {
         Ok(writer) => Box::into_raw(Box::new(writer)),
         Err(_) => {

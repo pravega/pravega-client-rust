@@ -1,19 +1,14 @@
 use crate::error::set_error;
 use crate::memory::{ackOperationDone, Buffer};
-use pravega_client::error::Error as WriterError;
 use pravega_client::event::writer::EventWriter;
-use pravega_client::util::oneshot_holder::OneShotHolder;
 use pravega_client_shared::ScopedStream;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use tokio::runtime::Handle;
 
-// The amount of time the python api will wait for the underlying write to be completed.
-const TIMEOUT_IN_SECONDS: u64 = 120;
 pub struct StreamWriter {
     writer: EventWriter,
     runtime_handle: Handle,
     stream: ScopedStream,
-    inflight: OneShotHolder<WriterError>,
 }
 
 impl StreamWriter {
@@ -21,13 +16,11 @@ impl StreamWriter {
         writer: EventWriter,
         runtime_handle: Handle,
         stream: ScopedStream,
-        max_inflight_count: usize,
     ) -> Self {
         StreamWriter {
             writer,
             runtime_handle,
             stream,
-            inflight: OneShotHolder::new(max_inflight_count),
         }
     }
 
@@ -61,9 +54,7 @@ pub unsafe extern "C" fn stream_writer_write_event(
         let handle = stream_writer.runtime_handle.clone();
         handle.spawn(async move {
             stream_writer.write_event_bytes(event, routing_key).await;
-            unsafe {
-                ackOperationDone(id, 0 as usize);
-            };
+            ackOperationDone(id, 0 as usize);
         });
     })) {
         set_error("caught panic".to_string(), err);
@@ -71,21 +62,25 @@ pub unsafe extern "C" fn stream_writer_write_event(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn stream_writer_flush(writer: *mut StreamWriter, id: i64) {
+pub unsafe extern "C" fn stream_writer_flush(writer: *mut StreamWriter, id: i64, err: Option<&mut Buffer>) {
     let stream_writer = &mut *writer;
     
-    let handle = stream_writer.runtime_handle.clone();
-    handle.spawn(async move {
-        match stream_writer.flush().await {
-            Ok(_) => {
-                unsafe {
-                    ackOperationDone(id, 0 as usize);
-                };
+    if let Err(_) = catch_unwind(AssertUnwindSafe(move || {
+        let handle = stream_writer.runtime_handle.clone();
+        handle.spawn(async move {
+            match stream_writer.flush().await {
+                Ok(_) => {
+                    unsafe {
+                        ackOperationDone(id, 0 as usize);
+                    };
+                }
+                Err(err) => {
+                    // TODO: send error msg through the channel
+                    println!("{}", err);
+                }
             }
-            Err(err) => {
-                // TODO: send error msg through the channel
-                println!("{}", err);
-            }
-        }
-    });
+        });
+    })) {
+        set_error("caught panic".to_string(), err);
+    }
 }

@@ -17,30 +17,31 @@ import (
 )
 
 func main() {
-	f, _ := os.Create("profile")
-	pprof.StartCPUProfile(f)
-	defer pprof.StopCPUProfile()
-	url := flag.String("uri", "127.0.0.1:9090", "controller uri")
+	// uncomment the below if you want to know the cpu usage
+	// f, _ := os.Create("profile")
+	// pprof.StartCPUProfile(f)
+	// defer pprof.StopCPUProfile()
+	uri := flag.String("uri", "127.0.0.1:9090", "controller uri")
 	scope := flag.String("scope", "foo", "scope")
 	stream := flag.String("stream", "bar", "stream")
 	size := flag.Int("size", 1024, "event size")
 	count := flag.Int("events", 100, "number of events")
 	writerCount := flag.Int("writers", 1, "number of writers")
-	inflight := flag.Int("inflight", 0, "inflight")
 	flag.Parse()
-	fmt.Println("url:", *url)
+	fmt.Println("uri:", *uri)
 	fmt.Println("scope:", *scope)
 	fmt.Println("stream:", *stream)
 	fmt.Println("size:", *size)
 	fmt.Println("count:", *count)
 	fmt.Println("writers", *writerCount)
-	fmt.Println("inflight:", *inflight)
 	data := make([]byte, *size)
 	for i := range data {
 		data[i] = 'a'
 	}
 
-	manager, err := client.NewStreamManager(*url)
+	config := client.NewClientConfig()
+	config.ControllerUri = *uri
+	manager, err := client.NewStreamManager(config)
 	if err != nil {
 		log.Errorf("failed to create sm: %v", err)
 		os.Exit(1)
@@ -65,7 +66,7 @@ func main() {
 	for i := 0; i < *writerCount; i++ {
 		sem.Acquire(ctx, 1)
 		go func() {
-			writer, err := manager.CreateWriter(*scope, *stream, uint(*inflight))
+			writer, err := manager.CreateWriter(*scope, *stream)
 			if err != nil {
 				log.Errorf("failed to create stream writer: %v", err)
 			}

@@ -37,10 +37,15 @@ func (writer *StreamWriter) WriteEvent(event []byte) {
 }
 
 func (writer *StreamWriter) Flush() error {
+	msg := C.Buffer{}
+
 	id, channel := registerOperation()
 	cId := ci64(id)
 
-	C.stream_writer_flush(writer.Writer, cId)
+	_, err := C.stream_writer_flush(writer.Writer, cId, &msg)
+	if err != nil {
+		return errorWithMessage(err, msg)
+	}
 	// TODO: may add timeout here
 	_ = <-channel
 

@@ -36,7 +36,7 @@ func main() {
 	}
 	println("create stream:", res)
 
-	writer, err := manager.CreateWriter(scope, stream, 10)
+	writer, err := manager.CreateWriter(scope, stream)
 	if err != nil {
 		println("fail to create writer:", err.Error())
 		return
@@ -82,6 +82,6 @@ func main() {
 		return
 	}
 	if event != nil {
-		println(string(event))
+		println("read event:", string(event))
 	}
 }

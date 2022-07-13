@@ -49,12 +49,11 @@ func (manager *StreamManager) CreateStream(scope string, stream string, num int3
 	return bool(result), nil
 }
 
-func (manager *StreamManager) CreateWriter(scope string, stream string, maxInflightCount uint) (*StreamWriter, error) {
+func (manager *StreamManager) CreateWriter(scope string, stream string) (*StreamWriter, error) {
 	msg := C.Buffer{}
 	cScope := C.CString(scope)
 	cStream := C.CString(stream)
-	count := cusize(maxInflightCount)
-	writer, err := C.stream_writer_new(manager.Manager, cScope, cStream, count, &msg)
+	writer, err := C.stream_writer_new(manager.Manager, cScope, cStream, &msg)
 	freeCString(cScope)
 	freeCString(cStream)
 	if err != nil {

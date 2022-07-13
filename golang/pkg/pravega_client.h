@@ -122,7 +122,6 @@ bool stream_manager_create_stream(const struct StreamManager *manager,
 struct StreamWriter *stream_writer_new(const struct StreamManager *manager,
                                        const char *scope,
                                        const char *stream,
-                                       uintptr_t max_inflight_events,
                                        struct Buffer *err);
 
 void stream_writer_destroy(struct StreamWriter *writer);
@@ -146,7 +145,7 @@ void stream_writer_write_event(struct StreamWriter *writer,
                                int64_t id,
                                struct Buffer *err);
 
-void stream_writer_flush(struct StreamWriter *writer, int64_t id);
+void stream_writer_flush(struct StreamWriter *writer, int64_t id, struct Buffer *err);
 
 struct StreamReader *stream_reader_group_create_reader(const struct StreamReaderGroup *reader_group,
                                                        const char *reader,
