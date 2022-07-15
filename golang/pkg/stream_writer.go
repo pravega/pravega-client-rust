@@ -27,13 +27,13 @@ func (writer *StreamWriter) WriteEventByRoutingKey(routingKey string, event []by
 		return errorWithMessage(err, msg)
 	}
 	// TODO: may add timeout here
-	_ = <-channel
+	<-channel
 
 	return nil
 }
 
-func (writer *StreamWriter) WriteEvent(event []byte) {
-	writer.WriteEventByRoutingKey("", event)
+func (writer *StreamWriter) WriteEvent(event []byte) error {
+	return writer.WriteEventByRoutingKey("", event)
 }
 
 func (writer *StreamWriter) Flush() error {
@@ -47,7 +47,7 @@ func (writer *StreamWriter) Flush() error {
 		return errorWithMessage(err, msg)
 	}
 	// TODO: may add timeout here
-	_ = <-channel
+	<-channel
 
 	return nil
 }

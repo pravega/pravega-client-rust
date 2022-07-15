@@ -1,4 +1,4 @@
-use crate::error::set_error;
+use crate::error::{clear_error, set_error};
 use crate::memory::{ackOperationDone, Buffer};
 use pravega_client::event::writer::EventWriter;
 use pravega_client_shared::ScopedStream;
@@ -56,6 +56,7 @@ pub unsafe extern "C" fn stream_writer_write_event(
             stream_writer.write_event_bytes(event, routing_key).await;
             ackOperationDone(id, 0 as usize);
         });
+        clear_error();
     })) {
         set_error("caught panic".to_string(), err);
     }
@@ -80,6 +81,7 @@ pub unsafe extern "C" fn stream_writer_flush(writer: *mut StreamWriter, id: i64,
                 }
             }
         });
+        clear_error();
     })) {
         set_error("caught panic".to_string(), err);
     }

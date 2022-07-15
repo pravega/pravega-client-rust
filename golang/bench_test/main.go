@@ -73,8 +73,12 @@ func main() {
 			defer writer.Close()
 			num := *count
 
-			for i := 0; i < num; i++ {
-				writer.WriteEvent(data)
+			for j := 0; j < num; j++ {
+				err = writer.WriteEvent(data)
+				if err != nil {
+					log.Errorf("failed to write event: %v", err)
+					os.Exit(1)
+				}
 			}
 			writer.Flush()
 			sem.Release(1)
