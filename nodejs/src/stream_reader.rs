@@ -133,7 +133,7 @@ impl StreamReader {
 impl StreamReader {
     ///
     /// Return a Slice in an asynchronous call.
-    /// The actural returned type from await will be `Promise<Slice>` aka `JsResult<JsBoxed<RefCell<Slice>>>`.
+    /// The actual returned type from await will be `Promise<Slice>` aka `JsResult<JsBoxed<RefCell<Slice>>>`.
     ///
     /// See the tokio-fetch example for more details on how to return a Promise and await.
     /// https://github.com/neon-bindings/examples/tree/2dbbef55f483635d0118c20c9902bf4c6faa1ecc/examples/tokio-fetch
@@ -144,7 +144,7 @@ impl StreamReader {
 
         let (deferred, promise) = cx.promise();
 
-        // spawn an `async` task on the tokio runtime.
+        // Spawn an `async` task on the tokio runtime.
         let reader = Arc::clone(&stream_reader.reader);
         stream_reader.runtime_handle.spawn(async move {
             // expensive async procedure executed in the tokio thread

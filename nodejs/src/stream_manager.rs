@@ -534,9 +534,11 @@ impl StreamManager {
                 Some(val) => val,
                 None => return Ok(cx.empty_array()),
             },
-            Err(_err) => {
-                // TODO: display the error details.
-                return cx.throw_error("Internal controller error when getting the StreamConfiguration");
+            Err(err) => {
+                return cx.throw_error(format!(
+                    "Internal error in getting StreamConfiguration: {:?}",
+                    err
+                ));
             }
         };
         let tags_length: u32 = match tags.len().try_into() {

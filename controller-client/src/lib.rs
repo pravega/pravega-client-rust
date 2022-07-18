@@ -424,6 +424,7 @@ async fn get_channel(config: &ClientConfig) -> Channel {
     async { Channel::balance_list(endpoints.into_iter()) }.await
 }
 
+#[allow(deprecated)]
 #[allow(unused_variables)]
 #[async_trait]
 impl ControllerClient for ControllerClientImpl {

@@ -112,7 +112,7 @@ const Slice = (slice): Slice => {
 export interface StreamReader {
     /**
      * This function returns a SegmentSlice from the SegmentStore(s).
-     * Individual events can be read from the Slice using the following snippets.
+     * Individual events can be read from the Slice with the following snippets.
      * ```javascript
      * const seg_slice: Slice = await stream_reader.get_segment_slice();
      * for (const event of seg_slice) {
