@@ -101,6 +101,8 @@ jobs:
         with:
           command: test
           args: -p pravega-connection-pool -p pravega-client-channel -p pravega-controller-client -p pravega-client-integration-test -p pravega-client-retry -p pravega-client-shared -p pravega-wire-protocol -p pravega-client -p pravega-client-auth -p pravega-client-config
+        env:
+          RUST_BACKTRACE: 1
       - name: Run code cov
         run: |
           chmod +x ./.github/workflows/codecov/codecov.sh

@@ -93,7 +93,7 @@ pub enum Replies {
 
 impl fmt::Display for Replies {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{:?}", self)
     }
 }
 
@@ -611,11 +611,10 @@ impl Encode for Replies {
 
 impl Encode for WireCommands {
     fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
-        let res = match self {
+        Ok(match self {
             WireCommands::Requests(request) => request.write_fields()?,
             WireCommands::Replies(reply) => reply.write_fields()?,
-        };
-        Ok(res)
+        })
     }
 }
 

@@ -87,7 +87,7 @@ impl DelegationTokenProvider {
     /// between client and segmentstore host. In that case, mark the token as expired
     /// so that next time a new token could be fetched from controller.
     pub fn signal_token_expiry(&self) {
-        self.signal_expiry.store(true, Ordering::Relaxed)
+        self.signal_expiry.store(true, Ordering::SeqCst)
     }
 
     async fn refresh_token(&self, controller: &dyn ControllerClient) -> DelegationToken {
@@ -99,7 +99,7 @@ impl DelegationTokenProvider {
     }
 
     fn is_token_valid(&self, time: Option<u64>) -> bool {
-        if self.signal_expiry.load(Ordering::Relaxed) {
+        if self.signal_expiry.load(Ordering::SeqCst) {
             return false;
         }
         if let Some(t) = time {
