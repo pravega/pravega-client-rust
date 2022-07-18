@@ -16,7 +16,6 @@ import {
     StreamManagerCreateScope,
     StreamManagerDeleteScope,
     StreamManagerListScopes,
-    StreamManagerAsyncSleep,
     StreamRetentionPolicyNone,
     StreamRetentionPolicyBySize,
     StreamRetentionPolicyByTime,
@@ -135,7 +134,6 @@ export interface StreamManager {
      * @returns Scope names in Promise.
      */
     list_scopes: () => Promise<string[]>;
-    async_sleep: () => Promise<number>;
 
     /**
      * Create a stream with or without specific policy in Pravega.
@@ -273,7 +271,6 @@ export const StreamManager = (
     const create_scope = (scope_name: string): boolean => StreamManagerCreateScope.call(stream_manager, scope_name);
     const delete_scope = (scope_name: string): boolean => StreamManagerDeleteScope.call(stream_manager, scope_name);
     const list_scopes = async (): Promise<string[]> => StreamManagerListScopes.call(stream_manager);
-    const async_sleep = async (): Promise<number> => StreamManagerAsyncSleep.call();
     const create_stream = (
         scope_name: string,
         stream_name: string,
@@ -329,7 +326,6 @@ export const StreamManager = (
         create_scope,
         delete_scope,
         list_scopes,
-        async_sleep,
         create_stream,
         update_stream,
         get_stream_tags,
