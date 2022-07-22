@@ -2,7 +2,7 @@ use crate::config::*;
 use crate::error::{clear_error, set_error};
 use crate::memory::Buffer;
 use crate::stream_reader_group::StreamReaderGroup;
-use crate::stream_writer::StreamWriter;
+use crate::stream_writer::{WriterReactor, StreamWriter};
 use libc::c_char;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client::event::reader_group::ReaderGroupConfigBuilder;
@@ -11,6 +11,7 @@ use pravega_client_shared::*;
 use std::ffi::CStr;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
+use tokio::sync::mpsc::unbounded_channel;
 
 pub struct StreamManager {
     cf: ClientFactory,
@@ -65,8 +66,15 @@ impl StreamManager {
             scope: Scope::from(scope_name.to_string()),
             stream: Stream::from(stream_name.to_string()),
         };
+
+        let writer = self.cf.create_event_writer(scoped_stream.clone());
+        // start reactor
+        let handle = self.cf.runtime_handle();
+        let (tx, rx) = unbounded_channel();
+        handle.spawn(WriterReactor::run(writer, rx));
+
         StreamWriter::new(
-            self.cf.create_event_writer(scoped_stream.clone()),
+            tx,
             self.cf.runtime_handle(),
             scoped_stream,
         )
@@ -223,15 +231,6 @@ pub unsafe extern "C" fn stream_writer_new(
         Err(_) => {
             set_error("caught panic".to_string(), err);
             ptr::null_mut()
-        }
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn stream_writer_destroy(writer: *mut StreamWriter) {
-    if !writer.is_null() {
-        unsafe {
-            Box::from_raw(writer);
         }
     }
 }

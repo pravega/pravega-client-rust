@@ -1,2 +1,4 @@
 main
 profile
+flamegraph.svg
+perf.data*

@@ -124,8 +124,6 @@ struct StreamWriter *stream_writer_new(const struct StreamManager *manager,
                                        const char *stream,
                                        struct Buffer *err);
 
-void stream_writer_destroy(struct StreamWriter *writer);
-
 struct StreamReaderGroup *stream_reader_group_new(const struct StreamManager *manager,
                                                   const char *reader_group,
                                                   const char *scope,
@@ -146,6 +144,8 @@ void stream_writer_write_event(struct StreamWriter *writer,
                                struct Buffer *err);
 
 void stream_writer_flush(struct StreamWriter *writer, int64_t id, struct Buffer *err);
+
+void stream_writer_destroy(struct StreamWriter *writer);
 
 struct StreamReader *stream_reader_group_create_reader(const struct StreamReaderGroup *reader_group,
                                                        const char *reader,

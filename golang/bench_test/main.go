@@ -5,8 +5,11 @@ import "C"
 import (
 	"flag"
 	"fmt"
+<<<<<<< HEAD
 	"os"
 	"runtime/pprof"
+=======
+>>>>>>> e58d1bd (change to one task)
 	"time"
 
 	client "github.com/pravega/pravega-client-rust/golang/pkg"
@@ -32,7 +35,7 @@ func main() {
 	fmt.Println("scope:", *scope)
 	fmt.Println("stream:", *stream)
 	fmt.Println("size:", *size)
-	fmt.Println("count:", *count)
+	fmt.Println("events:", *count)
 	fmt.Println("writers", *writerCount)
 	data := make([]byte, *size)
 	for i := range data {
@@ -43,41 +46,36 @@ func main() {
 	config.ControllerUri = *uri
 	manager, err := client.NewStreamManager(config)
 	if err != nil {
-		log.Errorf("failed to create sm: %v", err)
-		os.Exit(1)
+		log.Fatalf("failed to create sm: %v", err)
 	}
 	defer manager.Close()
 
 	_, err = manager.CreateScope(*scope)
 	if err != nil {
-		log.Errorf("failed to create scope: %v", err)
-		os.Exit(1)
+		log.Fatalf("failed to create scope: %v", err)
 	}
 
 	_, err = manager.CreateStream(*scope, *stream, 3)
 	if err != nil {
-		log.Errorf("failed to create stream: %v", err)
-		os.Exit(1)
+		log.Fatalf("failed to create stream: %v", err)
 	}
 
 	sem := semaphore.NewWeighted(int64(*writerCount))
 	ctx := context.TODO()
-	timestamps := time.Now()
+	start := time.Now()
 	for i := 0; i < *writerCount; i++ {
 		sem.Acquire(ctx, 1)
 		go func() {
 			writer, err := manager.CreateWriter(*scope, *stream)
 			if err != nil {
-				log.Errorf("failed to create stream writer: %v", err)
+				log.Fatalf("failed to create stream writer: %v", err)
 			}
 			defer writer.Close()
-			num := *count
 
-			for j := 0; j < num; j++ {
+			for j := 0; j < *count; j++ {
 				err = writer.WriteEvent(data)
 				if err != nil {
-					log.Errorf("failed to write event: %v", err)
-					os.Exit(1)
+					log.Fatalf("failed to write event: %v", err)
 				}
 			}
 			writer.Flush()
@@ -85,10 +83,7 @@ func main() {
 		}()
 	}
 	sem.Acquire(ctx, int64(*writerCount))
-	milliseconds := time.Now().Sub(timestamps).Milliseconds()
-	fmt.Printf("cost time: %d milliseconds\n", milliseconds)
-	fmt.Printf("each event: %f milliseconds\n", float64(milliseconds) / float64(*count * (*writerCount)))
-	if err != nil {
-		log.Fatalf("%v", err)
-	}
+	elapse := time.Since(start).Milliseconds()
+	fmt.Printf("cost time: %d milliseconds\n", elapse)
+	fmt.Printf("each event: %f milliseconds\n", float64(elapse) / float64(*count * (*writerCount)))
 }
