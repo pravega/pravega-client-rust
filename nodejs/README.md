@@ -9,9 +9,9 @@ Pravega is an open source distributed storage service implementing Streams. It o
 The client library can be installed using npm or yarn.
 
 ```shell
-npm install @thekingofcity/pravega
+npm install @pravega/pravega
 #or
-yarn add @thekingofcity/pravega
+yarn add @pravega/pravega
 ```
 
 After the package is downloaded from the registry, a `node-pre-gyp install` will be triggered to pull the underlying Rust Node addon binary from the Github releases.
@@ -23,7 +23,7 @@ Note your os and architecture matters. Only `Windows`, `MacOS`, and `linux` with
 After an `npm init`, add `"type": "module",` to your `package.json` so `node` can load ECMAScript modules correctly. We do provide a commonJS distribution for legacy compatibility, so feel free to use `require()`.
 
 ```javascript
-import { StreamCut, StreamManager } from '@thekingofcity/pravega';
+import { StreamCut, StreamManager } from '@pravega/pravega';
 
 const SCOPE = 'scope1';
 const STREAM = 'stream1';

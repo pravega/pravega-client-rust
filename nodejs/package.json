@@ -1,5 +1,5 @@
 {
-    "name": "@thekingofcity/pravega",
+    "name": "@pravega/pravega",
     "version": "0.7.0",
     "description": "Pravega client",
     "main": "dist/cjs/stream_manager.js",
@@ -73,7 +73,7 @@
     "binary": {
         "module_name": "pravega",
         "module_path": "./native",
-        "host": "https://github.com/thekingofcity/pravega-client-rust/releases/download/",
+        "host": "https://github.com/pravega/pravega-client-rust/releases/download/",
         "package_name": "{module_name}-v{version}-{node_abi}-{platform}-{arch}-{libc}.tar.gz",
         "remote_path": "v{version}"
     }
