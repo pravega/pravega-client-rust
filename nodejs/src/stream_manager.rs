@@ -13,6 +13,7 @@
 
 use crate::stream_reader_group::{StreamCut, StreamReaderGroup};
 use crate::stream_writer::StreamWriter;
+use crate::stream_writer_transactional::StreamTxnWriter;
 use neon::prelude::*;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client::event::reader_group::{ReaderGroupConfigBuilder, StreamCutVersioned};
@@ -366,6 +367,26 @@ impl StreamManager {
             scoped_stream,
         )
     }
+
+    ///
+    /// Create a Transactional Writer for a given Stream.
+    ///
+    pub fn create_transaction_writer(
+        &self,
+        scope_name: &str,
+        stream_name: &str,
+        writer_id: u128,
+    ) -> StreamTxnWriter {
+        let scoped_stream = ScopedStream {
+            scope: Scope::from(scope_name.to_string()),
+            stream: Stream::from(stream_name.to_string()),
+        };
+        let txn_writer = self.cf.runtime_handle().block_on(
+            self.cf
+                .create_transactional_event_writer(scoped_stream.clone(), WriterId(writer_id)),
+        );
+        StreamTxnWriter::new(txn_writer, self.cf.runtime_handle(), scoped_stream)
+    }
 }
 
 ///
@@ -661,6 +682,22 @@ impl StreamManager {
         let stream_writer = stream_manager.create_writer(&scope_name, &stream_name);
 
         Ok(cx.boxed(stream_writer))
+    }
+
+    pub fn js_create_transaction_writer(mut cx: FunctionContext) -> JsResult<JsBox<StreamTxnWriter>> {
+        let stream_manager = cx.this().downcast_or_throw::<JsBox<StreamManager>, _>(&mut cx)?;
+        let scope_name = cx.argument::<JsString>(0)?.value(&mut cx);
+        let stream_name = cx.argument::<JsString>(1)?.value(&mut cx);
+        let writer_id = cx
+            .argument::<JsString>(2)?
+            .value(&mut cx)
+            .parse::<u128>()
+            .unwrap();
+
+        let stream_txn_writer =
+            stream_manager.create_transaction_writer(&scope_name, &stream_name, writer_id);
+
+        Ok(cx.boxed(stream_txn_writer))
     }
 
     pub fn js_to_str(mut cx: FunctionContext) -> JsResult<JsString> {

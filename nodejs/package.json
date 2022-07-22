@@ -1,20 +1,20 @@
 {
     "name": "@thekingofcity/pravega",
-    "version": "0.6.4",
+    "version": "0.7.0",
     "description": "Pravega client",
     "main": "dist/cjs/stream_manager.js",
-    "module": "dist/esm/stream_manager.js",
+    "module": "dist/esm/index.js",
     "types": "dist/esm/index.d.ts",
     "exports": {
         ".": {
-            "import": "./dist/esm/stream_manager.js",
+            "import": "./dist/esm/index.js",
             "require": "./dist/cjs/stream_manager.js"
         }
     },
     "scripts": {
         "build": "rm -rf native && mkdir native && cargo-cp-artifact -ac pravega_nodejs ./native/pravega.node -- cargo build --message-format=json-render-diagnostics",
         "release-native": "npm run build -- --release",
-        "release-js": "npx tsc && python3 release_cjs.py && npx tsc -p tsconfig-cjs.json",
+        "release-js": "rm -rf dist && npx tsc && python3 release_cjs.py && npx tsc -p tsconfig-cjs.json",
         "test": "npm run release-native && PRAVEGA_NODEJS_DEV=true node --loader ts-node/esm --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand"
     },
     "author": "Pravega Community",
@@ -35,6 +35,7 @@
         "@types/node": "^18.0.6",
         "cargo-cp-artifact": "^0.1",
         "chai": "*",
+        "chai-as-promised": "^7.1.1",
         "jest": "^28.1.3",
         "ts-jest": "^28.0.7",
         "ts-node": "^10.9.1",
