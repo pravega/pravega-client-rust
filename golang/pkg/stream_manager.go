@@ -3,6 +3,11 @@ package pkg
 // #include "pravega_client.h"
 import "C"
 
+import (
+	"golang.org/x/net/context"
+	"golang.org/x/sync/semaphore"
+)
+
 type StreamManager struct {
 	Manager *C.StreamManager
 }
@@ -59,9 +64,13 @@ func (manager *StreamManager) CreateWriter(scope string, stream string) (*Stream
 	if err != nil {
 		return nil, errorWithMessage(err, msg)
 	}
+	sem := semaphore.NewWeighted(200)
+	ctx := context.TODO()
 
 	return &StreamWriter{
 		Writer: writer,
+		Sem:    sem,
+		Ctx:    ctx,
 	}, nil
 }
 

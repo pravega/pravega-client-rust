@@ -11,7 +11,7 @@ use pravega_client_shared::*;
 use std::ffi::CStr;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
-use tokio::sync::mpsc::unbounded_channel;
+use std::sync::mpsc::sync_channel;
 
 pub struct StreamManager {
     cf: ClientFactory,
@@ -70,7 +70,7 @@ impl StreamManager {
         let writer = self.cf.create_event_writer(scoped_stream.clone());
         // start reactor
         let handle = self.cf.runtime_handle();
-        let (tx, rx) = unbounded_channel();
+        let (tx, rx) = sync_channel(0);
         handle.spawn(WriterReactor::run(writer, rx));
 
         StreamWriter::new(

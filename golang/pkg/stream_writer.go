@@ -2,10 +2,17 @@ package pkg
 
 // #include "pravega_client.h"
 import "C"
-import "runtime"
+import (
+	"runtime"
+
+	"golang.org/x/net/context"
+	"golang.org/x/sync/semaphore"
+)
 
 type StreamWriter struct {
 	Writer *C.StreamWriter
+	Sem    *semaphore.Weighted
+	Ctx    context.Context
 }
 
 func (writer *StreamWriter) Close() {
@@ -22,12 +29,14 @@ func (writer *StreamWriter) WriteEventByRoutingKey(routingKey string, event []by
 
 	id, channel := registerOperation()
 	cId := ci64(id)
+	writer.Sem.Acquire(writer.Ctx, 1)
 	_, err := C.stream_writer_write_event(writer.Writer, e, r, cId, &msg)
 	if err != nil {
 		return errorWithMessage(err, msg)
 	}
 	// TODO: may add timeout here
 	<-channel
+	writer.Sem.Release(1)
 
 	return nil
 }

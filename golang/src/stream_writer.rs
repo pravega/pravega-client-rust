@@ -5,17 +5,17 @@ use pravega_client::event::writer::EventWriter;
 use pravega_client_shared::ScopedStream;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use tokio::runtime::Handle;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use std::sync::mpsc::{Receiver, SyncSender};
 
 pub struct StreamWriter {
-    sender: UnboundedSender<Incoming>,
+    sender: SyncSender<Incoming>,
     runtime_handle: Handle,
     stream: ScopedStream,
 }
 
 impl StreamWriter {
     pub fn new(
-        sender: UnboundedSender<Incoming>,
+        sender: SyncSender<Incoming>,
         runtime_handle: Handle,
         stream: ScopedStream,
     ) -> Self {
@@ -45,7 +45,7 @@ pub struct WriterReactor {}
 impl WriterReactor {
     pub async fn run(
         mut writer: EventWriter,
-        mut receiver: UnboundedReceiver<Incoming>,
+        mut receiver: Receiver<Incoming>,
     ) {
         while WriterReactor::run_once(&mut writer, &mut receiver)
             .await
@@ -55,9 +55,9 @@ impl WriterReactor {
 
     async fn run_once(
         writer: &mut EventWriter,
-        receiver: &mut UnboundedReceiver<Incoming>,
+        receiver: &mut Receiver<Incoming>,
     ) -> Result<(), String> {
-        let incoming = receiver.recv().await.expect("sender closed, processor exit");
+        let incoming = receiver.recv().expect("sender closed, processor exit");
         match incoming.operation {
             Operation::WriteEvent{routing_key, event} => {
                 match routing_key {
