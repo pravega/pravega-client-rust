@@ -24,7 +24,7 @@ use std::time::Duration;
 use tokio::time;
 use tracing::info;
 
-const TIMEOUT_IN_MILLISECONDS: u64 = 1000; // timeout for list scopes and streams
+const TIMEOUT_IN_MILLISECONDS: u64 = 120000; // timeout for list scopes and streams
 
 ///
 /// An internal rust struct that holds the necessary info to perform actions on StreamManager.
