@@ -89,12 +89,14 @@ With a [`pravega-standalone`](https://cncf.pravega.io/docs/latest/deployment/run
 
 ```shell
 $ node --version
-v16.14.0
+v16.15.0
 $ node index.js
 Event at 0 reads Hello World!
 Event at 20 reads Hello World!
 Event at 40 reads Hello World!
 Event at 60 reads Hello World!
+Event at 80 reads Hello World!
+Event at 100 reads Hello World!
 ```
 
 ## Supported APIs
