@@ -169,7 +169,7 @@ impl Cred for KeyCloak {
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .expect("get unix time");
-        now.as_secs() + REFRESH_THRESHOLD_SECONDS >= self.expires_at.load(Ordering::Relaxed)
+        now.as_secs() + REFRESH_THRESHOLD_SECONDS >= self.expires_at.load(Ordering::SeqCst)
     }
 }
 
@@ -202,7 +202,7 @@ impl KeyCloak {
         let expires_at = now.as_secs() + rpt.expires_in;
 
         *self.token.lock().await = rpt.access_token;
-        self.expires_at.store(expires_at, Ordering::Relaxed);
+        self.expires_at.store(expires_at, Ordering::SeqCst);
     }
 }
 
