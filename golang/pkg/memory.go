@@ -62,12 +62,12 @@ func makeViewFromString(s string) C.Buffer {
 	}
 }
 
-func makeViewFromSlice(s []byte) C.Buffer {
+func makeViewFromSlice(s []byte) (C.Buffer, int) {
 	p := (*reflect.SliceHeader)(unsafe.Pointer(&s))
 
 	return C.Buffer {
 		ptr: cu8ptr(unsafe.Pointer(p.Data)),
 		len: cusize(p.Len),
 		cap: cusize(p.Cap),
-	}
+	}, p.Len
 }

@@ -16,6 +16,7 @@ func registerOperation() (int64, chan unsafe.Pointer) {
 	channel := make(chan unsafe.Pointer)
 
 	// register the id and channel
+	// TODO: handle id overflow
 	id := atomic.AddInt64(&operationIdCounter, 1)
 	operationMap.Store(id, channel)
 	return id, channel

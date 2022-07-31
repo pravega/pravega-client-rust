@@ -64,7 +64,7 @@ func (manager *StreamManager) CreateWriter(scope string, stream string) (*Stream
 	if err != nil {
 		return nil, errorWithMessage(err, msg)
 	}
-	sem := semaphore.NewWeighted(200)
+	sem := semaphore.NewWeighted(15728640) // 15MB
 	ctx := context.TODO()
 
 	return &StreamWriter{

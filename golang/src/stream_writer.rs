@@ -1,31 +1,14 @@
 use crate::error::{clear_error, set_error};
 use crate::memory::{ackOperationDone, Buffer};
 use derive_new::new;
+use pravega_client::error::Error;
 use pravega_client::event::writer::EventWriter;
 use pravega_client_shared::ScopedStream;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use tokio::runtime::Handle;
 use std::sync::mpsc::{Receiver, SyncSender};
-
-pub struct StreamWriter {
-    sender: SyncSender<Incoming>,
-    runtime_handle: Handle,
-    stream: ScopedStream,
-}
-
-impl StreamWriter {
-    pub fn new(
-        sender: SyncSender<Incoming>,
-        runtime_handle: Handle,
-        stream: ScopedStream,
-    ) -> Self {
-        StreamWriter {
-            sender,
-            runtime_handle,
-            stream,
-        }
-    }
-}
+use tokio::sync::oneshot;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 pub enum Operation {
     WriteEvent{routing_key: Option<String>, event: Vec<u8>},
@@ -39,41 +22,50 @@ pub struct Incoming {
     operation: Operation,
 }
 
-#[derive(new)]
-pub struct WriterReactor {}
+#[derive(new, Debug)]
+pub struct EventMetadata {
+    future: oneshot::Receiver<Result<(), Error>>,
+    id: i64,
+}
 
-impl WriterReactor {
-    pub async fn run(
-        mut writer: EventWriter,
-        mut receiver: Receiver<Incoming>,
+pub struct StreamWriter {
+    writer: EventWriter,
+    sender: UnboundedSender<EventMetadata>,
+    runtime_handle: Handle,
+    stream: ScopedStream,
+}
+
+impl StreamWriter {
+    pub fn new(
+        writer: EventWriter,
+        sender: UnboundedSender<EventMetadata>,
+        runtime_handle: Handle,
+        stream: ScopedStream,
+    ) -> Self {
+        StreamWriter {
+            writer,
+            sender,
+            runtime_handle,
+            stream,
+        }
+    }
+
+    pub async fn run_reactor(
+        mut receiver: UnboundedReceiver<EventMetadata>,
     ) {
-        while WriterReactor::run_once(&mut writer, &mut receiver)
+        while StreamWriter::run_once(&mut receiver)
             .await
             .is_ok()
         {}
     }
 
     async fn run_once(
-        writer: &mut EventWriter,
-        receiver: &mut Receiver<Incoming>,
+        receiver: &mut UnboundedReceiver<EventMetadata>,
     ) -> Result<(), String> {
-        let incoming = receiver.recv().expect("sender closed, processor exit");
-        match incoming.operation {
-            Operation::WriteEvent{routing_key, event} => {
-                match routing_key {
-                    Option::None => writer.write_event(event).await,
-                    Option::Some(key) => writer.write_event_by_routing_key(key, event).await,
-                };
-            },
-            Operation::Flush => {
-                writer.flush().await.map_err(|e| format!("Error caught while flushing events {:?}", e))?
-            }
-            Operation::Close => {
-                return Err("close".to_string());
-            }
-        }
+        let metadata = receiver.recv().await.expect("sender closed, processor exit");
+        metadata.future.await.unwrap().unwrap();
         unsafe {
-            ackOperationDone(incoming.id, 0 as usize);
+            ackOperationDone(metadata.id, 0);
         };
         Ok(())
     }
@@ -89,14 +81,21 @@ pub unsafe extern "C" fn stream_writer_write_event(
 ) {
     let stream_writer = &mut *writer;
     if let Err(_) = catch_unwind(AssertUnwindSafe(move || {
-        let event = event.read().unwrap().to_vec();
+        let event = event.read().expect("read event").to_vec();
         let routing_key = routing_key
             .read()
-            .map(|v| std::str::from_utf8(v).unwrap().to_string());
-        stream_writer.sender.send(Incoming::new(
-            id,
-            Operation::WriteEvent{routing_key, event}
-        )).ok();
+            .map(|v| std::str::from_utf8(v).expect("read routing key").to_string());
+
+        let runtime = &stream_writer.runtime_handle;
+        let writer = &mut stream_writer.writer;
+        let sender = &mut stream_writer.sender;
+        runtime.block_on(async {
+            let future = match routing_key {
+                Option::None => writer.write_event(event).await,
+                Option::Some(key) => writer.write_event_by_routing_key(key, event).await,
+            };
+            sender.send(EventMetadata::new(future, id)).expect("send event metadata");
+        });
         clear_error();
     })) {
         set_error("caught panic".to_string(), err);
@@ -108,10 +107,7 @@ pub unsafe extern "C" fn stream_writer_flush(writer: *mut StreamWriter, id: i64,
     let stream_writer = &mut *writer;
     
     if let Err(_) = catch_unwind(AssertUnwindSafe(move || {
-        stream_writer.sender.send(Incoming::new(
-            id,
-            Operation::Flush
-        )).ok();
+        stream_writer.runtime_handle.block_on(stream_writer.writer.flush()).unwrap();
         clear_error();
     })) {
         set_error("caught panic".to_string(), err);
@@ -120,13 +116,6 @@ pub unsafe extern "C" fn stream_writer_flush(writer: *mut StreamWriter, id: i64,
 
 #[no_mangle]
 pub unsafe extern "C" fn stream_writer_destroy(writer: *mut StreamWriter) {
-    let stream_writer = &mut *writer;
-    
-    stream_writer.sender.send(Incoming::new(
-        0,
-        Operation::Close
-    )).ok();
-
     if !writer.is_null() {
         Box::from_raw(writer);
     }

@@ -2,7 +2,7 @@ use crate::config::*;
 use crate::error::{clear_error, set_error};
 use crate::memory::Buffer;
 use crate::stream_reader_group::StreamReaderGroup;
-use crate::stream_writer::{WriterReactor, StreamWriter};
+use crate::stream_writer::StreamWriter;
 use libc::c_char;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client::event::reader_group::ReaderGroupConfigBuilder;
@@ -12,6 +12,7 @@ use std::ffi::CStr;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
 use std::sync::mpsc::sync_channel;
+use tokio::sync::mpsc::unbounded_channel;
 
 pub struct StreamManager {
     cf: ClientFactory,
@@ -68,12 +69,12 @@ impl StreamManager {
         };
 
         let writer = self.cf.create_event_writer(scoped_stream.clone());
-        // start reactor
         let handle = self.cf.runtime_handle();
-        let (tx, rx) = sync_channel(0);
-        handle.spawn(WriterReactor::run(writer, rx));
-
+        let (tx, rx) = unbounded_channel();
+        handle.spawn(StreamWriter::run_reactor(rx));
+        
         StreamWriter::new(
+            writer,
             tx,
             self.cf.runtime_handle(),
             scoped_stream,
