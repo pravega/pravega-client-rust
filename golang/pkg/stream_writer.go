@@ -50,10 +50,13 @@ func (writer *StreamWriter) WriteEvent(event []byte) error {
 func (writer *StreamWriter) Flush() error {
 	msg := C.Buffer{}
 
-	_, err := C.stream_writer_flush(writer.Writer, 0, &msg)
+	id, channel:= registerOperation()
+	cId := ci64(id)
+	_, err := C.stream_writer_flush(writer.Writer, cId, &msg)
 	if err != nil {
 		return errorWithMessage(err, msg)
 	}
 
+	<-channel
 	return nil
 }

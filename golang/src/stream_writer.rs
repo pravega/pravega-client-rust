@@ -10,27 +10,22 @@ use std::sync::mpsc::{Receiver, SyncSender};
 use tokio::sync::oneshot;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
+#[derive(Debug)]
 pub enum Operation {
-    WriteEvent{routing_key: Option<String>, event: Vec<u8>},
+    WriteEvent(oneshot::Receiver<Result<(), Error>>),
     Flush,
     Close,
 }
 
-#[derive(new)]
+#[derive(new, Debug)]
 pub struct Incoming {
     id: i64,
     operation: Operation,
 }
 
-#[derive(new, Debug)]
-pub struct EventMetadata {
-    future: oneshot::Receiver<Result<(), Error>>,
-    id: i64,
-}
-
 pub struct StreamWriter {
     writer: EventWriter,
-    sender: UnboundedSender<EventMetadata>,
+    sender: UnboundedSender<Incoming>,
     runtime_handle: Handle,
     stream: ScopedStream,
 }
@@ -38,7 +33,7 @@ pub struct StreamWriter {
 impl StreamWriter {
     pub fn new(
         writer: EventWriter,
-        sender: UnboundedSender<EventMetadata>,
+        sender: UnboundedSender<Incoming>,
         runtime_handle: Handle,
         stream: ScopedStream,
     ) -> Self {
@@ -51,7 +46,7 @@ impl StreamWriter {
     }
 
     pub async fn run_reactor(
-        mut receiver: UnboundedReceiver<EventMetadata>,
+        mut receiver: UnboundedReceiver<Incoming>,
     ) {
         while StreamWriter::run_once(&mut receiver)
             .await
@@ -60,12 +55,21 @@ impl StreamWriter {
     }
 
     async fn run_once(
-        receiver: &mut UnboundedReceiver<EventMetadata>,
+        receiver: &mut UnboundedReceiver<Incoming>,
     ) -> Result<(), String> {
-        let metadata = receiver.recv().await.expect("sender closed, processor exit");
-        metadata.future.await.unwrap().unwrap();
+        let incoming = receiver.recv().await.expect("sender closed, processor exit");
+        match incoming.operation {
+            Operation::WriteEvent(future)=> {
+                future.await.expect("event persisted").unwrap();
+            },
+            Operation::Flush => {
+            },
+            Operation::Close => {
+                return Err("close".to_string());
+            }
+        }
         unsafe {
-            ackOperationDone(metadata.id, 0);
+            ackOperationDone(incoming.id, 0);
         };
         Ok(())
     }
@@ -94,7 +98,7 @@ pub unsafe extern "C" fn stream_writer_write_event(
                 Option::None => writer.write_event(event).await,
                 Option::Some(key) => writer.write_event_by_routing_key(key, event).await,
             };
-            sender.send(EventMetadata::new(future, id)).expect("send event metadata");
+            sender.send(Incoming::new(id, Operation::WriteEvent(future))).expect("write event");
         });
         clear_error();
     })) {
@@ -107,7 +111,7 @@ pub unsafe extern "C" fn stream_writer_flush(writer: *mut StreamWriter, id: i64,
     let stream_writer = &mut *writer;
     
     if let Err(_) = catch_unwind(AssertUnwindSafe(move || {
-        stream_writer.runtime_handle.block_on(stream_writer.writer.flush()).unwrap();
+        stream_writer.sender.send(Incoming::new(id, Operation::Flush)).expect("flush event");
         clear_error();
     })) {
         set_error("caught panic".to_string(), err);
@@ -116,6 +120,9 @@ pub unsafe extern "C" fn stream_writer_flush(writer: *mut StreamWriter, id: i64,
 
 #[no_mangle]
 pub unsafe extern "C" fn stream_writer_destroy(writer: *mut StreamWriter) {
+    let stream_writer = &mut *writer;
+    stream_writer.sender.send(Incoming::new(0, Operation::Close)).expect("close writer");
+
     if !writer.is_null() {
         Box::from_raw(writer);
     }
