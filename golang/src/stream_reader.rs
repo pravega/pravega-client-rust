@@ -99,14 +99,11 @@ impl Slice {
 }
 
 impl Slice {
-    fn next(&mut self) -> Option<EventData> {
+    fn next(&mut self) -> Option<Event> {
         if let Some(mut slice) = self.seg_slice.take() {
             let next_event: Option<Event> = slice.next();
             self.seg_slice = Some(slice);
-            next_event.map(|e| EventData {
-                offset_in_segment: e.offset_in_segment,
-                value: e.value,
-            })
+            next_event
         } else {
             None
         }
@@ -132,21 +129,5 @@ pub unsafe extern "C" fn segment_slice_next(
         Err(_) => {
             set_error("caught panic".to_string(), err);
         }
-    }
-}
-
-pub struct EventData {
-    offset_in_segment: i64,
-    value: Vec<u8>,
-}
-
-impl EventData {
-    ///Return the data
-    fn data(&self) -> &[u8] {
-        self.value.as_slice()
-    }
-    /// Returns the string representation.
-    fn to_str(&self) -> String {
-        format!("offset {:?} data :{:?}", self.offset_in_segment, self.value)
     }
 }

@@ -11,7 +11,6 @@ use pravega_client_shared::*;
 use std::ffi::CStr;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
-use std::sync::mpsc::sync_channel;
 use tokio::sync::mpsc::unbounded_channel;
 
 pub struct StreamManager {
@@ -58,11 +57,7 @@ impl StreamManager {
             .map_err(|e| format!("{:?}", e))
     }
 
-    pub fn create_writer(
-        &self,
-        scope_name: &str,
-        stream_name: &str,
-    ) -> StreamWriter {
+    pub fn create_writer(&self, scope_name: &str, stream_name: &str) -> StreamWriter {
         let scoped_stream = ScopedStream {
             scope: Scope::from(scope_name.to_string()),
             stream: Stream::from(stream_name.to_string()),
@@ -72,13 +67,8 @@ impl StreamManager {
         let handle = self.cf.runtime_handle();
         let (tx, rx) = unbounded_channel();
         handle.spawn(StreamWriter::run_reactor(rx));
-        
-        StreamWriter::new(
-            writer,
-            tx,
-            self.cf.runtime_handle(),
-            scoped_stream,
-        )
+
+        StreamWriter::new(writer, tx, self.cf.runtime_handle(), scoped_stream)
     }
 
     pub fn create_reader_group(

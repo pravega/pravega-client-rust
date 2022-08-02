@@ -152,7 +152,7 @@ impl ClientConfigMapping {
         config.trustcerts = split_to_vec(self.trustcerts);
         config.credentials = self.credentials.to_credentials();
         config.retry_policy = self.retry_policy.to_retry_with_backoff();
-        return config;
+        config
     }
 }
 
@@ -163,7 +163,7 @@ unsafe fn split_to_vec(s: *const c_char) -> Vec<String> {
     for x in vec {
         v.push(String::from(x));
     }
-    return v;
+    v
 }
 
 fn str_to_tags(s: *const c_char) -> Option<Vec<String>> {
@@ -197,7 +197,7 @@ impl RetryWithBackoffMapping {
         if self.expiration_time > 0 {
             //TODO: set expiration_time
         }
-        return backoff;
+        backoff
     }
 }
 
