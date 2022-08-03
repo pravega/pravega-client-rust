@@ -11,31 +11,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { StreamReader } from './stream_reader.js';
-
-// Native modules are not currently supported with ES module imports.
-// https://nodejs.org/api/esm.html#esm_no_native_module_loading
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-
-const {
-    StreamRetentionStreamCutHead,
-    StreamRetentionStreamCutTail,
+import {
     StreamReaderGroupCreateReader,
     StreamReaderGroupReaderOffline,
     StreamReaderGroupToString,
-} = require('./index.node');
-
-/**
- * Represent a consistent position in the stream.
- * Only `head` and `tail` are supported now.
- */
-export interface StreamCut {}
-
-export const StreamCut = {
-    head: (): StreamCut => StreamRetentionStreamCutHead(),
-    tail: (): StreamCut => StreamRetentionStreamCutTail(),
-};
+} from './native_esm.js';
+import { StreamReader } from './stream_reader.js';
 
 /**
  * A reader group is a collection of readers that collectively read all the events in the
@@ -68,6 +49,11 @@ export interface StreamReaderGroup {
     toString: () => string;
 }
 
+/**
+ * Returns a wrapped StreamReaderGroup that helps users to call Rust code.
+ *
+ * Note: A StreamReaderGroup cannot be created directly without using the StreamManager.
+ */
 export const StreamReaderGroup = (stream_reader_group): StreamReaderGroup => {
     const create_reader = (reader_name: string): StreamReader =>
         StreamReader(StreamReaderGroupCreateReader.call(stream_reader_group, reader_name));

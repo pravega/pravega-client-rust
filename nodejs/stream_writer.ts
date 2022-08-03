@@ -11,15 +11,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Native modules are not currently supported with ES module imports.
-// https://nodejs.org/api/esm.html#esm_no_native_module_loading
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-
-const { StreamWriterWriteEventBytes, StreamWriterFlush, StreamWriterToString } = require('./index.node');
+import { StreamWriterWriteEventBytes, StreamWriterFlush, StreamWriterToString } from './native_esm.js';
 
 /**
- * A writer for a stream.
+ * A writer for a Stream.
+ *
  * Note: A StreamWriter cannot be created directly without using the StreamManager.
  */
 export interface StreamWriter {
@@ -67,8 +63,13 @@ export interface StreamWriter {
     toString: () => string;
 }
 
+/**
+ * Returns a wrapped StreamWriter that helps users to call Rust code.
+ *
+ * Note: A StreamWriter cannot be created directly without using the StreamManager.
+ */
 export const StreamWriter = (stream_writer): StreamWriter => {
-    const enc = new TextEncoder(); // string -> Uint8Array
+    const enc = new TextEncoder(); // A `string` to `Uint8Array` serializer.
 
     const write_event = async (event: string, routing_key?: string): Promise<undefined> =>
         await StreamWriterWriteEventBytes.call(stream_writer, enc.encode(event), routing_key);

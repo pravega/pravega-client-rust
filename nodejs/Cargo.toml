@@ -3,13 +3,13 @@ authors = ["Pravega Community"]
 categories = ["network-programming"]
 description = "Pravega client"
 edition = "2018"
-exclude = ["index.node"]
+exclude = ["pravega.node"]
 keywords = ["streaming", "client", "pravega"]
 license = "Apache-2.0"
-name = "pravega_client"
+name = "pravega_nodejs"
 readme = "README.md"
 repository = "https://github.com/pravega/pravega-client-rust"
-version = "0.3.0"
+version = "0.3.2"
 
 [lib]
 crate-type = ["cdylib"]

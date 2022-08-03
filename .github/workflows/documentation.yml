@@ -16,6 +16,12 @@ jobs:
         with:
           python-version: 3.8
 
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+      # This copy the Nodejs README to the book source
+      - run: cp nodejs/README.md book/src/Nodejs/NodejsBindings.md
+
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v1
         with:
@@ -40,6 +46,13 @@ jobs:
           pdoc --html pravega_client
           mkdir -p book/book/python
           cp html/pravega_client/pravega_client.html book/book/python
+
+      - name: Generate Pravega Nodejs API documentation.
+        run: |
+          cd nodejs && npm i
+          cd nodejs && npx typedoc *.ts
+          mkdir -p book/book/nodejs
+          cp -r nodejs/docs/* book/book/nodejs/
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
