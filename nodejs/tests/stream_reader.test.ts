@@ -15,8 +15,7 @@
 import chai from 'chai';
 const { assert } = chai;
 
-import { StreamManager, StreamRetentionPolicy, StreamScalingPolicy } from '../stream_manager';
-import { StreamCut } from '../stream_reader_group';
+import { StreamManager, StreamRetentionPolicy, StreamScalingPolicy, StreamCut } from '../stream_manager';
 import { Event } from '../stream_reader';
 
 const SCOPE = 'scope1';

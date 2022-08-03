@@ -5,6 +5,9 @@
         "module": "esnext",
         "esModuleInterop": true,
         "moduleResolution": "node",
-        "rootDir": "./"
-    }
+        "rootDir": "./",
+        "declaration": true,
+        "outDir": "./dist/esm"
+    },
+    "exclude": ["native_cjs.ts", "node_modules", "dist", "**/tests/*.test.ts"]
 }
