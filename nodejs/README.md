@@ -48,6 +48,15 @@ stream_writer_2.write_event_bytes(enc.encode(DATA), 'routing_key');
 // You can also write them in parallel and await flush.
 await stream_writer_2.flush();
 
+// Write events as a transaction.
+const stream_txn_writer = stream_manager.create_transaction_writer(SCOPE, STREAM, BigInt(1));
+const txn = await stream_txn_writer.begin_txn();
+await txn.write_event(DATA);
+await txn.write_event_bytes(enc.encode(DATA), 'routing_key');
+// You may commit or abort the transaction.
+// The previous events aren't preserved in Pravega until next operation.
+await txn.commit();
+
 // Create a reader group and a reader.
 const reader_group_name = Math.random().toString(36).slice(2, 10);
 const reader_name = Math.random().toString(36).slice(2, 10);
@@ -80,12 +89,14 @@ With a [`pravega-standalone`](https://cncf.pravega.io/docs/latest/deployment/run
 
 ```shell
 $ node --version
-v16.14.0
+v16.15.0
 $ node index.js
 Event at 0 reads Hello World!
 Event at 20 reads Hello World!
 Event at 40 reads Hello World!
 Event at 60 reads Hello World!
+Event at 80 reads Hello World!
+Event at 100 reads Hello World!
 ```
 
 ## Supported APIs
