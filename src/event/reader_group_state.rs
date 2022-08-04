@@ -258,8 +258,7 @@ impl ReaderGroupState {
         &mut self,
         reader: &Reader,
     ) -> Result<(), ReaderGroupStateError> {
-        let _res_str = self
-            .sync
+        self.sync
             .insert(|table| ReaderGroupState::remove_reader_internal_default(table, reader))
             .await
             .map_err(|err| match err {
@@ -303,8 +302,7 @@ impl ReaderGroupState {
         reader: &Reader,
         owned_segments: HashMap<ScopedSegment, Offset>,
     ) -> Result<(), ReaderGroupStateError> {
-        let _res_str = self
-            .sync
+        self.sync
             .insert(|table| ReaderGroupState::remove_reader_internal(table, reader, &owned_segments))
             .await
             .map_err(|err| match err {
