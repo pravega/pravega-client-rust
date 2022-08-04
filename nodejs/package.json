@@ -1,6 +1,6 @@
 {
     "name": "@pravega/pravega",
-    "version": "0.6.4",
+    "version": "0.3.2",
     "description": "Pravega client",
     "main": "dist/cjs/stream_manager.js",
     "module": "dist/esm/stream_manager.js",
