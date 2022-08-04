@@ -20,7 +20,11 @@ use pravega_client_config::{ClientConfig, ClientConfigBuilder};
 use pravega_client_retry::retry_result::RetryError;
 use pravega_client_shared::*;
 use pravega_controller_client::ControllerError;
+use std::time::Duration;
+use tokio::time;
 use tracing::info;
+
+const TIMEOUT_IN_MILLISECONDS: u64 = 120000; // timeout for list scopes and streams
 
 ///
 /// An internal rust struct that holds the necessary info to perform actions on StreamManager.
@@ -28,7 +32,7 @@ use tracing::info;
 ///
 pub(crate) struct StreamManager {
     controller_ip: String,
-    cf: ClientFactory,
+    pub cf: ClientFactory,
     config: ClientConfig,
 }
 
@@ -193,24 +197,6 @@ impl StreamManager {
     }
 
     ///
-    /// List Scopes in Pravega.
-    ///
-    fn list_scopes(&self) -> Vec<Scope> {
-        use futures::stream::StreamExt;
-        use pravega_controller_client::paginator::list_scopes;
-
-        let handle = self.cf.runtime_handle();
-        info!("List scopes");
-
-        let controller = self.cf.controller_client();
-
-        handle.block_on(async {
-            let scope = list_scopes(controller);
-            scope.map(|str| str.unwrap()).collect::<Vec<Scope>>().await
-        })
-    }
-
-    ///
     /// Create a Stream in Pravega.
     ///
     pub fn create_stream_with_policy(
@@ -336,32 +322,6 @@ impl StreamManager {
     }
 
     ///
-    /// List Streams in Pravega.
-    ///
-    fn list_streams(&self, scope_name: &str) -> Vec<ScopedStream> {
-        use futures::stream::StreamExt;
-        use pravega_controller_client::paginator::list_streams;
-
-        let handle = self.cf.runtime_handle();
-        info!("List streams of {:?}", scope_name);
-
-        let controller = self.cf.controller_client();
-
-        handle.block_on(async {
-            let stream = list_streams(
-                Scope {
-                    name: scope_name.to_string(),
-                },
-                controller,
-            );
-            stream
-                .map(|str| str.unwrap())
-                .collect::<Vec<ScopedStream>>()
-                .await
-        })
-    }
-
-    ///
     /// Create a ReaderGroup for a given Stream.
     ///
     fn create_reader_group(
@@ -450,23 +410,47 @@ impl StreamManager {
         }
     }
 
-    pub fn js_list_scopes(mut cx: FunctionContext) -> JsResult<JsArray> {
-        use std::convert::TryInto;
-
+    pub fn js_list_scopes(mut cx: FunctionContext) -> JsResult<JsPromise> {
         let stream_manager = cx.this().downcast_or_throw::<JsBox<StreamManager>, _>(&mut cx)?;
 
-        let scopes = stream_manager.list_scopes();
-        let scopes_length: u32 = match scopes.len().try_into() {
-            Ok(val) => val,
-            Err(_err) => return cx.throw_error("Too many scopes"),
-        };
+        let channel = cx.channel();
+        let (deferred, promise) = cx.promise();
 
-        let array: Handle<JsArray> = JsArray::new(&mut cx, scopes_length);
-        for (pos, e) in scopes.iter().enumerate() {
-            let scope_name = cx.string(e.name.clone());
-            array.set(&mut cx, pos as u32, scope_name)?;
-        }
-        Ok(array)
+        // spawn an `async` task on the tokio runtime.
+        use std::sync::Arc;
+        let cf = Arc::new(stream_manager.cf.to_async());
+        let handle = stream_manager.cf.runtime_handle();
+        // enter the runtime context and call spawn with timeout
+        let _rt = handle.enter();
+        tokio::spawn(time::timeout(
+            Duration::from_millis(TIMEOUT_IN_MILLISECONDS),
+            async move {
+                use futures::stream::StreamExt;
+                use pravega_controller_client::paginator::list_scopes;
+
+                // expensive block procedure executed in the tokio thread
+                let cf = cf.clone();
+                let controller = cf.controller_client();
+                let scope = list_scopes(controller);
+                let scopes = scope.map(|str| str.unwrap()).collect::<Vec<Scope>>().await;
+
+                // notify and execute in the javascript main thread
+                deferred.settle_with(&channel, move |mut cx| {
+                    use std::convert::TryInto;
+                    let scopes_length: u32 = match scopes.len().try_into() {
+                        Ok(val) => val,
+                        Err(_err) => return cx.throw_error("Too many scopes"),
+                    };
+                    let array: Handle<JsArray> = JsArray::new(&mut cx, scopes_length);
+                    for (pos, e) in scopes.iter().enumerate() {
+                        let scope_name = cx.string(e.name.clone());
+                        array.set(&mut cx, pos as u32, scope_name)?;
+                    }
+                    Ok(array)
+                });
+            },
+        ));
+        Ok(promise)
     }
 
     pub fn js_create_stream_with_policy(mut cx: FunctionContext) -> JsResult<JsBoolean> {
@@ -594,24 +578,54 @@ impl StreamManager {
         }
     }
 
-    pub fn js_list_streams(mut cx: FunctionContext) -> JsResult<JsArray> {
-        use std::convert::TryInto;
-
+    pub fn js_list_streams(mut cx: FunctionContext) -> JsResult<JsPromise> {
         let stream_manager = cx.this().downcast_or_throw::<JsBox<StreamManager>, _>(&mut cx)?;
         let scope_name = cx.argument::<JsString>(0)?.value(&mut cx);
 
-        let streams = stream_manager.list_streams(&scope_name);
-        let streams_length: u32 = match streams.len().try_into() {
-            Ok(val) => val,
-            Err(_err) => return cx.throw_error("Too many streams"),
-        };
+        let channel = cx.channel();
+        let (deferred, promise) = cx.promise();
 
-        let array: Handle<JsArray> = JsArray::new(&mut cx, streams_length);
-        for (pos, e) in streams.iter().enumerate() {
-            let stream_name = cx.string(e.stream.name.clone());
-            array.set(&mut cx, pos as u32, stream_name)?;
-        }
-        Ok(array)
+        // spawn an `async` task on the tokio runtime.
+        use std::sync::Arc;
+        let cf = Arc::new(stream_manager.cf.to_async());
+        let handle = stream_manager.cf.runtime_handle();
+        // enter the runtime context and call spawn with timeout
+        let _rt = handle.enter();
+        tokio::spawn(time::timeout(
+            Duration::from_millis(TIMEOUT_IN_MILLISECONDS),
+            async move {
+                use futures::stream::StreamExt;
+                use pravega_controller_client::paginator::list_streams;
+
+                // expensive block procedure executed in the tokio thread
+                let cf = cf.clone();
+                let controller = cf.controller_client();
+                let scope = list_streams(
+                    Scope {
+                        name: scope_name.to_string(),
+                    },
+                    controller,
+                );
+                let streams = scope.map(|str| str.unwrap()).collect::<Vec<ScopedStream>>().await;
+
+                // notify and execute in the javascript main thread
+                deferred.settle_with(&channel, move |mut cx| {
+                    use std::convert::TryInto;
+                    let streams_length: u32 = match streams.len().try_into() {
+                        Ok(val) => val,
+                        Err(_err) => return cx.throw_error("Too many streams"),
+                    };
+
+                    let array: Handle<JsArray> = JsArray::new(&mut cx, streams_length);
+                    for (pos, e) in streams.iter().enumerate() {
+                        let stream_name = cx.string(e.stream.name.clone());
+                        array.set(&mut cx, pos as u32, stream_name)?;
+                    }
+                    Ok(array)
+                });
+            },
+        ));
+        Ok(promise)
     }
 
     pub fn js_create_reader_group(mut cx: FunctionContext) -> JsResult<JsBox<StreamReaderGroup>> {
