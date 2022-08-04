@@ -138,11 +138,11 @@ Then you need to install Nodejs related packages via `npm i` in this folder.
 
 1. `npm run build-debug` to build a debug addon.
 2. `/path/to/pravega/bin/pravega-standalone`
-3. `npm run test`
+3. `npm test`
 
 ### Local build and install
 
 1. `npm run release-native` to build a release addon.
 2. `npm run release-js` to build a release dist.
 3. `npm pack` to pack a local npm package.
-4. `npm i pravega-0.5.0.tgz` in your project and use it.
+4. `npm i pravega-x.y.z.tgz` in your project and use it.
