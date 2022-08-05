@@ -5,11 +5,6 @@ import "C"
 import (
 	"flag"
 	"fmt"
-<<<<<<< HEAD
-	"os"
-	"runtime/pprof"
-=======
->>>>>>> e58d1bd (change to one task)
 	"time"
 
 	client "github.com/pravega/pravega-client-rust/golang/pkg"
@@ -55,7 +50,10 @@ func main() {
 		log.Fatalf("failed to create scope: %v", err)
 	}
 
-	_, err = manager.CreateStream(*scope, *stream, 3)
+	streamConfig := client.NewStreamConfiguration(*scope, *stream)
+	streamConfig.Scale.MinSegments = 3
+
+	_, err = manager.CreateStream(streamConfig)
 	if err != nil {
 		log.Fatalf("failed to create stream: %v", err)
 	}

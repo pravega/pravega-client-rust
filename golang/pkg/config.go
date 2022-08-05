@@ -6,7 +6,6 @@ package pkg
 import "C"
 
 import (
-	"fmt"
 	"math"
 	"time"
 )
@@ -124,14 +123,19 @@ func (clientConfig *ClientConfig) toCtype() C.ClientConfigMapping {
 	bconfig.max_connections_in_pool = cu32(clientConfig.MaxConnectionsInPool)
 	bconfig.max_controller_connections = cu32(clientConfig.MaxControllerConnections)
 	bconfig.controller_uri = C.CString(clientConfig.ControllerUri)
-	bconfig.transaction_timeout_time = usize(clientConfig.TransactionTimeout)
-	bconfig.is_tls_enabled = C.bool(clientConfig.TlsEnabled)
-	bconfig.is_auth_enabled = C.bool(clientConfig.AuthEnabled)
+	bconfig.transaction_timeout_time = cu64(clientConfig.TransactionTimeout)
+	bconfig.is_tls_enabled = cbool(clientConfig.TlsEnabled)
+	bconfig.is_auth_enabled = cbool(clientConfig.AuthEnabled)
 	bconfig.trustcerts = C.CString(clientConfig.Trustcerts)
 	bconfig.reader_wrapper_buffer_size = usize(clientConfig.ReaderWrapperBufferSize)
+
 	bconfig.credentials = *clientConfig.Credentials.toCtype()
-	bconfig.disable_cert_verification = C.bool(clientConfig.DisableCertVerification)
-	bconfig.request_timeout = usize(clientConfig.RequestTimeout)
+
+	bconfig.disable_cert_verification = cbool(clientConfig.DisableCertVerification)
+	bconfig.request_timeout = cu64(clientConfig.RequestTimeout)
+
+	bconfig.retry_policy = *clientConfig.RetryPolicy.toCtype()
+
 	return bconfig
 }
 

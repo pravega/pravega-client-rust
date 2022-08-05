@@ -37,20 +37,6 @@ impl StreamManager {
 
     pub fn create_stream(&self, stream_config: StreamConfiguration) -> Result<bool, String> {
         let handle = self.cf.runtime_handle();
-        let stream_cfg = StreamConfiguration {
-            scoped_stream: ScopedStream {
-                scope: Scope::from(scope_name.to_string()),
-                stream: Stream::from(stream_name.to_string()),
-            },
-            scaling: Scaling {
-                scale_type: ScaleType::FixedNumSegments,
-                target_rate: 0,
-                scale_factor: 0,
-                min_num_segments: initial_segments,
-            },
-            retention: Default::default(),
-            tags: None,
-        };
         let controller = self.cf.controller_client();
         handle
             .block_on(controller.create_stream(&stream_config))

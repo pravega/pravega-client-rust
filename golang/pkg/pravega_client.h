@@ -69,17 +69,17 @@ typedef struct CredentialsMapping {
 
 typedef struct ClientConfigMapping {
   uint32_t max_connections_in_pool;
-  uintptr_t max_controller_connections;
+  uint32_t max_controller_connections;
   struct RetryWithBackoffMapping retry_policy;
   const char *controller_uri;
-  uintptr_t transaction_timeout_time;
+  uint64_t transaction_timeout_time;
   bool is_tls_enabled;
   bool disable_cert_verification;
   const char *trustcerts;
   struct CredentialsMapping credentials;
   bool is_auth_enabled;
   uintptr_t reader_wrapper_buffer_size;
-  uintptr_t request_timeout;
+  uint64_t request_timeout;
 } ClientConfigMapping;
 
 typedef struct ScalingMapping {

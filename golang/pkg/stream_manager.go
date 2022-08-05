@@ -43,7 +43,7 @@ func (manager *StreamManager) CreateScope(scope string) (bool, error) {
 	return bool(result), nil
 }
 
-func (manager *StreamManager) CreateStream(scope string, stream string, num int32) (bool, error) {
+func (manager *StreamManager) CreateStream(streamConfig *StreamConfiguration) (bool, error) {
 	msg := C.Buffer{}
 	scf := streamConfig.toCtype()
 	result, err := C.stream_manager_create_stream(manager.Manager, *scf, &msg)

@@ -8,13 +8,12 @@ import (
 )
 
 func main() {
-	//controllerUri := "127.0.0.1:9090"
 	scope := "foo"
 	stream := "bar"
 
 	config := client.NewClientConfig()
 	config.ControllerUri = "127.0.0.1:9090"
-	config.RequestTimeout = uint64(500 * time.Second.Milliseconds())
+
 	manager, err := client.NewStreamManager(config)
 	if err != nil {
 		println("fail to create stream manager:", err.Error())
@@ -28,8 +27,9 @@ func main() {
 		return
 	}
 	println("create scope:", res)
-
-	res, err = manager.CreateStream(scope, stream, 1)
+	streamConfig := client.NewStreamConfiguration(scope, stream)
+	streamConfig.Scale.MinSegments = 3
+	res, err = manager.CreateStream(streamConfig)
 	if err != nil {
 		println("fail to create stream:", err.Error())
 		return

@@ -2,7 +2,6 @@ package pkg
 
 /*
 #cgo LDFLAGS: -L${SRCDIR}/../../target/release/ -lpravega_client_c -Wl,-rpath,${SRCDIR}/../../target/release/
-
 #include "pravega_client.h"
 */
 import "C"
@@ -13,13 +12,15 @@ import (
 )
 
 type (
-	cu8ptr  = *C.uint8_t
-	usize   = C.uintptr_t
-	cusize  = C.size_t
-	cint    = C.int
-	ci32    = C.int32_t
-	ci64    = C.int64_t
-	cbool   = C.bool
+	cu8ptr = *C.uint8_t
+	usize  = C.uintptr_t
+	cusize = C.size_t
+	cint   = C.int
+	ci32   = C.int32_t
+	cu32   = C.uint32_t
+	ci64   = C.int64_t
+	cu64   = C.uint64_t
+	cbool  = C.bool
 )
 
 func copyAndDestroyBuffer(b C.Buffer) []byte {

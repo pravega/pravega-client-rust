@@ -23,7 +23,7 @@ impl StreamConfigurationMapping {
         let stream = to_str(self.stream);
         let scope_stream = scope.to_string() + "/" + stream;
         StreamConfiguration {
-            scoped_stream: self.scoped_stream.to_scoped_stream(),
+            scoped_stream: ScopedStream::from(scope_stream.as_str()),
             scaling: self.scaling.to_scaling(),
             retention: self.retention.to_retention(),
             tags: str_to_tags(self.tags),
@@ -48,7 +48,7 @@ impl RetentionMapping {
     fn to_retention(&self) -> Retention {
         Retention {
             retention_type: self.retention_type.to_retention_type(),
-            retention_param: self.retention_param as i64,
+            retention_param: self.retention_param,
         }
     }
 }
@@ -110,13 +110,13 @@ impl ScaleTypeMapping {
 pub struct ClientConfigMapping {
     pub max_connections_in_pool: u32,
 
-    pub max_controller_connections: usize,
+    pub max_controller_connections: u32,
 
     pub retry_policy: RetryWithBackoffMapping,
 
     pub controller_uri: *const c_char,
 
-    pub transaction_timeout_time: usize,
+    pub transaction_timeout_time: u64,
 
     pub is_tls_enabled: bool,
 
@@ -130,7 +130,7 @@ pub struct ClientConfigMapping {
 
     pub reader_wrapper_buffer_size: usize,
 
-    pub request_timeout: usize,
+    pub request_timeout: u64,
 }
 
 impl ClientConfigMapping {
