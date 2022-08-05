@@ -49,12 +49,12 @@ impl StreamManager {
             stream: Stream::from(stream_name.to_string()),
         };
 
-        let writer = self.cf.create_event_writer(scoped_stream.clone());
+        let writer = self.cf.create_event_writer(scoped_stream);
         let handle = self.cf.runtime_handle();
         let (tx, rx) = unbounded_channel();
         handle.spawn(StreamWriter::run_reactor(rx));
 
-        StreamWriter::new(writer, tx, self.cf.runtime_handle(), scoped_stream)
+        StreamWriter::new(writer, tx, self.cf.runtime_handle())
     }
 
     pub fn create_reader_group(

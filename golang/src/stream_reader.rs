@@ -1,22 +1,19 @@
 use crate::error::set_error;
 use crate::memory::{ackOperationDone, set_buffer, Buffer};
 use pravega_client::event::reader::{Event, EventReader, EventReaderError, SegmentSlice};
-use pravega_client_shared::ScopedStream;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use tokio::runtime::Handle;
 
 pub struct StreamReader {
     reader: EventReader,
     runtime_handle: Handle,
-    streams: Vec<ScopedStream>,
 }
 
 impl StreamReader {
-    pub fn new(reader: EventReader, runtime_handle: Handle, streams: Vec<ScopedStream>) -> Self {
+    pub fn new(reader: EventReader, runtime_handle: Handle) -> Self {
         StreamReader {
             reader,
             runtime_handle,
-            streams,
         }
     }
 

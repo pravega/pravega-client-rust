@@ -25,11 +25,7 @@ impl StreamReaderGroup {
         let reader = self
             .runtime_handle
             .block_on(self.reader_group.create_reader(reader_name.to_string()));
-        StreamReader::new(
-            reader,
-            self.runtime_handle.clone(),
-            self.reader_group.get_managed_streams(),
-        )
+        StreamReader::new(reader, self.runtime_handle.clone())
     }
 }
 

@@ -3,7 +3,6 @@ use crate::memory::{ackOperationDone, Buffer};
 use derive_new::new;
 use pravega_client::error::Error;
 use pravega_client::event::writer::EventWriter;
-use pravega_client_shared::ScopedStream;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -26,21 +25,14 @@ pub struct StreamWriter {
     writer: EventWriter,
     sender: UnboundedSender<Incoming>,
     runtime_handle: Handle,
-    stream: ScopedStream,
 }
 
 impl StreamWriter {
-    pub fn new(
-        writer: EventWriter,
-        sender: UnboundedSender<Incoming>,
-        runtime_handle: Handle,
-        stream: ScopedStream,
-    ) -> Self {
+    pub fn new(writer: EventWriter, sender: UnboundedSender<Incoming>, runtime_handle: Handle) -> Self {
         StreamWriter {
             writer,
             sender,
             runtime_handle,
-            stream,
         }
     }
 
