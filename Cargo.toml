@@ -7,12 +7,12 @@ name = "pravega-client"
 #   - README.md
 # - Update CHANGELOG.md.
 # - Create git tag.
-version = "0.3.1"
+version = "0.3.2"
 edition = "2018"
 categories = ["network-programming"]
 keywords = ["streaming", "client", "pravega"]
 readme = "README.md"
-documentation = "https://docs.rs/pravega-client/0.3.1/"
+documentation = "https://docs.rs/pravega-client/0.3.2/"
 homepage = "https://www.pravega.io/"
 repository = "https://github.com/pravega/pravega-client-rust"
 license = "Apache-2.0"
