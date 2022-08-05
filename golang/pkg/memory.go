@@ -56,7 +56,7 @@ func freeCString(str *C.char) {
 func makeViewFromString(s string) C.Buffer {
 	p := (*reflect.StringHeader)(unsafe.Pointer(&s))
 
-	return C.Buffer {
+	return C.Buffer{
 		ptr: cu8ptr(unsafe.Pointer(p.Data)),
 		len: cusize(p.Len),
 		cap: cusize(p.Len),
@@ -66,7 +66,7 @@ func makeViewFromString(s string) C.Buffer {
 func makeViewFromSlice(s []byte) (C.Buffer, int) {
 	p := (*reflect.SliceHeader)(unsafe.Pointer(&s))
 
-	return C.Buffer {
+	return C.Buffer{
 		ptr: cu8ptr(unsafe.Pointer(p.Data)),
 		len: cusize(p.Len),
 		cap: cusize(p.Cap),

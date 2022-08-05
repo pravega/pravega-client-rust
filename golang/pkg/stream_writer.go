@@ -3,9 +3,9 @@ package pkg
 // #include "pravega_client.h"
 import "C"
 import (
-	"runtime"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/semaphore"
+	"runtime"
 )
 
 type StreamWriter struct {
@@ -27,7 +27,7 @@ func (writer *StreamWriter) WriteEventByRoutingKey(routingKey string, event []by
 	defer runtime.KeepAlive(routingKey)
 
 	writer.Sem.Acquire(writer.Ctx, int64(length))
-	id, channel:= registerOperation()
+	id, channel := registerOperation()
 	cId := ci64(id)
 
 	_, err := C.stream_writer_write_event(writer.Writer, e, r, cId, &msg)
@@ -50,7 +50,7 @@ func (writer *StreamWriter) WriteEvent(event []byte) error {
 func (writer *StreamWriter) Flush() error {
 	msg := C.Buffer{}
 
-	id, channel:= registerOperation()
+	id, channel := registerOperation()
 	cId := ci64(id)
 	_, err := C.stream_writer_flush(writer.Writer, cId, &msg)
 	if err != nil {
