@@ -66,24 +66,24 @@ func NewCredentials() *Credentials {
 }
 
 func (c *Credentials) toCtype() *C.CredentialsMapping {
-	bc := &C.CredentialsMapping{}
+	cm := &C.CredentialsMapping{}
 	switch c.Type {
 	case CredentialsBasic:
-		bc.credential_type = C.Basic
+		cm.credential_type.value = ci32(CredentialsBasic)
 	case CredentialsBasicWithToken:
-		bc.credential_type = C.BasicWithToken
+		cm.credential_type.value = ci32(CredentialsBasicWithToken)
 	case CredentialsKeycloak:
-		bc.credential_type = C.Keycloak
+		cm.credential_type.value = ci32(CredentialsKeycloak)
 	case CredentialsJson:
-		bc.credential_type = C.KeycloakFromJsonString
+		cm.credential_type.value = ci32(CredentialsJson)
 	}
-	bc.username = C.CString(c.Username)
-	bc.password = C.CString(c.Password)
-	bc.token = C.CString(c.Token)
-	bc.path = C.CString(c.Path)
-	bc.json = C.CString(c.Json)
-	bc.disable_cert_verification = C.bool(c.DisableCertVerification)
-	return bc
+	cm.username = C.CString(c.Username)
+	cm.password = C.CString(c.Password)
+	cm.token = C.CString(c.Token)
+	cm.path = C.CString(c.Path)
+	cm.json = C.CString(c.Json)
+	cm.disable_cert_verification = C.bool(c.DisableCertVerification)
+	return cm
 }
 
 type ClientConfig struct {
@@ -202,11 +202,11 @@ func (sp *ScalePolicy) toCtype() C.ScalingMapping {
 	scaling := C.ScalingMapping{}
 	switch sp.Type {
 	case FixedNumSegments:
-		scaling.scale_type = C.FixedNumSegments
+		scaling.scale_type.value = ci32(FixedNumSegments)
 	case ByRateInKbytesPerSec:
-		scaling.scale_type = C.ByRateInKbytesPerSec
+		scaling.scale_type.value = ci32(ByRateInKbytesPerSec)
 	case ByRateInEventsPerSec:
-		scaling.scale_type = C.ByRateInEventsPerSec
+		scaling.scale_type.value = ci32(ByRateInEventsPerSec)
 	}
 	scaling.target_rate = ci32(sp.TargetRate)
 	scaling.scale_factor = ci32(sp.ScaleFactor)
@@ -218,11 +218,11 @@ func (rp *RetentionPolicy) toCtype() C.RetentionMapping {
 	retention := C.RetentionMapping{}
 	switch rp.Type {
 	case RetentionNone:
-		retention.retention_type = C.FixedNumSegments
+		retention.retention_type.value = ci32(RetentionNone)
 	case RetentionTime:
-		retention.retention_type = C.ByRateInKbytesPerSec
+		retention.retention_type.value = ci32(RetentionTime)
 	case RetentionSize:
-		retention.retention_type = C.ByRateInEventsPerSec
+		retention.retention_type.value = ci32(RetentionSize)
 	}
 	retention.retention_param = ci64(rp.RetentionParam)
 	return retention

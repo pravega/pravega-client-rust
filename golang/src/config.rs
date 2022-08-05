@@ -4,7 +4,8 @@ use pravega_client_config::*;
 use pravega_client_retry::retry_policy::RetryWithBackoff;
 use pravega_client_shared::*;
 use std::ffi::CStr;
-use std::time::Duration;
+use std::ops::Add;
+use std::time::{Duration, Instant};
 
 const SPLIT: &str = ",";
 
@@ -54,18 +55,17 @@ impl RetentionMapping {
 }
 
 #[repr(C)]
-pub enum RetentionTypeMapping {
-    None = 0,
-    Time = 1,
-    Size = 2,
+pub struct RetentionTypeMapping {
+    pub value: i32,
 }
 
 impl RetentionTypeMapping {
     fn to_retention_type(&self) -> RetentionType {
-        match self {
-            RetentionTypeMapping::None => RetentionType::None,
-            RetentionTypeMapping::Time => RetentionType::Time,
-            RetentionTypeMapping::Size => RetentionType::Size,
+        match self.value {
+            0 => RetentionType::None,
+            1 => RetentionType::Time,
+            2 => RetentionType::Size,
+            _ => RetentionType::None,
         }
     }
 }
@@ -90,18 +90,17 @@ impl ScalingMapping {
 }
 
 #[repr(C)]
-pub enum ScaleTypeMapping {
-    FixedNumSegments = 0,
-    ByRateInKbytesPerSec = 1,
-    ByRateInEventsPerSec = 2,
+pub struct ScaleTypeMapping {
+    pub value: i32,
 }
 
 impl ScaleTypeMapping {
     fn to_scale_type(&self) -> ScaleType {
-        match self {
-            ScaleTypeMapping::FixedNumSegments => ScaleType::FixedNumSegments,
-            ScaleTypeMapping::ByRateInKbytesPerSec => ScaleType::ByRateInKbytesPerSec,
-            ScaleTypeMapping::ByRateInEventsPerSec => ScaleType::ByRateInEventsPerSec,
+        match self.value {
+            0 => ScaleType::FixedNumSegments,
+            1 => ScaleType::ByRateInKbytesPerSec,
+            2 => ScaleType::ByRateInEventsPerSec,
+            _ => ScaleType::FixedNumSegments,
         }
     }
 }
@@ -195,7 +194,8 @@ impl RetryWithBackoffMapping {
             backoff.max_attempt(self.max_attempt as usize);
         }
         if self.expiration_time > 0 {
-            //TODO: set expiration_time
+            let duration = Duration::from_millis(self.expiration_time as u64);
+            backoff.expiration_time(Instant::now().add(duration));
         }
         backoff
     }
@@ -214,30 +214,24 @@ pub struct CredentialsMapping {
 
 impl CredentialsMapping {
     unsafe fn to_credentials(&self) -> Credentials {
-        return match self.credential_type {
-            CredentialsType::Basic => {
+        return match self.credential_type.value {
+            0 => {
                 let username = String::from(to_str(self.username));
                 let password = String::from(to_str(self.password));
                 Credentials::basic(username, password)
             }
-            CredentialsType::BasicWithToken => {
+            1 => {
                 let token = String::from(to_str(self.token));
                 Credentials::basic_with_token(token)
             }
-            CredentialsType::Keycloak => {
-                Credentials::keycloak(to_str(self.path), self.disable_cert_verification)
-            }
-            CredentialsType::KeycloakFromJsonString => {
-                Credentials::keycloak(to_str(self.json), self.disable_cert_verification)
-            }
+            2 => Credentials::keycloak(to_str(self.path), self.disable_cert_verification),
+            3 => Credentials::keycloak(to_str(self.json), self.disable_cert_verification),
+            _ => Credentials::basic(String::from(""), String::from("")),
         };
     }
 }
 
 #[repr(C)]
-pub enum CredentialsType {
-    Basic = 0,
-    BasicWithToken = 1,
-    Keycloak = 2,
-    KeycloakFromJsonString = 3,
+pub struct CredentialsType {
+    pub value: i32,
 }

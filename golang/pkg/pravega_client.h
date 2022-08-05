@@ -12,25 +12,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef enum CredentialsType {
-  Basic = 0,
-  BasicWithToken = 1,
-  Keycloak = 2,
-  KeycloakFromJsonString = 3,
-} CredentialsType;
-
-typedef enum RetentionTypeMapping {
-  None = 0,
-  Time = 1,
-  Size = 2,
-} RetentionTypeMapping;
-
-typedef enum ScaleTypeMapping {
-  FixedNumSegments = 0,
-  ByRateInKbytesPerSec = 1,
-  ByRateInEventsPerSec = 2,
-} ScaleTypeMapping;
-
 typedef struct Slice Slice;
 
 typedef struct StreamManager StreamManager;
@@ -57,8 +38,12 @@ typedef struct RetryWithBackoffMapping {
   int64_t expiration_time;
 } RetryWithBackoffMapping;
 
+typedef struct CredentialsType {
+  int32_t value;
+} CredentialsType;
+
 typedef struct CredentialsMapping {
-  enum CredentialsType credential_type;
+  struct CredentialsType credential_type;
   const char *username;
   const char *password;
   const char *token;
@@ -82,15 +67,23 @@ typedef struct ClientConfigMapping {
   uint64_t request_timeout;
 } ClientConfigMapping;
 
+typedef struct ScaleTypeMapping {
+  int32_t value;
+} ScaleTypeMapping;
+
 typedef struct ScalingMapping {
-  enum ScaleTypeMapping scale_type;
+  struct ScaleTypeMapping scale_type;
   int32_t target_rate;
   int32_t scale_factor;
   int32_t min_num_segments;
 } ScalingMapping;
 
+typedef struct RetentionTypeMapping {
+  int32_t value;
+} RetentionTypeMapping;
+
 typedef struct RetentionMapping {
-  enum RetentionTypeMapping retention_type;
+  struct RetentionTypeMapping retention_type;
   int64_t retention_param;
 } RetentionMapping;
 
