@@ -31,6 +31,7 @@ import {
     StreamRetentionStreamCutHead,
     StreamRetentionStreamCutTail,
     StreamManagerCreateReaderGroup,
+    StreamManagerDeleteReaderGroup,
     StreamManagerCreateWriter,
     StreamManagerCreateTxnWriter,
     StreamManagerToString,
@@ -226,6 +227,14 @@ export interface StreamManager {
     ) => StreamReaderGroup;
 
     /**
+     * Delete a ReaderGroup for a given Stream.
+     *
+     * @param scope_name The scope name.
+     * @param reader_group_name The reader group name.
+     */
+    delete_reader_group: (scope_name: string, reader_group_name: string) => void;
+
+    /**
      * Create a Writer for a given Stream.
      *
      * @param scope_name The scope name.
@@ -330,6 +339,8 @@ export const StreamManager = (
         StreamReaderGroup(
             StreamManagerCreateReaderGroup.call(stream_manager, reader_group_name, scope_name, streams, stream_cut)
         );
+    const delete_reader_group = (scope_name: string, reader_group_name: string) =>
+        StreamManagerDeleteReaderGroup.call(stream_manager, scope_name, reader_group_name);
     const create_writer = (scope_name: string, stream_name: string): StreamWriter =>
         StreamWriter(StreamManagerCreateWriter.call(stream_manager, scope_name, stream_name));
     const create_transaction_writer = (scope_name: string, stream_name: string, writer_id: BigInt): StreamTxnWriter =>
@@ -349,6 +360,7 @@ export const StreamManager = (
         delete_stream,
         list_streams,
         create_reader_group,
+        delete_reader_group,
         create_writer,
         create_transaction_writer,
         toString,
