@@ -72,6 +72,7 @@ describe('Basic test on manager, reader, and writer', () => {
         // }
         stream_reader.reader_offline();
 
+        stream_manager.delete_reader_group(SCOPE, reader_group_name);
         stream_manager.seal_stream(SCOPE, STREAM);
         stream_manager.delete_stream(SCOPE, STREAM);
         stream_manager.delete_scope(SCOPE);

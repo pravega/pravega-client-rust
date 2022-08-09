@@ -80,6 +80,7 @@ stream_reader.release_segment(seg_slice);
 stream_reader.reader_offline();
 
 // Clean up.
+stream_manager.delete_reader_group(SCOPE, reader_group_name);
 stream_manager.seal_stream(SCOPE, STREAM);
 stream_manager.delete_stream(SCOPE, STREAM);
 stream_manager.delete_scope(SCOPE);

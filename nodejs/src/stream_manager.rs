@@ -17,6 +17,7 @@ use crate::stream_writer_transactional::StreamTxnWriter;
 use neon::prelude::*;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client::event::reader_group::{ReaderGroupConfigBuilder, StreamCutVersioned};
+use pravega_client::sync::table::TableError;
 use pravega_client_config::{ClientConfig, ClientConfigBuilder};
 use pravega_client_retry::retry_result::RetryError;
 use pravega_client_shared::*;
@@ -354,6 +355,16 @@ impl StreamManager {
     }
 
     ///
+    /// Delete a ReaderGroup for a given Stream.
+    ///
+    fn delete_reader_group(&self, scope_name: &str, reader_group_name: &str) -> Result<(), TableError> {
+        let scope = Scope::from(scope_name.to_string());
+
+        let handle = self.cf.runtime_handle();
+        handle.block_on(self.cf.delete_reader_group(scope, reader_group_name.to_string()))
+    }
+
+    ///
     /// Create a Writer for a given Stream.
     ///
     pub fn create_writer(&self, scope_name: &str, stream_name: &str) -> StreamWriter {
@@ -647,6 +658,19 @@ impl StreamManager {
             },
         ));
         Ok(promise)
+    }
+
+    pub fn js_delete_reader_group(mut cx: FunctionContext) -> JsResult<JsUndefined> {
+        let stream_manager = cx.this().downcast_or_throw::<JsBox<StreamManager>, _>(&mut cx)?;
+        let scope_name = cx.argument::<JsString>(0)?.value(&mut cx);
+        let reader_group_name = cx.argument::<JsString>(1)?.value(&mut cx);
+
+        let delete_result = stream_manager.delete_reader_group(&scope_name, &reader_group_name);
+
+        match delete_result {
+            Ok(_) => Ok(cx.undefined()),
+            Err(e) => cx.throw_error(e.to_string()),
+        }
     }
 
     pub fn js_create_reader_group(mut cx: FunctionContext) -> JsResult<JsBox<StreamReaderGroup>> {
