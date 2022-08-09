@@ -72,6 +72,10 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
         StreamManager::js_create_reader_group,
     )?;
     cx.export_function(
+        "StreamManagerDeleteReaderGroup",
+        StreamManager::js_delete_reader_group,
+    )?;
+    cx.export_function(
         "StreamReaderGroupCreateReader",
         StreamReaderGroup::js_create_reader,
     )?;

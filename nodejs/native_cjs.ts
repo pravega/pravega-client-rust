@@ -34,6 +34,7 @@ export const {
     StreamRetentionStreamCutHead,
     StreamRetentionStreamCutTail,
     StreamManagerCreateReaderGroup,
+    StreamManagerDeleteReaderGroup,
     StreamManagerCreateWriter,
     StreamManagerToString,
     StreamReaderGroupCreateReader,
