@@ -135,6 +135,6 @@ impl StreamWriter {
     pub fn js_to_str(mut cx: FunctionContext) -> JsResult<JsString> {
         let stream_writer = cx.this().downcast_or_throw::<JsBox<StreamWriter>, _>(&mut cx)?;
 
-        Ok(cx.string(format!("Streams: {:?} ", stream_writer.stream)))
+        Ok(cx.string(format!("Stream: {:?} ", stream_writer.stream)))
     }
 }

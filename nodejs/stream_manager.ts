@@ -31,11 +31,14 @@ import {
     StreamRetentionStreamCutHead,
     StreamRetentionStreamCutTail,
     StreamManagerCreateReaderGroup,
+    StreamManagerDeleteReaderGroup,
     StreamManagerCreateWriter,
+    StreamManagerCreateTxnWriter,
     StreamManagerToString,
 } from './native_esm.js';
 import { StreamReaderGroup } from './stream_reader_group.js';
 import { StreamWriter } from './stream_writer.js';
+import { StreamTxnWriter } from './stream_writer_transactional.js';
 
 /**
  * Pravega allows users to store data in Tier 2 as long as there is storage capacity available.
@@ -224,6 +227,14 @@ export interface StreamManager {
     ) => StreamReaderGroup;
 
     /**
+     * Delete a ReaderGroup for a given Stream.
+     *
+     * @param scope_name The scope name.
+     * @param reader_group_name The reader group name.
+     */
+    delete_reader_group: (scope_name: string, reader_group_name: string) => void;
+
+    /**
      * Create a Writer for a given Stream.
      *
      * @param scope_name The scope name.
@@ -231,6 +242,16 @@ export interface StreamManager {
      * @returns A StreamWriter.
      */
     create_writer: (scope_name: string, stream_name: string) => StreamWriter;
+
+    /**
+     * Create a transaction Writer for a given Stream.
+     *
+     * @param scope_name The scope name.
+     * @param stream_name The stream name.
+     * @param writer_id ID (no larger than unsigned int 128) of the writer.
+     * @returns A StreamTxnWriter.
+     */
+    create_transaction_writer: (scope_name: string, stream_name: string, writer_id: BigInt) => StreamTxnWriter;
 
     /**
      * A detailed view of the StreamManager.
@@ -318,8 +339,14 @@ export const StreamManager = (
         StreamReaderGroup(
             StreamManagerCreateReaderGroup.call(stream_manager, reader_group_name, scope_name, streams, stream_cut)
         );
+    const delete_reader_group = (scope_name: string, reader_group_name: string) =>
+        StreamManagerDeleteReaderGroup.call(stream_manager, scope_name, reader_group_name);
     const create_writer = (scope_name: string, stream_name: string): StreamWriter =>
         StreamWriter(StreamManagerCreateWriter.call(stream_manager, scope_name, stream_name));
+    const create_transaction_writer = (scope_name: string, stream_name: string, writer_id: BigInt): StreamTxnWriter =>
+        StreamTxnWriter(
+            StreamManagerCreateTxnWriter.call(stream_manager, scope_name, stream_name, writer_id.toString())
+        );
     const toString = (): string => StreamManagerToString.call(stream_manager);
 
     return {
@@ -333,7 +360,9 @@ export const StreamManager = (
         delete_stream,
         list_streams,
         create_reader_group,
+        delete_reader_group,
         create_writer,
+        create_transaction_writer,
         toString,
     };
 };
