@@ -18,6 +18,7 @@ command = [
     "build",
     "--release",
     "--no-sdist",
+    "--manylinux",
     "--interpreter",
     sys.executable,
 ]
