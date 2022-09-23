@@ -19,7 +19,7 @@ command = [
     "--release",
     "--no-sdist",
     "--manylinux",
-    "2014",
+    "auto",
     "--interpreter",
     sys.executable,
 ]
