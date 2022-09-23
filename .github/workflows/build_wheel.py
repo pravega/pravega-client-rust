@@ -18,6 +18,10 @@ command = [
     "build",
     "--release",
     "--no-sdist",
+    "--manylinux",
+    "2014",
+    "--interpreter",
+    sys.executable,
 ]
 subprocess.run(command, check=True)
 os.chdir("..")
