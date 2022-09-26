@@ -65,7 +65,7 @@ jobs:
           TWINE_REPOSITORY: pypi
         run: |
           pip install -U twine
-          python -m twine upload --skip-existing output
+          python -m twine upload --skip-existing output/*
 
   # nodejs-npm:
   #   name: nodejs-npm
