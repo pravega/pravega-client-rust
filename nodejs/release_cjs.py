@@ -26,7 +26,7 @@ for filename in ts_files:
 
 # It will also add correct module type to the commonjs distribution,
 # e.g. "type": "commonjs" to ./dist/cjs/package.json
-# so that `require`` will work properly in the legacy environment.
+# so that `require` will work properly in the legacy environment.
 os.makedirs('./dist/cjs')
 with open('./dist/cjs/package.json', 'w') as f:
     f.write('{"type": "commonjs"}')

@@ -18,6 +18,8 @@ pub mod stream_manager;
 pub mod stream_reader;
 pub mod stream_reader_group;
 pub mod stream_writer;
+pub mod stream_writer_transactional;
+pub mod transaction;
 pub mod util;
 
 use neon::prelude::*;
@@ -25,6 +27,8 @@ use stream_manager::{StreamManager, StreamRetentionPolicy, StreamScalingPolicy};
 use stream_reader::{EventData, Slice, StreamReader};
 use stream_reader_group::{StreamCut, StreamReaderGroup};
 use stream_writer::StreamWriter;
+use stream_writer_transactional::StreamTxnWriter;
+use transaction::StreamTransaction;
 
 #[neon::main]
 fn main(mut cx: ModuleContext) -> NeonResult<()> {
@@ -68,6 +72,10 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
         StreamManager::js_create_reader_group,
     )?;
     cx.export_function(
+        "StreamManagerDeleteReaderGroup",
+        StreamManager::js_delete_reader_group,
+    )?;
+    cx.export_function(
         "StreamReaderGroupCreateReader",
         StreamReaderGroup::js_create_reader,
     )?;
@@ -90,6 +98,26 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
     cx.export_function("StreamWriterWriteEventBytes", StreamWriter::js_write_event_bytes)?;
     cx.export_function("StreamWriterFlush", StreamWriter::js_flush)?;
     cx.export_function("StreamWriterToString", StreamWriter::js_to_str)?;
+
+    cx.export_function(
+        "StreamManagerCreateTxnWriter",
+        StreamManager::js_create_transaction_writer,
+    )?;
+    cx.export_function("StreamTransactionGetTxnId", StreamTransaction::js_get_txn_id)?;
+    cx.export_function("StreamTransactionIsOpen", StreamTransaction::js_is_open)?;
+    cx.export_function(
+        "StreamTransactionWriteEventBytes",
+        StreamTransaction::js_write_event_bytes,
+    )?;
+    cx.export_function(
+        "StreamTransactionCommitTimestamp",
+        StreamTransaction::js_commit_timestamp,
+    )?;
+    cx.export_function("StreamTransactionAbort", StreamTransaction::js_abort)?;
+    cx.export_function("StreamTransactionToString", StreamTransaction::js_to_str)?;
+    cx.export_function("StreamTxnWriterBeginTxn", StreamTxnWriter::js_begin_txn)?;
+    cx.export_function("StreamTxnWriterGetTxn", StreamTxnWriter::js_get_txn)?;
+    cx.export_function("StreamTxnWriterToString", StreamTxnWriter::js_to_str)?;
 
     Ok(())
 }

@@ -13,9 +13,11 @@
 
 use crate::stream_reader_group::{StreamCut, StreamReaderGroup};
 use crate::stream_writer::StreamWriter;
+use crate::stream_writer_transactional::StreamTxnWriter;
 use neon::prelude::*;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client::event::reader_group::{ReaderGroupConfigBuilder, StreamCutVersioned};
+use pravega_client::sync::table::TableError;
 use pravega_client_config::{ClientConfig, ClientConfigBuilder};
 use pravega_client_retry::retry_result::RetryError;
 use pravega_client_shared::*;
@@ -353,6 +355,16 @@ impl StreamManager {
     }
 
     ///
+    /// Delete a ReaderGroup for a given Stream.
+    ///
+    fn delete_reader_group(&self, scope_name: &str, reader_group_name: &str) -> Result<(), TableError> {
+        let scope = Scope::from(scope_name.to_string());
+
+        let handle = self.cf.runtime_handle();
+        handle.block_on(self.cf.delete_reader_group(scope, reader_group_name.to_string()))
+    }
+
+    ///
     /// Create a Writer for a given Stream.
     ///
     pub fn create_writer(&self, scope_name: &str, stream_name: &str) -> StreamWriter {
@@ -365,6 +377,26 @@ impl StreamManager {
             self.cf.runtime_handle(),
             scoped_stream,
         )
+    }
+
+    ///
+    /// Create a Transactional Writer for a given Stream.
+    ///
+    pub fn create_transaction_writer(
+        &self,
+        scope_name: &str,
+        stream_name: &str,
+        writer_id: u128,
+    ) -> StreamTxnWriter {
+        let scoped_stream = ScopedStream {
+            scope: Scope::from(scope_name.to_string()),
+            stream: Stream::from(stream_name.to_string()),
+        };
+        let txn_writer = self.cf.runtime_handle().block_on(
+            self.cf
+                .create_transactional_event_writer(scoped_stream.clone(), WriterId(writer_id)),
+        );
+        StreamTxnWriter::new(txn_writer, self.cf.runtime_handle(), scoped_stream)
     }
 }
 
@@ -628,6 +660,19 @@ impl StreamManager {
         Ok(promise)
     }
 
+    pub fn js_delete_reader_group(mut cx: FunctionContext) -> JsResult<JsUndefined> {
+        let stream_manager = cx.this().downcast_or_throw::<JsBox<StreamManager>, _>(&mut cx)?;
+        let scope_name = cx.argument::<JsString>(0)?.value(&mut cx);
+        let reader_group_name = cx.argument::<JsString>(1)?.value(&mut cx);
+
+        let delete_result = stream_manager.delete_reader_group(&scope_name, &reader_group_name);
+
+        match delete_result {
+            Ok(_) => Ok(cx.undefined()),
+            Err(e) => cx.throw_error(e.to_string()),
+        }
+    }
+
     pub fn js_create_reader_group(mut cx: FunctionContext) -> JsResult<JsBox<StreamReaderGroup>> {
         let stream_manager = cx.this().downcast_or_throw::<JsBox<StreamManager>, _>(&mut cx)?;
         let reader_group_name = cx.argument::<JsString>(0)?.value(&mut cx);
@@ -661,6 +706,22 @@ impl StreamManager {
         let stream_writer = stream_manager.create_writer(&scope_name, &stream_name);
 
         Ok(cx.boxed(stream_writer))
+    }
+
+    pub fn js_create_transaction_writer(mut cx: FunctionContext) -> JsResult<JsBox<StreamTxnWriter>> {
+        let stream_manager = cx.this().downcast_or_throw::<JsBox<StreamManager>, _>(&mut cx)?;
+        let scope_name = cx.argument::<JsString>(0)?.value(&mut cx);
+        let stream_name = cx.argument::<JsString>(1)?.value(&mut cx);
+        let writer_id = cx
+            .argument::<JsString>(2)?
+            .value(&mut cx)
+            .parse::<u128>()
+            .unwrap();
+
+        let stream_txn_writer =
+            stream_manager.create_transaction_writer(&scope_name, &stream_name, writer_id);
+
+        Ok(cx.boxed(stream_txn_writer))
     }
 
     pub fn js_to_str(mut cx: FunctionContext) -> JsResult<JsString> {

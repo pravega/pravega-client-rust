@@ -46,6 +46,7 @@ export const {
     StreamRetentionStreamCutHead,
     StreamRetentionStreamCutTail,
     StreamManagerCreateReaderGroup,
+    StreamManagerDeleteReaderGroup,
     StreamManagerCreateWriter,
     StreamManagerToString,
     StreamReaderGroupCreateReader,
@@ -62,5 +63,15 @@ export const {
     StreamWriterWriteEventBytes,
     StreamWriterFlush,
     StreamWriterToString,
+    StreamManagerCreateTxnWriter,
+    StreamTransactionGetTxnId,
+    StreamTransactionIsOpen,
+    StreamTransactionWriteEventBytes,
+    StreamTransactionCommitTimestamp,
+    StreamTransactionAbort,
+    StreamTransactionToString,
+    StreamTxnWriterBeginTxn,
+    StreamTxnWriterGetTxn,
+    StreamTxnWriterToString,
     // the file will be run in ./dist/esm/, so popd.
 } = require(find(resolve(join(__dirname, process.env.PRAVEGA_NODEJS_DEV ? '' : '../..', './package.json'))));

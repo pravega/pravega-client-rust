@@ -71,11 +71,11 @@ export interface StreamWriter {
 export const StreamWriter = (stream_writer): StreamWriter => {
     const enc = new TextEncoder(); // A `string` to `Uint8Array` serializer.
 
-    const write_event = async (event: string, routing_key?: string): Promise<undefined> =>
-        await StreamWriterWriteEventBytes.call(stream_writer, enc.encode(event), routing_key);
-    const write_event_bytes = async (buf: Uint8Array, routing_key?: string): Promise<undefined> =>
-        await StreamWriterWriteEventBytes.call(stream_writer, buf, routing_key);
-    const flush = (): Promise<undefined> => StreamWriterFlush.call(stream_writer);
+    const write_event = async (event: string, routing_key?: string): Promise<void> =>
+        StreamWriterWriteEventBytes.call(stream_writer, enc.encode(event), routing_key);
+    const write_event_bytes = async (buf: Uint8Array, routing_key?: string): Promise<void> =>
+        StreamWriterWriteEventBytes.call(stream_writer, buf, routing_key);
+    const flush = (): Promise<void> => StreamWriterFlush.call(stream_writer);
     const toString = (): string => StreamWriterToString.call(stream_writer);
 
     return { write_event, write_event_bytes, flush, toString };

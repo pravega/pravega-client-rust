@@ -42,6 +42,15 @@ describe('Basic test on manager, reader, and writer', () => {
         stream_writer_2.write_event_bytes(enc.encode(DATA), 'routing_key');
         await stream_writer_2.flush();
 
+        const stream_txn_writer = stream_manager.create_transaction_writer(SCOPE, STREAM, BigInt(1));
+        const txn = await stream_txn_writer.begin_txn();
+        assert.isAbove(Number(txn.get_txn_id()), 0);
+        await txn.write_event(DATA);
+        await txn.write_event_bytes(enc.encode(DATA), 'routing_key');
+        assert.isTrue(await txn.is_open());
+        await txn.commit();
+        assert.isFalse(await txn.is_open());
+
         const reader_group_name = Math.random().toString(36).slice(2, 10);
         const reader_name = Math.random().toString(36).slice(2, 10);
         const stream_reader_group = stream_manager.create_reader_group(
@@ -55,7 +64,7 @@ describe('Basic test on manager, reader, and writer', () => {
         const seg_slice = await stream_reader.get_segment_slice();
         const dec = new TextDecoder('utf-8');
         const events = [...seg_slice].map(event => dec.decode(event.data()));
-        assert.equal(events.length, 4);
+        assert.equal(events.length, 6);
         events.map(event => assert.equal(event, DATA));
         // for (const event of seg_slice) {
         //     const raw_value = event.data();
@@ -63,6 +72,7 @@ describe('Basic test on manager, reader, and writer', () => {
         // }
         stream_reader.reader_offline();
 
+        stream_manager.delete_reader_group(SCOPE, reader_group_name);
         stream_manager.seal_stream(SCOPE, STREAM);
         stream_manager.delete_stream(SCOPE, STREAM);
         stream_manager.delete_scope(SCOPE);
