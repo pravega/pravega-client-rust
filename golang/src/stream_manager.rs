@@ -272,4 +272,3 @@ pub extern "C" fn stream_reader_group_destroy(rg: *mut StreamReaderGroup) {
         }
     }
 }
-
