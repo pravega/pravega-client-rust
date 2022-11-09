@@ -8,10 +8,16 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
+// StreamManager is responsible for creating scope, stream, writers and readerGroup.
 type StreamManager struct {
 	Manager *C.StreamManager
 }
 
+// Create a StreamManager with specific clientConfig. It will start a reactor goroutine and waiting for the callback response from rust side.
+// E.g.
+//
+//	config := client.NewClientConfig()
+//	manager, err := client.NewStreamManager(config)
 func NewStreamManager(config *ClientConfig) (*StreamManager, error) {
 	runReactor()
 
@@ -27,11 +33,13 @@ func NewStreamManager(config *ClientConfig) (*StreamManager, error) {
 	}, nil
 }
 
+// Close the StreamManager. Stop the reactor goroutine and release the resources
 func (manager *StreamManager) Close() {
 	stopReactor()
 	C.stream_manager_destroy(manager.Manager)
 }
 
+// Create scope with a given name. If scope has already exists, return false, else return true. If doesn't success, return error.
 func (manager *StreamManager) CreateScope(scope string) (bool, error) {
 	msg := C.Buffer{}
 	cScope := C.CString(scope)
@@ -43,6 +51,9 @@ func (manager *StreamManager) CreateScope(scope string) (bool, error) {
 	return bool(result), nil
 }
 
+// Create stream with a given name.
+// If stream has already exists, return false, else return true.
+// If doesn't success, return error.
 func (manager *StreamManager) CreateStream(streamConfig *StreamConfiguration) (bool, error) {
 	msg := C.Buffer{}
 	scf := streamConfig.toCtype()
@@ -54,6 +65,8 @@ func (manager *StreamManager) CreateStream(streamConfig *StreamConfiguration) (b
 	return bool(result), nil
 }
 
+// Create EventStreamWriter with 15MB buffer.
+// TODO: Make buffer size configurable.
 func (manager *StreamManager) CreateWriter(scope string, stream string) (*StreamWriter, error) {
 	msg := C.Buffer{}
 	cScope := C.CString(scope)
@@ -74,6 +87,8 @@ func (manager *StreamManager) CreateWriter(scope string, stream string) (*Stream
 	}, nil
 }
 
+// Create ReaderGroup for given scope/stream.
+// If you want read latest data in the stream, set readFromTail=true, or read data from the very beginning.
 func (manager *StreamManager) CreateReaderGroup(readerGroup string, scope string, stream string, readFromTail bool) (*StreamReaderGroup, error) {
 	msg := C.Buffer{}
 	cReaderGroup := C.CString(readerGroup)

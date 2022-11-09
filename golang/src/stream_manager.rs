@@ -273,38 +273,3 @@ pub extern "C" fn stream_reader_group_destroy(rg: *mut StreamReaderGroup) {
     }
 }
 
-pub struct StreamScalingPolicy {
-    scaling: Scaling,
-}
-
-impl StreamScalingPolicy {
-    fn fixed_scaling_policy(initial_segments: i32) -> StreamScalingPolicy {
-        StreamScalingPolicy {
-            scaling: Scaling {
-                scale_type: ScaleType::FixedNumSegments,
-                target_rate: 0,
-                scale_factor: 0,
-                min_num_segments: initial_segments,
-            },
-        }
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn fixed_scaling_policy(num: i32) -> *mut StreamScalingPolicy {
-    if num <= 0 {
-        return ptr::null_mut();
-    }
-
-    let policy = StreamScalingPolicy::fixed_scaling_policy(num);
-    Box::into_raw(Box::new(policy))
-}
-
-#[no_mangle]
-pub extern "C" fn scaling_policy_destroy(policy: *mut StreamScalingPolicy) {
-    if !policy.is_null() {
-        unsafe {
-            Box::from_raw(policy);
-        }
-    }
-}

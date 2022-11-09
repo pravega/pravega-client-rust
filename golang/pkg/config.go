@@ -10,6 +10,9 @@ import (
 	"time"
 )
 
+// All configurations in this file are compatible with rust side, you can check the rust source code for detail:
+// https://github.com/pravega/pravega-client-rust/blob/master/shared/src/lib.rs
+
 type CredentialsType int
 
 const (
@@ -27,6 +30,7 @@ type RetryWithBackoff struct {
 	ExpirationTime     int64
 }
 
+// Convert go type to C type
 func (r *RetryWithBackoff) toCtype() *C.RetryWithBackoffMapping {
 	backoff := &C.RetryWithBackoffMapping{}
 	backoff.initial_delay = cu64(r.InitialDelay)
@@ -38,6 +42,7 @@ func (r *RetryWithBackoff) toCtype() *C.RetryWithBackoffMapping {
 
 }
 
+// New RetryWithBackoff with default config
 func NewRetryWithBackoff() *RetryWithBackoff {
 	return &RetryWithBackoff{
 		InitialDelay:       1,
@@ -65,6 +70,7 @@ func NewCredentials() *Credentials {
 	}
 }
 
+// Convert go type to C type
 func (c *Credentials) toCtype() *C.CredentialsMapping {
 	cm := &C.CredentialsMapping{}
 	switch c.Type {
@@ -101,6 +107,7 @@ type ClientConfig struct {
 	DisableCertVerification  bool
 }
 
+// New ClientConfig with default config
 func NewClientConfig() *ClientConfig {
 	return &ClientConfig{
 		MaxConnectionsInPool:     math.MaxUint32,
@@ -118,6 +125,7 @@ func NewClientConfig() *ClientConfig {
 	}
 }
 
+// Convert go type to C type
 func (clientConfig *ClientConfig) toCtype() C.ClientConfigMapping {
 	bconfig := C.ClientConfigMapping{}
 	bconfig.max_connections_in_pool = cu32(clientConfig.MaxConnectionsInPool)
@@ -181,6 +189,8 @@ type StreamConfiguration struct {
 	Tags      string
 }
 
+// New StreamConfiguration with default config:
+// FixedNumSegments and NoneRetention Policy
 func NewStreamConfiguration(scope, stream string) *StreamConfiguration {
 	return &StreamConfiguration{
 		Scope:  scope,
@@ -198,6 +208,7 @@ func NewStreamConfiguration(scope, stream string) *StreamConfiguration {
 	}
 }
 
+// Convert go type to C type
 func (sp *ScalePolicy) toCtype() C.ScalingMapping {
 	scaling := C.ScalingMapping{}
 	switch sp.Type {
@@ -214,6 +225,7 @@ func (sp *ScalePolicy) toCtype() C.ScalingMapping {
 	return scaling
 }
 
+// Convert go type to C type
 func (rp *RetentionPolicy) toCtype() C.RetentionMapping {
 	retention := C.RetentionMapping{}
 	switch rp.Type {
@@ -228,6 +240,7 @@ func (rp *RetentionPolicy) toCtype() C.RetentionMapping {
 	return retention
 }
 
+// Convert go type to C type
 func (cfg *StreamConfiguration) toCtype() *C.StreamConfigurationMapping {
 	c_stream_config := &C.StreamConfigurationMapping{}
 	c_stream_config.scope = C.CString(cfg.Scope)

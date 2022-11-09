@@ -56,7 +56,7 @@ impl RetentionMapping {
 
 #[repr(C)]
 pub struct RetentionTypeMapping {
-    pub value: i32,
+    pub value :i32
 }
 
 impl RetentionTypeMapping {
@@ -91,7 +91,7 @@ impl ScalingMapping {
 
 #[repr(C)]
 pub struct ScaleTypeMapping {
-    pub value: i32,
+    pub value :i32
 }
 
 impl ScaleTypeMapping {
@@ -224,14 +224,18 @@ impl CredentialsMapping {
                 let token = String::from(to_str(self.token));
                 Credentials::basic_with_token(token)
             }
-            2 => Credentials::keycloak(to_str(self.path), self.disable_cert_verification),
-            3 => Credentials::keycloak(to_str(self.json), self.disable_cert_verification),
-            _ => Credentials::basic(String::from(""), String::from("")),
+            2 => {
+                Credentials::keycloak(to_str(self.path), self.disable_cert_verification)
+            }
+            3 => {
+                Credentials::keycloak(to_str(self.json), self.disable_cert_verification)
+            }
+            _ => {Credentials::basic(String::from(""), String::from(""))}
         };
     }
 }
 
 #[repr(C)]
 pub struct CredentialsType {
-    pub value: i32,
+    pub value :i32
 }

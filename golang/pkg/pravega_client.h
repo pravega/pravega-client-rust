@@ -20,8 +20,6 @@ typedef struct StreamReader StreamReader;
 
 typedef struct StreamReaderGroup StreamReaderGroup;
 
-typedef struct StreamScalingPolicy StreamScalingPolicy;
-
 typedef struct StreamWriter StreamWriter;
 
 typedef struct Buffer {
@@ -125,10 +123,6 @@ struct StreamReaderGroup *stream_reader_group_new(const struct StreamManager *ma
                                                   struct Buffer *err);
 
 void stream_reader_group_destroy(struct StreamReaderGroup *rg);
-
-struct StreamScalingPolicy *fixed_scaling_policy(int32_t num);
-
-void scaling_policy_destroy(struct StreamScalingPolicy *policy);
 
 void stream_writer_write_event(struct StreamWriter *writer,
                                struct Buffer event,

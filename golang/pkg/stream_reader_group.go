@@ -13,6 +13,7 @@ func (readerGroup *StreamReaderGroup) Close() {
 	C.stream_reader_group_destroy(readerGroup.ReaderGroup)
 }
 
+// Create StreamReader with a given name.
 func (readerGroup *StreamReaderGroup) CreateReader(reader string) (*StreamReader, error) {
 	msg := C.Buffer{}
 	cReader := C.CString(reader)
