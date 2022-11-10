@@ -6,12 +6,27 @@ on:
       - '*'
 
 jobs:
+  github-release:
+    name: Create Github release page
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - name: Set release version
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+      - name: Create Github release page
+        # Create the release page first or the nodejs artifacts upload will fail
+        run: gh release create ${{ env.RELEASE_VERSION }} --draft --notes "Auto created by tagPublish workflow."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   wheel:
     name: python${{ matrix.python-version }}-${{ matrix.platform.python-architecture }} ${{ matrix.platform.os }}
     runs-on: ${{ matrix.platform.os }}
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9]
+        python-version: [3.6, 3.7, 3.8, 3.9, 3.10]
         platform: [
         { os: "ubuntu-latest",  python-architecture: "x64", rust-target: "x86_64-unknown-linux-gnu" },
         { os: "macOS-latest",   python-architecture: "x64", rust-target: "x86_64-apple-darwin" },
@@ -58,11 +73,11 @@ jobs:
     # Prevent a situation where native build fails and a npm package is uploaded.
     needs: [nodejs-github-native]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           ref: ${{ github.event.release.tag_name }}
       - name: Set release version
-        # Set release version in all three os, the commented run should suffice for linux and mac.
+        # Set release version env in all three os, the commented command only works in linux and mac.
         run: python3 -c "import os; tag = os.environ['GITHUB_REF'].split('/')[-1]; f = open(os.environ['GITHUB_ENV'], 'a'); f.write('RELEASE_VERSION='+tag); f.close();"
         # run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
@@ -75,15 +90,15 @@ jobs:
         working-directory: ./nodejs
         run: npm i
 
-      - name: Build js
-        working-directory: ./nodejs
-        run: npm run release-js
       - name: Tweak package.json
         working-directory: ./nodejs
         # This will update the package version to tag version and
         # add an install script in package.json so users who `npm i` this package
         # will trigger the node-pre-gyp to pull the os and arch specific binary.
         run: python3 -c "import os; import json; p = json.load(open('package.json')); p['scripts']['install'] = 'node-pre-gyp install'; p['version'] = os.environ['RELEASE_VERSION']; json.dump(p, open('package.json', 'w'), indent=2, ensure_ascii=False);"
+      - name: Compile for esm and commonjs
+        working-directory: ./nodejs
+        run: npm run release-js
       - name: Publish to npm
         working-directory: ./nodejs
         # `--access public` is used to publish to my account's scope.
@@ -94,6 +109,8 @@ jobs:
   nodejs-github-native:
     name: nodejs-${{ matrix.node_version }}-${{ matrix.system.target }}-${{ matrix.system.os }}
     runs-on: ${{ matrix.system.os }}
+    # Prevent a situation where artifacts are uploaded to a non-existing release.
+    needs: [github-release]
     strategy:
       fail-fast: false
       matrix:
@@ -111,11 +128,11 @@ jobs:
           # Would like to have aarch64 support, but actions does not provide these yet.
           # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           ref: ${{ github.event.release.tag_name }}
       - name: Set release version
-        # Set release version in all three os, the commented run should suffice for linux and mac.
+        # Set release version env in all three os, the commented command only works in linux and mac.
         run: python3 -c "import os; tag = os.environ['GITHUB_REF'].split('/')[-1]; f = open(os.environ['GITHUB_ENV'], 'a'); f.write('RELEASE_VERSION='+tag); f.close();"
         # run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
@@ -161,7 +178,7 @@ jobs:
       - name: Build native
         working-directory: ./nodejs
         run: npm run release-native
-      - name: Pacakge the asset
+      - name: Package the asset
         working-directory: ./nodejs
         # This will make a node-pre-gyp package.
         run: npx node-pre-gyp package
