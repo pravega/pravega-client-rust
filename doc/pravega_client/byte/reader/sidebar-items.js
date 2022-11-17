@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["ByteReader","A ByteReader enables reading raw bytes from a segment."]]});
+window.SIDEBAR_ITEMS = {"struct":[["ByteReader","A ByteReader enables reading raw bytes from a segment."]]};

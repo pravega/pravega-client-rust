@@ -100,7 +100,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="Rust/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="Rust/EventClient.html"><strong aria-hidden="true">3.1.</strong> Event Client</a></li><li class="chapter-item expanded "><a href="Rust/ByteClient.html"><strong aria-hidden="true">3.2.</strong> Byte Client</a></li><li class="chapter-item expanded "><a href="Rust/contribution.html"><strong aria-hidden="true">3.3.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="Python/PythonBindings.html"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="quickStart.html"><strong aria-hidden="true">2.</strong> QuickStart</a></li><li class="chapter-item expanded "><a href="Rust/index.html"><strong aria-hidden="true">3.</strong> Rust Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="Rust/EventClient.html"><strong aria-hidden="true">3.1.</strong> Event Client</a></li><li class="chapter-item expanded "><a href="Rust/ByteClient.html"><strong aria-hidden="true">3.2.</strong> Byte Client</a></li><li class="chapter-item expanded "><a href="Rust/contribution.html"><strong aria-hidden="true">3.3.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="Python/index.html"><strong aria-hidden="true">4.</strong> Python Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="Python/PythonBindings.html"><strong aria-hidden="true">4.1.</strong> Python Bindings</a></li><li class="chapter-item expanded "><a href="Python/contribution.html"><strong aria-hidden="true">4.2.</strong> Developer Corner</a></li></ol></li><li class="chapter-item expanded "><a href="Nodejs/index.html"><strong aria-hidden="true">5.</strong> Nodejs Client</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="Nodejs/NodejsBindings.html"><strong aria-hidden="true">5.1.</strong> Nodejs Bindings</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -170,7 +170,7 @@
                     <main>
                         <h1><a class="header" href="#pravega-rust-client-and-pravega-language-bindings-user-guide" id="pravega-rust-client-and-pravega-language-bindings-user-guide">Pravega Rust Client and Pravega language bindings user guide.</a></h1>
 <p>Welcome to the Pravega Rust client and Pravega language bindings user guide! This book is a companion to 
-<a href="https://docs.rs/pravega-client/0.3.1/pravega_client/">Pravega Rust Client</a> and the supported language bindings over the Pravega Rust
+<a href="https://docs.rs/pravega-client/0.3.2/pravega_client/">Pravega Rust Client</a> and the supported language bindings over the Pravega Rust
 Client. At the moment this repository supports <a href="https://github.com/pravega/pravega-client-rust/tree/master/python">Python binding</a> to Pravega.</p>
 <p>This book contains examples and documentation to explain all of Pravega Rust client's use cases in detail and the Python
 language binding.</p>
@@ -184,6 +184,9 @@ language binding.</p>
 </li>
 <li>
 <p>Python API Documentation: <a href="">stable</a> | <a href="./python/pravega_client.html">master</a></p>
+</li>
+<li>
+<p>Nodejs Documentation: <a href="./Nodejs/NodejsBindings.html">Tutorial</a> | <a href="./nodejs/index.html">API</a></p>
 </li>
 </ul>
 <p><img src="https://github.com/pravega/pravega-client-rust/workflows/CIbuild/badge.svg" alt="CIbuild" />
@@ -536,6 +539,123 @@ specify a specific interpreter using <code>--interpreter</code> option.</li>
 </li>
 </ul>
 </li>
+</ol>
+<h1><a class="header" href="#nodejs-client" id="nodejs-client">Nodejs Client</a></h1>
+<p>This section describes:</p>
+<ul>
+<li>Example of Nodejs client to interact with Pravega.</li>
+<li>Steps to generate Nodejs Bindings for Pravega from the Rust client.</li>
+<li><a href="Nodejs/./nodejs/index.html">Nodejs API reference</a>.</li>
+</ul>
+<h1><a class="header" href="#pravega-nodejs-client" id="pravega-nodejs-client">Pravega Nodejs Client</a></h1>
+<p>This project provides a way to interact with <a href="https://cncf.pravega.io">Pravega</a> via a Nodejs client.</p>
+<p>Pravega is an open source distributed storage service implementing Streams. It offers Stream as the main primitive for the foundation of reliable storage systems: a high-performance, durable, elastic, and unlimited append-only byte stream with strict ordering and consistency.</p>
+<h2><a class="header" href="#install" id="install">Install</a></h2>
+<p>The client library can be installed using npm or yarn.</p>
+<pre><code class="language-shell">npm install @pravega/pravega
+#or
+yarn add @pravega/pravega
+</code></pre>
+<p>After the package is downloaded from the registry, a <code>node-pre-gyp install</code> will be triggered to pull the underlying Rust Node addon binary from the Github releases.</p>
+<p>Note your os and architecture matters. Only <code>Windows</code>, <code>MacOS</code>, and <code>linux</code> with <code>x86_64</code> architecture come with a pre-built binary. If there is a connection problem or your platform is not supported, you need to build the native Node addon by pulling the repo and execute several commands to get the binary. They are stated below in the <em>Install Native Addons Manually</em> or <em>Development</em> section.</p>
+<h2><a class="header" href="#example" id="example">Example</a></h2>
+<p>After an <code>npm init</code>, add <code>&quot;type&quot;: &quot;module&quot;,</code> to your <code>package.json</code> so <code>node</code> can load ECMAScript modules correctly. We do provide a CommonJS distribution for legacy compatibility, so feel free to use <code>require()</code>.</p>
+<pre><code class="language-javascript">import { StreamCut, StreamManager } from '@pravega/pravega';
+// or the following if you are still using CommonJS
+const { StreamCut, StreamManager } = require('@pravega/pravega');
+
+const SCOPE = 'scope1';
+const STREAM = 'stream1';
+const DATA = 'Hello World!';
+
+// Assume Pravega controller is listening at 127.0.0.1:9090
+const stream_manager = StreamManager('tcp://127.0.0.1:9090', false, false, true);
+// Assume the scope and stream don't exist.
+stream_manager.create_scope(SCOPE);
+// This will create a stream with only 1 segment.
+stream_manager.create_stream(SCOPE, STREAM);
+
+// Write event as string.
+const stream_writer_1 = stream_manager.create_writer(SCOPE, STREAM);
+await stream_writer_1.write_event(DATA);
+await stream_writer_1.write_event(DATA, 'routing_key');
+// Write event as bytes.
+const enc = new TextEncoder();
+const stream_writer_2 = stream_manager.create_writer(SCOPE, STREAM);
+stream_writer_2.write_event_bytes(enc.encode(DATA));
+stream_writer_2.write_event_bytes(enc.encode(DATA), 'routing_key');
+// You can also write them in parallel and await flush.
+await stream_writer_2.flush();
+
+// Write events as a transaction.
+const stream_txn_writer = stream_manager.create_transaction_writer(SCOPE, STREAM, BigInt(1));
+const txn = await stream_txn_writer.begin_txn();
+await txn.write_event(DATA);
+await txn.write_event_bytes(enc.encode(DATA), 'routing_key');
+// You may commit or abort the transaction.
+// The previous events aren't preserved in Pravega until next operation.
+await txn.commit();
+
+// Create a reader group and a reader.
+const reader_group_name = Math.random().toString(36).slice(2, 10);
+const reader_name = Math.random().toString(36).slice(2, 10);
+const stream_reader_group = stream_manager.create_reader_group(
+    StreamCut.head(),
+    reader_group_name,
+    SCOPE,
+    STREAM
+);
+const stream_reader = stream_reader_group.create_reader(reader_name);
+
+// Read data back from stream.
+// One `get_segment_slice()` call per segment.
+const seg_slice = await stream_reader.get_segment_slice();
+const dec = new TextDecoder('utf-8');
+for (const event of seg_slice) {
+    const raw_bytes = event.data();
+    console.log(`Event at ${event.offset()} reads ${dec.decode(raw_bytes)}`);
+}
+// Release the current slice so other reader can lock and read this slice.
+stream_reader.release_segment(seg_slice);
+stream_reader.reader_offline();
+
+// Clean up.
+stream_manager.delete_reader_group(SCOPE, reader_group_name);
+stream_manager.seal_stream(SCOPE, STREAM);
+stream_manager.delete_stream(SCOPE, STREAM);
+stream_manager.delete_scope(SCOPE);
+</code></pre>
+<p>With a <a href="https://cncf.pravega.io/docs/latest/deployment/run-local/"><code>pravega-standalone</code></a> running locally, you can see these outputs after running it:</p>
+<pre><code class="language-shell">$ node --version
+v16.15.0
+$ node index.js
+Event at 0 reads Hello World!
+Event at 20 reads Hello World!
+Event at 40 reads Hello World!
+Event at 60 reads Hello World!
+Event at 80 reads Hello World!
+Event at 100 reads Hello World!
+</code></pre>
+<h2><a class="header" href="#supported-apis" id="supported-apis">Supported APIs</a></h2>
+<p>Check the <a href="https://github.com/pravega/pravega-client-rust/wiki/Supported-APIs">Supported APIs Wiki page</a>.</p>
+<p>A full API reference may be found <a href="https://pravega.github.io/pravega-client-rust/nodejs/index.html">here</a>.</p>
+<h2><a class="header" href="#install-native-addons-manually" id="install-native-addons-manually">Install Native Addons Manually</a></h2>
+<p>If you find any problems because of the unstable Github connection, you may first install the package without prebuilt binary through <code>npm install @pravega/pravega --ignore-scripts</code> and then manually download the <code>pravega-{tag}-node-v{node_api_version}-{os}-{arch}-{compiler}.tar.gz</code> tarball from the <a href="https://github.com/pravega/pravega-client-rust/releases">release page</a>. Extract the whole <code>dist</code> folder to <code>./node_modules/@pravega/pravega</code> and you should be good to go.</p>
+<h2><a class="header" href="#development" id="development">Development</a></h2>
+<p>To build or test this binding locally, Rust toolchain must be installed and <code>cargo build</code> can be executed without any problems in the parent project.</p>
+<p>Then you need to install Nodejs related packages via <code>npm i</code> in this folder.</p>
+<h3><a class="header" href="#tests" id="tests">Tests</a></h3>
+<ol>
+<li><code>npm run build-debug</code> to build a debug addon.</li>
+<li><code>/path/to/pravega/bin/pravega-standalone</code></li>
+<li><code>npm test</code></li>
+</ol>
+<h3><a class="header" href="#local-build-and-install" id="local-build-and-install">Local build and install</a></h3>
+<ol>
+<li><code>npm run release-native</code> to build a release addon.</li>
+<li><code>npm run release-js</code> to build a release dist.</li>
+<li><code>npm pack</code> to pack a local npm package.</li>
+<li><code>npm i pravega-x.y.z.tgz</code> in your project and use it.</li>
 </ol>
 
                     </main>
