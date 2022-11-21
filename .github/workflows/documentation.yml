@@ -18,14 +18,14 @@ jobs:
 
       - uses: actions/setup-node@v2
         with:
-          node-version: '16'
+          node-version: "16"
       # This copy the Nodejs README to the book source
       - run: cp nodejs/README.md book/src/Nodejs/NodejsBindings.md
 
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v1
         with:
-          mdbook-version: '0.4.5'
+          mdbook-version: "0.4.5"
 
       # This generates the book inside ./book/book
       - run: mdbook build book
@@ -49,10 +49,10 @@ jobs:
 
       - name: Generate Pravega Nodejs API documentation.
         run: |
-          cd nodejs && npm i
-          cd nodejs && npx typedoc *.ts
+          cd nodejs && npm i && cd ..
+          cd nodejs && npx typedoc *.ts && cd ..
           mkdir -p book/book/nodejs
-          cp -r nodejs/docs/* book/book/nodejs/
+          cp -r nodejs/docs/* book/book/nodejs
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
