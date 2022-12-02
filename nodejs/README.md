@@ -20,11 +20,11 @@ Note your os and architecture matters. Only `Windows`, `MacOS`, and `linux` with
 
 ## Example
 
-After an `npm init`, add `"type": "module",` to your `package.json` so `node` can load ECMAScript modules correctly. We do provide a commonJS distribution for legacy compatibility, so feel free to use `require()`.
+After an `npm init`, add `"type": "module",` to your `package.json` so `node` can load ECMAScript modules correctly. We do provide a CommonJS distribution for legacy compatibility, so feel free to use `require()`.
 
 ```javascript
 import { StreamCut, StreamManager } from '@pravega/pravega';
-// or the following if you are still using commonjs
+// or the following if you are still using CommonJS
 const { StreamCut, StreamManager } = require('@pravega/pravega');
 
 const SCOPE = 'scope1';
@@ -70,6 +70,7 @@ const stream_reader_group = stream_manager.create_reader_group(
 );
 const stream_reader = stream_reader_group.create_reader(reader_name);
 
+// Read data back from stream.
 // One `get_segment_slice()` call per segment.
 const seg_slice = await stream_reader.get_segment_slice();
 const dec = new TextDecoder('utf-8');
@@ -110,7 +111,7 @@ A full API reference may be found [here](https://pravega.github.io/pravega-clien
 
 ## Install Native Addons Manually
 
-If you find any problems because of the unstable Github connection, you may first install the package through `npm install @pravega/pravega --ignore-scripts` and then manually download the `pravega-{tag}-node-v{node_api_version}-{os}-{arch}-{compiler}.tar.gz` tarball from the [release page](https://github.com/pravega/pravega-client-rust/releases). Extract the whole `dist` folder to `./node_modules/@pravega/pravega` and you should be good to go.
+If you find any problems because of the unstable Github connection, you may first install the package without prebuilt binary through `npm install @pravega/pravega --ignore-scripts` and then manually download the `pravega-{tag}-node-v{node_api_version}-{os}-{arch}-{compiler}.tar.gz` tarball from the [release page](https://github.com/pravega/pravega-client-rust/releases). Extract the whole `dist` folder to `./node_modules/@pravega/pravega` and you should be good to go.
 
 ## Development
 
