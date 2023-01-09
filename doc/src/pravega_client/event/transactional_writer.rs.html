@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/event/transactional_writer.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>transactional_writer.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/event/transactional_writer.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>transactional_writer.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><div class="width-limiter"><nav class="sub"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -686,545 +686,545 @@
 <span id="686">686</span>
 <span id="687">687</span>
 <span id="688">688</span>
-</pre><pre class="rust"><code><span class="comment">//</span>
-<span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
-<span class="comment">//</span>
-<span class="comment">// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
-<span class="comment">// you may not use this file except in compliance with the License.</span>
-<span class="comment">// You may obtain a copy of the License at</span>
-<span class="comment">//</span>
-<span class="comment">// http://www.apache.org/licenses/LICENSE-2.0</span>
-<span class="comment">//</span>
+</pre><pre class="rust"><code><span class="comment">//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::client_factory::ClientFactoryAsync</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::Error</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::segment::event</span>::{<span class="ident">Incoming</span>, <span class="ident">PendingEvent</span>, <span class="ident">RoutingInfo</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::segment::reactor::Reactor</span>;
+</span><span class="kw">use </span><span class="kw">crate</span>::client_factory::ClientFactoryAsync;
+<span class="kw">use </span><span class="kw">crate</span>::error::Error;
+<span class="kw">use </span><span class="kw">crate</span>::segment::event::{Incoming, PendingEvent, RoutingInfo};
+<span class="kw">use </span><span class="kw">crate</span>::segment::reactor::Reactor;
 
-<span class="kw">use</span> <span class="ident">pravega_client_auth::DelegationTokenProvider</span>;
-<span class="kw">use</span> <span class="ident">pravega_client_channel</span>::{<span class="ident">create_channel</span>, <span class="ident">ChannelSender</span>};
-<span class="kw">use</span> <span class="ident">pravega_client_shared</span>::{
-    <span class="ident">PingStatus</span>, <span class="ident">ScopedStream</span>, <span class="ident">StreamSegments</span>, <span class="ident">Timestamp</span>, <span class="ident">TransactionStatus</span>, <span class="ident">TxId</span>, <span class="ident">WriterId</span>,
+<span class="kw">use </span>pravega_client_auth::DelegationTokenProvider;
+<span class="kw">use </span>pravega_client_channel::{create_channel, ChannelSender};
+<span class="kw">use </span>pravega_client_shared::{
+    PingStatus, ScopedStream, StreamSegments, Timestamp, TransactionStatus, TxId, WriterId,
 };
-<span class="kw">use</span> <span class="ident">pravega_controller_client::ControllerError</span>;
+<span class="kw">use </span>pravega_controller_client::ControllerError;
 
-<span class="kw">use</span> <span class="ident">futures::FutureExt</span>;
-<span class="kw">use</span> <span class="ident">snafu</span>::{<span class="ident">ResultExt</span>, <span class="ident">Snafu</span>};
-<span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
-<span class="kw">use</span> <span class="ident">std::collections::HashSet</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
-<span class="kw">use</span> <span class="ident">std::time::Duration</span>;
-<span class="kw">use</span> <span class="ident">tokio::sync::mpsc</span>::{<span class="ident">unbounded_channel</span>, <span class="ident">UnboundedReceiver</span>, <span class="ident">UnboundedSender</span>};
-<span class="kw">use</span> <span class="ident">tokio::sync::oneshot</span>;
-<span class="kw">use</span> <span class="ident">tokio::sync::oneshot::error::TryRecvError</span>;
-<span class="kw">use</span> <span class="ident">tokio::time::sleep</span>;
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">info_span</span>};
-<span class="kw">use</span> <span class="ident">tracing_futures::Instrument</span>;
+<span class="kw">use </span>futures::FutureExt;
+<span class="kw">use </span>snafu::{ResultExt, Snafu};
+<span class="kw">use </span>std::collections::BTreeMap;
+<span class="kw">use </span>std::collections::HashSet;
+<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::time::Duration;
+<span class="kw">use </span>tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+<span class="kw">use </span>tokio::sync::oneshot;
+<span class="kw">use </span>tokio::sync::oneshot::error::TryRecvError;
+<span class="kw">use </span>tokio::time::sleep;
+<span class="kw">use </span>tracing::{debug, error, info, info_span};
+<span class="kw">use </span>tracing_futures::Instrument;
 
-<span class="doccomment">/// Write events to a stream transactionally.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Events that are written to the transaction can be committed atomically,</span>
-<span class="doccomment">/// which means that reader cannot see any writes prior to committing</span>
-<span class="doccomment">/// and will not see any writes if the transaction is aborted.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```no_run</span>
-<span class="doccomment">/// use tokio;</span>
-<span class="doccomment">/// use pravega_client_shared::{Timestamp, ScopedStream, Scope, Stream, WriterId, PravegaNodeUri};</span>
-<span class="doccomment">/// use pravega_client::client_factory::ClientFactory;</span>
-<span class="doccomment">/// use pravega_client_config::ClientConfigBuilder;</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// #[tokio::main]</span>
-<span class="doccomment">/// async fn main() {</span>
-<span class="doccomment">///     let scope_name = Scope::from(&quot;txnScope&quot;.to_owned());</span>
-<span class="doccomment">///     let stream_name = Stream::from(&quot;txnStream&quot;.to_owned());</span>
-<span class="doccomment">///     let scoped_stream = ScopedStream {</span>
-<span class="doccomment">///          scope: scope_name.clone(),</span>
-<span class="doccomment">///          stream: stream_name.clone(),</span>
-<span class="doccomment">///      };</span>
-<span class="doccomment">///     // omit the step to create scope and stream in Pravega</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     let config = ClientConfigBuilder::default()</span>
-<span class="doccomment">///         .controller_uri(PravegaNodeUri::from(&quot;tcp://127.0.0.2:9091&quot;.to_string()))</span>
-<span class="doccomment">///         .build()</span>
-<span class="doccomment">///         .expect(&quot;creating config&quot;);</span>
-<span class="doccomment">///     let client_factory = ClientFactory::new(config);</span>
-<span class="doccomment">///     let mut writer = client_factory</span>
-<span class="doccomment">///         .create_transactional_event_writer(scoped_stream.clone(), WriterId(0))</span>
-<span class="doccomment">///         .await;</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // start a transaction</span>
-<span class="doccomment">///     let mut transaction = writer.begin().await.expect(&quot;begin transaction&quot;);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // do something with it</span>
-<span class="doccomment">///     transaction.write_event(None, String::from(&quot;hello&quot;).into_bytes()).await.unwrap();</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // commit the transaction</span>
-<span class="doccomment">///     transaction.commit(Timestamp(0u64)).await;</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// ```</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TransactionalEventWriter</span> {
-    <span class="ident">stream</span>: <span class="ident">ScopedStream</span>,
-    <span class="ident">writer_id</span>: <span class="ident">WriterId</span>,
-    <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>,
-    <span class="ident">pinger_handle</span>: <span class="ident">PingerHandle</span>,
-    <span class="ident">delegation_token_provider</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">DelegationTokenProvider</span><span class="op">&gt;</span>,
-    <span class="ident">shutdown</span>: <span class="ident">oneshot::Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
+<span class="doccomment">/// Write events to a stream transactionally.
+///
+/// Events that are written to the transaction can be committed atomically,
+/// which means that reader cannot see any writes prior to committing
+/// and will not see any writes if the transaction is aborted.
+///
+/// # Example
+///
+/// ```no_run
+/// use tokio;
+/// use pravega_client_shared::{Timestamp, ScopedStream, Scope, Stream, WriterId, PravegaNodeUri};
+/// use pravega_client::client_factory::ClientFactory;
+/// use pravega_client_config::ClientConfigBuilder;
+///
+/// #[tokio::main]
+/// async fn main() {
+///     let scope_name = Scope::from(&quot;txnScope&quot;.to_owned());
+///     let stream_name = Stream::from(&quot;txnStream&quot;.to_owned());
+///     let scoped_stream = ScopedStream {
+///          scope: scope_name.clone(),
+///          stream: stream_name.clone(),
+///      };
+///     // omit the step to create scope and stream in Pravega
+///
+///     let config = ClientConfigBuilder::default()
+///         .controller_uri(PravegaNodeUri::from(&quot;tcp://127.0.0.2:9091&quot;.to_string()))
+///         .build()
+///         .expect(&quot;creating config&quot;);
+///     let client_factory = ClientFactory::new(config);
+///     let mut writer = client_factory
+///         .create_transactional_event_writer(scoped_stream.clone(), WriterId(0))
+///         .await;
+///
+///     // start a transaction
+///     let mut transaction = writer.begin().await.expect(&quot;begin transaction&quot;);
+///
+///     // do something with it
+///     transaction.write_event(None, String::from(&quot;hello&quot;).into_bytes()).await.unwrap();
+///
+///     // commit the transaction
+///     transaction.commit(Timestamp(0u64)).await;
+/// }
+/// ```
+</span><span class="kw">pub struct </span>TransactionalEventWriter {
+    stream: ScopedStream,
+    writer_id: WriterId,
+    factory: ClientFactoryAsync,
+    pinger_handle: PingerHandle,
+    delegation_token_provider: Arc&lt;DelegationTokenProvider&gt;,
+    shutdown: oneshot::Sender&lt;()&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">TransactionalEventWriter</span> {
-    <span class="comment">// use ClientFactory to initialize a TransactionalEventStreamWriter.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">stream</span>: <span class="ident">ScopedStream</span>, <span class="ident">writer_id</span>: <span class="ident">WriterId</span>, <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">pinger</span>, <span class="ident">pinger_handle</span>, <span class="ident">shutdown</span>) <span class="op">=</span> <span class="ident">Pinger::new</span>(
-            <span class="ident">stream</span>.<span class="ident">clone</span>(),
-            <span class="ident">factory</span>.<span class="ident">config</span>().<span class="ident">transaction_timeout_time</span>,
-            <span class="ident">factory</span>.<span class="ident">clone</span>(),
+<span class="kw">impl </span>TransactionalEventWriter {
+    <span class="comment">// use ClientFactory to initialize a TransactionalEventStreamWriter.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>new(stream: ScopedStream, writer_id: WriterId, factory: ClientFactoryAsync) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>(<span class="kw-2">mut </span>pinger, pinger_handle, shutdown) = Pinger::new(
+            stream.clone(),
+            factory.config().transaction_timeout_time,
+            factory.clone(),
         );
-        <span class="kw">let</span> <span class="ident">delegation_token_provider</span> <span class="op">=</span>
-            <span class="ident">Arc::new</span>(<span class="ident">factory</span>.<span class="ident">create_delegation_token_provider</span>(<span class="ident">stream</span>.<span class="ident">clone</span>()).<span class="kw">await</span>);
-        <span class="kw">let</span> <span class="ident">span</span> <span class="op">=</span> <span class="macro">info_span!</span>(<span class="string">&quot;Pinger&quot;</span>, <span class="ident">transactional_event_stream_writer</span> <span class="op">=</span> <span class="op">%</span><span class="ident">writer_id</span>);
-        <span class="ident">factory</span>
-            .<span class="ident">runtime_handle</span>()
-            .<span class="ident">spawn</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="ident">pinger</span>.<span class="ident">start_ping</span>().<span class="ident">instrument</span>(<span class="ident">span</span>).<span class="kw">await</span> });
-        <span class="ident">TransactionalEventWriter</span> {
-            <span class="ident">stream</span>,
-            <span class="ident">writer_id</span>,
-            <span class="ident">factory</span>,
-            <span class="ident">pinger_handle</span>,
-            <span class="ident">delegation_token_provider</span>,
-            <span class="ident">shutdown</span>,
+        <span class="kw">let </span>delegation_token_provider =
+            Arc::new(factory.create_delegation_token_provider(stream.clone()).<span class="kw">await</span>);
+        <span class="kw">let </span>span = <span class="macro">info_span!</span>(<span class="string">&quot;Pinger&quot;</span>, transactional_event_stream_writer = %writer_id);
+        factory
+            .runtime_handle()
+            .spawn(<span class="kw">async move </span>{ pinger.start_ping().instrument(span).<span class="kw">await </span>});
+        TransactionalEventWriter {
+            stream,
+            writer_id,
+            factory,
+            pinger_handle,
+            delegation_token_provider,
+            shutdown,
         }
     }
 
-    <span class="doccomment">/// This method opens a transaction by sending a request to Pravega controller.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">begin</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Transaction</span>, <span class="ident">TransactionalEventWriterError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">txn_segments</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">factory</span>
-            .<span class="ident">controller_client</span>()
-            .<span class="ident">create_transaction</span>(
-                <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">stream</span>,
-                <span class="ident">Duration::from_millis</span>(<span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">config</span>().<span class="ident">transaction_timeout_time</span>),
+    <span class="doccomment">/// This method opens a transaction by sending a request to Pravega controller.
+    </span><span class="kw">pub async fn </span>begin(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Transaction, TransactionalEventWriterError&gt; {
+        <span class="kw">let </span>txn_segments = <span class="self">self
+            </span>.factory
+            .controller_client()
+            .create_transaction(
+                <span class="kw-2">&amp;</span><span class="self">self</span>.stream,
+                Duration::from_millis(<span class="self">self</span>.factory.config().transaction_timeout_time),
             )
-            .<span class="kw">await</span>
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">error</span>)
-            .<span class="ident">context</span>(<span class="ident">TxnStreamControllerError</span> {})<span class="question-mark">?</span>;
-        <span class="macro">info!</span>(<span class="string">&quot;Transaction {} created&quot;</span>, <span class="ident">txn_segments</span>.<span class="ident">tx_id</span>);
-        <span class="kw">let</span> <span class="ident">txn_id</span> <span class="op">=</span> <span class="ident">txn_segments</span>.<span class="ident">tx_id</span>;
-        <span class="self">self</span>.<span class="ident">pinger_handle</span>.<span class="ident">add</span>(<span class="ident">txn_id</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">Transaction::new</span>(
-            <span class="ident">TransactionInfo::new</span>(<span class="ident">txn_id</span>, <span class="self">self</span>.<span class="ident">writer_id</span>, <span class="self">self</span>.<span class="ident">stream</span>.<span class="ident">clone</span>(), <span class="bool-val">false</span>),
-            <span class="ident">txn_segments</span>.<span class="ident">stream_segments</span>,
-            <span class="self">self</span>.<span class="ident">pinger_handle</span>.<span class="ident">clone</span>(),
-            <span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">clone</span>(),
+            .<span class="kw">await
+            </span>.map_err(|e| e.error)
+            .context(TxnStreamControllerError {})<span class="question-mark">?</span>;
+        <span class="macro">info!</span>(<span class="string">&quot;Transaction {} created&quot;</span>, txn_segments.tx_id);
+        <span class="kw">let </span>txn_id = txn_segments.tx_id;
+        <span class="self">self</span>.pinger_handle.add(txn_id)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(Transaction::new(
+            TransactionInfo::new(txn_id, <span class="self">self</span>.writer_id, <span class="self">self</span>.stream.clone(), <span class="bool-val">false</span>),
+            txn_segments.stream_segments,
+            <span class="self">self</span>.pinger_handle.clone(),
+            <span class="self">self</span>.factory.clone(),
             <span class="bool-val">false</span>,
         )
         .<span class="kw">await</span>)
     }
 
-    <span class="doccomment">/// This method returns the Transaction based on the given transaction id.</span>
-    <span class="doccomment">/// If the current transaction is not in open status, meaning it has been committed</span>
-    <span class="doccomment">/// or aborted, this method will create a closed transaction that only contains the meta data</span>
-    <span class="doccomment">/// of this transaction.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_txn</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">txn_id</span>: <span class="ident">TxId</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Transaction</span>, <span class="ident">TransactionalEventWriterError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">status</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">factory</span>
-            .<span class="ident">controller_client</span>()
-            .<span class="ident">check_transaction_status</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">stream</span>, <span class="ident">txn_id</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">error</span>)
-            .<span class="ident">context</span>(<span class="ident">TxnStreamControllerError</span> {})<span class="question-mark">?</span>;
-        <span class="kw">if</span> <span class="ident">status</span> <span class="op">!</span><span class="op">=</span> <span class="ident">TransactionStatus::Open</span> {
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">Transaction::new</span>(
-                <span class="ident">TransactionInfo::new</span>(<span class="ident">txn_id</span>, <span class="self">self</span>.<span class="ident">writer_id</span>, <span class="self">self</span>.<span class="ident">stream</span>.<span class="ident">clone</span>(), <span class="bool-val">true</span>),
-                <span class="ident">StreamSegments::new</span>(<span class="ident">BTreeMap::new</span>()),
-                <span class="self">self</span>.<span class="ident">pinger_handle</span>.<span class="ident">clone</span>(),
-                <span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">clone</span>(),
+    <span class="doccomment">/// This method returns the Transaction based on the given transaction id.
+    /// If the current transaction is not in open status, meaning it has been committed
+    /// or aborted, this method will create a closed transaction that only contains the meta data
+    /// of this transaction.
+    </span><span class="kw">pub async fn </span>get_txn(<span class="kw-2">&amp;</span><span class="self">self</span>, txn_id: TxId) -&gt; <span class="prelude-ty">Result</span>&lt;Transaction, TransactionalEventWriterError&gt; {
+        <span class="kw">let </span>status = <span class="self">self
+            </span>.factory
+            .controller_client()
+            .check_transaction_status(<span class="kw-2">&amp;</span><span class="self">self</span>.stream, txn_id)
+            .<span class="kw">await
+            </span>.map_err(|e| e.error)
+            .context(TxnStreamControllerError {})<span class="question-mark">?</span>;
+        <span class="kw">if </span>status != TransactionStatus::Open {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(Transaction::new(
+                TransactionInfo::new(txn_id, <span class="self">self</span>.writer_id, <span class="self">self</span>.stream.clone(), <span class="bool-val">true</span>),
+                StreamSegments::new(BTreeMap::new()),
+                <span class="self">self</span>.pinger_handle.clone(),
+                <span class="self">self</span>.factory.clone(),
                 <span class="bool-val">true</span>,
             )
             .<span class="kw">await</span>);
         }
-        <span class="kw">let</span> <span class="ident">segments</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">factory</span>
-            .<span class="ident">controller_client</span>()
-            .<span class="ident">get_epoch_segments</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">stream</span>, <span class="ident">txn_id</span>.<span class="ident">get_epoch</span>())
-            .<span class="kw">await</span>
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">error</span>)
-            .<span class="ident">context</span>(<span class="ident">TxnStreamControllerError</span> {})<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">Transaction::new</span>(
-            <span class="ident">TransactionInfo::new</span>(<span class="ident">txn_id</span>, <span class="self">self</span>.<span class="ident">writer_id</span>, <span class="self">self</span>.<span class="ident">stream</span>.<span class="ident">clone</span>(), <span class="bool-val">true</span>),
-            <span class="ident">segments</span>,
-            <span class="self">self</span>.<span class="ident">pinger_handle</span>.<span class="ident">clone</span>(),
-            <span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">clone</span>(),
+        <span class="kw">let </span>segments = <span class="self">self
+            </span>.factory
+            .controller_client()
+            .get_epoch_segments(<span class="kw-2">&amp;</span><span class="self">self</span>.stream, txn_id.get_epoch())
+            .<span class="kw">await
+            </span>.map_err(|e| e.error)
+            .context(TxnStreamControllerError {})<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(Transaction::new(
+            TransactionInfo::new(txn_id, <span class="self">self</span>.writer_id, <span class="self">self</span>.stream.clone(), <span class="bool-val">true</span>),
+            segments,
+            <span class="self">self</span>.pinger_handle.clone(),
+            <span class="self">self</span>.factory.clone(),
             <span class="bool-val">false</span>,
         )
         .<span class="kw">await</span>)
     }
 }
 
-<span class="comment">// contains the metadata of Transaction</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">new</span>)]</span>
-<span class="kw">struct</span> <span class="ident">TransactionInfo</span> {
-    <span class="ident">txn_id</span>: <span class="ident">TxId</span>,
-    <span class="ident">writer_id</span>: <span class="ident">WriterId</span>,
-    <span class="ident">stream</span>: <span class="ident">ScopedStream</span>,
-    <span class="ident">closed</span>: <span class="ident">bool</span>,
+<span class="comment">// contains the metadata of Transaction
+</span><span class="attribute">#[derive(new)]
+</span><span class="kw">struct </span>TransactionInfo {
+    txn_id: TxId,
+    writer_id: WriterId,
+    stream: ScopedStream,
+    closed: bool,
 }
 
-<span class="doccomment">/// Pravega Transaction support.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// It can be used to write, commit and abort a Pravega Transaction.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Transaction</span> {
-    <span class="ident">info</span>: <span class="ident">TransactionInfo</span>,
-    <span class="ident">sender</span>: <span class="ident">ChannelSender</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
-    <span class="ident">handle</span>: <span class="ident">PingerHandle</span>,
-    <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>,
-    <span class="ident">event_handles</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">EventHandle</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Pravega Transaction support.
+///
+/// It can be used to write, commit and abort a Pravega Transaction.
+</span><span class="kw">pub struct </span>Transaction {
+    info: TransactionInfo,
+    sender: ChannelSender&lt;Incoming&gt;,
+    handle: PingerHandle,
+    factory: ClientFactoryAsync,
+    event_handles: Vec&lt;EventHandle&gt;,
 }
 
-<span class="kw">type</span> <span class="ident">EventHandle</span> <span class="op">=</span> <span class="ident">oneshot::Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+<span class="kw">type </span>EventHandle = oneshot::Receiver&lt;<span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt;;
 
-<span class="kw">impl</span> <span class="ident">Transaction</span> {
-    <span class="comment">// maximum 16 MB total size of events could be held in memory</span>
-    <span class="kw">const</span> <span class="ident">CHANNEL_CAPACITY</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">16</span> <span class="op">*</span> <span class="number">1024</span> <span class="op">*</span> <span class="number">1024</span>;
+<span class="kw">impl </span>Transaction {
+    <span class="comment">// maximum 16 MB total size of events could be held in memory
+    </span><span class="kw">const </span>CHANNEL_CAPACITY: usize = <span class="number">16 </span>* <span class="number">1024 </span>* <span class="number">1024</span>;
 
-    <span class="comment">// Transaction should be created by transactional event stream writer, so this new method</span>
-    <span class="comment">// is not public.</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">info</span>: <span class="ident">TransactionInfo</span>,
-        <span class="ident">stream_segments</span>: <span class="ident">StreamSegments</span>,
-        <span class="ident">handle</span>: <span class="ident">PingerHandle</span>,
-        <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>,
-        <span class="ident">closed</span>: <span class="ident">bool</span>,
-    ) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">create_channel</span>(<span class="ident"><span class="self">Self</span>::CHANNEL_CAPACITY</span>);
-        <span class="kw">if</span> <span class="ident">closed</span> {
-            <span class="kw">return</span> <span class="ident">Transaction</span> {
-                <span class="ident">info</span>,
-                <span class="ident">sender</span>: <span class="ident">tx</span>,
-                <span class="ident">handle</span>,
-                <span class="ident">factory</span>,
-                <span class="ident">event_handles</span>: <span class="macro">vec!</span>[],
+    <span class="comment">// Transaction should be created by transactional event stream writer, so this new method
+    // is not public.
+    </span><span class="kw">async fn </span>new(
+        info: TransactionInfo,
+        stream_segments: StreamSegments,
+        handle: PingerHandle,
+        factory: ClientFactoryAsync,
+        closed: bool,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>(tx, rx) = create_channel(<span class="self">Self</span>::CHANNEL_CAPACITY);
+        <span class="kw">if </span>closed {
+            <span class="kw">return </span>Transaction {
+                info,
+                sender: tx,
+                handle,
+                factory,
+                event_handles: <span class="macro">vec!</span>[],
             };
         }
-        <span class="kw">let</span> <span class="ident">rt_handle</span> <span class="op">=</span> <span class="ident">factory</span>.<span class="ident">runtime_handle</span>();
-        <span class="kw">let</span> <span class="ident">writer_id</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">writer_id</span>;
-        <span class="kw">let</span> <span class="ident">txn_id</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">txn_id</span>;
-        <span class="kw">let</span> <span class="ident">span</span> <span class="op">=</span> <span class="macro">info_span!</span>(<span class="string">&quot;StreamReactor&quot;</span>, <span class="ident">txn_id</span> <span class="op">=</span> <span class="op">%</span><span class="ident">txn_id</span>, <span class="ident">event_stream_writer</span> <span class="op">=</span> <span class="op">%</span><span class="ident">writer_id</span>);
-        <span class="ident">rt_handle</span>.<span class="ident">spawn</span>(
-            <span class="ident">Reactor::run</span>(
-                <span class="ident">info</span>.<span class="ident">stream</span>.<span class="ident">clone</span>(),
-                <span class="ident">tx</span>.<span class="ident">clone</span>(),
-                <span class="ident">rx</span>,
-                <span class="ident">factory</span>.<span class="ident">clone</span>(),
-                <span class="prelude-val">Some</span>(<span class="ident">stream_segments</span>),
+        <span class="kw">let </span>rt_handle = factory.runtime_handle();
+        <span class="kw">let </span>writer_id = info.writer_id;
+        <span class="kw">let </span>txn_id = info.txn_id;
+        <span class="kw">let </span>span = <span class="macro">info_span!</span>(<span class="string">&quot;StreamReactor&quot;</span>, txn_id = %txn_id, event_stream_writer = %writer_id);
+        rt_handle.spawn(
+            Reactor::run(
+                info.stream.clone(),
+                tx.clone(),
+                rx,
+                factory.clone(),
+                <span class="prelude-val">Some</span>(stream_segments),
             )
-            .<span class="ident">instrument</span>(<span class="ident">span</span>),
+            .instrument(span),
         );
-        <span class="ident">Transaction</span> {
-            <span class="ident">info</span>,
-            <span class="ident">sender</span>: <span class="ident">tx</span>,
-            <span class="ident">handle</span>,
-            <span class="ident">factory</span>,
-            <span class="ident">event_handles</span>: <span class="macro">vec!</span>[],
+        Transaction {
+            info,
+            sender: tx,
+            handle,
+            factory,
+            event_handles: <span class="macro">vec!</span>[],
         }
     }
 
-    <span class="doccomment">/// get the transaction id.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">txn_id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">TxId</span> {
-        <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span>
+    <span class="doccomment">/// get the transaction id.
+    </span><span class="kw">pub fn </span>txn_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TxId {
+        <span class="self">self</span>.info.txn_id
     }
 
-    <span class="doccomment">/// get the stream that this transaction is based on.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">stream</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">ScopedStream</span> {
-        <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">stream</span>.<span class="ident">clone</span>()
+    <span class="doccomment">/// get the stream that this transaction is based on.
+    </span><span class="kw">pub fn </span>stream(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ScopedStream {
+        <span class="self">self</span>.info.stream.clone()
     }
 
-    <span class="doccomment">/// write_event accepts a vec of bytes as the input event and an optional routing key which is used</span>
-    <span class="doccomment">/// to determine which segment to write to. It calls the corresponding transactional event segment</span>
-    <span class="doccomment">/// writer to write the data to the server.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">write_event</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">routing_key</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-        <span class="ident">event</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TransactionError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">error_if_closed</span>()<span class="question-mark">?</span>;
+    <span class="doccomment">/// write_event accepts a vec of bytes as the input event and an optional routing key which is used
+    /// to determine which segment to write to. It calls the corresponding transactional event segment
+    /// writer to write the data to the server.
+    </span><span class="kw">pub async fn </span>write_event(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        routing_key: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        event: Vec&lt;u8&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionError&gt; {
+        <span class="self">self</span>.error_if_closed()<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">event</span>.<span class="ident">len</span>();
-        <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">oneshot::channel</span>();
-        <span class="kw">let</span> <span class="ident">routing_info</span> <span class="op">=</span> <span class="ident">RoutingInfo::RoutingKey</span>(<span class="ident">routing_key</span>);
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">pending_event</span>) <span class="op">=</span> <span class="ident">PendingEvent::with_header</span>(<span class="ident">routing_info</span>, <span class="ident">event</span>, <span class="prelude-val">None</span>, <span class="ident">tx</span>) {
-            <span class="kw">let</span> <span class="ident">append_event</span> <span class="op">=</span> <span class="ident">Incoming::AppendEvent</span>(<span class="ident">pending_event</span>);
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">sender</span>.<span class="ident">send</span>((<span class="ident">append_event</span>, <span class="ident">size</span>)).<span class="kw">await</span> {
+        <span class="kw">let </span>size = event.len();
+        <span class="kw">let </span>(tx, rx) = oneshot::channel();
+        <span class="kw">let </span>routing_info = RoutingInfo::RoutingKey(routing_key);
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(pending_event) = PendingEvent::with_header(routing_info, event, <span class="prelude-val">None</span>, tx) {
+            <span class="kw">let </span>append_event = Incoming::AppendEvent(pending_event);
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.sender.send((append_event, size)).<span class="kw">await </span>{
                 <span class="macro">error!</span>(
                     <span class="string">&quot;failed to write to transaction {:?} due to {:?}&quot;</span>,
-                    <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span>, <span class="ident">e</span>
+                    <span class="self">self</span>.info.txn_id, e
                 );
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">TransactionError::TxnSegmentWriterError</span> {
-                    <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">e</span>),
+                <span class="kw">return </span><span class="prelude-val">Err</span>(TransactionError::TxnSegmentWriterError {
+                    error_msg: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e),
                 });
             }
-            <span class="self">self</span>.<span class="ident">event_handles</span>.<span class="ident">push</span>(<span class="ident">rx</span>);
-        } <span class="kw">else</span> {
-            <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> <span class="ident">rx</span>.<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;get error&quot;</span>);
+            <span class="self">self</span>.event_handles.push(rx);
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>e = rx.<span class="kw">await</span>.expect(<span class="string">&quot;get error&quot;</span>);
             <span class="macro">error!</span>(
                 <span class="string">&quot;failed to write to transaction {:?} due to {:?}&quot;</span>,
-                <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span>, <span class="ident">e</span>
+                <span class="self">self</span>.info.txn_id, e
             );
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">TransactionError::TxnSegmentWriterError</span> {
-                <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">e</span>),
+            <span class="kw">return </span><span class="prelude-val">Err</span>(TransactionError::TxnSegmentWriterError {
+                error_msg: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e),
             });
         }
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ack_up_to</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="kw">for</span> <span class="ident">event</span> <span class="kw">in</span> <span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">event_handles</span> {
-            <span class="kw">match</span> <span class="ident">event</span>.<span class="ident">try_recv</span>() {
-                <span class="prelude-val">Ok</span>(<span class="ident">res</span>) =&gt; {
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">res</span> {
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">TransactionError::TxnSegmentWriterError</span> {
-                            <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;error when writing event: {:?}&quot;</span>, <span class="ident">e</span>),
+        <span class="kw">let </span><span class="kw-2">mut </span>ack_up_to = <span class="number">0</span>;
+        <span class="kw">for </span>event <span class="kw">in </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.event_handles {
+            <span class="kw">match </span>event.try_recv() {
+                <span class="prelude-val">Ok</span>(res) =&gt; {
+                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = res {
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(TransactionError::TxnSegmentWriterError {
+                            error_msg: <span class="macro">format!</span>(<span class="string">&quot;error when writing event: {:?}&quot;</span>, e),
                         });
-                    } <span class="kw">else</span> {
-                        <span class="ident">ack_up_to</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+                    } <span class="kw">else </span>{
+                        ack_up_to += <span class="number">1</span>;
                     }
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">TryRecvError::Empty</span>) =&gt; {
+                <span class="prelude-val">Err</span>(TryRecvError::Empty) =&gt; {
                     <span class="kw">break</span>;
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">TryRecvError::Closed</span>) =&gt; {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">TransactionError::TxnSegmentWriterError</span> {
-                        <span class="ident">error_msg</span>: <span class="string">&quot;event handle closed, cannot get result for event&quot;</span>.<span class="ident">to_string</span>(),
+                <span class="prelude-val">Err</span>(TryRecvError::Closed) =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(TransactionError::TxnSegmentWriterError {
+                        error_msg: <span class="string">&quot;event handle closed, cannot get result for event&quot;</span>.to_string(),
                     });
                 }
             }
         }
-        <span class="self">self</span>.<span class="ident">event_handles</span>.<span class="ident">drain</span>(<span class="number">0</span>..<span class="ident">ack_up_to</span>);
+        <span class="self">self</span>.event_handles.drain(<span class="number">0</span>..ack_up_to);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// commit accepts a timestamp and will send a commit request to Pravega controller.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">commit</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">timestamp</span>: <span class="ident">Timestamp</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TransactionError</span><span class="op">&gt;</span> {
-        <span class="macro">debug!</span>(<span class="string">&quot;committing transaction {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span>);
+    <span class="doccomment">/// commit accepts a timestamp and will send a commit request to Pravega controller.
+    </span><span class="kw">pub async fn </span>commit(<span class="kw-2">&amp;mut </span><span class="self">self</span>, timestamp: Timestamp) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionError&gt; {
+        <span class="macro">debug!</span>(<span class="string">&quot;committing transaction {:?}&quot;</span>, <span class="self">self</span>.info.txn_id);
 
-        <span class="self">self</span>.<span class="ident">error_if_closed</span>()<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">closed</span> <span class="op">=</span> <span class="bool-val">true</span>;
+        <span class="self">self</span>.error_if_closed()<span class="question-mark">?</span>;
+        <span class="self">self</span>.info.closed = <span class="bool-val">true</span>;
 
-        <span class="kw">for</span> <span class="ident">event</span> <span class="kw">in</span> <span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">event_handles</span> {
-            <span class="kw">match</span> <span class="ident">event</span>.<span class="kw">await</span> {
-                <span class="prelude-val">Ok</span>(<span class="ident">res</span>) =&gt; {
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">res</span> {
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">TransactionError::TxnSegmentWriterError</span> {
-                            <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;error when writing event: {:?}&quot;</span>, <span class="ident">e</span>),
+        <span class="kw">for </span>event <span class="kw">in </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.event_handles {
+            <span class="kw">match </span>event.<span class="kw">await </span>{
+                <span class="prelude-val">Ok</span>(res) =&gt; {
+                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = res {
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(TransactionError::TxnSegmentWriterError {
+                            error_msg: <span class="macro">format!</span>(<span class="string">&quot;error when writing event: {:?}&quot;</span>, e),
                         });
                     }
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">TransactionError::TxnSegmentWriterError</span> {
-                        <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;event handle closed, cannot get result for event: {:?}&quot;</span>, <span class="ident">e</span>),
+                <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(TransactionError::TxnSegmentWriterError {
+                        error_msg: <span class="macro">format!</span>(<span class="string">&quot;event handle closed, cannot get result for event: {:?}&quot;</span>, e),
                     });
                 }
             }
         }
-        <span class="self">self</span>.<span class="ident">event_handles</span>.<span class="ident">clear</span>();
+        <span class="self">self</span>.event_handles.clear();
 
-        <span class="comment">// remove this transaction from ping list</span>
-        <span class="self">self</span>.<span class="ident">handle</span>
-            .<span class="ident">remove</span>(<span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span>)
-            .<span class="ident">context</span>(<span class="ident">TxnStreamWriterError</span> {})<span class="question-mark">?</span>;
+        <span class="comment">// remove this transaction from ping list
+        </span><span class="self">self</span>.handle
+            .remove(<span class="self">self</span>.info.txn_id)
+            .context(TxnStreamWriterError {})<span class="question-mark">?</span>;
 
-        <span class="self">self</span>.<span class="ident">factory</span>
-            .<span class="ident">controller_client</span>()
-            .<span class="ident">commit_transaction</span>(
-                <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">info</span>.<span class="ident">stream</span>,
-                <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span>,
-                <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">writer_id</span>,
-                <span class="ident">timestamp</span>,
+        <span class="self">self</span>.factory
+            .controller_client()
+            .commit_transaction(
+                <span class="kw-2">&amp;</span><span class="self">self</span>.info.stream,
+                <span class="self">self</span>.info.txn_id,
+                <span class="self">self</span>.info.writer_id,
+                timestamp,
             )
-            .<span class="kw">await</span>
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">error</span>)
-            .<span class="ident">context</span>(<span class="ident">TxnControllerError</span> {})<span class="question-mark">?</span>;
+            .<span class="kw">await
+            </span>.map_err(|e| e.error)
+            .context(TxnControllerError {})<span class="question-mark">?</span>;
 
-        <span class="macro">debug!</span>(<span class="string">&quot;transaction {:?} committed&quot;</span>, <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span>);
+        <span class="macro">debug!</span>(<span class="string">&quot;transaction {:?} committed&quot;</span>, <span class="self">self</span>.info.txn_id);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// abort will send abort request to Pravega controller.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">abort</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TransactionError</span><span class="op">&gt;</span> {
-        <span class="macro">debug!</span>(<span class="string">&quot;aborting transaction {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span>);
+    <span class="doccomment">/// abort will send abort request to Pravega controller.
+    </span><span class="kw">pub async fn </span>abort(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionError&gt; {
+        <span class="macro">debug!</span>(<span class="string">&quot;aborting transaction {:?}&quot;</span>, <span class="self">self</span>.info.txn_id);
 
-        <span class="self">self</span>.<span class="ident">error_if_closed</span>()<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">closed</span> <span class="op">=</span> <span class="bool-val">true</span>;
+        <span class="self">self</span>.error_if_closed()<span class="question-mark">?</span>;
+        <span class="self">self</span>.info.closed = <span class="bool-val">true</span>;
 
-        <span class="comment">// remove this transaction from ping list</span>
-        <span class="self">self</span>.<span class="ident">handle</span>
-            .<span class="ident">remove</span>(<span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span>)
-            .<span class="ident">context</span>(<span class="ident">TxnStreamWriterError</span> {})<span class="question-mark">?</span>;
+        <span class="comment">// remove this transaction from ping list
+        </span><span class="self">self</span>.handle
+            .remove(<span class="self">self</span>.info.txn_id)
+            .context(TxnStreamWriterError {})<span class="question-mark">?</span>;
 
-        <span class="self">self</span>.<span class="ident">factory</span>
-            .<span class="ident">controller_client</span>()
-            .<span class="ident">abort_transaction</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">info</span>.<span class="ident">stream</span>, <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">error</span>)
-            .<span class="ident">context</span>(<span class="ident">TxnControllerError</span> {})<span class="question-mark">?</span>;
+        <span class="self">self</span>.factory
+            .controller_client()
+            .abort_transaction(<span class="kw-2">&amp;</span><span class="self">self</span>.info.stream, <span class="self">self</span>.info.txn_id)
+            .<span class="kw">await
+            </span>.map_err(|e| e.error)
+            .context(TxnControllerError {})<span class="question-mark">?</span>;
 
-        <span class="macro">debug!</span>(<span class="string">&quot;transaction {:?} aborted&quot;</span>, <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span>);
+        <span class="macro">debug!</span>(<span class="string">&quot;transaction {:?} aborted&quot;</span>, <span class="self">self</span>.info.txn_id);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// check the current Transaction status by sending request to Pravega controller.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">check_status</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TransactionStatus</span>, <span class="ident">TransactionError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">factory</span>
-            .<span class="ident">controller_client</span>()
-            .<span class="ident">check_transaction_status</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">info</span>.<span class="ident">stream</span>, <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">error</span>)
-            .<span class="ident">context</span>(<span class="ident">TxnControllerError</span> {})
+    <span class="doccomment">/// check the current Transaction status by sending request to Pravega controller.
+    </span><span class="kw">pub async fn </span>check_status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;TransactionStatus, TransactionError&gt; {
+        <span class="self">self</span>.factory
+            .controller_client()
+            .check_transaction_status(<span class="kw-2">&amp;</span><span class="self">self</span>.info.stream, <span class="self">self</span>.info.txn_id)
+            .<span class="kw">await
+            </span>.map_err(|e| e.error)
+            .context(TxnControllerError {})
     }
 
-    <span class="kw">fn</span> <span class="ident">error_if_closed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TransactionError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">closed</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">TransactionError::TxnClosed</span> { <span class="ident">id</span>: <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">txn_id</span> })
-        } <span class="kw">else</span> {
+    <span class="kw">fn </span>error_if_closed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionError&gt; {
+        <span class="kw">if </span><span class="self">self</span>.info.closed {
+            <span class="prelude-val">Err</span>(TransactionError::TxnClosed { id: <span class="self">self</span>.info.txn_id })
+        } <span class="kw">else </span>{
             <span class="prelude-val">Ok</span>(())
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">Transaction</span> {
-    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="kw">let</span> <span class="ident">_res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">sender</span>.<span class="ident">send_without_bp</span>(<span class="ident">Incoming::Close</span>());
+<span class="kw">impl </span>Drop <span class="kw">for </span>Transaction {
+    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="kw">let </span>_res = <span class="self">self</span>.sender.send_without_bp(Incoming::Close());
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">enum</span> <span class="ident">PingerEvent</span> {
-    <span class="ident">Add</span>(<span class="ident">TxId</span>),
-    <span class="ident">Remove</span>(<span class="ident">TxId</span>),
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">enum </span>PingerEvent {
+    Add(TxId),
+    Remove(TxId),
 }
 
-<span class="doccomment">/// Pinger is used to ping transactions periodically. It spawns a task that runs in the background</span>
-<span class="doccomment">/// to ping transactions without blocking the current thread. The spawned task uses a loop to run</span>
-<span class="doccomment">/// the ping logic and sleeps(does not block other tasks) for a given time before next iteration.</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">Pinger</span> {
-    <span class="ident">stream</span>: <span class="ident">ScopedStream</span>,
-    <span class="ident">txn_lease_millis</span>: <span class="ident">u64</span>,
-    <span class="ident">ping_interval_millis</span>: <span class="ident">u64</span>,
-    <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>,
-    <span class="ident">receiver</span>: <span class="ident">UnboundedReceiver</span><span class="op">&lt;</span><span class="ident">PingerEvent</span><span class="op">&gt;</span>,
-    <span class="ident">shutdown</span>: <span class="ident">oneshot::Receiver</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
+<span class="doccomment">/// Pinger is used to ping transactions periodically. It spawns a task that runs in the background
+/// to ping transactions without blocking the current thread. The spawned task uses a loop to run
+/// the ping logic and sleeps(does not block other tasks) for a given time before next iteration.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Pinger {
+    stream: ScopedStream,
+    txn_lease_millis: u64,
+    ping_interval_millis: u64,
+    factory: ClientFactoryAsync,
+    receiver: UnboundedReceiver&lt;PingerEvent&gt;,
+    shutdown: oneshot::Receiver&lt;()&gt;,
 }
 
-<span class="doccomment">/// PingerHandle is just a wrapped channel sender which is used to communicate with the Pinger.</span>
-<span class="doccomment">/// It can be used to add or remove a transaction from Pinger&#39;s ping list.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">PingerHandle</span>(<span class="ident">UnboundedSender</span><span class="op">&lt;</span><span class="ident">PingerEvent</span><span class="op">&gt;</span>);
+<span class="doccomment">/// PingerHandle is just a wrapped channel sender which is used to communicate with the Pinger.
+/// It can be used to add or remove a transaction from Pinger&#39;s ping list.
+</span><span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>PingerHandle(UnboundedSender&lt;PingerEvent&gt;);
 
-<span class="kw">impl</span> <span class="ident">PingerHandle</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">add</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">txn_id</span>: <span class="ident">TxId</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TransactionalEventWriterError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>.<span class="number">0</span>.<span class="ident">send</span>(<span class="ident">PingerEvent::Add</span>(<span class="ident">txn_id</span>)) {
-            <span class="macro">error!</span>(<span class="string">&quot;pinger failed to add transaction: {:?}&quot;</span>, <span class="ident">e</span>);
-            <span class="prelude-val">Err</span>(<span class="ident">TransactionalEventWriterError::PingerError</span> {
-                <span class="ident">msg</span>: <span class="macro">format!</span>(<span class="string">&quot;failed to add transaction due to: {:?}&quot;</span>, <span class="ident">e</span>),
+<span class="kw">impl </span>PingerHandle {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>add(<span class="kw-2">&amp;mut </span><span class="self">self</span>, txn_id: TxId) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionalEventWriterError&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.<span class="number">0</span>.send(PingerEvent::Add(txn_id)) {
+            <span class="macro">error!</span>(<span class="string">&quot;pinger failed to add transaction: {:?}&quot;</span>, e);
+            <span class="prelude-val">Err</span>(TransactionalEventWriterError::PingerError {
+                msg: <span class="macro">format!</span>(<span class="string">&quot;failed to add transaction due to: {:?}&quot;</span>, e),
             })
-        } <span class="kw">else</span> {
+        } <span class="kw">else </span>{
             <span class="prelude-val">Ok</span>(())
         }
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">remove</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">txn_id</span>: <span class="ident">TxId</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TransactionalEventWriterError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>.<span class="number">0</span>.<span class="ident">send</span>(<span class="ident">PingerEvent::Remove</span>(<span class="ident">txn_id</span>)) {
-            <span class="macro">error!</span>(<span class="string">&quot;pinger failed to remove transaction: {:?}&quot;</span>, <span class="ident">e</span>);
-            <span class="prelude-val">Err</span>(<span class="ident">TransactionalEventWriterError::PingerError</span> {
-                <span class="ident">msg</span>: <span class="macro">format!</span>(<span class="string">&quot;failed to remove transaction due to: {:?}&quot;</span>, <span class="ident">e</span>),
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>remove(<span class="kw-2">&amp;mut </span><span class="self">self</span>, txn_id: TxId) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionalEventWriterError&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.<span class="number">0</span>.send(PingerEvent::Remove(txn_id)) {
+            <span class="macro">error!</span>(<span class="string">&quot;pinger failed to remove transaction: {:?}&quot;</span>, e);
+            <span class="prelude-val">Err</span>(TransactionalEventWriterError::PingerError {
+                msg: <span class="macro">format!</span>(<span class="string">&quot;failed to remove transaction due to: {:?}&quot;</span>, e),
             })
-        } <span class="kw">else</span> {
+        } <span class="kw">else </span>{
             <span class="prelude-val">Ok</span>(())
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Pinger</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">stream</span>: <span class="ident">ScopedStream</span>,
-        <span class="ident">txn_lease_millis</span>: <span class="ident">u64</span>,
-        <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>,
-    ) -&gt; (<span class="self">Self</span>, <span class="ident">PingerHandle</span>, <span class="ident">oneshot::Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span>) {
-        <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">unbounded_channel</span>();
-        <span class="kw">let</span> (<span class="ident">oneshot_tx</span>, <span class="ident">oneshot_rx</span>) <span class="op">=</span> <span class="ident">oneshot::channel</span>();
-        <span class="kw">let</span> <span class="ident">pinger</span> <span class="op">=</span> <span class="ident">Pinger</span> {
-            <span class="ident">stream</span>,
-            <span class="ident">txn_lease_millis</span>,
-            <span class="ident">ping_interval_millis</span>: <span class="ident">Pinger::ping_interval</span>(<span class="ident">txn_lease_millis</span>),
-            <span class="ident">factory</span>,
-            <span class="ident">receiver</span>: <span class="ident">rx</span>,
-            <span class="ident">shutdown</span>: <span class="ident">oneshot_rx</span>,
+<span class="kw">impl </span>Pinger {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
+        stream: ScopedStream,
+        txn_lease_millis: u64,
+        factory: ClientFactoryAsync,
+    ) -&gt; (<span class="self">Self</span>, PingerHandle, oneshot::Sender&lt;()&gt;) {
+        <span class="kw">let </span>(tx, rx) = unbounded_channel();
+        <span class="kw">let </span>(oneshot_tx, oneshot_rx) = oneshot::channel();
+        <span class="kw">let </span>pinger = Pinger {
+            stream,
+            txn_lease_millis,
+            ping_interval_millis: Pinger::ping_interval(txn_lease_millis),
+            factory,
+            receiver: rx,
+            shutdown: oneshot_rx,
         };
-        <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">PingerHandle</span>(<span class="ident">tx</span>);
-        (<span class="ident">pinger</span>, <span class="ident">handle</span>, <span class="ident">oneshot_tx</span>)
+        <span class="kw">let </span>handle = PingerHandle(tx);
+        (pinger, handle, oneshot_tx)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">start_ping</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="comment">// this set is used to store the transactions that are alive and</span>
-        <span class="comment">// needs to be pinged periodically.</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">txn_list</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">TxId</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashSet::new</span>();
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>start_ping(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="comment">// this set is used to store the transactions that are alive and
+        // needs to be pinged periodically.
+        </span><span class="kw">let </span><span class="kw-2">mut </span>txn_list: HashSet&lt;TxId&gt; = HashSet::new();
 
-        <span class="comment">// this set is used to store the transaction that are aborted or committed</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">completed_txns</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">TxId</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashSet::new</span>();
+        <span class="comment">// this set is used to store the transaction that are aborted or committed
+        </span><span class="kw">let </span><span class="kw-2">mut </span>completed_txns: HashSet&lt;TxId&gt; = HashSet::new();
 
-        <span class="kw">loop</span> {
-            <span class="comment">// try receive any incoming events</span>
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">option</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">receiver</span>.<span class="ident">recv</span>().<span class="ident">now_or_never</span>() {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">event</span>) <span class="op">=</span> <span class="ident">option</span> {
-                    <span class="kw">match</span> <span class="ident">event</span> {
-                        <span class="ident">PingerEvent::Add</span>(<span class="ident">id</span>) =&gt; {
-                            <span class="ident">txn_list</span>.<span class="ident">insert</span>(<span class="ident">id</span>);
+        <span class="kw">loop </span>{
+            <span class="comment">// try receive any incoming events
+            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(option) = <span class="self">self</span>.receiver.recv().now_or_never() {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(event) = option {
+                    <span class="kw">match </span>event {
+                        PingerEvent::Add(id) =&gt; {
+                            txn_list.insert(id);
                         }
-                        <span class="ident">PingerEvent::Remove</span>(<span class="ident">id</span>) =&gt; {
-                            <span class="ident">txn_list</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">id</span>);
+                        PingerEvent::Remove(id) =&gt; {
+                            txn_list.remove(<span class="kw-2">&amp;</span>id);
                         }
                     }
-                } <span class="kw">else</span> {
+                } <span class="kw">else </span>{
                     <span class="macro">panic!</span>(<span class="string">&quot;pinger sender gone&quot;</span>);
                 }
             }
 
-            <span class="comment">// remove completed transactions from the ping list</span>
-            <span class="ident">txn_list</span>.<span class="ident">retain</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="op">!</span><span class="ident">completed_txns</span>.<span class="ident">contains</span>(<span class="ident">i</span>));
-            <span class="ident">completed_txns</span>.<span class="ident">clear</span>();
+            <span class="comment">// remove completed transactions from the ping list
+            </span>txn_list.retain(|i| !completed_txns.contains(i));
+            completed_txns.clear();
 
-            <span class="macro">info!</span>(<span class="string">&quot;start sending pings to {} transactions.&quot;</span>, <span class="ident">txn_list</span>.<span class="ident">len</span>());
-            <span class="comment">// for each transaction in the ping list, send ping to the server</span>
-            <span class="kw">for</span> <span class="ident">txn_id</span> <span class="kw">in</span> <span class="ident">txn_list</span>.<span class="ident">iter</span>() {
+            <span class="macro">info!</span>(<span class="string">&quot;start sending pings to {} transactions.&quot;</span>, txn_list.len());
+            <span class="comment">// for each transaction in the ping list, send ping to the server
+            </span><span class="kw">for </span>txn_id <span class="kw">in </span>txn_list.iter() {
                 <span class="macro">debug!</span>(
                     <span class="string">&quot;sending ping request for txn ID: {:?} with lease: {:?}&quot;</span>,
-                    <span class="ident">txn_id</span>, <span class="self">self</span>.<span class="ident">txn_lease_millis</span>
+                    txn_id, <span class="self">self</span>.txn_lease_millis
                 );
-                <span class="kw">let</span> <span class="ident">status</span> <span class="op">=</span> <span class="self">self</span>
-                    .<span class="ident">factory</span>
-                    .<span class="ident">controller_client</span>()
-                    .<span class="ident">ping_transaction</span>(
-                        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">stream</span>,
-                        <span class="ident">txn_id</span>.<span class="ident">to_owned</span>(),
-                        <span class="ident">Duration::from_millis</span>(<span class="self">self</span>.<span class="ident">txn_lease_millis</span>),
+                <span class="kw">let </span>status = <span class="self">self
+                    </span>.factory
+                    .controller_client()
+                    .ping_transaction(
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.stream,
+                        txn_id.to_owned(),
+                        Duration::from_millis(<span class="self">self</span>.txn_lease_millis),
                     )
-                    .<span class="kw">await</span>
-                    .<span class="ident">expect</span>(<span class="string">&quot;ping transaction&quot;</span>);
+                    .<span class="kw">await
+                    </span>.expect(<span class="string">&quot;ping transaction&quot;</span>);
 
-                <span class="kw">if</span> <span class="kw">let</span> <span class="ident">PingStatus::Ok</span> <span class="op">=</span> <span class="ident">status</span> {
-                    <span class="macro">debug!</span>(<span class="string">&quot;successfully pinged transaction {:?}&quot;</span>, <span class="ident">txn_id</span>);
-                } <span class="kw">else</span> {
-                    <span class="macro">debug!</span>(<span class="string">&quot;transaction {:?} is committed/aborted&quot;</span>, <span class="ident">txn_id</span>);
-                    <span class="ident">completed_txns</span>.<span class="ident">insert</span>(<span class="ident">txn_id</span>.<span class="ident">to_owned</span>());
+                <span class="kw">if let </span>PingStatus::Ok = status {
+                    <span class="macro">debug!</span>(<span class="string">&quot;successfully pinged transaction {:?}&quot;</span>, txn_id);
+                } <span class="kw">else </span>{
+                    <span class="macro">debug!</span>(<span class="string">&quot;transaction {:?} is committed/aborted&quot;</span>, txn_id);
+                    completed_txns.insert(txn_id.to_owned());
                 }
             }
             <span class="macro">info!</span>(<span class="string">&quot;sending transaction pings complete.&quot;</span>);
 
-            <span class="comment">// delay for transaction lease milliseconds.</span>
-            <span class="macro">tokio::select!</span> {
-                <span class="kw">_</span> <span class="op">=</span> <span class="ident">sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="self">self</span>.<span class="ident">txn_lease_millis</span>)) =&gt; {
-                    <span class="macro">debug!</span>(<span class="string">&quot;pinger wake up after {}ms&quot;</span>, <span class="self">self</span>.<span class="ident">txn_lease_millis</span>);
+            <span class="comment">// delay for transaction lease milliseconds.
+            </span><span class="macro">tokio::select! </span>{
+                <span class="kw">_ </span>= sleep(Duration::from_millis(<span class="self">self</span>.txn_lease_millis)) =&gt; {
+                    <span class="macro">debug!</span>(<span class="string">&quot;pinger wake up after {}ms&quot;</span>, <span class="self">self</span>.txn_lease_millis);
                 }
-                <span class="kw">_</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">shutdown</span> =&gt; {
+                <span class="kw">_ </span>= <span class="kw-2">&amp;mut </span><span class="self">self</span>.shutdown =&gt; {
                     <span class="macro">info!</span>(<span class="string">&quot;shut down pinger&quot;</span>);
                     <span class="kw">return</span>;
                 }
@@ -1232,147 +1232,147 @@
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">ping_interval</span>(<span class="ident">txn_lease_millis</span>: <span class="ident">u64</span>) -&gt; <span class="ident">u64</span> {
-        <span class="comment">//Provides a good number of attempts: 1 for &lt;4s, 2 for &lt;9s, 3 for &lt;16s, 4 for &lt;25s, ... 10 for &lt;100s</span>
-        <span class="comment">//while at the same time allowing the interval to grow as the timeout gets larger.</span>
-        <span class="kw">let</span> <span class="ident">target_num_pings</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">txn_lease_millis</span> <span class="op">&gt;</span> <span class="number">1000u64</span> {
-            <span class="ident">f64::sqrt</span>(<span class="ident">txn_lease_millis</span> <span class="kw">as</span> <span class="ident">f64</span> <span class="op">/</span> <span class="number">1000f64</span>)
-        } <span class="kw">else</span> {
-            <span class="number">1f64</span>
-        };
-        (<span class="ident">txn_lease_millis</span> <span class="kw">as</span> <span class="ident">f64</span> <span class="op">/</span> <span class="ident">target_num_pings</span>).<span class="ident">round</span>() <span class="kw">as</span> <span class="ident">u64</span>
+    <span class="kw">fn </span>ping_interval(txn_lease_millis: u64) -&gt; u64 {
+        <span class="comment">//Provides a good number of attempts: 1 for &lt;4s, 2 for &lt;9s, 3 for &lt;16s, 4 for &lt;25s, ... 10 for &lt;100s
+        //while at the same time allowing the interval to grow as the timeout gets larger.
+        </span><span class="kw">let </span>target_num_pings = <span class="kw">if </span>txn_lease_millis &gt; <span class="number">1000u64 </span>{
+            f64::sqrt(txn_lease_millis <span class="kw">as </span>f64 / <span class="number">1000f64</span>)
+        } <span class="kw">else </span>{
+            <span class="number">1f64
+        </span>};
+        (txn_lease_millis <span class="kw">as </span>f64 / target_num_pings).round() <span class="kw">as </span>u64
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Snafu</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">TransactionalEventWriterError</span> {
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Pinger failed to {:?}&quot;</span>, <span class="ident">msg</span>))]</span>
-    <span class="ident">PingerError</span> { <span class="ident">msg</span>: <span class="ident">String</span> },
+<span class="attribute">#[derive(Debug, Snafu)]
+</span><span class="kw">pub enum </span>TransactionalEventWriterError {
+    <span class="attribute">#[snafu(display(<span class="string">&quot;Pinger failed to {:?}&quot;</span>, msg))]
+    </span>PingerError { msg: String },
 
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Controller client failed with error {:?}&quot;</span>, <span class="ident">source</span>))]</span>
-    <span class="ident">TxnStreamControllerError</span> { <span class="ident">source</span>: <span class="ident">ControllerError</span> },
+    <span class="attribute">#[snafu(display(<span class="string">&quot;Controller client failed with error {:?}&quot;</span>, source))]
+    </span>TxnStreamControllerError { source: ControllerError },
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Snafu</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">TransactionError</span> {
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Transactional failed to write due to {:?}&quot;</span>, <span class="ident">error_msg</span>))]</span>
-    <span class="ident">TxnSegmentWriterError</span> { <span class="ident">error_msg</span>: <span class="ident">String</span> },
+<span class="attribute">#[derive(Debug, Snafu)]
+</span><span class="kw">pub enum </span>TransactionError {
+    <span class="attribute">#[snafu(display(<span class="string">&quot;Transactional failed to write due to {:?}&quot;</span>, error_msg))]
+    </span>TxnSegmentWriterError { error_msg: String },
 
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Transactional stream writer failed due to {:?}&quot;</span>, <span class="ident">source</span>))]</span>
-    <span class="ident">TxnStreamWriterError</span> { <span class="ident">source</span>: <span class="ident">TransactionalEventWriterError</span> },
+    <span class="attribute">#[snafu(display(<span class="string">&quot;Transactional stream writer failed due to {:?}&quot;</span>, source))]
+    </span>TxnStreamWriterError { source: TransactionalEventWriterError },
 
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Transaction {:?} already closed&quot;</span>, <span class="ident">id</span>))]</span>
-    <span class="ident">TxnClosed</span> { <span class="ident">id</span>: <span class="ident">TxId</span> },
+    <span class="attribute">#[snafu(display(<span class="string">&quot;Transaction {:?} already closed&quot;</span>, id))]
+    </span>TxnClosed { id: TxId },
 
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Transaction failed due to controller error: {:?}&quot;</span>, <span class="ident">source</span>))]</span>
-    <span class="ident">TxnControllerError</span> { <span class="ident">source</span>: <span class="ident">ControllerError</span> },
+    <span class="attribute">#[snafu(display(<span class="string">&quot;Transaction failed due to controller error: {:?}&quot;</span>, source))]
+    </span>TxnControllerError { source: ControllerError },
 
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Commit Transaction {:?} error due to Transaction {:?}&quot;</span>, <span class="ident">id</span>, <span class="ident">status</span>))]</span>
-    <span class="ident">TxnCommitError</span> { <span class="ident">id</span>: <span class="ident">TxId</span>, <span class="ident">status</span>: <span class="ident">TransactionStatus</span> },
+    <span class="attribute">#[snafu(display(<span class="string">&quot;Commit Transaction {:?} error due to Transaction {:?}&quot;</span>, id, status))]
+    </span>TxnCommitError { id: TxId, status: TransactionStatus },
 
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Abort Transaction {:?} error due to Transaction {:?}&quot;</span>, <span class="ident">id</span>, <span class="ident">status</span>))]</span>
-    <span class="ident">TxnAbortError</span> { <span class="ident">id</span>: <span class="ident">TxId</span>, <span class="ident">status</span>: <span class="ident">TransactionStatus</span> },
+    <span class="attribute">#[snafu(display(<span class="string">&quot;Abort Transaction {:?} error due to Transaction {:?}&quot;</span>, id, status))]
+    </span>TxnAbortError { id: TxId, status: TransactionStatus },
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">test</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::client_factory::ClientFactory</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::util::create_stream</span>;
-    <span class="kw">use</span> <span class="ident">pravega_client_config::connection_type</span>::{<span class="ident">ConnectionType</span>, <span class="ident">MockType</span>};
-    <span class="kw">use</span> <span class="ident">pravega_client_config::ClientConfigBuilder</span>;
-    <span class="kw">use</span> <span class="ident">pravega_client_shared</span>::{<span class="ident">PravegaNodeUri</span>, <span class="ident">ScopedSegment</span>};
-    <span class="kw">use</span> <span class="ident">tokio::runtime::Runtime</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>test {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span><span class="kw">crate</span>::client_factory::ClientFactory;
+    <span class="kw">use </span><span class="kw">crate</span>::util::create_stream;
+    <span class="kw">use </span>pravega_client_config::connection_type::{ConnectionType, MockType};
+    <span class="kw">use </span>pravega_client_config::ClientConfigBuilder;
+    <span class="kw">use </span>pravega_client_shared::{PravegaNodeUri, ScopedSegment};
+    <span class="kw">use </span>tokio::runtime::Runtime;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_get_ping_interval</span>() {
-        <span class="macro">assert_eq!</span>(<span class="ident">Pinger::ping_interval</span>(<span class="number">1000u64</span>), <span class="number">1000u64</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">Pinger::ping_interval</span>(<span class="number">4000u64</span>), <span class="number">2000u64</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">Pinger::ping_interval</span>(<span class="number">9000u64</span>), <span class="number">3000u64</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">Pinger::ping_interval</span>(<span class="number">16000u64</span>), <span class="number">4000u64</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">Pinger::ping_interval</span>(<span class="number">25000u64</span>), <span class="number">5000u64</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_get_ping_interval() {
+        <span class="macro">assert_eq!</span>(Pinger::ping_interval(<span class="number">1000u64</span>), <span class="number">1000u64</span>);
+        <span class="macro">assert_eq!</span>(Pinger::ping_interval(<span class="number">4000u64</span>), <span class="number">2000u64</span>);
+        <span class="macro">assert_eq!</span>(Pinger::ping_interval(<span class="number">9000u64</span>), <span class="number">3000u64</span>);
+        <span class="macro">assert_eq!</span>(Pinger::ping_interval(<span class="number">16000u64</span>), <span class="number">4000u64</span>);
+        <span class="macro">assert_eq!</span>(Pinger::ping_interval(<span class="number">25000u64</span>), <span class="number">5000u64</span>);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_txn_stream_writer</span>() {
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">Runtime::new</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">txn_stream_writer</span>, <span class="ident">_factory</span>) <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">create_txn_stream_writer</span>());
-        <span class="kw">let</span> <span class="ident">transaction</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">txn_stream_writer</span>.<span class="ident">begin</span>()).<span class="ident">expect</span>(<span class="string">&quot;open transaction&quot;</span>);
-        <span class="kw">let</span> <span class="ident">fetched_transaction</span> <span class="op">=</span> <span class="ident">rt</span>
-            .<span class="ident">block_on</span>(<span class="ident">txn_stream_writer</span>.<span class="ident">get_txn</span>(<span class="ident">transaction</span>.<span class="ident">txn_id</span>()))
-            .<span class="ident">expect</span>(<span class="string">&quot;get transaction&quot;</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">transaction</span>.<span class="ident">txn_id</span>(), <span class="ident">fetched_transaction</span>.<span class="ident">txn_id</span>());
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_txn_stream_writer() {
+        <span class="kw">let </span>rt = Runtime::new().unwrap();
+        <span class="kw">let </span>(<span class="kw-2">mut </span>txn_stream_writer, _factory) = rt.block_on(create_txn_stream_writer());
+        <span class="kw">let </span>transaction = rt.block_on(txn_stream_writer.begin()).expect(<span class="string">&quot;open transaction&quot;</span>);
+        <span class="kw">let </span>fetched_transaction = rt
+            .block_on(txn_stream_writer.get_txn(transaction.txn_id()))
+            .expect(<span class="string">&quot;get transaction&quot;</span>);
+        <span class="macro">assert_eq!</span>(transaction.txn_id(), fetched_transaction.txn_id());
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_txn_commit</span>() {
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">Runtime::new</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">txn_stream_writer</span>, <span class="ident">_factory</span>) <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">create_txn_stream_writer</span>());
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">txn</span> <span class="op">=</span> <span class="ident">rt</span>
-            .<span class="ident">block_on</span>(<span class="ident">txn_stream_writer</span>.<span class="ident">begin</span>())
-            .<span class="ident">expect</span>(<span class="string">&quot;begin a transaction&quot;</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_txn_commit() {
+        <span class="kw">let </span>rt = Runtime::new().unwrap();
+        <span class="kw">let </span>(<span class="kw-2">mut </span>txn_stream_writer, _factory) = rt.block_on(create_txn_stream_writer());
+        <span class="kw">let </span><span class="kw-2">mut </span>txn = rt
+            .block_on(txn_stream_writer.begin())
+            .expect(<span class="string">&quot;begin a transaction&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">status</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">txn</span>.<span class="ident">check_status</span>()).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">status</span>, <span class="ident">TransactionStatus::Open</span>);
+        <span class="kw">let </span>status = rt.block_on(txn.check_status()).unwrap();
+        <span class="macro">assert_eq!</span>(status, TransactionStatus::Open);
 
-        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">txn</span>.<span class="ident">write_event</span>(<span class="prelude-val">None</span>, <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">1024</span>])).<span class="ident">unwrap</span>();
+        rt.block_on(txn.write_event(<span class="prelude-val">None</span>, <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">1024</span>])).unwrap();
 
-        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">txn</span>.<span class="ident">commit</span>(<span class="ident">Timestamp</span>(<span class="number">0</span>))).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">status</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">txn</span>.<span class="ident">check_status</span>()).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">status</span>, <span class="ident">TransactionStatus::Committed</span>);
+        rt.block_on(txn.commit(Timestamp(<span class="number">0</span>))).unwrap();
+        <span class="kw">let </span>status = rt.block_on(txn.check_status()).unwrap();
+        <span class="macro">assert_eq!</span>(status, TransactionStatus::Committed);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_txn_abort</span>() {
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">Runtime::new</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">txn_stream_writer</span>, <span class="ident">_factory</span>) <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">create_txn_stream_writer</span>());
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">txn</span> <span class="op">=</span> <span class="ident">rt</span>
-            .<span class="ident">block_on</span>(<span class="ident">txn_stream_writer</span>.<span class="ident">begin</span>())
-            .<span class="ident">expect</span>(<span class="string">&quot;begin a transaction&quot;</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_txn_abort() {
+        <span class="kw">let </span>rt = Runtime::new().unwrap();
+        <span class="kw">let </span>(<span class="kw-2">mut </span>txn_stream_writer, _factory) = rt.block_on(create_txn_stream_writer());
+        <span class="kw">let </span><span class="kw-2">mut </span>txn = rt
+            .block_on(txn_stream_writer.begin())
+            .expect(<span class="string">&quot;begin a transaction&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">status</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">txn</span>.<span class="ident">check_status</span>()).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">status</span>, <span class="ident">TransactionStatus::Open</span>);
+        <span class="kw">let </span>status = rt.block_on(txn.check_status()).unwrap();
+        <span class="macro">assert_eq!</span>(status, TransactionStatus::Open);
 
-        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">txn</span>.<span class="ident">write_event</span>(<span class="prelude-val">None</span>, <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">1024</span>])).<span class="ident">unwrap</span>();
+        rt.block_on(txn.write_event(<span class="prelude-val">None</span>, <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">1024</span>])).unwrap();
 
-        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">txn</span>.<span class="ident">abort</span>()).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">status</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">txn</span>.<span class="ident">check_status</span>()).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">status</span>, <span class="ident">TransactionStatus::Aborted</span>);
+        rt.block_on(txn.abort()).unwrap();
+        <span class="kw">let </span>status = rt.block_on(txn.check_status()).unwrap();
+        <span class="macro">assert_eq!</span>(status, TransactionStatus::Aborted);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_txn_write_event</span>() {
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">Runtime::new</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">txn_stream_writer</span>, <span class="ident">_factory</span>) <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">create_txn_stream_writer</span>());
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">txn</span> <span class="op">=</span> <span class="ident">rt</span>
-            .<span class="ident">block_on</span>(<span class="ident">txn_stream_writer</span>.<span class="ident">begin</span>())
-            .<span class="ident">expect</span>(<span class="string">&quot;begin a transaction&quot;</span>);
-        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">txn</span>.<span class="ident">write_event</span>(<span class="prelude-val">None</span>, <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">1024</span>])).<span class="ident">unwrap</span>();
-        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">txn</span>.<span class="ident">write_event</span>(<span class="prelude-val">None</span>, <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">1024</span>])).<span class="ident">unwrap</span>();
-        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">txn</span>.<span class="ident">write_event</span>(<span class="prelude-val">None</span>, <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">1024</span>])).<span class="ident">unwrap</span>();
-        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">txn</span>.<span class="ident">event_handles</span>.<span class="ident">is_empty</span>());
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_txn_write_event() {
+        <span class="kw">let </span>rt = Runtime::new().unwrap();
+        <span class="kw">let </span>(<span class="kw-2">mut </span>txn_stream_writer, _factory) = rt.block_on(create_txn_stream_writer());
+        <span class="kw">let </span><span class="kw-2">mut </span>txn = rt
+            .block_on(txn_stream_writer.begin())
+            .expect(<span class="string">&quot;begin a transaction&quot;</span>);
+        rt.block_on(txn.write_event(<span class="prelude-val">None</span>, <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">1024</span>])).unwrap();
+        rt.block_on(txn.write_event(<span class="prelude-val">None</span>, <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">1024</span>])).unwrap();
+        rt.block_on(txn.write_event(<span class="prelude-val">None</span>, <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">1024</span>])).unwrap();
+        <span class="macro">assert!</span>(!txn.event_handles.is_empty());
 
-        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">txn</span>.<span class="ident">commit</span>(<span class="ident">Timestamp</span>(<span class="number">0</span>))).<span class="ident">unwrap</span>();
-        <span class="macro">assert!</span>(<span class="ident">txn</span>.<span class="ident">event_handles</span>.<span class="ident">is_empty</span>());
+        rt.block_on(txn.commit(Timestamp(<span class="number">0</span>))).unwrap();
+        <span class="macro">assert!</span>(txn.event_handles.is_empty());
     }
 
-    <span class="comment">// helper function</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_txn_stream_writer</span>() -&gt; (<span class="ident">TransactionalEventWriter</span>, <span class="ident">ClientFactory</span>) {
-        <span class="kw">let</span> <span class="ident">txn_segment</span> <span class="op">=</span> <span class="ident">ScopedSegment::from</span>(<span class="string">&quot;scope/stream/0&quot;</span>);
-        <span class="kw">let</span> <span class="ident">writer_id</span> <span class="op">=</span> <span class="ident">WriterId</span>(<span class="number">123</span>);
-        <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">ClientConfigBuilder::default</span>()
-            .<span class="ident">connection_type</span>(<span class="ident">ConnectionType::Mock</span>(<span class="ident">MockType::Happy</span>))
-            .<span class="ident">mock</span>(<span class="bool-val">true</span>)
-            .<span class="ident">controller_uri</span>(<span class="ident">PravegaNodeUri::from</span>(<span class="string">&quot;127.0.0.2:9091&quot;</span>))
-            .<span class="ident">build</span>()
-            .<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">factory</span> <span class="op">=</span> <span class="ident">ClientFactory::new</span>(<span class="ident">config</span>);
-        <span class="ident">create_stream</span>(<span class="kw-2">&amp;</span><span class="ident">factory</span>, <span class="string">&quot;scope&quot;</span>, <span class="string">&quot;stream&quot;</span>, <span class="number">1</span>).<span class="kw">await</span>;
-        <span class="kw">let</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">factory</span>
-            .<span class="ident">create_transactional_event_writer</span>(<span class="ident">ScopedStream::from</span>(<span class="kw-2">&amp;</span><span class="ident">txn_segment</span>), <span class="ident">writer_id</span>)
+    <span class="comment">// helper function
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>create_txn_stream_writer() -&gt; (TransactionalEventWriter, ClientFactory) {
+        <span class="kw">let </span>txn_segment = ScopedSegment::from(<span class="string">&quot;scope/stream/0&quot;</span>);
+        <span class="kw">let </span>writer_id = WriterId(<span class="number">123</span>);
+        <span class="kw">let </span>config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(MockType::Happy))
+            .mock(<span class="bool-val">true</span>)
+            .controller_uri(PravegaNodeUri::from(<span class="string">&quot;127.0.0.2:9091&quot;</span>))
+            .build()
+            .unwrap();
+        <span class="kw">let </span>factory = ClientFactory::new(config);
+        create_stream(<span class="kw-2">&amp;</span>factory, <span class="string">&quot;scope&quot;</span>, <span class="string">&quot;stream&quot;</span>, <span class="number">1</span>).<span class="kw">await</span>;
+        <span class="kw">let </span>writer = factory
+            .create_transactional_event_writer(ScopedStream::from(<span class="kw-2">&amp;</span>txn_segment), writer_id)
             .<span class="kw">await</span>;
-        (<span class="ident">writer</span>, <span class="ident">factory</span>)
+        (writer, factory)
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.66.0 (69f9c33d7 2022-12-12)" ></div></body></html>

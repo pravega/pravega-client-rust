@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/index/reader.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>reader.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/index/reader.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>reader.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><div class="width-limiter"><nav class="sub"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -303,310 +303,310 @@
 <span id="303">303</span>
 <span id="304">304</span>
 <span id="305">305</span>
-</pre><pre class="rust"><code><span class="comment">//</span>
-<span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
-<span class="comment">//</span>
-<span class="comment">// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
-<span class="comment">// you may not use this file except in compliance with the License.</span>
-<span class="comment">// You may obtain a copy of the License at</span>
-<span class="comment">//</span>
-<span class="comment">// http://www.apache.org/licenses/LICENSE-2.0</span>
-<span class="comment">//</span>
+</pre><pre class="rust"><code><span class="comment">//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::client_factory::ClientFactoryAsync</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::index</span>::{<span class="ident">IndexRecord</span>, <span class="ident">RECORD_SIZE</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::segment::reader</span>::{<span class="ident">AsyncSegmentReader</span>, <span class="ident">AsyncSegmentReaderImpl</span>};
+</span><span class="kw">use </span><span class="kw">crate</span>::client_factory::ClientFactoryAsync;
+<span class="kw">use </span><span class="kw">crate</span>::index::{IndexRecord, RECORD_SIZE};
+<span class="kw">use </span><span class="kw">crate</span>::segment::reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 
-<span class="kw">use</span> <span class="ident">pravega_client_shared</span>::{<span class="ident">ScopedSegment</span>, <span class="ident">ScopedStream</span>};
+<span class="kw">use </span>pravega_client_shared::{ScopedSegment, ScopedStream};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::segment::metadata::SegmentMetadataClient</span>;
-<span class="kw">use</span> <span class="ident">async_stream::try_stream</span>;
-<span class="kw">use</span> <span class="ident">futures::stream::Stream</span>;
-<span class="kw">use</span> <span class="ident">snafu</span>::{<span class="ident">ensure</span>, <span class="ident">Snafu</span>};
-<span class="kw">use</span> <span class="ident">std::io::SeekFrom</span>;
+<span class="kw">use </span><span class="kw">crate</span>::segment::metadata::SegmentMetadataClient;
+<span class="kw">use </span>async_stream::try_stream;
+<span class="kw">use </span>futures::stream::Stream;
+<span class="kw">use </span>snafu::{ensure, Snafu};
+<span class="kw">use </span>std::io::SeekFrom;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Snafu</span>)]</span>
-<span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">visibility</span> <span class="op">=</span> <span class="string">&quot;pub&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">IndexReaderError</span> {
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Field {} does not exist&quot;</span>, <span class="ident">msg</span>))]</span>
-    <span class="ident">FieldNotFound</span> { <span class="ident">msg</span>: <span class="ident">String</span> },
+<span class="attribute">#[derive(Debug, Snafu)]
+#[snafu(visibility = <span class="string">&quot;pub&quot;</span>)]
+</span><span class="kw">pub enum </span>IndexReaderError {
+    <span class="attribute">#[snafu(display(<span class="string">&quot;Field {} does not exist&quot;</span>, msg))]
+    </span>FieldNotFound { msg: String },
 
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Invalid offset: {}&quot;</span>, <span class="ident">msg</span>))]</span>
-    <span class="ident">InvalidOffset</span> { <span class="ident">msg</span>: <span class="ident">String</span> },
+    <span class="attribute">#[snafu(display(<span class="string">&quot;Invalid offset: {}&quot;</span>, msg))]
+    </span>InvalidOffset { msg: String },
 
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Internal error: {}&quot;</span>, <span class="ident">msg</span>))]</span>
-    <span class="ident">Internal</span> { <span class="ident">msg</span>: <span class="ident">String</span> },
+    <span class="attribute">#[snafu(display(<span class="string">&quot;Internal error: {}&quot;</span>, msg))]
+    </span>Internal { msg: String },
 }
 
-<span class="doccomment">/// Index Reader reads the Index Record from Stream.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The Stream has to be fixed size single segment stream like byte stream.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Examples</span>
-<span class="doccomment">/// ```no_run</span>
-<span class="doccomment">/// use pravega_client_config::ClientConfigBuilder;</span>
-<span class="doccomment">/// use pravega_client::client_factory::ClientFactory;</span>
-<span class="doccomment">/// use pravega_client_shared::ScopedStream;</span>
-<span class="doccomment">/// use futures_util::pin_mut;</span>
-<span class="doccomment">/// use futures_util::StreamExt;</span>
-<span class="doccomment">/// use std::io::Write;</span>
-<span class="doccomment">/// use tokio;</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// // Suppose the existing Fields in the stream is like below.</span>
-<span class="doccomment">/// // #[derive(Fields, Debug, PartialOrd, PartialEq)]</span>
-<span class="doccomment">/// // struct MyFields {</span>
-<span class="doccomment">/// //    id: u64,</span>
-<span class="doccomment">/// //    timestamp: u64,</span>
-<span class="doccomment">/// // }</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// #[tokio::main]</span>
-<span class="doccomment">/// async fn main() {</span>
-<span class="doccomment">///     // assuming Pravega controller is running at endpoint `localhost:9090`</span>
-<span class="doccomment">///     let config = ClientConfigBuilder::default()</span>
-<span class="doccomment">///         .controller_uri(&quot;localhost:9090&quot;)</span>
-<span class="doccomment">///         .build()</span>
-<span class="doccomment">///         .expect(&quot;creating config&quot;);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     let client_factory = ClientFactory::new(config);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // assuming scope:myscope, stream:mystream exist.</span>
-<span class="doccomment">///     let stream = ScopedStream::from(&quot;myscope/mystream&quot;);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     let mut index_reader = client_factory.create_index_reader(stream).await;</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // search data</span>
-<span class="doccomment">///     let offset = index_reader.search_offset((&quot;id&quot;, 10)).await.expect(&quot;get offset&quot;);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // read data</span>
-<span class="doccomment">///     let s = index_reader.read(offset, u64::MAX).expect(&quot;get read slice&quot;);</span>
-<span class="doccomment">///     pin_mut!(s);</span>
-<span class="doccomment">///     while let Some(res) = s.next().await {</span>
-<span class="doccomment">///         // do something with the read result</span>
-<span class="doccomment">///         res.expect(&quot;read next event&quot;);</span>
-<span class="doccomment">///     }</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// ```</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">IndexReader</span> {
-    <span class="ident">stream</span>: <span class="ident">ScopedStream</span>,
-    <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>,
-    <span class="ident">meta</span>: <span class="ident">SegmentMetadataClient</span>,
-    <span class="ident">segment_reader</span>: <span class="ident">AsyncSegmentReaderImpl</span>,
+<span class="doccomment">/// Index Reader reads the Index Record from Stream.
+///
+/// The Stream has to be fixed size single segment stream like byte stream.
+///
+/// # Examples
+/// ```no_run
+/// use pravega_client_config::ClientConfigBuilder;
+/// use pravega_client::client_factory::ClientFactory;
+/// use pravega_client_shared::ScopedStream;
+/// use futures_util::pin_mut;
+/// use futures_util::StreamExt;
+/// use std::io::Write;
+/// use tokio;
+///
+/// // Suppose the existing Fields in the stream is like below.
+/// // #[derive(Fields, Debug, PartialOrd, PartialEq)]
+/// // struct MyFields {
+/// //    id: u64,
+/// //    timestamp: u64,
+/// // }
+///
+/// #[tokio::main]
+/// async fn main() {
+///     // assuming Pravega controller is running at endpoint `localhost:9090`
+///     let config = ClientConfigBuilder::default()
+///         .controller_uri(&quot;localhost:9090&quot;)
+///         .build()
+///         .expect(&quot;creating config&quot;);
+///
+///     let client_factory = ClientFactory::new(config);
+///
+///     // assuming scope:myscope, stream:mystream exist.
+///     let stream = ScopedStream::from(&quot;myscope/mystream&quot;);
+///
+///     let mut index_reader = client_factory.create_index_reader(stream).await;
+///
+///     // search data
+///     let offset = index_reader.search_offset((&quot;id&quot;, 10)).await.expect(&quot;get offset&quot;);
+///
+///     // read data
+///     let s = index_reader.read(offset, u64::MAX).expect(&quot;get read slice&quot;);
+///     pin_mut!(s);
+///     while let Some(res) = s.next().await {
+///         // do something with the read result
+///         res.expect(&quot;read next event&quot;);
+///     }
+/// }
+/// ```
+</span><span class="kw">pub struct </span>IndexReader {
+    stream: ScopedStream,
+    factory: ClientFactoryAsync,
+    meta: SegmentMetadataClient,
+    segment_reader: AsyncSegmentReaderImpl,
 }
 
-<span class="kw">impl</span> <span class="ident">IndexReader</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>, <span class="ident">stream</span>: <span class="ident">ScopedStream</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">segments</span> <span class="op">=</span> <span class="ident">factory</span>
-            .<span class="ident">controller_client</span>()
-            .<span class="ident">get_head_segments</span>(<span class="kw-2">&amp;</span><span class="ident">stream</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">expect</span>(<span class="string">&quot;get head segments&quot;</span>);
+<span class="kw">impl </span>IndexReader {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>new(factory: ClientFactoryAsync, stream: ScopedStream) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>segments = factory
+            .controller_client()
+            .get_head_segments(<span class="kw-2">&amp;</span>stream)
+            .<span class="kw">await
+            </span>.expect(<span class="string">&quot;get head segments&quot;</span>);
         <span class="macro">assert_eq!</span>(
-            <span class="ident">segments</span>.<span class="ident">len</span>(),
+            segments.len(),
             <span class="number">1</span>,
-            <span class="string">&quot;Index stream is configured with more than one segment&quot;</span>
-        );
-        <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="ident">segments</span>.<span class="ident">iter</span>().<span class="ident">next</span>().<span class="ident">unwrap</span>().<span class="number">0</span>.<span class="ident">clone</span>();
-        <span class="kw">let</span> <span class="ident">scoped_segment</span> <span class="op">=</span> <span class="ident">ScopedSegment</span> {
-            <span class="ident">scope</span>: <span class="ident">stream</span>.<span class="ident">scope</span>.<span class="ident">clone</span>(),
-            <span class="ident">stream</span>: <span class="ident">stream</span>.<span class="ident">stream</span>.<span class="ident">clone</span>(),
-            <span class="ident">segment</span>,
+            <span class="string">&quot;Index stream is configured with more than one segment&quot;
+        </span>);
+        <span class="kw">let </span>segment = segments.iter().next().unwrap().<span class="number">0</span>.clone();
+        <span class="kw">let </span>scoped_segment = ScopedSegment {
+            scope: stream.scope.clone(),
+            stream: stream.stream.clone(),
+            segment,
         };
-        <span class="kw">let</span> <span class="ident">segment_reader</span> <span class="op">=</span> <span class="ident">factory</span>.<span class="ident">create_async_segment_reader</span>(<span class="ident">scoped_segment</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
-        <span class="kw">let</span> <span class="ident">meta</span> <span class="op">=</span> <span class="ident">factory</span>
-            .<span class="ident">create_segment_metadata_client</span>(<span class="ident">scoped_segment</span>.<span class="ident">clone</span>())
+        <span class="kw">let </span>segment_reader = factory.create_async_segment_reader(scoped_segment.clone()).<span class="kw">await</span>;
+        <span class="kw">let </span>meta = factory
+            .create_segment_metadata_client(scoped_segment.clone())
             .<span class="kw">await</span>;
-        <span class="ident">IndexReader</span> {
-            <span class="ident">stream</span>,
-            <span class="ident">factory</span>,
-            <span class="ident">meta</span>,
-            <span class="ident">segment_reader</span>,
+        IndexReader {
+            stream,
+            factory,
+            meta,
+            segment_reader,
         }
     }
 
-    <span class="doccomment">/// Given an Field (name, v), find the offset of the first record that contains the given Field</span>
-    <span class="doccomment">/// that has value &gt;= v.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Note that if there are multiple entries that have the same Field name and value, this method will find and return</span>
-    <span class="doccomment">/// the first one.</span>
-    <span class="doccomment">/// If the value of searching field is smaller than the first readable Record&#39;s field in the</span>
-    <span class="doccomment">/// stream, the first record data will be returned.</span>
-    <span class="doccomment">/// If the value of searching field is larger than the latest Record, a FieldNotFound error will be returned.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">search_offset</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">field</span>: (<span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>, <span class="ident">u64</span>)) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u64</span>, <span class="ident">IndexReaderError</span><span class="op">&gt;</span> {
-        <span class="kw">const</span> <span class="ident">RECORD_SIZE_SIGNED</span>: <span class="ident">i64</span> <span class="op">=</span> <span class="ident">RECORD_SIZE</span> <span class="kw">as</span> <span class="ident">i64</span>;
+    <span class="doccomment">/// Given an Field (name, v), find the offset of the first record that contains the given Field
+    /// that has value &gt;= v.
+    ///
+    /// Note that if there are multiple entries that have the same Field name and value, this method will find and return
+    /// the first one.
+    /// If the value of searching field is smaller than the first readable Record&#39;s field in the
+    /// stream, the first record data will be returned.
+    /// If the value of searching field is larger than the latest Record, a FieldNotFound error will be returned.
+    </span><span class="kw">pub async fn </span>search_offset(<span class="kw-2">&amp;</span><span class="self">self</span>, field: (<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, u64)) -&gt; <span class="prelude-ty">Result</span>&lt;u64, IndexReaderError&gt; {
+        <span class="kw">const </span>RECORD_SIZE_SIGNED: i64 = RECORD_SIZE <span class="kw">as </span>i64;
 
-        <span class="kw">let</span> <span class="ident">target_key</span> <span class="op">=</span> <span class="ident">IndexRecord::hash_key_to_u128</span>(<span class="ident">field</span>.<span class="number">0</span>);
-        <span class="kw">let</span> <span class="ident">target_value</span> <span class="op">=</span> <span class="ident">field</span>.<span class="number">1</span>;
+        <span class="kw">let </span>target_key = IndexRecord::hash_key_to_u128(field.<span class="number">0</span>);
+        <span class="kw">let </span>target_value = field.<span class="number">1</span>;
 
-        <span class="kw">let</span> <span class="ident">head</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">head_offset</span>().<span class="kw">await</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">IndexReaderError::Internal</span> {
-            <span class="ident">msg</span>: <span class="macro">format!</span>(<span class="string">&quot;error when fetching head offset: {:?}&quot;</span>, <span class="ident">e</span>),
-        })<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">i64</span>;
-        <span class="kw">let</span> <span class="ident">tail</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">tail_offset</span>().<span class="kw">await</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">IndexReaderError::Internal</span> {
-            <span class="ident">msg</span>: <span class="macro">format!</span>(<span class="string">&quot;error when fetching tail offset: {:?}&quot;</span>, <span class="ident">e</span>),
-        })<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">i64</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">start</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="kw">let</span> <span class="ident">num_of_record</span> <span class="op">=</span> (<span class="ident">tail</span> <span class="op">-</span> <span class="ident">head</span>) <span class="kw">as</span> <span class="ident">i64</span> <span class="op">/</span> <span class="ident">RECORD_SIZE_SIGNED</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">end</span> <span class="op">=</span> <span class="ident">num_of_record</span> <span class="op">-</span> <span class="number">1</span>;
+        <span class="kw">let </span>head = <span class="self">self</span>.head_offset().<span class="kw">await</span>.map_err(|e| IndexReaderError::Internal {
+            msg: <span class="macro">format!</span>(<span class="string">&quot;error when fetching head offset: {:?}&quot;</span>, e),
+        })<span class="question-mark">? </span><span class="kw">as </span>i64;
+        <span class="kw">let </span>tail = <span class="self">self</span>.tail_offset().<span class="kw">await</span>.map_err(|e| IndexReaderError::Internal {
+            msg: <span class="macro">format!</span>(<span class="string">&quot;error when fetching tail offset: {:?}&quot;</span>, e),
+        })<span class="question-mark">? </span><span class="kw">as </span>i64;
+        <span class="kw">let </span><span class="kw-2">mut </span>start = <span class="number">0</span>;
+        <span class="kw">let </span>num_of_record = (tail - head) <span class="kw">as </span>i64 / RECORD_SIZE_SIGNED;
+        <span class="kw">let </span><span class="kw-2">mut </span>end = num_of_record - <span class="number">1</span>;
 
-        <span class="kw">while</span> <span class="ident">start</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">end</span> {
-            <span class="kw">let</span> <span class="ident">mid</span> <span class="op">=</span> <span class="ident">start</span> <span class="op">+</span> (<span class="ident">end</span> <span class="op">-</span> <span class="ident">start</span>) <span class="op">/</span> <span class="number">2</span>;
-            <span class="kw">let</span> <span class="ident">record</span> <span class="op">=</span> <span class="self">self</span>
-                .<span class="ident">read_record_from_random_offset</span>((<span class="ident">head</span> <span class="op">+</span> <span class="ident">mid</span> <span class="op">*</span> <span class="ident">RECORD_SIZE_SIGNED</span>) <span class="kw">as</span> <span class="ident">u64</span>)
+        <span class="kw">while </span>start &lt;= end {
+            <span class="kw">let </span>mid = start + (end - start) / <span class="number">2</span>;
+            <span class="kw">let </span>record = <span class="self">self
+                </span>.read_record_from_random_offset((head + mid * RECORD_SIZE_SIGNED) <span class="kw">as </span>u64)
                 .<span class="kw">await</span><span class="question-mark">?</span>;
 
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">record</span>.<span class="ident">fields</span>.<span class="ident">iter</span>().<span class="ident">find</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="number">0</span> <span class="op">==</span> <span class="ident">target_key</span>) {
-                <span class="comment">// record contains the field, compare value with the target value.</span>
-                <span class="kw">if</span> <span class="ident">e</span>.<span class="number">1</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">target_value</span> {
-                    <span class="comment">// value is large than or equal to the target value, check the first half.</span>
-                    <span class="ident">end</span> <span class="op">=</span> <span class="ident">mid</span> <span class="op">-</span> <span class="number">1</span>;
-                } <span class="kw">else</span> {
-                    <span class="comment">// value is smaller than the target value, check the second half.</span>
-                    <span class="ident">start</span> <span class="op">=</span> <span class="ident">mid</span> <span class="op">+</span> <span class="number">1</span>;
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = record.fields.iter().find(|<span class="kw-2">&amp;</span>e| e.<span class="number">0 </span>== target_key) {
+                <span class="comment">// record contains the field, compare value with the target value.
+                </span><span class="kw">if </span>e.<span class="number">1 </span>&gt;= target_value {
+                    <span class="comment">// value is large than or equal to the target value, check the first half.
+                    </span>end = mid - <span class="number">1</span>;
+                } <span class="kw">else </span>{
+                    <span class="comment">// value is smaller than the target value, check the second half.
+                    </span>start = mid + <span class="number">1</span>;
                 }
-                <span class="comment">// field does not exist in the current record.</span>
-                <span class="comment">// it might exist in the second half.</span>
-            } <span class="kw">else</span> {
-                <span class="ident">start</span> <span class="op">=</span> <span class="ident">mid</span> <span class="op">+</span> <span class="number">1</span>;
+                <span class="comment">// field does not exist in the current record.
+                // it might exist in the second half.
+            </span>} <span class="kw">else </span>{
+                start = mid + <span class="number">1</span>;
             }
         }
 
-        <span class="kw">if</span> <span class="ident">start</span> <span class="op">==</span> <span class="ident">num_of_record</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">IndexReaderError::FieldNotFound</span> {
-                <span class="ident">msg</span>: <span class="macro">format!</span>(<span class="string">&quot;key/value: {}/{}&quot;</span>, <span class="ident">field</span>.<span class="number">0</span>, <span class="ident">field</span>.<span class="number">1</span>),
+        <span class="kw">if </span>start == num_of_record {
+            <span class="prelude-val">Err</span>(IndexReaderError::FieldNotFound {
+                msg: <span class="macro">format!</span>(<span class="string">&quot;key/value: {}/{}&quot;</span>, field.<span class="number">0</span>, field.<span class="number">1</span>),
             })
-        } <span class="kw">else</span> {
-            <span class="prelude-val">Ok</span>((<span class="ident">head</span> <span class="op">+</span> <span class="ident">start</span> <span class="op">*</span> <span class="ident">RECORD_SIZE_SIGNED</span>) <span class="kw">as</span> <span class="ident">u64</span>)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Ok</span>((head + start * RECORD_SIZE_SIGNED) <span class="kw">as </span>u64)
         }
     }
 
-    <span class="doccomment">/// Reads records starting from the given offset.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This method returns a slice of stream that implements an iterator. Application can iterate on</span>
-    <span class="doccomment">/// this slice to get the data. When `next()` is invoked on the iterator, a read request</span>
-    <span class="doccomment">/// will be issued by the underlying reader.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// If we want to do tail read instead of reading just a slice of the data, we can set end_offset</span>
-    <span class="doccomment">/// to be u64::MAX.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read</span><span class="op">&lt;</span><span class="lifetime">&#39;stream</span>, <span class="lifetime">&#39;reader</span>: <span class="lifetime">&#39;stream</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;</span><span class="lifetime">&#39;reader</span> <span class="self">self</span>,
-        <span class="ident">start_offset</span>: <span class="ident">u64</span>,
-        <span class="ident">end_offset</span>: <span class="ident">u64</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw">impl</span> <span class="ident">Stream</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">IndexReaderError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;stream</span>, <span class="ident">IndexReaderError</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Reads records starting from the given offset.
+    ///
+    /// This method returns a slice of stream that implements an iterator. Application can iterate on
+    /// this slice to get the data. When `next()` is invoked on the iterator, a read request
+    /// will be issued by the underlying reader.
+    ///
+    /// If we want to do tail read instead of reading just a slice of the data, we can set end_offset
+    /// to be u64::MAX.
+    </span><span class="kw">pub fn </span>read&lt;<span class="lifetime">&#39;stream</span>, <span class="lifetime">&#39;reader</span>: <span class="lifetime">&#39;stream</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">&#39;reader </span><span class="self">self</span>,
+        start_offset: u64,
+        end_offset: u64,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Stream&lt;Item = <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, IndexReaderError&gt;&gt; + <span class="lifetime">&#39;stream</span>, IndexReaderError&gt; {
         <span class="macro">ensure!</span>(
-            <span class="ident">start_offset</span> <span class="op">%</span> (<span class="ident">RECORD_SIZE</span> <span class="kw">as</span> <span class="ident">u64</span>) <span class="op">==</span> <span class="number">0</span>,
-            <span class="ident">InvalidOffset</span> {
-                <span class="ident">msg</span>: <span class="macro">format!</span>(
+            start_offset % (RECORD_SIZE <span class="kw">as </span>u64) == <span class="number">0</span>,
+            InvalidOffset {
+                msg: <span class="macro">format!</span>(
                     <span class="string">&quot;Start offset {} is invalid as it cannot be divided by the record size {}&quot;</span>,
-                    <span class="ident">start_offset</span>, <span class="ident">RECORD_SIZE</span>
+                    start_offset, RECORD_SIZE
                 )
             }
         );
-        <span class="kw">if</span> <span class="ident">end_offset</span> <span class="op">!</span><span class="op">=</span> <span class="ident">u64::MAX</span> {
+        <span class="kw">if </span>end_offset != u64::MAX {
             <span class="macro">ensure!</span>(
-                <span class="ident">end_offset</span> <span class="op">%</span> (<span class="ident">RECORD_SIZE</span> <span class="kw">as</span> <span class="ident">u64</span>) <span class="op">==</span> <span class="number">0</span>,
-                <span class="ident">InvalidOffset</span> {
-                    <span class="ident">msg</span>: <span class="macro">format!</span>(
+                end_offset % (RECORD_SIZE <span class="kw">as </span>u64) == <span class="number">0</span>,
+                InvalidOffset {
+                    msg: <span class="macro">format!</span>(
                         <span class="string">&quot;End offset {} is invalid as it cannot be divided by the record size {}&quot;</span>,
-                        <span class="ident">end_offset</span>, <span class="ident">RECORD_SIZE</span>
+                        end_offset, RECORD_SIZE
                     )
                 }
             );
         }
-        <span class="prelude-val">Ok</span>(<span class="macro">try_stream!</span> {
-            <span class="kw">let</span> <span class="ident">stream</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stream</span>.<span class="ident">clone</span>();
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">byte_reader</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">factory</span>.<span class="ident">create_byte_reader</span>(<span class="ident">stream</span>).<span class="kw">await</span>;
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">num_of_records_to_read</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">end_offset</span> <span class="op">==</span> <span class="ident">u64::MAX</span> {
-                <span class="ident">u64::MAX</span>
-            } <span class="kw">else</span> {
-                (<span class="ident">end_offset</span> <span class="op">-</span> <span class="ident">start_offset</span>) <span class="op">/</span> (<span class="ident">RECORD_SIZE</span> <span class="kw">as</span> <span class="ident">u64</span>)
+        <span class="prelude-val">Ok</span>(<span class="macro">try_stream! </span>{
+            <span class="kw">let </span>stream = <span class="self">self</span>.stream.clone();
+            <span class="kw">let </span><span class="kw-2">mut </span>byte_reader = <span class="self">self</span>.factory.create_byte_reader(stream).<span class="kw">await</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>num_of_records_to_read = <span class="kw">if </span>end_offset == u64::MAX {
+                u64::MAX
+            } <span class="kw">else </span>{
+                (end_offset - start_offset) / (RECORD_SIZE <span class="kw">as </span>u64)
             };
-            <span class="ident">byte_reader</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Start</span>(<span class="ident">start_offset</span>))
-                .<span class="kw">await</span>
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">IndexReaderError::InvalidOffset</span> {
-                    <span class="ident">msg</span>: <span class="macro">format!</span>(<span class="string">&quot;invalid seeking offset {:?}&quot;</span>, <span class="ident">e</span>)
+            byte_reader.seek(SeekFrom::Start(start_offset))
+                .<span class="kw">await
+                </span>.map_err(|e| IndexReaderError::InvalidOffset {
+                    msg: <span class="macro">format!</span>(<span class="string">&quot;invalid seeking offset {:?}&quot;</span>, e)
             })<span class="question-mark">?</span>;
-            <span class="kw">loop</span> {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="macro">vec!</span>{};
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">size_to_read</span> <span class="op">=</span> <span class="ident">RECORD_SIZE</span> <span class="kw">as</span> <span class="ident">usize</span>;
-                <span class="kw">while</span> <span class="ident">size_to_read</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">tmp_buf</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">0</span>; <span class="ident">size_to_read</span>];
-                    <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">byte_reader</span>
-                        .<span class="ident">read</span>(<span class="kw-2">&amp;mut</span> <span class="ident">tmp_buf</span>)
-                        .<span class="kw">await</span>
-                        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">IndexReaderError::Internal</span> {
-                            <span class="ident">msg</span>: <span class="macro">format!</span>(<span class="string">&quot;byte reader read error {:?}&quot;</span>, <span class="ident">e</span>),
+            <span class="kw">loop </span>{
+                <span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>{};
+                <span class="kw">let </span><span class="kw-2">mut </span>size_to_read = RECORD_SIZE <span class="kw">as </span>usize;
+                <span class="kw">while </span>size_to_read != <span class="number">0 </span>{
+                    <span class="kw">let </span><span class="kw-2">mut </span>tmp_buf = <span class="macro">vec!</span>[<span class="number">0</span>; size_to_read];
+                    <span class="kw">let </span>size = byte_reader
+                        .read(<span class="kw-2">&amp;mut </span>tmp_buf)
+                        .<span class="kw">await
+                        </span>.map_err(|e| IndexReaderError::Internal {
+                            msg: <span class="macro">format!</span>(<span class="string">&quot;byte reader read error {:?}&quot;</span>, e),
                         })<span class="question-mark">?</span>;
-                    <span class="ident">buf</span>.<span class="ident">extend_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">tmp_buf</span>[..<span class="ident">size</span>]);
-                    <span class="ident">size_to_read</span> <span class="op">-</span><span class="op">=</span> <span class="ident">size</span>;
+                    buf.extend_from_slice(<span class="kw-2">&amp;</span>tmp_buf[..size]);
+                    size_to_read -= size;
                 }
-                <span class="kw">let</span> <span class="ident">record</span> <span class="op">=</span> <span class="ident">IndexRecord::read_from</span>(<span class="kw-2">&amp;</span><span class="ident">buf</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">IndexReaderError::Internal</span> {
-                    <span class="ident">msg</span>: <span class="macro">format!</span>(<span class="string">&quot;deserialize record {:?}&quot;</span>, <span class="ident">e</span>),
+                <span class="kw">let </span>record = IndexRecord::read_from(<span class="kw-2">&amp;</span>buf).map_err(|e| IndexReaderError::Internal {
+                    msg: <span class="macro">format!</span>(<span class="string">&quot;deserialize record {:?}&quot;</span>, e),
                 })<span class="question-mark">?</span>;
-                <span class="kw">yield</span> <span class="ident">record</span>.<span class="ident">data</span>;
-                <span class="kw">if</span> <span class="ident">num_of_records_to_read</span> <span class="op">!</span><span class="op">=</span> <span class="ident">u64::MAX</span> {
-                    <span class="ident">num_of_records_to_read</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+                <span class="kw">yield </span>record.data;
+                <span class="kw">if </span>num_of_records_to_read != u64::MAX {
+                    num_of_records_to_read -= <span class="number">1</span>;
                 }
-                <span class="kw">if</span> <span class="ident">num_of_records_to_read</span> <span class="op">==</span> <span class="number">0</span> {
+                <span class="kw">if </span>num_of_records_to_read == <span class="number">0 </span>{
                     <span class="kw">break</span>;
                 }
             }
         })
     }
 
-    <span class="doccomment">/// Data in the first readable record.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">first_record_data</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">IndexReaderError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">head_offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">head_offset</span>().<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">first_record</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">read_record_from_random_offset</span>(<span class="ident">head_offset</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">first_record</span>.<span class="ident">data</span>)
+    <span class="doccomment">/// Data in the first readable record.
+    </span><span class="kw">pub async fn </span>first_record_data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, IndexReaderError&gt; {
+        <span class="kw">let </span>head_offset = <span class="self">self</span>.head_offset().<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>first_record = <span class="self">self</span>.read_record_from_random_offset(head_offset).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(first_record.data)
     }
 
-    <span class="doccomment">/// Data in the last record.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">last_record_data</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">IndexReaderError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">last_offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">tail_offset</span>().<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">last_record_offset</span> <span class="op">=</span> <span class="ident">last_offset</span> <span class="op">-</span> <span class="ident">RECORD_SIZE</span>;
-        <span class="kw">let</span> <span class="ident">last_record</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">read_record_from_random_offset</span>(<span class="ident">last_record_offset</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">last_record</span>.<span class="ident">data</span>)
+    <span class="doccomment">/// Data in the last record.
+    </span><span class="kw">pub async fn </span>last_record_data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, IndexReaderError&gt; {
+        <span class="kw">let </span>last_offset = <span class="self">self</span>.tail_offset().<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>last_record_offset = last_offset - RECORD_SIZE;
+        <span class="kw">let </span>last_record = <span class="self">self</span>.read_record_from_random_offset(last_record_offset).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(last_record.data)
     }
 
-    <span class="doccomment">/// Get the readable head offset.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">head_offset</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u64</span>, <span class="ident">IndexReaderError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">meta</span>
-            .<span class="ident">fetch_current_starting_head</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="ident">i</span> <span class="kw">as</span> <span class="ident">u64</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">IndexReaderError::Internal</span> {
-                <span class="ident">msg</span>: <span class="macro">format!</span>(<span class="string">&quot;failed to get head offset: {:?}&quot;</span>, <span class="ident">e</span>),
+    <span class="doccomment">/// Get the readable head offset.
+    </span><span class="kw">pub async fn </span>head_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u64, IndexReaderError&gt; {
+        <span class="self">self</span>.meta
+            .fetch_current_starting_head()
+            .<span class="kw">await
+            </span>.map(|i| i <span class="kw">as </span>u64)
+            .map_err(|e| IndexReaderError::Internal {
+                msg: <span class="macro">format!</span>(<span class="string">&quot;failed to get head offset: {:?}&quot;</span>, e),
             })
     }
 
-    <span class="doccomment">/// Get the tail offset.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">tail_offset</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u64</span>, <span class="ident">IndexReaderError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">meta</span>
-            .<span class="ident">fetch_current_segment_length</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="ident">i</span> <span class="kw">as</span> <span class="ident">u64</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">IndexReaderError::Internal</span> {
-                <span class="ident">msg</span>: <span class="macro">format!</span>(<span class="string">&quot;failed to get tail offset: {:?}&quot;</span>, <span class="ident">e</span>),
+    <span class="doccomment">/// Get the tail offset.
+    </span><span class="kw">pub async fn </span>tail_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u64, IndexReaderError&gt; {
+        <span class="self">self</span>.meta
+            .fetch_current_segment_length()
+            .<span class="kw">await
+            </span>.map(|i| i <span class="kw">as </span>u64)
+            .map_err(|e| IndexReaderError::Internal {
+                msg: <span class="macro">format!</span>(<span class="string">&quot;failed to get tail offset: {:?}&quot;</span>, e),
             })
     }
 
-    <span class="comment">// Read a record from a given offset.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">read_record_from_random_offset</span>(
+    <span class="comment">// Read a record from a given offset.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>read_record_from_random_offset(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">offset</span>: <span class="ident">u64</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">IndexRecord</span>, <span class="ident">IndexReaderError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">segment_read_cmd</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">segment_reader</span>
-            .<span class="ident">read</span>(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">i64</span>, <span class="ident">RECORD_SIZE</span> <span class="kw">as</span> <span class="ident">i32</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">IndexReaderError::Internal</span> {
-                <span class="ident">msg</span>: <span class="macro">format!</span>(<span class="string">&quot;segment reader error: {:?}&quot;</span>, <span class="ident">e</span>),
+        offset: u64,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;IndexRecord, IndexReaderError&gt; {
+        <span class="kw">let </span>segment_read_cmd = <span class="self">self
+            </span>.segment_reader
+            .read(offset <span class="kw">as </span>i64, RECORD_SIZE <span class="kw">as </span>i32)
+            .<span class="kw">await
+            </span>.map_err(|e| IndexReaderError::Internal {
+                msg: <span class="macro">format!</span>(<span class="string">&quot;segment reader error: {:?}&quot;</span>, e),
             })<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">record</span> <span class="op">=</span>
-            <span class="ident">IndexRecord::read_from</span>(<span class="kw-2">&amp;</span><span class="ident">segment_read_cmd</span>.<span class="ident">data</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">IndexReaderError::Internal</span> {
-                <span class="ident">msg</span>: <span class="macro">format!</span>(<span class="string">&quot;record deserialization error: {:?}&quot;</span>, <span class="ident">e</span>),
+        <span class="kw">let </span>record =
+            IndexRecord::read_from(<span class="kw-2">&amp;</span>segment_read_cmd.data).map_err(|e| IndexReaderError::Internal {
+                msg: <span class="macro">format!</span>(<span class="string">&quot;record deserialization error: {:?}&quot;</span>, e),
             })<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">record</span>)
+        <span class="prelude-val">Ok</span>(record)
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.66.0 (69f9c33d7 2022-12-12)" ></div></body></html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/sync/synchronizer.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>synchronizer.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/sync/synchronizer.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>synchronizer.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><div class="width-limiter"><nav class="sub"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -1096,1103 +1096,1103 @@
 <span id="1096">1096</span>
 <span id="1097">1097</span>
 <span id="1098">1098</span>
-</pre><pre class="rust"><code><span class="comment">//</span>
-<span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
-<span class="comment">//</span>
-<span class="comment">// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
-<span class="comment">// you may not use this file except in compliance with the License.</span>
-<span class="comment">// You may obtain a copy of the License at</span>
-<span class="comment">//</span>
-<span class="comment">// http://www.apache.org/licenses/LICENSE-2.0</span>
-<span class="comment">//</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::client_factory::ClientFactoryAsync</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sync::table</span>::{<span class="ident">Table</span>, <span class="ident">TableError</span>, <span class="ident">Version</span>};
+</pre><pre class="rust"><code><span class="comment">//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+</span><span class="kw">use </span><span class="kw">crate</span>::client_factory::ClientFactoryAsync;
+<span class="kw">use </span><span class="kw">crate</span>::sync::table::{Table, TableError, Version};
 
-<span class="kw">use</span> <span class="ident">pravega_client_shared::Scope</span>;
-<span class="kw">use</span> <span class="ident">pravega_wire_protocol::commands::TableKey</span>;
+<span class="kw">use </span>pravega_client_shared::Scope;
+<span class="kw">use </span>pravega_wire_protocol::commands::TableKey;
 
-<span class="kw">use</span> <span class="ident">futures::pin_mut</span>;
-<span class="kw">use</span> <span class="ident">futures::stream::StreamExt</span>;
-<span class="kw">use</span> <span class="ident">serde::de::DeserializeOwned</span>;
-<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">serde_cbor::ser::Serializer</span> <span class="kw">as</span> <span class="ident">CborSerializer</span>;
-<span class="kw">use</span> <span class="ident">serde_cbor::to_vec</span>;
-<span class="kw">use</span> <span class="ident">snafu::Snafu</span>;
-<span class="kw">use</span> <span class="ident">std::clone::Clone</span>;
-<span class="kw">use</span> <span class="ident">std::cmp</span>::{<span class="ident">Eq</span>, <span class="ident">PartialEq</span>};
-<span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
-<span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
-<span class="kw">use</span> <span class="ident">std::hash</span>::{<span class="ident">Hash</span>, <span class="ident">Hasher</span>};
-<span class="kw">use</span> <span class="ident">std::slice::Iter</span>;
-<span class="kw">use</span> <span class="ident">std::time::Duration</span>;
-<span class="kw">use</span> <span class="ident">tokio::time::sleep</span>;
-<span class="kw">use</span> <span class="ident">tracing::debug</span>;
+<span class="kw">use </span>futures::pin_mut;
+<span class="kw">use </span>futures::stream::StreamExt;
+<span class="kw">use </span>serde::de::DeserializeOwned;
+<span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>serde_cbor::ser::Serializer <span class="kw">as </span>CborSerializer;
+<span class="kw">use </span>serde_cbor::to_vec;
+<span class="kw">use </span>snafu::Snafu;
+<span class="kw">use </span>std::clone::Clone;
+<span class="kw">use </span>std::cmp::{Eq, PartialEq};
+<span class="kw">use </span>std::collections::HashMap;
+<span class="kw">use </span>std::fmt::Debug;
+<span class="kw">use </span>std::hash::{Hash, Hasher};
+<span class="kw">use </span>std::slice::Iter;
+<span class="kw">use </span>std::time::Duration;
+<span class="kw">use </span>tokio::time::sleep;
+<span class="kw">use </span>tracing::debug;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Snafu</span>)]</span>
-<span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">visibility</span> <span class="op">=</span> <span class="string">&quot;pub(crate)&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">SynchronizerError</span> {
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(
+<span class="attribute">#[derive(Debug, Snafu)]
+#[snafu(visibility = <span class="string">&quot;pub(crate)&quot;</span>)]
+</span><span class="kw">pub enum </span>SynchronizerError {
+    <span class="attribute">#[snafu(display(
         <span class="string">&quot;Synchronizer failed while performing {:?} with table error: {:?}&quot;</span>,
-        <span class="ident">operation</span>,
-        <span class="ident">source</span>
-    ))]</span>
-    <span class="ident">SyncTableError</span> { <span class="ident">operation</span>: <span class="ident">String</span>, <span class="ident">source</span>: <span class="ident">TableError</span> },
+        operation,
+        source
+    ))]
+    </span>SyncTableError { operation: String, source: TableError },
 
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Failed to run update function in table synchronizer due to: {:?}&quot;</span>, <span class="ident">error_msg</span>))]</span>
-    <span class="ident">SyncUpdateError</span> { <span class="ident">error_msg</span>: <span class="ident">String</span> },
+    <span class="attribute">#[snafu(display(<span class="string">&quot;Failed to run update function in table synchronizer due to: {:?}&quot;</span>, error_msg))]
+    </span>SyncUpdateError { error_msg: String },
 
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Failed insert tombstone in table synchronizer due to: {:?}&quot;</span>, <span class="ident">error_msg</span>))]</span>
-    <span class="ident">SyncTombstoneError</span> { <span class="ident">error_msg</span>: <span class="ident">String</span> },
+    <span class="attribute">#[snafu(display(<span class="string">&quot;Failed insert tombstone in table synchronizer due to: {:?}&quot;</span>, error_msg))]
+    </span>SyncTombstoneError { error_msg: String },
 
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Failed due to Precondition check failure: {:?}&quot;</span>, <span class="ident">error_msg</span>))]</span>
-    <span class="ident">SyncPreconditionError</span> { <span class="ident">error_msg</span>: <span class="ident">String</span> },
+    <span class="attribute">#[snafu(display(<span class="string">&quot;Failed due to Precondition check failure: {:?}&quot;</span>, error_msg))]
+    </span>SyncPreconditionError { error_msg: String },
 }
 
-<span class="doccomment">/// Provide a map that is synchronized across different processes.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The goal is to have a map that can be updated by using Insert or Remove.</span>
-<span class="doccomment">/// Each process can do updates to its in memory map by supplying a</span>
-<span class="doccomment">/// function to create Insert/Remove objects.</span>
-<span class="doccomment">/// Updates from other processes can be obtained by calling fetchUpdates().</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The name of the Synchronizer is also the stream name of the table segment.</span>
-<span class="doccomment">/// Different instances of Synchronizer with same name will point to the same table segment.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Exmaples</span>
-<span class="doccomment">/// ```ignore</span>
-<span class="doccomment">/// // two synchronizer instances with the same name can communicate with each other.</span>
-<span class="doccomment">/// let mut synchronizer1 = client_factory</span>
-<span class="doccomment">///     .create_synchronizer(scope.clone(), &quot;synchronizer&quot;.to_owned())</span>
-<span class="doccomment">///     .await;</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// let mut synchronizer2 = client_factory</span>
-<span class="doccomment">///     .create_synchronizer(scope.clone(), &quot;synchronizer&quot;.to_owned())</span>
-<span class="doccomment">///     .await;</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// let result = synchronizer1</span>
-<span class="doccomment">///     .insert(|table| {</span>
-<span class="doccomment">///         table.insert(</span>
-<span class="doccomment">///             &quot;outer_key_foo&quot;.to_owned(),</span>
-<span class="doccomment">///             &quot;inner_key_bar&quot;.to_owned(),</span>
-<span class="doccomment">///             &quot;i32&quot;.to_owned(),</span>
-<span class="doccomment">///             Box::new(1),</span>
-<span class="doccomment">///         );</span>
-<span class="doccomment">///         Ok(None)</span>
-<span class="doccomment">///     })</span>
-<span class="doccomment">///     .await;</span>
-<span class="doccomment">/// assert!(result.is_ok());</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// let entries_num = synchronizer2.fetch_updates().await.expect(&quot;fetch updates&quot;);</span>
-<span class="doccomment">/// assert_eq!(entries_num, 1);</span>
-<span class="doccomment">/// let value_option = synchronizer2.get(&quot;outer_key_foo&quot;, &quot;inner_key_bar&quot;);</span>
-<span class="doccomment">/// assert!(value_option.is_some());</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Synchronizer</span> {
-    <span class="doccomment">/// The name of the Synchronizer.</span>
-    <span class="ident">name</span>: <span class="ident">String</span>,
+<span class="doccomment">/// Provide a map that is synchronized across different processes.
+///
+/// The goal is to have a map that can be updated by using Insert or Remove.
+/// Each process can do updates to its in memory map by supplying a
+/// function to create Insert/Remove objects.
+/// Updates from other processes can be obtained by calling fetchUpdates().
+///
+/// The name of the Synchronizer is also the stream name of the table segment.
+/// Different instances of Synchronizer with same name will point to the same table segment.
+///
+/// # Exmaples
+/// ```ignore
+/// // two synchronizer instances with the same name can communicate with each other.
+/// let mut synchronizer1 = client_factory
+///     .create_synchronizer(scope.clone(), &quot;synchronizer&quot;.to_owned())
+///     .await;
+///
+/// let mut synchronizer2 = client_factory
+///     .create_synchronizer(scope.clone(), &quot;synchronizer&quot;.to_owned())
+///     .await;
+///
+/// let result = synchronizer1
+///     .insert(|table| {
+///         table.insert(
+///             &quot;outer_key_foo&quot;.to_owned(),
+///             &quot;inner_key_bar&quot;.to_owned(),
+///             &quot;i32&quot;.to_owned(),
+///             Box::new(1),
+///         );
+///         Ok(None)
+///     })
+///     .await;
+/// assert!(result.is_ok());
+///
+/// let entries_num = synchronizer2.fetch_updates().await.expect(&quot;fetch updates&quot;);
+/// assert_eq!(entries_num, 1);
+/// let value_option = synchronizer2.get(&quot;outer_key_foo&quot;, &quot;inner_key_bar&quot;);
+/// assert!(value_option.is_some());
+///
+/// ```
+</span><span class="kw">pub struct </span>Synchronizer {
+    <span class="doccomment">/// The name of the Synchronizer.
+    </span>name: String,
 
-    <span class="doccomment">/// Table is the table segment client.</span>
-    <span class="ident">table_map</span>: <span class="ident">Table</span>,
+    <span class="doccomment">/// Table is the table segment client.
+    </span>table_map: Table,
 
-    <span class="doccomment">/// in_memory_map is a two-level nested hash map that uses two keys to identify a value.</span>
-    <span class="doccomment">/// The reason to make it a nested map is that the actual data structures shared across</span>
-    <span class="doccomment">/// different processes are often more complex than a simple hash map. The problem of using a</span>
-    <span class="doccomment">/// simple hash map to model a complex data structure is that the key will be coarse-grained</span>
-    <span class="doccomment">/// and every update will incur a lot of overhead.</span>
-    <span class="doccomment">/// A two-level hash map is fine for now, maybe it will need more nested layers in the future.</span>
-    <span class="ident">in_memory_map</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Key</span>, <span class="ident">Value</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// in_memory_map is a two-level nested hash map that uses two keys to identify a value.
+    /// The reason to make it a nested map is that the actual data structures shared across
+    /// different processes are often more complex than a simple hash map. The problem of using a
+    /// simple hash map to model a complex data structure is that the key will be coarse-grained
+    /// and every update will incur a lot of overhead.
+    /// A two-level hash map is fine for now, maybe it will need more nested layers in the future.
+    </span>in_memory_map: HashMap&lt;String, HashMap&lt;Key, Value&gt;&gt;,
 
-    <span class="doccomment">/// in_memory_map_version is used to monitor the versions of each second level hash maps.</span>
-    <span class="doccomment">/// The idea is to monitor the changes of the second level hash maps besides individual keys</span>
-    <span class="doccomment">/// since some logic may depend on a certain map not being changed during an update.</span>
-    <span class="ident">in_memory_map_version</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Key</span>, <span class="ident">Value</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// in_memory_map_version is used to monitor the versions of each second level hash maps.
+    /// The idea is to monitor the changes of the second level hash maps besides individual keys
+    /// since some logic may depend on a certain map not being changed during an update.
+    </span>in_memory_map_version: HashMap&lt;Key, Value&gt;,
 
-    <span class="doccomment">/// An offset that is used to make conditional updates.</span>
-    <span class="ident">table_segment_offset</span>: <span class="ident">i64</span>,
+    <span class="doccomment">/// An offset that is used to make conditional updates.
+    </span>table_segment_offset: i64,
 
-    <span class="doccomment">/// The latest fetch position on the server side.</span>
-    <span class="ident">fetch_position</span>: <span class="ident">i64</span>,
+    <span class="doccomment">/// The latest fetch position on the server side.
+    </span>fetch_position: i64,
 }
 
-<span class="comment">// Max number of retries by the table synchronizer in case of a failure.</span>
-<span class="kw">const</span> <span class="ident">MAX_RETRIES</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">10</span>;
-<span class="comment">// Wait until next attempt.</span>
-<span class="kw">const</span> <span class="ident">DELAY_MILLIS</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">1000</span>;
+<span class="comment">// Max number of retries by the table synchronizer in case of a failure.
+</span><span class="kw">const </span>MAX_RETRIES: i32 = <span class="number">10</span>;
+<span class="comment">// Wait until next attempt.
+</span><span class="kw">const </span>DELAY_MILLIS: u64 = <span class="number">1000</span>;
 
-<span class="kw">impl</span> <span class="ident">Synchronizer</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">scope</span>: <span class="ident">Scope</span>, <span class="ident">name</span>: <span class="ident">String</span>, <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>) -&gt; <span class="ident">Synchronizer</span> {
-        <span class="kw">let</span> <span class="ident">table_map</span> <span class="op">=</span> <span class="ident">Table::new</span>(<span class="ident">scope</span>, <span class="ident">name</span>.<span class="ident">clone</span>(), <span class="ident">factory</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">expect</span>(<span class="string">&quot;create table&quot;</span>);
-        <span class="ident">Synchronizer</span> {
-            <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">clone</span>(),
-            <span class="ident">table_map</span>,
-            <span class="ident">in_memory_map</span>: <span class="ident">HashMap::new</span>(),
-            <span class="ident">in_memory_map_version</span>: <span class="ident">HashMap::new</span>(),
-            <span class="ident">table_segment_offset</span>: <span class="op">-</span><span class="number">1</span>,
-            <span class="ident">fetch_position</span>: <span class="number">0</span>,
+<span class="kw">impl </span>Synchronizer {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>new(scope: Scope, name: String, factory: ClientFactoryAsync) -&gt; Synchronizer {
+        <span class="kw">let </span>table_map = Table::new(scope, name.clone(), factory)
+            .<span class="kw">await
+            </span>.expect(<span class="string">&quot;create table&quot;</span>);
+        Synchronizer {
+            name: name.clone(),
+            table_map,
+            in_memory_map: HashMap::new(),
+            in_memory_map_version: HashMap::new(),
+            table_segment_offset: -<span class="number">1</span>,
+            fetch_position: <span class="number">0</span>,
         }
     }
 
-    <span class="doccomment">/// Get the outer map currently held in memory.</span>
-    <span class="doccomment">/// The return type does not contain the version information.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_outer_map</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Value</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">in_memory_map</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">k</span>, <span class="ident">v</span>)<span class="op">|</span> {
+    <span class="doccomment">/// Get the outer map currently held in memory.
+    /// The return type does not contain the version information.
+    </span><span class="kw">pub fn </span>get_outer_map(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HashMap&lt;String, HashMap&lt;String, Value&gt;&gt; {
+        <span class="self">self</span>.in_memory_map
+            .iter()
+            .map(|(k, v)| {
                 (
-                    <span class="ident">k</span>.<span class="ident">clone</span>(),
-                    <span class="ident">v</span>.<span class="ident">iter</span>()
-                        .<span class="ident">filter</span>(<span class="op">|</span>(<span class="ident">_k2</span>, <span class="ident">v2</span>)<span class="op">|</span> <span class="ident">v2</span>.<span class="ident">type_id</span> <span class="op">!</span><span class="op">=</span> <span class="ident">TOMBSTONE</span>)
-                        .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">k2</span>, <span class="ident">v2</span>)<span class="op">|</span> (<span class="ident">k2</span>.<span class="ident">key</span>.<span class="ident">clone</span>(), <span class="ident">v2</span>.<span class="ident">clone</span>()))
-                        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Value</span><span class="op">&gt;</span><span class="op">&gt;</span>(),
+                    k.clone(),
+                    v.iter()
+                        .filter(|(_k2, v2)| v2.type_id != TOMBSTONE)
+                        .map(|(k2, v2)| (k2.key.clone(), v2.clone()))
+                        .collect::&lt;HashMap&lt;String, Value&gt;&gt;(),
                 )
             })
-            .<span class="ident">collect</span>()
+            .collect()
     }
 
-    <span class="doccomment">/// Get the inner map currently held in memory.</span>
-    <span class="doccomment">/// The return type does not contain the version information.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_inner_map</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">outer_key</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Value</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">in_memory_map</span>
-            .<span class="ident">get</span>(<span class="ident">outer_key</span>)
-            .<span class="ident">map_or_else</span>(<span class="ident">HashMap::new</span>, <span class="op">|</span><span class="ident">inner</span><span class="op">|</span> {
-                <span class="ident">inner</span>
-                    .<span class="ident">iter</span>()
-                    .<span class="ident">filter</span>(<span class="op">|</span>(<span class="ident">_k</span>, <span class="ident">v</span>)<span class="op">|</span> <span class="ident">v</span>.<span class="ident">type_id</span> <span class="op">!</span><span class="op">=</span> <span class="ident">TOMBSTONE</span>)
-                    .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">k</span>, <span class="ident">v</span>)<span class="op">|</span> (<span class="ident">k</span>.<span class="ident">key</span>.<span class="ident">clone</span>(), <span class="ident">v</span>.<span class="ident">clone</span>()))
-                    .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Value</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+    <span class="doccomment">/// Get the inner map currently held in memory.
+    /// The return type does not contain the version information.
+    </span><span class="kw">pub fn </span>get_inner_map(<span class="kw-2">&amp;</span><span class="self">self</span>, outer_key: <span class="kw-2">&amp;</span>str) -&gt; HashMap&lt;String, Value&gt; {
+        <span class="self">self</span>.in_memory_map
+            .get(outer_key)
+            .map_or_else(HashMap::new, |inner| {
+                inner
+                    .iter()
+                    .filter(|(_k, v)| v.type_id != TOMBSTONE)
+                    .map(|(k, v)| (k.key.clone(), v.clone()))
+                    .collect::&lt;HashMap&lt;String, Value&gt;&gt;()
             })
     }
 
-    <span class="kw">fn</span> <span class="ident">get_inner_map_version</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Value</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">in_memory_map_version</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">k</span>, <span class="ident">v</span>)<span class="op">|</span> (<span class="ident">k</span>.<span class="ident">key</span>.<span class="ident">clone</span>(), <span class="ident">v</span>.<span class="ident">clone</span>()))
-            .<span class="ident">collect</span>()
+    <span class="kw">fn </span>get_inner_map_version(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HashMap&lt;String, Value&gt; {
+        <span class="self">self</span>.in_memory_map_version
+            .iter()
+            .map(|(k, v)| (k.key.clone(), v.clone()))
+            .collect()
     }
 
-    <span class="doccomment">/// Get the name of the Synchronizer.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">String</span> {
-        <span class="self">self</span>.<span class="ident">name</span>.<span class="ident">clone</span>()
+    <span class="doccomment">/// Get the name of the Synchronizer.
+    </span><span class="kw">pub fn </span>get_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        <span class="self">self</span>.name.clone()
     }
 
-    <span class="doccomment">/// Get the Value associated with the map.</span>
-    <span class="doccomment">/// The data in Value is not deserialized and the caller should call deserialize_from to deserialize.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">outer_key</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">inner_key</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Value</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">inner_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">in_memory_map</span>.<span class="ident">get</span>(<span class="ident">outer_key</span>)<span class="question-mark">?</span>;
+    <span class="doccomment">/// Get the Value associated with the map.
+    /// The data in Value is not deserialized and the caller should call deserialize_from to deserialize.
+    </span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, outer_key: <span class="kw-2">&amp;</span>str, inner_key: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Value&gt; {
+        <span class="kw">let </span>inner_map = <span class="self">self</span>.in_memory_map.get(outer_key)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">search_key_inner</span> <span class="op">=</span> <span class="ident">Key</span> {
-            <span class="ident">key</span>: <span class="ident">inner_key</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">key_version</span>: <span class="ident">TableKey::KEY_NO_VERSION</span>,
+        <span class="kw">let </span>search_key_inner = Key {
+            key: inner_key.to_owned(),
+            key_version: TableKey::KEY_NO_VERSION,
         };
 
-        <span class="ident">inner_map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">search_key_inner</span>).<span class="ident">and_then</span>(
-            <span class="op">|</span><span class="ident">val</span><span class="op">|</span> {
-                <span class="kw">if</span> <span class="ident">val</span>.<span class="ident">type_id</span> <span class="op">==</span> <span class="ident">TOMBSTONE</span> {
-                    <span class="prelude-val">None</span>
-                } <span class="kw">else</span> {
-                    <span class="prelude-val">Some</span>(<span class="ident">val</span>)
+        inner_map.get(<span class="kw-2">&amp;</span>search_key_inner).and_then(
+            |val| {
+                <span class="kw">if </span>val.type_id == TOMBSTONE {
+                    <span class="prelude-val">None
+                </span>} <span class="kw">else </span>{
+                    <span class="prelude-val">Some</span>(val)
                 }
             },
         )
     }
 
-    <span class="doccomment">/// Get the Key version of the given key,</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_key_version</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">outer_key</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">inner_key</span>: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) -&gt; <span class="ident">Version</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">inner</span>) <span class="op">=</span> <span class="ident">inner_key</span> {
-            <span class="kw">let</span> <span class="ident">search_key</span> <span class="op">=</span> <span class="ident">Key</span> {
-                <span class="ident">key</span>: <span class="ident">inner</span>.<span class="ident">to_owned</span>(),
-                <span class="ident">key_version</span>: <span class="ident">TableKey::KEY_NO_VERSION</span>,
+    <span class="doccomment">/// Get the Key version of the given key,
+    </span><span class="kw">pub fn </span>get_key_version(<span class="kw-2">&amp;</span><span class="self">self</span>, outer_key: <span class="kw-2">&amp;</span>str, inner_key: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;String&gt;) -&gt; Version {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(inner) = inner_key {
+            <span class="kw">let </span>search_key = Key {
+                key: inner.to_owned(),
+                key_version: TableKey::KEY_NO_VERSION,
             };
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">inner_map</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">in_memory_map</span>.<span class="ident">get</span>(<span class="ident">outer_key</span>) {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">key</span>, <span class="ident">_value</span>)) <span class="op">=</span> <span class="ident">inner_map</span>.<span class="ident">get_key_value</span>(<span class="kw-2">&amp;</span><span class="ident">search_key</span>) {
-                    <span class="kw">return</span> <span class="ident">key</span>.<span class="ident">key_version</span>;
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(inner_map) = <span class="self">self</span>.in_memory_map.get(outer_key) {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>((key, _value)) = inner_map.get_key_value(<span class="kw-2">&amp;</span>search_key) {
+                    <span class="kw">return </span>key.key_version;
                 }
             }
-            <span class="ident">TableKey::KEY_NOT_EXISTS</span>
-        } <span class="kw">else</span> {
-            <span class="kw">let</span> <span class="ident">search_key</span> <span class="op">=</span> <span class="ident">Key</span> {
-                <span class="ident">key</span>: <span class="ident">outer_key</span>.<span class="ident">to_owned</span>(),
-                <span class="ident">key_version</span>: <span class="ident">TableKey::KEY_NO_VERSION</span>,
+            TableKey::KEY_NOT_EXISTS
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>search_key = Key {
+                key: outer_key.to_owned(),
+                key_version: TableKey::KEY_NO_VERSION,
             };
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">key</span>, <span class="ident">_value</span>)) <span class="op">=</span> <span class="self">self</span>.<span class="ident">in_memory_map_version</span>.<span class="ident">get_key_value</span>(<span class="kw-2">&amp;</span><span class="ident">search_key</span>) {
-                <span class="ident">key</span>.<span class="ident">key_version</span>
-            } <span class="kw">else</span> {
-                <span class="ident">TableKey::KEY_NOT_EXISTS</span>
+            <span class="kw">if let </span><span class="prelude-val">Some</span>((key, _value)) = <span class="self">self</span>.in_memory_map_version.get_key_value(<span class="kw-2">&amp;</span>search_key) {
+                key.key_version
+            } <span class="kw">else </span>{
+                TableKey::KEY_NOT_EXISTS
             }
         }
     }
 
-    <span class="doccomment">/// Get the key-value pair of given key,</span>
-    <span class="doccomment">/// It will return a copy of the key-value pair.</span>
-    <span class="kw">fn</span> <span class="ident">get_key_value</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">outer_key</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">inner_key</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">Value</span>)<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">inner_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">in_memory_map</span>.<span class="ident">get</span>(<span class="ident">outer_key</span>)<span class="question-mark">?</span>;
+    <span class="doccomment">/// Get the key-value pair of given key,
+    /// It will return a copy of the key-value pair.
+    </span><span class="kw">fn </span>get_key_value(<span class="kw-2">&amp;</span><span class="self">self</span>, outer_key: <span class="kw-2">&amp;</span>str, inner_key: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;(String, Value)&gt; {
+        <span class="kw">let </span>inner_map = <span class="self">self</span>.in_memory_map.get(outer_key)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">search_key</span> <span class="op">=</span> <span class="ident">Key</span> {
-            <span class="ident">key</span>: <span class="ident">inner_key</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">key_version</span>: <span class="ident">TableKey::KEY_NO_VERSION</span>,
+        <span class="kw">let </span>search_key = Key {
+            key: inner_key.to_owned(),
+            key_version: TableKey::KEY_NO_VERSION,
         };
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">key</span>, <span class="ident">value</span>)) <span class="op">=</span> <span class="ident">inner_map</span>.<span class="ident">get_key_value</span>(<span class="kw-2">&amp;</span><span class="ident">search_key</span>) {
-            <span class="prelude-val">Some</span>((<span class="ident">key</span>.<span class="ident">key</span>.<span class="ident">clone</span>(), <span class="ident">value</span>.<span class="ident">clone</span>()))
-        } <span class="kw">else</span> {
-            <span class="prelude-val">None</span>
-        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>((key, value)) = inner_map.get_key_value(<span class="kw-2">&amp;</span>search_key) {
+            <span class="prelude-val">Some</span>((key.key.clone(), value.clone()))
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>}
     }
 
-    <span class="doccomment">/// Fetch the latest map from remote server and apply it to the local map.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">fetch_updates</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">i32</span>, <span class="ident">TableError</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Fetch the latest map from remote server and apply it to the local map.
+    </span><span class="kw">pub async fn </span>fetch_updates(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;i32, TableError&gt; {
         <span class="macro">debug!</span>(
             <span class="string">&quot;fetch the latest map and apply to the local map, fetch from position {}&quot;</span>,
-            <span class="self">self</span>.<span class="ident">fetch_position</span>
+            <span class="self">self</span>.fetch_position
         );
-        <span class="kw">let</span> <span class="ident">reply</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">table_map</span>
-            .<span class="ident">read_entries_stream_from_position</span>(<span class="number">10</span>, <span class="self">self</span>.<span class="ident">fetch_position</span>);
-        <span class="macro">pin_mut!</span>(<span class="ident">reply</span>);
+        <span class="kw">let </span>reply = <span class="self">self
+            </span>.table_map
+            .read_entries_stream_from_position(<span class="number">10</span>, <span class="self">self</span>.fetch_position);
+        <span class="macro">pin_mut!</span>(reply);
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">counter</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">entry</span>) <span class="op">=</span> <span class="ident">reply</span>.<span class="ident">next</span>().<span class="kw">await</span> {
-            <span class="kw">let</span> (<span class="ident">k</span>, <span class="ident">v</span>, <span class="ident">version</span>, <span class="ident">last_position</span>) <span class="op">=</span> <span class="ident">entry</span><span class="question-mark">?</span>;
-            <span class="macro">debug!</span>(<span class="string">&quot;fetched key with version {}&quot;</span>, <span class="ident">version</span>);
-            <span class="kw">let</span> <span class="ident">internal_key</span> <span class="op">=</span> <span class="ident">InternalKey</span> { <span class="ident">key</span>: <span class="ident">k</span> };
-            <span class="kw">let</span> (<span class="ident">outer_key</span>, <span class="ident">inner_key</span>) <span class="op">=</span> <span class="ident">internal_key</span>.<span class="ident">split</span>();
+        <span class="kw">let </span><span class="kw-2">mut </span>counter: i32 = <span class="number">0</span>;
+        <span class="kw">while let </span><span class="prelude-val">Some</span>(entry) = reply.next().<span class="kw">await </span>{
+            <span class="kw">let </span>(k, v, version, last_position) = entry<span class="question-mark">?</span>;
+            <span class="macro">debug!</span>(<span class="string">&quot;fetched key with version {}&quot;</span>, version);
+            <span class="kw">let </span>internal_key = InternalKey { key: k };
+            <span class="kw">let </span>(outer_key, inner_key) = internal_key.split();
 
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">inner</span>) <span class="op">=</span> <span class="ident">inner_key</span> {
-                <span class="comment">// the key is a composite key, update the nested hashmap</span>
-                <span class="kw">let</span> <span class="ident">inner_map_key</span> <span class="op">=</span> <span class="ident">Key</span> {
-                    <span class="ident">key</span>: <span class="ident">inner</span>,
-                    <span class="ident">key_version</span>: <span class="ident">version</span>,
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(inner) = inner_key {
+                <span class="comment">// the key is a composite key, update the nested hashmap
+                </span><span class="kw">let </span>inner_map_key = Key {
+                    key: inner,
+                    key_version: version,
                 };
-                <span class="kw">let</span> <span class="ident">inner_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">in_memory_map</span>.<span class="ident">entry</span>(<span class="ident">outer_key</span>).<span class="ident">or_insert_with</span>(<span class="ident">HashMap::new</span>);
+                <span class="kw">let </span>inner_map = <span class="self">self</span>.in_memory_map.entry(outer_key).or_insert_with(HashMap::new);
 
-                <span class="comment">// this is necessary since insert will not update the Key</span>
-                <span class="ident">inner_map</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">inner_map_key</span>);
-                <span class="ident">inner_map</span>.<span class="ident">insert</span>(<span class="ident">inner_map_key</span>, <span class="ident">v</span>);
-            } <span class="kw">else</span> {
-                <span class="comment">// the key is an outer key, update the map version</span>
-                <span class="kw">let</span> <span class="ident">outer_map_key</span> <span class="op">=</span> <span class="ident">Key</span> {
-                    <span class="ident">key</span>: <span class="ident">outer_key</span>,
-                    <span class="ident">key_version</span>: <span class="ident">version</span>,
+                <span class="comment">// this is necessary since insert will not update the Key
+                </span>inner_map.remove(<span class="kw-2">&amp;</span>inner_map_key);
+                inner_map.insert(inner_map_key, v);
+            } <span class="kw">else </span>{
+                <span class="comment">// the key is an outer key, update the map version
+                </span><span class="kw">let </span>outer_map_key = Key {
+                    key: outer_key,
+                    key_version: version,
                 };
-                <span class="comment">// this is necessary since insert will not update the Key</span>
-                <span class="self">self</span>.<span class="ident">in_memory_map_version</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">outer_map_key</span>.<span class="ident">clone</span>());
-                <span class="self">self</span>.<span class="ident">in_memory_map_version</span>.<span class="ident">insert</span>(<span class="ident">outer_map_key</span>, <span class="ident">v</span>);
+                <span class="comment">// this is necessary since insert will not update the Key
+                </span><span class="self">self</span>.in_memory_map_version.remove(<span class="kw-2">&amp;</span>outer_map_key.clone());
+                <span class="self">self</span>.in_memory_map_version.insert(outer_map_key, v);
             }
-            <span class="self">self</span>.<span class="ident">fetch_position</span> <span class="op">=</span> <span class="ident">last_position</span>;
-            <span class="ident">counter</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+            <span class="self">self</span>.fetch_position = last_position;
+            counter += <span class="number">1</span>;
         }
         <span class="macro">debug!</span>(<span class="string">&quot;finished fetching updates&quot;</span>);
-        <span class="prelude-val">Ok</span>(<span class="ident">counter</span>)
+        <span class="prelude-val">Ok</span>(counter)
     }
 
-    <span class="doccomment">/// Insert/Update a list of keys and applies it atomically to the local map.</span>
-    <span class="doccomment">/// This will update the local map to the latest version.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">insert</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">updates_generator</span>: <span class="kw">impl</span> <span class="ident">FnMut</span>(<span class="kw-2">&amp;mut</span> <span class="ident">Update</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
-        <span class="ident">conditionally_write</span>(<span class="ident">updates_generator</span>, <span class="self">self</span>, <span class="ident">MAX_RETRIES</span>).<span class="kw">await</span>
-    }
+    <span class="doccomment">/// Insert/Update a list of keys and applies it atomically to the local map.
+    /// This will update the local map to the latest version.
+    </span><span class="kw">pub async fn </span>insert&lt;R&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        updates_generator: <span class="kw">impl </span>FnMut(<span class="kw-2">&amp;mut </span>Update) -&gt; <span class="prelude-ty">Result</span>&lt;R, SynchronizerError&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;R, SynchronizerError&gt; {
+        conditionally_write(updates_generator, <span class="self">self</span>, MAX_RETRIES).<span class="kw">await
+    </span>}
 
-    <span class="doccomment">/// Remove a list of keys and apply it atomically to local map.</span>
-    <span class="doccomment">/// This will update the local map to latest version.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">remove</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">deletes_generator</span>: <span class="kw">impl</span> <span class="ident">FnMut</span>(<span class="kw-2">&amp;mut</span> <span class="ident">Update</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
-        <span class="ident">conditionally_remove</span>(<span class="ident">deletes_generator</span>, <span class="self">self</span>, <span class="ident">MAX_RETRIES</span>).<span class="kw">await</span>
-    }
+    <span class="doccomment">/// Remove a list of keys and apply it atomically to local map.
+    /// This will update the local map to latest version.
+    </span><span class="kw">pub async fn </span>remove&lt;R&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        deletes_generator: <span class="kw">impl </span>FnMut(<span class="kw-2">&amp;mut </span>Update) -&gt; <span class="prelude-ty">Result</span>&lt;R, SynchronizerError&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;R, SynchronizerError&gt; {
+        conditionally_remove(deletes_generator, <span class="self">self</span>, MAX_RETRIES).<span class="kw">await
+    </span>}
 }
 
-<span class="doccomment">/// The Key struct in the in memory map. It contains two fields, the key and key_version.</span>
-<span class="doccomment">/// The key_version is used for conditional update on server side. If the key_version is i64::MIN,</span>
-<span class="doccomment">/// then the update will be unconditional.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Key</span> {
-    <span class="kw">pub</span> <span class="ident">key</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">key_version</span>: <span class="ident">Version</span>,
+<span class="doccomment">/// The Key struct in the in memory map. It contains two fields, the key and key_version.
+/// The key_version is used for conditional update on server side. If the key_version is i64::MIN,
+/// then the update will be unconditional.
+</span><span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>Key {
+    <span class="kw">pub </span>key: String,
+    <span class="kw">pub </span>key_version: Version,
 }
 
-<span class="kw">impl</span> <span class="ident">PartialEq</span> <span class="kw">for</span> <span class="ident">Key</span> {
-    <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">key</span> <span class="op">==</span> <span class="ident">other</span>.<span class="ident">key</span>
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">Eq</span> <span class="kw">for</span> <span class="ident">Key</span> {}
-
-<span class="kw">impl</span> <span class="ident">Hash</span> <span class="kw">for</span> <span class="ident">Key</span> {
-    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Hasher</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="kw-2">&amp;mut</span> <span class="ident">H</span>) {
-        <span class="self">self</span>.<span class="ident">key</span>.<span class="ident">hash</span>(<span class="ident">state</span>)
+<span class="kw">impl </span>PartialEq <span class="kw">for </span>Key {
+    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
+        <span class="self">self</span>.key == other.key
     }
 }
 
-<span class="kw">const</span> <span class="ident">PREFIX_LENGTH</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">2</span>;
+<span class="kw">impl </span>Eq <span class="kw">for </span>Key {}
 
-<span class="comment">// This is used to parse the key received from the server.</span>
-<span class="kw">struct</span> <span class="ident">InternalKey</span> {
-    <span class="kw">pub</span> <span class="ident">key</span>: <span class="ident">String</span>,
+<span class="kw">impl </span>Hash <span class="kw">for </span>Key {
+    <span class="kw">fn </span>hash&lt;H: Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
+        <span class="self">self</span>.key.hash(state)
+    }
 }
 
-<span class="kw">impl</span> <span class="ident">InternalKey</span> {
-    <span class="kw">fn</span> <span class="ident">split</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (<span class="ident">String</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) {
-        <span class="kw">let</span> <span class="ident">outer_name_length</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">key</span>[..<span class="ident">PREFIX_LENGTH</span>].<span class="ident">parse</span>().<span class="ident">expect</span>(<span class="string">&quot;parse prefix length&quot;</span>);
-        <span class="macro">assert!</span>(<span class="self">self</span>.<span class="ident">key</span>.<span class="ident">len</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">PREFIX_LENGTH</span> <span class="op">+</span> <span class="ident">outer_name_length</span>);
-        <span class="kw">let</span> <span class="ident">outer</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">key</span>[<span class="ident">PREFIX_LENGTH</span>..<span class="ident">PREFIX_LENGTH</span> <span class="op">+</span> <span class="ident">outer_name_length</span>]
-            .<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>()
-            .<span class="ident">expect</span>(<span class="string">&quot;parse outer key&quot;</span>);
+<span class="kw">const </span>PREFIX_LENGTH: usize = <span class="number">2</span>;
 
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">key</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="ident">PREFIX_LENGTH</span> <span class="op">+</span> <span class="ident">outer_name_length</span> {
-            <span class="comment">// there is a slash separating outer_key and_inner key</span>
-            <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">key</span>[<span class="ident">PREFIX_LENGTH</span> <span class="op">+</span> <span class="ident">outer_name_length</span> <span class="op">+</span> <span class="number">1</span>..]
-                .<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>()
-                .<span class="ident">expect</span>(<span class="string">&quot;parse inner key&quot;</span>);
-            (<span class="ident">outer</span>, <span class="prelude-val">Some</span>(<span class="ident">inner</span>))
-        } <span class="kw">else</span> {
-            (<span class="ident">outer</span>, <span class="prelude-val">None</span>)
+<span class="comment">// This is used to parse the key received from the server.
+</span><span class="kw">struct </span>InternalKey {
+    <span class="kw">pub </span>key: String,
+}
+
+<span class="kw">impl </span>InternalKey {
+    <span class="kw">fn </span>split(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (String, <span class="prelude-ty">Option</span>&lt;String&gt;) {
+        <span class="kw">let </span>outer_name_length: usize = <span class="self">self</span>.key[..PREFIX_LENGTH].parse().expect(<span class="string">&quot;parse prefix length&quot;</span>);
+        <span class="macro">assert!</span>(<span class="self">self</span>.key.len() &gt;= PREFIX_LENGTH + outer_name_length);
+        <span class="kw">let </span>outer = <span class="self">self</span>.key[PREFIX_LENGTH..PREFIX_LENGTH + outer_name_length]
+            .parse::&lt;String&gt;()
+            .expect(<span class="string">&quot;parse outer key&quot;</span>);
+
+        <span class="kw">if </span><span class="self">self</span>.key.len() &gt; PREFIX_LENGTH + outer_name_length {
+            <span class="comment">// there is a slash separating outer_key and_inner key
+            </span><span class="kw">let </span>inner = <span class="self">self</span>.key[PREFIX_LENGTH + outer_name_length + <span class="number">1</span>..]
+                .parse::&lt;String&gt;()
+                .expect(<span class="string">&quot;parse inner key&quot;</span>);
+            (outer, <span class="prelude-val">Some</span>(inner))
+        } <span class="kw">else </span>{
+            (outer, <span class="prelude-val">None</span>)
         }
     }
 }
 
-<span class="doccomment">/// The Value struct in the in memory map. It contains two fields.</span>
-<span class="doccomment">/// type_id: it is used by caller to figure out the exact type of the data.</span>
-<span class="doccomment">/// data: the serialized Value.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Value</span> {
-    <span class="kw">pub</span> <span class="ident">type_id</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+<span class="doccomment">/// The Value struct in the in memory map. It contains two fields.
+/// type_id: it is used by caller to figure out the exact type of the data.
+/// data: the serialized Value.
+</span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+</span><span class="kw">pub struct </span>Value {
+    <span class="kw">pub </span>type_id: String,
+    <span class="kw">pub </span>data: Vec&lt;u8&gt;,
 }
 
-<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TOMBSTONE</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;tombstone&quot;</span>;
+<span class="kw">pub const </span>TOMBSTONE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;tombstone&quot;</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
-<span class="kw">struct</span> <span class="ident">Tombstone</span> {}
+<span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+</span><span class="kw">struct </span>Tombstone {}
 
-<span class="doccomment">/// The Update contains a nested map and a version map, which are the same map in</span>
-<span class="doccomment">/// synchronizer but will be updated instantly when caller calls Insert or Remove method.</span>
-<span class="doccomment">/// It is used to update the server side of table and its updates will be applied to</span>
-<span class="doccomment">/// synchronizer once the updates are successfully stored on the server side.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Update</span> {
-    <span class="ident">map</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Value</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">map_version</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Value</span><span class="op">&gt;</span>,
-    <span class="ident">insert</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Insert</span><span class="op">&gt;</span>,
-    <span class="ident">remove</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Remove</span><span class="op">&gt;</span>,
+<span class="doccomment">/// The Update contains a nested map and a version map, which are the same map in
+/// synchronizer but will be updated instantly when caller calls Insert or Remove method.
+/// It is used to update the server side of table and its updates will be applied to
+/// synchronizer once the updates are successfully stored on the server side.
+</span><span class="kw">pub struct </span>Update {
+    map: HashMap&lt;String, HashMap&lt;String, Value&gt;&gt;,
+    map_version: HashMap&lt;String, Value&gt;,
+    insert: Vec&lt;Insert&gt;,
+    remove: Vec&lt;Remove&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">Update</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">map</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Value</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">map_version</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Value</span><span class="op">&gt;</span>,
-        <span class="ident">insert</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Insert</span><span class="op">&gt;</span>,
-        <span class="ident">remove</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Remove</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="self">Self</span> {
-        <span class="ident">Update</span> {
-            <span class="ident">map</span>,
-            <span class="ident">map_version</span>,
-            <span class="ident">insert</span>,
-            <span class="ident">remove</span>,
+<span class="kw">impl </span>Update {
+    <span class="kw">pub fn </span>new(
+        map: HashMap&lt;String, HashMap&lt;String, Value&gt;&gt;,
+        map_version: HashMap&lt;String, Value&gt;,
+        insert: Vec&lt;Insert&gt;,
+        remove: Vec&lt;Remove&gt;,
+    ) -&gt; <span class="self">Self </span>{
+        Update {
+            map,
+            map_version,
+            insert,
+            remove,
         }
     }
 
-    <span class="doccomment">/// insert method needs an outer_key and an inner_key to find a value.</span>
-    <span class="doccomment">/// It will update the map inside the Table.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">insert</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">outer_key</span>: <span class="ident">String</span>,
-        <span class="ident">inner_key</span>: <span class="ident">String</span>,
-        <span class="ident">type_id</span>: <span class="ident">String</span>,
-        <span class="ident">new_value</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ValueData</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// insert method needs an outer_key and an inner_key to find a value.
+    /// It will update the map inside the Table.
+    </span><span class="kw">pub fn </span>insert(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        outer_key: String,
+        inner_key: String,
+        type_id: String,
+        new_value: Box&lt;<span class="kw">dyn </span>ValueData&gt;,
     ) {
-        <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">new_value</span>).<span class="ident">expect</span>(<span class="string">&quot;serialize value&quot;</span>);
-        <span class="kw">let</span> <span class="ident">insert</span> <span class="op">=</span> <span class="ident">Insert::new</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>(), <span class="prelude-val">Some</span>(<span class="ident">inner_key</span>.<span class="ident">clone</span>()), <span class="ident">type_id</span>.<span class="ident">clone</span>());
+        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;*</span>new_value).expect(<span class="string">&quot;serialize value&quot;</span>);
+        <span class="kw">let </span>insert = Insert::new(outer_key.clone(), <span class="prelude-val">Some</span>(inner_key.clone()), type_id.clone());
 
-        <span class="self">self</span>.<span class="ident">insert</span>.<span class="ident">push</span>(<span class="ident">insert</span>);
-        <span class="comment">// also insert into map.</span>
-        <span class="kw">let</span> <span class="ident">inner_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">entry</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>()).<span class="ident">or_insert_with</span>(<span class="ident">HashMap::new</span>);
-        <span class="ident">inner_map</span>.<span class="ident">insert</span>(<span class="ident">inner_key</span>, <span class="ident">Value</span> { <span class="ident">type_id</span>, <span class="ident">data</span> });
+        <span class="self">self</span>.insert.push(insert);
+        <span class="comment">// also insert into map.
+        </span><span class="kw">let </span>inner_map = <span class="self">self</span>.map.entry(outer_key.clone()).or_insert_with(HashMap::new);
+        inner_map.insert(inner_key, Value { type_id, data });
 
-        <span class="comment">// increment the version of the map, indicating that this map has changed</span>
-        <span class="self">self</span>.<span class="ident">increment_map_version</span>(<span class="ident">outer_key</span>);
+        <span class="comment">// increment the version of the map, indicating that this map has changed
+        </span><span class="self">self</span>.increment_map_version(outer_key);
     }
 
-    <span class="doccomment">/// insert_tombstone method replaces the original value with a tombstone, which means that this</span>
-    <span class="doccomment">/// key value pair is invalid and will be removed later. The reason of adding a tombstone is</span>
-    <span class="doccomment">/// to guarantee the atomicity of a remove-and-insert operation.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">insert_tombstone</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">outer_key</span>: <span class="ident">String</span>,
-        <span class="ident">inner_key</span>: <span class="ident">String</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">to_vec</span>(<span class="kw-2">&amp;</span><span class="ident">Tombstone</span> {}).<span class="ident">expect</span>(<span class="string">&quot;serialize tombstone&quot;</span>);
-        <span class="kw">let</span> <span class="ident">insert</span> <span class="op">=</span> <span class="ident">Insert::new</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>(), <span class="prelude-val">Some</span>(<span class="ident">inner_key</span>.<span class="ident">clone</span>()), <span class="string">&quot;tombstone&quot;</span>.<span class="ident">to_owned</span>());
+    <span class="doccomment">/// insert_tombstone method replaces the original value with a tombstone, which means that this
+    /// key value pair is invalid and will be removed later. The reason of adding a tombstone is
+    /// to guarantee the atomicity of a remove-and-insert operation.
+    </span><span class="kw">pub fn </span>insert_tombstone(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        outer_key: String,
+        inner_key: String,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynchronizerError&gt; {
+        <span class="kw">let </span>data = to_vec(<span class="kw-2">&amp;</span>Tombstone {}).expect(<span class="string">&quot;serialize tombstone&quot;</span>);
+        <span class="kw">let </span>insert = Insert::new(outer_key.clone(), <span class="prelude-val">Some</span>(inner_key.clone()), <span class="string">&quot;tombstone&quot;</span>.to_owned());
 
-        <span class="self">self</span>.<span class="ident">insert</span>.<span class="ident">push</span>(<span class="ident">insert</span>);
+        <span class="self">self</span>.insert.push(insert);
 
-        <span class="kw">let</span> <span class="ident">inner_map</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">map</span>
-            .<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">outer_key</span>)
-            .<span class="ident">ok_or</span>(<span class="ident">SynchronizerError::SyncTombstoneError</span> {
-                <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;outer key {} does not exist&quot;</span>, <span class="ident">outer_key</span>),
+        <span class="kw">let </span>inner_map = <span class="self">self
+            </span>.map
+            .get_mut(<span class="kw-2">&amp;</span>outer_key)
+            .ok_or(SynchronizerError::SyncTombstoneError {
+                error_msg: <span class="macro">format!</span>(<span class="string">&quot;outer key {} does not exist&quot;</span>, outer_key),
             })<span class="question-mark">?</span>;
 
-        <span class="ident">inner_map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">inner_key</span>).<span class="ident">map_or</span>(
-            <span class="prelude-val">Err</span>(<span class="ident">SynchronizerError::SyncTombstoneError</span> {
-                <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;inner key {} does not exist&quot;</span>, <span class="ident">inner_key</span>),
+        inner_map.get(<span class="kw-2">&amp;</span>inner_key).map_or(
+            <span class="prelude-val">Err</span>(SynchronizerError::SyncTombstoneError {
+                error_msg: <span class="macro">format!</span>(<span class="string">&quot;inner key {} does not exist&quot;</span>, inner_key),
             }),
-            <span class="op">|</span><span class="ident">v</span><span class="op">|</span> {
-                <span class="kw">if</span> <span class="ident">v</span>.<span class="ident">type_id</span> <span class="op">==</span> <span class="ident">TOMBSTONE</span> {
-                    <span class="prelude-val">Err</span>(<span class="ident">SynchronizerError::SyncTombstoneError</span> {
-                        <span class="ident">error_msg</span>: <span class="macro">format!</span>(
+            |v| {
+                <span class="kw">if </span>v.type_id == TOMBSTONE {
+                    <span class="prelude-val">Err</span>(SynchronizerError::SyncTombstoneError {
+                        error_msg: <span class="macro">format!</span>(
                             <span class="string">&quot;tombstone has already been added for key {}/{}&quot;</span>,
-                            <span class="ident">outer_key</span>, <span class="ident">inner_key</span>
+                            outer_key, inner_key
                         ),
                     })
-                } <span class="kw">else</span> {
+                } <span class="kw">else </span>{
                     <span class="prelude-val">Ok</span>(())
                 }
             },
         )<span class="question-mark">?</span>;
 
-        <span class="ident">inner_map</span>.<span class="ident">insert</span>(
-            <span class="ident">inner_key</span>.<span class="ident">clone</span>(),
-            <span class="ident">Value</span> {
-                <span class="ident">type_id</span>: <span class="ident">TOMBSTONE</span>.<span class="ident">to_owned</span>(),
-                <span class="ident">data</span>,
+        inner_map.insert(
+            inner_key.clone(),
+            Value {
+                type_id: TOMBSTONE.to_owned(),
+                data,
             },
         );
 
-        <span class="self">self</span>.<span class="ident">increment_map_version</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>());
+        <span class="self">self</span>.increment_map_version(outer_key.clone());
 
-        <span class="comment">// also push this key to remove list, this key will be removed after insert is completed.</span>
-        <span class="kw">let</span> <span class="ident">remove</span> <span class="op">=</span> <span class="ident">Remove::new</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>(), <span class="ident">inner_key</span>);
-        <span class="self">self</span>.<span class="ident">remove</span>.<span class="ident">push</span>(<span class="ident">remove</span>);
+        <span class="comment">// also push this key to remove list, this key will be removed after insert is completed.
+        </span><span class="kw">let </span>remove = Remove::new(outer_key.clone(), inner_key);
+        <span class="self">self</span>.remove.push(remove);
 
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// remove takes an outer_key and an inner_key and removes a particular entry.</span>
-    <span class="kw">fn</span> <span class="ident">remove</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">outer_key</span>: <span class="ident">String</span>, <span class="ident">inner_key</span>: <span class="ident">String</span>) {
-        <span class="comment">//Also remove from the map.</span>
-        <span class="kw">let</span> <span class="ident">inner_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">outer_key</span>).<span class="ident">expect</span>(<span class="string">&quot;should contain outer key&quot;</span>);
-        <span class="ident">inner_map</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">inner_key</span>);
+    <span class="doccomment">/// remove takes an outer_key and an inner_key and removes a particular entry.
+    </span><span class="kw">fn </span>remove(<span class="kw-2">&amp;mut </span><span class="self">self</span>, outer_key: String, inner_key: String) {
+        <span class="comment">//Also remove from the map.
+        </span><span class="kw">let </span>inner_map = <span class="self">self</span>.map.get_mut(<span class="kw-2">&amp;</span>outer_key).expect(<span class="string">&quot;should contain outer key&quot;</span>);
+        inner_map.remove(<span class="kw-2">&amp;</span>inner_key);
 
-        <span class="kw">let</span> <span class="ident">remove</span> <span class="op">=</span> <span class="ident">Remove::new</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>(), <span class="ident">inner_key</span>);
-        <span class="self">self</span>.<span class="ident">remove</span>.<span class="ident">push</span>(<span class="ident">remove</span>);
+        <span class="kw">let </span>remove = Remove::new(outer_key.clone(), inner_key);
+        <span class="self">self</span>.remove.push(remove);
     }
 
-    <span class="doccomment">/// retain a specific map to make sure it&#39;s not altered by other processes when an update</span>
-    <span class="doccomment">/// is being made that depends on it.</span>
-    <span class="doccomment">/// Notice that this method only needs to be called when this dependent map is not being updated,</span>
-    <span class="doccomment">/// since any modifications to a map on server side will use a version to make sure the update</span>
-    <span class="doccomment">/// is based on the latest change.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">retain</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">outer_key</span>: <span class="ident">String</span>) {
-        <span class="self">self</span>.<span class="ident">increment_map_version</span>(<span class="ident">outer_key</span>);
+    <span class="doccomment">/// retain a specific map to make sure it&#39;s not altered by other processes when an update
+    /// is being made that depends on it.
+    /// Notice that this method only needs to be called when this dependent map is not being updated,
+    /// since any modifications to a map on server side will use a version to make sure the update
+    /// is based on the latest change.
+    </span><span class="kw">pub fn </span>retain(<span class="kw-2">&amp;mut </span><span class="self">self</span>, outer_key: String) {
+        <span class="self">self</span>.increment_map_version(outer_key);
     }
 
-    <span class="doccomment">/// get method will take an outer_key and an inner_key and return the valid value.</span>
-    <span class="doccomment">/// It will not return value hinted by tombstone.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">outer_key</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">inner_key</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Value</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">inner_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">get</span>(<span class="ident">outer_key</span>).<span class="ident">expect</span>(<span class="string">&quot;should contain outer key&quot;</span>);
-        <span class="ident">inner_map</span>
-            .<span class="ident">get</span>(<span class="ident">inner_key</span>)
-            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">val</span><span class="op">|</span> <span class="kw">if</span> <span class="ident">val</span>.<span class="ident">type_id</span> <span class="op">==</span> <span class="ident">TOMBSTONE</span> { <span class="prelude-val">None</span> } <span class="kw">else</span> { <span class="prelude-val">Some</span>(<span class="ident">val</span>) })
+    <span class="doccomment">/// get method will take an outer_key and an inner_key and return the valid value.
+    /// It will not return value hinted by tombstone.
+    </span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, outer_key: <span class="kw-2">&amp;</span>str, inner_key: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Value&gt; {
+        <span class="kw">let </span>inner_map = <span class="self">self</span>.map.get(outer_key).expect(<span class="string">&quot;should contain outer key&quot;</span>);
+        inner_map
+            .get(inner_key)
+            .and_then(|val| <span class="kw">if </span>val.type_id == TOMBSTONE { <span class="prelude-val">None </span>} <span class="kw">else </span>{ <span class="prelude-val">Some</span>(val) })
     }
 
-    <span class="doccomment">/// get_inner_map method will take an outer_key return the outer map.</span>
-    <span class="doccomment">/// The returned outer map will not contain value hinted by tombstone.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_inner_map</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">outer_key</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Value</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">get</span>(<span class="ident">outer_key</span>).<span class="ident">map_or_else</span>(<span class="ident">HashMap::new</span>, <span class="op">|</span><span class="ident">inner_map</span><span class="op">|</span> {
-            <span class="ident">inner_map</span>
-                .<span class="ident">iter</span>()
-                .<span class="ident">filter</span>(<span class="op">|</span>(<span class="ident">_k</span>, <span class="ident">v</span>)<span class="op">|</span> <span class="ident">v</span>.<span class="ident">type_id</span> <span class="op">!</span><span class="op">=</span> <span class="ident">TOMBSTONE</span>)
-                .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">k</span>, <span class="ident">v</span>)<span class="op">|</span> (<span class="ident">k</span>.<span class="ident">to_owned</span>(), <span class="ident">v</span>.<span class="ident">clone</span>()))
-                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Value</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+    <span class="doccomment">/// get_inner_map method will take an outer_key return the outer map.
+    /// The returned outer map will not contain value hinted by tombstone.
+    </span><span class="kw">pub fn </span>get_inner_map(<span class="kw-2">&amp;</span><span class="self">self</span>, outer_key: <span class="kw-2">&amp;</span>str) -&gt; HashMap&lt;String, Value&gt; {
+        <span class="self">self</span>.map.get(outer_key).map_or_else(HashMap::new, |inner_map| {
+            inner_map
+                .iter()
+                .filter(|(_k, v)| v.type_id != TOMBSTONE)
+                .map(|(k, v)| (k.to_owned(), v.clone()))
+                .collect::&lt;HashMap&lt;String, Value&gt;&gt;()
         })
     }
 
-    <span class="kw">fn</span> <span class="ident">is_tombstoned</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">outer_key</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">inner_key</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">get</span>(<span class="ident">outer_key</span>).<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">inner_map</span><span class="op">|</span> {
-            <span class="ident">inner_map</span>
-                .<span class="ident">get</span>(<span class="ident">inner_key</span>)
-                .<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">val</span><span class="op">|</span> <span class="ident">val</span>.<span class="ident">type_id</span> <span class="op">==</span> <span class="ident">TOMBSTONE</span>)
+    <span class="kw">fn </span>is_tombstoned(<span class="kw-2">&amp;</span><span class="self">self</span>, outer_key: <span class="kw-2">&amp;</span>str, inner_key: <span class="kw-2">&amp;</span>str) -&gt; bool {
+        <span class="self">self</span>.map.get(outer_key).map_or(<span class="bool-val">false</span>, |inner_map| {
+            inner_map
+                .get(inner_key)
+                .map_or(<span class="bool-val">false</span>, |val| val.type_id == TOMBSTONE)
         })
     }
 
-    <span class="kw">fn</span> <span class="ident">get_internal</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">outer_key</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">inner_key</span>: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Value</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">inner</span>) <span class="op">=</span> <span class="ident">inner_key</span> {
-            <span class="kw">let</span> <span class="ident">inner_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">get</span>(<span class="ident">outer_key</span>).<span class="ident">expect</span>(<span class="string">&quot;should contain outer key&quot;</span>);
-            <span class="ident">inner_map</span>.<span class="ident">get</span>(<span class="ident">inner</span>)
-        } <span class="kw">else</span> {
-            <span class="self">self</span>.<span class="ident">map_version</span>.<span class="ident">get</span>(<span class="ident">outer_key</span>)
+    <span class="kw">fn </span>get_internal(<span class="kw-2">&amp;</span><span class="self">self</span>, outer_key: <span class="kw-2">&amp;</span>str, inner_key: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;String&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Value&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(inner) = inner_key {
+            <span class="kw">let </span>inner_map = <span class="self">self</span>.map.get(outer_key).expect(<span class="string">&quot;should contain outer key&quot;</span>);
+            inner_map.get(inner)
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.map_version.get(outer_key)
         }
     }
 
-    <span class="doccomment">/// Check if an inner key exists. The tombstoned value will return a false.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">contains_key</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">outer_key</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">inner_key</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">get</span>(<span class="ident">outer_key</span>).<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">inner_map</span><span class="op">|</span> {
-            <span class="ident">inner_map</span>
-                .<span class="ident">get</span>(<span class="ident">inner_key</span>)
-                .<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">value</span><span class="op">|</span> <span class="ident">value</span>.<span class="ident">type_id</span> <span class="op">!</span><span class="op">=</span> <span class="ident">TOMBSTONE</span>)
+    <span class="doccomment">/// Check if an inner key exists. The tombstoned value will return a false.
+    </span><span class="kw">pub fn </span>contains_key(<span class="kw-2">&amp;</span><span class="self">self</span>, outer_key: <span class="kw-2">&amp;</span>str, inner_key: <span class="kw-2">&amp;</span>str) -&gt; bool {
+        <span class="self">self</span>.map.get(outer_key).map_or(<span class="bool-val">false</span>, |inner_map| {
+            inner_map
+                .get(inner_key)
+                .map_or(<span class="bool-val">false</span>, |value| value.type_id != TOMBSTONE)
         })
     }
 
-    <span class="doccomment">/// Check if an outer_key exists. The tombstoned value will return a false.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">contains_outer_key</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">outer_key</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">contains_key</span>(<span class="ident">outer_key</span>)
+    <span class="doccomment">/// Check if an outer_key exists. The tombstoned value will return a false.
+    </span><span class="kw">pub fn </span>contains_outer_key(<span class="kw-2">&amp;</span><span class="self">self</span>, outer_key: <span class="kw-2">&amp;</span>str) -&gt; bool {
+        <span class="self">self</span>.map.contains_key(outer_key)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_empty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">is_empty</span>()
+    <span class="kw">pub fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.map.is_empty()
     }
 
-    <span class="kw">fn</span> <span class="ident">insert_is_empty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">insert</span>.<span class="ident">is_empty</span>()
+    <span class="kw">fn </span>insert_is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.insert.is_empty()
     }
 
-    <span class="kw">fn</span> <span class="ident">remove_is_empty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">remove</span>.<span class="ident">is_empty</span>()
+    <span class="kw">fn </span>remove_is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.remove.is_empty()
     }
 
-    <span class="kw">fn</span> <span class="ident">get_insert_iter</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Iter</span><span class="op">&lt;</span><span class="ident">Insert</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">insert</span>.<span class="ident">iter</span>()
+    <span class="kw">fn </span>get_insert_iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Iter&lt;Insert&gt; {
+        <span class="self">self</span>.insert.iter()
     }
 
-    <span class="kw">fn</span> <span class="ident">get_remove_iter</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Iter</span><span class="op">&lt;</span><span class="ident">Remove</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">remove</span>.<span class="ident">iter</span>()
+    <span class="kw">fn </span>get_remove_iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Iter&lt;Remove&gt; {
+        <span class="self">self</span>.remove.iter()
     }
 
-    <span class="kw">fn</span> <span class="ident">increment_map_version</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">outer_key</span>: <span class="ident">String</span>) {
-        <span class="comment">// the value is just a placeholder, the version information is stored in the Key.</span>
-        <span class="self">self</span>.<span class="ident">map_version</span>.<span class="ident">entry</span>(<span class="ident">outer_key</span>.<span class="ident">clone</span>()).<span class="ident">or_insert</span>(<span class="ident">Value</span> {
-            <span class="ident">type_id</span>: <span class="string">&quot;blob&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">data</span>: <span class="macro">vec!</span>[<span class="number">0</span>],
+    <span class="kw">fn </span>increment_map_version(<span class="kw-2">&amp;mut </span><span class="self">self</span>, outer_key: String) {
+        <span class="comment">// the value is just a placeholder, the version information is stored in the Key.
+        </span><span class="self">self</span>.map_version.entry(outer_key.clone()).or_insert(Value {
+            type_id: <span class="string">&quot;blob&quot;</span>.to_owned(),
+            data: <span class="macro">vec!</span>[<span class="number">0</span>],
         });
-        <span class="kw">let</span> <span class="ident">insert</span> <span class="op">=</span> <span class="ident">Insert::new</span>(<span class="ident">outer_key</span>, <span class="prelude-val">None</span>, <span class="string">&quot;blob&quot;</span>.<span class="ident">to_owned</span>());
-        <span class="self">self</span>.<span class="ident">insert</span>.<span class="ident">push</span>(<span class="ident">insert</span>);
+        <span class="kw">let </span>insert = Insert::new(outer_key, <span class="prelude-val">None</span>, <span class="string">&quot;blob&quot;</span>.to_owned());
+        <span class="self">self</span>.insert.push(insert);
     }
 }
 
-<span class="doccomment">/// Insert struct is used internally to update the server side of map.</span>
-<span class="doccomment">/// The outer_key and inner_key are combined to identify a value in the nested map.</span>
-<span class="doccomment">/// The composite_key is derived from outer_key and inner_key, which is the actual key that&#39;s</span>
-<span class="doccomment">/// stored on the server side.</span>
-<span class="doccomment">/// The type_id is used to identify the type of the value in the map since the value</span>
-<span class="doccomment">/// is just a serialized blob that does not contain any type information.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Insert</span> {
-    <span class="ident">outer_key</span>: <span class="ident">String</span>,
-    <span class="ident">inner_key</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="ident">composite_key</span>: <span class="ident">String</span>,
-    <span class="ident">type_id</span>: <span class="ident">String</span>,
+<span class="doccomment">/// Insert struct is used internally to update the server side of map.
+/// The outer_key and inner_key are combined to identify a value in the nested map.
+/// The composite_key is derived from outer_key and inner_key, which is the actual key that&#39;s
+/// stored on the server side.
+/// The type_id is used to identify the type of the value in the map since the value
+/// is just a serialized blob that does not contain any type information.
+</span><span class="kw">pub struct </span>Insert {
+    outer_key: String,
+    inner_key: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    composite_key: String,
+    type_id: String,
 }
 
-<span class="kw">impl</span> <span class="ident">Insert</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">outer_key</span>: <span class="ident">String</span>, <span class="ident">inner_key</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>, <span class="ident">type_id</span>: <span class="ident">String</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">composite_key</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">inner_key</span>.<span class="ident">is_some</span>() {
+<span class="kw">impl </span>Insert {
+    <span class="kw">pub fn </span>new(outer_key: String, inner_key: <span class="prelude-ty">Option</span>&lt;String&gt;, type_id: String) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>composite_key = <span class="kw">if </span>inner_key.is_some() {
             <span class="macro">format!</span>(
                 <span class="string">&quot;{:02}{}/{}&quot;</span>,
-                <span class="ident">outer_key</span>.<span class="ident">len</span>(),
-                <span class="ident">outer_key</span>,
-                <span class="ident">inner_key</span>.<span class="ident">clone</span>().<span class="ident">expect</span>(<span class="string">&quot;get inner key&quot;</span>)
+                outer_key.len(),
+                outer_key,
+                inner_key.clone().expect(<span class="string">&quot;get inner key&quot;</span>)
             )
-        } <span class="kw">else</span> {
-            <span class="macro">format!</span>(<span class="string">&quot;{:02}{}&quot;</span>, <span class="ident">outer_key</span>.<span class="ident">len</span>(), <span class="ident">outer_key</span>)
+        } <span class="kw">else </span>{
+            <span class="macro">format!</span>(<span class="string">&quot;{:02}{}&quot;</span>, outer_key.len(), outer_key)
         };
 
-        <span class="ident">Insert</span> {
-            <span class="ident">outer_key</span>,
-            <span class="ident">inner_key</span>,
-            <span class="ident">composite_key</span>,
-            <span class="ident">type_id</span>,
+        Insert {
+            outer_key,
+            inner_key,
+            composite_key,
+            type_id,
         }
     }
 }
 
-<span class="doccomment">/// The remove struct is used internally to remove a value from the server side of map.</span>
-<span class="doccomment">/// Unlike the Insert struct, it does not need to have a type_id since we don&#39;t care about</span>
-<span class="doccomment">/// the value.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Remove</span> {
-    <span class="ident">outer_key</span>: <span class="ident">String</span>,
-    <span class="ident">inner_key</span>: <span class="ident">String</span>,
-    <span class="ident">composite_key</span>: <span class="ident">String</span>,
+<span class="doccomment">/// The remove struct is used internally to remove a value from the server side of map.
+/// Unlike the Insert struct, it does not need to have a type_id since we don&#39;t care about
+/// the value.
+</span><span class="kw">pub struct </span>Remove {
+    outer_key: String,
+    inner_key: String,
+    composite_key: String,
 }
 
-<span class="kw">impl</span> <span class="ident">Remove</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">outer_key</span>: <span class="ident">String</span>, <span class="ident">inner_key</span>: <span class="ident">String</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">Remove</span> {
-            <span class="ident">outer_key</span>: <span class="ident">outer_key</span>.<span class="ident">clone</span>(),
-            <span class="ident">inner_key</span>: <span class="ident">inner_key</span>.<span class="ident">clone</span>(),
-            <span class="ident">composite_key</span>: <span class="macro">format!</span>(<span class="string">&quot;{:02}{}/{}&quot;</span>, <span class="ident">outer_key</span>.<span class="ident">len</span>(), <span class="ident">outer_key</span>, <span class="ident">inner_key</span>),
+<span class="kw">impl </span>Remove {
+    <span class="kw">pub fn </span>new(outer_key: String, inner_key: String) -&gt; <span class="self">Self </span>{
+        Remove {
+            outer_key: outer_key.clone(),
+            inner_key: inner_key.clone(),
+            composite_key: <span class="macro">format!</span>(<span class="string">&quot;{:02}{}/{}&quot;</span>, outer_key.len(), outer_key, inner_key),
         }
     }
 }
 
-<span class="doccomment">/// The trait bound for the ValueData</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">ValueData</span>: <span class="ident">ValueSerialize</span> <span class="op">+</span> <span class="ident">ValueClone</span> <span class="op">+</span> <span class="ident">Debug</span> {}
+<span class="doccomment">/// The trait bound for the ValueData
+</span><span class="kw">pub trait </span>ValueData: ValueSerialize + ValueClone + Debug {}
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">ValueData</span> <span class="kw">for</span> <span class="ident">T</span> <span class="kw">where</span> <span class="ident">T</span>: <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Debug</span> {}
+<span class="kw">impl</span>&lt;T&gt; ValueData <span class="kw">for </span>T <span class="kw">where </span>T: <span class="lifetime">&#39;static </span>+ Serialize + DeserializeOwned + Clone + Debug {}
 
-<span class="doccomment">/// Clone trait helper.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">ValueClone</span> {
-    <span class="kw">fn</span> <span class="ident">clone_box</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ValueData</span><span class="op">&gt;</span>;
+<span class="doccomment">/// Clone trait helper.
+</span><span class="kw">pub trait </span>ValueClone {
+    <span class="kw">fn </span>clone_box(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>ValueData&gt;;
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">ValueClone</span> <span class="kw">for</span> <span class="ident">T</span>
-<span class="kw">where</span>
-    <span class="ident">T</span>: <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">ValueData</span> <span class="op">+</span> <span class="ident">Clone</span>,
+<span class="kw">impl</span>&lt;T&gt; ValueClone <span class="kw">for </span>T
+<span class="kw">where
+    </span>T: <span class="lifetime">&#39;static </span>+ ValueData + Clone,
 {
-    <span class="kw">fn</span> <span class="ident">clone_box</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ValueData</span><span class="op">&gt;</span> {
-        <span class="ident">Box::new</span>(<span class="self">self</span>.<span class="ident">clone</span>())
+    <span class="kw">fn </span>clone_box(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>ValueData&gt; {
+        Box::new(<span class="self">self</span>.clone())
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ValueData</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">clone_box</span>()
+<span class="kw">impl </span>Clone <span class="kw">for </span>Box&lt;<span class="kw">dyn </span>ValueData&gt; {
+    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.clone_box()
     }
 }
 
-<span class="doccomment">/// Serialize trait helper, we need to serialize the ValueData in Insert struct into Vec&lt;u8&gt;.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">ValueSerialize</span> {
-    <span class="kw">fn</span> <span class="ident">serialize_value</span>(
+<span class="doccomment">/// Serialize trait helper, we need to serialize the ValueData in Insert struct into Vec&lt;u8&gt;.
+</span><span class="kw">pub trait </span>ValueSerialize {
+    <span class="kw">fn </span>serialize_value(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">seralizer</span>: <span class="kw-2">&amp;mut</span> <span class="ident">CborSerializer</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">serde_cbor::error::Error</span><span class="op">&gt;</span>;
+        seralizer: <span class="kw-2">&amp;mut </span>CborSerializer&lt;<span class="kw-2">&amp;mut </span>Vec&lt;u8&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), serde_cbor::error::Error&gt;;
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">ValueSerialize</span> <span class="kw">for</span> <span class="ident">T</span>
-<span class="kw">where</span>
-    <span class="ident">T</span>: <span class="ident">Serialize</span>,
+<span class="kw">impl</span>&lt;T&gt; ValueSerialize <span class="kw">for </span>T
+<span class="kw">where
+    </span>T: Serialize,
 {
-    <span class="kw">fn</span> <span class="ident">serialize_value</span>(
+    <span class="kw">fn </span>serialize_value(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">serializer</span>: <span class="kw-2">&amp;mut</span> <span class="ident">CborSerializer</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">serde_cbor::error::Error</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">serialize</span>(<span class="ident">serializer</span>)
+        serializer: <span class="kw-2">&amp;mut </span>CborSerializer&lt;<span class="kw-2">&amp;mut </span>Vec&lt;u8&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), serde_cbor::error::Error&gt; {
+        <span class="self">self</span>.serialize(serializer)
     }
 }
 
-<span class="doccomment">/// Serialize the &lt;dyn ValueData&gt; into the Vec&lt;u8&gt; by using cbor serializer.</span>
-<span class="doccomment">/// This method would be used by the insert method in table_synchronizer.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="ident">value</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">ValueData</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">serde_cbor::error::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">vec</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-    <span class="ident">value</span>.<span class="ident">serialize_value</span>(<span class="kw-2">&amp;mut</span> <span class="ident">CborSerializer::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">vec</span>))<span class="question-mark">?</span>;
-    <span class="prelude-val">Ok</span>(<span class="ident">vec</span>)
+<span class="doccomment">/// Serialize the &lt;dyn ValueData&gt; into the Vec&lt;u8&gt; by using cbor serializer.
+/// This method would be used by the insert method in table_synchronizer.
+</span><span class="kw">pub fn </span>serialize(value: <span class="kw-2">&amp;</span><span class="kw">dyn </span>ValueData) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, serde_cbor::error::Error&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>vec = Vec::new();
+    value.serialize_value(<span class="kw-2">&amp;mut </span>CborSerializer::new(<span class="kw-2">&amp;mut </span>vec))<span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>(vec)
 }
 
-<span class="doccomment">/// Deserialize the Value into the type T by using cbor deserializer.</span>
-<span class="doccomment">/// This method would be used by the user after calling get() of table_synchronizer.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deserialize_from</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">reader</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">serde_cbor::error::Error</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">T</span>: <span class="ident">DeserializeOwned</span>,
+<span class="doccomment">/// Deserialize the Value into the type T by using cbor deserializer.
+/// This method would be used by the user after calling get() of table_synchronizer.
+</span><span class="kw">pub fn </span>deserialize_from&lt;T&gt;(reader: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;T, serde_cbor::error::Error&gt;
+<span class="kw">where
+    </span>T: DeserializeOwned,
 {
-    <span class="ident">serde_cbor::de::from_slice</span>(<span class="ident">reader</span>)
+    serde_cbor::de::from_slice(reader)
 }
 
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">conditionally_write</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>(
-    <span class="kw-2">mut</span> <span class="ident">updates_generator</span>: <span class="kw">impl</span> <span class="ident">FnMut</span>(<span class="kw-2">&amp;mut</span> <span class="ident">Update</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span>,
-    <span class="ident">table_synchronizer</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Synchronizer</span>,
-    <span class="kw-2">mut</span> <span class="ident">retry</span>: <span class="ident">i32</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">update_result</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+<span class="kw">async fn </span>conditionally_write&lt;R&gt;(
+    <span class="kw-2">mut </span>updates_generator: <span class="kw">impl </span>FnMut(<span class="kw-2">&amp;mut </span>Update) -&gt; <span class="prelude-ty">Result</span>&lt;R, SynchronizerError&gt;,
+    table_synchronizer: <span class="kw-2">&amp;mut </span>Synchronizer,
+    <span class="kw-2">mut </span>retry: i32,
+) -&gt; <span class="prelude-ty">Result</span>&lt;R, SynchronizerError&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>update_result = <span class="prelude-val">None</span>;
 
-    <span class="kw">while</span> <span class="ident">retry</span> <span class="op">&gt;</span> <span class="number">0</span> {
-        <span class="kw">let</span> <span class="ident">map</span> <span class="op">=</span> <span class="ident">table_synchronizer</span>.<span class="ident">get_outer_map</span>();
-        <span class="kw">let</span> <span class="ident">map_version</span> <span class="op">=</span> <span class="ident">table_synchronizer</span>.<span class="ident">get_inner_map_version</span>();
+    <span class="kw">while </span>retry &gt; <span class="number">0 </span>{
+        <span class="kw">let </span>map = table_synchronizer.get_outer_map();
+        <span class="kw">let </span>map_version = table_synchronizer.get_inner_map_version();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">to_update</span> <span class="op">=</span> <span class="ident">Update</span> {
-            <span class="ident">map</span>,
-            <span class="ident">map_version</span>,
-            <span class="ident">insert</span>: <span class="ident">Vec::new</span>(),
-            <span class="ident">remove</span>: <span class="ident">Vec::new</span>(),
+        <span class="kw">let </span><span class="kw-2">mut </span>to_update = Update {
+            map,
+            map_version,
+            insert: Vec::new(),
+            remove: Vec::new(),
         };
 
-        <span class="ident">update_result</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">updates_generator</span>(<span class="kw-2">&amp;mut</span> <span class="ident">to_update</span>)<span class="question-mark">?</span>);
-        <span class="macro">debug!</span>(<span class="string">&quot;number of insert is {}&quot;</span>, <span class="ident">to_update</span>.<span class="ident">insert</span>.<span class="ident">len</span>());
-        <span class="kw">if</span> <span class="ident">to_update</span>.<span class="ident">insert_is_empty</span>() {
+        update_result = <span class="prelude-val">Some</span>(updates_generator(<span class="kw-2">&amp;mut </span>to_update)<span class="question-mark">?</span>);
+        <span class="macro">debug!</span>(<span class="string">&quot;number of insert is {}&quot;</span>, to_update.insert.len());
+        <span class="kw">if </span>to_update.insert_is_empty() {
             <span class="macro">debug!</span>(
                 <span class="string">&quot;Conditionally Write to {} completed, as there is nothing to update for map&quot;</span>,
-                <span class="ident">table_synchronizer</span>.<span class="ident">get_name</span>()
+                table_synchronizer.get_name()
             );
             <span class="kw">break</span>;
         }
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">to_send</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="kw">for</span> <span class="ident">update</span> <span class="kw">in</span> <span class="ident">to_update</span>.<span class="ident">get_insert_iter</span>() {
-            <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">to_update</span>
-                .<span class="ident">get_internal</span>(<span class="kw-2">&amp;</span><span class="ident">update</span>.<span class="ident">outer_key</span>, <span class="kw-2">&amp;</span><span class="ident">update</span>.<span class="ident">inner_key</span>)
-                .<span class="ident">expect</span>(<span class="string">&quot;get the insert data&quot;</span>);
-            <span class="kw">let</span> <span class="ident">key_version</span> <span class="op">=</span> <span class="ident">table_synchronizer</span>.<span class="ident">get_key_version</span>(<span class="kw-2">&amp;</span><span class="ident">update</span>.<span class="ident">outer_key</span>, <span class="kw-2">&amp;</span><span class="ident">update</span>.<span class="ident">inner_key</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>to_send = Vec::new();
+        <span class="kw">for </span>update <span class="kw">in </span>to_update.get_insert_iter() {
+            <span class="kw">let </span>value = to_update
+                .get_internal(<span class="kw-2">&amp;</span>update.outer_key, <span class="kw-2">&amp;</span>update.inner_key)
+                .expect(<span class="string">&quot;get the insert data&quot;</span>);
+            <span class="kw">let </span>key_version = table_synchronizer.get_key_version(<span class="kw-2">&amp;</span>update.outer_key, <span class="kw-2">&amp;</span>update.inner_key);
 
-            <span class="ident">to_send</span>.<span class="ident">push</span>((<span class="kw-2">&amp;</span><span class="ident">update</span>.<span class="ident">composite_key</span>, <span class="ident">value</span>, <span class="ident">key_version</span>));
+            to_send.push((<span class="kw-2">&amp;</span>update.composite_key, value, key_version));
         }
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">table_synchronizer</span>
-            .<span class="ident">table_map</span>
-            .<span class="ident">insert_conditionally_all</span>(<span class="ident">to_send</span>, <span class="ident">table_synchronizer</span>.<span class="ident">table_segment_offset</span>)
+        <span class="kw">let </span>result = table_synchronizer
+            .table_map
+            .insert_conditionally_all(to_send, table_synchronizer.table_segment_offset)
             .<span class="kw">await</span>;
-        <span class="kw">match</span> <span class="ident">result</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">TableError::IncorrectKeyVersion</span> { <span class="ident">operation</span>, <span class="ident">error_msg</span> }) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">&quot;IncorrectKeyVersion {}, {}&quot;</span>, <span class="ident">operation</span>, <span class="ident">error_msg</span>);
-                <span class="ident">table_synchronizer</span>.<span class="ident">fetch_updates</span>().<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;fetch update&quot;</span>);
+        <span class="kw">match </span>result {
+            <span class="prelude-val">Err</span>(TableError::IncorrectKeyVersion { operation, error_msg }) =&gt; {
+                <span class="macro">debug!</span>(<span class="string">&quot;IncorrectKeyVersion {}, {}&quot;</span>, operation, error_msg);
+                table_synchronizer.fetch_updates().<span class="kw">await</span>.expect(<span class="string">&quot;fetch update&quot;</span>);
             }
-            <span class="prelude-val">Err</span>(<span class="ident">TableError::KeyDoesNotExist</span> { <span class="ident">operation</span>, <span class="ident">error_msg</span> }) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">&quot;KeyDoesNotExist {}, {}&quot;</span>, <span class="ident">operation</span>, <span class="ident">error_msg</span>);
-                <span class="ident">table_synchronizer</span>.<span class="ident">fetch_updates</span>().<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;fetch update&quot;</span>);
+            <span class="prelude-val">Err</span>(TableError::KeyDoesNotExist { operation, error_msg }) =&gt; {
+                <span class="macro">debug!</span>(<span class="string">&quot;KeyDoesNotExist {}, {}&quot;</span>, operation, error_msg);
+                table_synchronizer.fetch_updates().<span class="kw">await</span>.expect(<span class="string">&quot;fetch update&quot;</span>);
             }
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">&quot;Error message is {}&quot;</span>, <span class="ident">e</span>);
-                <span class="kw">if</span> <span class="ident">retry</span> <span class="op">&gt;</span> <span class="number">0</span> {
-                    <span class="ident">retry</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
-                    <span class="ident">sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="ident">DELAY_MILLIS</span>)).<span class="kw">await</span>;
-                } <span class="kw">else</span> {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SynchronizerError::SyncTableError</span> {
-                        <span class="ident">operation</span>: <span class="string">&quot;insert conditionally_all&quot;</span>.<span class="ident">to_owned</span>(),
-                        <span class="ident">source</span>: <span class="ident">e</span>,
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="macro">debug!</span>(<span class="string">&quot;Error message is {}&quot;</span>, e);
+                <span class="kw">if </span>retry &gt; <span class="number">0 </span>{
+                    retry -= <span class="number">1</span>;
+                    sleep(Duration::from_millis(DELAY_MILLIS)).<span class="kw">await</span>;
+                } <span class="kw">else </span>{
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(SynchronizerError::SyncTableError {
+                        operation: <span class="string">&quot;insert conditionally_all&quot;</span>.to_owned(),
+                        source: e,
                     });
                 }
             }
-            <span class="prelude-val">Ok</span>(<span class="ident">res</span>) =&gt; {
-                <span class="ident">apply_inserts_to_localmap</span>(<span class="kw-2">&amp;mut</span> <span class="ident">to_update</span>, <span class="ident">res</span>, <span class="ident">table_synchronizer</span>);
-                <span class="ident">clear_tombstone</span>(<span class="kw-2">&amp;mut</span> <span class="ident">to_update</span>, <span class="ident">table_synchronizer</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(res) =&gt; {
+                apply_inserts_to_localmap(<span class="kw-2">&amp;mut </span>to_update, res, table_synchronizer);
+                clear_tombstone(<span class="kw-2">&amp;mut </span>to_update, table_synchronizer).<span class="kw">await</span><span class="question-mark">?</span>;
                 <span class="kw">break</span>;
             }
         }
     }
-    <span class="ident">update_result</span>.<span class="ident">ok_or</span>(<span class="ident">SynchronizerError::SyncUpdateError</span> {
-        <span class="ident">error_msg</span>: <span class="string">&quot;No attempts were made.&quot;</span>.<span class="ident">into</span>(),
+    update_result.ok_or(SynchronizerError::SyncUpdateError {
+        error_msg: <span class="string">&quot;No attempts were made.&quot;</span>.into(),
     })
 }
 
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">conditionally_remove</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>(
-    <span class="kw-2">mut</span> <span class="ident">delete_generator</span>: <span class="kw">impl</span> <span class="ident">FnMut</span>(<span class="kw-2">&amp;mut</span> <span class="ident">Update</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span>,
-    <span class="ident">table_synchronizer</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Synchronizer</span>,
-    <span class="kw-2">mut</span> <span class="ident">retry</span>: <span class="ident">i32</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">delete_result</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+<span class="kw">async fn </span>conditionally_remove&lt;R&gt;(
+    <span class="kw-2">mut </span>delete_generator: <span class="kw">impl </span>FnMut(<span class="kw-2">&amp;mut </span>Update) -&gt; <span class="prelude-ty">Result</span>&lt;R, SynchronizerError&gt;,
+    table_synchronizer: <span class="kw-2">&amp;mut </span>Synchronizer,
+    <span class="kw-2">mut </span>retry: i32,
+) -&gt; <span class="prelude-ty">Result</span>&lt;R, SynchronizerError&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>delete_result = <span class="prelude-val">None</span>;
 
-    <span class="kw">while</span> <span class="ident">retry</span> <span class="op">&gt;</span> <span class="number">0</span> {
-        <span class="kw">let</span> <span class="ident">map</span> <span class="op">=</span> <span class="ident">table_synchronizer</span>.<span class="ident">get_outer_map</span>();
-        <span class="kw">let</span> <span class="ident">map_version</span> <span class="op">=</span> <span class="ident">table_synchronizer</span>.<span class="ident">get_inner_map_version</span>();
+    <span class="kw">while </span>retry &gt; <span class="number">0 </span>{
+        <span class="kw">let </span>map = table_synchronizer.get_outer_map();
+        <span class="kw">let </span>map_version = table_synchronizer.get_inner_map_version();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">to_delete</span> <span class="op">=</span> <span class="ident">Update</span> {
-            <span class="ident">map</span>,
-            <span class="ident">map_version</span>,
-            <span class="ident">insert</span>: <span class="ident">Vec::new</span>(),
-            <span class="ident">remove</span>: <span class="ident">Vec::new</span>(),
+        <span class="kw">let </span><span class="kw-2">mut </span>to_delete = Update {
+            map,
+            map_version,
+            insert: Vec::new(),
+            remove: Vec::new(),
         };
-        <span class="ident">delete_result</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">delete_generator</span>(<span class="kw-2">&amp;mut</span> <span class="ident">to_delete</span>)<span class="question-mark">?</span>);
+        delete_result = <span class="prelude-val">Some</span>(delete_generator(<span class="kw-2">&amp;mut </span>to_delete)<span class="question-mark">?</span>);
 
-        <span class="kw">if</span> <span class="ident">to_delete</span>.<span class="ident">remove_is_empty</span>() {
+        <span class="kw">if </span>to_delete.remove_is_empty() {
             <span class="macro">debug!</span>(
                 <span class="string">&quot;Conditionally remove to {} completed, as there is nothing to remove for map&quot;</span>,
-                <span class="ident">table_synchronizer</span>.<span class="ident">get_name</span>()
+                table_synchronizer.get_name()
             );
             <span class="kw">break</span>;
         }
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">send</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="kw">for</span> <span class="ident">delete</span> <span class="kw">in</span> <span class="ident">to_delete</span>.<span class="ident">get_remove_iter</span>() {
-            <span class="kw">let</span> <span class="ident">key_version</span> <span class="op">=</span>
-                <span class="ident">table_synchronizer</span>.<span class="ident">get_key_version</span>(<span class="kw-2">&amp;</span><span class="ident">delete</span>.<span class="ident">outer_key</span>, <span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(<span class="ident">delete</span>.<span class="ident">inner_key</span>.<span class="ident">to_owned</span>()));
-            <span class="ident">send</span>.<span class="ident">push</span>((<span class="kw-2">&amp;</span><span class="ident">delete</span>.<span class="ident">composite_key</span>, <span class="ident">key_version</span>))
+        <span class="kw">let </span><span class="kw-2">mut </span>send = Vec::new();
+        <span class="kw">for </span>delete <span class="kw">in </span>to_delete.get_remove_iter() {
+            <span class="kw">let </span>key_version =
+                table_synchronizer.get_key_version(<span class="kw-2">&amp;</span>delete.outer_key, <span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(delete.inner_key.to_owned()));
+            send.push((<span class="kw-2">&amp;</span>delete.composite_key, key_version))
         }
 
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">table_synchronizer</span>
-            .<span class="ident">table_map</span>
-            .<span class="ident">remove_conditionally_all</span>(<span class="ident">send</span>, <span class="ident">table_synchronizer</span>.<span class="ident">table_segment_offset</span>)
+        <span class="kw">let </span>result = table_synchronizer
+            .table_map
+            .remove_conditionally_all(send, table_synchronizer.table_segment_offset)
             .<span class="kw">await</span>;
 
-        <span class="kw">match</span> <span class="ident">result</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">TableError::IncorrectKeyVersion</span> { <span class="ident">operation</span>, <span class="ident">error_msg</span> }) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">&quot;IncorrectKeyVersion {}, {}&quot;</span>, <span class="ident">operation</span>, <span class="ident">error_msg</span>);
-                <span class="ident">table_synchronizer</span>.<span class="ident">fetch_updates</span>().<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;fetch update&quot;</span>);
+        <span class="kw">match </span>result {
+            <span class="prelude-val">Err</span>(TableError::IncorrectKeyVersion { operation, error_msg }) =&gt; {
+                <span class="macro">debug!</span>(<span class="string">&quot;IncorrectKeyVersion {}, {}&quot;</span>, operation, error_msg);
+                table_synchronizer.fetch_updates().<span class="kw">await</span>.expect(<span class="string">&quot;fetch update&quot;</span>);
             }
-            <span class="prelude-val">Err</span>(<span class="ident">TableError::KeyDoesNotExist</span> { <span class="ident">operation</span>, <span class="ident">error_msg</span> }) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">&quot;KeyDoesNotExist {}, {}&quot;</span>, <span class="ident">operation</span>, <span class="ident">error_msg</span>);
-                <span class="ident">table_synchronizer</span>.<span class="ident">fetch_updates</span>().<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;fetch update&quot;</span>);
+            <span class="prelude-val">Err</span>(TableError::KeyDoesNotExist { operation, error_msg }) =&gt; {
+                <span class="macro">debug!</span>(<span class="string">&quot;KeyDoesNotExist {}, {}&quot;</span>, operation, error_msg);
+                table_synchronizer.fetch_updates().<span class="kw">await</span>.expect(<span class="string">&quot;fetch update&quot;</span>);
             }
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">&quot;Error message is {}&quot;</span>, <span class="ident">e</span>);
-                <span class="kw">if</span> <span class="ident">retry</span> <span class="op">&gt;</span> <span class="number">0</span> {
-                    <span class="ident">retry</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
-                    <span class="ident">sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="ident">DELAY_MILLIS</span>)).<span class="kw">await</span>;
-                } <span class="kw">else</span> {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SynchronizerError::SyncTableError</span> {
-                        <span class="ident">operation</span>: <span class="string">&quot;remove conditionally_all&quot;</span>.<span class="ident">to_owned</span>(),
-                        <span class="ident">source</span>: <span class="ident">e</span>,
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="macro">debug!</span>(<span class="string">&quot;Error message is {}&quot;</span>, e);
+                <span class="kw">if </span>retry &gt; <span class="number">0 </span>{
+                    retry -= <span class="number">1</span>;
+                    sleep(Duration::from_millis(DELAY_MILLIS)).<span class="kw">await</span>;
+                } <span class="kw">else </span>{
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(SynchronizerError::SyncTableError {
+                        operation: <span class="string">&quot;remove conditionally_all&quot;</span>.to_owned(),
+                        source: e,
                     });
                 }
             }
             <span class="prelude-val">Ok</span>(()) =&gt; {
-                <span class="ident">apply_deletes_to_localmap</span>(<span class="kw-2">&amp;mut</span> <span class="ident">to_delete</span>, <span class="ident">table_synchronizer</span>);
+                apply_deletes_to_localmap(<span class="kw-2">&amp;mut </span>to_delete, table_synchronizer);
                 <span class="kw">break</span>;
             }
         }
     }
-    <span class="ident">delete_result</span>.<span class="ident">ok_or</span>(<span class="ident">SynchronizerError::SyncUpdateError</span> {
-        <span class="ident">error_msg</span>: <span class="string">&quot;No attempts were made.&quot;</span>.<span class="ident">into</span>(),
+    delete_result.ok_or(SynchronizerError::SyncUpdateError {
+        error_msg: <span class="string">&quot;No attempts were made.&quot;</span>.into(),
     })
 }
 
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">clear_tombstone</span>(
-    <span class="ident">to_remove</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Update</span>,
-    <span class="ident">table_synchronizer</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Synchronizer</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
-    <span class="ident">table_synchronizer</span>
-        .<span class="ident">remove</span>(<span class="op">|</span><span class="ident">table</span><span class="op">|</span> {
-            <span class="kw">for</span> <span class="ident">remove</span> <span class="kw">in</span> <span class="ident">to_remove</span>.<span class="ident">get_remove_iter</span>() {
-                <span class="kw">if</span> <span class="ident">table</span>.<span class="ident">is_tombstoned</span>(<span class="kw-2">&amp;</span><span class="ident">remove</span>.<span class="ident">outer_key</span>, <span class="kw-2">&amp;</span><span class="ident">remove</span>.<span class="ident">inner_key</span>) {
-                    <span class="ident">table</span>.<span class="ident">remove</span>(<span class="ident">remove</span>.<span class="ident">outer_key</span>.<span class="ident">to_owned</span>(), <span class="ident">remove</span>.<span class="ident">inner_key</span>.<span class="ident">to_owned</span>());
+<span class="kw">async fn </span>clear_tombstone(
+    to_remove: <span class="kw-2">&amp;mut </span>Update,
+    table_synchronizer: <span class="kw-2">&amp;mut </span>Synchronizer,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynchronizerError&gt; {
+    table_synchronizer
+        .remove(|table| {
+            <span class="kw">for </span>remove <span class="kw">in </span>to_remove.get_remove_iter() {
+                <span class="kw">if </span>table.is_tombstoned(<span class="kw-2">&amp;</span>remove.outer_key, <span class="kw-2">&amp;</span>remove.inner_key) {
+                    table.remove(remove.outer_key.to_owned(), remove.inner_key.to_owned());
                 }
             }
             <span class="prelude-val">Ok</span>(())
         })
-        .<span class="kw">await</span>
-}
+        .<span class="kw">await
+</span>}
 
-<span class="kw">fn</span> <span class="ident">apply_inserts_to_localmap</span>(
-    <span class="ident">to_update</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Update</span>,
-    <span class="ident">new_version</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Version</span><span class="op">&gt;</span>,
-    <span class="ident">table_synchronizer</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Synchronizer</span>,
+<span class="kw">fn </span>apply_inserts_to_localmap(
+    to_update: <span class="kw-2">&amp;mut </span>Update,
+    new_version: Vec&lt;Version&gt;,
+    table_synchronizer: <span class="kw-2">&amp;mut </span>Synchronizer,
 ) {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="number">0</span>;
-    <span class="kw">for</span> <span class="ident">update</span> <span class="kw">in</span> <span class="ident">to_update</span>.<span class="ident">get_insert_iter</span>() {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">inner_key</span>) <span class="op">=</span> <span class="ident">update</span>.<span class="ident">inner_key</span> {
-            <span class="kw">let</span> <span class="ident">new_key</span> <span class="op">=</span> <span class="ident">Key</span> {
-                <span class="ident">key</span>: <span class="ident">inner_key</span>.<span class="ident">to_owned</span>(),
-                <span class="ident">key_version</span>: <span class="kw-2">*</span><span class="ident">new_version</span>.<span class="ident">get</span>(<span class="ident">i</span>).<span class="ident">expect</span>(<span class="string">&quot;get new version&quot;</span>),
+    <span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">0</span>;
+    <span class="kw">for </span>update <span class="kw">in </span>to_update.get_insert_iter() {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>inner_key) = update.inner_key {
+            <span class="kw">let </span>new_key = Key {
+                key: inner_key.to_owned(),
+                key_version: <span class="kw-2">*</span>new_version.get(i).expect(<span class="string">&quot;get new version&quot;</span>),
             };
-            <span class="kw">let</span> <span class="ident">inner_map</span> <span class="op">=</span> <span class="ident">to_update</span>.<span class="ident">map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">update</span>.<span class="ident">outer_key</span>).<span class="ident">expect</span>(<span class="string">&quot;get inner map&quot;</span>);
-            <span class="kw">let</span> <span class="ident">new_value</span> <span class="op">=</span> <span class="ident">inner_map</span>.<span class="ident">get</span>(<span class="ident">inner_key</span>).<span class="ident">expect</span>(<span class="string">&quot;get the Value&quot;</span>).<span class="ident">clone</span>();
+            <span class="kw">let </span>inner_map = to_update.map.get(<span class="kw-2">&amp;</span>update.outer_key).expect(<span class="string">&quot;get inner map&quot;</span>);
+            <span class="kw">let </span>new_value = inner_map.get(inner_key).expect(<span class="string">&quot;get the Value&quot;</span>).clone();
 
-            <span class="kw">let</span> <span class="ident">in_mem_inner_map</span> <span class="op">=</span> <span class="ident">table_synchronizer</span>
-                .<span class="ident">in_memory_map</span>
-                .<span class="ident">entry</span>(<span class="ident">update</span>.<span class="ident">outer_key</span>.<span class="ident">clone</span>())
-                .<span class="ident">or_insert_with</span>(<span class="ident">HashMap::new</span>);
-            <span class="ident">in_mem_inner_map</span>.<span class="ident">insert</span>(<span class="ident">new_key</span>, <span class="ident">new_value</span>);
-        } <span class="kw">else</span> {
-            <span class="kw">let</span> <span class="ident">new_key</span> <span class="op">=</span> <span class="ident">Key</span> {
-                <span class="ident">key</span>: <span class="ident">update</span>.<span class="ident">outer_key</span>.<span class="ident">to_owned</span>(),
-                <span class="ident">key_version</span>: <span class="kw-2">*</span><span class="ident">new_version</span>.<span class="ident">get</span>(<span class="ident">i</span>).<span class="ident">expect</span>(<span class="string">&quot;get new version&quot;</span>),
+            <span class="kw">let </span>in_mem_inner_map = table_synchronizer
+                .in_memory_map
+                .entry(update.outer_key.clone())
+                .or_insert_with(HashMap::new);
+            in_mem_inner_map.insert(new_key, new_value);
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>new_key = Key {
+                key: update.outer_key.to_owned(),
+                key_version: <span class="kw-2">*</span>new_version.get(i).expect(<span class="string">&quot;get new version&quot;</span>),
             };
-            <span class="kw">let</span> <span class="ident">new_value</span> <span class="op">=</span> <span class="ident">to_update</span>
-                .<span class="ident">map_version</span>
-                .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">update</span>.<span class="ident">outer_key</span>)
-                .<span class="ident">expect</span>(<span class="string">&quot;get the Value&quot;</span>)
-                .<span class="ident">clone</span>();
-            <span class="ident">table_synchronizer</span>
-                .<span class="ident">in_memory_map_version</span>
-                .<span class="ident">insert</span>(<span class="ident">new_key</span>, <span class="ident">new_value</span>);
+            <span class="kw">let </span>new_value = to_update
+                .map_version
+                .get(<span class="kw-2">&amp;</span>update.outer_key)
+                .expect(<span class="string">&quot;get the Value&quot;</span>)
+                .clone();
+            table_synchronizer
+                .in_memory_map_version
+                .insert(new_key, new_value);
         }
-        <span class="ident">i</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+        i += <span class="number">1</span>;
     }
-    <span class="macro">debug!</span>(<span class="string">&quot;Updates {} entries in local map &quot;</span>, <span class="ident">i</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;Updates {} entries in local map &quot;</span>, i);
 }
 
-<span class="kw">fn</span> <span class="ident">apply_deletes_to_localmap</span>(<span class="ident">to_delete</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Update</span>, <span class="ident">table_synchronizer</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Synchronizer</span>) {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="number">0</span>;
-    <span class="kw">for</span> <span class="ident">delete</span> <span class="kw">in</span> <span class="ident">to_delete</span>.<span class="ident">get_remove_iter</span>() {
-        <span class="kw">let</span> <span class="ident">delete_key</span> <span class="op">=</span> <span class="ident">Key</span> {
-            <span class="ident">key</span>: <span class="ident">delete</span>.<span class="ident">inner_key</span>.<span class="ident">clone</span>(),
-            <span class="ident">key_version</span>: <span class="ident">TableKey::KEY_NO_VERSION</span>,
+<span class="kw">fn </span>apply_deletes_to_localmap(to_delete: <span class="kw-2">&amp;mut </span>Update, table_synchronizer: <span class="kw-2">&amp;mut </span>Synchronizer) {
+    <span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">0</span>;
+    <span class="kw">for </span>delete <span class="kw">in </span>to_delete.get_remove_iter() {
+        <span class="kw">let </span>delete_key = Key {
+            key: delete.inner_key.clone(),
+            key_version: TableKey::KEY_NO_VERSION,
         };
-        <span class="kw">let</span> <span class="ident">in_mem_inner_map</span> <span class="op">=</span> <span class="ident">table_synchronizer</span>
-            .<span class="ident">in_memory_map</span>
-            .<span class="ident">entry</span>(<span class="ident">delete</span>.<span class="ident">outer_key</span>.<span class="ident">clone</span>())
-            .<span class="ident">or_insert_with</span>(<span class="ident">HashMap::new</span>);
-        <span class="ident">in_mem_inner_map</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">delete_key</span>);
-        <span class="ident">i</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="kw">let </span>in_mem_inner_map = table_synchronizer
+            .in_memory_map
+            .entry(delete.outer_key.clone())
+            .or_insert_with(HashMap::new);
+        in_mem_inner_map.remove(<span class="kw-2">&amp;</span>delete_key);
+        i += <span class="number">1</span>;
     }
-    <span class="macro">debug!</span>(<span class="string">&quot;Deletes {} entries in local map &quot;</span>, <span class="ident">i</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;Deletes {} entries in local map &quot;</span>, i);
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::client_factory::ClientFactory</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sync::synchronizer</span>::{<span class="ident">deserialize_from</span>, <span class="ident">Update</span>};
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sync::synchronizer</span>::{<span class="ident">serialize</span>, <span class="ident">Value</span>};
-    <span class="kw">use</span> <span class="ident">pravega_client_config::connection_type</span>::{<span class="ident">ConnectionType</span>, <span class="ident">MockType</span>};
-    <span class="kw">use</span> <span class="ident">pravega_client_config::ClientConfigBuilder</span>;
-    <span class="kw">use</span> <span class="ident">pravega_client_shared::PravegaNodeUri</span>;
-    <span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
-    <span class="kw">use</span> <span class="ident">tokio::runtime::Runtime</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span><span class="kw">crate</span>::client_factory::ClientFactory;
+    <span class="kw">use </span><span class="kw">crate</span>::sync::synchronizer::{deserialize_from, Update};
+    <span class="kw">use </span><span class="kw">crate</span>::sync::synchronizer::{serialize, Value};
+    <span class="kw">use </span>pravega_client_config::connection_type::{ConnectionType, MockType};
+    <span class="kw">use </span>pravega_client_config::ClientConfigBuilder;
+    <span class="kw">use </span>pravega_client_shared::PravegaNodeUri;
+    <span class="kw">use </span>std::collections::HashMap;
+    <span class="kw">use </span>tokio::runtime::Runtime;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_intern_key_split</span>() {
-        <span class="kw">let</span> <span class="ident">key1</span> <span class="op">=</span> <span class="ident">InternalKey</span> {
-            <span class="ident">key</span>: <span class="string">&quot;10outer_keys/inner_key&quot;</span>.<span class="ident">to_owned</span>(),
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_intern_key_split() {
+        <span class="kw">let </span>key1 = InternalKey {
+            key: <span class="string">&quot;10outer_keys/inner_key&quot;</span>.to_owned(),
         };
-        <span class="kw">let</span> (<span class="ident">outer</span>, <span class="ident">inner</span>) <span class="op">=</span> <span class="ident">key1</span>.<span class="ident">split</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">outer</span>, <span class="string">&quot;outer_keys&quot;</span>.<span class="ident">to_owned</span>());
-        <span class="macro">assert_eq!</span>(<span class="ident">inner</span>.<span class="ident">expect</span>(<span class="string">&quot;should contain inner key&quot;</span>), <span class="string">&quot;inner_key&quot;</span>.<span class="ident">to_owned</span>());
+        <span class="kw">let </span>(outer, inner) = key1.split();
+        <span class="macro">assert_eq!</span>(outer, <span class="string">&quot;outer_keys&quot;</span>.to_owned());
+        <span class="macro">assert_eq!</span>(inner.expect(<span class="string">&quot;should contain inner key&quot;</span>), <span class="string">&quot;inner_key&quot;</span>.to_owned());
 
-        <span class="kw">let</span> <span class="ident">key2</span> <span class="op">=</span> <span class="ident">InternalKey</span> {
-            <span class="ident">key</span>: <span class="string">&quot;05outer/inner_key&quot;</span>.<span class="ident">to_owned</span>(),
+        <span class="kw">let </span>key2 = InternalKey {
+            key: <span class="string">&quot;05outer/inner_key&quot;</span>.to_owned(),
         };
-        <span class="kw">let</span> (<span class="ident">outer</span>, <span class="ident">inner</span>) <span class="op">=</span> <span class="ident">key2</span>.<span class="ident">split</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">outer</span>, <span class="string">&quot;outer&quot;</span>.<span class="ident">to_owned</span>());
-        <span class="macro">assert_eq!</span>(<span class="ident">inner</span>.<span class="ident">expect</span>(<span class="string">&quot;should contain inner key&quot;</span>), <span class="string">&quot;inner_key&quot;</span>.<span class="ident">to_owned</span>());
+        <span class="kw">let </span>(outer, inner) = key2.split();
+        <span class="macro">assert_eq!</span>(outer, <span class="string">&quot;outer&quot;</span>.to_owned());
+        <span class="macro">assert_eq!</span>(inner.expect(<span class="string">&quot;should contain inner key&quot;</span>), <span class="string">&quot;inner_key&quot;</span>.to_owned());
 
-        <span class="kw">let</span> <span class="ident">key3</span> <span class="op">=</span> <span class="ident">InternalKey</span> {
-            <span class="ident">key</span>: <span class="string">&quot;05outer&quot;</span>.<span class="ident">to_owned</span>(),
+        <span class="kw">let </span>key3 = InternalKey {
+            key: <span class="string">&quot;05outer&quot;</span>.to_owned(),
         };
-        <span class="kw">let</span> (<span class="ident">outer</span>, <span class="ident">inner</span>) <span class="op">=</span> <span class="ident">key3</span>.<span class="ident">split</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">outer</span>, <span class="string">&quot;outer&quot;</span>.<span class="ident">to_owned</span>());
-        <span class="macro">assert!</span>(<span class="ident">inner</span>.<span class="ident">is_none</span>());
+        <span class="kw">let </span>(outer, inner) = key3.split();
+        <span class="macro">assert_eq!</span>(outer, <span class="string">&quot;outer&quot;</span>.to_owned());
+        <span class="macro">assert!</span>(inner.is_none());
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_insert_keys</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">map</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Key</span>, <span class="ident">Value</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
-        <span class="kw">let</span> <span class="ident">key1</span> <span class="op">=</span> <span class="ident">Key</span> {
-            <span class="ident">key</span>: <span class="string">&quot;a&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">key_version</span>: <span class="number">0</span>,
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_insert_keys() {
+        <span class="kw">let </span><span class="kw-2">mut </span>map: HashMap&lt;Key, Value&gt; = HashMap::new();
+        <span class="kw">let </span>key1 = Key {
+            key: <span class="string">&quot;a&quot;</span>.to_owned(),
+            key_version: <span class="number">0</span>,
         };
-        <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="string">&quot;value&quot;</span>.<span class="ident">to_owned</span>()).<span class="ident">expect</span>(<span class="string">&quot;serialize&quot;</span>);
-        <span class="kw">let</span> <span class="ident">value1</span> <span class="op">=</span> <span class="ident">Value</span> {
-            <span class="ident">type_id</span>: <span class="string">&quot;String&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">data</span>,
-        };
-
-        <span class="kw">let</span> <span class="ident">key2</span> <span class="op">=</span> <span class="ident">Key</span> {
-            <span class="ident">key</span>: <span class="string">&quot;b&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">key_version</span>: <span class="number">0</span>,
+        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;</span><span class="string">&quot;value&quot;</span>.to_owned()).expect(<span class="string">&quot;serialize&quot;</span>);
+        <span class="kw">let </span>value1 = Value {
+            type_id: <span class="string">&quot;String&quot;</span>.to_owned(),
+            data,
         };
 
-        <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="number">1</span>).<span class="ident">expect</span>(<span class="string">&quot;serialize&quot;</span>);
-        <span class="kw">let</span> <span class="ident">value2</span> <span class="op">=</span> <span class="ident">Value</span> {
-            <span class="ident">type_id</span>: <span class="string">&quot;i32&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">data</span>,
+        <span class="kw">let </span>key2 = Key {
+            key: <span class="string">&quot;b&quot;</span>.to_owned(),
+            key_version: <span class="number">0</span>,
         };
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">key1</span>, <span class="ident">value1</span>);
-        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_none</span>());
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">key2</span>, <span class="ident">value2</span>);
-        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_none</span>());
-        <span class="macro">assert_eq!</span>(<span class="ident">map</span>.<span class="ident">len</span>(), <span class="number">2</span>);
+
+        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;</span><span class="number">1</span>).expect(<span class="string">&quot;serialize&quot;</span>);
+        <span class="kw">let </span>value2 = Value {
+            type_id: <span class="string">&quot;i32&quot;</span>.to_owned(),
+            data,
+        };
+        <span class="kw">let </span>result = map.insert(key1, value1);
+        <span class="macro">assert!</span>(result.is_none());
+        <span class="kw">let </span>result = map.insert(key2, value2);
+        <span class="macro">assert!</span>(result.is_none());
+        <span class="macro">assert_eq!</span>(map.len(), <span class="number">2</span>);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_insert_key_with_different_key_version</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">map</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Key</span>, <span class="ident">Value</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
-        <span class="kw">let</span> <span class="ident">key1</span> <span class="op">=</span> <span class="ident">Key</span> {
-            <span class="ident">key</span>: <span class="string">&quot;a&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">key_version</span>: <span class="number">0</span>,
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_insert_key_with_different_key_version() {
+        <span class="kw">let </span><span class="kw-2">mut </span>map: HashMap&lt;Key, Value&gt; = HashMap::new();
+        <span class="kw">let </span>key1 = Key {
+            key: <span class="string">&quot;a&quot;</span>.to_owned(),
+            key_version: <span class="number">0</span>,
         };
 
-        <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="string">&quot;value&quot;</span>.<span class="ident">to_owned</span>()).<span class="ident">expect</span>(<span class="string">&quot;serialize&quot;</span>);
-        <span class="kw">let</span> <span class="ident">value1</span> <span class="op">=</span> <span class="ident">Value</span> {
-            <span class="ident">type_id</span>: <span class="string">&quot;String&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">data</span>,
+        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;</span><span class="string">&quot;value&quot;</span>.to_owned()).expect(<span class="string">&quot;serialize&quot;</span>);
+        <span class="kw">let </span>value1 = Value {
+            type_id: <span class="string">&quot;String&quot;</span>.to_owned(),
+            data,
         };
-        <span class="kw">let</span> <span class="ident">key2</span> <span class="op">=</span> <span class="ident">Key</span> {
-            <span class="ident">key</span>: <span class="string">&quot;a&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">key_version</span>: <span class="number">1</span>,
+        <span class="kw">let </span>key2 = Key {
+            key: <span class="string">&quot;a&quot;</span>.to_owned(),
+            key_version: <span class="number">1</span>,
         };
-        <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="number">1</span>).<span class="ident">expect</span>(<span class="string">&quot;serialize&quot;</span>);
-        <span class="kw">let</span> <span class="ident">value2</span> <span class="op">=</span> <span class="ident">Value</span> {
-            <span class="ident">type_id</span>: <span class="string">&quot;i32&quot;</span>.<span class="ident">into</span>(),
-            <span class="ident">data</span>,
+        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;</span><span class="number">1</span>).expect(<span class="string">&quot;serialize&quot;</span>);
+        <span class="kw">let </span>value2 = Value {
+            type_id: <span class="string">&quot;i32&quot;</span>.into(),
+            data,
         };
 
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">key1</span>.<span class="ident">clone</span>(), <span class="ident">value1</span>);
-        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_none</span>());
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">key2</span>.<span class="ident">clone</span>(), <span class="ident">value2</span>);
-        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_some</span>());
-        <span class="macro">assert_eq!</span>(<span class="ident">map</span>.<span class="ident">len</span>(), <span class="number">1</span>);
+        <span class="kw">let </span>result = map.insert(key1.clone(), value1);
+        <span class="macro">assert!</span>(result.is_none());
+        <span class="kw">let </span>result = map.insert(key2.clone(), value2);
+        <span class="macro">assert!</span>(result.is_some());
+        <span class="macro">assert_eq!</span>(map.len(), <span class="number">1</span>);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_clone_map</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">map</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Key</span>, <span class="ident">Value</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
-        <span class="kw">let</span> <span class="ident">key1</span> <span class="op">=</span> <span class="ident">Key</span> {
-            <span class="ident">key</span>: <span class="string">&quot;a&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">key_version</span>: <span class="number">0</span>,
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_clone_map() {
+        <span class="kw">let </span><span class="kw-2">mut </span>map: HashMap&lt;Key, Value&gt; = HashMap::new();
+        <span class="kw">let </span>key1 = Key {
+            key: <span class="string">&quot;a&quot;</span>.to_owned(),
+            key_version: <span class="number">0</span>,
         };
 
-        <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="string">&quot;value&quot;</span>.<span class="ident">to_owned</span>()).<span class="ident">expect</span>(<span class="string">&quot;serialize&quot;</span>);
-        <span class="kw">let</span> <span class="ident">value1</span> <span class="op">=</span> <span class="ident">Value</span> {
-            <span class="ident">type_id</span>: <span class="string">&quot;String&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">data</span>,
+        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;</span><span class="string">&quot;value&quot;</span>.to_owned()).expect(<span class="string">&quot;serialize&quot;</span>);
+        <span class="kw">let </span>value1 = Value {
+            type_id: <span class="string">&quot;String&quot;</span>.to_owned(),
+            data,
         };
 
-        <span class="kw">let</span> <span class="ident">key2</span> <span class="op">=</span> <span class="ident">Key</span> {
-            <span class="ident">key</span>: <span class="string">&quot;a&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">key_version</span>: <span class="number">1</span>,
+        <span class="kw">let </span>key2 = Key {
+            key: <span class="string">&quot;a&quot;</span>.to_owned(),
+            key_version: <span class="number">1</span>,
         };
 
-        <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="number">1</span>).<span class="ident">expect</span>(<span class="string">&quot;serialize&quot;</span>);
-        <span class="kw">let</span> <span class="ident">value2</span> <span class="op">=</span> <span class="ident">Value</span> {
-            <span class="ident">type_id</span>: <span class="string">&quot;i32&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">data</span>,
+        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;</span><span class="number">1</span>).expect(<span class="string">&quot;serialize&quot;</span>);
+        <span class="kw">let </span>value2 = Value {
+            type_id: <span class="string">&quot;i32&quot;</span>.to_owned(),
+            data,
         };
 
-        <span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">key1</span>.<span class="ident">clone</span>(), <span class="ident">value1</span>.<span class="ident">clone</span>());
-        <span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">key2</span>.<span class="ident">clone</span>(), <span class="ident">value2</span>.<span class="ident">clone</span>());
-        <span class="kw">let</span> <span class="ident">new_map</span> <span class="op">=</span> <span class="ident">map</span>.<span class="ident">clone</span>();
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">new_map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">key1</span>).<span class="ident">expect</span>(<span class="string">&quot;get value&quot;</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">new_map</span>.<span class="ident">len</span>(), <span class="number">1</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">clone</span>(), <span class="ident">value2</span>);
+        map.insert(key1.clone(), value1.clone());
+        map.insert(key2.clone(), value2.clone());
+        <span class="kw">let </span>new_map = map.clone();
+        <span class="kw">let </span>result = new_map.get(<span class="kw-2">&amp;</span>key1).expect(<span class="string">&quot;get value&quot;</span>);
+        <span class="macro">assert_eq!</span>(new_map.len(), <span class="number">1</span>);
+        <span class="macro">assert_eq!</span>(result.clone(), value2);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_insert_and_get</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">Update</span> {
-            <span class="ident">map</span>: <span class="ident">HashMap::new</span>(),
-            <span class="ident">map_version</span>: <span class="ident">HashMap::new</span>(),
-            <span class="ident">insert</span>: <span class="ident">Vec::new</span>(),
-            <span class="ident">remove</span>: <span class="ident">Vec::new</span>(),
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_insert_and_get() {
+        <span class="kw">let </span><span class="kw-2">mut </span>table = Update {
+            map: HashMap::new(),
+            map_version: HashMap::new(),
+            insert: Vec::new(),
+            remove: Vec::new(),
         };
-        <span class="ident">table</span>.<span class="ident">insert</span>(
-            <span class="string">&quot;test_outer&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="string">&quot;test_inner&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="string">&quot;i32&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">Box::new</span>(<span class="number">1</span>),
+        table.insert(
+            <span class="string">&quot;test_outer&quot;</span>.to_owned(),
+            <span class="string">&quot;test_inner&quot;</span>.to_owned(),
+            <span class="string">&quot;i32&quot;</span>.to_owned(),
+            Box::new(<span class="number">1</span>),
         );
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">table</span>.<span class="ident">get</span>(<span class="string">&quot;test_outer&quot;</span>, <span class="string">&quot;test_inner&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;get value&quot;</span>);
-        <span class="kw">let</span> <span class="ident">deserialized_data</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">deserialize_from</span>(<span class="kw-2">&amp;</span><span class="ident">value</span>.<span class="ident">data</span>).<span class="ident">expect</span>(<span class="string">&quot;deserialize&quot;</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">deserialized_data</span>, <span class="number">1</span>);
+        <span class="kw">let </span>value = table.get(<span class="string">&quot;test_outer&quot;</span>, <span class="string">&quot;test_inner&quot;</span>).expect(<span class="string">&quot;get value&quot;</span>);
+        <span class="kw">let </span>deserialized_data: i32 = deserialize_from(<span class="kw-2">&amp;</span>value.data).expect(<span class="string">&quot;deserialize&quot;</span>);
+        <span class="macro">assert_eq!</span>(deserialized_data, <span class="number">1</span>);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_integration_with_table_map</span>() {
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">Runtime::new</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">ClientConfigBuilder::default</span>()
-            .<span class="ident">connection_type</span>(<span class="ident">ConnectionType::Mock</span>(<span class="ident">MockType::Happy</span>))
-            .<span class="ident">mock</span>(<span class="bool-val">true</span>)
-            .<span class="ident">controller_uri</span>(<span class="ident">PravegaNodeUri::from</span>(<span class="string">&quot;127.0.0.2:9091&quot;</span>.<span class="ident">to_string</span>()))
-            .<span class="ident">build</span>()
-            .<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">factory</span> <span class="op">=</span> <span class="ident">ClientFactory::new</span>(<span class="ident">config</span>);
-        <span class="kw">let</span> <span class="ident">scope</span> <span class="op">=</span> <span class="ident">Scope</span> {
-            <span class="ident">name</span>: <span class="string">&quot;tableSyncScope&quot;</span>.<span class="ident">to_string</span>(),
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_integration_with_table_map() {
+        <span class="kw">let </span>rt = Runtime::new().unwrap();
+        <span class="kw">let </span>config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(MockType::Happy))
+            .mock(<span class="bool-val">true</span>)
+            .controller_uri(PravegaNodeUri::from(<span class="string">&quot;127.0.0.2:9091&quot;</span>.to_string()))
+            .build()
+            .unwrap();
+        <span class="kw">let </span>factory = ClientFactory::new(config);
+        <span class="kw">let </span>scope = Scope {
+            name: <span class="string">&quot;tableSyncScope&quot;</span>.to_string(),
         };
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">sync</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">factory</span>.<span class="ident">create_synchronizer</span>(<span class="ident">scope</span>, <span class="string">&quot;sync&quot;</span>.<span class="ident">to_string</span>()));
-        <span class="kw">let</span> <span class="kw">_</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">rt</span>
-            .<span class="ident">block_on</span>(<span class="ident">sync</span>.<span class="ident">insert</span>(<span class="op">|</span><span class="ident">table</span><span class="op">|</span> {
-                <span class="ident">table</span>.<span class="ident">insert</span>(
-                    <span class="string">&quot;outer_key&quot;</span>.<span class="ident">to_owned</span>(),
-                    <span class="string">&quot;inner_key&quot;</span>.<span class="ident">to_owned</span>(),
-                    <span class="string">&quot;i32&quot;</span>.<span class="ident">to_owned</span>(),
-                    <span class="ident">Box::new</span>(<span class="number">1</span>),
+        <span class="kw">let </span><span class="kw-2">mut </span>sync = rt.block_on(factory.create_synchronizer(scope, <span class="string">&quot;sync&quot;</span>.to_string()));
+        <span class="kw">let _</span>: <span class="prelude-ty">Option</span>&lt;String&gt; = rt
+            .block_on(sync.insert(|table| {
+                table.insert(
+                    <span class="string">&quot;outer_key&quot;</span>.to_owned(),
+                    <span class="string">&quot;inner_key&quot;</span>.to_owned(),
+                    <span class="string">&quot;i32&quot;</span>.to_owned(),
+                    Box::new(<span class="number">1</span>),
                 );
                 <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
             }))
-            .<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">value_option</span> <span class="op">=</span> <span class="ident">sync</span>.<span class="ident">get</span>(<span class="string">&quot;outer_key&quot;</span>, <span class="string">&quot;inner_key&quot;</span>);
-        <span class="macro">assert!</span>(<span class="ident">value_option</span>.<span class="ident">is_some</span>());
+            .unwrap();
+        <span class="kw">let </span>value_option = sync.get(<span class="string">&quot;outer_key&quot;</span>, <span class="string">&quot;inner_key&quot;</span>);
+        <span class="macro">assert!</span>(value_option.is_some());
 
-        <span class="kw">let</span> <span class="kw">_</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">rt</span>
-            .<span class="ident">block_on</span>(<span class="ident">sync</span>.<span class="ident">insert</span>(<span class="op">|</span><span class="ident">table</span><span class="op">|</span> {
-                <span class="ident">table</span>.<span class="ident">insert_tombstone</span>(<span class="string">&quot;outer_key&quot;</span>.<span class="ident">to_owned</span>(), <span class="string">&quot;inner_key&quot;</span>.<span class="ident">to_owned</span>())<span class="question-mark">?</span>;
+        <span class="kw">let _</span>: <span class="prelude-ty">Option</span>&lt;String&gt; = rt
+            .block_on(sync.insert(|table| {
+                table.insert_tombstone(<span class="string">&quot;outer_key&quot;</span>.to_owned(), <span class="string">&quot;inner_key&quot;</span>.to_owned())<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
             }))
-            .<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">value_option</span> <span class="op">=</span> <span class="ident">sync</span>.<span class="ident">get</span>(<span class="string">&quot;outer_key&quot;</span>, <span class="string">&quot;inner_key&quot;</span>);
-        <span class="macro">assert!</span>(<span class="ident">value_option</span>.<span class="ident">is_none</span>());
+            .unwrap();
+        <span class="kw">let </span>value_option = sync.get(<span class="string">&quot;outer_key&quot;</span>, <span class="string">&quot;inner_key&quot;</span>);
+        <span class="macro">assert!</span>(value_option.is_none());
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.66.0 (69f9c33d7 2022-12-12)" ></div></body></html>

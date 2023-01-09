@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/util/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/util/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><div class="width-limiter"><nav class="sub"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -91,98 +91,98 @@
 <span id="91">91</span>
 <span id="92">92</span>
 <span id="93">93</span>
-</pre><pre class="rust"><code><span class="comment">//</span>
-<span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
-<span class="comment">//</span>
-<span class="comment">// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
-<span class="comment">// you may not use this file except in compliance with the License.</span>
-<span class="comment">// You may obtain a copy of the License at</span>
-<span class="comment">//</span>
-<span class="comment">// http://www.apache.org/licenses/LICENSE-2.0</span>
-<span class="comment">//</span>
+</pre><pre class="rust"><code><span class="comment">//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
 
-<span class="kw">use</span> <span class="ident">std::cell::RefCell</span>;
-<span class="kw">use</span> <span class="ident">std::sync::atomic</span>::{<span class="ident">AtomicI64</span>, <span class="ident">Ordering</span>};
+</span><span class="kw">use </span>std::cell::RefCell;
+<span class="kw">use </span>std::sync::atomic::{AtomicI64, Ordering};
 
-<span class="kw">use</span> <span class="ident">pcg_rand::Pcg32</span>;
-<span class="kw">use</span> <span class="ident">rand</span>::{<span class="ident">Rng</span>, <span class="ident">SeedableRng</span>};
-<span class="kw">use</span> <span class="ident">tracing::span</span>;
+<span class="kw">use </span>pcg_rand::Pcg32;
+<span class="kw">use </span>rand::{Rng, SeedableRng};
+<span class="kw">use </span>tracing::span;
 
-<span class="kw">use</span> <span class="ident">pravega_client_shared</span>::{
-    <span class="ident">Retention</span>, <span class="ident">RetentionType</span>, <span class="ident">ScaleType</span>, <span class="ident">Scaling</span>, <span class="ident">Scope</span>, <span class="ident">ScopedStream</span>, <span class="ident">Stream</span>, <span class="ident">StreamConfiguration</span>,
+<span class="kw">use </span>pravega_client_shared::{
+    Retention, RetentionType, ScaleType, Scaling, Scope, ScopedStream, Stream, StreamConfiguration,
 };
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::client_factory::ClientFactory</span>;
+<span class="kw">use </span><span class="kw">crate</span>::client_factory::ClientFactory;
 
-<span class="attribute">#[<span class="ident">macro_use</span>]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">metric</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">meta</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">oneshot_holder</span>;
+<span class="attribute">#[macro_use]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>metric;
+<span class="kw">pub mod </span>meta;
+<span class="kw">pub mod </span>oneshot_holder;
 
-<span class="macro">thread_local!</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">static</span> <span class="ident">RNG</span>: <span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Pcg32</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">RefCell::new</span>(<span class="ident">Pcg32::from_entropy</span>());
+<span class="macro">thread_local! </span>{
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">static </span>RNG: RefCell&lt;Pcg32&gt; = RefCell::new(Pcg32::from_entropy());
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">static</span> <span class="ident">REQUEST_ID_GENERATOR</span>: <span class="ident">AtomicI64</span> <span class="op">=</span> <span class="ident">AtomicI64::new</span>(<span class="number">0</span>);
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">static </span>REQUEST_ID_GENERATOR: AtomicI64 = AtomicI64::new(<span class="number">0</span>);
 
-<span class="doccomment">/// Function used to generate request ids for all the modules.</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_request_id</span>() -&gt; <span class="ident">i64</span> {
-    <span class="ident">REQUEST_ID_GENERATOR</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering::SeqCst</span>) <span class="op">+</span> <span class="number">1</span>
+<span class="doccomment">/// Function used to generate request ids for all the modules.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_request_id() -&gt; i64 {
+    REQUEST_ID_GENERATOR.fetch_add(<span class="number">1</span>, Ordering::SeqCst) + <span class="number">1
+</span>}
+
+<span class="doccomment">/// Function used to generate random u64.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_random_u64() -&gt; u64 {
+    RNG.with(|rng| rng.borrow_mut().gen())
 }
 
-<span class="doccomment">/// Function used to generate random u64.</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_random_u64</span>() -&gt; <span class="ident">u64</span> {
-    <span class="ident">RNG</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">rng</span><span class="op">|</span> <span class="ident">rng</span>.<span class="ident">borrow_mut</span>().<span class="ident">gen</span>())
+<span class="doccomment">/// Function used to generate random u128.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_random_u128() -&gt; u128 {
+    RNG.with(|rng| rng.borrow_mut().gen())
 }
 
-<span class="doccomment">/// Function used to generate random u128.</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_random_u128</span>() -&gt; <span class="ident">u128</span> {
-    <span class="ident">RNG</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">rng</span><span class="op">|</span> <span class="ident">rng</span>.<span class="ident">borrow_mut</span>().<span class="ident">gen</span>())
+<span class="doccomment">/// Function used to generate random i64.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_random_f64() -&gt; f64 {
+    RNG.with(|rng| rng.borrow_mut().gen())
 }
 
-<span class="doccomment">/// Function used to generate random i64.</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_random_f64</span>() -&gt; <span class="ident">f64</span> {
-    <span class="ident">RNG</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">rng</span><span class="op">|</span> <span class="ident">rng</span>.<span class="ident">borrow_mut</span>().<span class="ident">gen</span>())
+<span class="doccomment">/// Return the current span.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>current_span() -&gt; span::Span {
+    span::Span::current()
 }
 
-<span class="doccomment">/// Return the current span.</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">current_span</span>() -&gt; <span class="ident">span::Span</span> {
-    <span class="ident">span::Span::current</span>()
-}
-
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_stream</span>(<span class="ident">factory</span>: <span class="kw-2">&amp;</span><span class="ident">ClientFactory</span>, <span class="ident">scope</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">stream</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">num_segments</span>: <span class="ident">i32</span>) {
-    <span class="ident">factory</span>
-        .<span class="ident">controller_client</span>()
-        .<span class="ident">create_scope</span>(<span class="kw-2">&amp;</span><span class="ident">Scope</span> {
-            <span class="ident">name</span>: <span class="ident">scope</span>.<span class="ident">to_string</span>(),
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>create_stream(factory: <span class="kw-2">&amp;</span>ClientFactory, scope: <span class="kw-2">&amp;</span>str, stream: <span class="kw-2">&amp;</span>str, num_segments: i32) {
+    factory
+        .controller_client()
+        .create_scope(<span class="kw-2">&amp;</span>Scope {
+            name: scope.to_string(),
         })
-        .<span class="kw">await</span>
-        .<span class="ident">unwrap</span>();
-    <span class="ident">factory</span>
-        .<span class="ident">controller_client</span>()
-        .<span class="ident">create_stream</span>(<span class="kw-2">&amp;</span><span class="ident">StreamConfiguration</span> {
-            <span class="ident">scoped_stream</span>: <span class="ident">ScopedStream</span> {
-                <span class="ident">scope</span>: <span class="ident">Scope</span> {
-                    <span class="ident">name</span>: <span class="ident">scope</span>.<span class="ident">to_string</span>(),
+        .<span class="kw">await
+        </span>.unwrap();
+    factory
+        .controller_client()
+        .create_stream(<span class="kw-2">&amp;</span>StreamConfiguration {
+            scoped_stream: ScopedStream {
+                scope: Scope {
+                    name: scope.to_string(),
                 },
-                <span class="ident">stream</span>: <span class="ident">Stream</span> {
-                    <span class="ident">name</span>: <span class="ident">stream</span>.<span class="ident">to_string</span>(),
+                stream: Stream {
+                    name: stream.to_string(),
                 },
             },
-            <span class="ident">scaling</span>: <span class="ident">Scaling</span> {
-                <span class="ident">scale_type</span>: <span class="ident">ScaleType::FixedNumSegments</span>,
-                <span class="ident">target_rate</span>: <span class="number">0</span>,
-                <span class="ident">scale_factor</span>: <span class="number">0</span>,
-                <span class="ident">min_num_segments</span>: <span class="ident">num_segments</span>,
+            scaling: Scaling {
+                scale_type: ScaleType::FixedNumSegments,
+                target_rate: <span class="number">0</span>,
+                scale_factor: <span class="number">0</span>,
+                min_num_segments: num_segments,
             },
-            <span class="ident">retention</span>: <span class="ident">Retention</span> {
-                <span class="ident">retention_type</span>: <span class="ident">RetentionType::None</span>,
-                <span class="ident">retention_param</span>: <span class="number">0</span>,
+            retention: Retention {
+                retention_type: RetentionType::None,
+                retention_param: <span class="number">0</span>,
             },
-            <span class="ident">tags</span>: <span class="prelude-val">None</span>,
+            tags: <span class="prelude-val">None</span>,
         })
-        .<span class="kw">await</span>
-        .<span class="ident">unwrap</span>();
+        .<span class="kw">await
+        </span>.unwrap();
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.66.0 (69f9c33d7 2022-12-12)" ></div></body></html>

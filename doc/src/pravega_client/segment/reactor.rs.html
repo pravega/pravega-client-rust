@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/segment/reactor.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>reactor.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/segment/reactor.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>reactor.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><div class="width-limiter"><nav class="sub"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -304,198 +304,198 @@
 <span id="304">304</span>
 <span id="305">305</span>
 <span id="306">306</span>
-</pre><pre class="rust"><code><span class="comment">//</span>
-<span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
-<span class="comment">//</span>
-<span class="comment">// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
-<span class="comment">// you may not use this file except in compliance with the License.</span>
-<span class="comment">// You may obtain a copy of the License at</span>
-<span class="comment">//</span>
-<span class="comment">// http://www.apache.org/licenses/LICENSE-2.0</span>
-<span class="comment">//</span>
+</pre><pre class="rust"><code><span class="comment">//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
 
-<span class="kw">use</span> <span class="ident">pravega_client_channel</span>::{<span class="ident">ChannelReceiver</span>, <span class="ident">ChannelSender</span>};
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">warn</span>};
+</span><span class="kw">use </span>pravega_client_channel::{ChannelReceiver, ChannelSender};
+<span class="kw">use </span>tracing::{debug, error, info, warn};
 
-<span class="kw">use</span> <span class="ident">pravega_client_shared</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">pravega_wire_protocol::wire_commands::Replies</span>;
+<span class="kw">use </span>pravega_client_shared::<span class="kw-2">*</span>;
+<span class="kw">use </span>pravega_wire_protocol::wire_commands::Replies;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::client_factory::ClientFactoryAsync</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::Error</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::segment::event</span>::{<span class="ident">Incoming</span>, <span class="ident">RoutingInfo</span>, <span class="ident">ServerReply</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::segment::selector::SegmentSelector</span>;
+<span class="kw">use </span><span class="kw">crate</span>::client_factory::ClientFactoryAsync;
+<span class="kw">use </span><span class="kw">crate</span>::error::Error;
+<span class="kw">use </span><span class="kw">crate</span>::segment::event::{Incoming, RoutingInfo, ServerReply};
+<span class="kw">use </span><span class="kw">crate</span>::segment::selector::SegmentSelector;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">new</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">Reactor</span> {}
+<span class="attribute">#[derive(new)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Reactor {}
 
-<span class="kw">impl</span> <span class="ident">Reactor</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">run</span>(
-        <span class="ident">stream</span>: <span class="ident">ScopedStream</span>,
-        <span class="ident">sender</span>: <span class="ident">ChannelSender</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
-        <span class="kw-2">mut</span> <span class="ident">receiver</span>: <span class="ident">ChannelReceiver</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
-        <span class="ident">factory</span>: <span class="ident">ClientFactoryAsync</span>,
-        <span class="ident">stream_segments</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">StreamSegments</span><span class="op">&gt;</span>,
+<span class="kw">impl </span>Reactor {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>run(
+        stream: ScopedStream,
+        sender: ChannelSender&lt;Incoming&gt;,
+        <span class="kw-2">mut </span>receiver: ChannelReceiver&lt;Incoming&gt;,
+        factory: ClientFactoryAsync,
+        stream_segments: <span class="prelude-ty">Option</span>&lt;StreamSegments&gt;,
     ) {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">selector</span> <span class="op">=</span> <span class="ident">SegmentSelector::new</span>(<span class="ident">stream</span>, <span class="ident">sender</span>, <span class="ident">factory</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
-        <span class="comment">// get the current segments and create corresponding event segment writers</span>
-        <span class="ident">selector</span>.<span class="ident">initialize</span>(<span class="ident">stream_segments</span>).<span class="kw">await</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>selector = SegmentSelector::new(stream, sender, factory.clone()).<span class="kw">await</span>;
+        <span class="comment">// get the current segments and create corresponding event segment writers
+        </span>selector.initialize(stream_segments).<span class="kw">await</span>;
         <span class="macro">info!</span>(<span class="string">&quot;starting reactor&quot;</span>);
-        <span class="kw">while</span> <span class="ident">Reactor::run_once</span>(<span class="kw-2">&amp;mut</span> <span class="ident">selector</span>, <span class="kw-2">&amp;mut</span> <span class="ident">receiver</span>, <span class="kw-2">&amp;</span><span class="ident">factory</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">is_ok</span>()
+        <span class="kw">while </span>Reactor::run_once(<span class="kw-2">&amp;mut </span>selector, <span class="kw-2">&amp;mut </span>receiver, <span class="kw-2">&amp;</span>factory)
+            .<span class="kw">await
+            </span>.is_ok()
         {}
         <span class="macro">info!</span>(<span class="string">&quot;reactor is closed&quot;</span>);
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">run_once</span>(
-        <span class="ident">selector</span>: <span class="kw-2">&amp;mut</span> <span class="ident">SegmentSelector</span>,
-        <span class="ident">receiver</span>: <span class="kw-2">&amp;mut</span> <span class="ident">ChannelReceiver</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
-        <span class="ident">factory</span>: <span class="kw-2">&amp;</span><span class="ident">ClientFactoryAsync</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> (<span class="ident">event</span>, <span class="ident">cap_guard</span>) <span class="op">=</span> <span class="ident">receiver</span>.<span class="ident">recv</span>().<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;sender closed, processor exit&quot;</span>);
-        <span class="kw">match</span> <span class="ident">event</span> {
-            <span class="ident">Incoming::AppendEvent</span>(<span class="ident">pending_event</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">event_segment_writer</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">pending_event</span>.<span class="ident">routing_info</span> {
-                    <span class="ident">RoutingInfo::RoutingKey</span>(<span class="ident">key</span>) =&gt; <span class="ident">selector</span>.<span class="ident">get_segment_writer</span>(<span class="ident">key</span>),
-                    <span class="ident">RoutingInfo::Segment</span>(<span class="ident">segment</span>) =&gt; <span class="ident">selector</span>.<span class="ident">get_segment_writer_by_key</span>(<span class="ident">segment</span>),
+    <span class="kw">async fn </span>run_once(
+        selector: <span class="kw-2">&amp;mut </span>SegmentSelector,
+        receiver: <span class="kw-2">&amp;mut </span>ChannelReceiver&lt;Incoming&gt;,
+        factory: <span class="kw-2">&amp;</span>ClientFactoryAsync,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+        <span class="kw">let </span>(event, cap_guard) = receiver.recv().<span class="kw">await</span>.expect(<span class="string">&quot;sender closed, processor exit&quot;</span>);
+        <span class="kw">match </span>event {
+            Incoming::AppendEvent(pending_event) =&gt; {
+                <span class="kw">let </span>event_segment_writer = <span class="kw">match </span><span class="kw-2">&amp;</span>pending_event.routing_info {
+                    RoutingInfo::RoutingKey(key) =&gt; selector.get_segment_writer(key),
+                    RoutingInfo::Segment(segment) =&gt; selector.get_segment_writer_by_key(segment),
                 };
 
-                <span class="kw">if</span> <span class="ident">event_segment_writer</span>.<span class="ident">need_reset</span> {
-                    <span class="comment">// ignore the send result since error means the receiver is dropped</span>
-                    <span class="kw">let</span> <span class="ident">_res</span> <span class="op">=</span> <span class="ident">pending_event</span>.<span class="ident">oneshot_sender</span>.<span class="ident">send</span>(<span class="ident">Result::Err</span>(<span class="ident">Error::ConditionalCheckFailure</span> {
-                        <span class="ident">msg</span>:
-                        <span class="string">&quot;conditional check failed in previous appends, need to reset before processing new appends&quot;</span>.<span class="ident">to_string</span>(),
+                <span class="kw">if </span>event_segment_writer.need_reset {
+                    <span class="comment">// ignore the send result since error means the receiver is dropped
+                    </span><span class="kw">let </span>_res = pending_event.oneshot_sender.send(Result::Err(Error::ConditionalCheckFailure {
+                        msg:
+                        <span class="string">&quot;conditional check failed in previous appends, need to reset before processing new appends&quot;</span>.to_string(),
                     }));
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                 }
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">event_segment_writer</span>.<span class="ident">write</span>(<span class="ident">pending_event</span>, <span class="ident">cap_guard</span>).<span class="kw">await</span> {
-                    <span class="macro">warn!</span>(<span class="string">&quot;failed to write append to segment due to {:?}, reconnecting&quot;</span>, <span class="ident">e</span>);
-                    <span class="ident">event_segment_writer</span>.<span class="ident">reconnect</span>(<span class="ident">factory</span>).<span class="kw">await</span>;
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = event_segment_writer.write(pending_event, cap_guard).<span class="kw">await </span>{
+                    <span class="macro">warn!</span>(<span class="string">&quot;failed to write append to segment due to {:?}, reconnecting&quot;</span>, e);
+                    event_segment_writer.reconnect(factory).<span class="kw">await</span>;
                 }
                 <span class="prelude-val">Ok</span>(())
             }
-            <span class="ident">Incoming::Reconnect</span>(<span class="ident">writer_info</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">option</span> <span class="op">=</span> <span class="ident">selector</span>.<span class="ident">writers</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">writer_info</span>.<span class="ident">segment</span>);
-                <span class="kw">if</span> <span class="ident">option</span>.<span class="ident">is_none</span>() {
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
+            Incoming::Reconnect(writer_info) =&gt; {
+                <span class="kw">let </span>option = selector.writers.get_mut(<span class="kw-2">&amp;</span>writer_info.segment);
+                <span class="kw">if </span>option.is_none() {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                 }
-                <span class="kw">let</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">option</span>.<span class="ident">unwrap</span>();
+                <span class="kw">let </span>writer = option.unwrap();
 
-                <span class="comment">// Only reconnect if the current connection is having connection failure. It might happen that the</span>
-                <span class="comment">// write op has already triggered the connection failure and has reconnected. It&#39;s necessary to avoid</span>
-                <span class="comment">// reconnect twice since resending duplicate inflight events will cause InvalidEventNumber error.</span>
-                <span class="kw">let</span> <span class="ident">current_connection_id</span> <span class="op">=</span> <span class="ident">writer</span>.<span class="ident">connection</span>.<span class="ident">as_ref</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">c</span><span class="op">|</span> <span class="ident">c</span>.<span class="ident">get_id</span>());
-                <span class="kw">if</span> <span class="ident">current_connection_id</span> <span class="op">==</span> <span class="ident">writer_info</span>.<span class="ident">connection_id</span> {
-                    <span class="macro">warn!</span>(<span class="string">&quot;reconnect for writer {:?}&quot;</span>, <span class="ident">writer_info</span>);
-                    <span class="ident">writer</span>.<span class="ident">reconnect</span>(<span class="ident">factory</span>).<span class="kw">await</span>;
-                } <span class="kw">else</span> {
-                    <span class="macro">info!</span>(<span class="string">&quot;reconnect signal received for writer: {:?}, but does not match current writer: id {}, connection id {:?}, ignore&quot;</span>, <span class="ident">writer_info</span>, <span class="ident">writer</span>.<span class="ident">id</span>, <span class="ident">current_connection_id</span>);
+                <span class="comment">// Only reconnect if the current connection is having connection failure. It might happen that the
+                // write op has already triggered the connection failure and has reconnected. It&#39;s necessary to avoid
+                // reconnect twice since resending duplicate inflight events will cause InvalidEventNumber error.
+                </span><span class="kw">let </span>current_connection_id = writer.connection.as_ref().map(|c| c.get_id());
+                <span class="kw">if </span>current_connection_id == writer_info.connection_id {
+                    <span class="macro">warn!</span>(<span class="string">&quot;reconnect for writer {:?}&quot;</span>, writer_info);
+                    writer.reconnect(factory).<span class="kw">await</span>;
+                } <span class="kw">else </span>{
+                    <span class="macro">info!</span>(<span class="string">&quot;reconnect signal received for writer: {:?}, but does not match current writer: id {}, connection id {:?}, ignore&quot;</span>, writer_info, writer.id, current_connection_id);
                 }
                 <span class="prelude-val">Ok</span>(())
             }
-            <span class="ident">Incoming::ServerReply</span>(<span class="ident">server_reply</span>) =&gt; {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">Reactor::process_server_reply</span>(<span class="ident">server_reply</span>, <span class="ident">selector</span>, <span class="ident">factory</span>).<span class="kw">await</span> {
-                    <span class="macro">error!</span>(<span class="string">&quot;failed to process server reply due to {:?}&quot;</span>, <span class="ident">e</span>);
-                    <span class="prelude-val">Err</span>(<span class="ident">e</span>)
-                } <span class="kw">else</span> {
+            Incoming::ServerReply(server_reply) =&gt; {
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = Reactor::process_server_reply(server_reply, selector, factory).<span class="kw">await </span>{
+                    <span class="macro">error!</span>(<span class="string">&quot;failed to process server reply due to {:?}&quot;</span>, e);
+                    <span class="prelude-val">Err</span>(e)
+                } <span class="kw">else </span>{
                     <span class="prelude-val">Ok</span>(())
                 }
             }
-            <span class="ident">Incoming::Reset</span>(<span class="ident">segment</span>) =&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;reset writer for segment {:?} in reactor&quot;</span>, <span class="ident">segment</span>);
-                <span class="kw">let</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">selector</span>.<span class="ident">get_segment_writer_by_key</span>(<span class="kw-2">&amp;</span><span class="ident">segment</span>);
-                <span class="ident">writer</span>.<span class="ident">need_reset</span> <span class="op">=</span> <span class="bool-val">false</span>;
+            Incoming::Reset(segment) =&gt; {
+                <span class="macro">info!</span>(<span class="string">&quot;reset writer for segment {:?} in reactor&quot;</span>, segment);
+                <span class="kw">let </span>writer = selector.get_segment_writer_by_key(<span class="kw-2">&amp;</span>segment);
+                writer.need_reset = <span class="bool-val">false</span>;
                 <span class="prelude-val">Ok</span>(())
             }
-            <span class="ident">Incoming::Close</span>() =&gt; {
+            Incoming::Close() =&gt; {
                 <span class="macro">info!</span>(<span class="string">&quot;receive signal to close reactor&quot;</span>);
                 <span class="prelude-val">Err</span>(<span class="string">&quot;close&quot;</span>)
             }
         }
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">process_server_reply</span>(
-        <span class="ident">server_reply</span>: <span class="ident">ServerReply</span>,
-        <span class="ident">selector</span>: <span class="kw-2">&amp;mut</span> <span class="ident">SegmentSelector</span>,
-        <span class="ident">factory</span>: <span class="kw-2">&amp;</span><span class="ident">ClientFactoryAsync</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span><span class="op">&gt;</span> {
-        <span class="comment">// it should always have writer because writer will</span>
-        <span class="comment">// not be removed until it receives SegmentSealed reply</span>
-        <span class="kw">let</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">selector</span>
-            .<span class="ident">writers</span>
-            .<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">server_reply</span>.<span class="ident">segment</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;should always be able to get event segment writer&quot;</span>);
-        <span class="kw">match</span> <span class="ident">server_reply</span>.<span class="ident">reply</span> {
-            <span class="ident">Replies::DataAppended</span>(<span class="ident">cmd</span>) =&gt; {
+    <span class="kw">async fn </span>process_server_reply(
+        server_reply: ServerReply,
+        selector: <span class="kw-2">&amp;mut </span>SegmentSelector,
+        factory: <span class="kw-2">&amp;</span>ClientFactoryAsync,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+        <span class="comment">// it should always have writer because writer will
+        // not be removed until it receives SegmentSealed reply
+        </span><span class="kw">let </span>writer = selector
+            .writers
+            .get_mut(<span class="kw-2">&amp;</span>server_reply.segment)
+            .expect(<span class="string">&quot;should always be able to get event segment writer&quot;</span>);
+        <span class="kw">match </span>server_reply.reply {
+            Replies::DataAppended(cmd) =&gt; {
                 <span class="macro">debug!</span>(
                     <span class="string">&quot;data appended for writer {:?}, latest event id is: {:?}&quot;</span>,
-                    <span class="ident">writer</span>.<span class="ident">id</span>, <span class="ident">cmd</span>.<span class="ident">event_number</span>
+                    writer.id, cmd.event_number
                 );
-                <span class="ident">writer</span>.<span class="ident">ack</span>(<span class="ident">cmd</span>.<span class="ident">event_number</span>);
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">writer</span>.<span class="ident">write_pending_events</span>().<span class="kw">await</span> {
+                writer.ack(cmd.event_number);
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = writer.write_pending_events().<span class="kw">await </span>{
                     <span class="macro">warn!</span>(
                         <span class="string">&quot;writer {:?} failed to flush data to segment {:?} due to {:?}, reconnecting&quot;</span>,
-                        <span class="ident">writer</span>.<span class="ident">id</span>, <span class="ident">writer</span>.<span class="ident">segment</span>, <span class="ident">e</span>
+                        writer.id, writer.segment, e
                     );
-                    <span class="ident">writer</span>.<span class="ident">reconnect</span>(<span class="ident">factory</span>).<span class="kw">await</span>;
+                    writer.reconnect(factory).<span class="kw">await</span>;
                 }
                 <span class="prelude-val">Ok</span>(())
             }
 
-            <span class="ident">Replies::SegmentIsSealed</span>(<span class="ident">cmd</span>) =&gt; {
+            Replies::SegmentIsSealed(cmd) =&gt; {
                 <span class="macro">debug!</span>(
                     <span class="string">&quot;segment {:?} sealed: stack trace {}&quot;</span>,
-                    <span class="ident">cmd</span>.<span class="ident">segment</span>, <span class="ident">cmd</span>.<span class="ident">server_stack_trace</span>
+                    cmd.segment, cmd.server_stack_trace
                 );
-                <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="ident">ScopedSegment::from</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">cmd</span>.<span class="ident">segment</span>);
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">inflight</span>) <span class="op">=</span> <span class="ident">selector</span>.<span class="ident">refresh_segment_event_writers_upon_sealed</span>(<span class="kw-2">&amp;</span><span class="ident">segment</span>).<span class="kw">await</span> {
-                    <span class="ident">selector</span>.<span class="ident">resend</span>(<span class="ident">inflight</span>).<span class="kw">await</span>;
-                    <span class="ident">selector</span>.<span class="ident">remove_segment_writer</span>(<span class="kw-2">&amp;</span><span class="ident">segment</span>);
+                <span class="kw">let </span>segment = ScopedSegment::from(<span class="kw-2">&amp;*</span>cmd.segment);
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(inflight) = selector.refresh_segment_event_writers_upon_sealed(<span class="kw-2">&amp;</span>segment).<span class="kw">await </span>{
+                    selector.resend(inflight).<span class="kw">await</span>;
+                    selector.remove_segment_writer(<span class="kw-2">&amp;</span>segment);
                     <span class="prelude-val">Ok</span>(())
-                } <span class="kw">else</span> {
+                } <span class="kw">else </span>{
                     <span class="prelude-val">Err</span>(<span class="string">&quot;Stream is sealed&quot;</span>)
                 }
             }
 
-            <span class="ident">Replies::NoSuchSegment</span>(<span class="ident">cmd</span>) =&gt; {
+            Replies::NoSuchSegment(cmd) =&gt; {
                 <span class="macro">debug!</span>(
                     <span class="string">&quot;no such segment {:?} due to segment truncation: stack trace {}&quot;</span>,
-                    <span class="ident">cmd</span>.<span class="ident">segment</span>, <span class="ident">cmd</span>.<span class="ident">server_stack_trace</span>
+                    cmd.segment, cmd.server_stack_trace
                 );
-                <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="ident">ScopedSegment::from</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">cmd</span>.<span class="ident">segment</span>);
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">inflight</span>) <span class="op">=</span> <span class="ident">selector</span>.<span class="ident">refresh_segment_event_writers_upon_sealed</span>(<span class="kw-2">&amp;</span><span class="ident">segment</span>).<span class="kw">await</span> {
-                    <span class="ident">selector</span>.<span class="ident">resend</span>(<span class="ident">inflight</span>).<span class="kw">await</span>;
-                    <span class="ident">selector</span>.<span class="ident">remove_segment_writer</span>(<span class="kw-2">&amp;</span><span class="ident">segment</span>);
+                <span class="kw">let </span>segment = ScopedSegment::from(<span class="kw-2">&amp;*</span>cmd.segment);
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(inflight) = selector.refresh_segment_event_writers_upon_sealed(<span class="kw-2">&amp;</span>segment).<span class="kw">await </span>{
+                    selector.resend(inflight).<span class="kw">await</span>;
+                    selector.remove_segment_writer(<span class="kw-2">&amp;</span>segment);
                     <span class="prelude-val">Ok</span>(())
-                } <span class="kw">else</span> {
+                } <span class="kw">else </span>{
                     <span class="prelude-val">Err</span>(<span class="string">&quot;Stream is sealed&quot;</span>)
                 }
             }
 
-            <span class="ident">Replies::WrongHost</span>(<span class="ident">cmd</span>) =&gt; {
+            Replies::WrongHost(cmd) =&gt; {
                 <span class="macro">warn!</span>(
                     <span class="string">&quot;wrong host {:?} : stack trace {}&quot;</span>,
-                    <span class="ident">cmd</span>.<span class="ident">segment</span>, <span class="ident">cmd</span>.<span class="ident">server_stack_trace</span>
+                    cmd.segment, cmd.server_stack_trace
                 );
-                <span class="comment">// reconnect will try to set up connection using updated endpoint</span>
-                <span class="ident">writer</span>.<span class="ident">reconnect</span>(<span class="ident">factory</span>).<span class="kw">await</span>;
+                <span class="comment">// reconnect will try to set up connection using updated endpoint
+                </span>writer.reconnect(factory).<span class="kw">await</span>;
                 <span class="prelude-val">Ok</span>(())
             }
 
-            <span class="ident">Replies::ConditionalCheckFailed</span>(<span class="ident">cmd</span>) =&gt; {
-                <span class="kw">if</span> <span class="ident">writer</span>.<span class="ident">id</span>.<span class="number">0</span> <span class="op">==</span> <span class="ident">cmd</span>.<span class="ident">writer_id</span> {
-                    <span class="comment">// Conditional check failed caused by interleaved data.</span>
-                    <span class="macro">warn!</span>(<span class="string">&quot;conditional check failed {:?}&quot;</span>, <span class="ident">cmd</span>);
-                    <span class="ident">writer</span>.<span class="ident">fail_events_upon_conditional_check_failure</span>(<span class="ident">cmd</span>.<span class="ident">event_number</span>);
-                    <span class="comment">// Caller need to send reset signal before new appends can be processed.</span>
-                    <span class="ident">writer</span>.<span class="ident">need_reset</span> <span class="op">=</span> <span class="bool-val">true</span>;
+            Replies::ConditionalCheckFailed(cmd) =&gt; {
+                <span class="kw">if </span>writer.id.<span class="number">0 </span>== cmd.writer_id {
+                    <span class="comment">// Conditional check failed caused by interleaved data.
+                    </span><span class="macro">warn!</span>(<span class="string">&quot;conditional check failed {:?}&quot;</span>, cmd);
+                    writer.fail_events_upon_conditional_check_failure(cmd.event_number);
+                    <span class="comment">// Caller need to send reset signal before new appends can be processed.
+                    </span>writer.need_reset = <span class="bool-val">true</span>;
                 }
                 <span class="prelude-val">Ok</span>(())
             }
-            <span class="kw">_</span> =&gt; {
+            <span class="kw">_ </span>=&gt; {
                 <span class="macro">info!</span>(
                     <span class="string">&quot;receive unexpected reply {:?}, probably because of the stale message in a reused connection&quot;</span>,
-                    <span class="ident">server_reply</span>.<span class="ident">reply</span>
+                    server_reply.reply
                 );
                 <span class="prelude-val">Ok</span>(())
             }
@@ -503,112 +503,112 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">test</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::Error</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::segment::event</span>::{<span class="ident">PendingEvent</span>, <span class="ident">RoutingInfo</span>};
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::segment::selector::test::create_segment_selector</span>;
-    <span class="kw">use</span> <span class="ident">pravega_client_channel::ChannelSender</span>;
-    <span class="kw">use</span> <span class="ident">pravega_client_config::connection_type::MockType</span>;
-    <span class="kw">use</span> <span class="ident">tokio::sync::oneshot</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>test {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span><span class="kw">crate</span>::error::Error;
+    <span class="kw">use </span><span class="kw">crate</span>::segment::event::{PendingEvent, RoutingInfo};
+    <span class="kw">use </span><span class="kw">crate</span>::segment::selector::test::create_segment_selector;
+    <span class="kw">use </span>pravega_client_channel::ChannelSender;
+    <span class="kw">use </span>pravega_client_config::connection_type::MockType;
+    <span class="kw">use </span>tokio::sync::oneshot;
 
-    <span class="kw">type</span> <span class="ident">EventHandle</span> <span class="op">=</span> <span class="ident">oneshot::Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="kw">type </span>EventHandle = oneshot::Receiver&lt;<span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt;;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_reactor_happy_run</span>() {
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">tokio::runtime::Runtime::new</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">mut</span> <span class="ident">sender</span>, <span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="ident">factory</span>) <span class="op">=</span>
-            <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">create_segment_selector</span>(<span class="ident">MockType::Happy</span>));
-        <span class="macro">assert_eq!</span>(<span class="ident">selector</span>.<span class="ident">writers</span>.<span class="ident">len</span>(), <span class="number">2</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_reactor_happy_run() {
+        <span class="kw">let </span>rt = tokio::runtime::Runtime::new().unwrap();
+        <span class="kw">let </span>(<span class="kw-2">mut </span>selector, <span class="kw-2">mut </span>sender, <span class="kw-2">mut </span>receiver, factory) =
+            rt.block_on(create_segment_selector(MockType::Happy));
+        <span class="macro">assert_eq!</span>(selector.writers.len(), <span class="number">2</span>);
 
-        <span class="comment">// write data once and reactor should ack</span>
-        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">write_once_for_selector</span>(<span class="kw-2">&amp;mut</span> <span class="ident">sender</span>, <span class="number">512</span>));
-        <span class="comment">// accept the append</span>
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Reactor::run_once</span>(
-            <span class="kw-2">&amp;mut</span> <span class="ident">selector</span>,
-            <span class="kw-2">&amp;mut</span> <span class="ident">receiver</span>,
-            <span class="kw-2">&amp;</span><span class="ident">factory</span>.<span class="ident">to_async</span>(),
+        <span class="comment">// write data once and reactor should ack
+        </span>rt.block_on(write_once_for_selector(<span class="kw-2">&amp;mut </span>sender, <span class="number">512</span>));
+        <span class="comment">// accept the append
+        </span><span class="kw">let </span>result = rt.block_on(Reactor::run_once(
+            <span class="kw-2">&amp;mut </span>selector,
+            <span class="kw-2">&amp;mut </span>receiver,
+            <span class="kw-2">&amp;</span>factory.to_async(),
         ));
-        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
-        <span class="macro">assert_eq!</span>(<span class="ident">sender</span>.<span class="ident">remain</span>(), <span class="number">512</span>);
+        <span class="macro">assert!</span>(result.is_ok());
+        <span class="macro">assert_eq!</span>(sender.remain(), <span class="number">512</span>);
 
-        <span class="comment">// process the server response</span>
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Reactor::run_once</span>(
-            <span class="kw-2">&amp;mut</span> <span class="ident">selector</span>,
-            <span class="kw-2">&amp;mut</span> <span class="ident">receiver</span>,
-            <span class="kw-2">&amp;</span><span class="ident">factory</span>.<span class="ident">to_async</span>(),
+        <span class="comment">// process the server response
+        </span><span class="kw">let </span>result = rt.block_on(Reactor::run_once(
+            <span class="kw-2">&amp;mut </span>selector,
+            <span class="kw-2">&amp;mut </span>receiver,
+            <span class="kw-2">&amp;</span>factory.to_async(),
         ));
-        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
-        <span class="macro">assert_eq!</span>(<span class="ident">sender</span>.<span class="ident">remain</span>(), <span class="number">1024</span>);
+        <span class="macro">assert!</span>(result.is_ok());
+        <span class="macro">assert_eq!</span>(sender.remain(), <span class="number">1024</span>);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_reactor_wrong_host</span>() {
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">tokio::runtime::Runtime::new</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">mut</span> <span class="ident">sender</span>, <span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="ident">factory</span>) <span class="op">=</span>
-            <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">create_segment_selector</span>(<span class="ident">MockType::WrongHost</span>));
-        <span class="macro">assert_eq!</span>(<span class="ident">selector</span>.<span class="ident">writers</span>.<span class="ident">len</span>(), <span class="number">2</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_reactor_wrong_host() {
+        <span class="kw">let </span>rt = tokio::runtime::Runtime::new().unwrap();
+        <span class="kw">let </span>(<span class="kw-2">mut </span>selector, <span class="kw-2">mut </span>sender, <span class="kw-2">mut </span>receiver, factory) =
+            rt.block_on(create_segment_selector(MockType::WrongHost));
+        <span class="macro">assert_eq!</span>(selector.writers.len(), <span class="number">2</span>);
 
-        <span class="comment">// write data once</span>
-        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">write_once_for_selector</span>(<span class="kw-2">&amp;mut</span> <span class="ident">sender</span>, <span class="number">512</span>));
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Reactor::run_once</span>(
-            <span class="kw-2">&amp;mut</span> <span class="ident">selector</span>,
-            <span class="kw-2">&amp;mut</span> <span class="ident">receiver</span>,
-            <span class="kw-2">&amp;</span><span class="ident">factory</span>.<span class="ident">to_async</span>(),
+        <span class="comment">// write data once
+        </span>rt.block_on(write_once_for_selector(<span class="kw-2">&amp;mut </span>sender, <span class="number">512</span>));
+        <span class="kw">let </span>result = rt.block_on(Reactor::run_once(
+            <span class="kw-2">&amp;mut </span>selector,
+            <span class="kw-2">&amp;mut </span>receiver,
+            <span class="kw-2">&amp;</span>factory.to_async(),
         ));
-        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
-        <span class="macro">assert_eq!</span>(<span class="ident">sender</span>.<span class="ident">remain</span>(), <span class="number">512</span>);
+        <span class="macro">assert!</span>(result.is_ok());
+        <span class="macro">assert_eq!</span>(sender.remain(), <span class="number">512</span>);
 
-        <span class="comment">// get wrong host reply and writer should retry</span>
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Reactor::run_once</span>(
-            <span class="kw-2">&amp;mut</span> <span class="ident">selector</span>,
-            <span class="kw-2">&amp;mut</span> <span class="ident">receiver</span>,
-            <span class="kw-2">&amp;</span><span class="ident">factory</span>.<span class="ident">to_async</span>(),
+        <span class="comment">// get wrong host reply and writer should retry
+        </span><span class="kw">let </span>result = rt.block_on(Reactor::run_once(
+            <span class="kw-2">&amp;mut </span>selector,
+            <span class="kw-2">&amp;mut </span>receiver,
+            <span class="kw-2">&amp;</span>factory.to_async(),
         ));
-        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
-        <span class="macro">assert_eq!</span>(<span class="ident">sender</span>.<span class="ident">remain</span>(), <span class="number">512</span>);
+        <span class="macro">assert!</span>(result.is_ok());
+        <span class="macro">assert_eq!</span>(sender.remain(), <span class="number">512</span>);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_reactor_stream_is_sealed</span>() {
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">tokio::runtime::Runtime::new</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">selector</span>, <span class="kw-2">mut</span> <span class="ident">sender</span>, <span class="kw-2">mut</span> <span class="ident">receiver</span>, <span class="ident">factory</span>) <span class="op">=</span>
-            <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">create_segment_selector</span>(<span class="ident">MockType::SegmentIsSealed</span>));
-        <span class="macro">assert_eq!</span>(<span class="ident">selector</span>.<span class="ident">writers</span>.<span class="ident">len</span>(), <span class="number">2</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_reactor_stream_is_sealed() {
+        <span class="kw">let </span>rt = tokio::runtime::Runtime::new().unwrap();
+        <span class="kw">let </span>(<span class="kw-2">mut </span>selector, <span class="kw-2">mut </span>sender, <span class="kw-2">mut </span>receiver, factory) =
+            rt.block_on(create_segment_selector(MockType::SegmentIsSealed));
+        <span class="macro">assert_eq!</span>(selector.writers.len(), <span class="number">2</span>);
 
-        <span class="comment">// write data once</span>
-        <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">write_once_for_selector</span>(<span class="kw-2">&amp;mut</span> <span class="ident">sender</span>, <span class="number">512</span>));
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Reactor::run_once</span>(
-            <span class="kw-2">&amp;mut</span> <span class="ident">selector</span>,
-            <span class="kw-2">&amp;mut</span> <span class="ident">receiver</span>,
-            <span class="kw-2">&amp;</span><span class="ident">factory</span>.<span class="ident">to_async</span>(),
+        <span class="comment">// write data once
+        </span>rt.block_on(write_once_for_selector(<span class="kw-2">&amp;mut </span>sender, <span class="number">512</span>));
+        <span class="kw">let </span>result = rt.block_on(Reactor::run_once(
+            <span class="kw-2">&amp;mut </span>selector,
+            <span class="kw-2">&amp;mut </span>receiver,
+            <span class="kw-2">&amp;</span>factory.to_async(),
         ));
-        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
-        <span class="macro">assert_eq!</span>(<span class="ident">sender</span>.<span class="ident">remain</span>(), <span class="number">512</span>);
+        <span class="macro">assert!</span>(result.is_ok());
+        <span class="macro">assert_eq!</span>(sender.remain(), <span class="number">512</span>);
 
-        <span class="comment">// should get segment sealed and reactor will fetch successors</span>
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Reactor::run_once</span>(
-            <span class="kw-2">&amp;mut</span> <span class="ident">selector</span>,
-            <span class="kw-2">&amp;mut</span> <span class="ident">receiver</span>,
-            <span class="kw-2">&amp;</span><span class="ident">factory</span>.<span class="ident">to_async</span>(),
+        <span class="comment">// should get segment sealed and reactor will fetch successors
+        </span><span class="kw">let </span>result = rt.block_on(Reactor::run_once(
+            <span class="kw-2">&amp;mut </span>selector,
+            <span class="kw-2">&amp;mut </span>receiver,
+            <span class="kw-2">&amp;</span>factory.to_async(),
         ));
-        <span class="comment">// returns empty successors meaning stream is sealed</span>
-        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_err</span>());
+        <span class="comment">// returns empty successors meaning stream is sealed
+        </span><span class="macro">assert!</span>(result.is_err());
     }
 
-    <span class="comment">// helper function section</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">write_once_for_selector</span>(
-        <span class="ident">sender</span>: <span class="kw-2">&amp;mut</span> <span class="ident">ChannelSender</span><span class="op">&lt;</span><span class="ident">Incoming</span><span class="op">&gt;</span>,
-        <span class="ident">size</span>: <span class="ident">usize</span>,
-    ) -&gt; <span class="ident">oneshot::Receiver</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> (<span class="ident">oneshot_sender</span>, <span class="ident">oneshot_receiver</span>) <span class="op">=</span> <span class="ident">tokio::sync::oneshot::channel</span>();
-        <span class="kw">let</span> <span class="ident">routing_info</span> <span class="op">=</span> <span class="ident">RoutingInfo::RoutingKey</span>(<span class="prelude-val">Some</span>(<span class="string">&quot;routing_key&quot;</span>.<span class="ident">to_string</span>()));
-        <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">PendingEvent::new</span>(<span class="ident">routing_info</span>, <span class="macro">vec!</span>[<span class="number">1</span>; <span class="ident">size</span>], <span class="prelude-val">None</span>, <span class="ident">oneshot_sender</span>, <span class="prelude-val">None</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;create pending event&quot;</span>);
-        <span class="ident">sender</span>.<span class="ident">send</span>((<span class="ident">Incoming::AppendEvent</span>(<span class="ident">event</span>), <span class="ident">size</span>)).<span class="kw">await</span>.<span class="ident">unwrap</span>();
-        <span class="ident">oneshot_receiver</span>
+    <span class="comment">// helper function section
+    </span><span class="kw">async fn </span>write_once_for_selector(
+        sender: <span class="kw-2">&amp;mut </span>ChannelSender&lt;Incoming&gt;,
+        size: usize,
+    ) -&gt; oneshot::Receiver&lt;<span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt; {
+        <span class="kw">let </span>(oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
+        <span class="kw">let </span>routing_info = RoutingInfo::RoutingKey(<span class="prelude-val">Some</span>(<span class="string">&quot;routing_key&quot;</span>.to_string()));
+        <span class="kw">let </span>event = PendingEvent::new(routing_info, <span class="macro">vec!</span>[<span class="number">1</span>; size], <span class="prelude-val">None</span>, oneshot_sender, <span class="prelude-val">None</span>)
+            .expect(<span class="string">&quot;create pending event&quot;</span>);
+        sender.send((Incoming::AppendEvent(event), size)).<span class="kw">await</span>.unwrap();
+        oneshot_receiver
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.66.0 (69f9c33d7 2022-12-12)" ></div></body></html>

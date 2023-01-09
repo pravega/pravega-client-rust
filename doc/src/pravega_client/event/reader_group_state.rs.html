@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/event/reader_group_state.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>reader_group_state.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/event/reader_group_state.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>reader_group_state.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><div class="width-limiter"><nav class="sub"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -909,916 +909,916 @@
 <span id="909">909</span>
 <span id="910">910</span>
 <span id="911">911</span>
-</pre><pre class="rust"><code><span class="comment">//</span>
-<span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
-<span class="comment">//</span>
-<span class="comment">// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
-<span class="comment">// you may not use this file except in compliance with the License.</span>
-<span class="comment">// You may obtain a copy of the License at</span>
-<span class="comment">//</span>
-<span class="comment">// http://www.apache.org/licenses/LICENSE-2.0</span>
-<span class="comment">//</span>
+</pre><pre class="rust"><code><span class="comment">//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::client_factory::ClientFactoryAsync</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::event::reader_group::ReaderGroupConfigVersioned</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sync::synchronizer</span>::<span class="kw-2">*</span>;
+</span><span class="kw">use </span><span class="kw">crate</span>::client_factory::ClientFactoryAsync;
+<span class="kw">use </span><span class="kw">crate</span>::event::reader_group::ReaderGroupConfigVersioned;
+<span class="kw">use </span><span class="kw">crate</span>::sync::synchronizer::<span class="kw-2">*</span>;
 
-<span class="kw">use</span> <span class="ident">pravega_client_shared</span>::{<span class="ident">Reader</span>, <span class="ident">Scope</span>, <span class="ident">ScopedSegment</span>, <span class="ident">Segment</span>, <span class="ident">SegmentWithRange</span>};
+<span class="kw">use </span>pravega_client_shared::{Reader, Scope, ScopedSegment, Segment, SegmentWithRange};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sync::table::TableError</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">use</span> <span class="ident">mockall::automock</span>;
-<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">snafu</span>::{<span class="ident">ensure</span>, <span class="ident">OptionExt</span>, <span class="ident">ResultExt</span>, <span class="ident">Snafu</span>};
-<span class="kw">use</span> <span class="ident">std::collections</span>::{<span class="ident">HashMap</span>, <span class="ident">HashSet</span>};
-<span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">info</span>, <span class="ident">warn</span>};
+<span class="kw">use </span><span class="kw">crate</span>::sync::table::TableError;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">use </span>mockall::automock;
+<span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>snafu::{ensure, OptionExt, ResultExt, Snafu};
+<span class="kw">use </span>std::collections::{HashMap, HashSet};
+<span class="kw">use </span>std::convert::TryInto;
+<span class="kw">use </span>tracing::{debug, info, warn};
 
-<span class="kw">const</span> <span class="ident">ASSUMED_LAG_MILLIS</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">30000</span>;
-<span class="kw">const</span> <span class="ident">DEFAULT_INNER_KEY</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;default&quot;</span>;
+<span class="kw">const </span>ASSUMED_LAG_MILLIS: u64 = <span class="number">30000</span>;
+<span class="kw">const </span>DEFAULT_INNER_KEY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;default&quot;</span>;
 
-<span class="kw">const</span> <span class="ident">ASSIGNED</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;assigned_segments&quot;</span>;
-<span class="kw">const</span> <span class="ident">UNASSIGNED</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;unassigned_segments&quot;</span>;
-<span class="kw">const</span> <span class="ident">FUTURE</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;future_segments&quot;</span>;
-<span class="kw">const</span> <span class="ident">DISTANCE</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;distance_to_tail&quot;</span>;
+<span class="kw">const </span>ASSIGNED: <span class="kw-2">&amp;</span>str = <span class="string">&quot;assigned_segments&quot;</span>;
+<span class="kw">const </span>UNASSIGNED: <span class="kw-2">&amp;</span>str = <span class="string">&quot;unassigned_segments&quot;</span>;
+<span class="kw">const </span>FUTURE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;future_segments&quot;</span>;
+<span class="kw">const </span>DISTANCE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;distance_to_tail&quot;</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Snafu</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ReaderGroupStateError</span> {
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Synchronizer error while performing {}: {}&quot;</span>, <span class="ident">error_msg</span>, <span class="ident">source</span>))]</span>
-    <span class="ident">SyncError</span> {
-        <span class="ident">error_msg</span>: <span class="ident">String</span>,
-        <span class="ident">source</span>: <span class="ident">SynchronizerError</span>,
+<span class="attribute">#[derive(Debug, Snafu)]
+</span><span class="kw">pub enum </span>ReaderGroupStateError {
+    <span class="attribute">#[snafu(display(<span class="string">&quot;Synchronizer error while performing {}: {}&quot;</span>, error_msg, source))]
+    </span>SyncError {
+        error_msg: String,
+        source: SynchronizerError,
     },
-    <span class="ident">ReaderAlreadyOfflineError</span> {
-        <span class="ident">error_msg</span>: <span class="ident">String</span>,
-        <span class="ident">source</span>: <span class="ident">SynchronizerError</span>,
+    ReaderAlreadyOfflineError {
+        error_msg: String,
+        source: SynchronizerError,
     },
 }
 
-<span class="kw">impl</span> <span class="ident">ReaderGroupStateError</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_precondition</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="bool-val">true</span>
-    }
+<span class="kw">impl </span>ReaderGroupStateError {
+    <span class="kw">pub fn </span>is_precondition(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="bool-val">true
+    </span>}
 }
-<span class="doccomment">/// ReaderGroupState encapsulates all readers states.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ReaderGroupState</span> {
-    <span class="doccomment">/// The sync is a TableSynchronizer that provides API to read or write the internal</span>
-    <span class="doccomment">/// reader group state stored on the server side. The internal reader group state contains</span>
-    <span class="doccomment">/// the following fields.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Internal stream that is used to store the ReaderGroupState on the server side.</span>
-    <span class="doccomment">/// scoped_synchronizer_stream: ScopedStream,</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Reader group config</span>
-    <span class="doccomment">/// config: ReaderGroupConfigVersioned</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This is used to balance the workload among readers in this reader group.</span>
-    <span class="doccomment">/// distance_to_tail: HashMap&lt;Reader, u64&gt;</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Maps successor segments to their predecessors. A successor segment will ready to be</span>
-    <span class="doccomment">/// read if all its predecessors have been read.</span>
-    <span class="doccomment">/// future_segments: HashMap&lt;ScopedSegment, HashSet&lt;i64&gt;&gt;</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Maps active readers to their currently assigned segments.</span>
-    <span class="doccomment">/// assigned_segments:  HashMap&lt;Reader, HashMap&lt;ScopedSegment, Offset&gt;&gt;</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Segments waiting to be assigned to readers.</span>
-    <span class="doccomment">/// unassigned_segments: HashMap&lt;ScopedSegment, Offset&gt;</span>
-    <span class="ident">sync</span>: <span class="ident">Synchronizer</span>,
+<span class="doccomment">/// ReaderGroupState encapsulates all readers states.
+</span><span class="kw">pub struct </span>ReaderGroupState {
+    <span class="doccomment">/// The sync is a TableSynchronizer that provides API to read or write the internal
+    /// reader group state stored on the server side. The internal reader group state contains
+    /// the following fields.
+    ///
+    /// Internal stream that is used to store the ReaderGroupState on the server side.
+    /// scoped_synchronizer_stream: ScopedStream,
+    ///
+    /// Reader group config
+    /// config: ReaderGroupConfigVersioned
+    ///
+    /// This is used to balance the workload among readers in this reader group.
+    /// distance_to_tail: HashMap&lt;Reader, u64&gt;
+    ///
+    /// Maps successor segments to their predecessors. A successor segment will ready to be
+    /// read if all its predecessors have been read.
+    /// future_segments: HashMap&lt;ScopedSegment, HashSet&lt;i64&gt;&gt;
+    ///
+    /// Maps active readers to their currently assigned segments.
+    /// assigned_segments:  HashMap&lt;Reader, HashMap&lt;ScopedSegment, Offset&gt;&gt;
+    ///
+    /// Segments waiting to be assigned to readers.
+    /// unassigned_segments: HashMap&lt;ScopedSegment, Offset&gt;
+    </span>sync: Synchronizer,
 }
 
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">test</span>, <span class="ident">automock</span>)]</span>
-<span class="kw">impl</span> <span class="ident">ReaderGroupState</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">scope</span>: <span class="ident">Scope</span>,
-        <span class="ident">reader_group_name</span>: <span class="ident">String</span>,
-        <span class="ident">client_factory</span>: <span class="kw-2">&amp;</span><span class="ident">ClientFactoryAsync</span>,
-        <span class="ident">config</span>: <span class="ident">ReaderGroupConfigVersioned</span>,
-        <span class="ident">segments_to_offsets</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">ReaderGroupState</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">sync</span> <span class="op">=</span> <span class="ident">client_factory</span>
-            .<span class="ident">create_synchronizer</span>(<span class="ident">scope</span>, <span class="ident">reader_group_name</span>.<span class="ident">clone</span>())
+<span class="attribute">#[cfg_attr(test, automock)]
+</span><span class="kw">impl </span>ReaderGroupState {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>new(
+        scope: Scope,
+        reader_group_name: String,
+        client_factory: <span class="kw-2">&amp;</span>ClientFactoryAsync,
+        config: ReaderGroupConfigVersioned,
+        segments_to_offsets: HashMap&lt;ScopedSegment, Offset&gt;,
+    ) -&gt; ReaderGroupState {
+        <span class="kw">let </span><span class="kw-2">mut </span>sync = client_factory
+            .create_synchronizer(scope, reader_group_name.clone())
             .<span class="kw">await</span>;
-        <span class="ident">sync</span>.<span class="ident">insert</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">table</span><span class="op">|</span> {
-            <span class="kw">if</span> <span class="ident">table</span>.<span class="ident">is_empty</span>() {
-                <span class="ident">table</span>.<span class="ident">insert</span>(
-                    <span class="string">&quot;config&quot;</span>.<span class="ident">to_owned</span>(),
-                    <span class="ident">DEFAULT_INNER_KEY</span>.<span class="ident">to_owned</span>(),
-                    <span class="string">&quot;ReaderGroupConfigVersioned&quot;</span>.<span class="ident">to_owned</span>(),
-                    <span class="ident">Box::new</span>(<span class="ident">config</span>.<span class="ident">clone</span>()),
+        sync.insert(<span class="kw">move </span>|table| {
+            <span class="kw">if </span>table.is_empty() {
+                table.insert(
+                    <span class="string">&quot;config&quot;</span>.to_owned(),
+                    DEFAULT_INNER_KEY.to_owned(),
+                    <span class="string">&quot;ReaderGroupConfigVersioned&quot;</span>.to_owned(),
+                    Box::new(config.clone()),
                 );
-                <span class="kw">for</span> (<span class="ident">segment</span>, <span class="ident">offset</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">segments_to_offsets</span> {
-                    <span class="ident">table</span>.<span class="ident">insert</span>(
-                        <span class="ident">UNASSIGNED</span>.<span class="ident">to_owned</span>(),
-                        <span class="ident">segment</span>.<span class="ident">to_string</span>(),
-                        <span class="string">&quot;Offset&quot;</span>.<span class="ident">to_owned</span>(),
-                        <span class="ident">Box::new</span>(<span class="ident">offset</span>.<span class="ident">to_owned</span>()),
+                <span class="kw">for </span>(segment, offset) <span class="kw">in </span><span class="kw-2">&amp;</span>segments_to_offsets {
+                    table.insert(
+                        UNASSIGNED.to_owned(),
+                        segment.to_string(),
+                        <span class="string">&quot;Offset&quot;</span>.to_owned(),
+                        Box::new(offset.to_owned()),
                     );
                 }
-            } <span class="kw">else</span> {
-                <span class="macro">info!</span>(<span class="string">&quot;ReaderGroup {:?} already initialized&quot;</span>, <span class="ident">reader_group_name</span>);
+            } <span class="kw">else </span>{
+                <span class="macro">info!</span>(<span class="string">&quot;ReaderGroup {:?} already initialized&quot;</span>, reader_group_name);
             }
             <span class="prelude-val">Ok</span>(())
         })
-        .<span class="kw">await</span>
-        .<span class="ident">expect</span>(<span class="string">&quot;should initialize table synchronizer&quot;</span>);
-        <span class="ident">ReaderGroupState</span> { <span class="ident">sync</span> }
+        .<span class="kw">await
+        </span>.expect(<span class="string">&quot;should initialize table synchronizer&quot;</span>);
+        ReaderGroupState { sync }
     }
 
-    <span class="doccomment">/// Adds a reader to the reader group state.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">add_reader</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ReaderGroupStateError</span><span class="op">&gt;</span> {
-        <span class="macro">info!</span>(<span class="string">&quot;Adding reader {:?} to reader group&quot;</span>, <span class="ident">reader</span>);
-        <span class="self">self</span>.<span class="ident">sync</span>
-            .<span class="ident">insert</span>(<span class="op">|</span><span class="ident">table</span><span class="op">|</span> <span class="ident">ReaderGroupState::add_reader_internal</span>(<span class="ident">table</span>, <span class="ident">reader</span>))
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">SyncError</span> {
-                <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;add reader {:?}&quot;</span>, <span class="ident">reader</span>),
+    <span class="doccomment">/// Adds a reader to the reader group state.
+    </span><span class="kw">pub async fn </span>add_reader(<span class="kw-2">&amp;mut </span><span class="self">self</span>, reader: <span class="kw-2">&amp;</span>Reader) -&gt; <span class="prelude-ty">Result</span>&lt;(), ReaderGroupStateError&gt; {
+        <span class="macro">info!</span>(<span class="string">&quot;Adding reader {:?} to reader group&quot;</span>, reader);
+        <span class="self">self</span>.sync
+            .insert(|table| ReaderGroupState::add_reader_internal(table, reader))
+            .<span class="kw">await
+            </span>.context(SyncError {
+                error_msg: <span class="macro">format!</span>(<span class="string">&quot;add reader {:?}&quot;</span>, reader),
             })<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="comment">// Internal logic of add_reader method. Separate the actual logic with table synchronizer</span>
-    <span class="comment">// to facilitate the unit test.</span>
-    <span class="kw">fn</span> <span class="ident">add_reader_internal</span>(<span class="ident">table</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Update</span>, <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="ident">table</span>.<span class="ident">contains_key</span>(<span class="ident">ASSIGNED</span>, <span class="kw-2">&amp;</span><span class="ident">reader</span>.<span class="ident">to_string</span>()) {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">SynchronizerError::SyncPreconditionError</span> {
-                <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;Failed to add online reader {:?}: reader already online&quot;</span>, <span class="ident">reader</span>),
+    <span class="comment">// Internal logic of add_reader method. Separate the actual logic with table synchronizer
+    // to facilitate the unit test.
+    </span><span class="kw">fn </span>add_reader_internal(table: <span class="kw-2">&amp;mut </span>Update, reader: <span class="kw-2">&amp;</span>Reader) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynchronizerError&gt; {
+        <span class="kw">if </span>table.contains_key(ASSIGNED, <span class="kw-2">&amp;</span>reader.to_string()) {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(SynchronizerError::SyncPreconditionError {
+                error_msg: <span class="macro">format!</span>(<span class="string">&quot;Failed to add online reader {:?}: reader already online&quot;</span>, reader),
             });
         }
 
-        <span class="comment">// add new reader</span>
-        <span class="kw">let</span> <span class="ident">empty_map</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
-        <span class="ident">table</span>.<span class="ident">insert</span>(
-            <span class="ident">ASSIGNED</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">reader</span>.<span class="ident">to_string</span>(),
-            <span class="string">&quot;HashMap&lt;ScopedSegment, Offset&gt;&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">Box::new</span>(<span class="ident">empty_map</span>),
+        <span class="comment">// add new reader
+        </span><span class="kw">let </span>empty_map: HashMap&lt;ScopedSegment, Offset&gt; = HashMap::new();
+        table.insert(
+            ASSIGNED.to_owned(),
+            reader.to_string(),
+            <span class="string">&quot;HashMap&lt;ScopedSegment, Offset&gt;&quot;</span>.to_owned(),
+            Box::new(empty_map),
         );
 
-        <span class="ident">table</span>.<span class="ident">insert</span>(
-            <span class="ident">DISTANCE</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">reader</span>.<span class="ident">to_string</span>(),
-            <span class="string">&quot;u64&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">Box::new</span>(<span class="ident">u64::MAX</span>),
+        table.insert(
+            DISTANCE.to_owned(),
+            reader.to_string(),
+            <span class="string">&quot;u64&quot;</span>.to_owned(),
+            Box::new(u64::MAX),
         );
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">check_online</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">sync</span>.<span class="ident">fetch_updates</span>().<span class="kw">await</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">update_count</span>) =&gt; <span class="macro">debug!</span>(<span class="string">&quot;Number of updates read is {:?}&quot;</span>, <span class="ident">update_count</span>),
-            <span class="prelude-val">Err</span>(<span class="ident">TableError::TableDoesNotExist</span> { .. }) =&gt; <span class="kw">return</span> <span class="bool-val">false</span>,
-            <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Fetch updates failed after all retries&quot;</span>),
+    <span class="kw">pub async fn </span>check_online(<span class="kw-2">&amp;mut </span><span class="self">self</span>, reader: <span class="kw-2">&amp;</span>Reader) -&gt; bool {
+        <span class="kw">match </span><span class="self">self</span>.sync.fetch_updates().<span class="kw">await </span>{
+            <span class="prelude-val">Ok</span>(update_count) =&gt; <span class="macro">debug!</span>(<span class="string">&quot;Number of updates read is {:?}&quot;</span>, update_count),
+            <span class="prelude-val">Err</span>(TableError::TableDoesNotExist { .. }) =&gt; <span class="kw">return </span><span class="bool-val">false</span>,
+            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Fetch updates failed after all retries&quot;</span>),
         }
-        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">sync</span>
-            .<span class="ident">get_inner_map</span>(<span class="ident">ASSIGNED</span>)
-            .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">reader</span>.<span class="ident">name</span>)
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> (<span class="ident">v</span>.<span class="ident">type_id</span> <span class="op">!</span><span class="op">=</span> <span class="ident">TOMBSTONE</span>));
-        <span class="ident">res</span>.<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>)
+        <span class="kw">let </span>res = <span class="self">self
+            </span>.sync
+            .get_inner_map(ASSIGNED)
+            .get(<span class="kw-2">&amp;</span>reader.name)
+            .map(|v| (v.type_id != TOMBSTONE));
+        res.unwrap_or(<span class="bool-val">false</span>)
     }
 
-    <span class="doccomment">/// Returns the active readers in a vector.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_online_readers</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Reader</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">sync</span>.<span class="ident">fetch_updates</span>().<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;should fetch updates&quot;</span>);
-        <span class="ident">ReaderGroupState::get_online_readers_internal</span>(<span class="self">self</span>.<span class="ident">sync</span>.<span class="ident">get_inner_map</span>(<span class="ident">ASSIGNED</span>))
+    <span class="doccomment">/// Returns the active readers in a vector.
+    </span><span class="kw">pub async fn </span>get_online_readers(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Vec&lt;Reader&gt; {
+        <span class="self">self</span>.sync.fetch_updates().<span class="kw">await</span>.expect(<span class="string">&quot;should fetch updates&quot;</span>);
+        ReaderGroupState::get_online_readers_internal(<span class="self">self</span>.sync.get_inner_map(ASSIGNED))
     }
 
-    <span class="kw">fn</span> <span class="ident">get_online_readers_internal</span>(<span class="ident">assigned_segments</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Value</span><span class="op">&gt;</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Reader</span><span class="op">&gt;</span> {
-        <span class="ident">assigned_segments</span>
-            .<span class="ident">keys</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">k</span><span class="op">|</span> <span class="ident">Reader::from</span>(<span class="ident">k</span>.<span class="ident">to_owned</span>()))
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Reader</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+    <span class="kw">fn </span>get_online_readers_internal(assigned_segments: HashMap&lt;String, Value&gt;) -&gt; Vec&lt;Reader&gt; {
+        assigned_segments
+            .keys()
+            .map(|k| Reader::from(k.to_owned()))
+            .collect::&lt;Vec&lt;Reader&gt;&gt;()
     }
 
-    <span class="doccomment">/// Gets the latest positions for the given reader.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_reader_positions</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span>, <span class="ident">ReaderGroupStateError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">sync</span>.<span class="ident">fetch_updates</span>().<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;should fetch updates&quot;</span>);
-        <span class="ident">ReaderGroupState::get_reader_positions_internal</span>(<span class="ident">reader</span>, <span class="self">self</span>.<span class="ident">sync</span>.<span class="ident">get_inner_map</span>(<span class="ident">ASSIGNED</span>))
+    <span class="doccomment">/// Gets the latest positions for the given reader.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>get_reader_positions(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        reader: <span class="kw-2">&amp;</span>Reader,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;ScopedSegment, Offset&gt;, ReaderGroupStateError&gt; {
+        <span class="self">self</span>.sync.fetch_updates().<span class="kw">await</span>.expect(<span class="string">&quot;should fetch updates&quot;</span>);
+        ReaderGroupState::get_reader_positions_internal(reader, <span class="self">self</span>.sync.get_inner_map(ASSIGNED))
     }
 
-    <span class="kw">fn</span> <span class="ident">get_reader_positions_internal</span>(
-        <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>,
-        <span class="ident">assigned_segments</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Value</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span>, <span class="ident">ReaderGroupStateError</span><span class="op">&gt;</span> {
-        <span class="ident">ReaderGroupState::check_reader_online</span>(<span class="kw-2">&amp;</span><span class="ident">assigned_segments</span>, <span class="ident">reader</span>).<span class="ident">context</span>(
-            <span class="ident">ReaderAlreadyOfflineError</span> {
-                <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;reader {:?} already offline&quot;</span>, <span class="ident">reader</span>),
+    <span class="kw">fn </span>get_reader_positions_internal(
+        reader: <span class="kw-2">&amp;</span>Reader,
+        assigned_segments: HashMap&lt;String, Value&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;ScopedSegment, Offset&gt;, ReaderGroupStateError&gt; {
+        ReaderGroupState::check_reader_online(<span class="kw-2">&amp;</span>assigned_segments, reader).context(
+            ReaderAlreadyOfflineError {
+                error_msg: <span class="macro">format!</span>(<span class="string">&quot;reader {:?} already offline&quot;</span>, reader),
             },
         )<span class="question-mark">?</span>;
 
-        <span class="prelude-val">Ok</span>(<span class="ident">deserialize_from</span>(
-            <span class="kw-2">&amp;</span><span class="ident">assigned_segments</span>
-                .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">reader</span>.<span class="ident">name</span>)
-                .<span class="ident">expect</span>(<span class="string">&quot;reader must exist&quot;</span>)
-                .<span class="ident">data</span>,
+        <span class="prelude-val">Ok</span>(deserialize_from(
+            <span class="kw-2">&amp;</span>assigned_segments
+                .get(<span class="kw-2">&amp;</span>reader.name)
+                .expect(<span class="string">&quot;reader must exist&quot;</span>)
+                .data,
         )
-        .<span class="ident">expect</span>(<span class="string">&quot;Failed to deserialize reader position&quot;</span>))
+        .expect(<span class="string">&quot;Failed to deserialize reader position&quot;</span>))
     }
 
-    <span class="doccomment">/// Updates the latest positions for the given reader.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">update_reader_positions</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>,
-        <span class="ident">latest_positions</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ReaderGroupStateError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">sync</span>
-            .<span class="ident">insert</span>(<span class="op">|</span><span class="ident">table</span><span class="op">|</span> {
-                <span class="ident">ReaderGroupState::update_reader_positions_internal</span>(<span class="ident">table</span>, <span class="ident">reader</span>, <span class="kw-2">&amp;</span><span class="ident">latest_positions</span>)
+    <span class="doccomment">/// Updates the latest positions for the given reader.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>update_reader_positions(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        reader: <span class="kw-2">&amp;</span>Reader,
+        latest_positions: HashMap&lt;ScopedSegment, Offset&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ReaderGroupStateError&gt; {
+        <span class="self">self</span>.sync
+            .insert(|table| {
+                ReaderGroupState::update_reader_positions_internal(table, reader, <span class="kw-2">&amp;</span>latest_positions)
             })
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">SyncError</span> {
-                <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;update reader {:?} to position {:?}&quot;</span>, <span class="ident">reader</span>, <span class="ident">latest_positions</span>),
+            .<span class="kw">await
+            </span>.context(SyncError {
+                error_msg: <span class="macro">format!</span>(<span class="string">&quot;update reader {:?} to position {:?}&quot;</span>, reader, latest_positions),
             })
     }
 
-    <span class="kw">fn</span> <span class="ident">update_reader_positions_internal</span>(
-        <span class="ident">table</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Update</span>,
-        <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>,
-        <span class="ident">latest_positions</span>: <span class="kw-2">&amp;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">owned_segments</span> <span class="op">=</span> <span class="ident">ReaderGroupState::get_reader_owned_segments_from_table</span>(<span class="ident">table</span>, <span class="ident">reader</span>)<span class="question-mark">?</span>;
-        <span class="kw">if</span> <span class="ident">owned_segments</span>.<span class="ident">len</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">latest_positions</span>.<span class="ident">len</span>() {
+    <span class="kw">fn </span>update_reader_positions_internal(
+        table: <span class="kw-2">&amp;mut </span>Update,
+        reader: <span class="kw-2">&amp;</span>Reader,
+        latest_positions: <span class="kw-2">&amp;</span>HashMap&lt;ScopedSegment, Offset&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynchronizerError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>owned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)<span class="question-mark">?</span>;
+        <span class="kw">if </span>owned_segments.len() != latest_positions.len() {
             <span class="macro">warn!</span>(
                 <span class="string">&quot;owned segments size {} dose not match latest positions size {}&quot;</span>,
-                <span class="ident">owned_segments</span>.<span class="ident">len</span>(),
-                <span class="ident">latest_positions</span>.<span class="ident">len</span>()
+                owned_segments.len(),
+                latest_positions.len()
             );
         }
 
-        <span class="kw">for</span> (<span class="ident">segment</span>, <span class="ident">offset</span>) <span class="kw">in</span> <span class="ident">latest_positions</span> {
-            <span class="ident">owned_segments</span>.<span class="ident">entry</span>(<span class="ident">segment</span>.<span class="ident">to_owned</span>()).<span class="ident">and_modify</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> {
-                <span class="ident">v</span>.<span class="ident">read</span> <span class="op">=</span> <span class="ident">offset</span>.<span class="ident">read</span>;
+        <span class="kw">for </span>(segment, offset) <span class="kw">in </span>latest_positions {
+            owned_segments.entry(segment.to_owned()).and_modify(|v| {
+                v.read = offset.read;
             });
         }
-        <span class="ident">table</span>.<span class="ident">insert</span>(
-            <span class="ident">ASSIGNED</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">reader</span>.<span class="ident">to_string</span>(),
-            <span class="string">&quot;HashMap&lt;ScopedSegment, Offset&gt;&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">Box::new</span>(<span class="ident">owned_segments</span>),
+        table.insert(
+            ASSIGNED.to_owned(),
+            reader.to_string(),
+            <span class="string">&quot;HashMap&lt;ScopedSegment, Offset&gt;&quot;</span>.to_owned(),
+            Box::new(owned_segments),
         );
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Removes the given reader from the reader group state and puts segments that are previously</span>
-    <span class="doccomment">/// owned by the removed reader to the unassigned list for redistribution.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">remove_reader_default</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ReaderGroupStateError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">_res_str</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">sync</span>
-            .<span class="ident">insert</span>(<span class="op">|</span><span class="ident">table</span><span class="op">|</span> <span class="ident">ReaderGroupState::remove_reader_internal_default</span>(<span class="ident">table</span>, <span class="ident">reader</span>))
-            .<span class="kw">await</span>
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">err</span> {
-                <span class="ident">SynchronizerError::SyncPreconditionError</span> { .. } =&gt; {
-                    <span class="ident">ReaderGroupStateError::ReaderAlreadyOfflineError</span> {
-                        <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;Reader {:?} already offline&quot;</span>, <span class="ident">reader</span>),
-                        <span class="ident">source</span>: <span class="ident">err</span>,
+    <span class="doccomment">/// Removes the given reader from the reader group state and puts segments that are previously
+    /// owned by the removed reader to the unassigned list for redistribution.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>remove_reader_default(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        reader: <span class="kw-2">&amp;</span>Reader,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ReaderGroupStateError&gt; {
+        <span class="kw">let </span>_res_str = <span class="self">self
+            </span>.sync
+            .insert(|table| ReaderGroupState::remove_reader_internal_default(table, reader))
+            .<span class="kw">await
+            </span>.map_err(|err| <span class="kw">match </span>err {
+                SynchronizerError::SyncPreconditionError { .. } =&gt; {
+                    ReaderGroupStateError::ReaderAlreadyOfflineError {
+                        error_msg: <span class="macro">format!</span>(<span class="string">&quot;Reader {:?} already offline&quot;</span>, reader),
+                        source: err,
                     }
                 }
-                <span class="kw">_</span> =&gt; <span class="ident">ReaderGroupStateError::SyncError</span> {
-                    <span class="ident">error_msg</span>: <span class="macro">format!</span>(
+                <span class="kw">_ </span>=&gt; ReaderGroupStateError::SyncError {
+                    error_msg: <span class="macro">format!</span>(
                         <span class="string">&quot;remove reader {:?} and put known owned segments to unassigned list&quot;</span>,
-                        <span class="ident">reader</span>
+                        reader
                     ),
-                    <span class="ident">source</span>: <span class="ident">err</span>,
+                    source: err,
                 },
             })<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">remove_reader_internal_default</span>(<span class="ident">table</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Update</span>, <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">assigned_segments</span> <span class="op">=</span> <span class="ident">ReaderGroupState::get_reader_owned_segments_from_table</span>(<span class="ident">table</span>, <span class="ident">reader</span>)<span class="question-mark">?</span>;
+    <span class="kw">fn </span>remove_reader_internal_default(table: <span class="kw-2">&amp;mut </span>Update, reader: <span class="kw-2">&amp;</span>Reader) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynchronizerError&gt; {
+        <span class="kw">let </span>assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)<span class="question-mark">?</span>;
 
-        <span class="kw">for</span> (<span class="ident">segment</span>, <span class="ident">pos</span>) <span class="kw">in</span> <span class="ident">assigned_segments</span> {
-            <span class="ident">table</span>.<span class="ident">insert</span>(
-                <span class="ident">UNASSIGNED</span>.<span class="ident">to_owned</span>(),
-                <span class="ident">segment</span>.<span class="ident">to_string</span>(),
-                <span class="string">&quot;Offset&quot;</span>.<span class="ident">to_owned</span>(),
-                <span class="ident">Box::new</span>(<span class="ident">pos</span>),
+        <span class="kw">for </span>(segment, pos) <span class="kw">in </span>assigned_segments {
+            table.insert(
+                UNASSIGNED.to_owned(),
+                segment.to_string(),
+                <span class="string">&quot;Offset&quot;</span>.to_owned(),
+                Box::new(pos),
             );
         }
-        <span class="ident">table</span>.<span class="ident">insert_tombstone</span>(<span class="ident">ASSIGNED</span>.<span class="ident">to_owned</span>(), <span class="ident">reader</span>.<span class="ident">to_string</span>())<span class="question-mark">?</span>;
-        <span class="ident">table</span>.<span class="ident">insert_tombstone</span>(<span class="ident">DISTANCE</span>.<span class="ident">to_owned</span>(), <span class="ident">reader</span>.<span class="ident">to_string</span>())<span class="question-mark">?</span>;
+        table.insert_tombstone(ASSIGNED.to_owned(), reader.to_string())<span class="question-mark">?</span>;
+        table.insert_tombstone(DISTANCE.to_owned(), reader.to_string())<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Removes the given reader from the reader group state and puts segments that are previously</span>
-    <span class="doccomment">/// owned by the removed reader to the unassigned list for redistribution.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">remove_reader</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>,
-        <span class="ident">owned_segments</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ReaderGroupStateError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">_res_str</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">sync</span>
-            .<span class="ident">insert</span>(<span class="op">|</span><span class="ident">table</span><span class="op">|</span> <span class="ident">ReaderGroupState::remove_reader_internal</span>(<span class="ident">table</span>, <span class="ident">reader</span>, <span class="kw-2">&amp;</span><span class="ident">owned_segments</span>))
-            .<span class="kw">await</span>
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">err</span> {
-                <span class="ident">SynchronizerError::SyncPreconditionError</span> { .. } =&gt; {
-                    <span class="ident">ReaderGroupStateError::ReaderAlreadyOfflineError</span> {
-                        <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;Reader {:?} already offline&quot;</span>, <span class="ident">reader</span>),
-                        <span class="ident">source</span>: <span class="ident">err</span>,
+    <span class="doccomment">/// Removes the given reader from the reader group state and puts segments that are previously
+    /// owned by the removed reader to the unassigned list for redistribution.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>remove_reader(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        reader: <span class="kw-2">&amp;</span>Reader,
+        owned_segments: HashMap&lt;ScopedSegment, Offset&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ReaderGroupStateError&gt; {
+        <span class="kw">let </span>_res_str = <span class="self">self
+            </span>.sync
+            .insert(|table| ReaderGroupState::remove_reader_internal(table, reader, <span class="kw-2">&amp;</span>owned_segments))
+            .<span class="kw">await
+            </span>.map_err(|err| <span class="kw">match </span>err {
+                SynchronizerError::SyncPreconditionError { .. } =&gt; {
+                    ReaderGroupStateError::ReaderAlreadyOfflineError {
+                        error_msg: <span class="macro">format!</span>(<span class="string">&quot;Reader {:?} already offline&quot;</span>, reader),
+                        source: err,
                     }
                 }
-                <span class="kw">_</span> =&gt; <span class="ident">ReaderGroupStateError::SyncError</span> {
-                    <span class="ident">error_msg</span>: <span class="macro">format!</span>(
+                <span class="kw">_ </span>=&gt; ReaderGroupStateError::SyncError {
+                    error_msg: <span class="macro">format!</span>(
                         <span class="string">&quot;remove reader {:?} and put known owned segments to unassigned list&quot;</span>,
-                        <span class="ident">reader</span>
+                        reader
                     ),
-                    <span class="ident">source</span>: <span class="ident">err</span>,
+                    source: err,
                 },
             })<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">remove_reader_internal</span>(
-        <span class="ident">table</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Update</span>,
-        <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>,
-        <span class="ident">owned_segments</span>: <span class="kw-2">&amp;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">assigned_segments</span> <span class="op">=</span> <span class="ident">ReaderGroupState::get_reader_owned_segments_from_table</span>(<span class="ident">table</span>, <span class="ident">reader</span>)<span class="question-mark">?</span>;
+    <span class="kw">fn </span>remove_reader_internal(
+        table: <span class="kw-2">&amp;mut </span>Update,
+        reader: <span class="kw-2">&amp;</span>Reader,
+        owned_segments: <span class="kw-2">&amp;</span>HashMap&lt;ScopedSegment, Offset&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynchronizerError&gt; {
+        <span class="kw">let </span>assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)<span class="question-mark">?</span>;
 
-        <span class="kw">for</span> (<span class="ident">segment</span>, <span class="ident">pos</span>) <span class="kw">in</span> <span class="ident">assigned_segments</span> {
-            <span class="comment">// update offset using owned_segments</span>
-            <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">owned_segments</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">segment</span>).<span class="ident">map_or</span>(<span class="ident">pos</span>, <span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">to_owned</span>());
+        <span class="kw">for </span>(segment, pos) <span class="kw">in </span>assigned_segments {
+            <span class="comment">// update offset using owned_segments
+            </span><span class="kw">let </span>offset = owned_segments.get(<span class="kw-2">&amp;</span>segment).map_or(pos, |v| v.to_owned());
 
-            <span class="ident">table</span>.<span class="ident">insert</span>(
-                <span class="ident">UNASSIGNED</span>.<span class="ident">to_owned</span>(),
-                <span class="ident">segment</span>.<span class="ident">to_string</span>(),
-                <span class="string">&quot;Offset&quot;</span>.<span class="ident">to_owned</span>(),
-                <span class="ident">Box::new</span>(<span class="ident">offset</span>),
+            table.insert(
+                UNASSIGNED.to_owned(),
+                segment.to_string(),
+                <span class="string">&quot;Offset&quot;</span>.to_owned(),
+                Box::new(offset),
             );
         }
-        <span class="ident">table</span>.<span class="ident">insert_tombstone</span>(<span class="ident">ASSIGNED</span>.<span class="ident">to_owned</span>(), <span class="ident">reader</span>.<span class="ident">to_string</span>())<span class="question-mark">?</span>;
-        <span class="ident">table</span>.<span class="ident">insert_tombstone</span>(<span class="ident">DISTANCE</span>.<span class="ident">to_owned</span>(), <span class="ident">reader</span>.<span class="ident">to_string</span>())<span class="question-mark">?</span>;
+        table.insert_tombstone(ASSIGNED.to_owned(), reader.to_string())<span class="question-mark">?</span>;
+        table.insert_tombstone(DISTANCE.to_owned(), reader.to_string())<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Compute the number of segments to acquire.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">compute_segments_to_acquire_or_release</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">isize</span>, <span class="ident">ReaderGroupStateError</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">sync</span>.<span class="ident">fetch_updates</span>().<span class="kw">await</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">update_count</span>) =&gt; <span class="macro">debug!</span>(<span class="string">&quot;Number of updates read is {:?}&quot;</span>, <span class="ident">update_count</span>),
-            <span class="prelude-val">Err</span>(<span class="ident">TableError::TableDoesNotExist</span> { .. }) =&gt; {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ReaderGroupStateError::ReaderAlreadyOfflineError</span> {
-                    <span class="ident">error_msg</span>: <span class="ident">String::from</span>(<span class="string">&quot;the ReaderGroup is deleted&quot;</span>),
-                    <span class="ident">source</span>: <span class="ident">SynchronizerError::SyncPreconditionError</span> {
-                        <span class="ident">error_msg</span>: <span class="ident">String::from</span>(<span class="string">&quot;Precondition failure&quot;</span>),
+    <span class="doccomment">/// Compute the number of segments to acquire.
+    </span><span class="kw">pub async fn </span>compute_segments_to_acquire_or_release(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        reader: <span class="kw-2">&amp;</span>Reader,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;isize, ReaderGroupStateError&gt; {
+        <span class="kw">match </span><span class="self">self</span>.sync.fetch_updates().<span class="kw">await </span>{
+            <span class="prelude-val">Ok</span>(update_count) =&gt; <span class="macro">debug!</span>(<span class="string">&quot;Number of updates read is {:?}&quot;</span>, update_count),
+            <span class="prelude-val">Err</span>(TableError::TableDoesNotExist { .. }) =&gt; {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(ReaderGroupStateError::ReaderAlreadyOfflineError {
+                    error_msg: String::from(<span class="string">&quot;the ReaderGroup is deleted&quot;</span>),
+                    source: SynchronizerError::SyncPreconditionError {
+                        error_msg: String::from(<span class="string">&quot;Precondition failure&quot;</span>),
                     },
                 })
             }
-            <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Fetch updates failed after all retries&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Fetch updates failed after all retries&quot;</span>),
         }
-        <span class="kw">let</span> <span class="ident">assigned_segment_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">sync</span>.<span class="ident">get_inner_map</span>(<span class="ident">ASSIGNED</span>);
-        <span class="kw">let</span> <span class="ident">num_of_readers</span> <span class="op">=</span> <span class="ident">assigned_segment_map</span>.<span class="ident">len</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">num_assigned_segments</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="kw">for</span> <span class="ident">v</span> <span class="kw">in</span> <span class="ident">assigned_segment_map</span>.<span class="ident">values</span>() {
-            <span class="kw">let</span> <span class="ident">segments</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span> <span class="op">=</span>
-                <span class="ident">deserialize_from</span>(<span class="kw-2">&amp;</span><span class="ident">v</span>.<span class="ident">data</span>).<span class="ident">expect</span>(<span class="string">&quot;deserialize assigned segments&quot;</span>);
-            <span class="ident">num_assigned_segments</span> <span class="op">+</span><span class="op">=</span> <span class="ident">segments</span>.<span class="ident">len</span>();
+        <span class="kw">let </span>assigned_segment_map = <span class="self">self</span>.sync.get_inner_map(ASSIGNED);
+        <span class="kw">let </span>num_of_readers = assigned_segment_map.len();
+        <span class="kw">let </span><span class="kw-2">mut </span>num_assigned_segments = <span class="number">0</span>;
+        <span class="kw">for </span>v <span class="kw">in </span>assigned_segment_map.values() {
+            <span class="kw">let </span>segments: HashMap&lt;ScopedSegment, Offset&gt; =
+                deserialize_from(<span class="kw-2">&amp;</span>v.data).expect(<span class="string">&quot;deserialize assigned segments&quot;</span>);
+            num_assigned_segments += segments.len();
         }
-        <span class="kw">let</span> <span class="ident">num_of_segments</span> <span class="op">=</span> <span class="ident">num_assigned_segments</span> <span class="op">+</span> <span class="self">self</span>.<span class="ident">sync</span>.<span class="ident">get_inner_map</span>(<span class="ident">UNASSIGNED</span>).<span class="ident">len</span>();
+        <span class="kw">let </span>num_of_segments = num_assigned_segments + <span class="self">self</span>.sync.get_inner_map(UNASSIGNED).len();
         <span class="macro">debug!</span>(
             <span class="string">&quot; number of segments {:?}, number of readers {:?} in reader group state&quot;</span>,
-            <span class="ident">num_of_segments</span>, <span class="ident">num_of_readers</span>
+            num_of_segments, num_of_readers
         );
-        <span class="kw">let</span> <span class="ident">num_segments_per_reader</span> <span class="op">=</span> <span class="ident">num_of_segments</span> <span class="op">/</span> <span class="ident">num_of_readers</span>;
-        <span class="kw">let</span> <span class="ident">expected_segment_count_per_reader</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">num_of_segments</span> <span class="op">%</span> <span class="ident">num_of_readers</span> <span class="op">==</span> <span class="number">0</span> {
-            <span class="ident">num_segments_per_reader</span>
-        } <span class="kw">else</span> {
-            <span class="ident">num_segments_per_reader</span> <span class="op">+</span> <span class="number">1</span>
-        };
-        <span class="kw">let</span> <span class="ident">current_segment_count</span> <span class="op">=</span> <span class="ident">assigned_segment_map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">reader</span>.<span class="ident">name</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">seg</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span> <span class="op">=</span>
-                <span class="ident">deserialize_from</span>(<span class="kw-2">&amp;</span><span class="ident">v</span>.<span class="ident">data</span>).<span class="ident">expect</span>(<span class="string">&quot;deserialize of assigned segments&quot;</span>);
-            <span class="ident">seg</span>.<span class="ident">len</span>()
+        <span class="kw">let </span>num_segments_per_reader = num_of_segments / num_of_readers;
+        <span class="kw">let </span>expected_segment_count_per_reader = <span class="kw">if </span>num_of_segments % num_of_readers == <span class="number">0 </span>{
+            num_segments_per_reader
+        } <span class="kw">else </span>{
+            num_segments_per_reader + <span class="number">1
+        </span>};
+        <span class="kw">let </span>current_segment_count = assigned_segment_map.get(<span class="kw-2">&amp;</span>reader.name).map(|v| {
+            <span class="kw">let </span>seg: HashMap&lt;ScopedSegment, Offset&gt; =
+                deserialize_from(<span class="kw-2">&amp;</span>v.data).expect(<span class="string">&quot;deserialize of assigned segments&quot;</span>);
+            seg.len()
         });
-        <span class="kw">let</span> <span class="ident">expected</span>: <span class="ident">isize</span> <span class="op">=</span> <span class="ident">expected_segment_count_per_reader</span>.<span class="ident">try_into</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">current</span>: <span class="ident">isize</span> <span class="op">=</span> <span class="ident">current_segment_count</span>.<span class="ident">unwrap_or_default</span>().<span class="ident">try_into</span>().<span class="ident">unwrap</span>();
-        <span class="prelude-val">Ok</span>(<span class="ident">expected</span> <span class="op">-</span> <span class="ident">current</span>)
+        <span class="kw">let </span>expected: isize = expected_segment_count_per_reader.try_into().unwrap();
+        <span class="kw">let </span>current: isize = current_segment_count.unwrap_or_default().try_into().unwrap();
+        <span class="prelude-val">Ok</span>(expected - current)
     }
 
-    <span class="doccomment">/// Return the list of all segments.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_segments</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">sync</span>.<span class="ident">fetch_updates</span>().<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;should fetch updates&quot;</span>);
+    <span class="doccomment">/// Return the list of all segments.
+    </span><span class="kw">pub async fn </span>get_segments(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; HashSet&lt;ScopedSegment&gt; {
+        <span class="self">self</span>.sync.fetch_updates().<span class="kw">await</span>.expect(<span class="string">&quot;should fetch updates&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">assigned_segments</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">sync</span>.<span class="ident">get_inner_map</span>(<span class="ident">ASSIGNED</span>);
-        <span class="kw">let</span> <span class="ident">unassigned_segments</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">sync</span>.<span class="ident">get_inner_map</span>(<span class="ident">UNASSIGNED</span>);
+        <span class="kw">let </span>assigned_segments = <span class="self">self</span>.sync.get_inner_map(ASSIGNED);
+        <span class="kw">let </span>unassigned_segments = <span class="self">self</span>.sync.get_inner_map(UNASSIGNED);
         <span class="macro">println!</span>(
             <span class="string">&quot;Assigned Segments {:?} Unassigned Segment {:?}&quot;</span>,
-            <span class="ident">assigned_segments</span>.<span class="ident">len</span>(),
-            <span class="ident">unassigned_segments</span>.<span class="ident">len</span>()
+            assigned_segments.len(),
+            unassigned_segments.len()
         );
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">set</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashSet::new</span>();
+        <span class="kw">let </span><span class="kw-2">mut </span>set: HashSet&lt;ScopedSegment&gt; = HashSet::new();
 
-        <span class="kw">for</span> <span class="ident">v</span> <span class="kw">in</span> <span class="ident">assigned_segments</span>.<span class="ident">values</span>() {
-            <span class="kw">let</span> <span class="ident">segments</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span> <span class="op">=</span>
-                <span class="ident">deserialize_from</span>(<span class="kw-2">&amp;</span><span class="ident">v</span>.<span class="ident">data</span>).<span class="ident">expect</span>(<span class="string">&quot;deserialize assigned segments&quot;</span>);
-            <span class="ident">set</span>.<span class="ident">extend</span>(<span class="ident">segments</span>.<span class="ident">keys</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span><span class="op">&gt;</span><span class="op">&gt;</span>())
+        <span class="kw">for </span>v <span class="kw">in </span>assigned_segments.values() {
+            <span class="kw">let </span>segments: HashMap&lt;ScopedSegment, Offset&gt; =
+                deserialize_from(<span class="kw-2">&amp;</span>v.data).expect(<span class="string">&quot;deserialize assigned segments&quot;</span>);
+            set.extend(segments.keys().cloned().collect::&lt;HashSet&lt;ScopedSegment&gt;&gt;())
         }
 
-        <span class="ident">set</span>.<span class="ident">extend</span>(
-            <span class="ident">unassigned_segments</span>
-                .<span class="ident">keys</span>()
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">segment</span><span class="op">|</span> {
-                    <span class="kw">let</span> <span class="ident">segment_str</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">segment</span>.<span class="ident">to_owned</span>();
-                    <span class="ident">ScopedSegment::from</span>(<span class="ident">segment_str</span>)
+        set.extend(
+            unassigned_segments
+                .keys()
+                .map(|segment| {
+                    <span class="kw">let </span>segment_str = <span class="kw-2">&amp;*</span>segment.to_owned();
+                    ScopedSegment::from(segment_str)
                 })
-                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span><span class="op">&gt;</span><span class="op">&gt;</span>(),
+                .collect::&lt;HashSet&lt;ScopedSegment&gt;&gt;(),
         );
-        <span class="ident">set</span>
+        set
     }
 
-    <span class="doccomment">/// Assign an unassigned segment to a given reader</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">assign_segment_to_reader</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span><span class="op">&gt;</span>, <span class="ident">ReaderGroupStateError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">option</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">sync</span>
-            .<span class="ident">insert</span>(<span class="op">|</span><span class="ident">table</span><span class="op">|</span> <span class="ident">ReaderGroupState::assign_segment_to_reader_internal</span>(<span class="ident">table</span>, <span class="ident">reader</span>))
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">SyncError</span> {
-                <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;assign segment to reader {:?}&quot;</span>, <span class="ident">reader</span>),
+    <span class="doccomment">/// Assign an unassigned segment to a given reader
+    </span><span class="kw">pub async fn </span>assign_segment_to_reader(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        reader: <span class="kw-2">&amp;</span>Reader,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ScopedSegment&gt;, ReaderGroupStateError&gt; {
+        <span class="kw">let </span>option = <span class="self">self
+            </span>.sync
+            .insert(|table| ReaderGroupState::assign_segment_to_reader_internal(table, reader))
+            .<span class="kw">await
+            </span>.context(SyncError {
+                error_msg: <span class="macro">format!</span>(<span class="string">&quot;assign segment to reader {:?}&quot;</span>, reader),
             })<span class="question-mark">?</span>;
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">segment_str</span>) <span class="op">=</span> <span class="ident">option</span> {
-            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="ident">ScopedSegment::from</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">segment_str</span>)))
-        } <span class="kw">else</span> {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(segment_str) = option {
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ScopedSegment::from(<span class="kw-2">&amp;*</span>segment_str)))
+        } <span class="kw">else </span>{
             <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">assign_segment_to_reader_internal</span>(
-        <span class="ident">table</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Update</span>,
-        <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">assigned_segments</span> <span class="op">=</span> <span class="ident">ReaderGroupState::get_reader_owned_segments_from_table</span>(<span class="ident">table</span>, <span class="ident">reader</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">unassigned_segments</span> <span class="op">=</span> <span class="ident">ReaderGroupState::get_unassigned_segments_from_table</span>(<span class="ident">table</span>);
+    <span class="kw">fn </span>assign_segment_to_reader_internal(
+        table: <span class="kw-2">&amp;mut </span>Update,
+        reader: <span class="kw-2">&amp;</span>Reader,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;String&gt;, SynchronizerError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)<span class="question-mark">?</span>;
+        <span class="kw">let </span>unassigned_segments = ReaderGroupState::get_unassigned_segments_from_table(table);
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">segment</span>, <span class="ident">offset</span>)) <span class="op">=</span> <span class="ident">unassigned_segments</span>.<span class="ident">into_iter</span>().<span class="ident">next</span>() {
-            <span class="ident">assigned_segments</span>.<span class="ident">insert</span>(<span class="ident">segment</span>.<span class="ident">clone</span>(), <span class="ident">offset</span>);
-            <span class="ident">table</span>.<span class="ident">insert</span>(
-                <span class="ident">ASSIGNED</span>.<span class="ident">to_owned</span>(),
-                <span class="ident">reader</span>.<span class="ident">to_string</span>(),
-                <span class="string">&quot;HashMap&lt;ScopedSegment, Offset&gt;&quot;</span>.<span class="ident">to_owned</span>(),
-                <span class="ident">Box::new</span>(<span class="ident">assigned_segments</span>),
+        <span class="kw">if let </span><span class="prelude-val">Some</span>((segment, offset)) = unassigned_segments.into_iter().next() {
+            assigned_segments.insert(segment.clone(), offset);
+            table.insert(
+                ASSIGNED.to_owned(),
+                reader.to_string(),
+                <span class="string">&quot;HashMap&lt;ScopedSegment, Offset&gt;&quot;</span>.to_owned(),
+                Box::new(assigned_segments),
             );
-            <span class="ident">table</span>.<span class="ident">insert_tombstone</span>(<span class="ident">UNASSIGNED</span>.<span class="ident">to_owned</span>(), <span class="ident">segment</span>.<span class="ident">to_string</span>())<span class="question-mark">?</span>;
-            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="ident">segment</span>.<span class="ident">to_string</span>()))
-        } <span class="kw">else</span> {
+            table.insert_tombstone(UNASSIGNED.to_owned(), segment.to_string())<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(segment.to_string()))
+        } <span class="kw">else </span>{
             <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
         }
     }
 
-    <span class="doccomment">/// Return the list of segments assigned to the requested reader.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_segments_for_reader</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">HashSet</span><span class="op">&lt;</span>(<span class="ident">ScopedSegment</span>, <span class="ident">Offset</span>)<span class="op">&gt;</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">sync</span>.<span class="ident">fetch_updates</span>().<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;should fetch updates&quot;</span>);
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span>
-            <span class="self">self</span>.<span class="ident">sync</span>
-                .<span class="ident">get</span>(<span class="ident">ASSIGNED</span>, <span class="kw-2">&amp;</span><span class="ident">reader</span>.<span class="ident">to_string</span>())
-                .<span class="ident">ok_or</span>(<span class="ident">SynchronizerError::SyncUpdateError</span> {
-                    <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;reader {} is not online&quot;</span>, <span class="ident">reader</span>),
+    <span class="doccomment">/// Return the list of segments assigned to the requested reader.
+    </span><span class="kw">pub async fn </span>get_segments_for_reader(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        reader: <span class="kw-2">&amp;</span>Reader,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;HashSet&lt;(ScopedSegment, Offset)&gt;, SynchronizerError&gt; {
+        <span class="self">self</span>.sync.fetch_updates().<span class="kw">await</span>.expect(<span class="string">&quot;should fetch updates&quot;</span>);
+        <span class="kw">let </span>value =
+            <span class="self">self</span>.sync
+                .get(ASSIGNED, <span class="kw-2">&amp;</span>reader.to_string())
+                .ok_or(SynchronizerError::SyncUpdateError {
+                    error_msg: <span class="macro">format!</span>(<span class="string">&quot;reader {} is not online&quot;</span>, reader),
                 })<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">segments</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span> <span class="op">=</span>
-            <span class="ident">deserialize_from</span>(<span class="kw-2">&amp;</span><span class="ident">value</span>.<span class="ident">data</span>).<span class="ident">expect</span>(<span class="string">&quot;deserialize reader owned segments&quot;</span>);
-        <span class="prelude-val">Ok</span>(<span class="ident">segments</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">k</span>, <span class="ident">v</span>)<span class="op">|</span> (<span class="ident">k</span>.<span class="ident">clone</span>(), <span class="ident">v</span>.<span class="ident">clone</span>()))
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">HashSet</span><span class="op">&lt;</span>(<span class="ident">ScopedSegment</span>, <span class="ident">Offset</span>)<span class="op">&gt;</span><span class="op">&gt;</span>())
+        <span class="kw">let </span>segments: HashMap&lt;ScopedSegment, Offset&gt; =
+            deserialize_from(<span class="kw-2">&amp;</span>value.data).expect(<span class="string">&quot;deserialize reader owned segments&quot;</span>);
+        <span class="prelude-val">Ok</span>(segments
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect::&lt;HashSet&lt;(ScopedSegment, Offset)&gt;&gt;())
     }
 
-    <span class="doccomment">/// Release a currently assigned segment from the given reader.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">release_segment</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>,
-        <span class="ident">segment</span>: <span class="kw-2">&amp;</span><span class="ident">ScopedSegment</span>,
-        <span class="ident">offset</span>: <span class="kw-2">&amp;</span><span class="ident">Offset</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ReaderGroupStateError</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Release a currently assigned segment from the given reader.
+    </span><span class="kw">pub async fn </span>release_segment(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        reader: <span class="kw-2">&amp;</span>Reader,
+        segment: <span class="kw-2">&amp;</span>ScopedSegment,
+        offset: <span class="kw-2">&amp;</span>Offset,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ReaderGroupStateError&gt; {
         <span class="macro">debug!</span>(
             <span class="string">&quot;Release segment {:?} for reader {:?} at offset {:?}&quot;</span>,
-            <span class="ident">segment</span>, <span class="ident">reader</span>, <span class="ident">offset</span>.<span class="ident">read</span>
+            segment, reader, offset.read
         );
-        <span class="self">self</span>.<span class="ident">sync</span>
-            .<span class="ident">insert</span>(<span class="op">|</span><span class="ident">table</span><span class="op">|</span> <span class="ident">ReaderGroupState::release_segment_internal</span>(<span class="ident">table</span>, <span class="ident">reader</span>, <span class="ident">segment</span>, <span class="ident">offset</span>))
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">SyncError</span> {
-                <span class="ident">error_msg</span>: <span class="macro">format!</span>(
+        <span class="self">self</span>.sync
+            .insert(|table| ReaderGroupState::release_segment_internal(table, reader, segment, offset))
+            .<span class="kw">await
+            </span>.context(SyncError {
+                error_msg: <span class="macro">format!</span>(
                     <span class="string">&quot;Failed to release segment {:?} with offset {:?} from reader {:?} &quot;</span>,
-                    <span class="ident">segment</span>, <span class="ident">offset</span>, <span class="ident">reader</span>
+                    segment, offset, reader
                 ),
             })<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Find the corresponding segment in the assigned segment list.</span>
-    <span class="kw">fn</span> <span class="ident">release_segment_internal</span>(
-        <span class="ident">table</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Update</span>,
-        <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>,
-        <span class="ident">segment</span>: <span class="kw-2">&amp;</span><span class="ident">ScopedSegment</span>,
-        <span class="ident">offset</span>: <span class="kw-2">&amp;</span><span class="ident">Offset</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">assigned_segments</span> <span class="op">=</span> <span class="ident">ReaderGroupState::get_reader_owned_segments_from_table</span>(<span class="ident">table</span>, <span class="ident">reader</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">unassigned_segments</span> <span class="op">=</span> <span class="ident">ReaderGroupState::get_unassigned_segments_from_table</span>(<span class="ident">table</span>);
+    <span class="doccomment">/// Find the corresponding segment in the assigned segment list.
+    </span><span class="kw">fn </span>release_segment_internal(
+        table: <span class="kw-2">&amp;mut </span>Update,
+        reader: <span class="kw-2">&amp;</span>Reader,
+        segment: <span class="kw-2">&amp;</span>ScopedSegment,
+        offset: <span class="kw-2">&amp;</span>Offset,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynchronizerError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)<span class="question-mark">?</span>;
+        <span class="kw">let </span>unassigned_segments = ReaderGroupState::get_unassigned_segments_from_table(table);
 
-        <span class="kw">let</span> <span class="ident">old_offset</span> <span class="op">=</span> <span class="ident">assigned_segments</span>.<span class="ident">remove</span>(<span class="ident">segment</span>).<span class="ident">context</span>(<span class="ident">SyncUpdateError</span> {
-            <span class="ident">error_msg</span>: <span class="macro">format!</span>(
+        <span class="kw">let </span>old_offset = assigned_segments.remove(segment).context(SyncUpdateError {
+            error_msg: <span class="macro">format!</span>(
                 <span class="string">&quot;Failed to release segment: should contain only one segment {:?} in assigned list but contains none&quot;</span>,
-                <span class="ident">segment</span>,
+                segment,
             )
         });
         <span class="macro">debug!</span>(
             <span class="string">&quot;Removed segment {:?} from assigned segments, the older offset is {:?}&quot;</span>,
-            <span class="ident">segment</span>, <span class="ident">old_offset</span>
+            segment, old_offset
         );
-        <span class="comment">// ensure this segment is not part of unassigned segments.</span>
-        <span class="macro">ensure!</span>(
-                <span class="op">!</span><span class="ident">unassigned_segments</span>.<span class="ident">contains_key</span>(<span class="ident">segment</span>),
-                <span class="ident">SyncUpdateError</span> {
-                    <span class="ident">error_msg</span>: <span class="macro">format!</span>(
+        <span class="comment">// ensure this segment is not part of unassigned segments.
+        </span><span class="macro">ensure!</span>(
+                !unassigned_segments.contains_key(segment),
+                SyncUpdateError {
+                    error_msg: <span class="macro">format!</span>(
                         <span class="string">&quot;Failed to release segment: unassigned_segment should not have already contained this released segment {:?}&quot;</span>,
-                        <span class="ident">segment</span>
+                        segment
                     )
                 });
-        <span class="comment">// update table</span>
-        <span class="ident">table</span>.<span class="ident">insert</span>(
-            <span class="ident">ASSIGNED</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">reader</span>.<span class="ident">to_string</span>(),
-            <span class="string">&quot;HashMap&lt;ScopedSegment, Offset&gt;&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">Box::new</span>(<span class="ident">assigned_segments</span>),
+        <span class="comment">// update table
+        </span>table.insert(
+            ASSIGNED.to_owned(),
+            reader.to_string(),
+            <span class="string">&quot;HashMap&lt;ScopedSegment, Offset&gt;&quot;</span>.to_owned(),
+            Box::new(assigned_segments),
         );
-        <span class="ident">table</span>.<span class="ident">insert</span>(
-            <span class="ident">UNASSIGNED</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">segment</span>.<span class="ident">clone</span>().<span class="ident">to_string</span>(),
-            <span class="string">&quot;Offset&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">Box::new</span>(<span class="ident">offset</span>.<span class="ident">to_owned</span>()),
+        table.insert(
+            UNASSIGNED.to_owned(),
+            segment.clone().to_string(),
+            <span class="string">&quot;Offset&quot;</span>.to_owned(),
+            Box::new(offset.to_owned()),
         );
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Remove the completed segments and add its successors for next to read.</span>
-    <span class="doccomment">/// This should be called by the reader who&#39;s reading the current segment. Since a segment</span>
-    <span class="doccomment">/// cannot be read by multiple readers, we can assume this won&#39;t be called by multiple processors</span>
-    <span class="doccomment">/// at the same time.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">segment_completed</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>,
-        <span class="ident">segment_completed</span>: <span class="kw-2">&amp;</span><span class="ident">ScopedSegment</span>,
-        <span class="ident">successors_mapped_to_their_predecessors</span>: <span class="kw-2">&amp;</span><span class="ident">im::HashMap</span><span class="op">&lt;</span><span class="ident">SegmentWithRange</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Segment</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ReaderGroupStateError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">_res_str</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">sync</span>
-            .<span class="ident">insert</span>(<span class="op">|</span><span class="ident">table</span><span class="op">|</span> {
-                <span class="ident">ReaderGroupState::segment_completed_internal</span>(
-                    <span class="ident">table</span>,
-                    <span class="ident">reader</span>,
-                    <span class="ident">segment_completed</span>,
-                    <span class="ident">successors_mapped_to_their_predecessors</span>,
+    <span class="doccomment">/// Remove the completed segments and add its successors for next to read.
+    /// This should be called by the reader who&#39;s reading the current segment. Since a segment
+    /// cannot be read by multiple readers, we can assume this won&#39;t be called by multiple processors
+    /// at the same time.
+    </span><span class="kw">pub async fn </span>segment_completed(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        reader: <span class="kw-2">&amp;</span>Reader,
+        segment_completed: <span class="kw-2">&amp;</span>ScopedSegment,
+        successors_mapped_to_their_predecessors: <span class="kw-2">&amp;</span>im::HashMap&lt;SegmentWithRange, Vec&lt;Segment&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ReaderGroupStateError&gt; {
+        <span class="kw">let </span>_res_str = <span class="self">self
+            </span>.sync
+            .insert(|table| {
+                ReaderGroupState::segment_completed_internal(
+                    table,
+                    reader,
+                    segment_completed,
+                    successors_mapped_to_their_predecessors,
                 )
             })
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">SyncError</span> {
-                <span class="ident">error_msg</span>: <span class="macro">format!</span>(
+            .<span class="kw">await
+            </span>.context(SyncError {
+                error_msg: <span class="macro">format!</span>(
                     <span class="string">&quot;segment {:?} assigned to reader {:?} has completed&quot;</span>,
-                    <span class="ident">segment_completed</span>, <span class="ident">reader</span>
+                    segment_completed, reader
                 ),
             })<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">segment_completed_internal</span>(
-        <span class="ident">table</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Update</span>,
-        <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>,
-        <span class="ident">segment_completed</span>: <span class="kw-2">&amp;</span><span class="ident">ScopedSegment</span>,
-        <span class="ident">successors_mapped_to_their_predecessors</span>: <span class="kw-2">&amp;</span><span class="ident">im::HashMap</span><span class="op">&lt;</span><span class="ident">SegmentWithRange</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Segment</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">assigned_segments</span> <span class="op">=</span> <span class="ident">ReaderGroupState::get_reader_owned_segments_from_table</span>(<span class="ident">table</span>, <span class="ident">reader</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">future_segments</span> <span class="op">=</span> <span class="ident">ReaderGroupState::get_future_segments_from_table</span>(<span class="ident">table</span>);
+    <span class="kw">fn </span>segment_completed_internal(
+        table: <span class="kw-2">&amp;mut </span>Update,
+        reader: <span class="kw-2">&amp;</span>Reader,
+        segment_completed: <span class="kw-2">&amp;</span>ScopedSegment,
+        successors_mapped_to_their_predecessors: <span class="kw-2">&amp;</span>im::HashMap&lt;SegmentWithRange, Vec&lt;Segment&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;String&gt;, SynchronizerError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>assigned_segments = ReaderGroupState::get_reader_owned_segments_from_table(table, reader)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>future_segments = ReaderGroupState::get_future_segments_from_table(table);
 
-        <span class="comment">// remove completed segment from assigned_segment list</span>
-        <span class="ident">assigned_segments</span>
-            .<span class="ident">remove</span>(<span class="ident">segment_completed</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;should have assigned this segment to reader&quot;</span>);
-        <span class="ident">table</span>.<span class="ident">insert</span>(
-            <span class="ident">ASSIGNED</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">reader</span>.<span class="ident">to_string</span>(),
-            <span class="string">&quot;HashMap&lt;ScopedSegment, Offset&gt;&quot;</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">Box::new</span>(<span class="ident">assigned_segments</span>),
+        <span class="comment">// remove completed segment from assigned_segment list
+        </span>assigned_segments
+            .remove(segment_completed)
+            .expect(<span class="string">&quot;should have assigned this segment to reader&quot;</span>);
+        table.insert(
+            ASSIGNED.to_owned(),
+            reader.to_string(),
+            <span class="string">&quot;HashMap&lt;ScopedSegment, Offset&gt;&quot;</span>.to_owned(),
+            Box::new(assigned_segments),
         );
 
-        <span class="comment">// add missing successors to future_segments</span>
-        <span class="kw">for</span> (<span class="ident">segment</span>, <span class="ident">list</span>) <span class="kw">in</span> <span class="ident">successors_mapped_to_their_predecessors</span> {
-            <span class="kw">if</span> <span class="op">!</span><span class="ident">future_segments</span>.<span class="ident">contains_key</span>(<span class="kw-2">&amp;</span><span class="ident">segment</span>.<span class="ident">scoped_segment</span>) {
-                <span class="kw">let</span> <span class="ident">required_to_complete</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">list</span>.<span class="ident">clone</span>().<span class="ident">into_iter</span>().<span class="ident">collect</span>();
-                <span class="ident">table</span>.<span class="ident">insert</span>(
-                    <span class="ident">FUTURE</span>.<span class="ident">to_owned</span>(),
-                    <span class="ident">segment</span>.<span class="ident">scoped_segment</span>.<span class="ident">to_string</span>(),
-                    <span class="string">&quot;HashSet&lt;i64&gt;&quot;</span>.<span class="ident">to_owned</span>(),
-                    <span class="ident">Box::new</span>(<span class="ident">required_to_complete</span>.<span class="ident">clone</span>()),
+        <span class="comment">// add missing successors to future_segments
+        </span><span class="kw">for </span>(segment, list) <span class="kw">in </span>successors_mapped_to_their_predecessors {
+            <span class="kw">if </span>!future_segments.contains_key(<span class="kw-2">&amp;</span>segment.scoped_segment) {
+                <span class="kw">let </span>required_to_complete: HashSet&lt;<span class="kw">_</span>&gt; = list.clone().into_iter().collect();
+                table.insert(
+                    FUTURE.to_owned(),
+                    segment.scoped_segment.to_string(),
+                    <span class="string">&quot;HashSet&lt;i64&gt;&quot;</span>.to_owned(),
+                    Box::new(required_to_complete.clone()),
                 );
-                <span class="comment">// need to update the temp map since later operation may depend on it</span>
-                <span class="ident">future_segments</span>.<span class="ident">insert</span>(<span class="ident">segment</span>.<span class="ident">scoped_segment</span>.<span class="ident">to_owned</span>(), <span class="ident">required_to_complete</span>);
+                <span class="comment">// need to update the temp map since later operation may depend on it
+                </span>future_segments.insert(segment.scoped_segment.to_owned(), required_to_complete);
             }
         }
 
-        <span class="comment">// remove the completed segment from the dependency list</span>
-        <span class="kw">for</span> (<span class="ident">segment</span>, <span class="ident">required_to_complete</span>) <span class="kw">in</span> <span class="kw-2">&amp;mut</span> <span class="ident">future_segments</span> {
-            <span class="comment">// the hash set needs update</span>
-            <span class="kw">if</span> <span class="ident">required_to_complete</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">segment_completed</span>.<span class="ident">segment</span>) {
-                <span class="ident">table</span>.<span class="ident">insert</span>(
-                    <span class="ident">FUTURE</span>.<span class="ident">to_owned</span>(),
-                    <span class="ident">segment</span>.<span class="ident">to_string</span>(),
-                    <span class="string">&quot;HashSet&lt;i64&gt;&quot;</span>.<span class="ident">to_owned</span>(),
-                    <span class="ident">Box::new</span>(<span class="ident">required_to_complete</span>.<span class="ident">to_owned</span>()),
+        <span class="comment">// remove the completed segment from the dependency list
+        </span><span class="kw">for </span>(segment, required_to_complete) <span class="kw">in </span><span class="kw-2">&amp;mut </span>future_segments {
+            <span class="comment">// the hash set needs update
+            </span><span class="kw">if </span>required_to_complete.remove(<span class="kw-2">&amp;</span>segment_completed.segment) {
+                table.insert(
+                    FUTURE.to_owned(),
+                    segment.to_string(),
+                    <span class="string">&quot;HashSet&lt;i64&gt;&quot;</span>.to_owned(),
+                    Box::new(required_to_complete.to_owned()),
                 );
             }
         }
 
-        <span class="comment">// find successors that are ready to read. A successor is ready to read</span>
-        <span class="comment">// once all its predecessors are completed.</span>
-        <span class="kw">let</span> <span class="ident">ready_to_read</span> <span class="op">=</span> <span class="ident">future_segments</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">filter</span>(<span class="op">|</span><span class="kw-2">&amp;</span>(<span class="ident">_segment</span>, <span class="ident">set</span>)<span class="op">|</span> <span class="ident">set</span>.<span class="ident">is_empty</span>())
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">segment</span>, <span class="ident">_set</span>)<span class="op">|</span> <span class="ident">segment</span>.<span class="ident">to_owned</span>())
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+        <span class="comment">// find successors that are ready to read. A successor is ready to read
+        // once all its predecessors are completed.
+        </span><span class="kw">let </span>ready_to_read = future_segments
+            .iter()
+            .filter(|<span class="kw-2">&amp;</span>(_segment, set)| set.is_empty())
+            .map(|(segment, _set)| segment.to_owned())
+            .collect::&lt;Vec&lt;ScopedSegment&gt;&gt;();
 
-        <span class="kw">for</span> <span class="ident">segment</span> <span class="kw">in</span> <span class="ident">ready_to_read</span> {
-            <span class="comment">// add ready to read segments to unassigned_segments</span>
-            <span class="ident">table</span>.<span class="ident">insert</span>(
-                <span class="ident">UNASSIGNED</span>.<span class="ident">to_owned</span>(),
-                <span class="ident">segment</span>.<span class="ident">to_string</span>(),
-                <span class="string">&quot;Offset&quot;</span>.<span class="ident">to_owned</span>(),
-                <span class="ident">Box::new</span>(<span class="ident">Offset::new</span>(<span class="number">0</span>)),
+        <span class="kw">for </span>segment <span class="kw">in </span>ready_to_read {
+            <span class="comment">// add ready to read segments to unassigned_segments
+            </span>table.insert(
+                UNASSIGNED.to_owned(),
+                segment.to_string(),
+                <span class="string">&quot;Offset&quot;</span>.to_owned(),
+                Box::new(Offset::new(<span class="number">0</span>)),
             );
-            <span class="comment">// remove those from the future_segments</span>
-            <span class="ident">table</span>.<span class="ident">insert_tombstone</span>(<span class="ident">FUTURE</span>.<span class="ident">to_owned</span>(), <span class="ident">segment</span>.<span class="ident">to_string</span>())<span class="question-mark">?</span>;
+            <span class="comment">// remove those from the future_segments
+            </span>table.insert_tombstone(FUTURE.to_owned(), segment.to_string())<span class="question-mark">?</span>;
         }
         <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
     }
 
-    <span class="kw">fn</span> <span class="ident">get_reader_owned_segments_from_table</span>(
-        <span class="ident">table</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Update</span>,
-        <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span>, <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
-        <span class="ident">ReaderGroupState::check_reader_online</span>(<span class="kw-2">&amp;</span><span class="ident">table</span>.<span class="ident">get_inner_map</span>(<span class="ident">ASSIGNED</span>), <span class="ident">reader</span>)<span class="question-mark">?</span>;
+    <span class="kw">fn </span>get_reader_owned_segments_from_table(
+        table: <span class="kw-2">&amp;mut </span>Update,
+        reader: <span class="kw-2">&amp;</span>Reader,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;ScopedSegment, Offset&gt;, SynchronizerError&gt; {
+        ReaderGroupState::check_reader_online(<span class="kw-2">&amp;</span>table.get_inner_map(ASSIGNED), reader)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">table</span>
-            .<span class="ident">get</span>(<span class="ident">ASSIGNED</span>, <span class="kw-2">&amp;</span><span class="ident">reader</span>.<span class="ident">to_string</span>())
-            .<span class="ident">expect</span>(<span class="string">&quot;No entries found for reader owned segments&quot;</span>);
-        <span class="kw">let</span> <span class="ident">owned_segments</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span> <span class="op">=</span>
-            <span class="ident">deserialize_from</span>(<span class="kw-2">&amp;</span><span class="ident">value</span>.<span class="ident">data</span>).<span class="ident">expect</span>(<span class="string">&quot;deserialize reader owned segments&quot;</span>);
-        <span class="prelude-val">Ok</span>(<span class="ident">owned_segments</span>)
+        <span class="kw">let </span>value = table
+            .get(ASSIGNED, <span class="kw-2">&amp;</span>reader.to_string())
+            .expect(<span class="string">&quot;No entries found for reader owned segments&quot;</span>);
+        <span class="kw">let </span>owned_segments: HashMap&lt;ScopedSegment, Offset&gt; =
+            deserialize_from(<span class="kw-2">&amp;</span>value.data).expect(<span class="string">&quot;deserialize reader owned segments&quot;</span>);
+        <span class="prelude-val">Ok</span>(owned_segments)
     }
 
-    <span class="kw">fn</span> <span class="ident">get_unassigned_segments_from_table</span>(<span class="ident">table</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Update</span>) -&gt; <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span> {
-        <span class="ident">table</span>
-            .<span class="ident">get_inner_map</span>(<span class="ident">UNASSIGNED</span>)
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">k</span>, <span class="ident">v</span>)<span class="op">|</span> {
-                <span class="kw">let</span> <span class="ident">segment_str</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">k</span>.<span class="ident">to_owned</span>();
+    <span class="kw">fn </span>get_unassigned_segments_from_table(table: <span class="kw-2">&amp;mut </span>Update) -&gt; HashMap&lt;ScopedSegment, Offset&gt; {
+        table
+            .get_inner_map(UNASSIGNED)
+            .iter()
+            .map(|(k, v)| {
+                <span class="kw">let </span>segment_str = <span class="kw-2">&amp;*</span>k.to_owned();
                 (
-                    <span class="ident">ScopedSegment::from</span>(<span class="ident">segment_str</span>),
-                    <span class="ident">deserialize_from</span>(<span class="kw-2">&amp;</span><span class="ident">v</span>.<span class="ident">data</span>).<span class="ident">expect</span>(<span class="string">&quot;deserialize offset&quot;</span>),
+                    ScopedSegment::from(segment_str),
+                    deserialize_from(<span class="kw-2">&amp;</span>v.data).expect(<span class="string">&quot;deserialize offset&quot;</span>),
                 )
             })
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+            .collect::&lt;HashMap&lt;ScopedSegment, Offset&gt;&gt;()
     }
 
-    <span class="kw">fn</span> <span class="ident">get_future_segments_from_table</span>(<span class="ident">table</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Update</span>) -&gt; <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">Segment</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="ident">table</span>
-            .<span class="ident">get_inner_map</span>(<span class="ident">FUTURE</span>)
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">k</span>, <span class="ident">v</span>)<span class="op">|</span> {
-                <span class="kw">let</span> <span class="ident">segment_str</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">k</span>.<span class="ident">to_owned</span>();
+    <span class="kw">fn </span>get_future_segments_from_table(table: <span class="kw-2">&amp;mut </span>Update) -&gt; HashMap&lt;ScopedSegment, HashSet&lt;Segment&gt;&gt; {
+        table
+            .get_inner_map(FUTURE)
+            .iter()
+            .map(|(k, v)| {
+                <span class="kw">let </span>segment_str = <span class="kw-2">&amp;*</span>k.to_owned();
                 (
-                    <span class="ident">ScopedSegment::from</span>(<span class="ident">segment_str</span>),
-                    <span class="ident">deserialize_from</span>(<span class="kw-2">&amp;</span><span class="ident">v</span>.<span class="ident">data</span>).<span class="ident">expect</span>(<span class="string">&quot;deserialize hashset&quot;</span>),
+                    ScopedSegment::from(segment_str),
+                    deserialize_from(<span class="kw-2">&amp;</span>v.data).expect(<span class="string">&quot;deserialize hashset&quot;</span>),
                 )
             })
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">Segment</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+            .collect::&lt;HashMap&lt;ScopedSegment, HashSet&lt;Segment&gt;&gt;&gt;()
     }
 
-    <span class="kw">fn</span> <span class="ident">check_reader_online</span>(
-        <span class="ident">assigned</span>: <span class="kw-2">&amp;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Value</span><span class="op">&gt;</span>,
-        <span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="ident">Reader</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SynchronizerError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="ident">assigned</span>.<span class="ident">contains_key</span>(<span class="kw-2">&amp;</span><span class="ident">reader</span>.<span class="ident">name</span>) {
+    <span class="kw">fn </span>check_reader_online(
+        assigned: <span class="kw-2">&amp;</span>HashMap&lt;String, Value&gt;,
+        reader: <span class="kw-2">&amp;</span>Reader,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynchronizerError&gt; {
+        <span class="kw">if </span>assigned.contains_key(<span class="kw-2">&amp;</span>reader.name) {
             <span class="prelude-val">Ok</span>(())
-        } <span class="kw">else</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">SynchronizerError::SyncPreconditionError</span> {
-                <span class="ident">error_msg</span>: <span class="macro">format!</span>(<span class="string">&quot;reader {} is not online&quot;</span>, <span class="ident">reader</span>.<span class="ident">name</span>),
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(SynchronizerError::SyncPreconditionError {
+                error_msg: <span class="macro">format!</span>(<span class="string">&quot;reader {} is not online&quot;</span>, reader.name),
             })
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">new</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">PartialEq</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Hash</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Offset</span> {
-    <span class="doccomment">/// The client has read to this offset and handle the result to the application/caller.</span>
-    <span class="doccomment">/// But some events before this offset may not have been processed by application/caller.</span>
-    <span class="doccomment">/// In case of failure, those unprocessed events may need to be read from application/caller</span>
-    <span class="doccomment">/// again.</span>
-    <span class="kw">pub</span> <span class="ident">read</span>: <span class="ident">i64</span>,
+<span class="attribute">#[derive(new, Serialize, Deserialize, PartialEq, Debug, Clone, Hash, Eq)]
+</span><span class="kw">pub struct </span>Offset {
+    <span class="doccomment">/// The client has read to this offset and handle the result to the application/caller.
+    /// But some events before this offset may not have been processed by application/caller.
+    /// In case of failure, those unprocessed events may need to be read from application/caller
+    /// again.
+    </span><span class="kw">pub </span>read: i64,
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sync::synchronizer</span>::{<span class="ident">serialize</span>, <span class="ident">Value</span>};
-    <span class="kw">use</span> <span class="ident">lazy_static</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident">ordered_float::OrderedFloat</span>;
-    <span class="kw">use</span> <span class="ident">pravega_client_shared</span>::{<span class="ident">Scope</span>, <span class="ident">Segment</span>, <span class="ident">Stream</span>};
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span><span class="kw">crate</span>::sync::synchronizer::{serialize, Value};
+    <span class="kw">use </span>lazy_static::<span class="kw-2">*</span>;
+    <span class="kw">use </span>ordered_float::OrderedFloat;
+    <span class="kw">use </span>pravega_client_shared::{Scope, Segment, Stream};
 
-    <span class="macro">lazy_static!</span> {
-        <span class="kw">static</span> <span class="kw-2">ref</span> <span class="ident">READER</span>: <span class="ident">Reader</span> <span class="op">=</span> <span class="ident">Reader::from</span>(<span class="string">&quot;test&quot;</span>.<span class="ident">to_owned</span>());
-        <span class="kw">static</span> <span class="kw-2">ref</span> <span class="ident">SEGMENT</span>: <span class="ident">ScopedSegment</span> <span class="op">=</span> <span class="ident">ScopedSegment</span> {
-            <span class="ident">scope</span>: <span class="ident">Scope</span> {
-                <span class="ident">name</span>: <span class="string">&quot;scope&quot;</span>.<span class="ident">to_string</span>(),
+    <span class="macro">lazy_static! </span>{
+        <span class="kw">static </span><span class="kw-2">ref </span>READER: Reader = Reader::from(<span class="string">&quot;test&quot;</span>.to_owned());
+        <span class="kw">static </span><span class="kw-2">ref </span>SEGMENT: ScopedSegment = ScopedSegment {
+            scope: Scope {
+                name: <span class="string">&quot;scope&quot;</span>.to_string(),
             },
-            <span class="ident">stream</span>: <span class="ident">Stream</span> {
-                <span class="ident">name</span>: <span class="string">&quot;scope&quot;</span>.<span class="ident">to_string</span>(),
+            stream: Stream {
+                name: <span class="string">&quot;scope&quot;</span>.to_string(),
             },
-            <span class="ident">segment</span>: <span class="ident">Segment</span> {
-                <span class="ident">number</span>: <span class="number">0</span>,
-                <span class="ident">tx_id</span>: <span class="prelude-val">None</span>,
+            segment: Segment {
+                number: <span class="number">0</span>,
+                tx_id: <span class="prelude-val">None</span>,
             },
         };
-        <span class="kw">static</span> <span class="kw-2">ref</span> <span class="ident">SEGMENT_TEST</span>: <span class="ident">ScopedSegment</span> <span class="op">=</span> <span class="ident">SEGMENT</span>.<span class="ident">clone</span>();
+        <span class="kw">static </span><span class="kw-2">ref </span>SEGMENT_TEST: ScopedSegment = SEGMENT.clone();
     }
 
-    <span class="kw">fn</span> <span class="ident">set_up</span>() -&gt; <span class="ident">Update</span> {
-        <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">Box::new</span>(<span class="ident">Offset::new</span>(<span class="number">0</span>));
-        <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">offset</span>).<span class="ident">expect</span>(<span class="string">&quot;serialize value&quot;</span>);
+    <span class="kw">fn </span>set_up() -&gt; Update {
+        <span class="kw">let </span>offset = Box::new(Offset::new(<span class="number">0</span>));
+        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;*</span>offset).expect(<span class="string">&quot;serialize value&quot;</span>);
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">unassigned_segments</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
-        <span class="ident">unassigned_segments</span>.<span class="ident">insert</span>(
-            <span class="ident">SEGMENT_TEST</span>.<span class="ident">to_string</span>(),
-            <span class="ident">Value</span> {
-                <span class="ident">type_id</span>: <span class="string">&quot;Offset&quot;</span>.<span class="ident">to_owned</span>(),
-                <span class="ident">data</span>,
+        <span class="kw">let </span><span class="kw-2">mut </span>unassigned_segments = HashMap::new();
+        unassigned_segments.insert(
+            SEGMENT_TEST.to_string(),
+            Value {
+                type_id: <span class="string">&quot;Offset&quot;</span>.to_owned(),
+                data,
             },
         );
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">map</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
-        <span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">UNASSIGNED</span>.<span class="ident">to_owned</span>(), <span class="ident">unassigned_segments</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>map = HashMap::new();
+        map.insert(UNASSIGNED.to_owned(), unassigned_segments);
 
-        <span class="kw">let</span> <span class="ident">counter</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
-        <span class="kw">let</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">Update::new</span>(<span class="ident">map</span>, <span class="ident">counter</span>, <span class="macro">vec!</span>[], <span class="macro">vec!</span>[]);
+        <span class="kw">let </span>counter = HashMap::new();
+        <span class="kw">let </span>table = Update::new(map, counter, <span class="macro">vec!</span>[], <span class="macro">vec!</span>[]);
 
-        <span class="macro">assert!</span>(<span class="ident">table</span>.<span class="ident">contains_outer_key</span>(<span class="ident">UNASSIGNED</span>));
-        <span class="macro">assert!</span>(<span class="ident">table</span>.<span class="ident">contains_key</span>(<span class="ident">UNASSIGNED</span>, <span class="kw-2">&amp;</span><span class="ident">SEGMENT_TEST</span>.<span class="ident">to_string</span>()));
+        <span class="macro">assert!</span>(table.contains_outer_key(UNASSIGNED));
+        <span class="macro">assert!</span>(table.contains_key(UNASSIGNED, <span class="kw-2">&amp;</span>SEGMENT_TEST.to_string()));
 
-        <span class="ident">table</span>
+        table
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_reader_group_state</span>() {
-        <span class="comment">// set up</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">set_up</span>();
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_reader_group_state() {
+        <span class="comment">// set up
+        </span><span class="kw">let </span><span class="kw-2">mut </span>table = set_up();
 
-        <span class="comment">// add a reader</span>
-        <span class="ident">ReaderGroupState::add_reader_internal</span>(<span class="kw-2">&amp;mut</span> <span class="ident">table</span>, <span class="kw-2">&amp;</span><span class="ident">READER</span>).<span class="ident">expect</span>(<span class="string">&quot;add reader&quot;</span>);
+        <span class="comment">// add a reader
+        </span>ReaderGroupState::add_reader_internal(<span class="kw-2">&amp;mut </span>table, <span class="kw-2">&amp;</span>READER).expect(<span class="string">&quot;add reader&quot;</span>);
 
         <span class="macro">assert!</span>(
-            <span class="ident">table</span>.<span class="ident">contains_outer_key</span>(<span class="ident">ASSIGNED</span>),
-            <span class="string">&quot;assigned_segments outer map should be created automatically&quot;</span>
-        );
+            table.contains_outer_key(ASSIGNED),
+            <span class="string">&quot;assigned_segments outer map should be created automatically&quot;
+        </span>);
         <span class="macro">assert!</span>(
-            <span class="ident">table</span>.<span class="ident">contains_key</span>(<span class="ident">ASSIGNED</span>, <span class="kw-2">&amp;</span><span class="ident">READER</span>.<span class="ident">to_string</span>()),
-            <span class="string">&quot;should contain inner key&quot;</span>
-        );
+            table.contains_key(ASSIGNED, <span class="kw-2">&amp;</span>READER.to_string()),
+            <span class="string">&quot;should contain inner key&quot;
+        </span>);
 
-        <span class="comment">// get online readers</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">readers</span> <span class="op">=</span> <span class="ident">ReaderGroupState::get_online_readers_internal</span>(<span class="ident">table</span>.<span class="ident">get_inner_map</span>(<span class="ident">ASSIGNED</span>));
+        <span class="comment">// get online readers
+        </span><span class="kw">let </span><span class="kw-2">mut </span>readers = ReaderGroupState::get_online_readers_internal(table.get_inner_map(ASSIGNED));
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">readers</span>.<span class="ident">pop</span>().<span class="ident">expect</span>(<span class="string">&quot;get reader&quot;</span>),
-            <span class="ident">READER</span>.<span class="ident">clone</span>(),
-            <span class="string">&quot;should have online reader added&quot;</span>
-        );
-        <span class="macro">assert!</span>(<span class="ident">readers</span>.<span class="ident">is_empty</span>(), <span class="string">&quot;should have only one reader&quot;</span>);
+            readers.pop().expect(<span class="string">&quot;get reader&quot;</span>),
+            READER.clone(),
+            <span class="string">&quot;should have online reader added&quot;
+        </span>);
+        <span class="macro">assert!</span>(readers.is_empty(), <span class="string">&quot;should have only one reader&quot;</span>);
 
-        <span class="comment">// assign a segment to a reader</span>
-        <span class="ident">ReaderGroupState::assign_segment_to_reader_internal</span>(<span class="kw-2">&amp;mut</span> <span class="ident">table</span>, <span class="kw-2">&amp;</span><span class="ident">READER</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;assign segment to reader&quot;</span>);
-        <span class="kw">let</span> <span class="ident">segments</span> <span class="op">=</span>
-            <span class="ident">ReaderGroupState::get_reader_positions_internal</span>(<span class="kw-2">&amp;</span><span class="ident">READER</span>, <span class="ident">table</span>.<span class="ident">get_inner_map</span>(<span class="ident">ASSIGNED</span>))
-                .<span class="ident">expect</span>(<span class="string">&quot;get reader positions&quot;</span>);
+        <span class="comment">// assign a segment to a reader
+        </span>ReaderGroupState::assign_segment_to_reader_internal(<span class="kw-2">&amp;mut </span>table, <span class="kw-2">&amp;</span>READER)
+            .expect(<span class="string">&quot;assign segment to reader&quot;</span>);
+        <span class="kw">let </span>segments =
+            ReaderGroupState::get_reader_positions_internal(<span class="kw-2">&amp;</span>READER, table.get_inner_map(ASSIGNED))
+                .expect(<span class="string">&quot;get reader positions&quot;</span>);
 
-        <span class="macro">assert_eq!</span>(<span class="ident">segments</span>.<span class="ident">len</span>(), <span class="number">1</span>, <span class="string">&quot;should have assigned one segment the reader&quot;</span>);
+        <span class="macro">assert_eq!</span>(segments.len(), <span class="number">1</span>, <span class="string">&quot;should have assigned one segment the reader&quot;</span>);
         <span class="macro">assert_eq!</span>(
-            <span class="ident">segments</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">SEGMENT_TEST</span>).<span class="ident">expect</span>(<span class="string">&quot;get segment&quot;</span>),
-            <span class="kw-2">&amp;</span><span class="ident">Offset</span> { <span class="ident">read</span>: <span class="number">0</span> },
-            <span class="string">&quot;added segment should be as expected&quot;</span>
-        );
+            segments.get(<span class="kw-2">&amp;</span>SEGMENT_TEST).expect(<span class="string">&quot;get segment&quot;</span>),
+            <span class="kw-2">&amp;</span>Offset { read: <span class="number">0 </span>},
+            <span class="string">&quot;added segment should be as expected&quot;
+        </span>);
 
-        <span class="comment">// update reader position</span>
-        <span class="kw">let</span> <span class="ident">new_offset</span> <span class="op">=</span> <span class="ident">Offset</span> { <span class="ident">read</span>: <span class="number">10</span> };
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">update</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
-        <span class="ident">update</span>.<span class="ident">insert</span>(<span class="ident">SEGMENT_TEST</span>.<span class="ident">clone</span>(), <span class="ident">new_offset</span>.<span class="ident">clone</span>());
+        <span class="comment">// update reader position
+        </span><span class="kw">let </span>new_offset = Offset { read: <span class="number">10 </span>};
+        <span class="kw">let </span><span class="kw-2">mut </span>update = HashMap::new();
+        update.insert(SEGMENT_TEST.clone(), new_offset.clone());
 
-        <span class="ident">ReaderGroupState::update_reader_positions_internal</span>(<span class="kw-2">&amp;mut</span> <span class="ident">table</span>, <span class="kw-2">&amp;</span><span class="ident">READER</span>, <span class="kw-2">&amp;</span><span class="ident">update</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;update reader position&quot;</span>);
-        <span class="kw">let</span> <span class="ident">segments</span> <span class="op">=</span>
-            <span class="ident">ReaderGroupState::get_reader_positions_internal</span>(<span class="kw-2">&amp;</span><span class="ident">READER</span>, <span class="ident">table</span>.<span class="ident">get_inner_map</span>(<span class="ident">ASSIGNED</span>))
-                .<span class="ident">expect</span>(<span class="string">&quot;get reader positions&quot;</span>);
+        ReaderGroupState::update_reader_positions_internal(<span class="kw-2">&amp;mut </span>table, <span class="kw-2">&amp;</span>READER, <span class="kw-2">&amp;</span>update)
+            .expect(<span class="string">&quot;update reader position&quot;</span>);
+        <span class="kw">let </span>segments =
+            ReaderGroupState::get_reader_positions_internal(<span class="kw-2">&amp;</span>READER, table.get_inner_map(ASSIGNED))
+                .expect(<span class="string">&quot;get reader positions&quot;</span>);
 
-        <span class="macro">assert_eq!</span>(<span class="ident">segments</span>.<span class="ident">len</span>(), <span class="number">1</span>, <span class="string">&quot;reader should contain one owned segment&quot;</span>);
+        <span class="macro">assert_eq!</span>(segments.len(), <span class="number">1</span>, <span class="string">&quot;reader should contain one owned segment&quot;</span>);
         <span class="macro">assert_eq!</span>(
-            <span class="ident">segments</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">SEGMENT_TEST</span>).<span class="ident">expect</span>(<span class="string">&quot;get segment&quot;</span>),
-            <span class="kw-2">&amp;</span><span class="ident">new_offset</span>,
-            <span class="string">&quot;the offset of owned segment should be updated&quot;</span>
-        );
+            segments.get(<span class="kw-2">&amp;</span>SEGMENT_TEST).expect(<span class="string">&quot;get segment&quot;</span>),
+            <span class="kw-2">&amp;</span>new_offset,
+            <span class="string">&quot;the offset of owned segment should be updated&quot;
+        </span>);
 
-        <span class="comment">// segment completed</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">successor0</span> <span class="op">=</span> <span class="ident">SEGMENT_TEST</span>.<span class="ident">clone</span>();
-        <span class="ident">successor0</span>.<span class="ident">segment</span>.<span class="ident">number</span> <span class="op">=</span> <span class="number">1</span>;
+        <span class="comment">// segment completed
+        </span><span class="kw">let </span><span class="kw-2">mut </span>successor0 = SEGMENT_TEST.clone();
+        successor0.segment.number = <span class="number">1</span>;
 
-        <span class="kw">let</span> <span class="ident">successor0_range</span> <span class="op">=</span> <span class="ident">SegmentWithRange</span> {
-            <span class="ident">scoped_segment</span>: <span class="ident">successor0</span>.<span class="ident">clone</span>(),
-            <span class="ident">min_key</span>: <span class="ident">OrderedFloat</span>(<span class="number">0.0</span>),
-            <span class="ident">max_key</span>: <span class="ident">OrderedFloat</span>(<span class="number">0.5</span>),
+        <span class="kw">let </span>successor0_range = SegmentWithRange {
+            scoped_segment: successor0.clone(),
+            min_key: OrderedFloat(<span class="number">0.0</span>),
+            max_key: OrderedFloat(<span class="number">0.5</span>),
         };
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">successor1</span> <span class="op">=</span> <span class="ident">SEGMENT_TEST</span>.<span class="ident">clone</span>();
-        <span class="ident">successor1</span>.<span class="ident">segment</span>.<span class="ident">number</span> <span class="op">=</span> <span class="number">2</span>;
-        <span class="kw">let</span> <span class="ident">successor1_range</span> <span class="op">=</span> <span class="ident">SegmentWithRange</span> {
-            <span class="ident">scoped_segment</span>: <span class="ident">successor1</span>.<span class="ident">clone</span>(),
-            <span class="ident">min_key</span>: <span class="ident">OrderedFloat</span>(<span class="number">0.5</span>),
-            <span class="ident">max_key</span>: <span class="ident">OrderedFloat</span>(<span class="number">1.0</span>),
+        <span class="kw">let </span><span class="kw-2">mut </span>successor1 = SEGMENT_TEST.clone();
+        successor1.segment.number = <span class="number">2</span>;
+        <span class="kw">let </span>successor1_range = SegmentWithRange {
+            scoped_segment: successor1.clone(),
+            min_key: OrderedFloat(<span class="number">0.5</span>),
+            max_key: OrderedFloat(<span class="number">1.0</span>),
         };
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">successors_mapped_to_their_predecessors</span> <span class="op">=</span> <span class="ident">im::HashMap::new</span>();
-        <span class="ident">successors_mapped_to_their_predecessors</span>.<span class="ident">insert</span>(
-            <span class="ident">successor0_range</span>,
-            <span class="macro">vec!</span>[<span class="ident">Segment</span> {
-                <span class="ident">number</span>: <span class="number">0</span>,
-                <span class="ident">tx_id</span>: <span class="prelude-val">None</span>,
+        <span class="kw">let </span><span class="kw-2">mut </span>successors_mapped_to_their_predecessors = im::HashMap::new();
+        successors_mapped_to_their_predecessors.insert(
+            successor0_range,
+            <span class="macro">vec!</span>[Segment {
+                number: <span class="number">0</span>,
+                tx_id: <span class="prelude-val">None</span>,
             }],
         );
-        <span class="ident">successors_mapped_to_their_predecessors</span>.<span class="ident">insert</span>(
-            <span class="ident">successor1_range</span>,
-            <span class="macro">vec!</span>[<span class="ident">Segment</span> {
-                <span class="ident">number</span>: <span class="number">0</span>,
-                <span class="ident">tx_id</span>: <span class="prelude-val">None</span>,
+        successors_mapped_to_their_predecessors.insert(
+            successor1_range,
+            <span class="macro">vec!</span>[Segment {
+                number: <span class="number">0</span>,
+                tx_id: <span class="prelude-val">None</span>,
             }],
         );
 
-        <span class="ident">ReaderGroupState::segment_completed_internal</span>(
-            <span class="kw-2">&amp;mut</span> <span class="ident">table</span>,
-            <span class="kw-2">&amp;</span><span class="ident">READER</span>,
-            <span class="kw-2">&amp;</span><span class="ident">SEGMENT_TEST</span>,
-            <span class="kw-2">&amp;</span><span class="ident">successors_mapped_to_their_predecessors</span>,
+        ReaderGroupState::segment_completed_internal(
+            <span class="kw-2">&amp;mut </span>table,
+            <span class="kw-2">&amp;</span>READER,
+            <span class="kw-2">&amp;</span>SEGMENT_TEST,
+            <span class="kw-2">&amp;</span>successors_mapped_to_their_predecessors,
         )
-        .<span class="ident">expect</span>(<span class="string">&quot;reader segment completed&quot;</span>);
-        <span class="macro">assert!</span>(<span class="ident">table</span>.<span class="ident">contains_key</span>(<span class="ident">UNASSIGNED</span>, <span class="kw-2">&amp;</span><span class="ident">successor0</span>.<span class="ident">to_string</span>()));
-        <span class="macro">assert!</span>(<span class="ident">table</span>.<span class="ident">contains_key</span>(<span class="ident">UNASSIGNED</span>, <span class="kw-2">&amp;</span><span class="ident">successor1</span>.<span class="ident">to_string</span>()));
+        .expect(<span class="string">&quot;reader segment completed&quot;</span>);
+        <span class="macro">assert!</span>(table.contains_key(UNASSIGNED, <span class="kw-2">&amp;</span>successor0.to_string()));
+        <span class="macro">assert!</span>(table.contains_key(UNASSIGNED, <span class="kw-2">&amp;</span>successor1.to_string()));
 
-        <span class="ident">ReaderGroupState::assign_segment_to_reader_internal</span>(<span class="kw-2">&amp;mut</span> <span class="ident">table</span>, <span class="kw-2">&amp;</span><span class="ident">READER</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;assign segment to reader&quot;</span>);
-        <span class="ident">ReaderGroupState::assign_segment_to_reader_internal</span>(<span class="kw-2">&amp;mut</span> <span class="ident">table</span>, <span class="kw-2">&amp;</span><span class="ident">READER</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;assign segment to reader&quot;</span>);
+        ReaderGroupState::assign_segment_to_reader_internal(<span class="kw-2">&amp;mut </span>table, <span class="kw-2">&amp;</span>READER)
+            .expect(<span class="string">&quot;assign segment to reader&quot;</span>);
+        ReaderGroupState::assign_segment_to_reader_internal(<span class="kw-2">&amp;mut </span>table, <span class="kw-2">&amp;</span>READER)
+            .expect(<span class="string">&quot;assign segment to reader&quot;</span>);
 
-        <span class="comment">// release segment from reader</span>
-        <span class="kw">let</span> <span class="ident">new_offset</span> <span class="op">=</span> <span class="ident">Offset</span> { <span class="ident">read</span>: <span class="number">10</span> };
-        <span class="ident">ReaderGroupState::release_segment_internal</span>(<span class="kw-2">&amp;mut</span> <span class="ident">table</span>, <span class="kw-2">&amp;</span><span class="ident">READER</span>, <span class="kw-2">&amp;</span><span class="ident">successor0</span>, <span class="kw-2">&amp;</span><span class="ident">new_offset</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;release segment&quot;</span>);
+        <span class="comment">// release segment from reader
+        </span><span class="kw">let </span>new_offset = Offset { read: <span class="number">10 </span>};
+        ReaderGroupState::release_segment_internal(<span class="kw-2">&amp;mut </span>table, <span class="kw-2">&amp;</span>READER, <span class="kw-2">&amp;</span>successor0, <span class="kw-2">&amp;</span>new_offset)
+            .expect(<span class="string">&quot;release segment&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">segments</span> <span class="op">=</span>
-            <span class="ident">ReaderGroupState::get_reader_positions_internal</span>(<span class="kw-2">&amp;</span><span class="ident">READER</span>, <span class="ident">table</span>.<span class="ident">get_inner_map</span>(<span class="ident">ASSIGNED</span>))
-                .<span class="ident">expect</span>(<span class="string">&quot;get reader positions&quot;</span>);
+        <span class="kw">let </span>segments =
+            ReaderGroupState::get_reader_positions_internal(<span class="kw-2">&amp;</span>READER, table.get_inner_map(ASSIGNED))
+                .expect(<span class="string">&quot;get reader positions&quot;</span>);
         <span class="macro">assert_eq!</span>(
-            <span class="ident">segments</span>.<span class="ident">len</span>(),
+            segments.len(),
             <span class="number">1</span>,
-            <span class="string">&quot;reader should contain 1 segment since the other one is released&quot;</span>
-        );
+            <span class="string">&quot;reader should contain 1 segment since the other one is released&quot;
+        </span>);
 
-        <span class="comment">// reader offline</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">segments</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
-        <span class="ident">segments</span>.<span class="ident">insert</span>(<span class="ident">successor0</span>.<span class="ident">clone</span>(), <span class="ident">Offset</span> { <span class="ident">read</span>: <span class="number">0</span> });
-        <span class="ident">segments</span>.<span class="ident">insert</span>(<span class="ident">successor1</span>.<span class="ident">clone</span>(), <span class="ident">Offset</span> { <span class="ident">read</span>: <span class="number">0</span> });
+        <span class="comment">// reader offline
+        </span><span class="kw">let </span><span class="kw-2">mut </span>segments = HashMap::new();
+        segments.insert(successor0.clone(), Offset { read: <span class="number">0 </span>});
+        segments.insert(successor1.clone(), Offset { read: <span class="number">0 </span>});
 
-        <span class="ident">ReaderGroupState::remove_reader_internal</span>(<span class="kw-2">&amp;mut</span> <span class="ident">table</span>, <span class="kw-2">&amp;</span><span class="ident">READER</span>, <span class="kw-2">&amp;</span><span class="ident">segments</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;remove online reader&quot;</span>);
-        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">ReaderGroupState::remove_reader_internal</span>(<span class="kw-2">&amp;mut</span> <span class="ident">table</span>, <span class="kw-2">&amp;</span><span class="ident">READER</span>, <span class="kw-2">&amp;</span><span class="ident">segments</span>)
-            .<span class="ident">expect_err</span>(<span class="string">&quot;Excepted error&quot;</span>);
-        <span class="kw">match</span> <span class="ident">res</span> {
-            <span class="ident">SynchronizerError::SyncPreconditionError</span> { .. } =&gt; {}
-            <span class="kw">_</span> =&gt; <span class="macro">assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;Invalid error returned&quot;</span>),
+        ReaderGroupState::remove_reader_internal(<span class="kw-2">&amp;mut </span>table, <span class="kw-2">&amp;</span>READER, <span class="kw-2">&amp;</span>segments)
+            .expect(<span class="string">&quot;remove online reader&quot;</span>);
+        <span class="kw">let </span>res = ReaderGroupState::remove_reader_internal(<span class="kw-2">&amp;mut </span>table, <span class="kw-2">&amp;</span>READER, <span class="kw-2">&amp;</span>segments)
+            .expect_err(<span class="string">&quot;Excepted error&quot;</span>);
+        <span class="kw">match </span>res {
+            SynchronizerError::SyncPreconditionError { .. } =&gt; {}
+            <span class="kw">_ </span>=&gt; <span class="macro">assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;Invalid error returned&quot;</span>),
         }
-        <span class="macro">assert_eq!</span>(<span class="ident">table</span>.<span class="ident">get_inner_map</span>(<span class="ident">UNASSIGNED</span>).<span class="ident">len</span>(), <span class="number">2</span>);
+        <span class="macro">assert_eq!</span>(table.get_inner_map(UNASSIGNED).len(), <span class="number">2</span>);
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.66.0 (69f9c33d7 2022-12-12)" ></div></body></html>

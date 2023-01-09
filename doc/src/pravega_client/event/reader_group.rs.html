@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/event/reader_group.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>reader_group.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/event/reader_group.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>reader_group.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><div class="width-limiter"><nav class="sub"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -625,632 +625,632 @@
 <span id="625">625</span>
 <span id="626">626</span>
 <span id="627">627</span>
-</pre><pre class="rust"><code><span class="comment">//</span>
-<span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
-<span class="comment">//</span>
-<span class="comment">// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
-<span class="comment">// you may not use this file except in compliance with the License.</span>
-<span class="comment">// You may obtain a copy of the License at</span>
-<span class="comment">//</span>
-<span class="comment">// http://www.apache.org/licenses/LICENSE-2.0</span>
-<span class="comment">//</span>
+</pre><pre class="rust"><code><span class="comment">//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::client_factory::ClientFactoryAsync</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::event::reader::EventReader</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::event::reader_group_state</span>::{<span class="ident">Offset</span>, <span class="ident">ReaderGroupStateError</span>};
+</span><span class="kw">use </span><span class="kw">crate</span>::client_factory::ClientFactoryAsync;
+<span class="kw">use </span><span class="kw">crate</span>::event::reader::EventReader;
+<span class="kw">use </span><span class="kw">crate</span>::event::reader_group_state::{Offset, ReaderGroupStateError};
 
-<span class="kw">use</span> <span class="ident">pravega_client_shared</span>::{<span class="ident">Reader</span>, <span class="ident">Scope</span>, <span class="ident">ScopedSegment</span>, <span class="ident">ScopedStream</span>};
+<span class="kw">use </span>pravega_client_shared::{Reader, Scope, ScopedSegment, ScopedStream};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sync::table::TableError</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sync::Table</span>;
-<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">serde_cbor::Error</span> <span class="kw">as</span> <span class="ident">CborError</span>;
-<span class="kw">use</span> <span class="ident">serde_cbor</span>::{<span class="ident">from_slice</span>, <span class="ident">to_vec</span>};
-<span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
-<span class="kw">use</span> <span class="ident">snafu::Snafu</span>;
-<span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
-<span class="kw">use</span> <span class="ident">tokio::sync::Mutex</span>;
+<span class="kw">use </span><span class="kw">crate</span>::sync::table::TableError;
+<span class="kw">use </span><span class="kw">crate</span>::sync::Table;
+<span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>serde_cbor::Error <span class="kw">as </span>CborError;
+<span class="kw">use </span>serde_cbor::{from_slice, to_vec};
+<span class="kw">use </span>snafu::ResultExt;
+<span class="kw">use </span>snafu::Snafu;
+<span class="kw">use </span>std::collections::HashMap;
+<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>tokio::sync::Mutex;
 
-<span class="macro">cfg_if::cfg_if!</span> {
-    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> {
-        <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::event::reader_group_state::MockReaderGroupState</span> <span class="kw">as</span> <span class="ident">ReaderGroupState</span>;
-    } <span class="kw">else</span> {
-        <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::event::reader_group_state::ReaderGroupState</span>;
+<span class="macro">cfg_if::cfg_if! </span>{
+    <span class="kw">if </span><span class="attribute">#[cfg(test)] </span>{
+        <span class="kw">use </span><span class="kw">crate</span>::event::reader_group_state::MockReaderGroupState <span class="kw">as </span>ReaderGroupState;
+    } <span class="kw">else </span>{
+        <span class="kw">use </span><span class="kw">crate</span>::event::reader_group_state::ReaderGroupState;
     }
 }
 
-<span class="doccomment">/// A collection of readers that collectively read all the events in the stream.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The events are distributed among the readers in the group such that each event goes to only one reader.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The readers in the group may change over time. Readers are added to the group by invoking the</span>
-<span class="doccomment">/// [`ReaderGroup::create_reader`] API.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// [`ReaderGroup::create_reader`]: ReaderGroup::create_reader</span>
-<span class="doccomment">/// # Examples</span>
-<span class="doccomment">/// ```no_run</span>
-<span class="doccomment">/// use pravega_client_config::ClientConfigBuilder;</span>
-<span class="doccomment">/// use pravega_client::client_factory::ClientFactory;</span>
-<span class="doccomment">/// use pravega_client_shared::{ScopedStream, Scope, Stream};</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// #[tokio::main]</span>
-<span class="doccomment">/// async fn main() {</span>
-<span class="doccomment">///    let config = ClientConfigBuilder::default()</span>
-<span class="doccomment">///         .controller_uri(&quot;localhost:8000&quot;)</span>
-<span class="doccomment">///         .build()</span>
-<span class="doccomment">///         .expect(&quot;creating config&quot;);</span>
-<span class="doccomment">///     let client_factory = ClientFactory::new(config);</span>
-<span class="doccomment">///     let stream = ScopedStream {</span>
-<span class="doccomment">///         scope: Scope::from(&quot;scope&quot;.to_string()),</span>
-<span class="doccomment">///         stream: Stream::from(&quot;stream&quot;.to_string()),</span>
-<span class="doccomment">///     };</span>
-<span class="doccomment">///     // Create a reader group to read data from the Pravega stream.</span>
-<span class="doccomment">///     let rg = client_factory.create_reader_group(&quot;rg&quot;.to_string(), stream).await;</span>
-<span class="doccomment">///     // Create a reader under the reader group.</span>
-<span class="doccomment">///     let mut reader1 = rg.create_reader(&quot;r1&quot;.to_string()).await;</span>
-<span class="doccomment">///     let mut reader2 = rg.create_reader(&quot;r2&quot;.to_string()).await;</span>
-<span class="doccomment">///     // EventReader APIs can be used to read events.</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// ```</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ReaderGroup</span> {
-    <span class="kw">pub</span> <span class="ident">name</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">config</span>: <span class="ident">ReaderGroupConfig</span>,
-    <span class="ident">state</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">ReaderGroupState</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">client_factory</span>: <span class="ident">ClientFactoryAsync</span>,
+<span class="doccomment">/// A collection of readers that collectively read all the events in the stream.
+///
+/// The events are distributed among the readers in the group such that each event goes to only one reader.
+///
+/// The readers in the group may change over time. Readers are added to the group by invoking the
+/// [`ReaderGroup::create_reader`] API.
+///
+/// [`ReaderGroup::create_reader`]: ReaderGroup::create_reader
+/// # Examples
+/// ```no_run
+/// use pravega_client_config::ClientConfigBuilder;
+/// use pravega_client::client_factory::ClientFactory;
+/// use pravega_client_shared::{ScopedStream, Scope, Stream};
+///
+/// #[tokio::main]
+/// async fn main() {
+///    let config = ClientConfigBuilder::default()
+///         .controller_uri(&quot;localhost:8000&quot;)
+///         .build()
+///         .expect(&quot;creating config&quot;);
+///     let client_factory = ClientFactory::new(config);
+///     let stream = ScopedStream {
+///         scope: Scope::from(&quot;scope&quot;.to_string()),
+///         stream: Stream::from(&quot;stream&quot;.to_string()),
+///     };
+///     // Create a reader group to read data from the Pravega stream.
+///     let rg = client_factory.create_reader_group(&quot;rg&quot;.to_string(), stream).await;
+///     // Create a reader under the reader group.
+///     let mut reader1 = rg.create_reader(&quot;r1&quot;.to_string()).await;
+///     let mut reader2 = rg.create_reader(&quot;r2&quot;.to_string()).await;
+///     // EventReader APIs can be used to read events.
+/// }
+/// ```
+</span><span class="kw">pub struct </span>ReaderGroup {
+    <span class="kw">pub </span>name: String,
+    <span class="kw">pub </span>config: ReaderGroupConfig,
+    state: Arc&lt;Mutex&lt;ReaderGroupState&gt;&gt;,
+    client_factory: ClientFactoryAsync,
 }
 
-<span class="kw">impl</span> <span class="ident">ReaderGroup</span> {
-    <span class="comment">// This ensures the mock reader group state object is used for unit tests.</span>
-    <span class="macro">cfg_if::cfg_if!</span> {
-        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> {
-            <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_rg_state</span>(
-            <span class="ident">_scope</span>: <span class="ident">Scope</span>,
-            <span class="ident">_name</span>: <span class="ident">String</span>,
-            <span class="ident">_rg_config</span>: <span class="ident">ReaderGroupConfig</span>,
-            <span class="ident">_client_factory</span>: <span class="kw-2">&amp;</span><span class="ident">ClientFactoryAsync</span>,
-            <span class="ident">_init_segments</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span>,
-        ) -&gt; <span class="ident">ReaderGroupState</span> {
-            <span class="ident">ReaderGroupState::default</span>()
+<span class="kw">impl </span>ReaderGroup {
+    <span class="comment">// This ensures the mock reader group state object is used for unit tests.
+    </span><span class="macro">cfg_if::cfg_if! </span>{
+        <span class="kw">if </span><span class="attribute">#[cfg(test)] </span>{
+            <span class="kw">async fn </span>create_rg_state(
+            _scope: Scope,
+            _name: String,
+            _rg_config: ReaderGroupConfig,
+            _client_factory: <span class="kw-2">&amp;</span>ClientFactoryAsync,
+            _init_segments: HashMap&lt;ScopedSegment, Offset&gt;,
+        ) -&gt; ReaderGroupState {
+            ReaderGroupState::default()
             }
-        } <span class="kw">else</span> {
-            <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_rg_state</span> (
-                <span class="ident">scope</span>: <span class="ident">Scope</span>,
-                <span class="ident">name</span>: <span class="ident">String</span>,
-                <span class="ident">rg_config</span>: <span class="ident">ReaderGroupConfig</span>,
-                <span class="ident">client_factory</span>: <span class="kw-2">&amp;</span><span class="ident">ClientFactoryAsync</span>,
-                <span class="ident">init_segments</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span>,
-            ) -&gt; <span class="ident">ReaderGroupState</span> {
-                <span class="ident">ReaderGroupState::new</span>(<span class="ident">scope</span>, <span class="ident">name</span>, <span class="ident">client_factory</span>, <span class="ident">rg_config</span>.<span class="ident">config</span>, <span class="ident">init_segments</span>).<span class="kw">await</span>
-            }
+        } <span class="kw">else </span>{
+            <span class="kw">async fn </span>create_rg_state (
+                scope: Scope,
+                name: String,
+                rg_config: ReaderGroupConfig,
+                client_factory: <span class="kw-2">&amp;</span>ClientFactoryAsync,
+                init_segments: HashMap&lt;ScopedSegment, Offset&gt;,
+            ) -&gt; ReaderGroupState {
+                ReaderGroupState::new(scope, name, client_factory, rg_config.config, init_segments).<span class="kw">await
+            </span>}
         }
     }
 
-    <span class="doccomment">/// Create a reader group that will be used the read events from a provided Pravega stream.</span>
-    <span class="doccomment">/// This function is idempotent and invoking it multiple times does not re-initialize an already</span>
-    <span class="doccomment">/// existing reader group.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create</span>(
-        <span class="ident">scope</span>: <span class="ident">Scope</span>,
-        <span class="ident">name</span>: <span class="ident">String</span>,
-        <span class="ident">rg_config</span>: <span class="ident">ReaderGroupConfig</span>,
-        <span class="ident">client_factory</span>: <span class="ident">ClientFactoryAsync</span>,
-    ) -&gt; <span class="ident">ReaderGroup</span> {
-        <span class="kw">let</span> <span class="ident">streams</span> <span class="op">=</span> <span class="ident">rg_config</span>.<span class="ident">get_start_stream_cuts</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">init_segments</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
+    <span class="doccomment">/// Create a reader group that will be used the read events from a provided Pravega stream.
+    /// This function is idempotent and invoking it multiple times does not re-initialize an already
+    /// existing reader group.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>create(
+        scope: Scope,
+        name: String,
+        rg_config: ReaderGroupConfig,
+        client_factory: ClientFactoryAsync,
+    ) -&gt; ReaderGroup {
+        <span class="kw">let </span>streams = rg_config.get_start_stream_cuts();
+        <span class="kw">let </span><span class="kw-2">mut </span>init_segments: HashMap&lt;ScopedSegment, Offset&gt; = HashMap::new();
 
-        <span class="kw">for</span> (<span class="ident">stream</span>, <span class="ident">stream_cut</span>) <span class="kw">in</span> <span class="ident">streams</span> {
-            <span class="kw">let</span> <span class="ident">meta_client</span> <span class="op">=</span> <span class="ident">client_factory</span>.<span class="ident">create_stream_meta_client</span>(<span class="ident">stream</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">StreamCutVersioned::V1</span>(<span class="ident">sc</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">stream_cut</span> {
-                <span class="ident">StreamCutVersioned::Tail</span> =&gt; <span class="ident">meta_client</span>
-                    .<span class="ident">fetch_current_tail_segments</span>()
-                    .<span class="kw">await</span>
-                    .<span class="ident">expect</span>(<span class="string">&quot;Error while fetching stream&#39;s tail segments to read from&quot;</span>),
-                <span class="comment">// StreamCutVersioned::Unbounded causes Reader group to read from the current head of stream</span>
-                <span class="ident">StreamCutVersioned::Unbounded</span> =&gt; <span class="ident">meta_client</span>
-                    .<span class="ident">fetch_current_head_segments</span>()
-                    .<span class="kw">await</span>
-                    .<span class="ident">expect</span>(<span class="string">&quot;Error while fetching stream&#39;s head segments to read from&quot;</span>),
-                <span class="ident">StreamCutVersioned::V1</span>(<span class="ident">sc1</span>) =&gt; <span class="ident">StreamCutVersioned::V1</span>(<span class="ident">sc1</span>),
+        <span class="kw">for </span>(stream, stream_cut) <span class="kw">in </span>streams {
+            <span class="kw">let </span>meta_client = client_factory.create_stream_meta_client(stream.clone()).<span class="kw">await</span>;
+            <span class="kw">if let </span>StreamCutVersioned::V1(sc) = <span class="kw">match </span>stream_cut {
+                StreamCutVersioned::Tail =&gt; meta_client
+                    .fetch_current_tail_segments()
+                    .<span class="kw">await
+                    </span>.expect(<span class="string">&quot;Error while fetching stream&#39;s tail segments to read from&quot;</span>),
+                <span class="comment">// StreamCutVersioned::Unbounded causes Reader group to read from the current head of stream
+                </span>StreamCutVersioned::Unbounded =&gt; meta_client
+                    .fetch_current_head_segments()
+                    .<span class="kw">await
+                    </span>.expect(<span class="string">&quot;Error while fetching stream&#39;s head segments to read from&quot;</span>),
+                StreamCutVersioned::V1(sc1) =&gt; StreamCutVersioned::V1(sc1),
             } {
-                <span class="kw">let</span> <span class="ident">segments</span> <span class="op">=</span> <span class="ident">sc</span>.<span class="ident">positions</span>;
-                <span class="ident">init_segments</span>.<span class="ident">extend</span>(<span class="ident">segments</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">seg</span>, <span class="ident">off</span>)<span class="op">|</span> (<span class="ident">seg</span>.<span class="ident">clone</span>(), <span class="ident">Offset::new</span>(<span class="kw-2">*</span><span class="ident">off</span>))));
+                <span class="kw">let </span>segments = sc.positions;
+                init_segments.extend(segments.iter().map(|(seg, off)| (seg.clone(), Offset::new(<span class="kw-2">*</span>off))));
             }
         }
-        <span class="kw">let</span> <span class="ident">rg_state</span> <span class="op">=</span> <span class="ident">ReaderGroup::create_rg_state</span>(
-            <span class="ident">scope</span>,
-            <span class="ident">name</span>.<span class="ident">clone</span>(),
-            <span class="ident">rg_config</span>.<span class="ident">clone</span>(),
-            <span class="kw-2">&amp;</span><span class="ident">client_factory</span>,
-            <span class="ident">init_segments</span>,
+        <span class="kw">let </span>rg_state = ReaderGroup::create_rg_state(
+            scope,
+            name.clone(),
+            rg_config.clone(),
+            <span class="kw-2">&amp;</span>client_factory,
+            init_segments,
         )
         .<span class="kw">await</span>;
-        <span class="ident">ReaderGroup</span> {
-            <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">clone</span>(),
-            <span class="ident">config</span>: <span class="ident">rg_config</span>.<span class="ident">clone</span>(),
-            <span class="ident">state</span>: <span class="ident">Arc::new</span>(<span class="ident">Mutex::new</span>(<span class="ident">rg_state</span>)),
-            <span class="ident">client_factory</span>,
+        ReaderGroup {
+            name: name.clone(),
+            config: rg_config.clone(),
+            state: Arc::new(Mutex::new(rg_state)),
+            client_factory,
         }
     }
 
-    <span class="doccomment">/// Delete a reader group.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">delete</span>(
-        <span class="ident">scope</span>: <span class="ident">Scope</span>,
-        <span class="ident">name</span>: <span class="ident">String</span>,
-        <span class="ident">client_factory</span>: <span class="ident">ClientFactoryAsync</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TableError</span><span class="op">&gt;</span> {
-        <span class="ident">Table::delete</span>(<span class="ident">scope</span>, <span class="ident">name</span>, <span class="ident">client_factory</span>).<span class="kw">await</span>
-    }
+    <span class="doccomment">/// Delete a reader group.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>delete(
+        scope: Scope,
+        name: String,
+        client_factory: ClientFactoryAsync,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), TableError&gt; {
+        Table::delete(scope, name, client_factory).<span class="kw">await
+    </span>}
 
-    <span class="doccomment">/// Create a new EventReader under the ReaderGroup. This method panics if the reader is</span>
-    <span class="doccomment">/// already part of the reader group.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Examples</span>
-    <span class="doccomment">/// ```ignore</span>
-    <span class="doccomment">/// let rg = client_factory.create_reader_group(scope, &quot;rg&quot;.to_string(), stream).await;</span>
-    <span class="doccomment">/// let reader = rg.create_reader(&quot;reader&quot;.to_string()).await;</span>
-    <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_reader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">reader_id</span>: <span class="ident">String</span>) -&gt; <span class="ident">EventReader</span> {
-        <span class="kw">let</span> <span class="ident">r</span>: <span class="ident">Reader</span> <span class="op">=</span> <span class="ident">reader_id</span>.<span class="ident">into</span>();
-        <span class="self">self</span>.<span class="ident">state</span>
-            .<span class="ident">lock</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">add_reader</span>(<span class="kw-2">&amp;</span><span class="ident">r</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">expect</span>(<span class="string">&quot;Error while creating the reader&quot;</span>);
-        <span class="ident">EventReader::init_reader</span>(<span class="ident">r</span>.<span class="ident">name</span>, <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">clone</span>(), <span class="self">self</span>.<span class="ident">client_factory</span>.<span class="ident">clone</span>()).<span class="kw">await</span>
-    }
+    <span class="doccomment">/// Create a new EventReader under the ReaderGroup. This method panics if the reader is
+    /// already part of the reader group.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// let rg = client_factory.create_reader_group(scope, &quot;rg&quot;.to_string(), stream).await;
+    /// let reader = rg.create_reader(&quot;reader&quot;.to_string()).await;
+    /// ```
+    </span><span class="kw">pub async fn </span>create_reader(<span class="kw-2">&amp;</span><span class="self">self</span>, reader_id: String) -&gt; EventReader {
+        <span class="kw">let </span>r: Reader = reader_id.into();
+        <span class="self">self</span>.state
+            .lock()
+            .<span class="kw">await
+            </span>.add_reader(<span class="kw-2">&amp;</span>r)
+            .<span class="kw">await
+            </span>.expect(<span class="string">&quot;Error while creating the reader&quot;</span>);
+        EventReader::init_reader(r.name, <span class="self">self</span>.state.clone(), <span class="self">self</span>.client_factory.clone()).<span class="kw">await
+    </span>}
 
-    <span class="doccomment">/// Returns the readers which are currently online.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">list_readers</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Reader</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">lock</span>().<span class="kw">await</span>.<span class="ident">get_online_readers</span>().<span class="kw">await</span>
-    }
+    <span class="doccomment">/// Returns the readers which are currently online.
+    </span><span class="kw">pub async fn </span>list_readers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;Reader&gt; {
+        <span class="self">self</span>.state.lock().<span class="kw">await</span>.get_online_readers().<span class="kw">await
+    </span>}
 
-    <span class="doccomment">/// Removes a reader from the reader group. (Because it is offline)</span>
-    <span class="doccomment">/// Normally, readers shutdown gracefully by calling `reader_offline` on the reader itself.</span>
-    <span class="doccomment">/// However, if the process dies, this provides an alternative way to shutdown the reader.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// `last_position` is a map containing the last offsets processed by the reader. There is no requirement for</span>
-    <span class="doccomment">/// the map to be complete, or even non-empty. If a segment is missing, the last known value will be</span>
-    <span class="doccomment">/// assumed.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The application can persist the full scoped segment and offset by using the SegmentSlice and the Event</span>
-    <span class="doccomment">/// obtained while iterating over the SegmentSlice.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// If the reader is already offline, this method will have no effect.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">reader_offline</span>(
+    <span class="doccomment">/// Removes a reader from the reader group. (Because it is offline)
+    /// Normally, readers shutdown gracefully by calling `reader_offline` on the reader itself.
+    /// However, if the process dies, this provides an alternative way to shutdown the reader.
+    ///
+    /// `last_position` is a map containing the last offsets processed by the reader. There is no requirement for
+    /// the map to be complete, or even non-empty. If a segment is missing, the last known value will be
+    /// assumed.
+    ///
+    /// The application can persist the full scoped segment and offset by using the SegmentSlice and the Event
+    /// obtained while iterating over the SegmentSlice.
+    ///
+    ///
+    /// If the reader is already offline, this method will have no effect.
+    </span><span class="kw">pub async fn </span>reader_offline(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">reader_id</span>: <span class="ident">String</span>,
-        <span class="ident">last_position</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">i64</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ReaderGroupStateError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">r</span>: <span class="ident">Reader</span> <span class="op">=</span> <span class="ident">reader_id</span>.<span class="ident">into</span>();
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">mut</span> <span class="ident">position</span>) <span class="op">=</span> <span class="ident">last_position</span> {
-            <span class="kw">let</span> <span class="ident">offset_map</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">Offset</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">position</span>
-                .<span class="ident">drain</span>()
-                .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">seg</span>, <span class="ident">pos</span>)<span class="op">|</span> (<span class="ident">ScopedSegment::from</span>(<span class="ident">seg</span>.<span class="ident">as_str</span>()), <span class="ident">Offset::new</span>(<span class="ident">pos</span>)))
-                .<span class="ident">collect</span>();
-            <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">lock</span>().<span class="kw">await</span>.<span class="ident">remove_reader</span>(<span class="kw-2">&amp;</span><span class="ident">r</span>, <span class="ident">offset_map</span>).<span class="kw">await</span>
-        } <span class="kw">else</span> {
-            <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">lock</span>().<span class="kw">await</span>.<span class="ident">remove_reader_default</span>(<span class="kw-2">&amp;</span><span class="ident">r</span>).<span class="kw">await</span>
-        }
+        reader_id: String,
+        last_position: <span class="prelude-ty">Option</span>&lt;HashMap&lt;String, i64&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ReaderGroupStateError&gt; {
+        <span class="kw">let </span>r: Reader = reader_id.into();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>position) = last_position {
+            <span class="kw">let </span>offset_map: HashMap&lt;ScopedSegment, Offset&gt; = position
+                .drain()
+                .map(|(seg, pos)| (ScopedSegment::from(seg.as_str()), Offset::new(pos)))
+                .collect();
+            <span class="self">self</span>.state.lock().<span class="kw">await</span>.remove_reader(<span class="kw-2">&amp;</span>r, offset_map).<span class="kw">await
+        </span>} <span class="kw">else </span>{
+            <span class="self">self</span>.state.lock().<span class="kw">await</span>.remove_reader_default(<span class="kw-2">&amp;</span>r).<span class="kw">await
+        </span>}
     }
 
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Return the managed Streams by the ReaderGroup.</span>
-    <span class="doccomment">///</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_managed_streams</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">ScopedStream</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">get_streams</span>()
+    <span class="doccomment">///
+    /// Return the managed Streams by the ReaderGroup.
+    ///
+    </span><span class="kw">pub fn </span>get_managed_streams(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;ScopedStream&gt; {
+        <span class="self">self</span>.config.get_streams()
     }
 }
 
-<span class="doccomment">/// Specifies the ReaderGroupConfig.</span>
-<span class="doccomment">/// ReaderGroupConfig::default() ensures the group refresh interval is set to 3 seconds.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">PartialEq</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ReaderGroupConfig</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">config</span>: <span class="ident">ReaderGroupConfigVersioned</span>,
+<span class="doccomment">/// Specifies the ReaderGroupConfig.
+/// ReaderGroupConfig::default() ensures the group refresh interval is set to 3 seconds.
+</span><span class="attribute">#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+</span><span class="kw">pub struct </span>ReaderGroupConfig {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) config: ReaderGroupConfigVersioned,
 }
 
-<span class="kw">impl</span> <span class="ident">ReaderGroupConfig</span> {
-    <span class="doccomment">/// Create a new ReaderGroupConfig by specifying the group refresh interval in millis.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">group_refresh_time_millis</span>: <span class="ident">u64</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">conf_v1</span> <span class="op">=</span> <span class="ident">ReaderGroupConfigV1</span> {
-            <span class="ident">group_refresh_time_millis</span>,
-            <span class="ident">starting_stream_cuts</span>: <span class="ident">HashMap::new</span>(),
-            <span class="ident">ending_stream_cuts</span>: <span class="ident">HashMap::new</span>(),
+<span class="kw">impl </span>ReaderGroupConfig {
+    <span class="doccomment">/// Create a new ReaderGroupConfig by specifying the group refresh interval in millis.
+    </span><span class="kw">pub fn </span>new(group_refresh_time_millis: u64) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>conf_v1 = ReaderGroupConfigV1 {
+            group_refresh_time_millis,
+            starting_stream_cuts: HashMap::new(),
+            ending_stream_cuts: HashMap::new(),
         };
-        <span class="ident">ReaderGroupConfig</span> {
-            <span class="ident">config</span>: <span class="ident">ReaderGroupConfigVersioned::V1</span>(<span class="ident">conf_v1</span>),
+        ReaderGroupConfig {
+            config: ReaderGroupConfigVersioned::V1(conf_v1),
         }
     }
 
-    <span class="doccomment">/// Method to serialize the ReaderGroupConfig into bytes.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">SerdeError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">to_bytes</span>()
+    <span class="doccomment">/// Method to serialize the ReaderGroupConfig into bytes.
+    </span><span class="kw">pub fn </span>to_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, SerdeError&gt; {
+        <span class="self">self</span>.config.to_bytes()
     }
 
-    <span class="doccomment">/// Method to de-serialize the ReaderGroupConfig object from bytes.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_bytes</span>(<span class="ident">input</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">SerdeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">decoded</span> <span class="op">=</span> <span class="ident">ReaderGroupConfigVersioned::from_bytes</span>(<span class="ident">input</span>);
-        <span class="ident">decoded</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">config</span><span class="op">|</span> <span class="ident">ReaderGroupConfig</span> { <span class="ident">config</span> })
+    <span class="doccomment">/// Method to de-serialize the ReaderGroupConfig object from bytes.
+    </span><span class="kw">pub fn </span>from_bytes(input: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SerdeError&gt; {
+        <span class="kw">let </span>decoded = ReaderGroupConfigVersioned::from_bytes(input);
+        decoded.map(|config| ReaderGroupConfig { config })
     }
 
-    <span class="doccomment">/// Method to obtain the streams in a ReaderGroupConfig.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_streams</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">ScopedStream</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">ReaderGroupConfigVersioned::V1</span>(<span class="ident">v1</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">config</span>;
-        <span class="ident">v1</span>.<span class="ident">starting_stream_cuts</span>
-            .<span class="ident">keys</span>()
-            .<span class="ident">cloned</span>()
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">ScopedStream</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+    <span class="doccomment">/// Method to obtain the streams in a ReaderGroupConfig.
+    </span><span class="kw">pub fn </span>get_streams(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;ScopedStream&gt; {
+        <span class="kw">let </span>ReaderGroupConfigVersioned::V1(v1) = <span class="kw-2">&amp;</span><span class="self">self</span>.config;
+        v1.starting_stream_cuts
+            .keys()
+            .cloned()
+            .collect::&lt;Vec&lt;ScopedStream&gt;&gt;()
     }
 
-    <span class="doccomment">/// Method to obtain the streams and start Streamcut in a ReaderGroupConfig.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_start_stream_cuts</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedStream</span>, <span class="ident">StreamCutVersioned</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">ReaderGroupConfigVersioned::V1</span>(<span class="ident">v1</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">config</span>;
-        <span class="ident">v1</span>.<span class="ident">starting_stream_cuts</span>.<span class="ident">clone</span>()
+    <span class="doccomment">/// Method to obtain the streams and start Streamcut in a ReaderGroupConfig.
+    </span><span class="kw">pub fn </span>get_start_stream_cuts(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HashMap&lt;ScopedStream, StreamCutVersioned&gt; {
+        <span class="kw">let </span>ReaderGroupConfigVersioned::V1(v1) = <span class="kw-2">&amp;</span><span class="self">self</span>.config;
+        v1.starting_stream_cuts.clone()
     }
 }
 
-<span class="doccomment">///</span>
-<span class="doccomment">/// Builder used to build the ReaderGroup Config. The reader group refresh time is 3 seconds.</span>
-<span class="doccomment">///</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ReaderGroupConfigBuilder</span> {
-    <span class="ident">group_refresh_time_millis</span>: <span class="ident">u64</span>,
-    <span class="ident">starting_stream_cuts</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedStream</span>, <span class="ident">StreamCutVersioned</span><span class="op">&gt;</span>,
+<span class="doccomment">///
+/// Builder used to build the ReaderGroup Config. The reader group refresh time is 3 seconds.
+///
+</span><span class="kw">pub struct </span>ReaderGroupConfigBuilder {
+    group_refresh_time_millis: u64,
+    starting_stream_cuts: HashMap&lt;ScopedStream, StreamCutVersioned&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">ReaderGroupConfigBuilder</span> {
-    <span class="doccomment">/// Set reader group refresh time.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_group_refresh_time</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">group_refresh_time_millis</span>: <span class="ident">u64</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">group_refresh_time_millis</span> <span class="op">=</span> <span class="ident">group_refresh_time_millis</span>;
-        <span class="self">self</span>
+<span class="kw">impl </span>ReaderGroupConfigBuilder {
+    <span class="doccomment">/// Set reader group refresh time.
+    </span><span class="kw">pub fn </span>set_group_refresh_time(<span class="kw-2">&amp;mut </span><span class="self">self</span>, group_refresh_time_millis: u64) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.group_refresh_time_millis = group_refresh_time_millis;
+        <span class="self">self
+    </span>}
+
+    <span class="doccomment">/// Add a Pravega Stream to the reader group which will be read from Current HEAD/start of the stream.
+    </span><span class="kw">pub fn </span>add_stream(<span class="kw-2">&amp;mut </span><span class="self">self</span>, stream: ScopedStream) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.read_from_head_of_stream(stream)
     }
 
-    <span class="doccomment">/// Add a Pravega Stream to the reader group which will be read from Current HEAD/start of the stream.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_stream</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">stream</span>: <span class="ident">ScopedStream</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">read_from_head_of_stream</span>(<span class="ident">stream</span>)
-    }
+    <span class="doccomment">/// Add a Pravega Stream to the reader group which will be read from Current HEAD/start of the stream.
+    </span><span class="kw">pub fn </span>read_from_head_of_stream(<span class="kw-2">&amp;mut </span><span class="self">self</span>, stream: ScopedStream) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.starting_stream_cuts
+            .insert(stream, StreamCutVersioned::Unbounded);
+        <span class="self">self
+    </span>}
 
-    <span class="doccomment">/// Add a Pravega Stream to the reader group which will be read from Current HEAD/start of the stream.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read_from_head_of_stream</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">stream</span>: <span class="ident">ScopedStream</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">starting_stream_cuts</span>
-            .<span class="ident">insert</span>(<span class="ident">stream</span>, <span class="ident">StreamCutVersioned::Unbounded</span>);
-        <span class="self">self</span>
-    }
+    <span class="doccomment">/// Add a Pravega Stream to the reader group which will be read from Current TAIL/end of the stream.
+    </span><span class="kw">pub fn </span>read_from_tail_of_stream(<span class="kw-2">&amp;mut </span><span class="self">self</span>, stream: ScopedStream) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.starting_stream_cuts.insert(stream, StreamCutVersioned::Tail);
+        <span class="self">self
+    </span>}
 
-    <span class="doccomment">/// Add a Pravega Stream to the reader group which will be read from Current TAIL/end of the stream.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read_from_tail_of_stream</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">stream</span>: <span class="ident">ScopedStream</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">starting_stream_cuts</span>.<span class="ident">insert</span>(<span class="ident">stream</span>, <span class="ident">StreamCutVersioned::Tail</span>);
-        <span class="self">self</span>
-    }
+    <span class="doccomment">/// Add a Pravega Stream to the reader group which will be read from the provided StreamCut.
+    </span><span class="kw">pub fn </span>read_from_stream(<span class="kw-2">&amp;mut </span><span class="self">self</span>, stream: ScopedStream, stream_cut: StreamCutVersioned) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.starting_stream_cuts.insert(stream, stream_cut);
+        <span class="self">self
+    </span>}
 
-    <span class="doccomment">/// Add a Pravega Stream to the reader group which will be read from the provided StreamCut.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read_from_stream</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">stream</span>: <span class="ident">ScopedStream</span>, <span class="ident">stream_cut</span>: <span class="ident">StreamCutVersioned</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">starting_stream_cuts</span>.<span class="ident">insert</span>(<span class="ident">stream</span>, <span class="ident">stream_cut</span>);
-        <span class="self">self</span>
-    }
-
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Build a ReaderGroupConfig object.</span>
-    <span class="doccomment">/// This method panics for invalid configuration.</span>
-    <span class="doccomment">///</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">build</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">ReaderGroupConfig</span> {
+    <span class="doccomment">///
+    /// Build a ReaderGroupConfig object.
+    /// This method panics for invalid configuration.
+    ///
+    </span><span class="kw">pub fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ReaderGroupConfig {
         <span class="macro">assert!</span>(
-            <span class="op">!</span><span class="self">self</span>.<span class="ident">starting_stream_cuts</span>.<span class="ident">is_empty</span>(),
-            <span class="string">&quot;Atleast 1 stream should be part of the reader group config&quot;</span>
+            !<span class="self">self</span>.starting_stream_cuts.is_empty(),
+            <span class="string">&quot;Atleast 1 stream should be part of the reader group config&quot;
+        </span>);
+        ReaderGroupConfig {
+            config: ReaderGroupConfigVersioned::V1(ReaderGroupConfigV1 {
+                group_refresh_time_millis: <span class="self">self</span>.group_refresh_time_millis,
+                starting_stream_cuts: <span class="self">self</span>.starting_stream_cuts.clone(),
+                ending_stream_cuts: Default::default(), <span class="comment">// This will be extended when bounded processing is enabled.
+            </span>}),
+        }
+    }
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>ReaderGroupConfigBuilder {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            group_refresh_time_millis: <span class="number">3000</span>,
+            starting_stream_cuts: Default::default(),
+        }
+    }
+}
+
+<span class="doccomment">/// ReaderGroupConfigVersioned enum contains all versions of Position struct
+</span><span class="attribute">#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>ReaderGroupConfigVersioned {
+    V1(ReaderGroupConfigV1),
+}
+
+<span class="kw">impl </span>ReaderGroupConfigVersioned {
+    <span class="kw">fn </span>to_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, SerdeError&gt; {
+        <span class="kw">let </span>encoded = to_vec(<span class="kw-2">&amp;</span><span class="self">self</span>).context(Cbor {
+            msg: <span class="string">&quot;serialize ReaderGroupConfigVersioned&quot;</span>.to_owned(),
+        })<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(encoded)
+    }
+
+    <span class="kw">fn </span>from_bytes(input: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;ReaderGroupConfigVersioned, SerdeError&gt; {
+        <span class="kw">let </span>decoded: ReaderGroupConfigVersioned = from_slice(input).context(Cbor {
+            msg: <span class="string">&quot;serialize ReaderGroupConfigVersioned&quot;</span>.to_owned(),
+        })<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(decoded)
+    }
+}
+
+<span class="attribute">#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>ReaderGroupConfigV1 {
+    <span class="doccomment">/// maximum delay by which the readers return the latest read offsets of their
+    /// assigned segments.
+    </span>group_refresh_time_millis: u64,
+    starting_stream_cuts: HashMap&lt;ScopedStream, StreamCutVersioned&gt;,
+    ending_stream_cuts: HashMap&lt;ScopedStream, StreamCutVersioned&gt;,
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>ReaderGroupConfigV1 {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new()
+    }
+}
+
+<span class="kw">impl </span>ReaderGroupConfigV1 {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
+        ReaderGroupConfigV1 {
+            group_refresh_time_millis: <span class="number">3000</span>,
+            starting_stream_cuts: HashMap::new(),
+            ending_stream_cuts: HashMap::new(),
+        }
+    }
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stream(
+        <span class="kw-2">mut </span><span class="self">self</span>,
+        stream: ScopedStream,
+        starting_stream_cuts: <span class="prelude-ty">Option</span>&lt;StreamCutVersioned&gt;,
+        ending_stream_cuts: <span class="prelude-ty">Option</span>&lt;StreamCutVersioned&gt;,
+    ) -&gt; ReaderGroupConfigV1 {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(cut) = starting_stream_cuts {
+            <span class="self">self</span>.starting_stream_cuts.insert(stream.clone(), cut);
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.starting_stream_cuts
+                .insert(stream.clone(), StreamCutVersioned::Unbounded);
+        }
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(cut) = ending_stream_cuts {
+            <span class="self">self</span>.ending_stream_cuts.insert(stream, cut);
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.ending_stream_cuts
+                .insert(stream, StreamCutVersioned::Unbounded);
+        }
+
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>start_from_stream_cuts(
+        <span class="kw-2">mut </span><span class="self">self</span>,
+        stream_cuts: HashMap&lt;ScopedStream, StreamCutVersioned&gt;,
+    ) -&gt; ReaderGroupConfigV1 {
+        <span class="self">self</span>.starting_stream_cuts = stream_cuts;
+        <span class="self">self
+    </span>}
+}
+
+<span class="doccomment">/// StreamCutVersioned enum contains all versions of StreamCut struct
+</span><span class="attribute">#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+</span><span class="kw">pub enum </span>StreamCutVersioned {
+    V1(StreamCutV1),
+    Unbounded,
+    Tail,
+}
+
+<span class="kw">impl </span>StreamCutVersioned {
+    <span class="kw">fn </span>to_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, SerdeError&gt; {
+        <span class="kw">let </span>encoded = to_vec(<span class="kw-2">&amp;</span><span class="self">self</span>).context(Cbor {
+            msg: <span class="string">&quot;serialize StreamCutVersioned&quot;</span>.to_owned(),
+        })<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(encoded)
+    }
+
+    <span class="kw">fn </span>from_bytes(input: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;StreamCutVersioned, SerdeError&gt; {
+        <span class="kw">let </span>decoded: StreamCutVersioned = from_slice(input).context(Cbor {
+            msg: <span class="string">&quot;serialize StreamCutVersioned&quot;</span>.to_owned(),
+        })<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(decoded)
+    }
+}
+
+<span class="doccomment">/// A set of segment/offset pairs for a single stream that represent a consistent position in the
+/// stream. (IE: Segment 1 and 2 will not both appear in the set if 2 succeeds 1, and if 0 appears
+/// and is responsible for keyspace 0-0.5 then other segments covering the range 0.5-1.0 will also be
+/// included.)
+</span><span class="attribute">#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+</span><span class="kw">pub struct </span>StreamCutV1 {
+    stream: ScopedStream,
+    positions: HashMap&lt;ScopedSegment, i64&gt;,
+}
+
+<span class="kw">impl </span>StreamCutV1 {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(stream: ScopedStream, positions: HashMap&lt;ScopedSegment, i64&gt;) -&gt; <span class="self">Self </span>{
+        StreamCutV1 { stream, positions }
+    }
+
+    <span class="doccomment">/// gets a clone of the internal scoped stream
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_stream(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ScopedStream {
+        <span class="self">self</span>.stream.clone()
+    }
+
+    <span class="doccomment">/// gets a clone of the internal positions
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_positions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HashMap&lt;ScopedSegment, i64&gt; {
+        <span class="self">self</span>.positions.clone()
+    }
+}
+
+<span class="attribute">#[derive(Debug, Snafu)]
+</span><span class="kw">pub enum </span>SerdeError {
+    <span class="attribute">#[snafu(display(<span class="string">&quot;Failed to {:?} due to {:?}&quot;</span>, msg, source))]
+    </span>Cbor { msg: String, source: CborError },
+}
+
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span><span class="kw">crate</span>::client_factory::ClientFactory;
+    <span class="kw">use </span><span class="kw">crate</span>::event::reader_group::ReaderGroupConfigBuilder;
+    <span class="kw">use </span><span class="kw">crate</span>::event::reader_group_state::ReaderGroupStateError;
+    <span class="kw">use </span><span class="kw">crate</span>::sync::synchronizer::SynchronizerError::SyncUpdateError;
+    <span class="kw">use </span>pravega_client_config::ClientConfigBuilder;
+    <span class="kw">use </span>pravega_client_config::MOCK_CONTROLLER_URI;
+    <span class="kw">use </span>pravega_client_shared::{Segment, Stream};
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_stream_cut_serde() {
+        <span class="kw">let </span>scope = Scope::from(<span class="string">&quot;scope&quot;</span>.to_owned());
+        <span class="kw">let </span>stream = Stream::from(<span class="string">&quot;stream&quot;</span>.to_owned());
+        <span class="kw">let </span>scoped_stream = ScopedStream::new(scope.clone(), stream.clone());
+        <span class="kw">let </span><span class="kw-2">mut </span>positions = HashMap::new();
+
+        <span class="kw">let </span>segment0 = ScopedSegment::new(scope.clone(), stream.clone(), Segment::from(<span class="number">0</span>));
+        <span class="kw">let </span>segment1 = ScopedSegment::new(scope, stream, Segment::from(<span class="number">1</span>));
+
+        positions.insert(segment0, <span class="number">0</span>);
+        positions.insert(segment1, <span class="number">100</span>);
+
+        <span class="kw">let </span>v1 = StreamCutV1::new(scoped_stream, positions);
+        <span class="kw">let </span>stream_cut = StreamCutVersioned::V1(v1.clone());
+
+        <span class="kw">let </span>encoded = stream_cut.to_bytes().expect(<span class="string">&quot;encode to byte array&quot;</span>);
+        <span class="kw">let </span>decoded = StreamCutVersioned::from_bytes(<span class="kw-2">&amp;</span>encoded).expect(<span class="string">&quot;decode from byte array&quot;</span>);
+        <span class="macro">assert_eq!</span>(StreamCutVersioned::V1(v1), decoded);
+    }
+
+    <span class="comment">// test to validate creation of an already existing reader.
+    </span><span class="attribute">#[test]
+    #[should_panic]
+    </span><span class="kw">fn </span>test_create_reader_error() {
+        <span class="kw">let </span>client_factory = ClientFactory::new(
+            ClientConfigBuilder::default()
+                .controller_uri(MOCK_CONTROLLER_URI)
+                .build()
+                .unwrap(),
         );
-        <span class="ident">ReaderGroupConfig</span> {
-            <span class="ident">config</span>: <span class="ident">ReaderGroupConfigVersioned::V1</span>(<span class="ident">ReaderGroupConfigV1</span> {
-                <span class="ident">group_refresh_time_millis</span>: <span class="self">self</span>.<span class="ident">group_refresh_time_millis</span>,
-                <span class="ident">starting_stream_cuts</span>: <span class="self">self</span>.<span class="ident">starting_stream_cuts</span>.<span class="ident">clone</span>(),
-                <span class="ident">ending_stream_cuts</span>: <span class="ident">Default::default</span>(), <span class="comment">// This will be extended when bounded processing is enabled.</span>
-            }),
-        }
-    }
-}
+        <span class="kw">let </span><span class="kw-2">mut </span>mock_rg_state = ReaderGroupState::default();
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">ReaderGroupConfigBuilder</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">group_refresh_time_millis</span>: <span class="number">3000</span>,
-            <span class="ident">starting_stream_cuts</span>: <span class="ident">Default::default</span>(),
-        }
-    }
-}
-
-<span class="doccomment">/// ReaderGroupConfigVersioned enum contains all versions of Position struct</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">PartialEq</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum</span> <span class="ident">ReaderGroupConfigVersioned</span> {
-    <span class="ident">V1</span>(<span class="ident">ReaderGroupConfigV1</span>),
-}
-
-<span class="kw">impl</span> <span class="ident">ReaderGroupConfigVersioned</span> {
-    <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">SerdeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">encoded</span> <span class="op">=</span> <span class="ident">to_vec</span>(<span class="kw-2">&amp;</span><span class="self">self</span>).<span class="ident">context</span>(<span class="ident">Cbor</span> {
-            <span class="ident">msg</span>: <span class="string">&quot;serialize ReaderGroupConfigVersioned&quot;</span>.<span class="ident">to_owned</span>(),
-        })<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">encoded</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">from_bytes</span>(<span class="ident">input</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ReaderGroupConfigVersioned</span>, <span class="ident">SerdeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">decoded</span>: <span class="ident">ReaderGroupConfigVersioned</span> <span class="op">=</span> <span class="ident">from_slice</span>(<span class="ident">input</span>).<span class="ident">context</span>(<span class="ident">Cbor</span> {
-            <span class="ident">msg</span>: <span class="string">&quot;serialize ReaderGroupConfigVersioned&quot;</span>.<span class="ident">to_owned</span>(),
-        })<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">decoded</span>)
-    }
-}
-
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">PartialEq</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">ReaderGroupConfigV1</span> {
-    <span class="doccomment">/// maximum delay by which the readers return the latest read offsets of their</span>
-    <span class="doccomment">/// assigned segments.</span>
-    <span class="ident">group_refresh_time_millis</span>: <span class="ident">u64</span>,
-    <span class="ident">starting_stream_cuts</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedStream</span>, <span class="ident">StreamCutVersioned</span><span class="op">&gt;</span>,
-    <span class="ident">ending_stream_cuts</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedStream</span>, <span class="ident">StreamCutVersioned</span><span class="op">&gt;</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">ReaderGroupConfigV1</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::new</span>()
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">ReaderGroupConfigV1</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident">ReaderGroupConfigV1</span> {
-            <span class="ident">group_refresh_time_millis</span>: <span class="number">3000</span>,
-            <span class="ident">starting_stream_cuts</span>: <span class="ident">HashMap::new</span>(),
-            <span class="ident">ending_stream_cuts</span>: <span class="ident">HashMap::new</span>(),
-        }
-    }
-
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">stream</span>(
-        <span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">stream</span>: <span class="ident">ScopedStream</span>,
-        <span class="ident">starting_stream_cuts</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">StreamCutVersioned</span><span class="op">&gt;</span>,
-        <span class="ident">ending_stream_cuts</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">StreamCutVersioned</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">ReaderGroupConfigV1</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">cut</span>) <span class="op">=</span> <span class="ident">starting_stream_cuts</span> {
-            <span class="self">self</span>.<span class="ident">starting_stream_cuts</span>.<span class="ident">insert</span>(<span class="ident">stream</span>.<span class="ident">clone</span>(), <span class="ident">cut</span>);
-        } <span class="kw">else</span> {
-            <span class="self">self</span>.<span class="ident">starting_stream_cuts</span>
-                .<span class="ident">insert</span>(<span class="ident">stream</span>.<span class="ident">clone</span>(), <span class="ident">StreamCutVersioned::Unbounded</span>);
-        }
-
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">cut</span>) <span class="op">=</span> <span class="ident">ending_stream_cuts</span> {
-            <span class="self">self</span>.<span class="ident">ending_stream_cuts</span>.<span class="ident">insert</span>(<span class="ident">stream</span>, <span class="ident">cut</span>);
-        } <span class="kw">else</span> {
-            <span class="self">self</span>.<span class="ident">ending_stream_cuts</span>
-                .<span class="ident">insert</span>(<span class="ident">stream</span>, <span class="ident">StreamCutVersioned::Unbounded</span>);
-        }
-
-        <span class="self">self</span>
-    }
-
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">start_from_stream_cuts</span>(
-        <span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">stream_cuts</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedStream</span>, <span class="ident">StreamCutVersioned</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">ReaderGroupConfigV1</span> {
-        <span class="self">self</span>.<span class="ident">starting_stream_cuts</span> <span class="op">=</span> <span class="ident">stream_cuts</span>;
-        <span class="self">self</span>
-    }
-}
-
-<span class="doccomment">/// StreamCutVersioned enum contains all versions of StreamCut struct</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">PartialEq</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">StreamCutVersioned</span> {
-    <span class="ident">V1</span>(<span class="ident">StreamCutV1</span>),
-    <span class="ident">Unbounded</span>,
-    <span class="ident">Tail</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">StreamCutVersioned</span> {
-    <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">SerdeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">encoded</span> <span class="op">=</span> <span class="ident">to_vec</span>(<span class="kw-2">&amp;</span><span class="self">self</span>).<span class="ident">context</span>(<span class="ident">Cbor</span> {
-            <span class="ident">msg</span>: <span class="string">&quot;serialize StreamCutVersioned&quot;</span>.<span class="ident">to_owned</span>(),
-        })<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">encoded</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">from_bytes</span>(<span class="ident">input</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">StreamCutVersioned</span>, <span class="ident">SerdeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">decoded</span>: <span class="ident">StreamCutVersioned</span> <span class="op">=</span> <span class="ident">from_slice</span>(<span class="ident">input</span>).<span class="ident">context</span>(<span class="ident">Cbor</span> {
-            <span class="ident">msg</span>: <span class="string">&quot;serialize StreamCutVersioned&quot;</span>.<span class="ident">to_owned</span>(),
-        })<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">decoded</span>)
-    }
-}
-
-<span class="doccomment">/// A set of segment/offset pairs for a single stream that represent a consistent position in the</span>
-<span class="doccomment">/// stream. (IE: Segment 1 and 2 will not both appear in the set if 2 succeeds 1, and if 0 appears</span>
-<span class="doccomment">/// and is responsible for keyspace 0-0.5 then other segments covering the range 0.5-1.0 will also be</span>
-<span class="doccomment">/// included.)</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">PartialEq</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">StreamCutV1</span> {
-    <span class="ident">stream</span>: <span class="ident">ScopedStream</span>,
-    <span class="ident">positions</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">i64</span><span class="op">&gt;</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">StreamCutV1</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">stream</span>: <span class="ident">ScopedStream</span>, <span class="ident">positions</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">i64</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">StreamCutV1</span> { <span class="ident">stream</span>, <span class="ident">positions</span> }
-    }
-
-    <span class="doccomment">/// gets a clone of the internal scoped stream</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_stream</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">ScopedStream</span> {
-        <span class="self">self</span>.<span class="ident">stream</span>.<span class="ident">clone</span>()
-    }
-
-    <span class="doccomment">/// gets a clone of the internal positions</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_positions</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ScopedSegment</span>, <span class="ident">i64</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">positions</span>.<span class="ident">clone</span>()
-    }
-}
-
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Snafu</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">SerdeError</span> {
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Failed to {:?} due to {:?}&quot;</span>, <span class="ident">msg</span>, <span class="ident">source</span>))]</span>
-    <span class="ident">Cbor</span> { <span class="ident">msg</span>: <span class="ident">String</span>, <span class="ident">source</span>: <span class="ident">CborError</span> },
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::client_factory::ClientFactory</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::event::reader_group::ReaderGroupConfigBuilder</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::event::reader_group_state::ReaderGroupStateError</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sync::synchronizer::SynchronizerError::SyncUpdateError</span>;
-    <span class="kw">use</span> <span class="ident">pravega_client_config::ClientConfigBuilder</span>;
-    <span class="kw">use</span> <span class="ident">pravega_client_config::MOCK_CONTROLLER_URI</span>;
-    <span class="kw">use</span> <span class="ident">pravega_client_shared</span>::{<span class="ident">Segment</span>, <span class="ident">Stream</span>};
-
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_stream_cut_serde</span>() {
-        <span class="kw">let</span> <span class="ident">scope</span> <span class="op">=</span> <span class="ident">Scope::from</span>(<span class="string">&quot;scope&quot;</span>.<span class="ident">to_owned</span>());
-        <span class="kw">let</span> <span class="ident">stream</span> <span class="op">=</span> <span class="ident">Stream::from</span>(<span class="string">&quot;stream&quot;</span>.<span class="ident">to_owned</span>());
-        <span class="kw">let</span> <span class="ident">scoped_stream</span> <span class="op">=</span> <span class="ident">ScopedStream::new</span>(<span class="ident">scope</span>.<span class="ident">clone</span>(), <span class="ident">stream</span>.<span class="ident">clone</span>());
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">positions</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
-
-        <span class="kw">let</span> <span class="ident">segment0</span> <span class="op">=</span> <span class="ident">ScopedSegment::new</span>(<span class="ident">scope</span>.<span class="ident">clone</span>(), <span class="ident">stream</span>.<span class="ident">clone</span>(), <span class="ident">Segment::from</span>(<span class="number">0</span>));
-        <span class="kw">let</span> <span class="ident">segment1</span> <span class="op">=</span> <span class="ident">ScopedSegment::new</span>(<span class="ident">scope</span>, <span class="ident">stream</span>, <span class="ident">Segment::from</span>(<span class="number">1</span>));
-
-        <span class="ident">positions</span>.<span class="ident">insert</span>(<span class="ident">segment0</span>, <span class="number">0</span>);
-        <span class="ident">positions</span>.<span class="ident">insert</span>(<span class="ident">segment1</span>, <span class="number">100</span>);
-
-        <span class="kw">let</span> <span class="ident">v1</span> <span class="op">=</span> <span class="ident">StreamCutV1::new</span>(<span class="ident">scoped_stream</span>, <span class="ident">positions</span>);
-        <span class="kw">let</span> <span class="ident">stream_cut</span> <span class="op">=</span> <span class="ident">StreamCutVersioned::V1</span>(<span class="ident">v1</span>.<span class="ident">clone</span>());
-
-        <span class="kw">let</span> <span class="ident">encoded</span> <span class="op">=</span> <span class="ident">stream_cut</span>.<span class="ident">to_bytes</span>().<span class="ident">expect</span>(<span class="string">&quot;encode to byte array&quot;</span>);
-        <span class="kw">let</span> <span class="ident">decoded</span> <span class="op">=</span> <span class="ident">StreamCutVersioned::from_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">encoded</span>).<span class="ident">expect</span>(<span class="string">&quot;decode from byte array&quot;</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">StreamCutVersioned::V1</span>(<span class="ident">v1</span>), <span class="ident">decoded</span>);
-    }
-
-    <span class="comment">// test to validate creation of an already existing reader.</span>
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="attribute">#[<span class="ident">should_panic</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_create_reader_error</span>() {
-        <span class="kw">let</span> <span class="ident">client_factory</span> <span class="op">=</span> <span class="ident">ClientFactory::new</span>(
-            <span class="ident">ClientConfigBuilder::default</span>()
-                .<span class="ident">controller_uri</span>(<span class="ident">MOCK_CONTROLLER_URI</span>)
-                .<span class="ident">build</span>()
-                .<span class="ident">unwrap</span>(),
-        );
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">mock_rg_state</span> <span class="op">=</span> <span class="ident">ReaderGroupState::default</span>();
-
-        <span class="comment">//Configure mock.</span>
-        <span class="kw">let</span> <span class="ident">err</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ReaderGroupStateError</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Result::Err</span>(<span class="ident">ReaderGroupStateError::SyncError</span> {
-            <span class="ident">error_msg</span>: <span class="string">&quot;Reader already exists&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident">source</span>: <span class="ident">SyncUpdateError</span> {
-                <span class="ident">error_msg</span>: <span class="string">&quot;update failed&quot;</span>.<span class="ident">to_string</span>(),
+        <span class="comment">//Configure mock.
+        </span><span class="kw">let </span>err: <span class="prelude-ty">Result</span>&lt;(), ReaderGroupStateError&gt; = Result::Err(ReaderGroupStateError::SyncError {
+            error_msg: <span class="string">&quot;Reader already exists&quot;</span>.to_string(),
+            source: SyncUpdateError {
+                error_msg: <span class="string">&quot;update failed&quot;</span>.to_string(),
             },
         });
-        <span class="ident">mock_rg_state</span>.<span class="ident">expect_add_reader</span>().<span class="ident">return_once</span>(<span class="kw">move</span> <span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">err</span>);
-        <span class="kw">let</span> <span class="ident">rg</span> <span class="op">=</span> <span class="ident">ReaderGroup</span> {
-            <span class="ident">name</span>: <span class="string">&quot;rg&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident">config</span>: <span class="ident">ReaderGroupConfigBuilder::default</span>()
-                .<span class="ident">add_stream</span>(<span class="ident">ScopedStream::from</span>(<span class="string">&quot;scope/s1&quot;</span>))
-                .<span class="ident">build</span>(),
-            <span class="ident">state</span>: <span class="ident">Arc::new</span>(<span class="ident">Mutex::new</span>(<span class="ident">mock_rg_state</span>)),
-            <span class="ident">client_factory</span>: <span class="ident">client_factory</span>.<span class="ident">to_async</span>(),
+        mock_rg_state.expect_add_reader().return_once(<span class="kw">move </span>|<span class="kw">_</span>| err);
+        <span class="kw">let </span>rg = ReaderGroup {
+            name: <span class="string">&quot;rg&quot;</span>.to_string(),
+            config: ReaderGroupConfigBuilder::default()
+                .add_stream(ScopedStream::from(<span class="string">&quot;scope/s1&quot;</span>))
+                .build(),
+            state: Arc::new(Mutex::new(mock_rg_state)),
+            client_factory: client_factory.to_async(),
         };
-        <span class="ident">client_factory</span>
-            .<span class="ident">runtime</span>()
-            .<span class="ident">block_on</span>(<span class="ident">rg</span>.<span class="ident">create_reader</span>(<span class="string">&quot;r1&quot;</span>.<span class="ident">to_string</span>()));
+        client_factory
+            .runtime()
+            .block_on(rg.create_reader(<span class="string">&quot;r1&quot;</span>.to_string()));
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_reader_group_config_serde</span>() {
-        <span class="kw">let</span> <span class="ident">scope</span> <span class="op">=</span> <span class="ident">Scope::from</span>(<span class="string">&quot;scope&quot;</span>.<span class="ident">to_owned</span>());
-        <span class="kw">let</span> <span class="ident">stream</span> <span class="op">=</span> <span class="ident">Stream::from</span>(<span class="string">&quot;stream&quot;</span>.<span class="ident">to_owned</span>());
-        <span class="kw">let</span> <span class="ident">scoped_stream</span> <span class="op">=</span> <span class="ident">ScopedStream::new</span>(<span class="ident">scope</span>.<span class="ident">clone</span>(), <span class="ident">stream</span>.<span class="ident">clone</span>());
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_reader_group_config_serde() {
+        <span class="kw">let </span>scope = Scope::from(<span class="string">&quot;scope&quot;</span>.to_owned());
+        <span class="kw">let </span>stream = Stream::from(<span class="string">&quot;stream&quot;</span>.to_owned());
+        <span class="kw">let </span>scoped_stream = ScopedStream::new(scope.clone(), stream.clone());
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">v1</span> <span class="op">=</span> <span class="ident">ReaderGroupConfigV1::new</span>();
-        <span class="ident">v1</span> <span class="op">=</span> <span class="ident">v1</span>.<span class="ident">stream</span>(<span class="ident">scoped_stream</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>v1 = ReaderGroupConfigV1::new();
+        v1 = v1.stream(scoped_stream, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
 
-        <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">ReaderGroupConfigVersioned::V1</span>(<span class="ident">v1</span>.<span class="ident">clone</span>());
+        <span class="kw">let </span>config = ReaderGroupConfigVersioned::V1(v1.clone());
 
-        <span class="kw">let</span> <span class="ident">encoded</span> <span class="op">=</span> <span class="ident">config</span>.<span class="ident">to_bytes</span>().<span class="ident">expect</span>(<span class="string">&quot;encode to byte array&quot;</span>);
-        <span class="kw">let</span> <span class="ident">decoded</span> <span class="op">=</span> <span class="ident">ReaderGroupConfigVersioned::from_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">encoded</span>).<span class="ident">expect</span>(<span class="string">&quot;decode from byte array&quot;</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">ReaderGroupConfigVersioned::V1</span>(<span class="ident">v1</span>), <span class="ident">decoded</span>);
+        <span class="kw">let </span>encoded = config.to_bytes().expect(<span class="string">&quot;encode to byte array&quot;</span>);
+        <span class="kw">let </span>decoded = ReaderGroupConfigVersioned::from_bytes(<span class="kw-2">&amp;</span>encoded).expect(<span class="string">&quot;decode from byte array&quot;</span>);
+        <span class="macro">assert_eq!</span>(ReaderGroupConfigVersioned::V1(v1), decoded);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_reader_group_config_builder</span>() {
-        <span class="kw">let</span> <span class="ident">rg_config</span> <span class="op">=</span> <span class="ident">ReaderGroupConfigBuilder::default</span>()
-            .<span class="ident">set_group_refresh_time</span>(<span class="number">4000</span>)
-            .<span class="ident">add_stream</span>(<span class="ident">ScopedStream::from</span>(<span class="string">&quot;scope1/s1&quot;</span>))
-            .<span class="ident">add_stream</span>(<span class="ident">ScopedStream::from</span>(<span class="string">&quot;scope2/s2&quot;</span>))
-            .<span class="ident">build</span>();
-        <span class="kw">let</span> <span class="ident">ReaderGroupConfigVersioned::V1</span>(<span class="ident">v1</span>) <span class="op">=</span> <span class="ident">rg_config</span>.<span class="ident">config</span>;
-        <span class="macro">assert_eq!</span>(<span class="ident">v1</span>.<span class="ident">group_refresh_time_millis</span>, <span class="number">4000</span>);
-        <span class="comment">//Validate both the streams are present.</span>
-        <span class="macro">assert!</span>(<span class="ident">v1</span>
-            .<span class="ident">starting_stream_cuts</span>
-            .<span class="ident">contains_key</span>(<span class="kw-2">&amp;</span><span class="ident">ScopedStream::from</span>(<span class="string">&quot;scope1/s1&quot;</span>)));
-        <span class="macro">assert!</span>(<span class="ident">v1</span>
-            .<span class="ident">starting_stream_cuts</span>
-            .<span class="ident">contains_key</span>(<span class="kw-2">&amp;</span><span class="ident">ScopedStream::from</span>(<span class="string">&quot;scope2/s2&quot;</span>)));
-        <span class="kw">for</span> <span class="ident">val</span> <span class="kw">in</span> <span class="ident">v1</span>.<span class="ident">starting_stream_cuts</span>.<span class="ident">values</span>() {
-            <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="ident">StreamCutVersioned::Unbounded</span>, <span class="ident">val</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_reader_group_config_builder() {
+        <span class="kw">let </span>rg_config = ReaderGroupConfigBuilder::default()
+            .set_group_refresh_time(<span class="number">4000</span>)
+            .add_stream(ScopedStream::from(<span class="string">&quot;scope1/s1&quot;</span>))
+            .add_stream(ScopedStream::from(<span class="string">&quot;scope2/s2&quot;</span>))
+            .build();
+        <span class="kw">let </span>ReaderGroupConfigVersioned::V1(v1) = rg_config.config;
+        <span class="macro">assert_eq!</span>(v1.group_refresh_time_millis, <span class="number">4000</span>);
+        <span class="comment">//Validate both the streams are present.
+        </span><span class="macro">assert!</span>(v1
+            .starting_stream_cuts
+            .contains_key(<span class="kw-2">&amp;</span>ScopedStream::from(<span class="string">&quot;scope1/s1&quot;</span>)));
+        <span class="macro">assert!</span>(v1
+            .starting_stream_cuts
+            .contains_key(<span class="kw-2">&amp;</span>ScopedStream::from(<span class="string">&quot;scope2/s2&quot;</span>)));
+        <span class="kw">for </span>val <span class="kw">in </span>v1.starting_stream_cuts.values() {
+            <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>StreamCutVersioned::Unbounded, val);
         }
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_reader_group_config_builder_default</span>() {
-        <span class="kw">let</span> <span class="ident">rg_config</span> <span class="op">=</span> <span class="ident">ReaderGroupConfigBuilder::default</span>()
-            .<span class="ident">add_stream</span>(<span class="ident">ScopedStream::from</span>(<span class="string">&quot;scope1/s1&quot;</span>))
-            .<span class="ident">build</span>();
-        <span class="kw">let</span> <span class="ident">ReaderGroupConfigVersioned::V1</span>(<span class="ident">v1</span>) <span class="op">=</span> <span class="ident">rg_config</span>.<span class="ident">config</span>;
-        <span class="comment">// verify default</span>
-        <span class="macro">assert_eq!</span>(<span class="ident">v1</span>.<span class="ident">group_refresh_time_millis</span>, <span class="number">3000</span>);
-        <span class="comment">//Validate both the streams are present.</span>
-        <span class="macro">assert!</span>(<span class="ident">v1</span>
-            .<span class="ident">starting_stream_cuts</span>
-            .<span class="ident">contains_key</span>(<span class="kw-2">&amp;</span><span class="ident">ScopedStream::from</span>(<span class="string">&quot;scope1/s1&quot;</span>)));
-        <span class="kw">for</span> <span class="ident">val</span> <span class="kw">in</span> <span class="ident">v1</span>.<span class="ident">starting_stream_cuts</span>.<span class="ident">values</span>() {
-            <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="ident">StreamCutVersioned::Unbounded</span>, <span class="ident">val</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_reader_group_config_builder_default() {
+        <span class="kw">let </span>rg_config = ReaderGroupConfigBuilder::default()
+            .add_stream(ScopedStream::from(<span class="string">&quot;scope1/s1&quot;</span>))
+            .build();
+        <span class="kw">let </span>ReaderGroupConfigVersioned::V1(v1) = rg_config.config;
+        <span class="comment">// verify default
+        </span><span class="macro">assert_eq!</span>(v1.group_refresh_time_millis, <span class="number">3000</span>);
+        <span class="comment">//Validate both the streams are present.
+        </span><span class="macro">assert!</span>(v1
+            .starting_stream_cuts
+            .contains_key(<span class="kw-2">&amp;</span>ScopedStream::from(<span class="string">&quot;scope1/s1&quot;</span>)));
+        <span class="kw">for </span>val <span class="kw">in </span>v1.starting_stream_cuts.values() {
+            <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>StreamCutVersioned::Unbounded, val);
         }
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_reader_group_config_builder_read_from_head</span>() {
-        <span class="kw">let</span> <span class="ident">rg_config</span> <span class="op">=</span> <span class="ident">ReaderGroupConfigBuilder::default</span>()
-            .<span class="ident">read_from_head_of_stream</span>(<span class="ident">ScopedStream::from</span>(<span class="string">&quot;scope1/s1&quot;</span>))
-            .<span class="ident">build</span>();
-        <span class="kw">let</span> <span class="ident">ReaderGroupConfigVersioned::V1</span>(<span class="ident">v1</span>) <span class="op">=</span> <span class="ident">rg_config</span>.<span class="ident">config</span>;
-        <span class="comment">// verify default</span>
-        <span class="macro">assert_eq!</span>(<span class="ident">v1</span>.<span class="ident">group_refresh_time_millis</span>, <span class="number">3000</span>);
-        <span class="comment">//Validate both the streams are present.</span>
-        <span class="macro">assert!</span>(<span class="ident">v1</span>
-            .<span class="ident">starting_stream_cuts</span>
-            .<span class="ident">contains_key</span>(<span class="kw-2">&amp;</span><span class="ident">ScopedStream::from</span>(<span class="string">&quot;scope1/s1&quot;</span>)));
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_reader_group_config_builder_read_from_head() {
+        <span class="kw">let </span>rg_config = ReaderGroupConfigBuilder::default()
+            .read_from_head_of_stream(ScopedStream::from(<span class="string">&quot;scope1/s1&quot;</span>))
+            .build();
+        <span class="kw">let </span>ReaderGroupConfigVersioned::V1(v1) = rg_config.config;
+        <span class="comment">// verify default
+        </span><span class="macro">assert_eq!</span>(v1.group_refresh_time_millis, <span class="number">3000</span>);
+        <span class="comment">//Validate both the streams are present.
+        </span><span class="macro">assert!</span>(v1
+            .starting_stream_cuts
+            .contains_key(<span class="kw-2">&amp;</span>ScopedStream::from(<span class="string">&quot;scope1/s1&quot;</span>)));
         <span class="macro">assert_eq!</span>(
-            <span class="ident">v1</span>.<span class="ident">starting_stream_cuts</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">ScopedStream::from</span>(<span class="string">&quot;scope1/s1&quot;</span>)),
-            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="ident">StreamCutVersioned::Unbounded</span>)
+            v1.starting_stream_cuts.get(<span class="kw-2">&amp;</span>ScopedStream::from(<span class="string">&quot;scope1/s1&quot;</span>)),
+            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>StreamCutVersioned::Unbounded)
         );
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_reader_group_config_builder_read_from_tail</span>() {
-        <span class="kw">let</span> <span class="ident">rg_config</span> <span class="op">=</span> <span class="ident">ReaderGroupConfigBuilder::default</span>()
-            .<span class="ident">read_from_tail_of_stream</span>(<span class="ident">ScopedStream::from</span>(<span class="string">&quot;scope1/s1&quot;</span>))
-            .<span class="ident">build</span>();
-        <span class="kw">let</span> <span class="ident">ReaderGroupConfigVersioned::V1</span>(<span class="ident">v1</span>) <span class="op">=</span> <span class="ident">rg_config</span>.<span class="ident">config</span>;
-        <span class="comment">// verify default</span>
-        <span class="macro">assert_eq!</span>(<span class="ident">v1</span>.<span class="ident">group_refresh_time_millis</span>, <span class="number">3000</span>);
-        <span class="comment">//Validate both the streams are present.</span>
-        <span class="macro">assert!</span>(<span class="ident">v1</span>
-            .<span class="ident">starting_stream_cuts</span>
-            .<span class="ident">contains_key</span>(<span class="kw-2">&amp;</span><span class="ident">ScopedStream::from</span>(<span class="string">&quot;scope1/s1&quot;</span>)));
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_reader_group_config_builder_read_from_tail() {
+        <span class="kw">let </span>rg_config = ReaderGroupConfigBuilder::default()
+            .read_from_tail_of_stream(ScopedStream::from(<span class="string">&quot;scope1/s1&quot;</span>))
+            .build();
+        <span class="kw">let </span>ReaderGroupConfigVersioned::V1(v1) = rg_config.config;
+        <span class="comment">// verify default
+        </span><span class="macro">assert_eq!</span>(v1.group_refresh_time_millis, <span class="number">3000</span>);
+        <span class="comment">//Validate both the streams are present.
+        </span><span class="macro">assert!</span>(v1
+            .starting_stream_cuts
+            .contains_key(<span class="kw-2">&amp;</span>ScopedStream::from(<span class="string">&quot;scope1/s1&quot;</span>)));
         <span class="macro">assert_eq!</span>(
-            <span class="ident">v1</span>.<span class="ident">starting_stream_cuts</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">ScopedStream::from</span>(<span class="string">&quot;scope1/s1&quot;</span>)),
-            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="ident">StreamCutVersioned::Tail</span>)
+            v1.starting_stream_cuts.get(<span class="kw-2">&amp;</span>ScopedStream::from(<span class="string">&quot;scope1/s1&quot;</span>)),
+            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>StreamCutVersioned::Tail)
         );
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="attribute">#[<span class="ident">should_panic</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_reader_group_config_builder_invalid</span>() {
-        <span class="kw">let</span> <span class="ident">_rg_config</span> <span class="op">=</span> <span class="ident">ReaderGroupConfigBuilder::default</span>().<span class="ident">build</span>();
+    <span class="attribute">#[test]
+    #[should_panic]
+    </span><span class="kw">fn </span>test_reader_group_config_builder_invalid() {
+        <span class="kw">let </span>_rg_config = ReaderGroupConfigBuilder::default().build();
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.66.0 (69f9c33d7 2022-12-12)" ></div></body></html>

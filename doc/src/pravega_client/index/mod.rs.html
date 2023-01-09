@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/index/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/index/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><div class="width-limiter"><nav class="sub"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -197,204 +197,204 @@
 <span id="197">197</span>
 <span id="198">198</span>
 <span id="199">199</span>
-</pre><pre class="rust"><code><span class="comment">//</span>
-<span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
-<span class="comment">//</span>
-<span class="comment">// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
-<span class="comment">// you may not use this file except in compliance with the License.</span>
-<span class="comment">// You may obtain a copy of the License at</span>
-<span class="comment">//</span>
-<span class="comment">// http://www.apache.org/licenses/LICENSE-2.0</span>
-<span class="comment">//</span>
+</pre><pre class="rust"><code><span class="comment">//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
 
-<span class="doccomment">//! The Index API provides a way to build a monotonic index with a stream.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! The index API writes a fixed sized [`IndexRecord`] to the stream. Each [`IndexRecord`] contains the user data</span>
-<span class="doccomment">//! and a number of user defined `field`s. A set of `field`s is called &#39;Fields&#39;.</span>
-<span class="doccomment">//! An example of `Fields` is showed as below:</span>
-<span class="doccomment">//! ```no_run</span>
-<span class="doccomment">//! use pravega_client_macros::Fields;</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! // Use Fields procedural marco to auto implement the necessary trait for MyFields.</span>
-<span class="doccomment">//! #[derive(Fields, Debug, PartialOrd, PartialEq)]</span>
-<span class="doccomment">//! struct MyFields {</span>
-<span class="doccomment">//!     time: u64, // A field</span>
-<span class="doccomment">//!     id: u64,</span>
-<span class="doccomment">//! }</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! ```</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! To ensure the searching efficiency in an index stream, we impose some constraints to the `Fields`.</span>
-<span class="doccomment">//! Suppose we have `Fields` A and B</span>
-<span class="doccomment">//! ```ignore</span>
-<span class="doccomment">//! #[derive(Fields, Debug, PartialOrd, PartialEq)]</span>
-<span class="doccomment">//! struct A {</span>
-<span class="doccomment">//!     x: u64,</span>
-<span class="doccomment">//!     y: u64,</span>
-<span class="doccomment">//! }</span>
-<span class="doccomment">//! #[derive(Fields, Debug, PartialOrd, PartialEq)]</span>
-<span class="doccomment">//! struct B {</span>
-<span class="doccomment">//!     x: u64,</span>
-<span class="doccomment">//!     y: u64,</span>
-<span class="doccomment">//!     z: u64,</span>
-<span class="doccomment">//! }</span>
-<span class="doccomment">//! ```</span>
-<span class="doccomment">//! * The type of `field` has to be u64 and the value of the `field` must be monotonically increasing.</span>
-<span class="doccomment">//! It means that if A2 is written after A1, then it must satisfy x2 &gt;= x1 and y2 &gt;= y1.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! * Upgrade is possible, meaning B can be written after A. But it has to meet two conditions: 1.</span>
-<span class="doccomment">//! B has to contain all the `field`s that A has and the order cannot change. 2. new `field`s can only</span>
-<span class="doccomment">//! be appended at the tail like `field` z.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! * The Index Writer is generic over the `Fields` struct, user needs to create new an Index writer</span>
-<span class="doccomment">//! when doing upgrading.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! [`Record`]: crate::index::IndexRecord</span>
+</span><span class="doccomment">//! The Index API provides a way to build a monotonic index with a stream.
+//!
+//! The index API writes a fixed sized [`IndexRecord`] to the stream. Each [`IndexRecord`] contains the user data
+//! and a number of user defined `field`s. A set of `field`s is called &#39;Fields&#39;.
+//! An example of `Fields` is showed as below:
+//! ```no_run
+//! use pravega_client_macros::Fields;
+//!
+//! // Use Fields procedural marco to auto implement the necessary trait for MyFields.
+//! #[derive(Fields, Debug, PartialOrd, PartialEq)]
+//! struct MyFields {
+//!     time: u64, // A field
+//!     id: u64,
+//! }
+//!
+//! ```
+//!
+//!
+//! To ensure the searching efficiency in an index stream, we impose some constraints to the `Fields`.
+//! Suppose we have `Fields` A and B
+//! ```ignore
+//! #[derive(Fields, Debug, PartialOrd, PartialEq)]
+//! struct A {
+//!     x: u64,
+//!     y: u64,
+//! }
+//! #[derive(Fields, Debug, PartialOrd, PartialEq)]
+//! struct B {
+//!     x: u64,
+//!     y: u64,
+//!     z: u64,
+//! }
+//! ```
+//! * The type of `field` has to be u64 and the value of the `field` must be monotonically increasing.
+//! It means that if A2 is written after A1, then it must satisfy x2 &gt;= x1 and y2 &gt;= y1.
+//!
+//! * Upgrade is possible, meaning B can be written after A. But it has to meet two conditions: 1.
+//! B has to contain all the `field`s that A has and the order cannot change. 2. new `field`s can only
+//! be appended at the tail like `field` z.
+//!
+//! * The Index Writer is generic over the `Fields` struct, user needs to create new an Index writer
+//! when doing upgrading.
+//!
+//! [`Record`]: crate::index::IndexRecord
 
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">writer</span>;
-<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">inline</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">writer::IndexWriter</span>;
+</span><span class="kw">pub mod </span>writer;
+<span class="attribute">#[doc(inline)]
+</span><span class="kw">pub use </span>writer::IndexWriter;
 
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">reader</span>;
-<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">inline</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">reader::IndexReader</span>;
+<span class="kw">pub mod </span>reader;
+<span class="attribute">#[doc(inline)]
+</span><span class="kw">pub use </span>reader::IndexReader;
 
-<span class="kw">use</span> <span class="ident">bincode2::Config</span>;
-<span class="kw">use</span> <span class="ident">bincode2::Error</span> <span class="kw">as</span> <span class="ident">BincodeError</span>;
-<span class="kw">use</span> <span class="ident">bincode2::ErrorKind</span>;
-<span class="kw">use</span> <span class="ident">bincode2::LengthOption</span>;
-<span class="kw">use</span> <span class="ident">lazy_static</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">pravega_wire_protocol::commands</span>::{<span class="ident">Command</span>, <span class="ident">EventCommand</span>};
-<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">tiny_keccak</span>::{<span class="ident">Hasher</span>, <span class="ident">Shake</span>};
+<span class="kw">use </span>bincode2::Config;
+<span class="kw">use </span>bincode2::Error <span class="kw">as </span>BincodeError;
+<span class="kw">use </span>bincode2::ErrorKind;
+<span class="kw">use </span>bincode2::LengthOption;
+<span class="kw">use </span>lazy_static::<span class="kw-2">*</span>;
+<span class="kw">use </span>pravega_wire_protocol::commands::{Command, EventCommand};
+<span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>tiny_keccak::{Hasher, Shake};
 
-<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">RECORD_SIZE</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">4</span> <span class="op">*</span> <span class="number">1024</span>;
+<span class="kw">pub const </span>RECORD_SIZE: u64 = <span class="number">4 </span>* <span class="number">1024</span>;
 
-<span class="macro">lazy_static!</span> {
-    <span class="kw">static</span> <span class="kw-2">ref</span> <span class="ident">CONFIG</span>: <span class="ident">Config</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">bincode2::config</span>();
-        <span class="ident">config</span>.<span class="ident">big_endian</span>();
-        <span class="ident">config</span>.<span class="ident">limit</span>(<span class="ident">RECORD_SIZE</span>);
-        <span class="ident">config</span>.<span class="ident">array_length</span>(<span class="ident">LengthOption::U32</span>);
-        <span class="ident">config</span>.<span class="ident">string_length</span>(<span class="ident">LengthOption::U16</span>);
-        <span class="ident">config</span>
+<span class="macro">lazy_static! </span>{
+    <span class="kw">static </span><span class="kw-2">ref </span>CONFIG: Config = {
+        <span class="kw">let </span><span class="kw-2">mut </span>config = bincode2::config();
+        config.big_endian();
+        config.limit(RECORD_SIZE);
+        config.array_length(LengthOption::U32);
+        config.string_length(LengthOption::U16);
+        config
     };
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">IndexRecord</span> {
-    <span class="ident">type_code</span>: <span class="ident">i32</span>,
-    <span class="ident">version</span>: <span class="ident">i32</span>,
-    <span class="ident">fields_len</span>: <span class="ident">u32</span>,
-    <span class="ident">data_len</span>: <span class="ident">u32</span>,
-    <span class="ident">fields</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">u128</span>, <span class="ident">u64</span>)<span class="op">&gt;</span>,
-    <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug, Serialize, Deserialize)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>IndexRecord {
+    type_code: i32,
+    version: i32,
+    fields_len: u32,
+    data_len: u32,
+    fields: Vec&lt;(u128, u64)&gt;,
+    data: Vec&lt;u8&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">IndexRecord</span> {
-    <span class="kw">const</span> <span class="ident">TYPE_CODE</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">0</span>;
-    <span class="comment">// increase the version if record structure changes</span>
-    <span class="kw">const</span> <span class="ident">VERSION</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">0</span>;
+<span class="kw">impl </span>IndexRecord {
+    <span class="kw">const </span>TYPE_CODE: i32 = <span class="number">0</span>;
+    <span class="comment">// increase the version if record structure changes
+    </span><span class="kw">const </span>VERSION: i32 = <span class="number">0</span>;
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">fields</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>, <span class="ident">u64</span>)<span class="op">&gt;</span>, <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) -&gt; <span class="ident">IndexRecord</span> {
-        <span class="kw">let</span> <span class="ident">fields_len</span> <span class="op">=</span> <span class="ident">fields</span>.<span class="ident">len</span>();
-        <span class="kw">let</span> <span class="ident">fields_hash</span> <span class="op">=</span> <span class="ident">IndexRecord::hash_keys</span>(<span class="ident">fields</span>);
-        <span class="ident">IndexRecord</span> {
-            <span class="ident">type_code</span>: <span class="ident">IndexRecord::TYPE_CODE</span>,
-            <span class="ident">version</span>: <span class="ident">IndexRecord::VERSION</span>,
-            <span class="comment">// u128 is 16 bytes and u64 is 8 bytes</span>
-            <span class="ident">fields_len</span>: <span class="ident">fields_len</span> <span class="kw">as</span> <span class="ident">u32</span> <span class="op">*</span> <span class="number">24</span>,
-            <span class="ident">data_len</span>: <span class="ident">data</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u32</span>,
-            <span class="ident">fields</span>: <span class="ident">fields_hash</span>,
-            <span class="ident">data</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(fields: Vec&lt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, u64)&gt;, data: Vec&lt;u8&gt;) -&gt; IndexRecord {
+        <span class="kw">let </span>fields_len = fields.len();
+        <span class="kw">let </span>fields_hash = IndexRecord::hash_keys(fields);
+        IndexRecord {
+            type_code: IndexRecord::TYPE_CODE,
+            version: IndexRecord::VERSION,
+            <span class="comment">// u128 is 16 bytes and u64 is 8 bytes
+            </span>fields_len: fields_len <span class="kw">as </span>u32 * <span class="number">24</span>,
+            data_len: data.len() <span class="kw">as </span>u32,
+            fields: fields_hash,
+            data,
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">write_fields</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">BincodeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-        <span class="ident">res</span>.<span class="ident">extend_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">EventCommand::TYPE_CODE</span>.<span class="ident">to_be_bytes</span>());
-        <span class="ident">res</span>.<span class="ident">extend_from_slice</span>(<span class="kw-2">&amp;</span>((<span class="ident">RECORD_SIZE</span> <span class="op">-</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>).<span class="ident">to_be_bytes</span>());
-        <span class="kw">let</span> <span class="ident">encoded</span> <span class="op">=</span> <span class="ident">CONFIG</span>.<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">length</span> <span class="op">=</span> <span class="ident">encoded</span>.<span class="ident">len</span>();
-        <span class="ident">res</span>.<span class="ident">extend</span>(<span class="ident">encoded</span>);
-        <span class="kw">if</span> <span class="ident">res</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="ident">RECORD_SIZE</span> <span class="kw">as</span> <span class="ident">usize</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">BincodeError::from</span>(<span class="ident">ErrorKind::Custom</span>(<span class="macro">format!</span>(
+    <span class="kw">fn </span>write_fields(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, BincodeError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>res = <span class="macro">vec!</span>[];
+        res.extend_from_slice(<span class="kw-2">&amp;</span>EventCommand::TYPE_CODE.to_be_bytes());
+        res.extend_from_slice(<span class="kw-2">&amp;</span>((RECORD_SIZE - <span class="number">8</span>) <span class="kw">as </span>i32).to_be_bytes());
+        <span class="kw">let </span>encoded = CONFIG.serialize(<span class="kw-2">&amp;</span><span class="self">self</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>length = encoded.len();
+        res.extend(encoded);
+        <span class="kw">if </span>res.len() &gt; RECORD_SIZE <span class="kw">as </span>usize {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(BincodeError::from(ErrorKind::Custom(<span class="macro">format!</span>(
                 <span class="string">&quot;Record size {} exceeds the max size allowed {}&quot;</span>,
-                <span class="ident">res</span>.<span class="ident">len</span>(),
-                <span class="ident">RECORD_SIZE</span>,
+                res.len(),
+                RECORD_SIZE,
             ))));
         }
-        <span class="kw">let</span> <span class="ident">padding</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">0u8</span>; <span class="ident">RECORD_SIZE</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">-</span> <span class="ident">length</span> <span class="op">-</span> <span class="number">8</span>];
-        <span class="ident">res</span>.<span class="ident">extend</span>(<span class="ident">padding</span>);
-        <span class="prelude-val">Ok</span>(<span class="ident">res</span>)
+        <span class="kw">let </span>padding = <span class="macro">vec!</span>[<span class="number">0u8</span>; RECORD_SIZE <span class="kw">as </span>usize - length - <span class="number">8</span>];
+        res.extend(padding);
+        <span class="prelude-val">Ok</span>(res)
     }
 
-    <span class="kw">fn</span> <span class="ident">read_from</span>(<span class="ident">input</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">BincodeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">decoded</span>: <span class="ident">IndexRecord</span> <span class="op">=</span> <span class="ident">CONFIG</span>.<span class="ident">deserialize</span>(<span class="kw-2">&amp;</span><span class="ident">input</span>[<span class="number">8</span>..])<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">decoded</span>)
+    <span class="kw">fn </span>read_from(input: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, BincodeError&gt; {
+        <span class="kw">let </span>decoded: IndexRecord = CONFIG.deserialize(<span class="kw-2">&amp;</span>input[<span class="number">8</span>..])<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(decoded)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">hash_keys</span>(<span class="ident">entries</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>, <span class="ident">u64</span>)<span class="op">&gt;</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">u128</span>, <span class="ident">u64</span>)<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">entries_hash</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-        <span class="kw">for</span> (<span class="ident">key</span>, <span class="ident">val</span>) <span class="kw">in</span> <span class="ident">entries</span> {
-            <span class="ident">entries_hash</span>.<span class="ident">push</span>((<span class="ident">IndexRecord::hash_key_to_u128</span>(<span class="ident">key</span>), <span class="ident">val</span>))
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>hash_keys(entries: Vec&lt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, u64)&gt;) -&gt; Vec&lt;(u128, u64)&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>entries_hash = <span class="macro">vec!</span>[];
+        <span class="kw">for </span>(key, val) <span class="kw">in </span>entries {
+            entries_hash.push((IndexRecord::hash_key_to_u128(key), val))
         }
-        <span class="ident">entries_hash</span>
+        entries_hash
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">hash_key_to_u128</span>(<span class="ident">key</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>) -&gt; <span class="ident">u128</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">shake</span> <span class="op">=</span> <span class="ident">Shake::v128</span>();
-        <span class="ident">shake</span>.<span class="ident">update</span>(<span class="ident">key</span>.<span class="ident">as_ref</span>());
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> [<span class="number">0u8</span>; <span class="number">16</span>];
-        <span class="ident">shake</span>.<span class="ident">finalize</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buf</span>);
-        <span class="ident">u128::from_be_bytes</span>(<span class="ident">buf</span>)
-    }
-}
-
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Fields</span> {
-    <span class="kw">fn</span> <span class="ident">get_field_values</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>, <span class="ident">u64</span>)<span class="op">&gt;</span>;
-}
-
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Value</span> {
-    <span class="kw">fn</span> <span class="ident">value</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span>;
-}
-
-<span class="kw">impl</span> <span class="ident">Value</span> <span class="kw">for</span> <span class="ident">u64</span> {
-    <span class="kw">fn</span> <span class="ident">value</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
-        <span class="self">self</span>.<span class="ident">to_owned</span>()
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>hash_key_to_u128(key: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; u128 {
+        <span class="kw">let </span><span class="kw-2">mut </span>shake = Shake::v128();
+        shake.update(key.as_ref());
+        <span class="kw">let </span><span class="kw-2">mut </span>buf = [<span class="number">0u8</span>; <span class="number">16</span>];
+        shake.finalize(<span class="kw-2">&amp;mut </span>buf);
+        u128::from_be_bytes(buf)
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">test</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="kw">crate</span> <span class="kw">as</span> <span class="ident">pravega_client</span>;
+<span class="kw">pub trait </span>Fields {
+    <span class="kw">fn </span>get_field_values(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, u64)&gt;;
+}
 
-    <span class="kw">use</span> <span class="ident">pravega_client_macros::Fields</span>;
+<span class="kw">pub trait </span>Value {
+    <span class="kw">fn </span>value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64;
+}
 
-    <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Fields</span>, <span class="ident">Debug</span>, <span class="ident">PartialOrd</span>, <span class="ident">PartialEq</span>)]</span>
-    <span class="kw">struct</span> <span class="ident">FieldsTest</span> {
-        <span class="ident">time</span>: <span class="ident">u64</span>,
-        <span class="ident">id</span>: <span class="ident">u64</span>,
+<span class="kw">impl </span>Value <span class="kw">for </span>u64 {
+    <span class="kw">fn </span>value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+        <span class="self">self</span>.to_owned()
+    }
+}
+
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>test {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use crate as </span>pravega_client;
+
+    <span class="kw">use </span>pravega_client_macros::Fields;
+
+    <span class="attribute">#[derive(Fields, Debug, PartialOrd, PartialEq)]
+    </span><span class="kw">struct </span>FieldsTest {
+        time: u64,
+        id: u64,
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_label_macro</span>() {
-        <span class="kw">let</span> <span class="ident">fields</span> <span class="op">=</span> <span class="ident">FieldsTest</span> { <span class="ident">time</span>: <span class="number">0</span>, <span class="ident">id</span>: <span class="number">0</span> };
-        <span class="macro">assert_eq!</span>(<span class="ident">fields</span>.<span class="ident">get_field_values</span>(), <span class="macro">vec!</span> {(<span class="string">&quot;time&quot;</span>, <span class="number">0</span>), (<span class="string">&quot;id&quot;</span>, <span class="number">0</span>)});
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_label_macro() {
+        <span class="kw">let </span>fields = FieldsTest { time: <span class="number">0</span>, id: <span class="number">0 </span>};
+        <span class="macro">assert_eq!</span>(fields.get_field_values(), <span class="macro">vec! </span>{(<span class="string">&quot;time&quot;</span>, <span class="number">0</span>), (<span class="string">&quot;id&quot;</span>, <span class="number">0</span>)});
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_record_serde</span>() {
-        <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>];
-        <span class="kw">let</span> <span class="ident">fields</span> <span class="op">=</span> <span class="macro">vec!</span>[(<span class="string">&quot;hello&quot;</span>, <span class="number">0</span>), (<span class="string">&quot;index&quot;</span>, <span class="number">1</span>), (<span class="string">&quot;stream&quot;</span>, <span class="number">2</span>)];
-        <span class="kw">let</span> <span class="ident">record</span> <span class="op">=</span> <span class="ident">IndexRecord::new</span>(<span class="ident">fields</span>, <span class="ident">data</span>.<span class="ident">clone</span>());
-        <span class="kw">let</span> <span class="ident">encoded</span> <span class="op">=</span> <span class="ident">record</span>.<span class="ident">write_fields</span>().<span class="ident">expect</span>(<span class="string">&quot;serialize record&quot;</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">encoded</span>.<span class="ident">len</span>(), <span class="ident">RECORD_SIZE</span> <span class="kw">as</span> <span class="ident">usize</span>);
-        <span class="kw">let</span> <span class="ident">decoded</span> <span class="op">=</span> <span class="ident">IndexRecord::read_from</span>(<span class="kw-2">&amp;</span><span class="ident">encoded</span>).<span class="ident">expect</span>(<span class="string">&quot;deserialize record&quot;</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">decoded</span>.<span class="ident">data</span>, <span class="ident">data</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_record_serde() {
+        <span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>];
+        <span class="kw">let </span>fields = <span class="macro">vec!</span>[(<span class="string">&quot;hello&quot;</span>, <span class="number">0</span>), (<span class="string">&quot;index&quot;</span>, <span class="number">1</span>), (<span class="string">&quot;stream&quot;</span>, <span class="number">2</span>)];
+        <span class="kw">let </span>record = IndexRecord::new(fields, data.clone());
+        <span class="kw">let </span>encoded = record.write_fields().expect(<span class="string">&quot;serialize record&quot;</span>);
+        <span class="macro">assert_eq!</span>(encoded.len(), RECORD_SIZE <span class="kw">as </span>usize);
+        <span class="kw">let </span>decoded = IndexRecord::read_from(<span class="kw-2">&amp;</span>encoded).expect(<span class="string">&quot;deserialize record&quot;</span>);
+        <span class="macro">assert_eq!</span>(decoded.data, data);
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.66.0 (69f9c33d7 2022-12-12)" ></div></body></html>

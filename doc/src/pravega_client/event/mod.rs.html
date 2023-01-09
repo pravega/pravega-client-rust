@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/event/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/event/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><div class="width-limiter"><nav class="sub"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -81,88 +81,88 @@
 <span id="81">81</span>
 <span id="82">82</span>
 <span id="83">83</span>
-</pre><pre class="rust"><code><span class="comment">//</span>
-<span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
-<span class="comment">//</span>
-<span class="comment">// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
-<span class="comment">// you may not use this file except in compliance with the License.</span>
-<span class="comment">// You may obtain a copy of the License at</span>
-<span class="comment">//</span>
-<span class="comment">// http://www.apache.org/licenses/LICENSE-2.0</span>
-<span class="comment">//</span>
+</pre><pre class="rust"><code><span class="comment">//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
 
-<span class="doccomment">//! The Event API for writing and reading data.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! An Event is represented as a set of bytes within a Stream.</span>
-<span class="doccomment">//! For example, an Event could be as simple as a small number of bytes containing</span>
-<span class="doccomment">//! a temperature reading from an IoT sensor composed of a timestamp, a metric identifier and a value.</span>
-<span class="doccomment">//! An Event could also be a web log data associated with a user click on a website.</span>
-<span class="doccomment">//! Applications make sense of Events using their own serializers and deserializers,</span>
-<span class="doccomment">//! allowing them to read and write objects in Pravega similarly to reading and writing objects from files.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! ## [EventWriter]</span>
-<span class="doccomment">//! [EventWriter] writes events to the tail of Pravega streams.</span>
-<span class="doccomment">//! It has exactly once guarantee that an Event will not missing or duplicating in Pravega</span>
-<span class="doccomment">//! in case of a connection failure.</span>
-<span class="doccomment">//! Each async write call will return a Result type containing an [oneshot].</span>
-<span class="doccomment">//! Application can await on this [oneshot] to make sure that an Event has been persisted in Pravega.</span>
-<span class="doccomment">//! If an Event is confirmed to be successfully persisted, any previous Events</span>
-<span class="doccomment">//! are also guaranteed to be persisted.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! ## [EventReader]</span>
-<span class="doccomment">//! [EventReader] reads Events from a Pravega Stream.</span>
-<span class="doccomment">//! An [EventReader] must belong to a [ReaderGroup]. The [EventReader] read call returns a slice of segment data</span>
-<span class="doccomment">//! and application can call its iterator API to get the next Event. After finishing the slice, reader</span>
-<span class="doccomment">//! drops the slice and will try to get another segment slice from the stream.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! ## [ReaderGroup]</span>
-<span class="doccomment">//! [ReaderGroup] a named collection of [EventReader].</span>
-<span class="doccomment">//! A Reader Group perform parallel reads from a given Stream.</span>
-<span class="doccomment">//! It is guaranteed that each Event published to a Stream is sent to exactly one Reader within the Reader Group.</span>
-<span class="doccomment">//! There could be one or more [EventReader] in the Reader Group and there could be many different</span>
-<span class="doccomment">//! Reader Groups simultaneously reading from any given Stream.</span>
-<span class="doccomment">//! A Reader Group can be considered as a &quot;composite Reader&quot; or &quot;distributed Reader&quot;,</span>
-<span class="doccomment">//! that allows a distributed application to read and process Stream data in parallel.</span>
-<span class="doccomment">//! A large amount of Stream data can be consumed by a coordinated group of Readers in a Reader Group.</span>
-<span class="doccomment">//! For example, a collection of Flink tasks processing Stream data in parallel using Reader Group.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! ## [TransactionalEventWriter]</span>
-<span class="doccomment">//! [TransactionalEventWriter] provides a way to execute [Transaction] in Pravega.</span>
-<span class="doccomment">//! The idea of a Transaction is that a Writer can &quot;batch&quot; up a bunch of Events and commit them as a unit into a Stream.</span>
-<span class="doccomment">//! This is useful, for example, in Flink jobs, using Pravega as a sink.</span>
-<span class="doccomment">//! The Flink job can continuously produce results for some data processing and use the Transaction</span>
-<span class="doccomment">//! to durably accumulate the results of the processing.</span>
-<span class="doccomment">//! For example, at the end of some sort of time window, the Flink job can commit the Transaction</span>
-<span class="doccomment">//! and therefore make the results of the processing available for downstream processing,</span>
-<span class="doccomment">//! or in the case of an error, the Transaction is aborted and the results disappear.</span>
-<span class="doccomment">//! See more [details].</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! [EventWriter]: crate::event::writer::EventWriter</span>
-<span class="doccomment">//! [oneshot]: https://docs.rs/tokio/1.5.0/tokio/sync/oneshot/index.html</span>
-<span class="doccomment">//! [TransactionalEventWriter]: crate::event::transactional_writer::TransactionalEventWriter</span>
-<span class="doccomment">//! [Transaction]: crate::event::transactional_writer::Transaction</span>
-<span class="doccomment">//! [details]: https://pravega.io/docs/nightly/pravega-concepts/#transactions</span>
-<span class="doccomment">//! [EventReader]: crate::event::reader::EventReader</span>
-<span class="doccomment">//! [ReaderGroup]: crate::event::reader_group::ReaderGroup</span>
-<span class="doccomment">//!</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">reader</span>;
-<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">inline</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">reader::EventReader</span>;
+</span><span class="doccomment">//! The Event API for writing and reading data.
+//!
+//! An Event is represented as a set of bytes within a Stream.
+//! For example, an Event could be as simple as a small number of bytes containing
+//! a temperature reading from an IoT sensor composed of a timestamp, a metric identifier and a value.
+//! An Event could also be a web log data associated with a user click on a website.
+//! Applications make sense of Events using their own serializers and deserializers,
+//! allowing them to read and write objects in Pravega similarly to reading and writing objects from files.
+//!
+//! ## [EventWriter]
+//! [EventWriter] writes events to the tail of Pravega streams.
+//! It has exactly once guarantee that an Event will not missing or duplicating in Pravega
+//! in case of a connection failure.
+//! Each async write call will return a Result type containing an [oneshot].
+//! Application can await on this [oneshot] to make sure that an Event has been persisted in Pravega.
+//! If an Event is confirmed to be successfully persisted, any previous Events
+//! are also guaranteed to be persisted.
+//!
+//! ## [EventReader]
+//! [EventReader] reads Events from a Pravega Stream.
+//! An [EventReader] must belong to a [ReaderGroup]. The [EventReader] read call returns a slice of segment data
+//! and application can call its iterator API to get the next Event. After finishing the slice, reader
+//! drops the slice and will try to get another segment slice from the stream.
+//!
+//! ## [ReaderGroup]
+//! [ReaderGroup] a named collection of [EventReader].
+//! A Reader Group perform parallel reads from a given Stream.
+//! It is guaranteed that each Event published to a Stream is sent to exactly one Reader within the Reader Group.
+//! There could be one or more [EventReader] in the Reader Group and there could be many different
+//! Reader Groups simultaneously reading from any given Stream.
+//! A Reader Group can be considered as a &quot;composite Reader&quot; or &quot;distributed Reader&quot;,
+//! that allows a distributed application to read and process Stream data in parallel.
+//! A large amount of Stream data can be consumed by a coordinated group of Readers in a Reader Group.
+//! For example, a collection of Flink tasks processing Stream data in parallel using Reader Group.
+//!
+//! ## [TransactionalEventWriter]
+//! [TransactionalEventWriter] provides a way to execute [Transaction] in Pravega.
+//! The idea of a Transaction is that a Writer can &quot;batch&quot; up a bunch of Events and commit them as a unit into a Stream.
+//! This is useful, for example, in Flink jobs, using Pravega as a sink.
+//! The Flink job can continuously produce results for some data processing and use the Transaction
+//! to durably accumulate the results of the processing.
+//! For example, at the end of some sort of time window, the Flink job can commit the Transaction
+//! and therefore make the results of the processing available for downstream processing,
+//! or in the case of an error, the Transaction is aborted and the results disappear.
+//! See more [details].
+//!
+//! [EventWriter]: crate::event::writer::EventWriter
+//! [oneshot]: https://docs.rs/tokio/1.5.0/tokio/sync/oneshot/index.html
+//! [TransactionalEventWriter]: crate::event::transactional_writer::TransactionalEventWriter
+//! [Transaction]: crate::event::transactional_writer::Transaction
+//! [details]: https://pravega.io/docs/nightly/pravega-concepts/#transactions
+//! [EventReader]: crate::event::reader::EventReader
+//! [ReaderGroup]: crate::event::reader_group::ReaderGroup
+//!
+</span><span class="kw">pub mod </span>reader;
+<span class="attribute">#[doc(inline)]
+</span><span class="kw">pub use </span>reader::EventReader;
 
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">reader_group</span>;
-<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">inline</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">reader_group::ReaderGroup</span>;
+<span class="kw">pub mod </span>reader_group;
+<span class="attribute">#[doc(inline)]
+</span><span class="kw">pub use </span>reader_group::ReaderGroup;
 
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">transactional_writer</span>;
-<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">inline</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">transactional_writer::Transaction</span>;
-<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">inline</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">transactional_writer::TransactionalEventWriter</span>;
+<span class="kw">pub mod </span>transactional_writer;
+<span class="attribute">#[doc(inline)]
+</span><span class="kw">pub use </span>transactional_writer::Transaction;
+<span class="attribute">#[doc(inline)]
+</span><span class="kw">pub use </span>transactional_writer::TransactionalEventWriter;
 
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">writer</span>;
-<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">inline</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">writer::EventWriter</span>;
+<span class="kw">pub mod </span>writer;
+<span class="attribute">#[doc(inline)]
+</span><span class="kw">pub use </span>writer::EventWriter;
 
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">reader_group_state</span>;
+<span class="kw">pub mod </span>reader_group_state;
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.66.0 (69f9c33d7 2022-12-12)" ></div></body></html>

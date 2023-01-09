@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/segment/event.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>event.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../pravega_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/segment/event.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>event.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><div class="width-limiter"><nav class="sub"><a class="sub-logo-container" href="../../../pravega_client/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -155,162 +155,162 @@
 <span id="155">155</span>
 <span id="156">156</span>
 <span id="157">157</span>
-</pre><pre class="rust"><code><span class="comment">//</span>
-<span class="comment">// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.</span>
-<span class="comment">//</span>
-<span class="comment">// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
-<span class="comment">// you may not use this file except in compliance with the License.</span>
-<span class="comment">// You may obtain a copy of the License at</span>
-<span class="comment">//</span>
-<span class="comment">// http://www.apache.org/licenses/LICENSE-2.0</span>
-<span class="comment">//</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::Error</span>;
-<span class="kw">use</span> <span class="ident">pravega_client_shared</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">pravega_wire_protocol::commands</span>::{<span class="ident">Command</span>, <span class="ident">EventCommand</span>};
-<span class="kw">use</span> <span class="ident">pravega_wire_protocol::wire_commands::Replies</span>;
+</pre><pre class="rust"><code><span class="comment">//
+// Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+</span><span class="kw">use </span><span class="kw">crate</span>::error::Error;
+<span class="kw">use </span>pravega_client_shared::<span class="kw-2">*</span>;
+<span class="kw">use </span>pravega_wire_protocol::commands::{Command, EventCommand};
+<span class="kw">use </span>pravega_wire_protocol::wire_commands::Replies;
 
-<span class="kw">use</span> <span class="ident">tokio::sync::oneshot</span>;
-<span class="kw">use</span> <span class="ident">tracing::warn</span>;
-<span class="kw">use</span> <span class="ident">uuid::Uuid</span>;
+<span class="kw">use </span>tokio::sync::oneshot;
+<span class="kw">use </span>tracing::warn;
+<span class="kw">use </span>uuid::Uuid;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum</span> <span class="ident">Incoming</span> {
-    <span class="ident">AppendEvent</span>(<span class="ident">PendingEvent</span>),
-    <span class="ident">ServerReply</span>(<span class="ident">ServerReply</span>),
-    <span class="ident">Reconnect</span>(<span class="ident">WriterInfo</span>),
-    <span class="ident">Reset</span>(<span class="ident">ScopedSegment</span>),
-    <span class="ident">Close</span>(),
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>Incoming {
+    AppendEvent(PendingEvent),
+    ServerReply(ServerReply),
+    Reconnect(WriterInfo),
+    Reset(ScopedSegment),
+    Close(),
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">new</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">ServerReply</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">segment</span>: <span class="ident">ScopedSegment</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">reply</span>: <span class="ident">Replies</span>,
+<span class="attribute">#[derive(new, Debug)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>ServerReply {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) segment: ScopedSegment,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) reply: Replies,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">new</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">WriterInfo</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">segment</span>: <span class="ident">ScopedSegment</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">connection_id</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Uuid</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">writer_id</span>: <span class="ident">WriterId</span>,
+<span class="attribute">#[derive(new, Debug)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>WriterInfo {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) segment: ScopedSegment,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) connection_id: <span class="prelude-ty">Option</span>&lt;Uuid&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) writer_id: WriterId,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum</span> <span class="ident">RoutingInfo</span> {
-    <span class="ident">RoutingKey</span>(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>),
-    <span class="ident">Segment</span>(<span class="ident">ScopedSegment</span>),
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>RoutingInfo {
+    RoutingKey(<span class="prelude-ty">Option</span>&lt;String&gt;),
+    Segment(ScopedSegment),
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">PendingEvent</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">routing_info</span>: <span class="ident">RoutingInfo</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">conditional_offset</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">oneshot_sender</span>: <span class="ident">oneshot::Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">flush_oneshot_sender</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">oneshot::Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>PendingEvent {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) routing_info: RoutingInfo,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) data: Vec&lt;u8&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) conditional_offset: <span class="prelude-ty">Option</span>&lt;i64&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) oneshot_sender: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) flush_oneshot_sender: <span class="prelude-ty">Option</span>&lt;oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt;&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">PendingEvent</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const</span> <span class="ident">MAX_WRITE_SIZE</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">8</span> <span class="op">*</span> <span class="number">1024</span> <span class="op">*</span> <span class="number">1024</span> <span class="op">+</span> <span class="number">8</span>;
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">routing_info</span>: <span class="ident">RoutingInfo</span>,
-        <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-        <span class="ident">conditional_offset</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>,
-        <span class="ident">oneshot_sender</span>: <span class="ident">oneshot::Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">flush_oneshot_sender</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">oneshot::Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="ident">data</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="ident">PendingEvent::MAX_WRITE_SIZE</span> {
+<span class="kw">impl </span>PendingEvent {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>MAX_WRITE_SIZE: usize = <span class="number">8 </span>* <span class="number">1024 </span>* <span class="number">1024 </span>+ <span class="number">8</span>;
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
+        routing_info: RoutingInfo,
+        data: Vec&lt;u8&gt;,
+        conditional_offset: <span class="prelude-ty">Option</span>&lt;i64&gt;,
+        oneshot_sender: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt;,
+        flush_oneshot_sender: <span class="prelude-ty">Option</span>&lt;oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">if </span>data.len() &gt; PendingEvent::MAX_WRITE_SIZE {
             <span class="macro">warn!</span>(
                 <span class="string">&quot;event size {:?} exceeds limit {:?}&quot;</span>,
-                <span class="ident">data</span>.<span class="ident">len</span>(),
-                <span class="ident">PendingEvent::MAX_WRITE_SIZE</span>
+                data.len(),
+                PendingEvent::MAX_WRITE_SIZE
             );
-            <span class="ident">oneshot_sender</span>
-                .<span class="ident">send</span>(<span class="prelude-val">Err</span>(<span class="ident">Error::InvalidInput</span> {
-                    <span class="ident">msg</span>: <span class="macro">format!</span>(
+            oneshot_sender
+                .send(<span class="prelude-val">Err</span>(Error::InvalidInput {
+                    msg: <span class="macro">format!</span>(
                         <span class="string">&quot;Event size {} exceeds max write size limit {}&quot;</span>,
-                        <span class="ident">data</span>.<span class="ident">len</span>(),
-                        <span class="ident">PendingEvent::MAX_WRITE_SIZE</span>
+                        data.len(),
+                        PendingEvent::MAX_WRITE_SIZE
                     ),
                 }))
-                .<span class="ident">expect</span>(<span class="string">&quot;send error to caller&quot;</span>);
-            <span class="prelude-val">None</span>
-        } <span class="kw">else</span> {
-            <span class="prelude-val">Some</span>(<span class="ident">PendingEvent</span> {
-                <span class="ident">routing_info</span>,
-                <span class="ident">data</span>,
-                <span class="ident">conditional_offset</span>,
-                <span class="ident">oneshot_sender</span>,
-                <span class="ident">flush_oneshot_sender</span>,
+                .expect(<span class="string">&quot;send error to caller&quot;</span>);
+            <span class="prelude-val">None
+        </span>} <span class="kw">else </span>{
+            <span class="prelude-val">Some</span>(PendingEvent {
+                routing_info,
+                data,
+                conditional_offset,
+                oneshot_sender,
+                flush_oneshot_sender,
             })
         }
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">with_header_flush</span>(
-        <span class="ident">routing_info</span>: <span class="ident">RoutingInfo</span>,
-        <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-        <span class="ident">conditional_offset</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>,
-        <span class="ident">oneshot_sender</span>: <span class="ident">oneshot::Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">flush_oneshot_sender</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">oneshot::Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PendingEvent</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">cmd</span> <span class="op">=</span> <span class="ident">EventCommand</span> { <span class="ident">data</span> };
-        <span class="kw">match</span> <span class="ident">cmd</span>.<span class="ident">write_fields</span>() {
-            <span class="prelude-val">Ok</span>(<span class="ident">data</span>) =&gt; <span class="ident">PendingEvent::new</span>(
-                <span class="ident">routing_info</span>,
-                <span class="ident">data</span>,
-                <span class="ident">conditional_offset</span>,
-                <span class="ident">oneshot_sender</span>,
-                <span class="ident">flush_oneshot_sender</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>with_header_flush(
+        routing_info: RoutingInfo,
+        data: Vec&lt;u8&gt;,
+        conditional_offset: <span class="prelude-ty">Option</span>&lt;i64&gt;,
+        oneshot_sender: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt;,
+        flush_oneshot_sender: <span class="prelude-ty">Option</span>&lt;oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;PendingEvent&gt; {
+        <span class="kw">let </span>cmd = EventCommand { data };
+        <span class="kw">match </span>cmd.write_fields() {
+            <span class="prelude-val">Ok</span>(data) =&gt; PendingEvent::new(
+                routing_info,
+                data,
+                conditional_offset,
+                oneshot_sender,
+                flush_oneshot_sender,
             ),
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
+            <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="macro">warn!</span>(<span class="string">&quot;failed to serialize event to event command, sending this error back to caller&quot;</span>);
-                <span class="ident">oneshot_sender</span>
-                    .<span class="ident">send</span>(<span class="prelude-val">Err</span>(<span class="ident">Error::InternalFailure</span> {
-                        <span class="ident">msg</span>: <span class="macro">format!</span>(<span class="string">&quot;Failed to serialize event: {:?}&quot;</span>, <span class="ident">e</span>),
+                oneshot_sender
+                    .send(<span class="prelude-val">Err</span>(Error::InternalFailure {
+                        msg: <span class="macro">format!</span>(<span class="string">&quot;Failed to serialize event: {:?}&quot;</span>, e),
                     }))
-                    .<span class="ident">expect</span>(<span class="string">&quot;send error to caller&quot;</span>);
-                <span class="prelude-val">None</span>
-            }
+                    .expect(<span class="string">&quot;send error to caller&quot;</span>);
+                <span class="prelude-val">None
+            </span>}
         }
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">with_header</span>(
-        <span class="ident">routing_info</span>: <span class="ident">RoutingInfo</span>,
-        <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-        <span class="ident">conditional_offset</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>,
-        <span class="ident">oneshot_sender</span>: <span class="ident">oneshot::Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PendingEvent</span><span class="op">&gt;</span> {
-        <span class="ident">PendingEvent::with_header_flush</span>(<span class="ident">routing_info</span>, <span class="ident">data</span>, <span class="ident">conditional_offset</span>, <span class="ident">oneshot_sender</span>, <span class="prelude-val">None</span>)
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>with_header(
+        routing_info: RoutingInfo,
+        data: Vec&lt;u8&gt;,
+        conditional_offset: <span class="prelude-ty">Option</span>&lt;i64&gt;,
+        oneshot_sender: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;PendingEvent&gt; {
+        PendingEvent::with_header_flush(routing_info, data, conditional_offset, oneshot_sender, <span class="prelude-val">None</span>)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">without_header_flush</span>(
-        <span class="ident">routing_info</span>: <span class="ident">RoutingInfo</span>,
-        <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-        <span class="ident">conditional_offset</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>,
-        <span class="ident">oneshot_sender</span>: <span class="ident">oneshot::Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">flush_oneshot_sender</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">oneshot::Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PendingEvent</span><span class="op">&gt;</span> {
-        <span class="ident">PendingEvent::new</span>(
-            <span class="ident">routing_info</span>,
-            <span class="ident">data</span>,
-            <span class="ident">conditional_offset</span>,
-            <span class="ident">oneshot_sender</span>,
-            <span class="ident">flush_oneshot_sender</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>without_header_flush(
+        routing_info: RoutingInfo,
+        data: Vec&lt;u8&gt;,
+        conditional_offset: <span class="prelude-ty">Option</span>&lt;i64&gt;,
+        oneshot_sender: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt;,
+        flush_oneshot_sender: <span class="prelude-ty">Option</span>&lt;oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;PendingEvent&gt; {
+        PendingEvent::new(
+            routing_info,
+            data,
+            conditional_offset,
+            oneshot_sender,
+            flush_oneshot_sender,
         )
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">without_header</span>(
-        <span class="ident">routing_info</span>: <span class="ident">RoutingInfo</span>,
-        <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-        <span class="ident">conditional_offset</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>,
-        <span class="ident">oneshot_sender</span>: <span class="ident">oneshot::Sender</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PendingEvent</span><span class="op">&gt;</span> {
-        <span class="ident">PendingEvent::without_header_flush</span>(<span class="ident">routing_info</span>, <span class="ident">data</span>, <span class="ident">conditional_offset</span>, <span class="ident">oneshot_sender</span>, <span class="prelude-val">None</span>)
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>without_header(
+        routing_info: RoutingInfo,
+        data: Vec&lt;u8&gt;,
+        conditional_offset: <span class="prelude-ty">Option</span>&lt;i64&gt;,
+        oneshot_sender: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;PendingEvent&gt; {
+        PendingEvent::without_header_flush(routing_info, data, conditional_offset, oneshot_sender, <span class="prelude-val">None</span>)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">is_empty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">data</span>.<span class="ident">is_empty</span>()
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.data.is_empty()
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="pravega_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.66.0 (69f9c33d7 2022-12-12)" ></div></body></html>
