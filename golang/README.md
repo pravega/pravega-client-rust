@@ -34,5 +34,4 @@ or you can replace the dependence with local version
 go mod edit -replace github.com/pravega/pravega-client-rust/golang=/root/go/src/your_golang_code_path
 ```
 
-3. Write your application with the reference to example code or bench_test code. As for how to set the clientConfig and streamConfig, you can read rust document as reference [ClientConfig](https://docs.rs/pravega-client-config/0.3.2/pravega_client_config/struct.ClientConfig.html),[StreamConfig](https://github.com/pravega/pravega-client-rust/blob/860e443efe740baa0d3c32909c843ecc3f3ced7c/shared/src/lib.rs#L509)
-
+3. Write your application with the reference to example code or bench_test code. As for how to set the clientConfig and streamConfig, you can read rust document as reference [ClientConfig](https://docs.rs/pravega-client-config/latest/pravega_client_config/struct.ClientConfig.html),[StreamConfig](https://github.com/pravega/pravega-client-rust/blob/master/shared/src/lib.rs#L508-L514)
