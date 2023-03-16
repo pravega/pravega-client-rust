@@ -258,8 +258,7 @@ impl ReaderGroupState {
         &mut self,
         reader: &Reader,
     ) -> Result<(), ReaderGroupStateError> {
-        self
-            .sync
+        self.sync
             .insert(|table| ReaderGroupState::remove_reader_internal_default(table, reader))
             .await
             .map_err(|err| match err {
@@ -303,8 +302,7 @@ impl ReaderGroupState {
         reader: &Reader,
         owned_segments: HashMap<ScopedSegment, Offset>,
     ) -> Result<(), ReaderGroupStateError> {
-        self
-            .sync
+        self.sync
             .insert(|table| ReaderGroupState::remove_reader_internal(table, reader, &owned_segments))
             .await
             .map_err(|err| match err {
@@ -566,8 +564,7 @@ impl ReaderGroupState {
         segment_completed: &ScopedSegment,
         successors_mapped_to_their_predecessors: &im::HashMap<SegmentWithRange, Vec<Segment>>,
     ) -> Result<(), ReaderGroupStateError> {
-        self
-            .sync
+        self.sync
             .insert(|table| {
                 ReaderGroupState::segment_completed_internal(
                     table,

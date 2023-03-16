@@ -1547,8 +1547,12 @@ impl ControllerClientImpl {
                 match scale_response.status() {
                     ScaleStreamStatus::Started => {
                         // scale Stream has started. check for its completion.
-                        self.check_scale_status(stream, scale_response.epoch, RetryWithBackoff::default_setting())
-                            .await
+                        self.check_scale_status(
+                            stream,
+                            scale_response.epoch,
+                            RetryWithBackoff::default_setting(),
+                        )
+                        .await
                     }
                     ScaleStreamStatus::PreconditionFailed => Err(ControllerError::OperationError {
                         can_retry: false, // do not retry.
