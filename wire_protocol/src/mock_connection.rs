@@ -91,10 +91,10 @@ impl Connection for MockConnection {
                 send_happy(
                     self.sender.as_mut().expect("get sender"),
                     payload,
-                    &mut *segments_guard,
-                    &mut *writers_guard,
-                    &mut *table_segment_index_guard,
-                    &mut *table_segment_guard,
+                    &mut segments_guard,
+                    &mut writers_guard,
+                    &mut table_segment_index_guard,
+                    &mut table_segment_guard,
                 )
                 .await
             }
@@ -232,10 +232,10 @@ impl ConnectionWriteHalf for MockWritingConnection {
                 send_happy(
                     &mut self.sender,
                     payload,
-                    &mut *segments_guard,
-                    &mut *writers_guard,
-                    &mut *table_segment_index_guard,
-                    &mut *table_segment_guard,
+                    &mut segments_guard,
+                    &mut writers_guard,
+                    &mut table_segment_index_guard,
+                    &mut table_segment_guard,
                 )
                 .await
             }
@@ -499,7 +499,7 @@ async fn send_happy(
                 entries: TableEntries { entries: delta },
                 should_clear: false,
                 reached_end: false,
-                last_position: to_position as i64,
+                last_position: to_position,
             });
             sender.send(reply).expect("send reply");
         }

@@ -24,7 +24,7 @@
     clippy::needless_borrow,
     clippy::similar_names
 )]
-#![allow(clippy::multiple_crate_versions, clippy::needless_doctest_main)]
+#![allow(clippy::multiple_crate_versions, clippy::result_large_err, clippy::needless_doctest_main)]
 #![allow(bare_trait_objects)]
 #![recursion_limit = "1024"]
 #![allow(clippy::redundant_allocation)]

@@ -25,7 +25,7 @@
 //!         Nonretryable,
 //!     }
 //!
-//! let retry_policy = RetryWithBackoff::default().max_tries(1);
+//! let retry_policy = RetryWithBackoff::default_setting().max_tries(1);
 //! let mut collection = vec![1, 2].into_iter();
 //! let value = retry_sync(retry_policy, || match collection.next() {
 //!     Some(n) if n == 2 => RetryResult::Success(n),

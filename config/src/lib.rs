@@ -65,7 +65,7 @@ pub struct ClientConfig {
     pub connection_type: ConnectionType,
 
     #[get_copy = "pub"]
-    #[builder(default = "RetryWithBackoff::default()")]
+    #[builder(default = "RetryWithBackoff::default_setting()")]
     pub retry_policy: RetryWithBackoff,
 
     #[get]
@@ -258,7 +258,7 @@ mod tests {
         assert_eq!(config.max_connections_in_pool(), u32::MAX as u32);
         assert_eq!(config.max_controller_connections(), 3u32);
         assert_eq!(config.connection_type(), ConnectionType::Tokio);
-        assert_eq!(config.retry_policy(), RetryWithBackoff::default());
+        assert_eq!(config.retry_policy(), RetryWithBackoff::default_setting());
     }
 
     #[test]

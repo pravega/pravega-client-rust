@@ -18,7 +18,7 @@ use std::time::Duration;
 /// Retry the given operation synchronously until it succeeds, or until the given `Duration` end.
 /// retry_schedule: The retry policy that has max retry times and retry delay.
 /// It can be used as follows:
-/// let retry_policy = RetryWithBackoff::default();
+/// let retry_policy = RetryWithBackoff::default_setting();
 /// let mut collection = vec![1, 2].into_iter();
 /// let res = retry_sync(retry_policy, || match collection.next() {
 ///     Some(n) if n == 3 => RetryResult::Success(n),
@@ -93,7 +93,7 @@ mod tests {
 
     #[test]
     fn test_succeeds_with_default_setting() {
-        let retry_policy = RetryWithBackoff::default();
+        let retry_policy = RetryWithBackoff::default_setting();
         let mut collection = vec![1, 2, 3, 4, 5].into_iter();
         let value = retry_sync(retry_policy, || match collection.next() {
             Some(n) if n == 5 => RetryResult::Success(n),
@@ -106,7 +106,7 @@ mod tests {
 
     #[test]
     fn test_succeeds_with_maximum_retries() {
-        let retry_policy = RetryWithBackoff::default().max_tries(1);
+        let retry_policy = RetryWithBackoff::default_setting().max_tries(1);
         let mut collection = vec![1, 2].into_iter();
         let value = retry_sync(retry_policy, || match collection.next() {
             Some(n) if n == 2 => RetryResult::Success(n),
@@ -119,7 +119,7 @@ mod tests {
 
     #[test]
     fn test_fails_after_last_retry() {
-        let retry_policy = RetryWithBackoff::default().max_tries(1);
+        let retry_policy = RetryWithBackoff::default_setting().max_tries(1);
         let mut collection = vec![1, 2].into_iter();
         let res = retry_sync(retry_policy, || match collection.next() {
             Some(n) if n == 3 => RetryResult::Success(n),
@@ -139,7 +139,7 @@ mod tests {
 
     #[test]
     fn test_fails_with_non_retryable_err() {
-        let retry_policy = RetryWithBackoff::default().max_tries(1);
+        let retry_policy = RetryWithBackoff::default_setting().max_tries(1);
         let mut collection = vec![1].into_iter();
         let res = retry_sync(retry_policy, || match collection.next() {
             Some(n) if n == 3 => RetryResult::Success(n),
@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn test_succeeds_with_snafu_error() {
-        let retry_policy = RetryWithBackoff::default().max_tries(1);
+        let retry_policy = RetryWithBackoff::default_setting().max_tries(1);
         let mut collection = vec![1, 2].into_iter();
         let res = retry_sync(retry_policy, || match collection.next() {
             Some(n) if n == 3 => RetryResult::Success(n),
