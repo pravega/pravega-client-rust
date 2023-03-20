@@ -142,7 +142,7 @@ fn test_uses_default_setting() {
 
 #[test]
 fn test_returns_some_exponential_base_10() {
-    let mut s = RetryWithBackoff::from_millis(10);
+    let mut s = RetryWithBackoff::default_setting().initial_delay(Duration::from_millis(10));
 
     assert_eq!(s.next(), Some(Duration::from_millis(10)));
     assert_eq!(s.next(), Some(Duration::from_millis(100)));
@@ -162,7 +162,7 @@ fn test_returns_with_finite_retries() {
 }
 #[test]
 fn test_returns_some_exponential_base_2() {
-    let mut s = RetryWithBackoff::from_millis(2);
+    let mut s = RetryWithBackoff::default_setting().initial_delay(Duration::from_millis(2));
 
     assert_eq!(s.next(), Some(Duration::from_millis(2)));
     assert_eq!(s.next(), Some(Duration::from_millis(4)));
@@ -171,7 +171,9 @@ fn test_returns_some_exponential_base_2() {
 
 #[test]
 fn stops_increasing_at_max_delay() {
-    let mut s = RetryWithBackoff::from_millis(2).max_delay(Duration::from_millis(4));
+    let mut s = RetryWithBackoff::default_setting()
+        .initial_delay(Duration::from_millis(2))
+        .max_delay(Duration::from_millis(4));
 
     assert_eq!(s.next(), Some(Duration::from_millis(2)));
     assert_eq!(s.next(), Some(Duration::from_millis(4)));
@@ -180,7 +182,9 @@ fn stops_increasing_at_max_delay() {
 
 #[test]
 fn returns_max_when_max_less_than_base() {
-    let mut s = RetryWithBackoff::from_millis(20).max_delay(Duration::from_millis(10));
+    let mut s = RetryWithBackoff::default_setting()
+        .initial_delay(Duration::from_millis(20))
+        .max_delay(Duration::from_millis(10));
     assert_eq!(s.next(), Some(Duration::from_millis(10)));
     assert_eq!(s.next(), Some(Duration::from_millis(10)));
 }
