@@ -11,6 +11,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(bare_trait_objects)]
+#![allow(clippy::result_large_err)]
 
 use std::{thread, time};
 // use pravega_client_rust::metric;
