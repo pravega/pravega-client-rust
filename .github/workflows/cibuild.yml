@@ -234,7 +234,7 @@ jobs:
 
     strategy:
       matrix:
-        build: [linux, linux-arm, macos, win-msvc, win32-msvc]
+        build: [linux, linux-arm, macos, win-msvc, win-gnu, win32-msvc]
         include:
           - build: linux
             os: ubuntu-18.04
@@ -252,10 +252,10 @@ jobs:
             os: windows-2019
             rust: stable
             target: x86_64-pc-windows-msvc
-#          - build: win-gnu
-#            os: windows-2019
-#            rust: stable-x86_64-gnu
-#            target: x86_64-pc-windows-gnu
+          - build: win-gnu
+            os: windows-2019
+            rust: stable-x86_64-gnu
+            target: x86_64-pc-windows-gnu
           - build: win32-msvc
             os: windows-2019
             rust: stable
@@ -281,7 +281,7 @@ jobs:
       - name: Use Cross
         shell: bash
         run: |
-          cargo install cross
+          cargo install --version 0.2.4 cross // for more information please refer https://github.com/cross-rs/cross/issues/1214 
           echo "CARGO=cross" >> $GITHUB_ENV
           echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
           echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
