@@ -280,8 +280,9 @@ jobs:
 
       - name: Use Cross
         shell: bash
+#        // Changed cargo version from latest to 0.2.4 for more information please refer https://github.com/cross-rs/cross/issues/1214
         run: |
-          cargo install --version 0.2.4 cross // for more information please refer https://github.com/cross-rs/cross/issues/1214 
+          cargo install --version 0.2.4 cross 
           echo "CARGO=cross" >> $GITHUB_ENV
           echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
           echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
