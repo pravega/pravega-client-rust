@@ -162,7 +162,9 @@ fn test_returns_with_finite_retries() {
 }
 #[test]
 fn test_returns_some_exponential_base_2() {
-    let mut s = RetryWithBackoff::default_setting().initial_delay(Duration::from_millis(2));
+    let mut s = RetryWithBackoff::default_setting()
+        .initial_delay(Duration::from_millis(2))
+        .backoff_coefficient(2);
 
     assert_eq!(s.next(), Some(Duration::from_millis(2)));
     assert_eq!(s.next(), Some(Duration::from_millis(4)));
