@@ -314,7 +314,7 @@ jobs:
           mkdir "$staging"
           echo "currentdir is :"
           pwd
-          if [ "${{ matrix.os }}" = "windows-2019" ]; then
+          if [ "${{ matrix.os }}" = "windows-2019" ] || [ "${{ matrix.build }}" = "win-gnu" ]; then
             cp "target/${{ matrix.target }}/release/pravegactl.exe" "$staging/"
             7z a "$staging.zip" "$staging"
             echo "ASSET=$staging.zip" >> $GITHUB_ENV
