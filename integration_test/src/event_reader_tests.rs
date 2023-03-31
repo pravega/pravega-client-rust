@@ -42,7 +42,7 @@ pub fn test_event_stream_reader(config: PravegaStandaloneServiceConfig) {
     test_read_from_tail_of_stream(&async_client_factory);
     test_read_from_head_of_stream(&async_client_factory);
     test_read_large_events(&async_client_factory);
-    // test_multi_reader_multi_segments_tail_read(&async_client_factory);
+    test_multi_reader_multi_segments_tail_read(&async_client_factory);
     runtime.block_on(test_read_api(&async_client_factory));
     runtime.block_on(test_stream_scaling(&async_client_factory));
     runtime.block_on(test_release_segment(&async_client_factory));
