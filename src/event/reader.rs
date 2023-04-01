@@ -399,10 +399,7 @@ impl EventReader {
         rg_state: Arc<Mutex<ReaderGroupState>>,
         meta: &mut ReaderState,
     ) -> Result<(), EventReaderError> {
-        let mut rg_guard = rg_state.lock().await;
-        let online = rg_guard.check_online(&reader_id).await;
-        drop(rg_guard);
-        if !meta.reader_offline && online {
+        if !meta.reader_offline && rg_state.lock().await.check_online(&reader_id).await {
             info!("static Putting reader {:?} offline", reader_id);
             // stop reading from all the segments.
             meta.stop_reading_all();
