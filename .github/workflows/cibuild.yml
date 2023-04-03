@@ -237,11 +237,11 @@ jobs:
         build: [linux, linux-arm, macos, win-msvc, win-gnu, win32-msvc]
         include:
           - build: linux
-            os: ubuntu-18.04
+            os: ubuntu-20.04
             rust: stable
             target: x86_64-unknown-linux-musl
           - build: linux-arm
-            os: ubuntu-18.04
+            os: ubuntu-20.04
             rust: stable
             target: arm-unknown-linux-gnueabihf
           - build: macos
@@ -253,7 +253,7 @@ jobs:
             rust: stable
             target: x86_64-pc-windows-msvc
           - build: win-gnu
-            os: ubuntu-18.04
+            os: ubuntu-20.04
             rust: stable-x86_64-gnu
             target: x86_64-pc-windows-gnu
           - build: win32-msvc
@@ -266,7 +266,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install packages (Ubuntu)
-        if: matrix.os == 'ubuntu-18.04'
+        if: matrix.os == 'ubuntu-20.04'
         run: |
           .github/workflows/ubuntu-install-packages
 
