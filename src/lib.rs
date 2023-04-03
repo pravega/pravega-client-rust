@@ -24,6 +24,7 @@
     clippy::needless_borrow,
     clippy::similar_names
 )]
+// clippy::result_large_err will be fixed by https://github.com/pravega/pravega-client-rust/issues/413.
 #![allow(
     clippy::multiple_crate_versions,
     clippy::result_large_err,
