@@ -20,23 +20,25 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
         
+      - name: Display Rust version
+        run: rustc --version
       - name: Cache toolchain
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: /usr/share/rust/.cargo
           key: ${{ runner.os }}-rustup
       - name: Cache cargo registry
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
       - name: Cache cargo index
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
       - name: Cache cargo build	
-        uses: actions/cache@v1	
+        uses: actions/cache@v3
         with:	
           path: target	
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
@@ -76,22 +78,22 @@ jobs:
         uses: actions/checkout@v2
         
       - name: Cache toolchain
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: /usr/share/rust/.cargo
           key: ${{ runner.os }}-rustup
       - name: Cache cargo registry
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
       - name: Cache cargo index
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
       - name: Cache cargo build	
-        uses: actions/cache@v1	
+        uses: actions/cache@v3
         with:	
           path: target	
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
@@ -122,22 +124,22 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Cache toolchain
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: /usr/share/rust/.cargo
           key: ${{ runner.os }}-rustup
       - name: Cache cargo registry
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
       - name: Cache cargo index
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
       - name: Cache cargo build	
-        uses: actions/cache@v1	
+        uses: actions/cache@v3
         with:	
           path: target	
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
@@ -171,22 +173,22 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Cache toolchain
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: /usr/share/rust/.cargo
           key: ${{ runner.os }}-rustup
       - name: Cache cargo registry
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
       - name: Cache cargo index
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
       - name: Cache cargo build	
-        uses: actions/cache@v1	
+        uses: actions/cache@v3
         with:	
           path: target	
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
@@ -235,11 +237,11 @@ jobs:
         build: [linux, linux-arm, macos, win-msvc, win-gnu, win32-msvc]
         include:
           - build: linux
-            os: ubuntu-18.04
+            os: ubuntu-20.04
             rust: stable
             target: x86_64-unknown-linux-musl
           - build: linux-arm
-            os: ubuntu-18.04
+            os: ubuntu-20.04
             rust: stable
             target: arm-unknown-linux-gnueabihf
           - build: macos
@@ -251,7 +253,7 @@ jobs:
             rust: stable
             target: x86_64-pc-windows-msvc
           - build: win-gnu
-            os: windows-2019
+            os: ubuntu-20.04
             rust: stable-x86_64-gnu
             target: x86_64-pc-windows-gnu
           - build: win32-msvc
@@ -264,7 +266,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install packages (Ubuntu)
-        if: matrix.os == 'ubuntu-18.04'
+        if: matrix.os == 'ubuntu-20.04'
         run: |
           .github/workflows/ubuntu-install-packages
 
@@ -278,8 +280,9 @@ jobs:
 
       - name: Use Cross
         shell: bash
+#        // Changed cargo version from latest to 0.2.4 for more information please refer https://github.com/cross-rs/cross/issues/1214
         run: |
-          cargo install cross
+          cargo install --version 0.2.4 cross 
           echo "CARGO=cross" >> $GITHUB_ENV
           echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
           echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
@@ -311,7 +314,7 @@ jobs:
           mkdir "$staging"
           echo "currentdir is :"
           pwd
-          if [ "${{ matrix.os }}" = "windows-2019" ]; then
+          if [ "${{ matrix.os }}" = "windows-2019" ] || [ "${{ matrix.build }}" = "win-gnu" ]; then
             cp "target/${{ matrix.target }}/release/pravegactl.exe" "$staging/"
             7z a "$staging.zip" "$staging"
             echo "ASSET=$staging.zip" >> $GITHUB_ENV

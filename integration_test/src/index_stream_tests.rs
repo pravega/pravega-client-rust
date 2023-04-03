@@ -108,7 +108,7 @@ async fn test_write_and_read(
     // search for record when nothing in the stream
     let res = reader.search_offset(("id", 5)).await;
     assert!(
-        matches! {res.err().expect("search for a non-existing field"), IndexReaderError::FieldNotFound{..}}
+        matches! {res.expect_err("search for a non-existing field"), IndexReaderError::FieldNotFound{..}}
     );
 
     // test normal append
@@ -127,7 +127,7 @@ async fn test_write_and_read(
     let data = vec![1; 10];
     let res = writer.append(label, data).await;
     assert!(
-        matches! {res.err().expect("append should fail due to invalid label"), IndexWriterError::InvalidFields{..}}
+        matches! {res.expect_err("append should fail due to invalid label"), IndexWriterError::InvalidFields{..}}
     );
 
     // test tail read
@@ -171,7 +171,7 @@ async fn test_write_and_read(
     // search for future record, should return error.
     let res = reader.search_offset(("uuid", 11)).await;
     assert!(
-        matches! {res.err().expect("search for a non-existing field"), IndexReaderError::FieldNotFound{..}}
+        matches! {res.expect_err("search for a non-existing field"), IndexReaderError::FieldNotFound{..}}
     );
 
     // test event reader compatibility
@@ -232,7 +232,7 @@ async fn test_new_record(writer: &mut IndexWriter<TestFields1>, reader: &mut Ind
 
     let res = reader.search_offset(("id", 21)).await;
     assert!(
-        matches! {res.err().expect("search for a non-existing entry"), IndexReaderError::FieldNotFound{..}}
+        matches! {res.expect_err("search for a non-existing entry"), IndexReaderError::FieldNotFound{..}}
     );
     // test dup field search
     let label = TestFields1 {
@@ -289,7 +289,7 @@ async fn test_condition_append(writer: &mut IndexWriter<TestFields1>) {
     let data = vec![1; 21];
     let res = writer.append_conditionally(label, condition_on, data).await;
     assert!(
-        matches! {res.err().expect("should have conditional append error"), IndexWriterError::InvalidCondition{..}}
+        matches! {res.expect_err("should have conditional append error"), IndexWriterError::InvalidCondition{..}}
     );
     info!("test index stream condition append passed");
 }
@@ -303,6 +303,6 @@ async fn test_new_record_out_of_order(writer: &mut IndexWriter<TestFields2>) {
         timestamp: 21,
     };
     let res = writer.append(label, data).await;
-    assert!(matches! {res.err().expect("should have append error"), IndexWriterError::InvalidFields{..}});
+    assert!(matches! {res.expect_err("should have append error"), IndexWriterError::InvalidFields{..}});
     info!("test index stream new record out of order passed");
 }

@@ -8,6 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+#![allow(clippy::borrow_deref_ref)] // https://github.com/rust-lang/rust-clippy/issues/8971
 #[macro_use]
 extern crate cfg_if;
 
