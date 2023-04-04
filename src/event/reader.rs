@@ -24,6 +24,7 @@ use bytes::{Buf, BufMut, BytesMut};
 use core::fmt;
 use im::HashMap as ImHashMap;
 use std::collections::{HashMap, HashSet};
+use std::mem;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::runtime::Handle;
@@ -123,19 +124,30 @@ impl Drop for EventReader {
         info!("Reader {:?} is dropped", self.id);
         // try fetching the currently running Runtime.
         let r = Handle::try_current();
+        let rg_state = self.rg_state.clone();
+        let id = self.id.clone();
+        let mut meta = mem::take(&mut self.meta);
         match r {
             Ok(handle) => {
                 // enter the runtime context.
                 let _ = handle.enter();
                 // ensure we block until the reader_offline method completes.
-                let offline_status = futures::executor::block_on(self.reader_offline());
-                info!("Reader {:?} is marked as offline. {:?}", self.id, offline_status);
+                tokio::spawn(async move {
+                    EventReader::reader_offline_internal(id, rg_state, &mut meta)
+                        .await
+                        .expect("Reader Offline");
+                });
+                info!("Reader {:?} is marked as offline.", self.id);
             }
             Err(_) => {
                 // ensure we block until the reader_offline executes successfully.
                 let rt = tokio::runtime::Runtime::new().expect("Create tokio runtime to drop reader");
-                let offline_status = rt.block_on(self.reader_offline());
-                info!("Reader {:?} is marked as offline. {:?}", self.id, offline_status);
+                rt.spawn(async move {
+                    EventReader::reader_offline_internal(id, rg_state, &mut meta)
+                        .await
+                        .expect("Reader Offline");
+                });
+                info!("Reader {:?} is marked as offline.", self.id);
             }
         }
     }
@@ -382,41 +394,38 @@ impl EventReader {
     /// Note: it may return an error indicating that the reader has already been removed. This means
     /// that another thread removes this reader from the ReaderGroup probably due to the host of this reader
     /// is assumed dead.
-    pub async fn reader_offline(&mut self) -> Result<(), EventReaderError> {
-        if !self.meta.reader_offline && self.rg_state.lock().await.check_online(&self.id).await {
-            info!("Putting reader {:?} offline", self.id);
+    async fn reader_offline_internal(
+        reader_id: Reader,
+        rg_state: Arc<Mutex<ReaderGroupState>>,
+        meta: &mut ReaderState,
+    ) -> Result<(), EventReaderError> {
+        if !meta.reader_offline && rg_state.lock().await.check_online(&reader_id).await {
+            info!("static Putting reader {:?} offline", reader_id);
             // stop reading from all the segments.
-            self.meta.stop_reading_all();
+            meta.stop_reading_all();
             // close all slice return Receivers.
-            self.meta.close_all_slice_return_channel();
+            meta.close_all_slice_return_channel();
             // use the updated map to return the data.
-
             let mut offset_map: HashMap<ScopedSegment, Offset> = HashMap::new();
-            for (seg, slice_meta) in self.meta.slices_dished_out.drain() {
+            for (seg, slice_meta) in meta.slices_dished_out.drain() {
                 offset_map.insert(seg, Offset::new(slice_meta.read_offset));
             }
-            for meta in self.meta.slices.values() {
+            for meta in meta.slices.values() {
                 offset_map.insert(
                     ScopedSegment::from(meta.scoped_segment.as_str()),
                     Offset::new(meta.read_offset),
                 );
             }
 
-            match self
-                .rg_state
-                .lock()
-                .await
-                .remove_reader(&self.id, offset_map)
-                .await
-            {
+            match rg_state.lock().await.remove_reader(&reader_id, offset_map).await {
                 Ok(()) => {
-                    self.meta.reader_offline = true;
+                    meta.reader_offline = true;
                     Ok(())
                 }
                 Err(e) => match e {
                     ReaderGroupStateError::ReaderAlreadyOfflineError { .. } => {
-                        self.meta.reader_offline = true;
-                        info!("Reader {:?} is already offline", self.id);
+                        meta.reader_offline = true;
+                        info!("staticReader {:?} is already offline", reader_id);
                         Ok(())
                     }
                     state_err => Err(EventReaderError::StateError { source: state_err }),
@@ -424,6 +433,17 @@ impl EventReader {
             }?
         }
         Ok(())
+    }
+
+    /// Mark the reader as offline after calling the reader_offline_internal.
+    /// Note: it may return an error indicating that the reader has already been removed. This means
+    /// that another thread removes this reader from the ReaderGroup probably due to the host of this reader
+    /// is assumed dead.
+    pub async fn reader_offline(&mut self) -> Result<(), EventReaderError> {
+        let rg_state = self.rg_state.clone();
+        let id = self.id.clone();
+        let mut meta = mem::take(&mut self.meta);
+        Self::reader_offline_internal(id, rg_state, &mut meta).await
     }
 
     /// Release the segment of the provided SegmentSlice from the reader. This segment is marked as
@@ -784,6 +804,21 @@ struct ReaderState {
     last_segment_release: Instant,
     last_segment_acquire: Instant,
     reader_offline: bool,
+}
+impl Default for ReaderState {
+    // Implements the Default trait for the ReaderState struct.
+    // This allows us to create a new instance of ReaderState with default values using the Default::default() method.
+    fn default() -> Self {
+        ReaderState {
+            slices: HashMap::new(),
+            slices_dished_out: HashMap::new(),
+            slice_release_receiver: HashMap::new(),
+            slice_stop_reading: HashMap::new(),
+            last_segment_release: Instant::now(),
+            last_segment_acquire: Instant::now(),
+            reader_offline: false,
+        }
+    }
 }
 
 impl ReaderState {

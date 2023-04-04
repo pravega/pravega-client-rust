@@ -152,7 +152,7 @@ impl Table {
                 .get_endpoint_for_segment(&segment)
                 .await
                 .expect("get endpoint for segment");
-            debug!("endpoint is {}", endpoint.to_string());
+            debug!("endpoint is {:?}", endpoint);
 
             let result = factory
                 .create_raw_client_for_endpoint(endpoint.clone())
@@ -944,7 +944,7 @@ async fn delete_table_segment(
         .get_endpoint_for_segment(segment)
         .await
         .expect("get endpoint for segment");
-    debug!("endpoint is {}", endpoint.to_string());
+    debug!("endpoint is {:?}", endpoint);
 
     let result = factory
         .create_raw_client_for_endpoint(endpoint.clone())

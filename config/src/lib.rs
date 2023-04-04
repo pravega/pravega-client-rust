@@ -65,7 +65,7 @@ pub struct ClientConfig {
     pub connection_type: ConnectionType,
 
     #[get_copy = "pub"]
-    #[builder(default = "RetryWithBackoff::default()")]
+    #[builder(default = "RetryWithBackoff::default_setting()")]
     pub retry_policy: RetryWithBackoff,
 
     #[get]
@@ -232,14 +232,17 @@ mod tests {
         let config = ClientConfigBuilder::default()
             .max_connections_in_pool(15 as u32)
             .connection_type(ConnectionType::Tokio)
-            .retry_policy(RetryWithBackoff::from_millis(1000))
+            .retry_policy(RetryWithBackoff::default_setting().initial_delay(Duration::from_millis(1000)))
             .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
             .build()
             .unwrap();
 
         assert_eq!(config.max_connections_in_pool(), 15 as u32);
         assert_eq!(config.connection_type(), ConnectionType::Tokio);
-        assert_eq!(config.retry_policy(), RetryWithBackoff::from_millis(1000));
+        assert_eq!(
+            config.retry_policy(),
+            RetryWithBackoff::default_setting().initial_delay(Duration::from_millis(1000))
+        );
         assert_eq!(
             config.controller_uri().to_socket_addr().ip(),
             Ipv4Addr::new(127, 0, 0, 2)
@@ -258,7 +261,7 @@ mod tests {
         assert_eq!(config.max_connections_in_pool(), u32::MAX as u32);
         assert_eq!(config.max_controller_connections(), 3u32);
         assert_eq!(config.connection_type(), ConnectionType::Tokio);
-        assert_eq!(config.retry_policy(), RetryWithBackoff::default());
+        assert_eq!(config.retry_policy(), RetryWithBackoff::default_setting());
     }
 
     #[test]

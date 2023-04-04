@@ -18,7 +18,7 @@ use tokio::time::sleep;
 /// Retry the given operation asynchronously until it succeeds,
 /// or until the given Duration iterator ends.
 /// It can be used as follows:
-/// let retry_policy = RetryWithBackoff::default();
+/// let retry_policy = RetryWithBackoff::default_setting();
 /// let future = retry_async(retry_policy, || async {
 ///     let previous = 1;
 ///     match previous {
@@ -89,7 +89,7 @@ mod tests {
     #[test]
     fn attempts_just_once() {
         let runtime = Runtime::new().unwrap();
-        let retry_policy = RetryWithBackoff::default().max_tries(1);
+        let retry_policy = RetryWithBackoff::default_setting().max_tries(1);
         let future = retry_async(retry_policy, || async {
             let previous = 1;
             match previous {
@@ -112,7 +112,7 @@ mod tests {
     #[test]
     fn attempts_until_max_retries_exceeded() {
         let runtime = Runtime::new().unwrap();
-        let retry_policy = RetryWithBackoff::default().max_tries(3);
+        let retry_policy = RetryWithBackoff::default_setting().max_tries(3);
         let future = retry_async(retry_policy, || async {
             let previous = 3;
             match previous {
@@ -129,7 +129,7 @@ mod tests {
     #[test]
     fn attempts_until_success() {
         let runtime = Runtime::new().unwrap();
-        let retry_policy = RetryWithBackoff::default().max_tries(3);
+        let retry_policy = RetryWithBackoff::default_setting().max_tries(3);
         let mut counter = 0;
 
         let future = retry_async(retry_policy, || {

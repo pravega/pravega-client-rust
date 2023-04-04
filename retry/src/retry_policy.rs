@@ -35,7 +35,7 @@ pub struct RetryWithBackoff {
 impl RetryWithBackoff {
     /// Constructs a new exponential back-off strategy,
     /// using default setting.
-    pub fn default() -> RetryWithBackoff {
+    pub fn default_setting() -> RetryWithBackoff {
         RetryWithBackoff {
             attempt: 0,
 
@@ -132,7 +132,7 @@ impl Iterator for RetryWithBackoff {
 
 #[test]
 fn test_uses_default_setting() {
-    let mut s = RetryWithBackoff::default();
+    let mut s = RetryWithBackoff::default_setting();
 
     assert_eq!(s.next(), Some(Duration::from_millis(1)));
     assert_eq!(s.next(), Some(Duration::from_millis(10)));
@@ -142,7 +142,7 @@ fn test_uses_default_setting() {
 
 #[test]
 fn test_returns_some_exponential_base_10() {
-    let mut s = RetryWithBackoff::from_millis(10);
+    let mut s = RetryWithBackoff::default_setting().initial_delay(Duration::from_millis(10));
 
     assert_eq!(s.next(), Some(Duration::from_millis(10)));
     assert_eq!(s.next(), Some(Duration::from_millis(100)));
@@ -162,7 +162,9 @@ fn test_returns_with_finite_retries() {
 }
 #[test]
 fn test_returns_some_exponential_base_2() {
-    let mut s = RetryWithBackoff::from_millis(2);
+    let mut s = RetryWithBackoff::default_setting()
+        .initial_delay(Duration::from_millis(2))
+        .backoff_coefficient(2);
 
     assert_eq!(s.next(), Some(Duration::from_millis(2)));
     assert_eq!(s.next(), Some(Duration::from_millis(4)));
@@ -171,7 +173,9 @@ fn test_returns_some_exponential_base_2() {
 
 #[test]
 fn stops_increasing_at_max_delay() {
-    let mut s = RetryWithBackoff::from_millis(2).max_delay(Duration::from_millis(4));
+    let mut s = RetryWithBackoff::default_setting()
+        .initial_delay(Duration::from_millis(2))
+        .max_delay(Duration::from_millis(4));
 
     assert_eq!(s.next(), Some(Duration::from_millis(2)));
     assert_eq!(s.next(), Some(Duration::from_millis(4)));
@@ -180,7 +184,9 @@ fn stops_increasing_at_max_delay() {
 
 #[test]
 fn returns_max_when_max_less_than_base() {
-    let mut s = RetryWithBackoff::from_millis(20).max_delay(Duration::from_millis(10));
+    let mut s = RetryWithBackoff::default_setting()
+        .initial_delay(Duration::from_millis(20))
+        .max_delay(Duration::from_millis(10));
     assert_eq!(s.next(), Some(Duration::from_millis(10)));
     assert_eq!(s.next(), Some(Duration::from_millis(10)));
 }
@@ -193,7 +199,7 @@ mod tests {
 
     #[test]
     fn test_without_max_attempt_without_max_delay_without_expiration_time() {
-        let mut s = RetryWithBackoff::default()
+        let mut s = RetryWithBackoff::default_setting()
             .initial_delay(Duration::from_millis(1))
             .backoff_coefficient(2);
 
@@ -205,7 +211,7 @@ mod tests {
 
     #[test]
     fn test_with_max_attempt_without_max_delay_without_expiration_time() {
-        let mut s = RetryWithBackoff::default()
+        let mut s = RetryWithBackoff::default_setting()
             .initial_delay(Duration::from_millis(1))
             .backoff_coefficient(2)
             .max_attempt(4);
@@ -219,7 +225,7 @@ mod tests {
 
     #[test]
     fn test_without_max_attempt_without_max_delay_with_expiration_time() {
-        let mut s = RetryWithBackoff::default()
+        let mut s = RetryWithBackoff::default_setting()
             .initial_delay(Duration::from_millis(1))
             .backoff_coefficient(2)
             .max_delay(Duration::from_millis(12));
@@ -235,7 +241,7 @@ mod tests {
     #[test]
     fn test_without_max_attempt_with_max_delay_without_expiration_time() {
         let sleep_duration = Duration::from_millis(10);
-        let mut s = RetryWithBackoff::default()
+        let mut s = RetryWithBackoff::default_setting()
             .initial_delay(Duration::from_millis(1))
             .backoff_coefficient(2)
             .expiration_time(Instant::now().add(sleep_duration));
@@ -252,7 +258,7 @@ mod tests {
 
     #[test]
     fn test_with_max_attempt_with_max_delay_without_expiration_time() {
-        let mut s = RetryWithBackoff::default()
+        let mut s = RetryWithBackoff::default_setting()
             .initial_delay(Duration::from_millis(1))
             .backoff_coefficient(2)
             .max_attempt(8)
