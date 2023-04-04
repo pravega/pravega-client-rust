@@ -60,7 +60,7 @@ pub fn disconnection_test_wrapper() {
 
 #[allow(deprecated)]
 async fn test_retry_with_no_connection() {
-    let retry_policy = RetryWithBackoff::default().max_tries(4);
+    let retry_policy = RetryWithBackoff::default_setting().max_tries(4);
     // give a wrong endpoint
     let endpoint = PravegaNodeUri::from("127.0.0.1:0");
     let config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
@@ -97,7 +97,7 @@ fn test_retry_while_start_pravega(cf: &ClientFactory) {
 
 #[allow(deprecated)]
 async fn create_scope_stream(controller_client: &dyn ControllerClient) {
-    let retry_policy = RetryWithBackoff::default().max_tries(10);
+    let retry_policy = RetryWithBackoff::default_setting().max_tries(10);
     let scope_name = Scope::from("retryScope".to_owned());
 
     let result = retry_async(retry_policy, || async {
@@ -129,7 +129,7 @@ async fn create_scope_stream(controller_client: &dyn ControllerClient) {
         },
         tags: None,
     };
-    let retry_policy = RetryWithBackoff::default().max_tries(10);
+    let retry_policy = RetryWithBackoff::default_setting().max_tries(10);
     let result = retry_async(retry_policy, || async {
         let result = controller_client.create_stream(&request).await;
         match result {
@@ -144,7 +144,7 @@ async fn create_scope_stream(controller_client: &dyn ControllerClient) {
 
 #[allow(deprecated)]
 fn test_retry_with_unexpected_reply(cf: &ClientFactory) {
-    let retry_policy = RetryWithBackoff::default().max_tries(4);
+    let retry_policy = RetryWithBackoff::default_setting().max_tries(4);
     let scope_name = Scope::from("retryScope".to_owned());
     let stream_name = Stream::from("retryStream".to_owned());
     let controller_client = cf.controller_client();
@@ -231,7 +231,7 @@ async fn test_with_mock_server() {
 
     // test with 3 requests, they should be all succeed.
     for _i in 0i32..3 {
-        let retry_policy = RetryWithBackoff::default().max_tries(5);
+        let retry_policy = RetryWithBackoff::default_setting().max_tries(5);
         let result = retry_async(retry_policy, || async {
             let connection = pool
                 .get_connection(endpoint.clone())

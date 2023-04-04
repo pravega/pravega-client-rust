@@ -55,9 +55,7 @@ fn test_read_offline_stream(client_factory: &ClientFactoryAsync) {
     const EVENT_SIZE: usize = 10;
 
     h.block_on(async {
-        let new_stream =
-            create_scope_stream(client_factory.controller_client(), &scope_name, &stream_name, 1).await;
-        new_stream
+        create_scope_stream(client_factory.controller_client(), &scope_name, &stream_name, 1).await;
     });
 
     let rg_config = ReaderGroupConfigBuilder::default()
@@ -124,9 +122,7 @@ fn test_read_offline_with_offset(client_factory: &ClientFactoryAsync) {
     const EVENT_SIZE: usize = 10;
     // create scope and stream.
     h.block_on(async {
-        let new_stream =
-            create_scope_stream(client_factory.controller_client(), &scope_name, &stream_name, 1).await;
-        new_stream
+        create_scope_stream(client_factory.controller_client(), &scope_name, &stream_name, 1).await;
     });
 
     let rg_config = ReaderGroupConfigBuilder::default()
