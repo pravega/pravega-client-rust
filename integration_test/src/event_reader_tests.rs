@@ -585,7 +585,7 @@ fn test_segment_rebalance(client_factory: &ClientFactoryAsync) {
     let mut reader2 = h.block_on(rg.create_reader("r2".to_string()));
 
     // change the last seg acquire and release time to ensure segment balance is triggered.
-    let last_acquire_release_time = Instant::now() - Duration::from_secs(20);
+    let last_acquire_release_time = Instant::now().checked_sub(Duration::from_secs(20)).unwrap();
     reader1.set_last_acquire_release_time(last_acquire_release_time);
     reader2.set_last_acquire_release_time(last_acquire_release_time);
     let mut events_read = 0;
@@ -630,7 +630,7 @@ fn test_segment_rebalance(client_factory: &ClientFactoryAsync) {
     // set reader 2 offline. This should ensure all the segments assigned to reader2 are available to be assigned by reader1.else {  }
     h.block_on(reader2.reader_offline()).expect("reader offline");
     //reset the time to ensure reader1 acquires segment in the next cycle.
-    reader1.set_last_acquire_release_time(Instant::now() - Duration::from_secs(20));
+    reader1.set_last_acquire_release_time(Instant::now().checked_sub(Duration::from_secs(20)).unwrap());
 
     while let Some(slice) = h
         .block_on(reader1.acquire_segment())
@@ -800,9 +800,7 @@ fn test_read_from_tail_of_stream(client_factory: &ClientFactoryAsync) {
     const EVENT_SIZE: usize = 10;
 
     h.block_on(async {
-        let new_stream =
-            create_scope_stream(client_factory.controller_client(), &scope_name, &stream_name, 1).await;
-        new_stream
+        create_scope_stream(client_factory.controller_client(), &scope_name, &stream_name, 1).await;
     });
 
     let rg_config = ReaderGroupConfigBuilder::default()

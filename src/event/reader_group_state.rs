@@ -564,8 +564,7 @@ impl ReaderGroupState {
         segment_completed: &ScopedSegment,
         successors_mapped_to_their_predecessors: &im::HashMap<SegmentWithRange, Vec<Segment>>,
     ) -> Result<(), ReaderGroupStateError> {
-        let _res_str = self
-            .sync
+        self.sync
             .insert(|table| {
                 ReaderGroupState::segment_completed_internal(
                     table,

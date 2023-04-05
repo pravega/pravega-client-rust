@@ -139,7 +139,7 @@ impl IndexReader {
             msg: format!("error when fetching tail offset: {:?}", e),
         })? as i64;
         let mut start = 0;
-        let num_of_record = (tail - head) as i64 / RECORD_SIZE_SIGNED;
+        let num_of_record = (tail - head) / RECORD_SIZE_SIGNED;
         let mut end = num_of_record - 1;
 
         while start <= end {
@@ -187,7 +187,7 @@ impl IndexReader {
         end_offset: u64,
     ) -> Result<impl Stream<Item = Result<Vec<u8>, IndexReaderError>> + 'stream, IndexReaderError> {
         ensure!(
-            start_offset % (RECORD_SIZE as u64) == 0,
+            start_offset % (RECORD_SIZE) == 0,
             InvalidOffset {
                 msg: format!(
                     "Start offset {} is invalid as it cannot be divided by the record size {}",
@@ -197,7 +197,7 @@ impl IndexReader {
         );
         if end_offset != u64::MAX {
             ensure!(
-                end_offset % (RECORD_SIZE as u64) == 0,
+                end_offset % (RECORD_SIZE) == 0,
                 InvalidOffset {
                     msg: format!(
                         "End offset {} is invalid as it cannot be divided by the record size {}",

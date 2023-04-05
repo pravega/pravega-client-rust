@@ -163,7 +163,7 @@ async fn test_hello(factory: &ClientFactory) {
         high_version: 10,
     });
 
-    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
+    let raw_client = RawClientWrapper::new(&CONNECTION_POOL, endpoint, factory.config().request_timeout());
     raw_client
         .send_request(&request)
         .await
@@ -187,7 +187,7 @@ async fn test_keep_alive(factory: &ClientFactory) {
         .expect("get endpoint for segment");
 
     let request = Requests::KeepAlive(KeepAliveCommand {});
-    let connection = (&*CONNECTION_POOL)
+    let connection = (*CONNECTION_POOL)
         .get_connection(endpoint)
         .await
         .expect("get connection");
@@ -226,7 +226,7 @@ async fn test_setup_append(factory: &ClientFactory) {
         last_event_number: i64::min_value(),
     });
 
-    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
+    let raw_client = RawClientWrapper::new(&CONNECTION_POOL, endpoint, factory.config().request_timeout());
     raw_client
         .send_request(&request)
         .await
@@ -272,7 +272,7 @@ async fn test_create_segment(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
+    let raw_client = RawClientWrapper::new(&CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let request1 = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 1,
@@ -323,7 +323,7 @@ async fn test_seal_segment(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
+    let raw_client = RawClientWrapper::new(&CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let request = Requests::SealSegment(SealSegmentCommand {
         segment: segment_name.to_string(),
@@ -357,7 +357,7 @@ async fn test_update_and_get_segment_attribute(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
+    let raw_client = RawClientWrapper::new(&CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let sname = segment_name.to_string();
     let uid = Uuid::new_v4().as_u128();
@@ -418,7 +418,7 @@ async fn test_get_stream_segment_info(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
+    let raw_client = RawClientWrapper::new(&CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let sname = segment_name.to_string();
     let request = Requests::GetStreamSegmentInfo(GetStreamSegmentInfoCommand {
@@ -452,7 +452,7 @@ async fn test_delete_segment(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
+    let raw_client = RawClientWrapper::new(&CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let request = Requests::DeleteSegment(DeleteSegmentCommand {
         request_id: 7,
@@ -484,7 +484,7 @@ async fn test_conditional_append_and_read_segment(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
+    let raw_client = RawClientWrapper::new(&CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 8,
@@ -567,7 +567,7 @@ async fn test_update_segment_policy(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
+    let raw_client = RawClientWrapper::new(&CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let request = Requests::UpdateSegmentPolicy(UpdateSegmentPolicyCommand {
         request_id: 12,
@@ -602,7 +602,7 @@ async fn test_merge_segment(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
+    let raw_client = RawClientWrapper::new(&CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 13,
@@ -690,7 +690,7 @@ async fn test_truncate_segment(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
+    let raw_client = RawClientWrapper::new(&CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     // truncate the first event1.
     let request = Requests::TruncateSegment(TruncateSegmentCommand {
@@ -725,7 +725,7 @@ async fn test_update_table_entries(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
+    let raw_client = RawClientWrapper::new(&CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let request = Requests::CreateSegment(CreateSegmentCommand {
         request_id: 18,
@@ -829,7 +829,7 @@ async fn test_read_table_key(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
+    let raw_client = RawClientWrapper::new(&CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let request = Requests::ReadTableKeys(ReadTableKeysCommand {
         request_id: 22,
@@ -868,7 +868,7 @@ async fn test_read_table(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
+    let raw_client = RawClientWrapper::new(&CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let keys = vec![
         TableKey::new(String::from("key1").into_bytes(), i64::MIN),
@@ -920,7 +920,7 @@ async fn test_read_table_entries(factory: &ClientFactory) {
         .await
         .expect("get endpoint for segment");
 
-    let raw_client = RawClientWrapper::new(&*CONNECTION_POOL, endpoint, factory.config().request_timeout());
+    let raw_client = RawClientWrapper::new(&CONNECTION_POOL, endpoint, factory.config().request_timeout());
 
     let request = Requests::ReadTableEntries(ReadTableEntriesCommand {
         request_id: 22,

@@ -24,7 +24,12 @@
     clippy::needless_borrow,
     clippy::similar_names
 )]
-#![allow(clippy::multiple_crate_versions, clippy::needless_doctest_main)]
+// clippy::result_large_err will be fixed by https://github.com/pravega/pravega-client-rust/issues/413.
+#![allow(
+    clippy::multiple_crate_versions,
+    clippy::result_large_err,
+    clippy::needless_doctest_main
+)]
 #![allow(bare_trait_objects)]
 #![recursion_limit = "1024"]
 #![allow(clippy::redundant_allocation)]

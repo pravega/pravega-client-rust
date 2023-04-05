@@ -131,7 +131,7 @@ impl PravegaService for PravegaStandaloneService {
     fn enable_debug_log(enable: bool) {
         let file_path = Path::new(&LOG);
         // Open and read the file entirely
-        let mut src = File::open(&file_path).expect("open logback.xml file");
+        let mut src = File::open(file_path).expect("open logback.xml file");
         let mut data = String::new();
         src.read_to_string(&mut data).expect("read data");
         drop(src); // Close the file early
@@ -144,13 +144,13 @@ impl PravegaService for PravegaStandaloneService {
         };
 
         // Recreate the file and dump the processed contents to it
-        let mut dst = File::create(&file_path).expect("create file");
+        let mut dst = File::create(file_path).expect("create file");
         dst.write_all(new_data.as_bytes()).expect("write file");
     }
 
     fn enable_auth(enable: bool) {
         let file_path = Path::new(&PROPERTY);
-        let file = File::open(&file_path).expect("open standalone property file");
+        let file = File::open(file_path).expect("open standalone property file");
         let mut map = read(BufReader::new(file)).expect("read property file");
 
         if enable {
@@ -172,13 +172,13 @@ impl PravegaService for PravegaStandaloneService {
         };
 
         // Recreate the file and dump the processed contents to it
-        let f = File::create(&file_path).expect("create file");
+        let f = File::create(file_path).expect("create file");
         write(BufWriter::new(f), &map).expect("write file");
     }
 
     fn enable_tls(enable: bool) {
         let file_path = Path::new(&PROPERTY);
-        let file = File::open(&file_path).expect("open standalone property file");
+        let file = File::open(file_path).expect("open standalone property file");
         let mut map = read(BufReader::new(file)).expect("read property file");
         // drop(src); // Close the file early
 
@@ -213,7 +213,7 @@ impl PravegaService for PravegaStandaloneService {
         };
 
         // Recreate the file and dump the processed contents to it
-        let f = File::create(&file_path).expect("create file");
+        let f = File::create(file_path).expect("create file");
         write(BufWriter::new(f), &map).expect("write file");
     }
 }

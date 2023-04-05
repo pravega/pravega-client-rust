@@ -17,7 +17,7 @@ fn test_create_scope_error() {
     let mut rt = Runtime::new().unwrap();
     let config = ClientConfigBuilder::default()
         .controller_uri("127.0.0.1:9090".parse::<SocketAddr>().unwrap())
-        .retry_policy(RetryWithBackoff::default().max_delay(Duration::from_micros(1)))
+        .retry_policy(RetryWithBackoff::default_setting().max_delay(Duration::from_micros(1)))
         .build()
         .expect("build client config");
 
@@ -43,7 +43,7 @@ fn test_create_stream_error() {
     let mut rt = Runtime::new().unwrap();
     let config = ClientConfigBuilder::default()
         .controller_uri("127.0.0.1:9090".parse::<SocketAddr>().unwrap())
-        .retry_policy(RetryWithBackoff::default().max_delay(Duration::from_micros(1)))
+        .retry_policy(RetryWithBackoff::default_setting().max_delay(Duration::from_micros(1)))
         .build()
         .expect("build client config");
     let client = ControllerClientImpl::new(config, rt.handle().clone());

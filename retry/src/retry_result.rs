@@ -63,7 +63,7 @@ pub trait Retryable {
 /// async fn function_a(param1: &str, param2:u8) -> Result<(), CustomError> {
 ///
 /// }
-/// let retry_policy = RetryWithBackoff::default().max_tries(10);
+/// let retry_policy = RetryWithBackoff::default_setting().max_tries(10);
 /// // the below invocation wraps function_a with the retry logic.
 /// wrap_with_async_retry!(retry_policy, function_a("test", 1));
 /// ```
@@ -104,7 +104,7 @@ macro_rules! wrap_with_async_retry {
 /// fn function_a(param1: &str, param2:u8) -> Result<(), CustomError>{
 ///
 /// }
-/// let retry_policy = RetryWithBackoff::default().max_tries(5);
+/// let retry_policy = RetryWithBackoff::default_setting().max_tries(5);
 /// // the below invocation wraps function_a with the retry logic.
 /// wrap_with_sync_retry!(retry_policy, function_a("test", 1));
 /// ```
