@@ -20,8 +20,11 @@ impl StreamReader {
     pub async fn get_segment_slice(&mut self) -> Result<Option<SegmentSlice>, EventReaderError> {
         self.reader.acquire_segment().await
     }
-    #[allow(clippy::result_large_err)]
-    pub fn release_segment(&mut self, slice: Option<SegmentSlice>) -> Result<(), EventReaderError> {
+    
+    pub fn release_segment(
+        &mut self,
+        slice: Option<SegmentSlice>,
+    ) -> Result<(), Box<pravega_client::event::reader::EventReaderError>> {
         if let Some(s) = slice {
             self.runtime_handle.block_on(self.reader.release_segment(s))?;
         }
