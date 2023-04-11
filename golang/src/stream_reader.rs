@@ -20,7 +20,7 @@ impl StreamReader {
     pub async fn get_segment_slice(&mut self) -> Result<Option<SegmentSlice>, EventReaderError> {
         self.reader.acquire_segment().await
     }
-    
+
     pub fn release_segment(
         &mut self,
         slice: Option<SegmentSlice>,
