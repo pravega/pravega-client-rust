@@ -61,7 +61,7 @@ pub unsafe extern "C" fn stream_reader_group_create_reader(
 pub extern "C" fn stream_reader_destroy(reader: *mut StreamReader) {
     if !reader.is_null() {
         unsafe {
-            Box::from_raw(reader);
+            drop(Box::from_raw(reader));
         }
     }
 }

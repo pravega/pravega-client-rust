@@ -183,7 +183,7 @@ pub struct RetryWithBackoffMapping {
 
 impl RetryWithBackoffMapping {
     pub unsafe fn to_retry_with_backoff(&self) -> RetryWithBackoff {
-        let backoff_coefficient = self.backoff_coefficient as u32;
+        let backoff_coefficient = self.backoff_coefficient;
         let initial_delay = Duration::from_millis(self.initial_delay);
         let max_delay = Duration::from_millis(self.max_delay);
         let backoff = RetryWithBackoff::default()

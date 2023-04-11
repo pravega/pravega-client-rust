@@ -114,7 +114,7 @@ pub unsafe extern "C" fn stream_manager_new(
 pub extern "C" fn stream_manager_destroy(manager: *mut StreamManager) {
     if !manager.is_null() {
         unsafe {
-            Box::from_raw(manager);
+            drop(Box::from_raw(manager));
         }
     }
 }
@@ -268,7 +268,7 @@ pub unsafe extern "C" fn stream_reader_group_new(
 pub extern "C" fn stream_reader_group_destroy(rg: *mut StreamReaderGroup) {
     if !rg.is_null() {
         unsafe {
-            Box::from_raw(rg);
+            drop(Box::from_raw(rg));
         }
     }
 }

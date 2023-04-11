@@ -122,6 +122,6 @@ pub unsafe extern "C" fn stream_writer_destroy(writer: *mut StreamWriter) {
         .expect("close writer");
 
     if !writer.is_null() {
-        Box::from_raw(writer);
+        drop(Box::from_raw(writer));
     }
 }

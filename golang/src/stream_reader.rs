@@ -20,7 +20,7 @@ impl StreamReader {
     pub async fn get_segment_slice(&mut self) -> Result<Option<SegmentSlice>, EventReaderError> {
         self.reader.acquire_segment().await
     }
-
+    #[allow(clippy::result_large_err)]
     pub fn release_segment(&mut self, slice: Option<SegmentSlice>) -> Result<(), EventReaderError> {
         if let Some(s) = slice {
             self.runtime_handle.block_on(self.reader.release_segment(s))?;
@@ -54,7 +54,7 @@ pub extern "C" fn stream_reader_get_segment_slice(reader: *mut StreamReader, id:
 pub extern "C" fn segment_slice_destroy(slice: *mut Slice) {
     if !slice.is_null() {
         unsafe {
-            Box::from_raw(slice);
+            drop(Box::from_raw(slice));
         }
     }
 }
