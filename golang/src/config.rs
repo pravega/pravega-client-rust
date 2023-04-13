@@ -33,10 +33,11 @@ impl StreamConfigurationMapping {
 }
 
 fn to_str<'a>(p_str: *const c_char) -> &'a str {
+    let raw: &CStr;
     unsafe {
-        let raw = CStr::from_ptr(p_str);
-        return raw.to_str().unwrap();
+        raw = CStr::from_ptr(p_str);
     }
+    raw.to_str().expect("Error: Failed to convert C string to Rust string.")
 }
 
 #[repr(C)]
