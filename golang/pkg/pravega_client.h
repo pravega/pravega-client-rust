@@ -95,7 +95,7 @@ typedef struct StreamConfigurationMapping {
 
 void free_buffer(struct Buffer buf);
 
-extern void ackOperationDone(int64_t operation_id, uintptr_t obj_ptr);
+extern void ackOperationDone(int64_t operation_id, uintptr_t obj_ptr, uintptr_t err_ptr);
 
 struct StreamManager *stream_manager_new(struct ClientConfigMapping client_config,
                                          struct Buffer *err);

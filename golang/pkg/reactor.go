@@ -27,16 +27,18 @@ func registerOperation() (int64, chan unsafe.Pointer) {
 type Operation struct {
 	Id     int64
 	ObjPtr unsafe.Pointer
+	ErrPtr unsafe.Pointer
 }
 
 // We declare the channel at this level, as the exported method `ackOperationDone` needs to notify this channel
 var operationDoneAckChannel chan Operation
 
 //export ackOperationDone
-func ackOperationDone(id int64, objPtr uintptr) {
+func ackOperationDone(id int64, objPtr uintptr, errPtr uintptr) {
 	var op Operation = Operation{
 		Id:     id,
 		ObjPtr: unsafe.Pointer(objPtr),
+		ErrPtr: unsafe.Pointer(errPtr),
 	}
 	operationDoneAckChannel <- op
 }
@@ -72,5 +74,5 @@ func runReactor() {
 }
 
 func stopReactor() {
-	ackOperationDone(-1, 0)
+	ackOperationDone(-1, 0, 0)
 }

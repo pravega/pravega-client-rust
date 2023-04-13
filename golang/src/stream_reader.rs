@@ -42,12 +42,16 @@ pub extern "C" fn stream_reader_get_segment_slice(reader: *mut StreamReader, id:
             Ok(seg_slice) => {
                 let ptr = Box::into_raw(Box::new(Slice::new(seg_slice)));
                 unsafe {
-                    ackOperationDone(id, ptr as usize);
+                    ackOperationDone(id, ptr as usize, 0);
                 };
             }
             Err(err) => {
-                // TODO: send error msg through the channel
-                println!("Error while getting segment slice {:?}", err);
+                // Send error message through the channel
+                let err_msg = format!("Error while getting segment slice {:?}", err);
+                let err_ptr = Box::into_raw(Box::new(err_msg)) as usize;
+                unsafe {
+                    ackOperationDone(id, 0, err_ptr);
+                };
             }
         }
     });

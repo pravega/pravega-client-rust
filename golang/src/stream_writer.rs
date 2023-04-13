@@ -52,7 +52,7 @@ impl StreamWriter {
             }
         }
         unsafe {
-            ackOperationDone(incoming.id, 0);
+            ackOperationDone(incoming.id, 0, 0);
         };
         Ok(())
     }

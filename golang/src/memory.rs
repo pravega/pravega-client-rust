@@ -54,5 +54,5 @@ pub extern "C" fn free_buffer(buf: Buffer) {
 }
 
 extern "C" {
-    pub fn ackOperationDone(operation_id: i64, obj_ptr: usize);
+    pub fn ackOperationDone(operation_id: i64, obj_ptr: usize, err_ptr: usize);
 }
