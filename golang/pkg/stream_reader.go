@@ -31,30 +31,9 @@ func (reader *StreamReader) GetSegmentSlice() (*SegmentSlice, error) {
 	}, nil
 }
 
-// SegmentSlice represent the piece of a segment which contains multiple events and user can read it.
-/*
-	for {
-		slice, err := reader.GetSegmentSlice()
-		if err != nil {
-			logger.Errorf("failed to get segment slice:", err.Error())
-			return
-		}
-
-		for {
-			event, err := slice.Next()
-			if err != nil {
-				logger.Errorf("failed to read event:", err.Error())
-				return
-			}
-			if event != nil {
-				fmt.Println(string(event))
-			} else {
-				break
-			}
-		}
-		slice.Close()
-	}
-*/
+// SegmentSlice represents a slice of a segment that can be read by the user.
+// To get a SegmentSlice, call reader.GetSegmentSlice()
+// To read events from a SegmentSlice, call slice.Next()
 type SegmentSlice struct {
 	Slice *C.Slice
 }
