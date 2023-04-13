@@ -33,11 +33,9 @@ impl StreamConfigurationMapping {
 }
 
 fn to_str<'a>(p_str: *const c_char) -> &'a str {
-    let raw: &CStr;
-    unsafe {
-        raw = CStr::from_ptr(p_str);
-    }
-    raw.to_str().expect("Error: Failed to convert C string to Rust string.")
+    let raw = unsafe { CStr::from_ptr(p_str) };
+    raw.to_str()
+        .expect("Error: Failed to convert C string to Rust string.")
 }
 
 #[repr(C)]
@@ -134,8 +132,8 @@ pub struct ClientConfigMapping {
 }
 
 impl ClientConfigMapping {
-    pub unsafe fn to_client_config(&self) -> ClientConfig {
-        let raw = CStr::from_ptr(self.controller_uri);
+    pub fn to_client_config(&self) -> ClientConfig {
+        let raw = unsafe { CStr::from_ptr(self.controller_uri) };
         let controller_uri = raw.to_str().unwrap();
         let mut config: ClientConfig = ClientConfigBuilder::default()
             .controller_uri(controller_uri)
@@ -149,9 +147,11 @@ impl ClientConfigMapping {
         config.reader_wrapper_buffer_size = self.reader_wrapper_buffer_size;
         config.transaction_timeout_time = self.transaction_timeout_time;
         config.request_timeout = Duration::from_millis(self.request_timeout);
-        config.trustcerts = split_to_vec(self.trustcerts);
-        config.credentials = self.credentials.to_credentials();
-        config.retry_policy = self.retry_policy.to_retry_with_backoff();
+        unsafe {
+            config.trustcerts = split_to_vec(self.trustcerts);
+            config.credentials = self.credentials.to_credentials();
+            config.retry_policy = self.retry_policy.to_retry_with_backoff();
+        }
         config
     }
 }
