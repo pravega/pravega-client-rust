@@ -14,8 +14,8 @@ var operationMap sync.Map
 var operationIdCounter int64 = 0
 
 // Register current request, will get response when rust side call ackOperationDone later.
-func registerOperation() (int64, chan unsafe.Pointer) {
-	channel := make(chan unsafe.Pointer)
+func registerOperation() (int64, chan Operation) {
+	channel := make(chan Operation)
 
 	// register the id and channel
 	// TODO: handle id overflow
@@ -28,16 +28,18 @@ type Operation struct {
 	Id     int64
 	ObjPtr unsafe.Pointer
 	ErrPtr unsafe.Pointer
+	ErrLen int64
 }
 
 // We declare the channel at this level, as the exported method `ackOperationDone` needs to notify this channel
 var operationDoneAckChannel chan Operation
 
 //export ackOperationDone
-func ackOperationDone(id int64, objPtr uintptr, errPtr uintptr) {
+func ackOperationDone(id int64, objPtr uintptr, errPtr uintptr, errLen int64) {
 	var op Operation = Operation{
 		Id:     id,
 		ObjPtr: unsafe.Pointer(objPtr),
+		ErrLen: errLen,
 		ErrPtr: unsafe.Pointer(errPtr),
 	}
 	operationDoneAckChannel <- op
@@ -64,8 +66,8 @@ func runReactor() {
 							log.Printf("WARNING: Reactor received a unexpected operationId, will exit.")
 							break
 						}
-						channel := (value).(chan unsafe.Pointer)
-						channel <- op.ObjPtr
+						channel := (value).(chan Operation)
+						channel <- op
 					}
 				}
 			}
@@ -74,5 +76,5 @@ func runReactor() {
 }
 
 func stopReactor() {
-	ackOperationDone(-1, 0, 0)
+	ackOperationDone(-1, 0, 0, 0)
 }

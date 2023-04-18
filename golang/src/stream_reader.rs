@@ -1,7 +1,9 @@
 use crate::error::set_error;
 use crate::memory::{ackOperationDone, set_buffer, Buffer};
 use pravega_client::event::reader::{Event, EventReader, EventReaderError, SegmentSlice};
+use std::ffi::CString;
 use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::ptr::null;
 use tokio::runtime::Handle;
 
 pub struct StreamReader {
@@ -41,16 +43,17 @@ pub extern "C" fn stream_reader_get_segment_slice(reader: *mut StreamReader, id:
         match stream_reader.get_segment_slice().await {
             Ok(seg_slice) => {
                 let ptr = Box::into_raw(Box::new(Slice::new(seg_slice)));
-                unsafe {
-                    ackOperationDone(id, ptr as usize, 0);
-                };
+                unsafe { ackOperationDone(id, ptr as usize, null(), 0) };
             }
             Err(err) => {
                 // Send error message through the channel
                 let err_msg = format!("Error while getting segment slice {:?}", err);
-                let err_ptr = Box::into_raw(Box::new(err_msg)) as usize;
+                let err_len = err_msg.len() as i64;
+                let err_ptr = CString::new(err_msg)
+                    .expect("Failed to create CString")
+                    .into_raw();
                 unsafe {
-                    ackOperationDone(id, 0, err_ptr);
+                    ackOperationDone(id, 0, err_ptr as *const u8, err_len);
                 };
             }
         }

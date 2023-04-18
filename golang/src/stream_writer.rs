@@ -4,6 +4,7 @@ use derive_new::new;
 use pravega_client::error::Error;
 use pravega_client::event::writer::EventWriter;
 use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::ptr::null;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::sync::oneshot;
@@ -52,7 +53,7 @@ impl StreamWriter {
             }
         }
         unsafe {
-            ackOperationDone(incoming.id, 0, 0);
+            ackOperationDone(incoming.id, 0, null(), 0);
         };
         Ok(())
     }
