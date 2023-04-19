@@ -70,7 +70,7 @@ func main() {
 	defer reader.Close()
 	println("reader created")
 
-	slice, err := reader.GetSegmentSlice()
+	slice, err := reader.GetSegmentSlice(10 * time.Second) // Use a timeout of 10 seconds
 	if err != nil {
 		println("failed to get segment slice:", err.Error())
 		return

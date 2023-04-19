@@ -18,7 +18,6 @@ func registerOperation() (int64, chan Operation) {
 	channel := make(chan Operation)
 
 	// register the id and channel
-	// TODO: handle id overflow
 	id := atomic.AddInt64(&operationIdCounter, 1)
 	operationMap.Store(id, channel)
 	return id, channel

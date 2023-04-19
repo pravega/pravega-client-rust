@@ -23,7 +23,7 @@ func (reader *StreamReader) Close() {
 // It waits for an object from the channel and processes it accordingly.
 // If the object contains a valid slice, it returns a SegmentSlice with the corresponding data.
 // If the object contains an error, it returns an error with the error message extracted from the object.
-func (reader *StreamReader) GetSegmentSlice() (*SegmentSlice, error) {
+func (reader *StreamReader) GetSegmentSlice(timeout time.Duration) (*SegmentSlice, error) {
 	id, channel := registerOperation()
 
 	cId := ci64(id)
@@ -45,7 +45,7 @@ func (reader *StreamReader) GetSegmentSlice() (*SegmentSlice, error) {
 		} else {
 			return nil, errors.New("Unknown errors")
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(timeout):
 		return nil, errors.New("Timout occurred while getting segment slice")
 	}
 }

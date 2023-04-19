@@ -42,7 +42,7 @@ impl StreamWriter {
     }
 
     async fn run_once(receiver: &mut UnboundedReceiver<Incoming>) -> Result<(), String> {
-        let incoming = receiver.recv().await.expect("sender closed, processor exit");
+        let incoming = receiver.recv().await.ok_or("sender closed, processor exit")?;
         match incoming.operation {
             Operation::WriteEvent(future) => {
                 future.await.expect("event persisted").unwrap();

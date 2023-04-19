@@ -35,7 +35,7 @@ impl StreamConfigurationMapping {
 fn to_str<'a>(p_str: *const c_char) -> &'a str {
     let raw = unsafe { CStr::from_ptr(p_str) };
     raw.to_str()
-        .expect("Error: Failed to convert C string to Rust string.")
+        .expect("Error: Failed to convert C string to Rust string as passed value is not valid utf-8.")
 }
 
 #[repr(C)]
@@ -183,7 +183,7 @@ pub struct RetryWithBackoffMapping {
 }
 
 impl RetryWithBackoffMapping {
-    pub unsafe fn to_retry_with_backoff(&self) -> RetryWithBackoff {
+    pub fn to_retry_with_backoff(&self) -> RetryWithBackoff {
         let backoff_coefficient = self.backoff_coefficient;
         let initial_delay = Duration::from_millis(self.initial_delay);
         let max_delay = Duration::from_millis(self.max_delay);
