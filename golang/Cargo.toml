@@ -1,5 +1,5 @@
 [package]
-name = "pravega"
+name = "pravega_client_c"
 version = "0.3.2"
 edition = "2018"
 categories = ["network-programming"]
@@ -10,5 +10,22 @@ license = "Apache-2.0"
 description = "Golang bindings for Pravega."
 authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.com>",
     "Sandeep Shridhar <sandeep.shridhar@dell.com>", "Wenxiao Zhang <wenxiao.zhang@dell.com>"]
+build = "build.rs"
 
 [dependencies]
+errno = "0.2"
+derive-new = "0.5"
+libc = "0.2"
+pravega-client = { path = "../", version = "0.3"}
+pravega-client-config = {path = "../config", version = "0.3"}
+pravega-client-shared = { path = "../shared", version = "0.3"}
+pravega-client-retry = {path = "../retry", version = "0.3"}
+pravega-controller-client = { path = "../controller-client", version = "0.3"}
+tokio = { version = "1", features = ["full"] }
+
+[build-dependencies]
+cbindgen = "0.23.0"
+
+[lib]
+name = "pravega_client_c"
+crate-type = ["cdylib"]
