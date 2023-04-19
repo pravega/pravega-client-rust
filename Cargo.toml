@@ -37,7 +37,8 @@ members = [
     "examples",
     "macros",
     "pravegactl",
-    "nodejs"
+    "nodejs",
+    "golang"
 ]
 
 [dependencies]
