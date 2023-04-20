@@ -13,6 +13,7 @@ use crate::client_factory::ClientFactoryAsync;
 use crate::index::{Fields, IndexRecord, RECORD_SIZE};
 
 use pravega_client_shared::ScopedStream;
+use pravega_controller_client::ResultRetry;
 
 use bincode2::Error as BincodeError;
 use snafu::{ensure, Backtrace, ResultExt, Snafu};
@@ -91,8 +92,8 @@ pub struct IndexWriter<T: Fields + PartialOrd + PartialEq + Debug> {
 }
 
 impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
-    pub(crate) async fn new(factory: ClientFactoryAsync, stream: ScopedStream) -> Self {
-        let mut byte_writer = factory.create_byte_writer(stream.clone()).await;
+    pub(crate) async fn new(factory: ClientFactoryAsync, stream: ScopedStream) -> ResultRetry<Self> {
+        let mut byte_writer = factory.create_byte_writer(stream.clone()).await?;
         byte_writer.seek_to_tail().await;
 
         let index_reader = factory.create_index_reader(stream.clone()).await;
@@ -111,12 +112,12 @@ impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
         } else {
             None
         };
-        IndexWriter {
+        Ok(IndexWriter {
             byte_writer,
             hashed_fields,
             fields: None,
             _fields_type: PhantomData,
-        }
+        })
     }
 
     /// Append data with a given Fields.

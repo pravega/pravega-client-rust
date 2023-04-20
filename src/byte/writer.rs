@@ -18,6 +18,7 @@ use crate::util::get_random_u128;
 
 use pravega_client_channel::{create_channel, ChannelSender};
 use pravega_client_shared::{ScopedSegment, ScopedStream, WriterId};
+use pravega_controller_client::ResultRetry;
 
 use std::collections::VecDeque;
 use tokio::sync::oneshot;
@@ -108,14 +109,10 @@ impl ByteWriter {
     // maximum 16 MB total size of events could be held in memory
     const CHANNEL_CAPACITY: usize = 16 * 1024 * 1024;
 
-    pub(crate) async fn new(stream: ScopedStream, factory: ClientFactoryAsync) -> Self {
+    pub(crate) async fn new(stream: ScopedStream, factory: ClientFactoryAsync) -> ResultRetry<Self> {
         let (sender, receiver) = create_channel(Self::CHANNEL_CAPACITY);
         let writer_id = WriterId(get_random_u128());
-        let segments = factory
-            .controller_client()
-            .get_head_segments(&stream)
-            .await
-            .expect("get head segments");
+        let segments = factory.controller_client().get_head_segments(&stream).await?;
         assert_eq!(
             segments.len(),
             1,
@@ -134,7 +131,7 @@ impl ByteWriter {
         // spawn is tied to the factory runtime.
         let _h = factory.runtime_handle().enter();
         tokio::spawn(Reactor::run(stream, sender.clone(), receiver, factory.clone(), None).instrument(span));
-        ByteWriter {
+        Ok(ByteWriter {
             writer_id,
             scoped_segment,
             sender,
@@ -142,7 +139,7 @@ impl ByteWriter {
             factory,
             event_handles: VecDeque::new(),
             write_offset: 0,
-        }
+        })
     }
 
     /// Writes the given data to the server asynchronously. It doesn't mean the data is persisted on the server side

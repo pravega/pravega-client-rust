@@ -35,6 +35,7 @@ use snafu::{ResultExt, Snafu};
 use std::collections::VecDeque;
 use std::fmt;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::select;
 use tokio::sync::oneshot;
 use tracing::{debug, error, field, info, info_span, trace};
@@ -338,7 +339,16 @@ impl SegmentWriter {
             })
         };
 
-        let writer = self.connection.as_mut().expect("must have connection");
+        let writer = self
+            .connection
+            .as_mut()
+            .ok_or(SegmentWriterError::RetryConnectionPool {
+                err: RetryError {
+                    error: ConnectionPoolError::NoAvailableConnection {},
+                    tries: 1,
+                    total_delay: Duration::from_millis(0),
+                },
+            })?;
         writer.write(&request).await.context(SegmentWriting {})?;
 
         update!(ClientMetrics::AppendBlockSize, total_size as u64, "Segment Writer Id" => self.id.to_string());

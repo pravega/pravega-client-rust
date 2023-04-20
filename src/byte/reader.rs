@@ -13,6 +13,7 @@ use crate::segment::metadata::SegmentMetadataClient;
 use crate::segment::reader::PrefetchingAsyncSegmentReader;
 
 use pravega_client_shared::{ScopedSegment, ScopedStream};
+use pravega_controller_client::ResultRetry;
 
 use std::convert::TryInto;
 use std::io::{Error, ErrorKind, SeekFrom};
@@ -73,12 +74,12 @@ pub struct ByteReader {
 }
 
 impl ByteReader {
-    pub(crate) async fn new(stream: ScopedStream, factory: ClientFactoryAsync, buffer_size: usize) -> Self {
-        let segments = factory
-            .controller_client()
-            .get_head_segments(&stream)
-            .await
-            .expect("get head segments");
+    pub(crate) async fn new(
+        stream: ScopedStream,
+        factory: ClientFactoryAsync,
+        buffer_size: usize,
+    ) -> ResultRetry<Self> {
+        let segments = factory.controller_client().get_head_segments(&stream).await?;
         assert_eq!(
             segments.len(),
             1,
@@ -100,14 +101,14 @@ impl ByteReader {
         let metadata_client = factory
             .create_segment_metadata_client(scoped_segment.clone())
             .await;
-        ByteReader {
+        Ok(ByteReader {
             reader_id: Uuid::new_v4(),
             segment: scoped_segment,
             reader: Some(async_reader_wrapper),
             reader_buffer_size: buffer_size,
             metadata_client,
             factory,
-        }
+        })
     }
 
     /// Read data asynchronously.
