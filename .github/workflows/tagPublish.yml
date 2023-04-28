@@ -26,9 +26,9 @@ jobs:
     runs-on: ${{ matrix.platform.os }}
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9, 3.10]
+        python-version: ['3.6', '3.7', '3.8', '3.9', '3.10']
         platform: [
-        { os: "ubuntu-latest",  python-architecture: "x64", rust-target: "x86_64-unknown-linux-gnu" },
+        { os: "ubuntu-20.04",  python-architecture: "x64", rust-target: "x86_64-unknown-linux-gnu" },
         { os: "macOS-latest",   python-architecture: "x64", rust-target: "x86_64-apple-darwin" },
         { os: "windows-latest", python-architecture: "x64", rust-target: "x86_64-pc-windows-msvc" },
         # { os: "windows-latest", python-architecture: "x86", rust-target: "i686-pc-windows-msvc" },
@@ -50,7 +50,7 @@ jobs:
           components: rustfmt, clippy
       - run: rustup set default-host ${{ matrix.platform.rust-target }}
       - name: install maturin
-        run: pip install 'maturin>=0.11,<0.12'
+        run: pip install 'maturin>=0.14,<0.15'
       - name: build wheel
         id: build_wheel
         run: python -u .github/workflows/build_wheel.py
