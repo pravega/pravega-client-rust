@@ -38,7 +38,7 @@ jobs:
           override: true
           components: rustfmt, clippy
       - name: Install maturin and tox
-        run: pip install 'maturin>=0.14,<0.15' virtualenv tox==3.5.3 tox-pyo3
+        run: pip install 'maturin>=0.14,<0.15' virtualenv tox==3.28.0 tox-pyo3
       - name: Test with tox
         run: tox -c python/tox.ini
       - name: Upload Pravega standalone logs
