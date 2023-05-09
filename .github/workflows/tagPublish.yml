@@ -36,6 +36,10 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
+      - name: Set release version
+        # Set release version env in all three os, the commented command only works in linux and mac.
+        run: python3 -c "import os; tag = os.environ['GITHUB_REF'].split('/')[-1]; f = open(os.environ['GITHUB_ENV'], 'a'); f.write('RELEASE_VERSION='+tag); f.close();"
+        # run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
       - name: Set up Python
         uses: actions/setup-python@v3
         with:
@@ -66,6 +70,16 @@ jobs:
         run: |
           pip install -U twine
           python -m twine upload --skip-existing target/wheels/*
+      - name: Upload to Github releases
+        working-directory: ./target
+        # Use bash, even on Windows to make find available
+        shell: bash
+        # A release need to be created before upload
+        run: gh release upload ${{ env.RELEASE_VERSION }} "$(find ./wheels -name *.whl)" --clobber
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
 
   nodejs-npm:
     name: nodejs-npm
