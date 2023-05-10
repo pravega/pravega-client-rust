@@ -17,7 +17,7 @@ command = [
     "maturin",
     "build",
     "--release",
-    "--no-sdist",
+    "--compatibility=manylinux_2_35",
     "--interpreter",
     sys.executable,
 ]
