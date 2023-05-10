@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["ReaderGroupStateError",""]],"struct":[["Offset",""],["ReaderGroupState","ReaderGroupState encapsulates all readers states."]]};
+window.SIDEBAR_ITEMS = {"enum":["ReaderGroupStateError"],"struct":["Offset","ReaderGroupState"]};

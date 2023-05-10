@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["byte","The Byte API for writing and reading data to a segment in raw bytes."],["client_factory","Factory to create components in Pravega Rust client."],["error",""],["event","The Event API for writing and reading data."],["index","The Index API provides a way to build a monotonic index with a stream."],["sync","Pravega synchronization primitives."]]};
+window.SIDEBAR_ITEMS = {"mod":["byte","client_factory","error","event","index","sync"]};

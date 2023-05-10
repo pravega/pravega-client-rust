@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["TransactionError",""],["TransactionalEventWriterError",""]],"struct":[["Transaction","Pravega Transaction support."],["TransactionalEventWriter","Write events to a stream transactionally."]]};
+window.SIDEBAR_ITEMS = {"enum":["TransactionError","TransactionalEventWriterError"],"struct":["Transaction","TransactionalEventWriter"]};

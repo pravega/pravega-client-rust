@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":[["RECORD_SIZE",""]],"mod":[["reader",""],["writer",""]],"struct":[["IndexReader","Index Reader reads the Index Record from Stream."],["IndexWriter","Index Writer writes a fixed size Record to the stream."]],"trait":[["Fields",""],["Value",""]]};
+window.SIDEBAR_ITEMS = {"constant":["RECORD_SIZE"],"mod":["reader","writer"],"struct":["IndexReader","IndexWriter"],"trait":["Fields","Value"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["IndexReaderError",""]],"struct":[["FieldNotFound","SNAFU context selector for the `IndexReaderError::FieldNotFound` variant"],["IndexReader","Index Reader reads the Index Record from Stream."],["Internal","SNAFU context selector for the `IndexReaderError::Internal` variant"],["InvalidOffset","SNAFU context selector for the `IndexReaderError::InvalidOffset` variant"]]};
+window.SIDEBAR_ITEMS = {"enum":["IndexReaderError"],"struct":["FieldNotFound","IndexReader","Internal","InvalidOffset"]};
