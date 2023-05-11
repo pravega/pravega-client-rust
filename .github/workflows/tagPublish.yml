@@ -79,8 +79,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-
-
   nodejs-npm:
     name: nodejs-npm
     runs-on: ubuntu-latest
@@ -129,9 +127,9 @@ jobs:
       fail-fast: false
       matrix:
         node_version:
-          - 12
-          - 14
           - 16
+          - 18
+          - 20
         system:
           - os: macos-11
             target: x86_64-apple-darwin
