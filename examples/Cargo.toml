@@ -23,4 +23,4 @@ tokio = "1.5"
 
 [[example]]
 name = "event_write_and_read"
-path = "event_write_and_read.rs"
+path = "./src/bin/event_write_and_read.rs"
