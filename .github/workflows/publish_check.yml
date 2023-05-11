@@ -11,8 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
-
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+      - run: git checkout HEAD^
       - name: Cache toolchain
         uses: actions/cache@v1
         with:
@@ -41,4 +43,6 @@ jobs:
       - name: Install cargo-release
         run: cargo install cargo-release
       - name: Release (Dry Run)
-        run: cargo release --workspace -vv --exclude pravega-client-integration-test --exclude pravega-client-examples --exclude pravegactl
+        run: cargo release --allow-branch '*' --dry-run -v -p pravega-client-auth -p pravega-client-channel -p pravega-client-config -p pravega-client-macros -p pravega-client-retry -p pravega-client-shared -p pravega-connection-pool -p pravega-controller-client -p pravega -p pravega-wire-protocol
+      - name: Release
+        run: cargo release -v -p pravega-client-auth -p pravega-client-channel -p pravega-client-config -p pravega-client-macros -p pravega-client-retry -p pravega-client-shared -p pravega-connection-pool -p pravega-controller-client -p pravega -p pravega-wire-protocol
