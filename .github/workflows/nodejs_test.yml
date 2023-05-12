@@ -17,6 +17,11 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          default: true
       - uses: actions/cache@v3
         with:
           path: |
@@ -43,12 +48,6 @@ jobs:
       - name: Install modules
         working-directory: ./nodejs
         run: npm i
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-          components: rustfmt, clippy
       - name: Test
         working-directory: ./nodejs
         run: npm test
