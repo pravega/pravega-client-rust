@@ -14,7 +14,6 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 2
-      - run: git checkout HEAD^
       - name: Cache toolchain
         uses: actions/cache@v1
         with:
@@ -43,6 +42,7 @@ jobs:
       - name: Install cargo-release
         run: cargo install cargo-release
       - name: Release (Dry Run)
-        run: cargo release --allow-branch '*' --dry-run -v -p pravega-client-auth -p pravega-client-channel -p pravega-client-config -p pravega-client-macros -p pravega-client-retry -p pravega-client-shared -p pravega-connection-pool -p pravega-controller-client -p pravega -p pravega-wire-protocol
+        run: cargo release --allow-branch '*' --dry-run -v -p pravega-client-shared -p pravega-client-macros -p pravega-client-channel -p pravega-client-retry -p pravega-connection-pool -p pravega-client-config -p pravega-wire-protocol -p pravega-controller-client -p pravega-client-auth
       - name: Release
-        run: cargo release -v -p pravega-client-auth -p pravega-client-channel -p pravega-client-config -p pravega-client-macros -p pravega-client-retry -p pravega-client-shared -p pravega-connection-pool -p pravega-controller-client -p pravega -p pravega-wire-protocol
+        run: cargo release --allow-branch '*' -x -v -p pravega-client-shared -p pravega-client-macros -p pravega-client-channel -p pravega-client-retry -p pravega-connection-pool -p pravega-client-config -p pravega-wire-protocol -p pravega-controller-client -p pravega-client-auth
+

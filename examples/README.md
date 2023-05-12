@@ -2,5 +2,6 @@
 
 All examples can be executed with:
 ```
-cargo run --example $name
+cd examples
+cargo run --bin $name
 ```

@@ -13,12 +13,14 @@ authors = ["Tom Kaitchuck <Tom.Kaitchuck@dell.com>", "Wenqi Mou <wenqi.mou@dell.
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dev-dependencies]
-pravega-client = { path = "../", version = "0.3"}
-pravega-client-config = { path = "../config", version = "0.3"}
-pravega-client-shared = { path = "../shared", version = "0.3"}
+[dependencies]
+log = "0.4.0"
+env_logger = "0.8.4"
+pravega-client = { path = "../", version = "0.3.1"}
+pravega-client-config = { path = "../config", version = "0.3.1"}
+pravega-client-shared = { path = "../shared", version = "0.3.1"}
 tokio = "1.5"
 
 [[example]]
 name = "event_write_and_read"
-path = "event_write_and_read.rs"
+path = "./src/bin/event_write_and_read.rs"

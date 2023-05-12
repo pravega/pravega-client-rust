@@ -60,6 +60,15 @@ impl RawClientError {
 #[async_trait]
 pub(crate) trait RawClient<'a>: Send + Sync {
     // Asynchronously send a request to the server and receive a response.
+    async fn send_request_with_connection(
+        &self,
+        request: &Requests,
+        client_connection: &mut ClientConnection,
+    ) -> Result<Replies, RawClientError>
+    where
+        'a: 'async_trait;
+
+    // Asynchronously send a request to the server and receive a response.
     async fn send_request(&self, request: &Requests) -> Result<Replies, RawClientError>
     where
         'a: 'async_trait;
@@ -102,6 +111,28 @@ impl<'a> RawClientImpl<'a> {
 #[allow(clippy::needless_lifetimes)]
 #[async_trait]
 impl<'a> RawClient<'a> for RawClientImpl<'a> {
+    async fn send_request_with_connection(
+        &self,
+        request: &Requests,
+        client_connection: &mut ClientConnection,
+    ) -> Result<Replies, RawClientError> {
+        client_connection.write(request).await.context(WriteRequest {})?;
+        let read_future = client_connection.read();
+        let result = timeout(self.timeout, read_future)
+            .await
+            .context(RequestTimeout {})?;
+        let reply = result.context(ReadReply {})?;
+        if reply.get_request_id() != request.get_request_id() {
+            client_connection.set_failure();
+            return Err(RawClientError::WrongReplyId {
+                reply_id: reply.get_request_id(),
+                request_id: request.get_request_id(),
+            });
+        }
+        check_auth_token_expired(&reply)?;
+        Ok(reply)
+    }
+
     async fn send_request(&self, request: &Requests) -> Result<Replies, RawClientError> {
         let connection = self
             .pool
@@ -116,7 +147,7 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
             .context(RequestTimeout {})?;
         let reply = result.context(ReadReply {})?;
         if reply.get_request_id() != request.get_request_id() {
-            client_connection.connection.as_mut().can_recycle(false);
+            client_connection.set_failure();
             return Err(RawClientError::WrongReplyId {
                 reply_id: reply.get_request_id(),
                 request_id: request.get_request_id(),
@@ -143,7 +174,7 @@ impl<'a> RawClient<'a> for RawClientImpl<'a> {
             .context(RequestTimeout {})?;
         let reply = result.context(ReadReply {})?;
         if reply.get_request_id() != request.get_request_id() {
-            client_connection.connection.as_mut().can_recycle(false);
+            client_connection.set_failure();
             return Err(RawClientError::WrongReplyId {
                 reply_id: reply.get_request_id(),
                 request_id: request.get_request_id(),
@@ -291,7 +322,7 @@ mod tests {
                             cnt += 1;
                             if cnt == 1 {
                                 let reply = Replies::Hello(HelloCommand {
-                                    high_version: 11,
+                                    high_version: 15,
                                     low_version: 5,
                                 });
                                 let bytes = reply.write_fields().expect("serialize reply");
@@ -310,7 +341,7 @@ mod tests {
                             cnt += 1;
                             if cnt == 1 {
                                 let reply = Replies::Hello(HelloCommand {
-                                    high_version: 11,
+                                    high_version: 15,
                                     low_version: 5,
                                 });
                                 let bytes = reply.write_fields().expect("serialize reply");

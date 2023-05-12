@@ -15,6 +15,7 @@ use pravega_client_shared::{
 };
 
 fn main() {
+    env_logger::init();
     println!("start event write and read example");
     // assuming Pravega standalone is listening at localhost:9090
     let config = ClientConfigBuilder::default()
@@ -72,6 +73,12 @@ fn main() {
         assert!(result.await.is_ok());
         println!("event writer sent and flushed data");
 
+        // write large payload
+        let payload = vec![54; 9437184];
+        let result = event_writer.write_event(payload).await;
+        assert!(result.await.is_ok());
+        println!("event writer sent and flushed large data");
+
         // create event stream reader
         let rg = client_factory.create_reader_group("rg".to_string(), stream).await;
         let mut reader = rg.create_reader("r1".to_string()).await;
@@ -87,10 +94,32 @@ fn main() {
             assert!(read_event.is_some(), "event slice should have event to read");
             assert_eq!(b"hello world", read_event.unwrap().value.as_slice());
             println!("event reader read data");
+
+            loop {
+                let read_event = slice.next();
+                if read_event.is_some() {
+                    assert_eq!(read_event.unwrap().value.as_slice().len(), 9437184);
+                    println!("event reader read large data");
+                    break;
+                } else {
+                    reader.release_segment(slice).await.unwrap();
+                    if let Some(new_slice) = reader
+                        .acquire_segment()
+                        .await
+                        .expect("Failed to acquire segment since the reader is offline")
+                    {
+                        slice = new_slice;
+                    } else {
+                        println!("no data to read from the Pravega stream");
+                        panic!("read should return the written event.");
+                    }
+                }
+            }
         } else {
             println!("no data to read from the Pravega stream");
-            assert!(false, "read should return the written event.")
+            panic!("read should return the written event.")
         }
+
         reader
             .reader_offline()
             .await
