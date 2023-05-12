@@ -741,6 +741,14 @@
 <a href="#741" id="741">741</a>
 <a href="#742" id="742">742</a>
 <a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
 </pre><pre class="rust"><code><span class="comment">//
 // Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
 //
@@ -1306,6 +1314,14 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>,
             _request: <span class="kw-2">&amp;</span>Requests,
         ) -&gt; <span class="prelude-ty">Result</span>&lt;(Replies, Box&lt;<span class="kw">dyn </span>ClientConnection + <span class="lifetime">&#39;static</span>&gt;), RawClientError&gt; {
+            <span class="macro">unimplemented!</span>() <span class="comment">// Not required for this test.
+        </span>}
+
+        <span class="kw">async fn </span>send_request_with_connection(
+            <span class="kw-2">&amp;</span><span class="self">self</span>,
+            _request: <span class="kw-2">&amp;</span>Requests,
+            _client_connection: <span class="kw-2">&amp;mut </span>ClientConnection,
+        ) -&gt; <span class="prelude-ty">Result</span>&lt;Replies, RawClientError&gt; {
             <span class="macro">unimplemented!</span>() <span class="comment">// Not required for this test.
         </span>}
     }

@@ -257,6 +257,14 @@
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
 </pre><pre class="rust"><code><span class="comment">//
 // Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
 //
@@ -383,6 +391,13 @@
         <span class="kw">let </span>(tx, rx) = oneshot::channel();
         <span class="kw">let </span>(tx_flush, rx_flush) = oneshot::channel();
         <span class="kw">let </span>routing_info = RoutingInfo::RoutingKey(<span class="prelude-val">None</span>);
+        <span class="kw">if </span>event.len() &gt; EventWriter::MAX_EVENT_SIZE {
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.flush().<span class="kw">await </span>{
+                <span class="kw">let </span>(tx_error, rx_error) = oneshot::channel();
+                tx_error.send(<span class="prelude-val">Err</span>(err)).expect(<span class="string">&quot;send error&quot;</span>);
+                <span class="kw">return </span>rx_error;
+            }
+        };
         <span class="kw">if let </span><span class="prelude-val">Some</span>(pending_event) =
             PendingEvent::with_header_flush(routing_info, event, <span class="prelude-val">None</span>, tx, <span class="prelude-val">Some</span>(tx_flush))
         {
@@ -405,6 +420,13 @@
         <span class="kw">let </span>(tx, rx) = oneshot::channel();
         <span class="kw">let </span>(tx_flush, rx_flush) = oneshot::channel();
         <span class="kw">let </span>routing_info = RoutingInfo::RoutingKey(<span class="prelude-val">Some</span>(routing_key));
+        <span class="kw">if </span>event.len() &gt; EventWriter::MAX_EVENT_SIZE {
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.flush().<span class="kw">await </span>{
+                <span class="kw">let </span>(tx_error, rx_error) = oneshot::channel();
+                tx_error.send(<span class="prelude-val">Err</span>(err)).expect(<span class="string">&quot;send error&quot;</span>);
+                <span class="kw">return </span>rx_error;
+            }
+        };
         <span class="kw">if let </span><span class="prelude-val">Some</span>(pending_event) =
             PendingEvent::with_header_flush(routing_info, event, <span class="prelude-val">None</span>, tx, <span class="prelude-val">Some</span>(tx_flush))
         {
@@ -488,8 +510,6 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use </span>tokio::runtime::Runtime;
-
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::segment::event::{PendingEvent, RoutingInfo};
 
@@ -503,17 +523,13 @@
         <span class="kw">let </span>event = PendingEvent::without_header(routing_info, data, <span class="prelude-val">None</span>, tx).expect(<span class="string">&quot;create pending event&quot;</span>);
         <span class="macro">assert!</span>(event.is_empty());
 
-        <span class="comment">// test with illegal event size
-        </span><span class="kw">let </span>(tx, rx) = oneshot::channel();
+        <span class="comment">// test with large event size
+        </span><span class="kw">let </span>(tx, _rx) = oneshot::channel();
         <span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="number">0</span>; (PendingEvent::MAX_WRITE_SIZE + <span class="number">1</span>) <span class="kw">as </span>usize];
         <span class="kw">let </span>routing_info = RoutingInfo::RoutingKey(<span class="prelude-val">None</span>);
 
-        <span class="kw">let </span>event = PendingEvent::without_header(routing_info, data, <span class="prelude-val">None</span>, tx);
-        <span class="macro">assert!</span>(event.is_none());
-
-        <span class="kw">let </span>rt = Runtime::new().expect(<span class="string">&quot;get runtime&quot;</span>);
-        <span class="kw">let </span>reply = rt.block_on(rx).expect(<span class="string">&quot;get reply&quot;</span>);
-        <span class="macro">assert!</span>(reply.is_err());
+        <span class="kw">let </span>event = PendingEvent::with_header(routing_info, data, <span class="prelude-val">None</span>, tx);
+        <span class="macro">assert!</span>(event.is_some());
     }
 }
 </code></pre></div>

@@ -137,24 +137,6 @@
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
 </pre><pre class="rust"><code><span class="comment">//
 // Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
 //
@@ -219,31 +201,13 @@
         oneshot_sender: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt;,
         flush_oneshot_sender: <span class="prelude-ty">Option</span>&lt;oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">if </span>data.len() &gt; PendingEvent::MAX_WRITE_SIZE {
-            <span class="macro">warn!</span>(
-                <span class="string">&quot;event size {:?} exceeds limit {:?}&quot;</span>,
-                data.len(),
-                PendingEvent::MAX_WRITE_SIZE
-            );
-            oneshot_sender
-                .send(<span class="prelude-val">Err</span>(Error::InvalidInput {
-                    msg: <span class="macro">format!</span>(
-                        <span class="string">&quot;Event size {} exceeds max write size limit {}&quot;</span>,
-                        data.len(),
-                        PendingEvent::MAX_WRITE_SIZE
-                    ),
-                }))
-                .expect(<span class="string">&quot;send error to caller&quot;</span>);
-            <span class="prelude-val">None
-        </span>} <span class="kw">else </span>{
-            <span class="prelude-val">Some</span>(PendingEvent {
-                routing_info,
-                data,
-                conditional_offset,
-                oneshot_sender,
-                flush_oneshot_sender,
-            })
-        }
+        <span class="prelude-val">Some</span>(PendingEvent {
+            routing_info,
+            data,
+            conditional_offset,
+            oneshot_sender,
+            flush_oneshot_sender,
+        })
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>with_header_flush(

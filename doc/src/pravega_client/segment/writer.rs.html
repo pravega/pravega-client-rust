@@ -818,6 +818,10 @@
 <a href="#818" id="818">818</a>
 <a href="#819" id="819">819</a>
 <a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
 </pre><pre class="rust"><code><span class="comment">//
 // Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
 //
@@ -1275,6 +1279,10 @@
                 .<span class="kw">await
                 </span>.expect(<span class="string">&quot;send reconnect signal to reactor&quot;</span>);
         }
+    }
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_pending_queue_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.pending.len()
     }
 
     <span class="doccomment">/// Force delegation token provider to refresh.

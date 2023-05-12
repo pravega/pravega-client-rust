@@ -304,6 +304,21 @@
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
 </pre><pre class="rust"><code><span class="comment">//
 // Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
 //
@@ -322,7 +337,8 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::client_factory::ClientFactoryAsync;
 <span class="kw">use </span><span class="kw">crate</span>::error::Error;
-<span class="kw">use </span><span class="kw">crate</span>::segment::event::{Incoming, RoutingInfo, ServerReply};
+<span class="kw">use </span><span class="kw">crate</span>::segment::event::{Incoming, PendingEvent, RoutingInfo, ServerReply};
+<span class="kw">use </span><span class="kw">crate</span>::segment::large_writer::LargeEventWriter;
 <span class="kw">use </span><span class="kw">crate</span>::segment::selector::SegmentSelector;
 
 <span class="attr">#[derive(new)]
@@ -359,6 +375,20 @@
                     RoutingInfo::RoutingKey(key) =&gt; selector.get_segment_writer(key),
                     RoutingInfo::Segment(segment) =&gt; selector.get_segment_writer_by_key(segment),
                 };
+
+                <span class="kw">if </span>pending_event.data.len() &gt; PendingEvent::MAX_WRITE_SIZE {
+                    <span class="kw">if </span>event_segment_writer.get_pending_queue_size() != <span class="number">0 </span>{
+                        <span class="macro">error!</span>(<span class="string">&quot;segment writer pending queue length is expected to be zero before write large event&quot;</span>);
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;segment writer pending queue length is expected to be zero before write large event&quot;</span>);
+                    }
+                    <span class="kw">let </span><span class="kw-2">mut </span>large_event_writer =
+                        LargeEventWriter::new(selector.delegation_token_provider.clone());
+                    large_event_writer
+                        .write(factory, selector, pending_event)
+                        .<span class="kw">await
+                        </span>.map_err(|<span class="kw">_</span>| <span class="string">&quot;large event writer failed to write&quot;</span>)<span class="question-mark">?</span>;
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                }
 
                 <span class="kw">if </span>event_segment_writer.need_reset {
                     <span class="comment">// ignore the send result since error means the receiver is dropped

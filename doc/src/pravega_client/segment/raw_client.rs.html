@@ -368,6 +368,37 @@
 <a href="#368" id="368">368</a>
 <a href="#369" id="369">369</a>
 <a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
 </pre><pre class="rust"><code><span class="comment">//
 // Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
 //
@@ -430,6 +461,15 @@
 </span><span class="attr">#[async_trait]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>RawClient&lt;<span class="lifetime">&#39;a</span>&gt;: Send + Sync {
     <span class="comment">// Asynchronously send a request to the server and receive a response.
+    </span><span class="kw">async fn </span>send_request_with_connection(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        request: <span class="kw-2">&amp;</span>Requests,
+        client_connection: <span class="kw-2">&amp;mut </span>ClientConnection,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Replies, RawClientError&gt;
+    <span class="kw">where
+        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;async_trait</span>;
+
+    <span class="comment">// Asynchronously send a request to the server and receive a response.
     </span><span class="kw">async fn </span>send_request(<span class="kw-2">&amp;</span><span class="self">self</span>, request: <span class="kw-2">&amp;</span>Requests) -&gt; <span class="prelude-ty">Result</span>&lt;Replies, RawClientError&gt;
     <span class="kw">where
         </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;async_trait</span>;
@@ -472,6 +512,28 @@
 <span class="attr">#[allow(clippy::needless_lifetimes)]
 #[async_trait]
 </span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; RawClient&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>RawClientImpl&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">async fn </span>send_request_with_connection(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        request: <span class="kw-2">&amp;</span>Requests,
+        client_connection: <span class="kw-2">&amp;mut </span>ClientConnection,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Replies, RawClientError&gt; {
+        client_connection.write(request).<span class="kw">await</span>.context(WriteRequest {})<span class="question-mark">?</span>;
+        <span class="kw">let </span>read_future = client_connection.read();
+        <span class="kw">let </span>result = timeout(<span class="self">self</span>.timeout, read_future)
+            .<span class="kw">await
+            </span>.context(RequestTimeout {})<span class="question-mark">?</span>;
+        <span class="kw">let </span>reply = result.context(ReadReply {})<span class="question-mark">?</span>;
+        <span class="kw">if </span>reply.get_request_id() != request.get_request_id() {
+            client_connection.set_failure();
+            <span class="kw">return </span><span class="prelude-val">Err</span>(RawClientError::WrongReplyId {
+                reply_id: reply.get_request_id(),
+                request_id: request.get_request_id(),
+            });
+        }
+        check_auth_token_expired(<span class="kw-2">&amp;</span>reply)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(reply)
+    }
+
     <span class="kw">async fn </span>send_request(<span class="kw-2">&amp;</span><span class="self">self</span>, request: <span class="kw-2">&amp;</span>Requests) -&gt; <span class="prelude-ty">Result</span>&lt;Replies, RawClientError&gt; {
         <span class="kw">let </span>connection = <span class="self">self
             </span>.pool
@@ -486,7 +548,7 @@
             </span>.context(RequestTimeout {})<span class="question-mark">?</span>;
         <span class="kw">let </span>reply = result.context(ReadReply {})<span class="question-mark">?</span>;
         <span class="kw">if </span>reply.get_request_id() != request.get_request_id() {
-            client_connection.connection.as_mut().can_recycle(<span class="bool-val">false</span>);
+            client_connection.set_failure();
             <span class="kw">return </span><span class="prelude-val">Err</span>(RawClientError::WrongReplyId {
                 reply_id: reply.get_request_id(),
                 request_id: request.get_request_id(),
@@ -513,7 +575,7 @@
             </span>.context(RequestTimeout {})<span class="question-mark">?</span>;
         <span class="kw">let </span>reply = result.context(ReadReply {})<span class="question-mark">?</span>;
         <span class="kw">if </span>reply.get_request_id() != request.get_request_id() {
-            client_connection.connection.as_mut().can_recycle(<span class="bool-val">false</span>);
+            client_connection.set_failure();
             <span class="kw">return </span><span class="prelude-val">Err</span>(RawClientError::WrongReplyId {
                 reply_id: reply.get_request_id(),
                 request_id: request.get_request_id(),
@@ -661,7 +723,7 @@
                             cnt += <span class="number">1</span>;
                             <span class="kw">if </span>cnt == <span class="number">1 </span>{
                                 <span class="kw">let </span>reply = Replies::Hello(HelloCommand {
-                                    high_version: <span class="number">11</span>,
+                                    high_version: <span class="number">15</span>,
                                     low_version: <span class="number">5</span>,
                                 });
                                 <span class="kw">let </span>bytes = reply.write_fields().expect(<span class="string">&quot;serialize reply&quot;</span>);
@@ -680,7 +742,7 @@
                             cnt += <span class="number">1</span>;
                             <span class="kw">if </span>cnt == <span class="number">1 </span>{
                                 <span class="kw">let </span>reply = Replies::Hello(HelloCommand {
-                                    high_version: <span class="number">11</span>,
+                                    high_version: <span class="number">15</span>,
                                     low_version: <span class="number">5</span>,
                                 });
                                 <span class="kw">let </span>bytes = reply.write_fields().expect(<span class="string">&quot;serialize reply&quot;</span>);
