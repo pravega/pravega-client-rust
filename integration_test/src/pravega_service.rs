@@ -164,7 +164,7 @@ impl PravegaService for PravegaStandaloneService {
                 "admin".to_string(),
             );
             map.insert(
-                "singlenode.security.auth.credentials.password".to_string(),
+                "singlenode.security.auth.credentials.pwd".to_string(),
                 "1111_aaaa".to_string(),
             );
         } else {
