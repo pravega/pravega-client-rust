@@ -457,6 +457,10 @@ impl SegmentWriter {
         }
     }
 
+    pub(crate) fn get_pending_queue_size(&mut self) -> usize {
+        self.pending.len()
+    }
+
     /// Force delegation token provider to refresh.
     pub(crate) fn signal_delegation_token_expiry(&self) {
         self.delegation_token_provider.signal_token_expiry()

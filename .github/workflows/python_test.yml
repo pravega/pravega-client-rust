@@ -23,10 +23,11 @@ jobs:
           java-version: '11' # The JDK version to make available on the path.
       - name: Download and Run Pravega standalone
         run: |
-          wget https://github.com/shrids/pravega/releases/download/stream-tags/pravega-0.10.0-2906.6a34e64-SNAPSHOT.tgz
-          tar -xzvf pravega-0.10.0-2906.6a34e64-SNAPSHOT.tgz
-          pravega-0.10.0-2906.6a34e64-SNAPSHOT/bin/pravega-standalone > pravega.log 2>&1 &
+          wget https://github.com/pravega/pravega/releases/download/v0.13.0-rc1/pravega-0.13.0.tgz
+          tar -xzvf pravega-0.13.0.tgz
+          pravega-0.13.0/bin/pravega-standalone > pravega.log 2>&1 &
           sleep 120 && echo "Started standalone"
+          tail pravega.log
       - name: Set up Python
         uses: actions/setup-python@v3
         with:

@@ -124,6 +124,13 @@ impl EventWriter {
         let (tx, rx) = oneshot::channel();
         let (tx_flush, rx_flush) = oneshot::channel();
         let routing_info = RoutingInfo::RoutingKey(None);
+        if event.len() > EventWriter::MAX_EVENT_SIZE {
+            if let Err(err) = self.flush().await {
+                let (tx_error, rx_error) = oneshot::channel();
+                tx_error.send(Err(err)).expect("send error");
+                return rx_error;
+            }
+        };
         if let Some(pending_event) =
             PendingEvent::with_header_flush(routing_info, event, None, tx, Some(tx_flush))
         {
@@ -146,6 +153,13 @@ impl EventWriter {
         let (tx, rx) = oneshot::channel();
         let (tx_flush, rx_flush) = oneshot::channel();
         let routing_info = RoutingInfo::RoutingKey(Some(routing_key));
+        if event.len() > EventWriter::MAX_EVENT_SIZE {
+            if let Err(err) = self.flush().await {
+                let (tx_error, rx_error) = oneshot::channel();
+                tx_error.send(Err(err)).expect("send error");
+                return rx_error;
+            }
+        };
         if let Some(pending_event) =
             PendingEvent::with_header_flush(routing_info, event, None, tx, Some(tx_flush))
         {
@@ -229,8 +243,6 @@ impl Drop for EventWriter {
 
 #[cfg(test)]
 mod tests {
-    use tokio::runtime::Runtime;
-
     use super::*;
     use crate::segment::event::{PendingEvent, RoutingInfo};
 
@@ -244,16 +256,12 @@ mod tests {
         let event = PendingEvent::without_header(routing_info, data, None, tx).expect("create pending event");
         assert!(event.is_empty());
 
-        // test with illegal event size
-        let (tx, rx) = oneshot::channel();
+        // test with large event size
+        let (tx, _rx) = oneshot::channel();
         let data = vec![0; (PendingEvent::MAX_WRITE_SIZE + 1) as usize];
         let routing_info = RoutingInfo::RoutingKey(None);
 
-        let event = PendingEvent::without_header(routing_info, data, None, tx);
-        assert!(event.is_none());
-
-        let rt = Runtime::new().expect("get runtime");
-        let reply = rt.block_on(rx).expect("get reply");
-        assert!(reply.is_err());
+        let event = PendingEvent::with_header(routing_info, data, None, tx);
+        assert!(event.is_some());
     }
 }

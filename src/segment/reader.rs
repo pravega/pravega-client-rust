@@ -565,6 +565,14 @@ mod tests {
         ) -> Result<(Replies, Box<dyn ClientConnection + 'static>), RawClientError> {
             unimplemented!() // Not required for this test.
         }
+
+        async fn send_request_with_connection(
+            &self,
+            _request: &Requests,
+            _client_connection: &mut ClientConnection,
+        ) -> Result<Replies, RawClientError> {
+            unimplemented!() // Not required for this test.
+        }
     }
 
     #[test]

@@ -53,6 +53,11 @@ pub enum Requests {
     ReadTableEntries(ReadTableEntriesCommand),
     ReadTableEntriesDelta(ReadTableEntriesDeltaCommand),
     ConditionalBlockEnd(ConditionalBlockEndCommand),
+    CreateTransientSegment(CreateTransientSegmentCommand),
+    FlushToStorage(FlushToStorageCommand),
+    ListStorageChunks(ListStorageChunksCommand),
+    GetTableSegmentInfo(GetTableSegmentInfoCommand),
+    MergeSegmentsBatch(MergeSegmentsBatchCommand),
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -89,6 +94,11 @@ pub enum Replies {
     TableKeyDoesNotExist(TableKeyDoesNotExistCommand),
     TableKeyBadVersion(TableKeyBadVersionCommand),
     TableEntriesDeltaRead(TableEntriesDeltaReadCommand),
+    StorageFlushed(StorageFlushedCommand),
+    StorageChunksListed(StorageChunksListedCommand),
+    TableSegmentInfo(TableSegmentInfoCommand),
+    SegmentsBatchMerged(SegmentsBatchMergedCommand),
+    ErrorMessage(ErrorMessageCommand),
 }
 
 impl fmt::Display for Replies {
@@ -145,6 +155,15 @@ impl Request for Requests {
             Requests::ConditionalBlockEnd(conditional_block_end_cmd) => {
                 conditional_block_end_cmd.get_request_id()
             }
+            Requests::CreateTransientSegment(create_transient_segment_cmd) => {
+                create_transient_segment_cmd.get_request_id()
+            }
+            Requests::FlushToStorage(flush_to_storage_cmd) => flush_to_storage_cmd.get_request_id(),
+            Requests::ListStorageChunks(list_storage_chunks_cmd) => list_storage_chunks_cmd.get_request_id(),
+            Requests::GetTableSegmentInfo(get_table_segment_info_cmd) => {
+                get_table_segment_info_cmd.get_request_id()
+            }
+            Requests::MergeSegmentsBatch(merge_segment_batch_cmd) => merge_segment_batch_cmd.get_request_id(),
             _ => -1,
         }
     }
@@ -204,6 +223,15 @@ impl Reply for Replies {
             }
             Replies::TableEntriesDeltaRead(table_entries_delta_read_cmd) => {
                 table_entries_delta_read_cmd.get_request_id()
+            }
+            Replies::StorageFlushed(storage_flushed_cmd) => storage_flushed_cmd.get_request_id(),
+            Replies::StorageChunksListed(storage_chunks_listed_cmd) => {
+                storage_chunks_listed_cmd.get_request_id()
+            }
+            Replies::ErrorMessage(error_message_cmd) => error_message_cmd.get_request_id(),
+            Replies::TableSegmentInfo(table_segment_info_cmd) => table_segment_info_cmd.get_request_id(),
+            Replies::SegmentsBatchMerged(segments_batch_merged_cmd) => {
+                segments_batch_merged_cmd.get_request_id()
             }
         }
     }
@@ -400,6 +428,36 @@ impl Encode for Requests {
             Requests::ConditionalBlockEnd(conditional_block_end_cmd) => {
                 res.extend_from_slice(&ConditionalBlockEndCommand::TYPE_CODE.to_be_bytes());
                 let se = conditional_block_end_cmd.write_fields()?;
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
+                res.extend(se);
+            }
+            Requests::CreateTransientSegment(create_transient_segment_cmd) => {
+                res.extend_from_slice(&CreateTransientSegmentCommand::TYPE_CODE.to_be_bytes());
+                let se = create_transient_segment_cmd.write_fields()?;
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
+                res.extend(se);
+            }
+            Requests::FlushToStorage(flush_to_storage_cmd) => {
+                res.extend_from_slice(&FlushToStorageCommand::TYPE_CODE.to_be_bytes());
+                let se = flush_to_storage_cmd.write_fields()?;
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
+                res.extend(se);
+            }
+            Requests::ListStorageChunks(list_storage_chunks_cmd) => {
+                res.extend_from_slice(&ListStorageChunksCommand::TYPE_CODE.to_be_bytes());
+                let se = list_storage_chunks_cmd.write_fields()?;
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
+                res.extend(se);
+            }
+            Requests::GetTableSegmentInfo(get_table_segment_info_cmd) => {
+                res.extend_from_slice(&GetTableSegmentInfoCommand::TYPE_CODE.to_be_bytes());
+                let se = get_table_segment_info_cmd.write_fields()?;
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
+                res.extend(se);
+            }
+            Requests::MergeSegmentsBatch(merge_segment_batch_cmd) => {
+                res.extend_from_slice(&MergeSegmentsBatchCommand::TYPE_CODE.to_be_bytes());
+                let se = merge_segment_batch_cmd.write_fields()?;
                 res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
@@ -604,6 +662,36 @@ impl Encode for Replies {
                 res.extend_from_slice(&(se.len() as i32).to_be_bytes());
                 res.extend(se);
             }
+            Replies::StorageFlushed(storage_flushed_cmd) => {
+                res.extend_from_slice(&StorageFlushedCommand::TYPE_CODE.to_be_bytes());
+                let se = storage_flushed_cmd.write_fields()?;
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
+                res.extend(se);
+            }
+            Replies::StorageChunksListed(storage_chunks_listed_cmd) => {
+                res.extend_from_slice(&StorageChunksListedCommand::TYPE_CODE.to_be_bytes());
+                let se = storage_chunks_listed_cmd.write_fields()?;
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
+                res.extend(se);
+            }
+            Replies::ErrorMessage(error_message_cmd) => {
+                res.extend_from_slice(&ErrorMessageCommand::TYPE_CODE.to_be_bytes());
+                let se = error_message_cmd.write_fields()?;
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
+                res.extend(se);
+            }
+            Replies::TableSegmentInfo(table_segment_info_cmd) => {
+                res.extend_from_slice(&TableSegmentInfoCommand::TYPE_CODE.to_be_bytes());
+                let se = table_segment_info_cmd.write_fields()?;
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
+                res.extend(se);
+            }
+            Replies::SegmentsBatchMerged(segments_batch_merged_cmd) => {
+                res.extend_from_slice(&SegmentsBatchMergedCommand::TYPE_CODE.to_be_bytes());
+                let se = segments_batch_merged_cmd.write_fields()?;
+                res.extend_from_slice(&(se.len() as i32).to_be_bytes());
+                res.extend(se);
+            }
         }
         Ok(res)
     }
@@ -703,7 +791,21 @@ impl Decode for Requests {
             ConditionalBlockEndCommand::TYPE_CODE => Ok(Requests::ConditionalBlockEnd(
                 ConditionalBlockEndCommand::read_from(input)?,
             )),
-
+            CreateTransientSegmentCommand::TYPE_CODE => Ok(Requests::CreateTransientSegment(
+                CreateTransientSegmentCommand::read_from(input)?,
+            )),
+            FlushToStorageCommand::TYPE_CODE => {
+                Ok(Requests::FlushToStorage(FlushToStorageCommand::read_from(input)?))
+            }
+            ListStorageChunksCommand::TYPE_CODE => Ok(Requests::ListStorageChunks(
+                ListStorageChunksCommand::read_from(input)?,
+            )),
+            GetTableSegmentInfoCommand::TYPE_CODE => Ok(Requests::GetTableSegmentInfo(
+                GetTableSegmentInfoCommand::read_from(input)?,
+            )),
+            MergeSegmentsBatchCommand::TYPE_CODE => Ok(Requests::MergeSegmentsBatch(
+                MergeSegmentsBatchCommand::read_from(input)?,
+            )),
             _ => InvalidType {
                 command_type: type_code,
             }
@@ -802,6 +904,21 @@ impl Decode for Replies {
             )),
             TableEntriesDeltaReadCommand::TYPE_CODE => Ok(Replies::TableEntriesDeltaRead(
                 TableEntriesDeltaReadCommand::read_from(input)?,
+            )),
+            StorageFlushedCommand::TYPE_CODE => {
+                Ok(Replies::StorageFlushed(StorageFlushedCommand::read_from(input)?))
+            }
+            StorageChunksListedCommand::TYPE_CODE => Ok(Replies::StorageChunksListed(
+                StorageChunksListedCommand::read_from(input)?,
+            )),
+            ErrorMessageCommand::TYPE_CODE => {
+                Ok(Replies::ErrorMessage(ErrorMessageCommand::read_from(input)?))
+            }
+            TableSegmentInfoCommand::TYPE_CODE => Ok(Replies::TableSegmentInfo(
+                TableSegmentInfoCommand::read_from(input)?,
+            )),
+            SegmentsBatchMergedCommand::TYPE_CODE => Ok(Replies::SegmentsBatchMerged(
+                SegmentsBatchMergedCommand::read_from(input)?,
             )),
             _ => InvalidType {
                 command_type: type_code,

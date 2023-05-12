@@ -9,6 +9,7 @@
 //
 
 pub(crate) mod event;
+pub(crate) mod large_writer;
 pub(crate) mod metadata;
 pub(crate) mod raw_client;
 pub(crate) mod reactor;
