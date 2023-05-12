@@ -25,7 +25,7 @@ jobs:
         run: |
           wget https://github.com/pravega/pravega/releases/download/v0.13.0-rc1/pravega-0.13.0.tgz
           tar -xzvf pravega-0.13.0.tgz
-          pravega-0.13.0.tgz/bin/pravega-standalone > pravega.log 2>&1 &
+          pravega-0.13.0/bin/pravega-standalone > pravega.log 2>&1 &
           sleep 120 && echo "Started standalone"
           tail pravega.log
       - name: Set up Python
