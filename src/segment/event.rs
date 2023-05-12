@@ -62,31 +62,13 @@ impl PendingEvent {
         oneshot_sender: oneshot::Sender<Result<(), Error>>,
         flush_oneshot_sender: Option<oneshot::Sender<Result<(), Error>>>,
     ) -> Option<Self> {
-        if data.len() > PendingEvent::MAX_WRITE_SIZE {
-            warn!(
-                "event size {:?} exceeds limit {:?}",
-                data.len(),
-                PendingEvent::MAX_WRITE_SIZE
-            );
-            oneshot_sender
-                .send(Err(Error::InvalidInput {
-                    msg: format!(
-                        "Event size {} exceeds max write size limit {}",
-                        data.len(),
-                        PendingEvent::MAX_WRITE_SIZE
-                    ),
-                }))
-                .expect("send error to caller");
-            None
-        } else {
-            Some(PendingEvent {
-                routing_info,
-                data,
-                conditional_offset,
-                oneshot_sender,
-                flush_oneshot_sender,
-            })
-        }
+        Some(PendingEvent {
+            routing_info,
+            data,
+            conditional_offset,
+            oneshot_sender,
+            flush_oneshot_sender,
+        })
     }
 
     pub(crate) fn with_header_flush(

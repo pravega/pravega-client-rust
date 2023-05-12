@@ -16,7 +16,8 @@ use pravega_wire_protocol::wire_commands::Replies;
 
 use crate::client_factory::ClientFactoryAsync;
 use crate::error::Error;
-use crate::segment::event::{Incoming, RoutingInfo, ServerReply};
+use crate::segment::event::{Incoming, PendingEvent, RoutingInfo, ServerReply};
+use crate::segment::large_writer::LargeEventWriter;
 use crate::segment::selector::SegmentSelector;
 
 #[derive(new)]
@@ -53,6 +54,20 @@ impl Reactor {
                     RoutingInfo::RoutingKey(key) => selector.get_segment_writer(key),
                     RoutingInfo::Segment(segment) => selector.get_segment_writer_by_key(segment),
                 };
+
+                if pending_event.data.len() > PendingEvent::MAX_WRITE_SIZE {
+                    if event_segment_writer.get_pending_queue_size() != 0 {
+                        error!("segment writer pending queue length is expected to be zero before write large event");
+                        return Err("segment writer pending queue length is expected to be zero before write large event");
+                    }
+                    let mut large_event_writer =
+                        LargeEventWriter::new(selector.delegation_token_provider.clone());
+                    large_event_writer
+                        .write(factory, selector, pending_event)
+                        .await
+                        .map_err(|_| "large event writer failed to write")?;
+                    return Ok(());
+                }
 
                 if event_segment_writer.need_reset {
                     // ignore the send result since error means the receiver is dropped

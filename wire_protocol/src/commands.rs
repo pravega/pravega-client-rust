@@ -23,12 +23,12 @@ use std::i64;
 use std::io::Cursor;
 use std::io::{Read, Write};
 
-pub const WIRE_VERSION: i32 = 11;
+pub const WIRE_VERSION: i32 = 15;
 pub const OLDEST_COMPATIBLE_VERSION: i32 = 5;
 pub const TYPE_SIZE: u32 = 4;
 pub const TYPE_PLUS_LENGTH_SIZE: u32 = 8;
 pub const MAX_WIRECOMMAND_SIZE: u32 = 0x00FF_FFFF; // 16MB-1
-
+pub const NULL_ATTRIBUTE_VALUE: i64 = std::i64::MIN;
 /**
  * trait for Command.
  */
@@ -2336,6 +2336,384 @@ impl Command for ConditionalBlockEndCommand {
 }
 
 impl Request for ConditionalBlockEndCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 61. CreateTransientSegment Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct CreateTransientSegmentCommand {
+    pub request_id: i64,
+    pub writer_id: u128,
+    pub segment: String,
+    pub delegation_token: String,
+}
+
+impl Command for CreateTransientSegmentCommand {
+    const TYPE_CODE: i32 = 40;
+
+    fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
+        let encoded = CONFIG.serialize(&self).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(encoded)
+    }
+
+    fn read_from(input: &[u8]) -> Result<Self, CommandError> {
+        let decoded: CreateTransientSegmentCommand = CONFIG.deserialize(input).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(decoded)
+    }
+}
+
+impl Request for CreateTransientSegmentCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 62. CreateTransientSegment Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct FlushToStorageCommand {
+    pub container_id: i32,
+    pub delegation_token: String,
+    pub request_id: i64,
+}
+
+impl Command for FlushToStorageCommand {
+    const TYPE_CODE: i32 = -3;
+
+    fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
+        let encoded = CONFIG.serialize(&self).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(encoded)
+    }
+
+    fn read_from(input: &[u8]) -> Result<Self, CommandError> {
+        let decoded: FlushToStorageCommand = CONFIG.deserialize(input).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(decoded)
+    }
+}
+
+impl Request for FlushToStorageCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 63. StorageFlushed Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct StorageFlushedCommand {
+    pub request_id: i64,
+}
+
+impl Command for StorageFlushedCommand {
+    const TYPE_CODE: i32 = -4;
+
+    fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
+        let encoded = CONFIG.serialize(&self).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(encoded)
+    }
+
+    fn read_from(input: &[u8]) -> Result<Self, CommandError> {
+        let decoded: StorageFlushedCommand = CONFIG.deserialize(input).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(decoded)
+    }
+}
+
+impl Reply for StorageFlushedCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 64. ListStorageChunks Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct ListStorageChunksCommand {
+    pub segment: String,
+    pub delegation_token: String,
+    pub request_id: i64,
+}
+
+impl Command for ListStorageChunksCommand {
+    const TYPE_CODE: i32 = -5;
+
+    fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
+        let encoded = CONFIG.serialize(&self).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(encoded)
+    }
+
+    fn read_from(input: &[u8]) -> Result<Self, CommandError> {
+        let decoded: ListStorageChunksCommand = CONFIG.deserialize(input).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(decoded)
+    }
+}
+
+impl Request for ListStorageChunksCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * Chunkinfo Struct.
+ * Need to override the serialize
+ */
+#[derive(Serialize, Deserialize, Debug, Clone, Eq)]
+pub struct ChunkInfo {
+    pub length_in_metadata: i64,
+    pub length_in_storage: i64,
+    pub start_offset: i64,
+    pub chunck_name: String,
+    pub exists_in_storage: bool,
+}
+
+impl ChunkInfo {
+    pub fn new(
+        length_in_metadata: i64,
+        length_in_storage: i64,
+        start_offset: i64,
+        chunck_name: String,
+        exists_in_storage: bool,
+    ) -> ChunkInfo {
+        ChunkInfo {
+            length_in_metadata,
+            length_in_storage,
+            start_offset,
+            chunck_name,
+            exists_in_storage,
+        }
+    }
+}
+
+impl PartialEq for ChunkInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.chunck_name == other.chunck_name
+    }
+}
+
+/**
+ * 65. StorageChunksListed Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct StorageChunksListedCommand {
+    pub request_id: i64,
+    pub chunks: Vec<ChunkInfo>,
+}
+
+impl Command for StorageChunksListedCommand {
+    const TYPE_CODE: i32 = -6;
+
+    fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
+        let encoded = CONFIG.serialize(&self).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(encoded)
+    }
+
+    fn read_from(input: &[u8]) -> Result<Self, CommandError> {
+        let decoded: StorageChunksListedCommand = CONFIG.deserialize(input).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(decoded)
+    }
+}
+
+impl Reply for StorageChunksListedCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 66. ErrorMessage Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct ErrorMessageCommand {
+    pub request_id: i64,
+    pub segment: String,
+    pub message: String,
+    pub error_code: i32,
+}
+
+impl Command for ErrorMessageCommand {
+    const TYPE_CODE: i32 = 61;
+
+    fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
+        let encoded = CONFIG.serialize(&self).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(encoded)
+    }
+
+    fn read_from(input: &[u8]) -> Result<Self, CommandError> {
+        let decoded: ErrorMessageCommand = CONFIG.deserialize(input).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(decoded)
+    }
+}
+
+impl Reply for ErrorMessageCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 67. GetTableSegmentInfo Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct GetTableSegmentInfoCommand {
+    pub request_id: i64,
+    pub segment_name: String,
+    pub delegation_token: String,
+}
+
+impl Command for GetTableSegmentInfoCommand {
+    const TYPE_CODE: i32 = 68;
+
+    fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
+        let encoded = CONFIG.serialize(&self).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(encoded)
+    }
+
+    fn read_from(input: &[u8]) -> Result<Self, CommandError> {
+        let decoded: GetTableSegmentInfoCommand = CONFIG.deserialize(input).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(decoded)
+    }
+}
+
+impl Request for GetTableSegmentInfoCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 68. MergeSegmentsBatch Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct MergeSegmentsBatchCommand {
+    pub request_id: i64,
+    pub target_segment_id: String,
+    pub source_segment_ids: Vec<String>,
+    pub delegation_token: String,
+}
+
+impl Command for MergeSegmentsBatchCommand {
+    const TYPE_CODE: i32 = 90;
+
+    fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
+        let encoded = CONFIG.serialize(&self).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(encoded)
+    }
+
+    fn read_from(input: &[u8]) -> Result<Self, CommandError> {
+        let decoded: MergeSegmentsBatchCommand = CONFIG.deserialize(input).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(decoded)
+    }
+}
+
+impl Request for MergeSegmentsBatchCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 69. ErrorMessage Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct TableSegmentInfoCommand {
+    pub request_id: i64,
+    pub segment_name: String,
+    pub delegation_token: String,
+}
+
+impl Command for TableSegmentInfoCommand {
+    const TYPE_CODE: i32 = 69;
+
+    fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
+        let encoded = CONFIG.serialize(&self).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(encoded)
+    }
+
+    fn read_from(input: &[u8]) -> Result<Self, CommandError> {
+        let decoded: TableSegmentInfoCommand = CONFIG.deserialize(input).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(decoded)
+    }
+}
+
+impl Reply for TableSegmentInfoCommand {
+    fn get_request_id(&self) -> i64 {
+        self.request_id
+    }
+}
+
+/**
+ * 70. SegmentsBatchMerged Command
+ */
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct SegmentsBatchMergedCommand {
+    pub request_id: i64,
+    pub target: String,
+    pub sources: Vec<String>,
+    pub new_target_write_offset: Vec<i64>,
+}
+
+impl Command for SegmentsBatchMergedCommand {
+    const TYPE_CODE: i32 = 91;
+
+    fn write_fields(&self) -> Result<Vec<u8>, CommandError> {
+        let encoded = CONFIG.serialize(&self).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(encoded)
+    }
+
+    fn read_from(input: &[u8]) -> Result<Self, CommandError> {
+        let decoded: SegmentsBatchMergedCommand = CONFIG.deserialize(input).context(InvalidData {
+            command_type: Self::TYPE_CODE,
+        })?;
+        Ok(decoded)
+    }
+}
+
+impl Reply for SegmentsBatchMergedCommand {
     fn get_request_id(&self) -> i64 {
         self.request_id
     }

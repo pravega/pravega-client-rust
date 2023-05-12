@@ -22,10 +22,11 @@ jobs:
           java-version: "11" # The JDK version to make available on the path.
       - name: Download and Run Pravega standalone
         run: |
-          wget https://github.com/pravega/pravega/releases/download/v0.10.1/pravega-0.10.1.tgz
-          tar -xzvf pravega-0.10.1.tgz
-          pravega-0.10.1/bin/pravega-standalone > pravega.log 2>&1 &
-          sleep 20 && echo "Started standalone"
+          wget https://github.com/pravega/pravega/releases/download/v0.13.0-rc1/pravega-0.13.0.tgz
+          tar -xzvf pravega-0.13.0.tgz
+          pravega-0.13.0/bin/pravega-standalone > pravega.log 2>&1 &
+          sleep 120 && echo "Started standalone"
+          tail pravega.log
       - name: Set up Nodejs
         uses: actions/setup-node@v2
         with:
