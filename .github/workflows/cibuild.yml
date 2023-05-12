@@ -130,12 +130,6 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - name: Maximize disk space
-        uses: easimon/maximize-build-space@master
-        with:
-          remove-android: true
-          remove-haskell: true
-          remove-dotnet: true
       - name: Checkout sources
         uses: actions/checkout@v2
 
