@@ -7,7 +7,7 @@ on:
     tags:
       - '*'
     branches:
-      - master  
+      - master
   pull_request:
     branches:
       - master
@@ -25,6 +25,12 @@ jobs:
         
       - name: Display Rust version
         run: rustc --version
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          default: true
+          components: rustfmt, clippy
       - uses: actions/cache@v3
         with:
           path: |
@@ -34,13 +40,6 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-          components: rustfmt, clippy
 
       - name: Run cargo check
         uses: actions-rs/cargo@v1
@@ -66,7 +65,12 @@ jobs:
 
       - name: Checkout sources
         uses: actions/checkout@v2
-        
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          default: true
+          components: rustfmt, clippy
       - uses: actions/cache@v3
         with:
           path: |
@@ -76,12 +80,7 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-          components: rustfmt, clippy
+
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:
@@ -100,7 +99,12 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          default: true
+          components: rustfmt, clippy
       - uses: actions/cache@v3
         with:
           path: |
@@ -110,13 +114,6 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-          components: rustfmt, clippy
 
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
@@ -132,7 +129,12 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          default: true
+          components: rustfmt, clippy
       - uses: actions/cache@v3
         with:
           path: |
@@ -142,13 +144,6 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-          components: rustfmt, clippy
 
       - name: Run cargo clean
         uses: actions-rs/cargo@v1
@@ -214,15 +209,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Set release version
         # Set release version env in all three os, the commented command only works in linux and mac.
         run: python3 -c "import os; tag = os.environ['GITHUB_REF'].split('/')[-1]; f = open(os.environ['GITHUB_ENV'], 'a'); f.write('RELEASE_VERSION='+tag); f.close();"
@@ -236,10 +222,18 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
-          override: true
+          default: true
           target: ${{ matrix.target }}
           components: rustfmt, clippy
-
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Use Cross
         shell: bash
 #        // Changed cargo version from latest to 0.2.4 for more information please refer https://github.com/cross-rs/cross/issues/1214
