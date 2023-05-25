@@ -224,7 +224,6 @@ jobs:
           toolchain: ${{ matrix.rust }}
           default: true
           target: ${{ matrix.target }}
-          components: rustfmt, clippy
       - uses: actions/cache@v3
         with:
           path: |
@@ -233,7 +232,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: cross-${{ matrix.build }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Use Cross
         shell: bash
 #        // Changed cargo version from latest to 0.2.4 for more information please refer https://github.com/cross-rs/cross/issues/1214
