@@ -24,6 +24,20 @@ jobs:
           - 20
     steps:
       - uses: actions/checkout@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          default: true
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - uses: actions/setup-java@v1
         with:
           java-version: "11" # The JDK version to make available on the path.
@@ -41,12 +55,6 @@ jobs:
       - name: Install modules
         working-directory: ./nodejs
         run: npm i
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-          components: rustfmt, clippy
       - name: Test
         working-directory: ./nodejs
         run: npm test
