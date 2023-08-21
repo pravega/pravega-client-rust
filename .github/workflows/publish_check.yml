@@ -42,9 +42,9 @@ jobs:
       - name: Install cargo-release
         run: cargo install cargo-release
       - name: Release (Dry Run)
-        run: cargo release --allow-branch '*' --dry-run -v --unpublished -p pravega-client-shared -p pravega-client-macros -p pravega-client-channel -p pravega-client-retry -p pravega-connection-pool -p pravega-client-config -p pravega-wire-protocol -p pravega-controller-client -p pravega-client-auth
+        run: cargo release --allow-branch '*' --dry-run -v -p pravega-client-shared -p pravega-client-macros -p pravega-client-channel -p pravega-client-retry -p pravega-connection-pool -p pravega-client-config -p pravega-wire-protocol -p pravega-controller-client -p pravega-client-auth
       - name: Release
-        run: cargo release --allow-branch '*' -x --no-confirm -v --unpublished -p pravega-client-shared -p pravega-client-macros -p pravega-client-channel -p pravega-client-retry -p pravega-connection-pool -p pravega-client-config -p pravega-wire-protocol -p pravega-controller-client -p pravega-client-auth
+        run: cargo release --allow-branch '*' -x --no-confirm -v -p pravega-client-shared -p pravega-client-macros -p pravega-client-channel -p pravega-client-retry -p pravega-connection-pool -p pravega-client-config -p pravega-wire-protocol -p pravega-controller-client -p pravega-client-auth
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
