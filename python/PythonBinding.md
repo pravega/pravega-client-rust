@@ -5,8 +5,8 @@
 
 1. Ensure `cargo build` works fine.
 2. There are two ways of running generating bindings. This describes the steps where maturin is manually installed.
-    - Manually install [maturin](https://github.com/PyO3/maturin) via `pip install maturin`
-    - `maturin build --release --no-sdist --strip --manylinux off` This command auto detects the python interpreter and uses it. To
+    - Manually install [maturin](https://github.com/PyO3/maturin) via `pip install maturin==0.14`
+    - `maturin build --release --strip --manylinux off` This command auto detects the python interpreter and uses it. To
     specify a specific interpreter using `--interpreter` option.
     - `maturin sdist` to generate the source distribution. 
 3. Steps to generate bindings using a docker approach.
