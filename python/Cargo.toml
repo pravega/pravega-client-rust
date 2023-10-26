@@ -1,6 +1,6 @@
 [package]
 name = "pravega"
-version = "0.3.5"
+version = "0.3.6"
 edition = "2018"
 categories = ["network-programming"]
 keywords = ["streaming", "client", "pravega"]

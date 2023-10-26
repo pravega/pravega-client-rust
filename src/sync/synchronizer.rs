@@ -268,7 +268,7 @@ impl Synchronizer {
                     key: inner,
                     key_version: version,
                 };
-                let inner_map = self.in_memory_map.entry(outer_key).or_insert_with(HashMap::new);
+                let inner_map = self.in_memory_map.entry(outer_key).or_default();
 
                 // this is necessary since insert will not update the Key
                 inner_map.remove(&inner_map_key);
@@ -413,7 +413,7 @@ impl Update {
 
         self.insert.push(insert);
         // also insert into map.
-        let inner_map = self.map.entry(outer_key.clone()).or_insert_with(HashMap::new);
+        let inner_map = self.map.entry(outer_key.clone()).or_default();
         inner_map.insert(inner_key, Value { type_id, data });
 
         // increment the version of the map, indicating that this map has changed
@@ -872,7 +872,7 @@ fn apply_inserts_to_localmap(
             let in_mem_inner_map = table_synchronizer
                 .in_memory_map
                 .entry(update.outer_key.clone())
-                .or_insert_with(HashMap::new);
+                .or_default();
             in_mem_inner_map.insert(new_key, new_value);
         } else {
             let new_key = Key {
@@ -903,7 +903,7 @@ fn apply_deletes_to_localmap(to_delete: &mut Update, table_synchronizer: &mut Sy
         let in_mem_inner_map = table_synchronizer
             .in_memory_map
             .entry(delete.outer_key.clone())
-            .or_insert_with(HashMap::new);
+            .or_default();
         in_mem_inner_map.remove(&delete_key);
         i += 1;
     }
