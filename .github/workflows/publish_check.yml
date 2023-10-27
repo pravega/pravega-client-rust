@@ -41,28 +41,64 @@ jobs:
           override: true
       - name: Install cargo-release
         run: cargo install cargo-release
-      - name: Publish (Dry Run)
-      - run: cargo publish --dry-run -v -p pravega-client-shared
-      - run: cargo publish --dry-run -v -p pravega-client-macros
-      - run: cargo publish --dry-run -v -p pravega-client-channel
-      - run: cargo publish --dry-run -v -p pravega-client-retry
-      - run: cargo publish --dry-run -v -p pravega-connection-pool
-      - run: cargo publish --dry-run -v -p pravega-client-config
-      - run: cargo publish --dry-run -v -p pravega-wire-protocol
-      - run: cargo publish --dry-run -v -p pravega-controller-client
-      - run: cargo publish --dry-run -v -p pravega-client-auth
-      - run: cargo publish --dry-run -v -p pravega-client
-      - name: Publish
-      - run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-client-shared
-      - run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-client-macros
-      - run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-client-channel
-      - run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-client-retry
-      - run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-connection-pool
-      - run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-client-config
-      - run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-wire-protocol
-      - run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-controller-client
-      - run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-client-auth
-      - run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-client
+      - name: Publish pravega-client-shared (Dry Run)
+        run: cargo publish --dry-run -v -p pravega-client-shared
+      - name: Publish pravega-client-macros (Dry Run)
+        run: cargo publish --dry-run -v -p pravega-client-macros
+      - name: Publish pravega-client-channel (Dry Run)
+        run: cargo publish --dry-run -v -p pravega-client-channel
+      - name: Publish pravega-client-retry (Dry Run)
+        run: cargo publish --dry-run -v -p pravega-client-retry
+      - name: Publish pravega-connection-pool (Dry Run)
+        run: cargo publish --dry-run -v -p pravega-connection-pool
+      - name: Publish pravega-client-config (Dry Run)
+        run: cargo publish --dry-run -v -p pravega-client-config
+      - name: Publish pravega-wire-protocol (Dry Run)
+        run: cargo publish --dry-run -v -p pravega-wire-protocol
+      - name: Publish pravega-controller-client (Dry Run)
+        run: cargo publish --dry-run -v -p pravega-controller-client
+      - name: Publish pravega-client-auth (Dry Run)
+        run: cargo publish --dry-run -v -p pravega-client-auth
+      - name: Publish pravega-client (Dry Run)
+        run: cargo publish --dry-run -v -p pravega-client
+      - name: Publish pravega-client-shared
+        run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-client-shared
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Publish pravega-client-macros
+        run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-client-macros
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Publish pravega-client-channel
+        run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-client-channel
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Publish pravega-client-retry
+        run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-client-retry
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Publish pravega-connection-pool
+        run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-connection-pool
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Publish pravega-client-config
+        run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-client-config
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Publish pravega-wire-protocol
+        run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-wire-protocol
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Publish pravega-controller-client
+        run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-controller-client
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Publish pravega-client-auth
+        run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-client-auth
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Publish pravega-client
+        run: cargo publish --token $CARGO_REGISTRY_TOKEN -v -p pravega-client
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
