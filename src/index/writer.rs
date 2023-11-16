@@ -164,9 +164,10 @@ impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
     }
 
     async fn append_internal(&mut self, data: Vec<u8>) -> Result<(), IndexWriterError> {
+        let record_size = self.fields.as_ref().unwrap().get_record_size();
         let fields_list = self.fields.as_ref().unwrap().get_field_values();
         let record = IndexRecord::new(fields_list, data);
-        let encoded = record.write_fields().context(InvalidData {})?;
+        let encoded = record.write_fields(record_size).context(InvalidData {})?;
         let _size = self.byte_writer.write(&encoded).await;
         Ok(())
     }
