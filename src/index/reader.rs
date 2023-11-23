@@ -19,6 +19,11 @@ use async_stream::try_stream;
 use futures::stream::Stream;
 use snafu::{ensure, Snafu};
 use std::io::SeekFrom;
+use pravega_wire_protocol::commands::GetSegmentAttributeCommand;
+use pravega_wire_protocol::wire_commands::{Replies, Requests};
+use crate::segment::raw_client::RawClient;
+use tracing::{info};
+use crate::util::get_request_id;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
@@ -86,6 +91,7 @@ pub struct IndexReader {
     factory: ClientFactoryAsync,
     meta: SegmentMetadataClient,
     segment_reader: AsyncSegmentReaderImpl,
+    record_size: usize,
 }
 
 impl IndexReader {
@@ -110,11 +116,48 @@ impl IndexReader {
         let meta = factory
             .create_segment_metadata_client(scoped_segment.clone())
             .await;
+
+        let controller_client = factory.controller_client();
+        let endpoint = controller_client
+            .get_endpoint_for_segment(&scoped_segment)
+            .await
+            .expect("get endpoint for segment");
+        let raw_client = factory.create_raw_client_for_endpoint(endpoint);
+        let segment_name = scoped_segment.to_string();
+        let delegation_token = controller_client
+                                    .get_or_refresh_delegation_token_for(stream.clone())
+                                    .await
+                                    .expect("controller error when refreshing token");
+        let request = Requests::GetSegmentAttribute(GetSegmentAttributeCommand {
+            request_id: get_request_id(),
+            segment_name: segment_name.clone(),
+            attribute_id: 111,
+            delegation_token: delegation_token,
+        });
+        let reply = raw_client
+            .send_request(&request)
+            .await
+            .expect("update segment attribute");
+
+        let record_size = match reply {
+            Replies::SegmentAttribute(cmd) =>{
+                if cmd.value == i64::MIN {
+                    info!("Segment attribute for record_size is not set.Falling back to default RECORD_SIZE = {:?}", RECORD_SIZE);
+                    RECORD_SIZE as usize
+                } else {
+                    cmd.value as usize
+                }},
+            _ => {
+                info!("get segment attribute for record_size failed due to {:?}", reply);
+                info!("Falling back to default RECORD_SIZE = {:?}", RECORD_SIZE);
+                RECORD_SIZE as usize }
+        };
         IndexReader {
             stream,
             factory,
             meta,
             segment_reader,
+            record_size,
         }
     }
 
@@ -127,7 +170,7 @@ impl IndexReader {
     /// stream, the first record data will be returned.
     /// If the value of searching field is larger than the latest Record, a FieldNotFound error will be returned.
     pub async fn search_offset(&self, field: (&'static str, u64)) -> Result<u64, IndexReaderError> {
-        const RECORD_SIZE_SIGNED: i64 = RECORD_SIZE as i64;
+        let record_size_signed: i64 = self.record_size as i64;
 
         let target_key = IndexRecord::hash_key_to_u128(field.0);
         let target_value = field.1;
@@ -139,13 +182,13 @@ impl IndexReader {
             msg: format!("error when fetching tail offset: {:?}", e),
         })? as i64;
         let mut start = 0;
-        let num_of_record = (tail - head) / RECORD_SIZE_SIGNED;
+        let num_of_record = (tail - head) / record_size_signed;
         let mut end = num_of_record - 1;
 
         while start <= end {
             let mid = start + (end - start) / 2;
             let record = self
-                .read_record_from_random_offset((head + mid * RECORD_SIZE_SIGNED) as u64)
+                .read_record_from_random_offset((head + mid * record_size_signed) as u64)
                 .await?;
 
             if let Some(e) = record.fields.iter().find(|&e| e.0 == target_key) {
@@ -169,7 +212,7 @@ impl IndexReader {
                 msg: format!("key/value: {}/{}", field.0, field.1),
             })
         } else {
-            Ok((head + start * RECORD_SIZE_SIGNED) as u64)
+            Ok((head + start * record_size_signed) as u64)
         }
     }
 
@@ -187,32 +230,33 @@ impl IndexReader {
         end_offset: u64,
     ) -> Result<impl Stream<Item = Result<Vec<u8>, IndexReaderError>> + 'stream, IndexReaderError> {
         ensure!(
-            start_offset % (RECORD_SIZE) == 0,
+            start_offset % (self.record_size as u64) == 0,
             InvalidOffset {
                 msg: format!(
                     "Start offset {} is invalid as it cannot be divided by the record size {}",
-                    start_offset, RECORD_SIZE
+                    start_offset, self.record_size
                 )
             }
         );
         if end_offset != u64::MAX {
             ensure!(
-                end_offset % (RECORD_SIZE) == 0,
+                end_offset % (self.record_size as u64) == 0,
                 InvalidOffset {
                     msg: format!(
                         "End offset {} is invalid as it cannot be divided by the record size {}",
-                        end_offset, RECORD_SIZE
+                        end_offset, self.record_size
                     )
                 }
             );
         }
         Ok(try_stream! {
             let stream = self.stream.clone();
+            let record_size = self.record_size;
             let mut byte_reader = self.factory.create_byte_reader(stream).await;
             let mut num_of_records_to_read = if end_offset == u64::MAX {
                 u64::MAX
             } else {
-                (end_offset - start_offset) / (RECORD_SIZE as u64)
+                (end_offset - start_offset) / (record_size as u64)
             };
             byte_reader.seek(SeekFrom::Start(start_offset))
                 .await
@@ -221,7 +265,7 @@ impl IndexReader {
             })?;
             loop {
                 let mut buf = vec!{};
-                let mut size_to_read = RECORD_SIZE as usize;
+                let mut size_to_read = record_size as usize;
                 while size_to_read != 0 {
                     let mut tmp_buf = vec![0; size_to_read];
                     let size = byte_reader
@@ -257,7 +301,7 @@ impl IndexReader {
     /// Data in the last record.
     pub async fn last_record_data(&self) -> Result<Vec<u8>, IndexReaderError> {
         let last_offset = self.tail_offset().await?;
-        let last_record_offset = last_offset - RECORD_SIZE;
+        let last_record_offset = last_offset - self.record_size as u64;
         let last_record = self.read_record_from_random_offset(last_record_offset).await?;
         Ok(last_record.data)
     }
@@ -291,7 +335,7 @@ impl IndexReader {
     ) -> Result<IndexRecord, IndexReaderError> {
         let segment_read_cmd = self
             .segment_reader
-            .read(offset as i64, RECORD_SIZE as i32)
+            .read(offset as i64, self.record_size as i32)
             .await
             .map_err(|e| IndexReaderError::Internal {
                 msg: format!("segment reader error: {:?}", e),
