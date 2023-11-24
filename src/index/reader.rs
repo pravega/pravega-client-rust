@@ -124,7 +124,7 @@ impl IndexReader {
             .expect("get endpoint for segment");
         let raw_client = factory.create_raw_client_for_endpoint(endpoint);
         let segment_name = scoped_segment.to_string();
-        let delegation_token = controller_client
+        let token = controller_client
                                     .get_or_refresh_delegation_token_for(stream.clone())
                                     .await
                                     .expect("controller error when refreshing token");
@@ -132,7 +132,7 @@ impl IndexReader {
             request_id: get_request_id(),
             segment_name: segment_name.clone(),
             attribute_id: 111,
-            delegation_token: delegation_token,
+            delegation_token: token,
         });
         let reply = raw_client
             .send_request(&request)

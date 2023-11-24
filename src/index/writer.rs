@@ -116,7 +116,7 @@ impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
             .expect("get endpoint for segment");
 
         let raw_client = factory.create_raw_client_for_endpoint(endpoint);
-        let delegation_token = controller_client
+        let token = controller_client
                                     .get_or_refresh_delegation_token_for(stream.clone())
                                     .await
                                     .expect("controller error when refreshing token");
@@ -128,9 +128,9 @@ impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
             attribute_id: uid,
             new_value: T::get_record_size() as i64,
             expected_value: i64::MIN,
-            delegation_token: delegation_token,
+            delegation_token: token,
         });
-        let reply = raw_client
+        raw_client
             .send_request(&request)
             .await
             .expect("update segment attribute");
