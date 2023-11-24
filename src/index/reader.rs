@@ -15,15 +15,15 @@ use crate::segment::reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 use pravega_client_shared::{ScopedSegment, ScopedStream};
 
 use crate::segment::metadata::SegmentMetadataClient;
+use crate::segment::raw_client::RawClient;
+use crate::util::get_request_id;
 use async_stream::try_stream;
 use futures::stream::Stream;
-use snafu::{ensure, Snafu};
-use std::io::SeekFrom;
 use pravega_wire_protocol::commands::GetSegmentAttributeCommand;
 use pravega_wire_protocol::wire_commands::{Replies, Requests};
-use crate::segment::raw_client::RawClient;
-use tracing::{info};
-use crate::util::get_request_id;
+use snafu::{ensure, Snafu};
+use std::io::SeekFrom;
+use tracing::info;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
@@ -125,9 +125,9 @@ impl IndexReader {
         let raw_client = factory.create_raw_client_for_endpoint(endpoint);
         let segment_name = scoped_segment.to_string();
         let token = controller_client
-                                    .get_or_refresh_delegation_token_for(stream.clone())
-                                    .await
-                                    .expect("controller error when refreshing token");
+            .get_or_refresh_delegation_token_for(stream.clone())
+            .await
+            .expect("controller error when refreshing token");
         let request = Requests::GetSegmentAttribute(GetSegmentAttributeCommand {
             request_id: get_request_id(),
             segment_name: segment_name.clone(),
@@ -140,17 +140,19 @@ impl IndexReader {
             .expect("update segment attribute");
 
         let record_size = match reply {
-            Replies::SegmentAttribute(cmd) =>{
+            Replies::SegmentAttribute(cmd) => {
                 if cmd.value == i64::MIN {
                     info!("Segment attribute for record_size is not set.Falling back to default RECORD_SIZE = {:?}", RECORD_SIZE);
                     RECORD_SIZE as usize
                 } else {
                     cmd.value as usize
-                }},
+                }
+            }
             _ => {
                 info!("get segment attribute for record_size failed due to {:?}", reply);
                 info!("Falling back to default RECORD_SIZE = {:?}", RECORD_SIZE);
-                RECORD_SIZE as usize }
+                RECORD_SIZE as usize
+            }
         };
         IndexReader {
             stream,

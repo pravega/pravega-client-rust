@@ -14,14 +14,14 @@ use crate::index::{Fields, IndexRecord};
 
 use pravega_client_shared::ScopedStream;
 
+use crate::segment::raw_client::RawClient;
+use crate::util::get_request_id;
 use bincode2::Error as BincodeError;
+use pravega_wire_protocol::commands::UpdateSegmentAttributeCommand;
+use pravega_wire_protocol::wire_commands::Requests;
 use snafu::{ensure, Backtrace, ResultExt, Snafu};
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use pravega_wire_protocol::commands::{UpdateSegmentAttributeCommand};
-use pravega_wire_protocol::wire_commands::{Requests};
-use crate::segment::raw_client::RawClient;
-use crate::util::get_request_id;
 
 const MAX_FIELDS_SIZE: usize = 100;
 
@@ -104,7 +104,11 @@ impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
             .get_current_segments(&stream)
             .await
             .expect("get current segments");
-        assert_eq!(1, segments.key_segment_map.len(), "Index stream is configured with more than one segment");
+        assert_eq!(
+            1,
+            segments.key_segment_map.len(),
+            "Index stream is configured with more than one segment"
+        );
         let segment_with_range = segments.key_segment_map.iter().next().unwrap().1.clone();
         let segment_name = segment_with_range.scoped_segment;
 
@@ -117,9 +121,9 @@ impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
 
         let raw_client = factory.create_raw_client_for_endpoint(endpoint);
         let token = controller_client
-                                    .get_or_refresh_delegation_token_for(stream.clone())
-                                    .await
-                                    .expect("controller error when refreshing token");
+            .get_or_refresh_delegation_token_for(stream.clone())
+            .await
+            .expect("controller error when refreshing token");
         let segment_name = segment_name.to_string();
         let uid = 111;
         let request = Requests::UpdateSegmentAttribute(UpdateSegmentAttributeCommand {

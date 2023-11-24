@@ -195,7 +195,9 @@ pub(crate) mod test {
         let data = vec![1, 2, 3, 4];
         let fields = vec![("hello", 0), ("index", 1), ("stream", 2)];
         let record = IndexRecord::new(fields, data.clone());
-        let encoded = record.write_fields(RECORD_SIZE as usize).expect("serialize record");
+        let encoded = record
+            .write_fields(RECORD_SIZE as usize)
+            .expect("serialize record");
         assert_eq!(encoded.len(), RECORD_SIZE as usize);
         let decoded = IndexRecord::read_from(&encoded).expect("deserialize record");
         assert_eq!(decoded.data, data);
