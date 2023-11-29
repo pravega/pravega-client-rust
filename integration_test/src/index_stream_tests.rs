@@ -30,7 +30,9 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 
 use futures_util::pin_mut;
 use futures_util::StreamExt;
+use index::Fields;
 use pravega_client::event::EventReader;
+use pravega_client::index;
 use pravega_client::index::reader::IndexReaderError;
 use pravega_client::index::writer::IndexWriterError;
 use std::io::{Read, SeekFrom, Write};
@@ -57,6 +59,22 @@ struct TestFields2 {
     pos: u64,
     id: u64,
     timestamp: u64,
+}
+
+#[derive(Debug, PartialOrd, PartialEq)]
+struct TestFields3 {
+    id: u64,
+    timestamp: u64,
+}
+
+impl Fields for TestFields3 {
+    fn get_field_values(&self) -> Vec<(&'static str, u64)> {
+        vec![("id", self.id), ("timestamp", self.timestamp)]
+    }
+
+    fn get_record_size() -> usize {
+        3 * 1024
+    }
 }
 
 pub fn test_index_stream(config: PravegaStandaloneServiceConfig) {
@@ -95,6 +113,26 @@ pub fn test_index_stream(config: PravegaStandaloneServiceConfig) {
 
     let mut writer = handle.block_on(client_factory.create_index_writer(scoped_stream));
     handle.block_on(test_new_record_out_of_order(&mut writer));
+
+    let scope = Scope::from("testScopeIndexStreamRecordSize".to_owned());
+    let stream = Stream::from("testStreamIndexStreamRecordSize".to_owned());
+    handle.block_on(utils::create_scope_stream(
+        client_factory.controller_client(),
+        &scope,
+        &stream,
+        1,
+    ));
+    let scoped_stream = ScopedStream { scope, stream };
+    let mut writer = handle.block_on(client_factory.create_index_writer(scoped_stream.clone()));
+    let mut reader = handle.block_on(client_factory.create_index_reader(scoped_stream.clone()));
+    let reader_group = handle
+        .block_on(client_factory.create_reader_group("rg_record_size".to_string(), scoped_stream.clone()));
+    let mut event_reader = handle.block_on(reader_group.create_reader("record_size_reader".to_string()));
+    handle.block_on(test_new_record_size_write_and_read(
+        &mut writer,
+        &mut reader,
+        &mut event_reader,
+    ));
 }
 
 async fn test_write_and_read(
@@ -305,4 +343,104 @@ async fn test_new_record_out_of_order(writer: &mut IndexWriter<TestFields2>) {
     let res = writer.append(label, data).await;
     assert!(matches! {res.expect_err("should have append error"), IndexWriterError::InvalidFields{..}});
     info!("test index stream new record out of order passed");
+}
+
+async fn test_new_record_size_write_and_read(
+    writer: &mut IndexWriter<TestFields3>,
+    reader: &mut IndexReader,
+    event_reader: &mut EventReader,
+) {
+    info!("test index stream write and read");
+    const EVENT_NUM: u64 = 10;
+    const INDEX_RECORD_SIZE: usize = 3 * 1024;
+
+    // search for record when nothing in the stream
+    let res = reader.search_offset(("id", 5)).await;
+    assert!(
+        matches! {res.expect_err("search for a non-existing field"), IndexReaderError::FieldNotFound{..}}
+    );
+
+    // test normal append
+    for i in 1..=EVENT_NUM {
+        let label = TestFields3 { id: i, timestamp: i };
+        let data = vec![1; i as usize];
+        writer
+            .append(label, data)
+            .await
+            .expect("write payload1 to byte stream");
+        writer.flush().await.expect("flush data");
+    }
+
+    // test append with invalid label
+    let label = TestFields3 { id: 1, timestamp: 1 };
+    let data = vec![1; 10];
+    let res = writer.append(label, data).await;
+    assert!(
+        matches! {res.expect_err("append should fail due to invalid label"), IndexWriterError::InvalidFields{..}}
+    );
+
+    // test tail read
+    let mut i = 1;
+    let stream = reader.read(0, u64::MAX).expect("get read stream");
+    pin_mut!(stream);
+    while let Some(read) = stream.next().await {
+        let data = vec![1; i as usize];
+        assert_eq!(read.expect("read data"), data);
+        i += 1;
+        if i > EVENT_NUM {
+            break;
+        }
+    }
+
+    // test slice read
+    let stream = reader
+        .read(0, EVENT_NUM * INDEX_RECORD_SIZE as u64)
+        .expect("get read stream");
+    pin_mut!(stream);
+    let mut i = 1;
+    while let Some(read) = stream.next().await {
+        let data = vec![1; i as usize];
+        assert_eq!(read.expect("read data"), data);
+        i += 1;
+    }
+
+    // test search offset
+    // search for regular record
+    let offset = reader.search_offset(("id", 5)).await.expect("get offset");
+    // returns the starting offset of the 5th record, so it's the total length of the previous 4 records
+    // same below
+    assert_eq!(offset, INDEX_RECORD_SIZE as u64 * 4);
+
+    // search for first record
+    let offset = reader.search_offset(("id", 0)).await.expect("get offset");
+    assert_eq!(offset, 0);
+
+    // search for last record
+    let offset = reader.search_offset(("id", 10)).await.expect("get offset");
+    assert_eq!(offset, INDEX_RECORD_SIZE as u64 * 9);
+
+    // search for future record, should return error.
+    let res = reader.search_offset(("uuid", 11)).await;
+    assert!(
+        matches! {res.expect_err("search for a non-existing field"), IndexReaderError::FieldNotFound{..}}
+    );
+
+    // test event reader compatibility
+    let mut read_count = 0;
+    while let Some(mut slice) = event_reader.acquire_segment().await.unwrap() {
+        info!("acquire segment for reader {:?}", slice);
+        for event in &mut slice {
+            // record size minus 8 bytes header
+            assert_eq!(
+                (INDEX_RECORD_SIZE - 8) as usize,
+                event.value.as_slice().len(),
+                "Corrupted event read"
+            );
+            read_count += 1;
+        }
+        event_reader.release_segment(slice).await.unwrap();
+    }
+    assert_eq!(read_count, EVENT_NUM);
+
+    info!("test index stream write and read passed");
 }
