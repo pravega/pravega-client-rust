@@ -432,7 +432,7 @@ async fn test_new_record_size_write_and_read(
         for event in &mut slice {
             // record size minus 8 bytes header
             assert_eq!(
-                (INDEX_RECORD_SIZE - 8) as usize,
+                (INDEX_RECORD_SIZE - 8),
                 event.value.as_slice().len(),
                 "Corrupted event read"
             );
