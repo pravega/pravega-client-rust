@@ -14,6 +14,7 @@ use crate::segment::reader::{AsyncSegmentReader, AsyncSegmentReaderImpl};
 
 use pravega_client_shared::{ScopedSegment, ScopedStream};
 
+use crate::index::writer::INDEX_RECORD_SIZE_ATTRIBUTE_ID;
 use crate::segment::metadata::SegmentMetadataClient;
 use crate::segment::raw_client::RawClient;
 use crate::util::get_request_id;
@@ -24,7 +25,6 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use snafu::{ensure, Snafu};
 use std::io::SeekFrom;
 use tracing::info;
-use crate::index::writer::INDEX_RECORD_SIZE_ATTRIBUTE_ID;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
