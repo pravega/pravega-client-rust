@@ -127,9 +127,8 @@ impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
             .await
             .expect("controller error when refreshing token");
         let segment_name = segment_name.to_string();
-        let request_id = get_request_id();
         let request = Requests::UpdateSegmentAttribute(UpdateSegmentAttributeCommand {
-            request_id: request_id,
+            request_id: get_request_id(),
             segment_name: segment_name.clone(),
             attribute_id: INDEX_RECORD_SIZE_ATTRIBUTE_ID,
             new_value: T::get_record_size() as i64,
