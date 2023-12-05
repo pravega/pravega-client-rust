@@ -25,7 +25,7 @@ use std::marker::PhantomData;
 use tracing::info;
 
 const MAX_FIELDS_SIZE: usize = 100;
-pub const INDEX_RECORD_SIZE_ATTRIBUTE_ID: u128 = 80000000 - 0000 - 0000 - 0000 - 000000000011;
+pub const INDEX_RECORD_SIZE_ATTRIBUTE_ID: u128 = 80000000000000000000000000000011;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
