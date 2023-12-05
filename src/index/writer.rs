@@ -22,8 +22,10 @@ use pravega_wire_protocol::wire_commands::Requests;
 use snafu::{ensure, Backtrace, ResultExt, Snafu};
 use std::fmt::Debug;
 use std::marker::PhantomData;
+use tracing::{info};
 
 const MAX_FIELDS_SIZE: usize = 100;
+pub const INDEX_RECORD_SIZE_ATTRIBUTE_ID: u128 = 80000000-0000-0000-0000-000000000011;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
@@ -125,11 +127,11 @@ impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
             .await
             .expect("controller error when refreshing token");
         let segment_name = segment_name.to_string();
-        let uid = 111;
+        let request_id = get_request_id();
         let request = Requests::UpdateSegmentAttribute(UpdateSegmentAttributeCommand {
-            request_id: get_request_id(),
+            request_id: request_id,
             segment_name: segment_name.clone(),
-            attribute_id: uid,
+            attribute_id: INDEX_RECORD_SIZE_ATTRIBUTE_ID,
             new_value: T::get_record_size() as i64,
             expected_value: i64::MIN,
             delegation_token: token,
@@ -137,7 +139,7 @@ impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
         raw_client
             .send_request(&request)
             .await
-            .expect("update segment attribute");
+            .map_or_else(|e| panic!("failed to get reply: {}", e), |r| info!("UpdateSegmentAttribute : {:?}", r));
 
         let index_reader = factory.create_index_reader(stream.clone()).await;
         let tail_offset = index_reader.tail_offset().await.expect("get tail offset");

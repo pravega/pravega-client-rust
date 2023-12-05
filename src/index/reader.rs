@@ -24,6 +24,7 @@ use pravega_wire_protocol::wire_commands::{Replies, Requests};
 use snafu::{ensure, Snafu};
 use std::io::SeekFrom;
 use tracing::info;
+use crate::index::writer::INDEX_RECORD_SIZE_ATTRIBUTE_ID;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
@@ -131,7 +132,7 @@ impl IndexReader {
         let request = Requests::GetSegmentAttribute(GetSegmentAttributeCommand {
             request_id: get_request_id(),
             segment_name: segment_name.clone(),
-            attribute_id: 111,
+            attribute_id: INDEX_RECORD_SIZE_ATTRIBUTE_ID,
             delegation_token: token,
         });
         let reply = raw_client
