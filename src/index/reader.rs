@@ -138,7 +138,7 @@ impl IndexReader {
         let reply = raw_client
             .send_request(&request)
             .await
-            .expect("update segment attribute");
+            .expect("get segment attribute");
 
         let record_size = match reply {
             Replies::SegmentAttribute(cmd) => {
