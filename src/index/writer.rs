@@ -27,7 +27,7 @@ use tracing::info;
 const MAX_FIELDS_SIZE: usize = 100;
 
 // The below value for attribute id is reserved in pravega repo's attributes.java  class as INDEX_RECORD_SIZE_ATTRIBUTE_ID
-pub const INDEX_RECORD_SIZE_ATTRIBUTE_ID: u128 = 0x8000_0000_0000_0000_0000_0000_0000_0011;
+pub const INDEX_RECORD_SIZE_ATTRIBUTE_ID: u128 = 0x80000000000000000000000000000011;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
@@ -143,7 +143,7 @@ impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
             Replies::SegmentAttribute(cmd) => {
                 if cmd.value == i64::MIN {
                     info!(
-                        "Setting segment attribute for record_size as it is not set for Segment: {}",
+                        "Updating record_size as segment attribute since it is not set for Segment: {}",
                         segment_name.clone()
                     );
                     let request = Requests::UpdateSegmentAttribute(UpdateSegmentAttributeCommand {
@@ -152,18 +152,27 @@ impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
                         attribute_id: INDEX_RECORD_SIZE_ATTRIBUTE_ID,
                         new_value: T::get_record_size() as i64,
                         expected_value: i64::MIN,
-                        delegation_token: token,
+                        delegation_token: token.clone(),
                     });
                     let reply = raw_client
                         .send_request(&request)
                         .await
                         .expect("update segment attribute");
                     match reply {
-                        Replies::SegmentAttributeUpdated(..) => {
-                            info!(
-                                "record_size updated as attribute for Segment: {}",
-                                segment_name.clone()
-                            );
+                        Replies::SegmentAttributeUpdated(cmd) => {
+                            if cmd.success == true {
+                                info!(
+                                    "record_size updated as attribute for Segment: {}, Reply: {:?}",
+                                    segment_name.clone(),
+                                    cmd
+                                );
+                            } else {
+                                panic!(
+                                    "segment attribute update failed for Segment: {}, Reply: {:?}",
+                                    segment_name.clone(),
+                                    cmd
+                                );
+                            }
                         }
                         _ => {
                             panic!(
