@@ -25,7 +25,9 @@ use std::marker::PhantomData;
 use tracing::info;
 
 const MAX_FIELDS_SIZE: usize = 100;
-pub const INDEX_RECORD_SIZE_ATTRIBUTE_ID: u128 = 0x80000000 - 0000 - 0000 - 0000 - 000000000011;
+
+// The below value for attribute id is reserved in pravega repo's attributes.java  class as INDEX_RECORD_SIZE_ATTRIBUTE_ID
+pub const INDEX_RECORD_SIZE_ATTRIBUTE_ID: u128 = 0x8000_0000_0000_0000_0000_0000_0000_0011;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub")]
