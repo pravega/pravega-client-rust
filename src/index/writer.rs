@@ -160,7 +160,7 @@ impl<T: Fields + PartialOrd + PartialEq + Debug> IndexWriter<T> {
                         .expect("update segment attribute");
                     match reply {
                         Replies::SegmentAttributeUpdated(cmd) => {
-                            if cmd.success == true {
+                            if cmd.success {
                                 info!(
                                     "record_size updated as attribute for Segment: {}, Reply: {:?}",
                                     segment_name.clone(),
