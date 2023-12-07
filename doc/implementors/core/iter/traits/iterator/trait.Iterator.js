@@ -1,3 +1,3 @@
 (function() {var implementors = {
-"pravega_client":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.73.0/core/iter/traits/iterator/trait.Iterator.html\" title=\"trait core::iter::traits::iterator::Iterator\">Iterator</a> for <a class=\"struct\" href=\"pravega_client/event/reader/struct.SegmentSlice.html\" title=\"struct pravega_client::event::reader::SegmentSlice\">SegmentSlice</a>"]]
+"pravega_client":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.74.0/core/iter/traits/iterator/trait.Iterator.html\" title=\"trait core::iter::traits::iterator::Iterator\">Iterator</a> for <a class=\"struct\" href=\"pravega_client/event/reader/struct.SegmentSlice.html\" title=\"struct pravega_client::event::reader::SegmentSlice\">SegmentSlice</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
