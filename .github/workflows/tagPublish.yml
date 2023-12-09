@@ -21,64 +21,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  wheel:
-    name: python${{ matrix.python-version }}-${{ matrix.platform.python-architecture }} ${{ matrix.platform.os }}
-    runs-on: ${{ matrix.platform.os }}
-    strategy:
-      matrix:
-        python-version: ['3.7', '3.8', '3.9', '3.10', '3.11']
-        platform: [
-        { os: "ubuntu-latest",  python-architecture: "x64", rust-target: "x86_64-unknown-linux-gnu" },
-        { os: "macOS-latest",   python-architecture: "x64", rust-target: "x86_64-apple-darwin" },
-        { os: "windows-latest", python-architecture: "x64", rust-target: "x86_64-pc-windows-msvc" },
-        # { os: "windows-latest", python-architecture: "x86", rust-target: "i686-pc-windows-msvc" },
-        ]
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@v2
-      - name: Set release version
-        # Set release version env in all three os, the commented command only works in linux and mac.
-        run: python3 -c "import os; tag = os.environ['GITHUB_REF'].split('/')[-1]; f = open(os.environ['GITHUB_ENV'], 'a'); f.write('RELEASE_VERSION='+tag); f.close();"
-        # run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
-      - name: Set up Python
-        uses: actions/setup-python@v3
-        with:
-          python-version: ${{ matrix.python-version }}
-          architecture: ${{ matrix.platform.python-architecture }}
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: ${{ matrix.platform.rust-target }}
-          override: true
-          components: rustfmt, clippy
-      - run: rustup set default-host ${{ matrix.platform.rust-target }}
-      - name: install maturin
-        run: pip install 'maturin>=0.14,<0.15'
-      - name: build wheel
-        id: build_wheel
-        run: python -u .github/workflows/build_wheel.py
-      - name: build source
-        id: build_source
-        run: python -u .github/workflows/build_source.py
-      - name: Publish to pypi
-        env:
-          # the username and the repository needs to be changed before release.
-          TWINE_USERNAME: ${{ secrets.pypi_user_name }}
-          TWINE_PASSWORD: ${{ secrets.pypi_password }}
-          TWINE_REPOSITORY: pypi
-        run: |
-          pip install -U twine
-          python -m twine upload --skip-existing target/wheels/*
-      - name: Upload to Github releases
-        working-directory: ./target
-        # Use bash, even on Windows to make find available
-        shell: bash
-        # A release need to be created before upload
-        run: gh release upload ${{ env.RELEASE_VERSION }} "$(find ./wheels -name *.whl)" --clobber
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   nodejs-npm:
     name: nodejs-npm
     runs-on: ubuntu-latest

@@ -13,7 +13,7 @@ Up to date status can be seen on [the wiki](https://github.com/pravega/pravega-c
 
 ## Goals
 
-The goal is to allow for clients to be written in Rust, as well as provide a common implementation for clients in higher level languages including Python and nodejs. 
+The goal is to allow for clients to be written in Rust, as well as provide a common implementation for clients in higher level languages including nodejs. 
 
 See the wiki for the [status of each language](https://github.com/pravega/pravega-client-rust/wiki/Supported-APIs).
 
