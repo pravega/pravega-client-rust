@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["IndexWriterError"],"struct":["IndexWriter","Internal","InvalidCondition","InvalidData","InvalidFields"]};
+window.SIDEBAR_ITEMS = {"constant":["INDEX_RECORD_SIZE_ATTRIBUTE_ID"],"enum":["IndexWriterError"],"struct":["IndexWriter","Internal","InvalidCondition","InvalidData","InvalidFields"]};
