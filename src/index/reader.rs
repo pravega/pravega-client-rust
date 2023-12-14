@@ -364,9 +364,7 @@ mod test {
     use pravega_client_shared::PravegaNodeUri;
 
     #[test]
-    #[should_panic(
-        expected = "get segment attribute for record_size failed due to WrongHost"
-    )]
+    #[should_panic(expected = "get segment attribute for record_size failed due to WrongHost")]
     fn test_index_reader_wrong_host() {
         let config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(MockType::WrongHost))
