@@ -31,7 +31,6 @@ members = [
     "integration_test",
     "connection_pool",
     "channel",
-    "python",
     "auth",
     "config",
     "examples",
