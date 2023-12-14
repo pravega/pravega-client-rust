@@ -143,16 +143,19 @@ impl IndexReader {
         let record_size = match reply {
             Replies::SegmentAttribute(cmd) => {
                 if cmd.value == i64::MIN {
-                    info!("Segment attribute for record_size is not set.Falling back to default RECORD_SIZE = {:?}", RECORD_SIZE);
+                    info!("record_size segment attribute for Segment = {} is not set.Falling back to default RECORD_SIZE = {:?}", segment_name.clone() ,RECORD_SIZE);
                     RECORD_SIZE as usize
                 } else {
+                    info!(
+                        "record_size segment attribute for Segment = {} is already set to {:?}",
+                        segment_name.clone(),
+                        cmd.value
+                    );
                     cmd.value as usize
                 }
             }
             _ => {
-                info!("get segment attribute for record_size failed due to {:?}", reply);
-                info!("Falling back to default RECORD_SIZE = {:?}", RECORD_SIZE);
-                RECORD_SIZE as usize
+                panic!("get segment attribute for record_size failed due to {:?}", reply);
             }
         };
         IndexReader {
@@ -348,5 +351,61 @@ impl IndexReader {
                 msg: format!("record deserialization error: {:?}", e),
             })?;
         Ok(record)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::client_factory::ClientFactory;
+    use crate::util::create_stream;
+    use pravega_client_config::connection_type::{ConnectionType, MockType};
+    use pravega_client_config::ClientConfigBuilder;
+    use pravega_client_shared::PravegaNodeUri;
+
+    #[test]
+    #[should_panic(
+        expected = "get segment attribute for record_size failed due to WrongHost(WrongHostCommand { request_id: 1, segment: \"\", correct_host: \"\", server_stack_trace: \"\" })"
+    )]
+    fn test_index_reader_wrong_host() {
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(MockType::WrongHost))
+            .mock(true)
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        factory.runtime().block_on(create_stream(
+            &factory,
+            "testScopeInvalid",
+            "testStreamInvalid",
+            1,
+        ));
+        let stream = ScopedStream::from("testScopeInvalid/testStreamInvalid");
+        factory
+            .runtime()
+            .block_on(factory.create_index_reader(stream.clone()));
+    }
+
+    #[test]
+    fn test_default_index_reader_size() {
+        let config = ClientConfigBuilder::default()
+            .connection_type(ConnectionType::Mock(MockType::Happy))
+            .mock(true)
+            .controller_uri(PravegaNodeUri::from("127.0.0.2:9091".to_string()))
+            .build()
+            .unwrap();
+        let factory = ClientFactory::new(config);
+        factory.runtime().block_on(create_stream(
+            &factory,
+            "testScopeInvalid",
+            "testStreamInvalid",
+            1,
+        ));
+        let stream = ScopedStream::from("testScopeInvalid/testStreamInvalid");
+        let reply = factory
+            .runtime()
+            .block_on(factory.create_index_reader(stream.clone()));
+        assert_eq!(reply.record_size, RECORD_SIZE as usize);
     }
 }
