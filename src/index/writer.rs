@@ -26,7 +26,6 @@ use tracing::info;
 
 const MAX_FIELDS_SIZE: usize = 100;
 
-// The below value for attribute id is reserved in pravega repo's attributes.java  class as INDEX_RECORD_SIZE_ATTRIBUTE_ID
 pub const INDEX_RECORD_SIZE_ATTRIBUTE_ID: u128 = 0xffff_ffe8_b789_1801_0000_0000_0000_0011;
 
 #[derive(Debug, Snafu)]

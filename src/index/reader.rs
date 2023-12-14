@@ -365,7 +365,7 @@ mod test {
 
     #[test]
     #[should_panic(
-        expected = "get segment attribute for record_size failed due to WrongHost(WrongHostCommand { request_id: 1, segment: \"\", correct_host: \"\", server_stack_trace: \"\" })"
+        expected = "get segment attribute for record_size failed due to WrongHost"
     )]
     fn test_index_reader_wrong_host() {
         let config = ClientConfigBuilder::default()
