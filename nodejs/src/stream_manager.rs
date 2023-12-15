@@ -512,7 +512,7 @@ impl StreamManager {
             scaling_policy.scaling.clone(),
             retention_policy.retention.clone(),
             match tags.len() {
-                l if l == 0 => None,
+                0 => None,
                 _ => Some(tags),
             },
         );
@@ -544,7 +544,7 @@ impl StreamManager {
             scaling_policy.scaling.clone(),
             retention_policy.retention.clone(),
             match tags.len() {
-                l if l == 0 => None,
+                0 => None,
                 _ => Some(tags),
             },
         );

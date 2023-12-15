@@ -11,10 +11,11 @@
 extern crate byteorder;
 use crate::commands::{
     AppendSetupCommand, ConditionalCheckFailedCommand, DataAppendedCommand, SegmentAlreadyExistsCommand,
-    SegmentCreatedCommand, SegmentIsSealedCommand, SegmentIsTruncatedCommand, SegmentReadCommand,
-    SegmentSealedCommand, SegmentTruncatedCommand, StreamSegmentInfoCommand, TableEntries,
-    TableEntriesDeltaReadCommand, TableEntriesUpdatedCommand, TableKey, TableKeyBadVersionCommand,
-    TableKeyDoesNotExistCommand, TableKeysRemovedCommand, TableReadCommand, TableValue, WrongHostCommand,
+    SegmentAttributeCommand, SegmentCreatedCommand, SegmentIsSealedCommand, SegmentIsTruncatedCommand,
+    SegmentReadCommand, SegmentSealedCommand, SegmentTruncatedCommand, StreamSegmentInfoCommand,
+    TableEntries, TableEntriesDeltaReadCommand, TableEntriesUpdatedCommand, TableKey,
+    TableKeyBadVersionCommand, TableKeyDoesNotExistCommand, TableKeysRemovedCommand, TableReadCommand,
+    TableValue, WrongHostCommand,
 };
 use crate::connection::{Connection, ConnectionReadHalf, ConnectionWriteHalf};
 use crate::error::*;
@@ -536,6 +537,13 @@ async fn send_happy(
             sender.send(reply).expect("send reply");
             segment_info.write_offset += cmd.data.len() as i64;
         }
+        Requests::GetSegmentAttribute(cmd) => {
+            let reply = Replies::SegmentAttribute(SegmentAttributeCommand {
+                request_id: cmd.request_id,
+                value: i64::MIN,
+            });
+            sender.send(reply).expect("send reply");
+        }
         _ => {
             panic!("unsupported request {:?}", request);
         }
@@ -631,6 +639,15 @@ async fn send_wrong_host(
             sender.send(reply).expect("send reply");
         }
         Requests::AppendBlockEnd(cmd) => {
+            let reply = Replies::WrongHost(WrongHostCommand {
+                request_id: cmd.request_id,
+                segment: "".to_string(),
+                correct_host: "".to_string(),
+                server_stack_trace: "".to_string(),
+            });
+            sender.send(reply).expect("send reply");
+        }
+        Requests::GetSegmentAttribute(cmd) => {
             let reply = Replies::WrongHost(WrongHostCommand {
                 request_id: cmd.request_id,
                 segment: "".to_string(),

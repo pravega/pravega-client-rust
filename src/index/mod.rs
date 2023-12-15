@@ -112,21 +112,21 @@ impl IndexRecord {
         }
     }
 
-    fn write_fields(&self) -> Result<Vec<u8>, BincodeError> {
+    fn write_fields(&self, record_size: usize) -> Result<Vec<u8>, BincodeError> {
         let mut res = vec![];
         res.extend_from_slice(&EventCommand::TYPE_CODE.to_be_bytes());
-        res.extend_from_slice(&((RECORD_SIZE - 8) as i32).to_be_bytes());
+        res.extend_from_slice(&((record_size - 8) as i32).to_be_bytes());
         let encoded = CONFIG.serialize(&self)?;
         let length = encoded.len();
         res.extend(encoded);
-        if res.len() > RECORD_SIZE as usize {
+        if res.len() > record_size {
             return Err(BincodeError::from(ErrorKind::Custom(format!(
                 "Record size {} exceeds the max size allowed {}",
                 res.len(),
-                RECORD_SIZE,
+                record_size,
             ))));
         }
-        let padding = vec![0u8; RECORD_SIZE as usize - length - 8];
+        let padding = vec![0u8; record_size - length - 8];
         res.extend(padding);
         Ok(res)
     }
@@ -155,6 +155,10 @@ impl IndexRecord {
 
 pub trait Fields {
     fn get_field_values(&self) -> Vec<(&'static str, u64)>;
+
+    fn get_record_size() -> usize {
+        RECORD_SIZE as usize
+    }
 }
 
 pub trait Value {
@@ -191,7 +195,9 @@ pub(crate) mod test {
         let data = vec![1, 2, 3, 4];
         let fields = vec![("hello", 0), ("index", 1), ("stream", 2)];
         let record = IndexRecord::new(fields, data.clone());
-        let encoded = record.write_fields().expect("serialize record");
+        let encoded = record
+            .write_fields(RECORD_SIZE as usize)
+            .expect("serialize record");
         assert_eq!(encoded.len(), RECORD_SIZE as usize);
         let decoded = IndexRecord::read_from(&encoded).expect("deserialize record");
         assert_eq!(decoded.data, data);
