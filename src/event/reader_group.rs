@@ -454,17 +454,17 @@ pub struct StreamCutV1 {
 }
 
 impl StreamCutV1 {
-    pub(crate) fn new(stream: ScopedStream, positions: HashMap<ScopedSegment, i64>) -> Self {
+    pub fn new(stream: ScopedStream, positions: HashMap<ScopedSegment, i64>) -> Self {
         StreamCutV1 { stream, positions }
     }
 
     /// gets a clone of the internal scoped stream
-    pub(crate) fn get_stream(&self) -> ScopedStream {
+    pub fn get_stream(&self) -> ScopedStream {
         self.stream.clone()
     }
 
     /// gets a clone of the internal positions
-    pub(crate) fn get_positions(&self) -> HashMap<ScopedSegment, i64> {
+    pub fn get_positions(&self) -> HashMap<ScopedSegment, i64> {
         self.positions.clone()
     }
 }
