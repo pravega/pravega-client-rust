@@ -214,6 +214,17 @@ impl ReaderGroup {
     pub fn get_managed_streams(&self) -> Vec<ScopedStream> {
         self.config.get_streams()
     }
+
+    /// Return the latest positions for the given reader.
+    /// These positions to be used to construct StreamCutV1
+    ///
+    pub async fn get_reader_positions(
+        &self,
+        reader_id: String,
+    ) -> Result<HashMap<ScopedSegment, Offset>, ReaderGroupStateError> {
+        let r: Reader = reader_id.into();
+        self.state.lock().await.get_reader_positions(&r).await
+    }
 }
 
 /// Specifies the ReaderGroupConfig.
