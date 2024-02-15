@@ -216,9 +216,7 @@ impl ReaderGroup {
         self.config.get_streams()
     }
 
-    /// Return the latest positions for the given reader.
-    /// These positions to be used to construct StreamCutV1
-    ///
+    /// Return the latest StreamCutV1 for the given reader.
 
     pub async fn get_reader_streamcut(
         &self,
