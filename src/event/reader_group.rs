@@ -12,7 +12,7 @@ use crate::client_factory::ClientFactoryAsync;
 use crate::event::reader::EventReader;
 use crate::event::reader_group_state::{Offset, ReaderGroupStateError};
 
-use pravega_client_shared::{Reader, Scope, ScopedSegment, ScopedStream};
+use pravega_client_shared::{Reader, Scope, ScopedSegment, ScopedStream, StreamCut};
 
 use crate::sync::table::TableError;
 use crate::sync::Table;
@@ -216,20 +216,20 @@ impl ReaderGroup {
         self.config.get_streams()
     }
 
-    /// Return the latest StreamCutV1 for the given reader.
+    /// Return the latest StreamCut for the given reader.
 
     pub async fn get_reader_streamcut(
         &self,
         reader_id: String,
-    ) -> Result<StreamCutV1, ReaderGroupStateError> {
+    ) -> Result<StreamCut, ReaderGroupStateError> {
         let r: Reader = reader_id.into();
         let positions = self.state.lock().await.get_reader_positions(&r).await;
         if let Some((seg, offset)) = positions.unwrap().iter().next() {
             let scoped_stream = seg.get_scoped_stream();
-            let mut scoped_segment_map: HashMap<ScopedSegment, i64> = HashMap::new();
-            scoped_segment_map.insert(seg.clone(), offset.read);
-            // Return the StreamCutV1 object
-            Ok(StreamCutV1::new(scoped_stream, scoped_segment_map))
+            let mut segment_offset_map: HashMap<i64, i64> = HashMap::new();
+            segment_offset_map.insert(seg.clone().segment.number, offset.read);
+            // Return the StreamCut object
+            Ok(StreamCut::new(scoped_stream, segment_offset_map))
         }else {
             //Here only possible error thrown will be readr_offline
             // Other error like deserialize position are not thrown back
