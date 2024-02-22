@@ -24,7 +24,8 @@ use snafu::Snafu;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::sync::synchronizer::SynchronizerError;
+use tracing::{debug, error, info};
+use crate::sync::synchronizer::{deserialize_from, SynchronizerError};
 
 cfg_if::cfg_if! {
     if #[cfg(test)] {
@@ -216,35 +217,34 @@ impl ReaderGroup {
         self.config.get_streams()
     }
 
-    /// Return the latest StreamCut for the given reader.
+    /// Return the latest StreamCut in ReaderGroup.
 
-    pub async fn get_reader_streamcut(
-        &self,
-        reader_id: String,
-    ) -> Result<StreamCut, ReaderGroupStateError> {
-        let r: Reader = reader_id.into();
-        let positions = self.state.lock().await.get_reader_positions(&r).await;
-        if let Some((seg, offset)) = positions.unwrap().iter().next() {
+    pub async fn get_streamcut(&self) -> StreamCut {
+        let positions = self.state.lock().await.get_streamcut().await;
+        let streamcut_map = positions.iter().fold(HashMap::new(), |mut acc, (seg, offset)| {
             let scoped_stream = seg.get_scoped_stream();
-            let mut segment_offset_map: HashMap<i64, i64> = HashMap::new();
-            segment_offset_map.insert(seg.clone().segment.number, offset.read);
-            // Return the StreamCut object
-            Ok(StreamCut::new(scoped_stream, segment_offset_map))
-        }else {
-            //Here only possible error thrown will be readr_offline
-            // Other error like deserialize position are not thrown back
-            Err(ReaderGroupStateError::ReaderAlreadyOfflineError {
-                error_msg: format!("Reader already marked offline {:?}", r),
-                source: SynchronizerError::SyncPreconditionError {
-                    error_msg: String::from("Precondition failure"),
-                },
-            })
+            let segment_id = seg.segment.number;
+
+            // Update the segment_offset_map for the corresponding scoped_stream
+            let entry = acc.entry(scoped_stream).or_insert(HashMap::new());
+            entry.insert(segment_id, offset.read);
+            acc
+        });
+        let streamcuts: Vec<StreamCut> = streamcut_map.into_iter()
+            .map(|(scoped_stream, segment_offset_map)| StreamCut::new(scoped_stream, segment_offset_map))
+            .collect();
+
+        if let Some(first_streamcut) = streamcuts.first() {
+            let cloned_streamcut = first_streamcut.clone();
+            info!(" streamcuts:  {:?} ", cloned_streamcut);
+            cloned_streamcut
+        } else {
+            error!("Expected a StreamCut but none found");
+            let streamcut: Option<StreamCut> = streamcuts.first().map(|streamcut_ref| streamcut_ref.clone());
+            streamcut.expect("Expected a StreamCut but none found")
         }
-
-
     }
 }
-
 
 /// Specifies the ReaderGroupConfig.
 /// ReaderGroupConfig::default() ensures the group refresh interval is set to 3 seconds.

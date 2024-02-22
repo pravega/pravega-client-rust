@@ -40,6 +40,8 @@ type SegmentReadResult = Result<SegmentDataBuffer, ReaderErrorWithOffset>;
 
 const REBALANCE_INTERVAL: Duration = Duration::from_secs(10);
 
+const UPDATE_OFFSET_INTERVAL: Duration = Duration::from_secs(3);
+
 const READ_BUFFER_SIZE: i32 = 8 * 1024 * 1024; // max size for a single Event
 
 cfg_if::cfg_if! {
@@ -259,6 +261,7 @@ impl EventReader {
                 slice_stop_reading,
                 last_segment_release: Instant::now(),
                 last_segment_acquire: Instant::now(),
+                last_offset_update: Instant::now(),
                 reader_offline: false,
             },
             rg_state,
@@ -306,6 +309,7 @@ impl EventReader {
             self.meta.last_segment_release = Instant::now();
         } else {
             //send an indication to the waiting rx that slice has been returned.
+            debug!(" slice return to rx success {:?}  ", slice.meta );
             if let Some(tx) = slice.slice_return_tx.take() {
                 if let Err(_e) = tx.send(Some(slice.meta.clone())) {
                     warn!(
@@ -316,6 +320,26 @@ impl EventReader {
             } else {
                 panic!("This is unexpected, No sender for SegmentSlice present.");
             }
+        }
+
+        //Update latest reader positions if UPDATE_OFFSET_INTERVAL is elapsed
+        if self.meta.last_offset_update.elapsed() > UPDATE_OFFSET_INTERVAL {
+            let mut offset_map: HashMap<ScopedSegment, Offset> = HashMap::new();
+            for metadata in self.meta.slices.values(){
+                offset_map.insert(
+                    ScopedSegment::from(metadata.scoped_segment.as_str()),
+                    Offset::new(metadata.read_offset),
+                );
+            }
+            debug!(" update reader position {:?}  for reader  {:?} ", offset_map, self.id );
+            self.rg_state
+                .lock()
+                .await
+                .update_reader_positions(&self.id, offset_map)
+                .await
+                .context(StateError {})?;
+
+            self.meta.last_offset_update = Instant::now();
         }
         Ok(())
     }
@@ -525,6 +549,25 @@ impl EventReader {
                 },
             });
         }
+        //Update latest reader positions if UPDATE_OFFSET_INTERVAL is elapsed
+        if self.meta.last_offset_update.elapsed() > UPDATE_OFFSET_INTERVAL {
+            let mut offset_map: HashMap<ScopedSegment, Offset> = HashMap::new();
+            for metadata in self.meta.slices.values(){
+                offset_map.insert(
+                    ScopedSegment::from(metadata.scoped_segment.as_str()),
+                    Offset::new(metadata.read_offset),
+                );
+            }
+            debug!(" update reader position {:?}  for reader  {:?} ", offset_map, self.id );
+            self.rg_state
+                .lock()
+                .await
+                .update_reader_positions(&self.id, offset_map)
+                .await
+                .context(StateError {})?;
+
+            self.meta.last_offset_update = Instant::now();
+        }
         info!("acquiring segment for reader {:?}", self.id);
         // Check if newer segments should be acquired.
         if self.meta.last_segment_acquire.elapsed() > REBALANCE_INTERVAL {
@@ -603,7 +646,7 @@ impl EventReader {
 
                                 info!(
                                     "segment slice for {:?} is ready for consumption by reader {}",
-                                    slice_meta.scoped_segment, self.id,
+                                    slice_meta, self.id,
                                 );
 
                                 Ok(Some(SegmentSlice {
@@ -803,6 +846,7 @@ struct ReaderState {
     slice_stop_reading: HashMap<ScopedSegment, oneshot::Sender<()>>,
     last_segment_release: Instant,
     last_segment_acquire: Instant,
+    last_offset_update: Instant,
     reader_offline: bool,
 }
 impl Default for ReaderState {
@@ -816,6 +860,7 @@ impl Default for ReaderState {
             slice_stop_reading: HashMap::new(),
             last_segment_release: Instant::now(),
             last_segment_acquire: Instant::now(),
+            last_offset_update: Instant::now(),
             reader_offline: false,
         }
     }
@@ -870,8 +915,8 @@ impl ReaderState {
         match self.slices.remove(&segment) {
             Some(meta) => {
                 debug!(
-                    "Segment slice {:?} has not been dished out for consumption",
-                    &segment
+                    "Segment slice {:?} has not been dished out for consumption {:?} meta",
+                    &segment, meta
                 );
                 Some(meta)
             }
