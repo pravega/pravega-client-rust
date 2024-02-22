@@ -430,10 +430,6 @@ impl ReaderGroupState {
     /// get all assigned and unassigned segments to offset map in ReaderGroup.
     /// This is used to construct StreamCut
     pub async fn get_streamcut(&mut self) -> HashMap<ScopedSegment, Offset> {
-
-        let i_assigned_segments = self.sync.get_inner_map(ASSIGNED);
-        let i_unassigned_segments = self.sync.get_inner_map(UNASSIGNED);
-
         self.sync.fetch_updates().await.expect("should fetch updates");
 
         let assigned_segments = self.sync.get_inner_map(ASSIGNED);

@@ -24,8 +24,7 @@ use snafu::Snafu;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::{debug, error, info};
-use crate::sync::synchronizer::{deserialize_from, SynchronizerError};
+use tracing::{error, info};
 
 cfg_if::cfg_if! {
     if #[cfg(test)] {
@@ -236,7 +235,6 @@ impl ReaderGroup {
 
         if let Some(first_streamcut) = streamcuts.first() {
             let cloned_streamcut = first_streamcut.clone();
-            info!(" streamcuts:  {:?} ", cloned_streamcut);
             cloned_streamcut
         } else {
             error!("Expected a StreamCut but none found");
