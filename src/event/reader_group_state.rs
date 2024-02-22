@@ -439,9 +439,9 @@ impl ReaderGroupState {
         let assigned_segments = self.sync.get_inner_map(ASSIGNED);
         let unassigned_segments = self.sync.get_inner_map(UNASSIGNED);
         info!(
-            "Assigned Segments {:?} Unassigned Segments {:?}",
-            assigned_segments,
-            unassigned_segments
+            "Assigned Segments {:?} Unassigned Segment {:?}",
+            assigned_segments.len(),
+            unassigned_segments.len()
         );
         let mut segment_offset_map: HashMap<ScopedSegment, Offset> = HashMap::new();
 
