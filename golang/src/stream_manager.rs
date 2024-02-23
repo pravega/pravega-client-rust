@@ -95,10 +95,11 @@ pub unsafe extern "C" fn stream_manager_new(
     client_config: ClientConfigMapping,
     err: Option<&mut Buffer>,
 ) -> *mut StreamManager {
-    match catch_unwind(|| {
+    let result = catch_unwind(|| {
         let config = client_config.to_client_config();
         StreamManager::new(config)
-    }) {
+    });
+    match result {
         Ok(manager) => {
             clear_error();
             Box::into_raw(Box::new(manager))
@@ -157,10 +158,11 @@ pub unsafe extern "C" fn stream_manager_create_stream(
     err: Option<&mut Buffer>,
 ) -> bool {
     let stream_manager = &*manager;
-    match catch_unwind(AssertUnwindSafe(move || {
+    let res = catch_unwind(AssertUnwindSafe(move || {
         let stream_cfg = stream_config.to_stream_configuration();
         stream_manager.create_stream(stream_cfg)
-    })) {
+    }));
+    match res {
         Ok(result) => match result {
             Ok(val) => val,
             Err(e) => {

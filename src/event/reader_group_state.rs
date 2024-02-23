@@ -186,6 +186,11 @@ impl ReaderGroupState {
         reader: &Reader,
     ) -> Result<HashMap<ScopedSegment, Offset>, ReaderGroupStateError> {
         self.sync.fetch_updates().await.expect("should fetch updates");
+        debug!(
+            "Assaigned segments {:?} for reader {:?} ",
+            self.sync.get_inner_map(ASSIGNED),
+            reader
+        );
         ReaderGroupState::get_reader_positions_internal(reader, self.sync.get_inner_map(ASSIGNED))
     }
 
@@ -421,6 +426,41 @@ impl ReaderGroupState {
                 .collect::<HashSet<ScopedSegment>>(),
         );
         set
+    }
+
+    /// get all assigned and unassigned segments to offset map in ReaderGroup.
+    /// This is used to construct StreamCut
+    pub async fn get_streamcut(&mut self) -> HashMap<ScopedSegment, Offset> {
+        self.sync.fetch_updates().await.expect("should fetch updates");
+
+        let assigned_segments = self.sync.get_inner_map(ASSIGNED);
+        let unassigned_segments = self.sync.get_inner_map(UNASSIGNED);
+        info!(
+            "Assigned Segments {:?} Unassigned Segment {:?}",
+            assigned_segments.len(),
+            unassigned_segments.len()
+        );
+        let mut segment_offset_map: HashMap<ScopedSegment, Offset> = HashMap::new();
+
+        for v in assigned_segments.values() {
+            let segment_offset: HashMap<ScopedSegment, Offset> =
+                deserialize_from(&v.data).expect("deserialize assigned segments");
+            segment_offset_map.extend(segment_offset)
+        }
+
+        let unassign_segment_offset: HashMap<ScopedSegment, Offset> = unassigned_segments
+            .iter()
+            .map(|(k, v)| {
+                let segment_str = &*k.to_owned();
+                (
+                    ScopedSegment::from(segment_str),
+                    deserialize_from(&v.data).expect("deserialize offset"),
+                )
+            })
+            .collect::<HashMap<ScopedSegment, Offset>>();
+        segment_offset_map.extend(unassign_segment_offset);
+        debug!("Segment to offset map {:?} from reader group", segment_offset_map);
+        segment_offset_map
     }
 
     /// Assign an unassigned segment to a given reader
@@ -819,7 +859,6 @@ mod test {
         let segments =
             ReaderGroupState::get_reader_positions_internal(&READER, table.get_inner_map(ASSIGNED))
                 .expect("get reader positions");
-
         assert_eq!(segments.len(), 1, "reader should contain one owned segment");
         assert_eq!(
             segments.get(&SEGMENT_TEST).expect("get segment"),

@@ -12,7 +12,7 @@ use crate::client_factory::ClientFactoryAsync;
 use crate::event::reader::EventReader;
 use crate::event::reader_group_state::{Offset, ReaderGroupStateError};
 
-use pravega_client_shared::{Reader, Scope, ScopedSegment, ScopedStream};
+use pravega_client_shared::{Reader, Scope, ScopedSegment, ScopedStream, StreamCut};
 
 use crate::sync::table::TableError;
 use crate::sync::Table;
@@ -24,6 +24,7 @@ use snafu::Snafu;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tracing::error;
 
 cfg_if::cfg_if! {
     if #[cfg(test)] {
@@ -213,6 +214,33 @@ impl ReaderGroup {
     ///
     pub fn get_managed_streams(&self) -> Vec<ScopedStream> {
         self.config.get_streams()
+    }
+
+    /// Return the latest StreamCut in ReaderGroup.
+
+    pub async fn get_streamcut(&self) -> StreamCut {
+        let positions = self.state.lock().await.get_streamcut().await;
+        let streamcut_map = positions.iter().fold(HashMap::new(), |mut acc, (seg, offset)| {
+            let scoped_stream = seg.get_scoped_stream();
+            let segment_id = seg.segment.number;
+
+            // Update the segment_offset_map for the corresponding scoped_stream
+            let entry: &mut HashMap<i64, i64> = acc.entry(scoped_stream).or_default();
+            entry.insert(segment_id, offset.read);
+            acc
+        });
+        let streamcuts: Vec<StreamCut> = streamcut_map
+            .into_iter()
+            .map(|(scoped_stream, segment_offset_map)| StreamCut::new(scoped_stream, segment_offset_map))
+            .collect();
+
+        if let Some(first_streamcut) = streamcuts.first() {
+            first_streamcut.clone()
+        } else {
+            error!("Expected a StreamCut but none found");
+            let streamcut: Option<StreamCut> = streamcuts.first().cloned();
+            streamcut.expect("Expected a StreamCut but none found")
+        }
     }
 }
 
@@ -443,17 +471,17 @@ pub struct StreamCutV1 {
 }
 
 impl StreamCutV1 {
-    pub(crate) fn new(stream: ScopedStream, positions: HashMap<ScopedSegment, i64>) -> Self {
+    pub fn new(stream: ScopedStream, positions: HashMap<ScopedSegment, i64>) -> Self {
         StreamCutV1 { stream, positions }
     }
 
     /// gets a clone of the internal scoped stream
-    pub(crate) fn get_stream(&self) -> ScopedStream {
+    pub fn get_stream(&self) -> ScopedStream {
         self.stream.clone()
     }
 
     /// gets a clone of the internal positions
-    pub(crate) fn get_positions(&self) -> HashMap<ScopedSegment, i64> {
+    pub fn get_positions(&self) -> HashMap<ScopedSegment, i64> {
         self.positions.clone()
     }
 }
