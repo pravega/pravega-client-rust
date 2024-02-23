@@ -24,7 +24,7 @@ use snafu::Snafu;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::{error};
+use tracing::error;
 
 cfg_if::cfg_if! {
     if #[cfg(test)] {
@@ -137,7 +137,7 @@ impl ReaderGroup {
             &client_factory,
             init_segments,
         )
-            .await;
+        .await;
         ReaderGroup {
             name: name.clone(),
             config: rg_config.clone(),
@@ -229,7 +229,8 @@ impl ReaderGroup {
             entry.insert(segment_id, offset.read);
             acc
         });
-        let streamcuts: Vec<StreamCut> = streamcut_map.into_iter()
+        let streamcuts: Vec<StreamCut> = streamcut_map
+            .into_iter()
             .map(|(scoped_stream, segment_offset_map)| StreamCut::new(scoped_stream, segment_offset_map))
             .collect();
 

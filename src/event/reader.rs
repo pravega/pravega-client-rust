@@ -309,7 +309,7 @@ impl EventReader {
             self.meta.last_segment_release = Instant::now();
         } else {
             //send an indication to the waiting rx that slice has been returned.
-            debug!(" slice return to rx success {:?}  ", slice.meta );
+            debug!(" slice return to rx success {:?}  ", slice.meta);
             if let Some(tx) = slice.slice_return_tx.take() {
                 if let Err(_e) = tx.send(Some(slice.meta.clone())) {
                     warn!(
@@ -325,13 +325,16 @@ impl EventReader {
         //Update latest reader positions if UPDATE_OFFSET_INTERVAL is elapsed
         if self.meta.last_offset_update.elapsed() > UPDATE_OFFSET_INTERVAL {
             let mut offset_map: HashMap<ScopedSegment, Offset> = HashMap::new();
-            for metadata in self.meta.slices.values(){
+            for metadata in self.meta.slices.values() {
                 offset_map.insert(
                     ScopedSegment::from(metadata.scoped_segment.as_str()),
                     Offset::new(metadata.read_offset),
                 );
             }
-            debug!(" update reader position {:?}  for reader  {:?} ", offset_map, self.id );
+            debug!(
+                " update reader position {:?}  for reader  {:?} ",
+                offset_map, self.id
+            );
             self.rg_state
                 .lock()
                 .await
@@ -552,13 +555,16 @@ impl EventReader {
         //Update latest reader positions if UPDATE_OFFSET_INTERVAL is elapsed
         if self.meta.last_offset_update.elapsed() > UPDATE_OFFSET_INTERVAL {
             let mut offset_map: HashMap<ScopedSegment, Offset> = HashMap::new();
-            for metadata in self.meta.slices.values(){
+            for metadata in self.meta.slices.values() {
                 offset_map.insert(
                     ScopedSegment::from(metadata.scoped_segment.as_str()),
                     Offset::new(metadata.read_offset),
                 );
             }
-            debug!(" update reader position {:?}  for reader  {:?} ", offset_map, self.id );
+            debug!(
+                " update reader position {:?}  for reader  {:?} ",
+                offset_map, self.id
+            );
             self.rg_state
                 .lock()
                 .await
@@ -1580,7 +1586,9 @@ mod tests {
             .return_once(move |_| Ok(0 as isize));
         rg_mock.expect_check_online().return_const(true);
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
-        rg_mock.expect_update_reader_positions().return_once(move |_, _| Ok(()));
+        rg_mock
+            .expect_update_reader_positions()
+            .return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
             Arc::new(Mutex::new(rg_mock)),
