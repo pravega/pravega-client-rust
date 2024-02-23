@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/byte/writer.rs`."><title>writer.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pravega_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/byte/writer.rs`."><title>writer.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pravega_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -347,7 +348,7 @@
 </pre></div><pre class="rust"><code><span class="comment">//
 // Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
 //
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
@@ -418,26 +419,26 @@
 /// async fn main() {
 ///     // assuming Pravega controller is running at endpoint `localhost:9090`
 ///     let config = ClientConfigBuilder::default()
-///         .controller_uri(&quot;localhost:9090&quot;)
+///         .controller_uri("localhost:9090")
 ///         .build()
-///         .expect(&quot;creating config&quot;);
+///         .expect("creating config");
 ///
 ///     let handle = Handle::current();
 ///     let client_factory = ClientFactoryAsync::new(config, handle);
 ///
 ///     // assuming scope:myscope, stream:mystream exist.
 ///     // notice that this stream should be a fixed sized single segment stream
-///     let stream = ScopedStream::from(&quot;myscope/mystream&quot;);
+///     let stream = ScopedStream::from("myscope/mystream");
 ///
 ///     let mut byte_writer = client_factory.create_byte_writer(stream).await;
 ///
-///     let payload = &quot;hello world&quot;.to_string().into_bytes();
+///     let payload = "hello world".to_string().into_bytes();
 ///
-///     // It doesn&#39;t mean the data is persisted on the server side
+///     // It doesn't mean the data is persisted on the server side
 ///     // when write method returns Ok, user should call flush to ensure
 ///     // all data has been acknowledged by the server.
-///     byte_writer.write(&amp;payload).await.expect(&quot;write&quot;);
-///     byte_writer.flush().await.expect(&quot;flush&quot;);
+///     byte_writer.write(&amp;payload).await.expect("write");
+///     byte_writer.flush().await.expect("flush");
 /// }
 /// ```
 </span><span class="kw">pub struct </span>ByteWriter {
@@ -461,11 +462,11 @@
             .controller_client()
             .get_head_segments(<span class="kw-2">&amp;</span>stream)
             .<span class="kw">await
-            </span>.expect(<span class="string">&quot;get head segments&quot;</span>);
+            </span>.expect(<span class="string">"get head segments"</span>);
         <span class="macro">assert_eq!</span>(
             segments.len(),
             <span class="number">1</span>,
-            <span class="string">&quot;Byte stream is configured with more than one segment&quot;
+            <span class="string">"Byte stream is configured with more than one segment"
         </span>);
         <span class="kw">let </span>segment = segments.iter().next().unwrap().<span class="number">0</span>.clone();
         <span class="kw">let </span>scoped_segment = ScopedSegment {
@@ -476,7 +477,7 @@
         <span class="kw">let </span>metadata_client = factory
             .create_segment_metadata_client(scoped_segment.clone())
             .<span class="kw">await</span>;
-        <span class="kw">let </span>span = <span class="macro">info_span!</span>(<span class="string">&quot;Reactor&quot;</span>, byte_stream_writer = %writer_id);
+        <span class="kw">let </span>span = <span class="macro">info_span!</span>(<span class="string">"Reactor"</span>, byte_stream_writer = %writer_id);
         <span class="comment">// spawn is tied to the factory runtime.
         </span><span class="kw">let </span>_h = factory.runtime_handle().enter();
         tokio::spawn(Reactor::run(stream, sender.clone(), receiver, factory.clone(), <span class="prelude-val">None</span>).instrument(span));
@@ -491,7 +492,7 @@
         }
     }
 
-    <span class="doccomment">/// Writes the given data to the server asynchronously. It doesn&#39;t mean the data is persisted on the server side
+    <span class="doccomment">/// Writes the given data to the server asynchronously. It doesn't mean the data is persisted on the server side
     /// when this method returns Ok, user should call flush to ensure all data has been acknowledged
     /// by the server.
     ///
@@ -511,7 +512,7 @@
         <span class="kw">while let </span><span class="prelude-val">Some</span>(handle) = <span class="self">self</span>.event_handles.front_mut() {
             <span class="kw">if let </span><span class="prelude-val">Ok</span>(res) = handle.try_recv() {
                 res<span class="question-mark">?</span>;
-                <span class="self">self</span>.event_handles.pop_front().expect(<span class="string">&quot;remove successful handle&quot;</span>);
+                <span class="self">self</span>.event_handles.pop_front().expect(<span class="string">"remove successful handle"</span>);
             } <span class="kw">else </span>{
                 <span class="kw">break</span>;
             }
@@ -532,9 +533,9 @@
     /// ```
     </span><span class="kw">pub async fn </span>flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">while </span><span class="self">self</span>.event_handles.front().is_some() {
-            <span class="kw">let </span>handle = <span class="self">self</span>.event_handles.pop_front().expect(<span class="string">&quot;get first handle&quot;</span>);
+            <span class="kw">let </span>handle = <span class="self">self</span>.event_handles.pop_front().expect(<span class="string">"get first handle"</span>);
             <span class="kw">let </span>event_result = handle.<span class="kw">await</span>.map_err(|e| Error::InternalFailure {
-                msg: <span class="macro">format!</span>(<span class="string">&quot;oneshot error {:?}&quot;</span>, e),
+                msg: <span class="macro">format!</span>(<span class="string">"oneshot error {:?}"</span>, e),
             })<span class="question-mark">?</span>;
             event_result<span class="question-mark">?</span>;
         }
@@ -546,7 +547,7 @@
     /// # Examples
     /// ```ignore
     /// let mut byte_writer = client_factory.create_byte_writer(segment).await;
-    /// byte_writer.seal().await.expect(&quot;seal segment&quot;);
+    /// byte_writer.seal().await.expect("seal segment");
     /// ```
     </span><span class="kw">pub async fn </span>seal(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="self">self</span>.flush().<span class="kw">await</span><span class="question-mark">?</span>;
@@ -554,7 +555,7 @@
             .seal_segment()
             .<span class="kw">await
             </span>.map_err(|e| Error::InternalFailure {
-                msg: <span class="macro">format!</span>(<span class="string">&quot;segment seal error: {:?}&quot;</span>, e),
+                msg: <span class="macro">format!</span>(<span class="string">"segment seal error: {:?}"</span>, e),
             })
     }
 
@@ -564,14 +565,14 @@
     /// # Examples
     /// ```ignore
     /// let byte_writer = client_factory.create_byte_writer(segment).await;
-    /// byte_writer.truncate_data_before(1024).await.expect(&quot;truncate segment&quot;);
+    /// byte_writer.truncate_data_before(1024).await.expect("truncate segment");
     /// ```
     </span><span class="kw">pub async fn </span>truncate_data_before(<span class="kw-2">&amp;</span><span class="self">self</span>, offset: i64) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="self">self</span>.metadata_client
             .truncate_segment(offset)
             .<span class="kw">await
             </span>.map_err(|e| Error::InternalFailure {
-                msg: <span class="macro">format!</span>(<span class="string">&quot;segment truncation error: {:?}&quot;</span>, e),
+                msg: <span class="macro">format!</span>(<span class="string">"segment truncation error: {:?}"</span>, e),
             })
     }
 
@@ -599,7 +600,7 @@
             </span>.metadata_client
             .get_segment_info()
             .<span class="kw">await
-            </span>.expect(<span class="string">&quot;failed to get segment info&quot;</span>);
+            </span>.expect(<span class="string">"failed to get segment info"</span>);
         <span class="self">self</span>.write_offset = segment_info.write_offset;
     }
 
@@ -611,10 +612,10 @@
     /// # Examples
     /// ```ignore
     /// if let Err(Error::ConditionalCheckFailure(_e)) = byte_writer.flush().await {
-    ///     byte_writer.reset().await.expect(&quot;reset&quot;);
+    ///     byte_writer.reset().await.expect("reset");
     ///     byte_writer.seek_to_tail().await;
     /// }
-    /// byte_writer.write(&amp;payload).await.expect(&quot;write&quot;);
+    /// byte_writer.write(&amp;payload).await.expect("write");
     /// ```
     </span><span class="kw">pub async fn </span>reset(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="self">self</span>.event_handles.clear();
@@ -623,7 +624,7 @@
             .send((Incoming::Reset(<span class="self">self</span>.scoped_segment.clone()), <span class="number">0</span>))
             .<span class="kw">await
             </span>.map_err(|e| Error::InternalFailure {
-                msg: <span class="macro">format!</span>(<span class="string">&quot;failed to send request to reactor: {:?}&quot;</span>, e),
+                msg: <span class="macro">format!</span>(<span class="string">"failed to send request to reactor: {:?}"</span>, e),
             })<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(())
@@ -645,9 +646,9 @@
                 <span class="kw">let </span>(tx_error, rx_error) = oneshot::channel();
                 tx_error
                     .send(<span class="prelude-val">Err</span>(Error::InternalFailure {
-                        msg: <span class="string">&quot;failed to send request to reactor&quot;</span>.to_string(),
+                        msg: <span class="string">"failed to send request to reactor"</span>.to_string(),
                     }))
-                    .expect(<span class="string">&quot;send error&quot;</span>);
+                    .expect(<span class="string">"send error"</span>);
                 <span class="kw">return </span>rx_error;
             }
         }
@@ -671,22 +672,22 @@
     <span class="kw">use </span>pravega_client_shared::PravegaNodeUri;
 
     <span class="attr">#[test]
-    #[should_panic(expected = <span class="string">&quot;Byte stream is configured with more than one segment&quot;</span>)]
+    #[should_panic(expected = <span class="string">"Byte stream is configured with more than one segment"</span>)]
     </span><span class="kw">fn </span>test_invalid_stream_config() {
         <span class="kw">let </span>config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(MockType::Happy))
             .mock(<span class="bool-val">true</span>)
-            .controller_uri(PravegaNodeUri::from(<span class="string">&quot;127.0.0.2:9091&quot;</span>.to_string()))
+            .controller_uri(PravegaNodeUri::from(<span class="string">"127.0.0.2:9091"</span>.to_string()))
             .build()
             .unwrap();
         <span class="kw">let </span>factory = ClientFactory::new(config);
         factory.runtime().block_on(create_stream(
             <span class="kw-2">&amp;</span>factory,
-            <span class="string">&quot;testScopeInvalid&quot;</span>,
-            <span class="string">&quot;testStreamInvalid&quot;</span>,
+            <span class="string">"testScopeInvalid"</span>,
+            <span class="string">"testStreamInvalid"</span>,
             <span class="number">2</span>,
         ));
-        <span class="kw">let </span>stream = ScopedStream::from(<span class="string">&quot;testScopeInvalid/testStreamInvalid&quot;</span>);
+        <span class="kw">let </span>stream = ScopedStream::from(<span class="string">"testScopeInvalid/testStreamInvalid"</span>);
         factory.runtime().block_on(factory.create_byte_writer(stream));
     }
 }

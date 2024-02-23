@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/segment/raw_client.rs`."><title>raw_client.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pravega_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/segment/raw_client.rs`."><title>raw_client.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pravega_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -402,7 +403,7 @@
 </pre></div><pre class="rust"><code><span class="comment">//
 // Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
 //
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
@@ -427,25 +428,25 @@
 
 <span class="attr">#[derive(Debug, Snafu)]
 </span><span class="kw">pub enum </span>RawClientError {
-    <span class="attr">#[snafu(display(<span class="string">&quot;Auth token has expired, refresh to try again: {}&quot;</span>, reply))]
+    <span class="attr">#[snafu(display(<span class="string">"Auth token has expired, refresh to try again: {}"</span>, reply))]
     </span>AuthTokenExpired { reply: Replies },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to get connection from connection pool: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">"Failed to get connection from connection pool: {}"</span>, source))]
     </span>GetConnectionFromPool { source: ConnectionPoolError },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to write request: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">"Failed to write request: {}"</span>, source))]
     </span>WriteRequest { source: ClientConnectionError },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to read reply: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">"Failed to read reply: {}"</span>, source))]
     </span>ReadReply { source: ClientConnectionError },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Reply incompatible wirecommand version: low {}, high {}&quot;</span>, low, high))]
+    <span class="attr">#[snafu(display(<span class="string">"Reply incompatible wirecommand version: low {}, high {}"</span>, low, high))]
     </span>IncompatibleVersion { low: i32, high: i32 },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Request has timed out: {:?}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">"Request has timed out: {:?}"</span>, source))]
     </span>RequestTimeout { source: Elapsed },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Wrong reply id {:?} for request {:?}&quot;</span>, reply_id, request_id))]
+    <span class="attr">#[snafu(display(<span class="string">"Wrong reply id {:?} for request {:?}"</span>, reply_id, request_id))]
     </span>WrongReplyId { reply_id: i64, request_id: i64 },
 }
 
@@ -459,7 +460,7 @@
 // Request enums and return Reply enums asynchronously. It has logic to process some of the replies from
 // server and return the processed result to caller.
 </span><span class="attr">#[async_trait]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>RawClient&lt;<span class="lifetime">&#39;a</span>&gt;: Send + Sync {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>RawClient&lt;<span class="lifetime">'a</span>&gt;: Send + Sync {
     <span class="comment">// Asynchronously send a request to the server and receive a response.
     </span><span class="kw">async fn </span>send_request_with_connection(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -467,40 +468,40 @@
         client_connection: <span class="kw-2">&amp;mut </span>ClientConnection,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Replies, RawClientError&gt;
     <span class="kw">where
-        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;async_trait</span>;
+        </span><span class="lifetime">'a</span>: <span class="lifetime">'async_trait</span>;
 
     <span class="comment">// Asynchronously send a request to the server and receive a response.
     </span><span class="kw">async fn </span>send_request(<span class="kw-2">&amp;</span><span class="self">self</span>, request: <span class="kw-2">&amp;</span>Requests) -&gt; <span class="prelude-ty">Result</span>&lt;Replies, RawClientError&gt;
     <span class="kw">where
-        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;async_trait</span>;
+        </span><span class="lifetime">'a</span>: <span class="lifetime">'async_trait</span>;
 
     <span class="comment">// Asynchronously send a request to the server and receive a response and return the connection to the caller.
     </span><span class="kw">async fn </span>send_setup_request(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         request: <span class="kw-2">&amp;</span>Requests,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Replies, Box&lt;<span class="kw">dyn </span>ClientConnection + <span class="lifetime">&#39;a</span>&gt;), RawClientError&gt;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Replies, Box&lt;<span class="kw">dyn </span>ClientConnection + <span class="lifetime">'a</span>&gt;), RawClientError&gt;
     <span class="kw">where
-        </span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;async_trait</span>;
+        </span><span class="lifetime">'a</span>: <span class="lifetime">'async_trait</span>;
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>RawClientImpl&lt;<span class="lifetime">&#39;a</span>&gt; {
-    pool: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ConnectionPool&lt;SegmentConnectionManager&gt;,
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>RawClientImpl&lt;<span class="lifetime">'a</span>&gt; {
+    pool: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ConnectionPool&lt;SegmentConnectionManager&gt;,
     endpoint: PravegaNodeUri,
     timeout: Duration,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; fmt::Debug <span class="kw">for </span>RawClientImpl&lt;<span class="lifetime">&#39;a</span>&gt; {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">&quot;RawClient endpoint: {:?}&quot;</span>, <span class="self">self</span>.endpoint)
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; fmt::Debug <span class="kw">for </span>RawClientImpl&lt;<span class="lifetime">'a</span>&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
+        <span class="macro">write!</span>(f, <span class="string">"RawClient endpoint: {:?}"</span>, <span class="self">self</span>.endpoint)
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; RawClientImpl&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; RawClientImpl&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
-        pool: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ConnectionPool&lt;SegmentConnectionManager&gt;,
+        pool: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ConnectionPool&lt;SegmentConnectionManager&gt;,
         endpoint: PravegaNodeUri,
         timeout: Duration,
-    ) -&gt; RawClientImpl&lt;<span class="lifetime">&#39;a</span>&gt; {
+    ) -&gt; RawClientImpl&lt;<span class="lifetime">'a</span>&gt; {
         RawClientImpl {
             pool,
             endpoint,
@@ -511,7 +512,7 @@
 
 <span class="attr">#[allow(clippy::needless_lifetimes)]
 #[async_trait]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; RawClient&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>RawClientImpl&lt;<span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; RawClient&lt;<span class="lifetime">'a</span>&gt; <span class="kw">for </span>RawClientImpl&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">async fn </span>send_request_with_connection(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         request: <span class="kw-2">&amp;</span>Requests,
@@ -561,7 +562,7 @@
     <span class="kw">async fn </span>send_setup_request(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         request: <span class="kw-2">&amp;</span>Requests,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Replies, Box&lt;<span class="kw">dyn </span>ClientConnection + <span class="lifetime">&#39;a</span>&gt;), RawClientError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Replies, Box&lt;<span class="kw">dyn </span>ClientConnection + <span class="lifetime">'a</span>&gt;), RawClientError&gt; {
         <span class="kw">let </span>connection = <span class="self">self
             </span>.pool
             .get_connection(<span class="self">self</span>.endpoint.clone())
@@ -614,7 +615,7 @@
 
     <span class="kw">impl </span>Common {
         <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
-            <span class="kw">let </span>rt = Runtime::new().expect(<span class="string">&quot;create tokio Runtime&quot;</span>);
+            <span class="kw">let </span>rt = Runtime::new().expect(<span class="string">"create tokio Runtime"</span>);
             <span class="kw">let </span>config = ConnectionFactoryConfig::new(ConnectionType::Tokio);
             <span class="kw">let </span>connection_factory = ConnectionFactory::create(config);
             <span class="kw">let </span>manager = SegmentConnectionManager::new(connection_factory, <span class="number">1</span>);
@@ -630,7 +631,7 @@
 
     <span class="kw">impl </span>Server {
         <span class="kw">pub fn </span>new() -&gt; Server {
-            <span class="kw">let </span>listener = TcpListener::bind(<span class="string">&quot;127.0.0.1:0&quot;</span>).expect(<span class="string">&quot;local server&quot;</span>);
+            <span class="kw">let </span>listener = TcpListener::bind(<span class="string">"127.0.0.1:0"</span>).expect(<span class="string">"local server"</span>);
             <span class="kw">let </span>address = listener.local_addr().unwrap();
             Server { address, listener }
         }
@@ -641,11 +642,11 @@
                 low_version: <span class="number">5</span>,
             })
             .write_fields()
-            .expect(<span class="string">&quot;serialize hello wirecommand&quot;</span>);
+            .expect(<span class="string">"serialize hello wirecommand"</span>);
 
             <span class="kw">for </span>stream <span class="kw">in </span><span class="self">self</span>.listener.incoming() {
-                <span class="kw">let </span><span class="kw-2">mut </span>stream = stream.expect(<span class="string">&quot;get tcp stream&quot;</span>);
-                stream.write_all(<span class="kw-2">&amp;</span>reply).expect(<span class="string">&quot;reply with hello wirecommand&quot;</span>);
+                <span class="kw">let </span><span class="kw-2">mut </span>stream = stream.expect(<span class="string">"get tcp stream"</span>);
+                stream.write_all(<span class="kw-2">&amp;</span>reply).expect(<span class="string">"reply with hello wirecommand"</span>);
                 <span class="kw">break</span>;
             }
         }
@@ -656,11 +657,11 @@
                 low_version: <span class="number">10</span>,
             })
             .write_fields()
-            .expect(<span class="string">&quot;serialize hello wirecommand&quot;</span>);
+            .expect(<span class="string">"serialize hello wirecommand"</span>);
 
             <span class="kw">for </span>stream <span class="kw">in </span><span class="self">self</span>.listener.incoming() {
-                <span class="kw">let </span><span class="kw-2">mut </span>stream = stream.expect(<span class="string">&quot;get tcp stream&quot;</span>);
-                stream.write_all(<span class="kw-2">&amp;</span>reply).expect(<span class="string">&quot;reply with hello wirecommand&quot;</span>);
+                <span class="kw">let </span><span class="kw-2">mut </span>stream = stream.expect(<span class="string">"get tcp stream"</span>);
+                stream.write_all(<span class="kw-2">&amp;</span>reply).expect(<span class="string">"reply with hello wirecommand"</span>);
                 <span class="kw">break</span>;
             }
         }
@@ -688,7 +689,7 @@
         <span class="kw">let </span>reply = common
             .rt
             .block_on(raw_client.send_request(<span class="kw-2">&amp;</span>request))
-            .expect(<span class="string">&quot;get reply&quot;</span>);
+            .expect(<span class="string">"get reply"</span>);
 
         <span class="macro">assert_eq!</span>(
             reply,
@@ -697,7 +698,7 @@
                 low_version: <span class="number">5</span>,
             })
         );
-        h.join().expect(<span class="string">&quot;thread finished&quot;</span>);
+        h.join().expect(<span class="string">"thread finished"</span>);
     }
 
     <span class="attr">#[test]
@@ -726,12 +727,12 @@
                                     high_version: <span class="number">15</span>,
                                     low_version: <span class="number">5</span>,
                                 });
-                                <span class="kw">let </span>bytes = reply.write_fields().expect(<span class="string">&quot;serialize reply&quot;</span>);
-                                stream.write_all(<span class="kw-2">&amp;</span>bytes).expect(<span class="string">&quot;send hello&quot;</span>);
+                                <span class="kw">let </span>bytes = reply.write_fields().expect(<span class="string">"serialize reply"</span>);
+                                stream.write_all(<span class="kw-2">&amp;</span>bytes).expect(<span class="string">"send hello"</span>);
                             } <span class="kw">else if </span>cnt == <span class="number">2 </span>{
                                 <span class="kw">let </span>buf =
                                     <span class="macro">vec!</span>[<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>];
-                                stream.write_all(<span class="kw-2">&amp;</span>buf).expect(<span class="string">&quot;send invalid payload&quot;</span>);
+                                stream.write_all(<span class="kw-2">&amp;</span>buf).expect(<span class="string">"send invalid payload"</span>);
                                 <span class="kw">break</span>;
                             }
                         }
@@ -745,19 +746,19 @@
                                     high_version: <span class="number">15</span>,
                                     low_version: <span class="number">5</span>,
                                 });
-                                <span class="kw">let </span>bytes = reply.write_fields().expect(<span class="string">&quot;serialize reply&quot;</span>);
-                                stream.write_all(<span class="kw-2">&amp;</span>bytes).expect(<span class="string">&quot;send valid payload&quot;</span>);
+                                <span class="kw">let </span>bytes = reply.write_fields().expect(<span class="string">"serialize reply"</span>);
+                                stream.write_all(<span class="kw-2">&amp;</span>bytes).expect(<span class="string">"send valid payload"</span>);
                             } <span class="kw">else if </span>cnt == <span class="number">2 </span>{
                                 <span class="kw">let </span>reply = Replies::SegmentRead(SegmentReadCommand {
-                                    segment: <span class="string">&quot;foo&quot;</span>.to_string(),
+                                    segment: <span class="string">"foo"</span>.to_string(),
                                     offset: <span class="number">0</span>,
                                     at_tail: <span class="bool-val">false</span>,
                                     end_of_segment: <span class="bool-val">false</span>,
                                     data: <span class="macro">vec!</span>[<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>],
                                     request_id: <span class="number">0</span>,
                                 });
-                                <span class="kw">let </span>bytes = reply.write_fields().expect(<span class="string">&quot;serialize reply&quot;</span>);
-                                stream.write_all(<span class="kw-2">&amp;</span>bytes).expect(<span class="string">&quot;send valid payload&quot;</span>);
+                                <span class="kw">let </span>bytes = reply.write_fields().expect(<span class="string">"serialize reply"</span>);
+                                stream.write_all(<span class="kw-2">&amp;</span>bytes).expect(<span class="string">"send valid payload"</span>);
                                 <span class="kw">break</span>;
                             }
                         }
@@ -769,10 +770,10 @@
             }
         });
         <span class="kw">let </span>request = Requests::ReadSegment(ReadSegmentCommand {
-            segment: <span class="string">&quot;foo&quot;</span>.to_string(),
+            segment: <span class="string">"foo"</span>.to_string(),
             offset: <span class="number">0</span>,
             suggested_length: <span class="number">0</span>,
-            delegation_token: <span class="string">&quot;&quot;</span>.to_string(),
+            delegation_token: <span class="string">""</span>.to_string(),
             request_id: <span class="number">0</span>,
         });
 
@@ -784,12 +785,12 @@
         </span><span class="kw">let </span>reply = common
             .rt
             .block_on(raw_client.send_request(<span class="kw-2">&amp;</span>request))
-            .expect(<span class="string">&quot;get reply&quot;</span>);
+            .expect(<span class="string">"get reply"</span>);
 
         <span class="macro">assert_eq!</span>(
             reply,
             Replies::SegmentRead(SegmentReadCommand {
-                segment: <span class="string">&quot;foo&quot;</span>.to_string(),
+                segment: <span class="string">"foo"</span>.to_string(),
                 offset: <span class="number">0</span>,
                 at_tail: <span class="bool-val">false</span>,
                 end_of_segment: <span class="bool-val">false</span>,
@@ -797,7 +798,7 @@
                 request_id: <span class="number">0
             </span>})
         );
-        h.join().expect(<span class="string">&quot;thread finished&quot;</span>);
+        h.join().expect(<span class="string">"thread finished"</span>);
     }
 }
 </code></pre></div></section></main></body></html>

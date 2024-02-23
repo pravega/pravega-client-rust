@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/sync/synchronizer.rs`."><title>synchronizer.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pravega_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/sync/synchronizer.rs`."><title>synchronizer.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pravega_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1099,7 +1100,7 @@
 </pre></div><pre class="rust"><code><span class="comment">//
 // Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
 //
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
@@ -1129,22 +1130,22 @@
 <span class="kw">use </span>tracing::debug;
 
 <span class="attr">#[derive(Debug, Snafu)]
-#[snafu(visibility = <span class="string">&quot;pub(crate)&quot;</span>)]
+#[snafu(visibility = <span class="string">"pub(crate)"</span>)]
 </span><span class="kw">pub enum </span>SynchronizerError {
     <span class="attr">#[snafu(display(
-        <span class="string">&quot;Synchronizer failed while performing {:?} with table error: {:?}&quot;</span>,
+        <span class="string">"Synchronizer failed while performing {:?} with table error: {:?}"</span>,
         operation,
         source
     ))]
     </span>SyncTableError { operation: String, source: TableError },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to run update function in table synchronizer due to: {:?}&quot;</span>, error_msg))]
+    <span class="attr">#[snafu(display(<span class="string">"Failed to run update function in table synchronizer due to: {:?}"</span>, error_msg))]
     </span>SyncUpdateError { error_msg: String },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed insert tombstone in table synchronizer due to: {:?}&quot;</span>, error_msg))]
+    <span class="attr">#[snafu(display(<span class="string">"Failed insert tombstone in table synchronizer due to: {:?}"</span>, error_msg))]
     </span>SyncTombstoneError { error_msg: String },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed due to Precondition check failure: {:?}&quot;</span>, error_msg))]
+    <span class="attr">#[snafu(display(<span class="string">"Failed due to Precondition check failure: {:?}"</span>, error_msg))]
     </span>SyncPreconditionError { error_msg: String },
 }
 
@@ -1162,19 +1163,19 @@
 /// ```ignore
 /// // two synchronizer instances with the same name can communicate with each other.
 /// let mut synchronizer1 = client_factory
-///     .create_synchronizer(scope.clone(), &quot;synchronizer&quot;.to_owned())
+///     .create_synchronizer(scope.clone(), "synchronizer".to_owned())
 ///     .await;
 ///
 /// let mut synchronizer2 = client_factory
-///     .create_synchronizer(scope.clone(), &quot;synchronizer&quot;.to_owned())
+///     .create_synchronizer(scope.clone(), "synchronizer".to_owned())
 ///     .await;
 ///
 /// let result = synchronizer1
 ///     .insert(|table| {
 ///         table.insert(
-///             &quot;outer_key_foo&quot;.to_owned(),
-///             &quot;inner_key_bar&quot;.to_owned(),
-///             &quot;i32&quot;.to_owned(),
+///             "outer_key_foo".to_owned(),
+///             "inner_key_bar".to_owned(),
+///             "i32".to_owned(),
 ///             Box::new(1),
 ///         );
 ///         Ok(None)
@@ -1182,9 +1183,9 @@
 ///     .await;
 /// assert!(result.is_ok());
 ///
-/// let entries_num = synchronizer2.fetch_updates().await.expect(&quot;fetch updates&quot;);
+/// let entries_num = synchronizer2.fetch_updates().await.expect("fetch updates");
 /// assert_eq!(entries_num, 1);
-/// let value_option = synchronizer2.get(&quot;outer_key_foo&quot;, &quot;inner_key_bar&quot;);
+/// let value_option = synchronizer2.get("outer_key_foo", "inner_key_bar");
 /// assert!(value_option.is_some());
 ///
 /// ```
@@ -1224,7 +1225,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>new(scope: Scope, name: String, factory: ClientFactoryAsync) -&gt; Synchronizer {
         <span class="kw">let </span>table_map = Table::new(scope, name.clone(), factory)
             .<span class="kw">await
-            </span>.expect(<span class="string">&quot;create table&quot;</span>);
+            </span>.expect(<span class="string">"create table"</span>);
         Synchronizer {
             name: name.clone(),
             table_map,
@@ -1345,7 +1346,7 @@
     <span class="doccomment">/// Fetch the latest map from remote server and apply it to the local map.
     </span><span class="kw">pub async fn </span>fetch_updates(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;i32, TableError&gt; {
         <span class="macro">debug!</span>(
-            <span class="string">&quot;fetch the latest map and apply to the local map, fetch from position {}&quot;</span>,
+            <span class="string">"fetch the latest map and apply to the local map, fetch from position {}"</span>,
             <span class="self">self</span>.fetch_position
         );
         <span class="kw">let </span>reply = <span class="self">self
@@ -1356,7 +1357,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>counter: i32 = <span class="number">0</span>;
         <span class="kw">while let </span><span class="prelude-val">Some</span>(entry) = reply.next().<span class="kw">await </span>{
             <span class="kw">let </span>(k, v, version, last_position) = entry<span class="question-mark">?</span>;
-            <span class="macro">debug!</span>(<span class="string">&quot;fetched key with version {}&quot;</span>, version);
+            <span class="macro">debug!</span>(<span class="string">"fetched key with version {}"</span>, version);
             <span class="kw">let </span>internal_key = InternalKey { key: k };
             <span class="kw">let </span>(outer_key, inner_key) = internal_key.split();
 
@@ -1384,7 +1385,7 @@
             <span class="self">self</span>.fetch_position = last_position;
             counter += <span class="number">1</span>;
         }
-        <span class="macro">debug!</span>(<span class="string">&quot;finished fetching updates&quot;</span>);
+        <span class="macro">debug!</span>(<span class="string">"finished fetching updates"</span>);
         <span class="prelude-val">Ok</span>(counter)
     }
 
@@ -1439,17 +1440,17 @@
 
 <span class="kw">impl </span>InternalKey {
     <span class="kw">fn </span>split(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (String, <span class="prelude-ty">Option</span>&lt;String&gt;) {
-        <span class="kw">let </span>outer_name_length: usize = <span class="self">self</span>.key[..PREFIX_LENGTH].parse().expect(<span class="string">&quot;parse prefix length&quot;</span>);
+        <span class="kw">let </span>outer_name_length: usize = <span class="self">self</span>.key[..PREFIX_LENGTH].parse().expect(<span class="string">"parse prefix length"</span>);
         <span class="macro">assert!</span>(<span class="self">self</span>.key.len() &gt;= PREFIX_LENGTH + outer_name_length);
         <span class="kw">let </span>outer = <span class="self">self</span>.key[PREFIX_LENGTH..PREFIX_LENGTH + outer_name_length]
             .parse::&lt;String&gt;()
-            .expect(<span class="string">&quot;parse outer key&quot;</span>);
+            .expect(<span class="string">"parse outer key"</span>);
 
         <span class="kw">if </span><span class="self">self</span>.key.len() &gt; PREFIX_LENGTH + outer_name_length {
             <span class="comment">// there is a slash separating outer_key and_inner key
             </span><span class="kw">let </span>inner = <span class="self">self</span>.key[PREFIX_LENGTH + outer_name_length + <span class="number">1</span>..]
                 .parse::&lt;String&gt;()
-                .expect(<span class="string">&quot;parse inner key&quot;</span>);
+                .expect(<span class="string">"parse inner key"</span>);
             (outer, <span class="prelude-val">Some</span>(inner))
         } <span class="kw">else </span>{
             (outer, <span class="prelude-val">None</span>)
@@ -1466,7 +1467,7 @@
     <span class="kw">pub </span>data: Vec&lt;u8&gt;,
 }
 
-<span class="kw">pub const </span>TOMBSTONE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;tombstone&quot;</span>;
+<span class="kw">pub const </span>TOMBSTONE: <span class="kw-2">&amp;</span>str = <span class="string">"tombstone"</span>;
 
 <span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 </span><span class="kw">struct </span>Tombstone {}
@@ -1506,7 +1507,7 @@
         type_id: String,
         new_value: Box&lt;<span class="kw">dyn </span>ValueData&gt;,
     ) {
-        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;*</span>new_value).expect(<span class="string">&quot;serialize value&quot;</span>);
+        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;*</span>new_value).expect(<span class="string">"serialize value"</span>);
         <span class="kw">let </span>insert = Insert::new(outer_key.clone(), <span class="prelude-val">Some</span>(inner_key.clone()), type_id.clone());
 
         <span class="self">self</span>.insert.push(insert);
@@ -1526,8 +1527,8 @@
         outer_key: String,
         inner_key: String,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynchronizerError&gt; {
-        <span class="kw">let </span>data = to_vec(<span class="kw-2">&amp;</span>Tombstone {}).expect(<span class="string">&quot;serialize tombstone&quot;</span>);
-        <span class="kw">let </span>insert = Insert::new(outer_key.clone(), <span class="prelude-val">Some</span>(inner_key.clone()), <span class="string">&quot;tombstone&quot;</span>.to_owned());
+        <span class="kw">let </span>data = to_vec(<span class="kw-2">&amp;</span>Tombstone {}).expect(<span class="string">"serialize tombstone"</span>);
+        <span class="kw">let </span>insert = Insert::new(outer_key.clone(), <span class="prelude-val">Some</span>(inner_key.clone()), <span class="string">"tombstone"</span>.to_owned());
 
         <span class="self">self</span>.insert.push(insert);
 
@@ -1535,18 +1536,18 @@
             </span>.map
             .get_mut(<span class="kw-2">&amp;</span>outer_key)
             .ok_or(SynchronizerError::SyncTombstoneError {
-                error_msg: <span class="macro">format!</span>(<span class="string">&quot;outer key {} does not exist&quot;</span>, outer_key),
+                error_msg: <span class="macro">format!</span>(<span class="string">"outer key {} does not exist"</span>, outer_key),
             })<span class="question-mark">?</span>;
 
         inner_map.get(<span class="kw-2">&amp;</span>inner_key).map_or(
             <span class="prelude-val">Err</span>(SynchronizerError::SyncTombstoneError {
-                error_msg: <span class="macro">format!</span>(<span class="string">&quot;inner key {} does not exist&quot;</span>, inner_key),
+                error_msg: <span class="macro">format!</span>(<span class="string">"inner key {} does not exist"</span>, inner_key),
             }),
             |v| {
                 <span class="kw">if </span>v.type_id == TOMBSTONE {
                     <span class="prelude-val">Err</span>(SynchronizerError::SyncTombstoneError {
                         error_msg: <span class="macro">format!</span>(
-                            <span class="string">&quot;tombstone has already been added for key {}/{}&quot;</span>,
+                            <span class="string">"tombstone has already been added for key {}/{}"</span>,
                             outer_key, inner_key
                         ),
                     })
@@ -1576,14 +1577,14 @@
     <span class="doccomment">/// remove takes an outer_key and an inner_key and removes a particular entry.
     </span><span class="kw">fn </span>remove(<span class="kw-2">&amp;mut </span><span class="self">self</span>, outer_key: String, inner_key: String) {
         <span class="comment">//Also remove from the map.
-        </span><span class="kw">let </span>inner_map = <span class="self">self</span>.map.get_mut(<span class="kw-2">&amp;</span>outer_key).expect(<span class="string">&quot;should contain outer key&quot;</span>);
+        </span><span class="kw">let </span>inner_map = <span class="self">self</span>.map.get_mut(<span class="kw-2">&amp;</span>outer_key).expect(<span class="string">"should contain outer key"</span>);
         inner_map.remove(<span class="kw-2">&amp;</span>inner_key);
 
         <span class="kw">let </span>remove = Remove::new(outer_key.clone(), inner_key);
         <span class="self">self</span>.remove.push(remove);
     }
 
-    <span class="doccomment">/// retain a specific map to make sure it&#39;s not altered by other processes when an update
+    <span class="doccomment">/// retain a specific map to make sure it's not altered by other processes when an update
     /// is being made that depends on it.
     /// Notice that this method only needs to be called when this dependent map is not being updated,
     /// since any modifications to a map on server side will use a version to make sure the update
@@ -1595,7 +1596,7 @@
     <span class="doccomment">/// get method will take an outer_key and an inner_key and return the valid value.
     /// It will not return value hinted by tombstone.
     </span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, outer_key: <span class="kw-2">&amp;</span>str, inner_key: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Value&gt; {
-        <span class="kw">let </span>inner_map = <span class="self">self</span>.map.get(outer_key).expect(<span class="string">&quot;should contain outer key&quot;</span>);
+        <span class="kw">let </span>inner_map = <span class="self">self</span>.map.get(outer_key).expect(<span class="string">"should contain outer key"</span>);
         inner_map
             .get(inner_key)
             .and_then(|val| <span class="kw">if </span>val.type_id == TOMBSTONE { <span class="prelude-val">None </span>} <span class="kw">else </span>{ <span class="prelude-val">Some</span>(val) })
@@ -1623,7 +1624,7 @@
 
     <span class="kw">fn </span>get_internal(<span class="kw-2">&amp;</span><span class="self">self</span>, outer_key: <span class="kw-2">&amp;</span>str, inner_key: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;String&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Value&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(inner) = inner_key {
-            <span class="kw">let </span>inner_map = <span class="self">self</span>.map.get(outer_key).expect(<span class="string">&quot;should contain outer key&quot;</span>);
+            <span class="kw">let </span>inner_map = <span class="self">self</span>.map.get(outer_key).expect(<span class="string">"should contain outer key"</span>);
             inner_map.get(inner)
         } <span class="kw">else </span>{
             <span class="self">self</span>.map_version.get(outer_key)
@@ -1667,17 +1668,17 @@
     <span class="kw">fn </span>increment_map_version(<span class="kw-2">&amp;mut </span><span class="self">self</span>, outer_key: String) {
         <span class="comment">// the value is just a placeholder, the version information is stored in the Key.
         </span><span class="self">self</span>.map_version.entry(outer_key.clone()).or_insert(Value {
-            type_id: <span class="string">&quot;blob&quot;</span>.to_owned(),
+            type_id: <span class="string">"blob"</span>.to_owned(),
             data: <span class="macro">vec!</span>[<span class="number">0</span>],
         });
-        <span class="kw">let </span>insert = Insert::new(outer_key, <span class="prelude-val">None</span>, <span class="string">&quot;blob&quot;</span>.to_owned());
+        <span class="kw">let </span>insert = Insert::new(outer_key, <span class="prelude-val">None</span>, <span class="string">"blob"</span>.to_owned());
         <span class="self">self</span>.insert.push(insert);
     }
 }
 
 <span class="doccomment">/// Insert struct is used internally to update the server side of map.
 /// The outer_key and inner_key are combined to identify a value in the nested map.
-/// The composite_key is derived from outer_key and inner_key, which is the actual key that&#39;s
+/// The composite_key is derived from outer_key and inner_key, which is the actual key that's
 /// stored on the server side.
 /// The type_id is used to identify the type of the value in the map since the value
 /// is just a serialized blob that does not contain any type information.
@@ -1692,13 +1693,13 @@
     <span class="kw">pub fn </span>new(outer_key: String, inner_key: <span class="prelude-ty">Option</span>&lt;String&gt;, type_id: String) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>composite_key = <span class="kw">if </span>inner_key.is_some() {
             <span class="macro">format!</span>(
-                <span class="string">&quot;{:02}{}/{}&quot;</span>,
+                <span class="string">"{:02}{}/{}"</span>,
                 outer_key.len(),
                 outer_key,
-                inner_key.clone().expect(<span class="string">&quot;get inner key&quot;</span>)
+                inner_key.clone().expect(<span class="string">"get inner key"</span>)
             )
         } <span class="kw">else </span>{
-            <span class="macro">format!</span>(<span class="string">&quot;{:02}{}&quot;</span>, outer_key.len(), outer_key)
+            <span class="macro">format!</span>(<span class="string">"{:02}{}"</span>, outer_key.len(), outer_key)
         };
 
         Insert {
@@ -1711,7 +1712,7 @@
 }
 
 <span class="doccomment">/// The remove struct is used internally to remove a value from the server side of map.
-/// Unlike the Insert struct, it does not need to have a type_id since we don&#39;t care about
+/// Unlike the Insert struct, it does not need to have a type_id since we don't care about
 /// the value.
 </span><span class="kw">pub struct </span>Remove {
     outer_key: String,
@@ -1724,7 +1725,7 @@
         Remove {
             outer_key: outer_key.clone(),
             inner_key: inner_key.clone(),
-            composite_key: <span class="macro">format!</span>(<span class="string">&quot;{:02}{}/{}&quot;</span>, outer_key.len(), outer_key, inner_key),
+            composite_key: <span class="macro">format!</span>(<span class="string">"{:02}{}/{}"</span>, outer_key.len(), outer_key, inner_key),
         }
     }
 }
@@ -1732,7 +1733,7 @@
 <span class="doccomment">/// The trait bound for the ValueData
 </span><span class="kw">pub trait </span>ValueData: ValueSerialize + ValueClone + Debug {}
 
-<span class="kw">impl</span>&lt;T&gt; ValueData <span class="kw">for </span>T <span class="kw">where </span>T: <span class="lifetime">&#39;static </span>+ Serialize + DeserializeOwned + Clone + Debug {}
+<span class="kw">impl</span>&lt;T&gt; ValueData <span class="kw">for </span>T <span class="kw">where </span>T: <span class="lifetime">'static </span>+ Serialize + DeserializeOwned + Clone + Debug {}
 
 <span class="doccomment">/// Clone trait helper.
 </span><span class="kw">pub trait </span>ValueClone {
@@ -1741,7 +1742,7 @@
 
 <span class="kw">impl</span>&lt;T&gt; ValueClone <span class="kw">for </span>T
 <span class="kw">where
-    </span>T: <span class="lifetime">&#39;static </span>+ ValueData + Clone,
+    </span>T: <span class="lifetime">'static </span>+ ValueData + Clone,
 {
     <span class="kw">fn </span>clone_box(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>ValueData&gt; {
         Box::new(<span class="self">self</span>.clone())
@@ -1810,10 +1811,10 @@
         };
 
         update_result = <span class="prelude-val">Some</span>(updates_generator(<span class="kw-2">&amp;mut </span>to_update)<span class="question-mark">?</span>);
-        <span class="macro">debug!</span>(<span class="string">&quot;number of insert is {}&quot;</span>, to_update.insert.len());
+        <span class="macro">debug!</span>(<span class="string">"number of insert is {}"</span>, to_update.insert.len());
         <span class="kw">if </span>to_update.insert_is_empty() {
             <span class="macro">debug!</span>(
-                <span class="string">&quot;Conditionally Write to {} completed, as there is nothing to update for map&quot;</span>,
+                <span class="string">"Conditionally Write to {} completed, as there is nothing to update for map"</span>,
                 table_synchronizer.get_name()
             );
             <span class="kw">break</span>;
@@ -1823,7 +1824,7 @@
         <span class="kw">for </span>update <span class="kw">in </span>to_update.get_insert_iter() {
             <span class="kw">let </span>value = to_update
                 .get_internal(<span class="kw-2">&amp;</span>update.outer_key, <span class="kw-2">&amp;</span>update.inner_key)
-                .expect(<span class="string">&quot;get the insert data&quot;</span>);
+                .expect(<span class="string">"get the insert data"</span>);
             <span class="kw">let </span>key_version = table_synchronizer.get_key_version(<span class="kw-2">&amp;</span>update.outer_key, <span class="kw-2">&amp;</span>update.inner_key);
 
             to_send.push((<span class="kw-2">&amp;</span>update.composite_key, value, key_version));
@@ -1834,21 +1835,21 @@
             .<span class="kw">await</span>;
         <span class="kw">match </span>result {
             <span class="prelude-val">Err</span>(TableError::IncorrectKeyVersion { operation, error_msg }) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">&quot;IncorrectKeyVersion {}, {}&quot;</span>, operation, error_msg);
-                table_synchronizer.fetch_updates().<span class="kw">await</span>.expect(<span class="string">&quot;fetch update&quot;</span>);
+                <span class="macro">debug!</span>(<span class="string">"IncorrectKeyVersion {}, {}"</span>, operation, error_msg);
+                table_synchronizer.fetch_updates().<span class="kw">await</span>.expect(<span class="string">"fetch update"</span>);
             }
             <span class="prelude-val">Err</span>(TableError::KeyDoesNotExist { operation, error_msg }) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">&quot;KeyDoesNotExist {}, {}&quot;</span>, operation, error_msg);
-                table_synchronizer.fetch_updates().<span class="kw">await</span>.expect(<span class="string">&quot;fetch update&quot;</span>);
+                <span class="macro">debug!</span>(<span class="string">"KeyDoesNotExist {}, {}"</span>, operation, error_msg);
+                table_synchronizer.fetch_updates().<span class="kw">await</span>.expect(<span class="string">"fetch update"</span>);
             }
             <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">&quot;Error message is {}&quot;</span>, e);
+                <span class="macro">debug!</span>(<span class="string">"Error message is {}"</span>, e);
                 <span class="kw">if </span>retry &gt; <span class="number">0 </span>{
                     retry -= <span class="number">1</span>;
                     sleep(Duration::from_millis(DELAY_MILLIS)).<span class="kw">await</span>;
                 } <span class="kw">else </span>{
                     <span class="kw">return </span><span class="prelude-val">Err</span>(SynchronizerError::SyncTableError {
-                        operation: <span class="string">&quot;insert conditionally_all&quot;</span>.to_owned(),
+                        operation: <span class="string">"insert conditionally_all"</span>.to_owned(),
                         source: e,
                     });
                 }
@@ -1861,7 +1862,7 @@
         }
     }
     update_result.ok_or(SynchronizerError::SyncUpdateError {
-        error_msg: <span class="string">&quot;No attempts were made.&quot;</span>.into(),
+        error_msg: <span class="string">"No attempts were made."</span>.into(),
     })
 }
 
@@ -1886,7 +1887,7 @@
 
         <span class="kw">if </span>to_delete.remove_is_empty() {
             <span class="macro">debug!</span>(
-                <span class="string">&quot;Conditionally remove to {} completed, as there is nothing to remove for map&quot;</span>,
+                <span class="string">"Conditionally remove to {} completed, as there is nothing to remove for map"</span>,
                 table_synchronizer.get_name()
             );
             <span class="kw">break</span>;
@@ -1906,21 +1907,21 @@
 
         <span class="kw">match </span>result {
             <span class="prelude-val">Err</span>(TableError::IncorrectKeyVersion { operation, error_msg }) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">&quot;IncorrectKeyVersion {}, {}&quot;</span>, operation, error_msg);
-                table_synchronizer.fetch_updates().<span class="kw">await</span>.expect(<span class="string">&quot;fetch update&quot;</span>);
+                <span class="macro">debug!</span>(<span class="string">"IncorrectKeyVersion {}, {}"</span>, operation, error_msg);
+                table_synchronizer.fetch_updates().<span class="kw">await</span>.expect(<span class="string">"fetch update"</span>);
             }
             <span class="prelude-val">Err</span>(TableError::KeyDoesNotExist { operation, error_msg }) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">&quot;KeyDoesNotExist {}, {}&quot;</span>, operation, error_msg);
-                table_synchronizer.fetch_updates().<span class="kw">await</span>.expect(<span class="string">&quot;fetch update&quot;</span>);
+                <span class="macro">debug!</span>(<span class="string">"KeyDoesNotExist {}, {}"</span>, operation, error_msg);
+                table_synchronizer.fetch_updates().<span class="kw">await</span>.expect(<span class="string">"fetch update"</span>);
             }
             <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">&quot;Error message is {}&quot;</span>, e);
+                <span class="macro">debug!</span>(<span class="string">"Error message is {}"</span>, e);
                 <span class="kw">if </span>retry &gt; <span class="number">0 </span>{
                     retry -= <span class="number">1</span>;
                     sleep(Duration::from_millis(DELAY_MILLIS)).<span class="kw">await</span>;
                 } <span class="kw">else </span>{
                     <span class="kw">return </span><span class="prelude-val">Err</span>(SynchronizerError::SyncTableError {
-                        operation: <span class="string">&quot;remove conditionally_all&quot;</span>.to_owned(),
+                        operation: <span class="string">"remove conditionally_all"</span>.to_owned(),
                         source: e,
                     });
                 }
@@ -1932,7 +1933,7 @@
         }
     }
     delete_result.ok_or(SynchronizerError::SyncUpdateError {
-        error_msg: <span class="string">&quot;No attempts were made.&quot;</span>.into(),
+        error_msg: <span class="string">"No attempts were made."</span>.into(),
     })
 }
 
@@ -1962,10 +1963,10 @@
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>inner_key) = update.inner_key {
             <span class="kw">let </span>new_key = Key {
                 key: inner_key.to_owned(),
-                key_version: <span class="kw-2">*</span>new_version.get(i).expect(<span class="string">&quot;get new version&quot;</span>),
+                key_version: <span class="kw-2">*</span>new_version.get(i).expect(<span class="string">"get new version"</span>),
             };
-            <span class="kw">let </span>inner_map = to_update.map.get(<span class="kw-2">&amp;</span>update.outer_key).expect(<span class="string">&quot;get inner map&quot;</span>);
-            <span class="kw">let </span>new_value = inner_map.get(inner_key).expect(<span class="string">&quot;get the Value&quot;</span>).clone();
+            <span class="kw">let </span>inner_map = to_update.map.get(<span class="kw-2">&amp;</span>update.outer_key).expect(<span class="string">"get inner map"</span>);
+            <span class="kw">let </span>new_value = inner_map.get(inner_key).expect(<span class="string">"get the Value"</span>).clone();
 
             <span class="kw">let </span>in_mem_inner_map = table_synchronizer
                 .in_memory_map
@@ -1975,12 +1976,12 @@
         } <span class="kw">else </span>{
             <span class="kw">let </span>new_key = Key {
                 key: update.outer_key.to_owned(),
-                key_version: <span class="kw-2">*</span>new_version.get(i).expect(<span class="string">&quot;get new version&quot;</span>),
+                key_version: <span class="kw-2">*</span>new_version.get(i).expect(<span class="string">"get new version"</span>),
             };
             <span class="kw">let </span>new_value = to_update
                 .map_version
                 .get(<span class="kw-2">&amp;</span>update.outer_key)
-                .expect(<span class="string">&quot;get the Value&quot;</span>)
+                .expect(<span class="string">"get the Value"</span>)
                 .clone();
             table_synchronizer
                 .in_memory_map_version
@@ -1988,7 +1989,7 @@
         }
         i += <span class="number">1</span>;
     }
-    <span class="macro">debug!</span>(<span class="string">&quot;Updates {} entries in local map &quot;</span>, i);
+    <span class="macro">debug!</span>(<span class="string">"Updates {} entries in local map "</span>, i);
 }
 
 <span class="kw">fn </span>apply_deletes_to_localmap(to_delete: <span class="kw-2">&amp;mut </span>Update, table_synchronizer: <span class="kw-2">&amp;mut </span>Synchronizer) {
@@ -2005,7 +2006,7 @@
         in_mem_inner_map.remove(<span class="kw-2">&amp;</span>delete_key);
         i += <span class="number">1</span>;
     }
-    <span class="macro">debug!</span>(<span class="string">&quot;Deletes {} entries in local map &quot;</span>, i);
+    <span class="macro">debug!</span>(<span class="string">"Deletes {} entries in local map "</span>, i);
 }
 
 <span class="attr">#[cfg(test)]
@@ -2023,24 +2024,24 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_intern_key_split() {
         <span class="kw">let </span>key1 = InternalKey {
-            key: <span class="string">&quot;10outer_keys/inner_key&quot;</span>.to_owned(),
+            key: <span class="string">"10outer_keys/inner_key"</span>.to_owned(),
         };
         <span class="kw">let </span>(outer, inner) = key1.split();
-        <span class="macro">assert_eq!</span>(outer, <span class="string">&quot;outer_keys&quot;</span>.to_owned());
-        <span class="macro">assert_eq!</span>(inner.expect(<span class="string">&quot;should contain inner key&quot;</span>), <span class="string">&quot;inner_key&quot;</span>.to_owned());
+        <span class="macro">assert_eq!</span>(outer, <span class="string">"outer_keys"</span>.to_owned());
+        <span class="macro">assert_eq!</span>(inner.expect(<span class="string">"should contain inner key"</span>), <span class="string">"inner_key"</span>.to_owned());
 
         <span class="kw">let </span>key2 = InternalKey {
-            key: <span class="string">&quot;05outer/inner_key&quot;</span>.to_owned(),
+            key: <span class="string">"05outer/inner_key"</span>.to_owned(),
         };
         <span class="kw">let </span>(outer, inner) = key2.split();
-        <span class="macro">assert_eq!</span>(outer, <span class="string">&quot;outer&quot;</span>.to_owned());
-        <span class="macro">assert_eq!</span>(inner.expect(<span class="string">&quot;should contain inner key&quot;</span>), <span class="string">&quot;inner_key&quot;</span>.to_owned());
+        <span class="macro">assert_eq!</span>(outer, <span class="string">"outer"</span>.to_owned());
+        <span class="macro">assert_eq!</span>(inner.expect(<span class="string">"should contain inner key"</span>), <span class="string">"inner_key"</span>.to_owned());
 
         <span class="kw">let </span>key3 = InternalKey {
-            key: <span class="string">&quot;05outer&quot;</span>.to_owned(),
+            key: <span class="string">"05outer"</span>.to_owned(),
         };
         <span class="kw">let </span>(outer, inner) = key3.split();
-        <span class="macro">assert_eq!</span>(outer, <span class="string">&quot;outer&quot;</span>.to_owned());
+        <span class="macro">assert_eq!</span>(outer, <span class="string">"outer"</span>.to_owned());
         <span class="macro">assert!</span>(inner.is_none());
     }
 
@@ -2048,23 +2049,23 @@
     </span><span class="kw">fn </span>test_insert_keys() {
         <span class="kw">let </span><span class="kw-2">mut </span>map: HashMap&lt;Key, Value&gt; = HashMap::new();
         <span class="kw">let </span>key1 = Key {
-            key: <span class="string">&quot;a&quot;</span>.to_owned(),
+            key: <span class="string">"a"</span>.to_owned(),
             key_version: <span class="number">0</span>,
         };
-        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;</span><span class="string">&quot;value&quot;</span>.to_owned()).expect(<span class="string">&quot;serialize&quot;</span>);
+        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;</span><span class="string">"value"</span>.to_owned()).expect(<span class="string">"serialize"</span>);
         <span class="kw">let </span>value1 = Value {
-            type_id: <span class="string">&quot;String&quot;</span>.to_owned(),
+            type_id: <span class="string">"String"</span>.to_owned(),
             data,
         };
 
         <span class="kw">let </span>key2 = Key {
-            key: <span class="string">&quot;b&quot;</span>.to_owned(),
+            key: <span class="string">"b"</span>.to_owned(),
             key_version: <span class="number">0</span>,
         };
 
-        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;</span><span class="number">1</span>).expect(<span class="string">&quot;serialize&quot;</span>);
+        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;</span><span class="number">1</span>).expect(<span class="string">"serialize"</span>);
         <span class="kw">let </span>value2 = Value {
-            type_id: <span class="string">&quot;i32&quot;</span>.to_owned(),
+            type_id: <span class="string">"i32"</span>.to_owned(),
             data,
         };
         <span class="kw">let </span>result = map.insert(key1, value1);
@@ -2078,22 +2079,22 @@
     </span><span class="kw">fn </span>test_insert_key_with_different_key_version() {
         <span class="kw">let </span><span class="kw-2">mut </span>map: HashMap&lt;Key, Value&gt; = HashMap::new();
         <span class="kw">let </span>key1 = Key {
-            key: <span class="string">&quot;a&quot;</span>.to_owned(),
+            key: <span class="string">"a"</span>.to_owned(),
             key_version: <span class="number">0</span>,
         };
 
-        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;</span><span class="string">&quot;value&quot;</span>.to_owned()).expect(<span class="string">&quot;serialize&quot;</span>);
+        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;</span><span class="string">"value"</span>.to_owned()).expect(<span class="string">"serialize"</span>);
         <span class="kw">let </span>value1 = Value {
-            type_id: <span class="string">&quot;String&quot;</span>.to_owned(),
+            type_id: <span class="string">"String"</span>.to_owned(),
             data,
         };
         <span class="kw">let </span>key2 = Key {
-            key: <span class="string">&quot;a&quot;</span>.to_owned(),
+            key: <span class="string">"a"</span>.to_owned(),
             key_version: <span class="number">1</span>,
         };
-        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;</span><span class="number">1</span>).expect(<span class="string">&quot;serialize&quot;</span>);
+        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;</span><span class="number">1</span>).expect(<span class="string">"serialize"</span>);
         <span class="kw">let </span>value2 = Value {
-            type_id: <span class="string">&quot;i32&quot;</span>.into(),
+            type_id: <span class="string">"i32"</span>.into(),
             data,
         };
 
@@ -2108,31 +2109,31 @@
     </span><span class="kw">fn </span>test_clone_map() {
         <span class="kw">let </span><span class="kw-2">mut </span>map: HashMap&lt;Key, Value&gt; = HashMap::new();
         <span class="kw">let </span>key1 = Key {
-            key: <span class="string">&quot;a&quot;</span>.to_owned(),
+            key: <span class="string">"a"</span>.to_owned(),
             key_version: <span class="number">0</span>,
         };
 
-        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;</span><span class="string">&quot;value&quot;</span>.to_owned()).expect(<span class="string">&quot;serialize&quot;</span>);
+        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;</span><span class="string">"value"</span>.to_owned()).expect(<span class="string">"serialize"</span>);
         <span class="kw">let </span>value1 = Value {
-            type_id: <span class="string">&quot;String&quot;</span>.to_owned(),
+            type_id: <span class="string">"String"</span>.to_owned(),
             data,
         };
 
         <span class="kw">let </span>key2 = Key {
-            key: <span class="string">&quot;a&quot;</span>.to_owned(),
+            key: <span class="string">"a"</span>.to_owned(),
             key_version: <span class="number">1</span>,
         };
 
-        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;</span><span class="number">1</span>).expect(<span class="string">&quot;serialize&quot;</span>);
+        <span class="kw">let </span>data = serialize(<span class="kw-2">&amp;</span><span class="number">1</span>).expect(<span class="string">"serialize"</span>);
         <span class="kw">let </span>value2 = Value {
-            type_id: <span class="string">&quot;i32&quot;</span>.to_owned(),
+            type_id: <span class="string">"i32"</span>.to_owned(),
             data,
         };
 
         map.insert(key1.clone(), value1.clone());
         map.insert(key2.clone(), value2.clone());
         <span class="kw">let </span>new_map = map.clone();
-        <span class="kw">let </span>result = new_map.get(<span class="kw-2">&amp;</span>key1).expect(<span class="string">&quot;get value&quot;</span>);
+        <span class="kw">let </span>result = new_map.get(<span class="kw-2">&amp;</span>key1).expect(<span class="string">"get value"</span>);
         <span class="macro">assert_eq!</span>(new_map.len(), <span class="number">1</span>);
         <span class="macro">assert_eq!</span>(result.clone(), value2);
     }
@@ -2146,13 +2147,13 @@
             remove: Vec::new(),
         };
         table.insert(
-            <span class="string">&quot;test_outer&quot;</span>.to_owned(),
-            <span class="string">&quot;test_inner&quot;</span>.to_owned(),
-            <span class="string">&quot;i32&quot;</span>.to_owned(),
+            <span class="string">"test_outer"</span>.to_owned(),
+            <span class="string">"test_inner"</span>.to_owned(),
+            <span class="string">"i32"</span>.to_owned(),
             Box::new(<span class="number">1</span>),
         );
-        <span class="kw">let </span>value = table.get(<span class="string">&quot;test_outer&quot;</span>, <span class="string">&quot;test_inner&quot;</span>).expect(<span class="string">&quot;get value&quot;</span>);
-        <span class="kw">let </span>deserialized_data: i32 = deserialize_from(<span class="kw-2">&amp;</span>value.data).expect(<span class="string">&quot;deserialize&quot;</span>);
+        <span class="kw">let </span>value = table.get(<span class="string">"test_outer"</span>, <span class="string">"test_inner"</span>).expect(<span class="string">"get value"</span>);
+        <span class="kw">let </span>deserialized_data: i32 = deserialize_from(<span class="kw-2">&amp;</span>value.data).expect(<span class="string">"deserialize"</span>);
         <span class="macro">assert_eq!</span>(deserialized_data, <span class="number">1</span>);
     }
 
@@ -2162,35 +2163,35 @@
         <span class="kw">let </span>config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(MockType::Happy))
             .mock(<span class="bool-val">true</span>)
-            .controller_uri(PravegaNodeUri::from(<span class="string">&quot;127.0.0.2:9091&quot;</span>.to_string()))
+            .controller_uri(PravegaNodeUri::from(<span class="string">"127.0.0.2:9091"</span>.to_string()))
             .build()
             .unwrap();
         <span class="kw">let </span>factory = ClientFactory::new(config);
         <span class="kw">let </span>scope = Scope {
-            name: <span class="string">&quot;tableSyncScope&quot;</span>.to_string(),
+            name: <span class="string">"tableSyncScope"</span>.to_string(),
         };
-        <span class="kw">let </span><span class="kw-2">mut </span>sync = rt.block_on(factory.create_synchronizer(scope, <span class="string">&quot;sync&quot;</span>.to_string()));
+        <span class="kw">let </span><span class="kw-2">mut </span>sync = rt.block_on(factory.create_synchronizer(scope, <span class="string">"sync"</span>.to_string()));
         <span class="kw">let _</span>: <span class="prelude-ty">Option</span>&lt;String&gt; = rt
             .block_on(sync.insert(|table| {
                 table.insert(
-                    <span class="string">&quot;outer_key&quot;</span>.to_owned(),
-                    <span class="string">&quot;inner_key&quot;</span>.to_owned(),
-                    <span class="string">&quot;i32&quot;</span>.to_owned(),
+                    <span class="string">"outer_key"</span>.to_owned(),
+                    <span class="string">"inner_key"</span>.to_owned(),
+                    <span class="string">"i32"</span>.to_owned(),
                     Box::new(<span class="number">1</span>),
                 );
                 <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
             }))
             .unwrap();
-        <span class="kw">let </span>value_option = sync.get(<span class="string">&quot;outer_key&quot;</span>, <span class="string">&quot;inner_key&quot;</span>);
+        <span class="kw">let </span>value_option = sync.get(<span class="string">"outer_key"</span>, <span class="string">"inner_key"</span>);
         <span class="macro">assert!</span>(value_option.is_some());
 
         <span class="kw">let _</span>: <span class="prelude-ty">Option</span>&lt;String&gt; = rt
             .block_on(sync.insert(|table| {
-                table.insert_tombstone(<span class="string">&quot;outer_key&quot;</span>.to_owned(), <span class="string">&quot;inner_key&quot;</span>.to_owned())<span class="question-mark">?</span>;
+                table.insert_tombstone(<span class="string">"outer_key"</span>.to_owned(), <span class="string">"inner_key"</span>.to_owned())<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
             }))
             .unwrap();
-        <span class="kw">let </span>value_option = sync.get(<span class="string">&quot;outer_key&quot;</span>, <span class="string">&quot;inner_key&quot;</span>);
+        <span class="kw">let </span>value_option = sync.get(<span class="string">"outer_key"</span>, <span class="string">"inner_key"</span>);
         <span class="macro">assert!</span>(value_option.is_none());
     }
 }

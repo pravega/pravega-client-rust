@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/byte/reader.rs`."><title>reader.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pravega_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/byte/reader.rs`."><title>reader.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pravega_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -403,7 +404,7 @@
 </pre></div><pre class="rust"><code><span class="comment">//
 // Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
 //
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
@@ -449,20 +450,20 @@
 /// async fn main() {
 ///     // assuming Pravega controller is running at endpoint `localhost:9090`
 ///     let config = ClientConfigBuilder::default()
-///         .controller_uri(&quot;localhost:9090&quot;)
+///         .controller_uri("localhost:9090")
 ///         .build()
-///         .expect(&quot;creating config&quot;);
+///         .expect("creating config");
 ///
 ///     let handle = Handle::current();
 ///     let client_factory = ClientFactoryAsync::new(config, handle);
 ///
 ///     // assuming scope:myscope, stream:mystream exist.
 ///     // notice that this stream should be a fixed sized single segment stream
-///     let stream = ScopedStream::from(&quot;myscope/mystream&quot;);
+///     let stream = ScopedStream::from("myscope/mystream");
 ///
 ///     let mut byte_reader = client_factory.create_byte_reader(stream).await;
 ///     let mut buf: Vec&lt;u8&gt; = vec![0; 4];
-///     let size = byte_reader.read(&amp;mut buf).await.expect(&quot;read from byte stream&quot;);
+///     let size = byte_reader.read(&amp;mut buf).await.expect("read from byte stream");
 /// }
 /// ```
 </span><span class="kw">pub struct </span>ByteReader {
@@ -480,11 +481,11 @@
             .controller_client()
             .get_head_segments(<span class="kw-2">&amp;</span>stream)
             .<span class="kw">await
-            </span>.expect(<span class="string">&quot;get head segments&quot;</span>);
+            </span>.expect(<span class="string">"get head segments"</span>);
         <span class="macro">assert_eq!</span>(
             segments.len(),
             <span class="number">1</span>,
-            <span class="string">&quot;Byte stream is configured with more than one segment&quot;
+            <span class="string">"Byte stream is configured with more than one segment"
         </span>);
         <span class="kw">let </span>segment = segments.iter().next().unwrap().<span class="number">0</span>.clone();
         <span class="kw">let </span>scoped_segment = ScopedSegment {
@@ -517,7 +518,7 @@
     /// ```ignore
     /// let mut byte_reader = client_factory.create_byte_reader(segment).await;
     /// let mut buf: Vec&lt;u8&gt; = vec![0; 4];
-    /// let size = byte_reader.read(&amp;mut buf).expect(&quot;read&quot;);
+    /// let size = byte_reader.read(&amp;mut buf).expect("read");
     /// ```
     </span><span class="kw">pub async fn </span>read(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;usize, Error&gt; {
         <span class="self">self</span>.reader
@@ -525,7 +526,7 @@
             .unwrap()
             .read(buf)
             .<span class="kw">await
-            </span>.map_err(|e| Error::new(ErrorKind::Other, <span class="macro">format!</span>(<span class="string">&quot;Error: {:?}&quot;</span>, e)))
+            </span>.map_err(|e| Error::new(ErrorKind::Other, <span class="macro">format!</span>(<span class="string">"Error: {:?}"</span>, e)))
     }
 
     <span class="doccomment">/// Return the head of current readable data in the segment asynchronously.
@@ -535,28 +536,28 @@
     /// application should call this method to get the current readable head and read from it.
     /// ```ignore
     /// let mut byte_reader = client_factory.create_byte_reader_async(segment).await;
-    /// let offset = byte_reader.current_head().await.expect(&quot;get current head offset&quot;);
+    /// let offset = byte_reader.current_head().await.expect("get current head offset");
     /// ```
     </span><span class="kw">pub async fn </span>current_head(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::io::Result&lt;u64&gt; {
         <span class="self">self</span>.metadata_client
             .fetch_current_starting_head()
             .<span class="kw">await
             </span>.map(|i| i <span class="kw">as </span>u64)
-            .map_err(|e| Error::new(ErrorKind::Other, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)))
+            .map_err(|e| Error::new(ErrorKind::Other, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)))
     }
 
     <span class="doccomment">/// Return the tail offset of the segment asynchronously.
     ///
     /// ```ignore
     /// let mut byte_reader = client_factory.create_byte_reader_async(segment).await;
-    /// let offset = byte_reader.current_tail().await.expect(&quot;get current tail offset&quot;);
+    /// let offset = byte_reader.current_tail().await.expect("get current tail offset");
     /// ```
     </span><span class="kw">pub async fn </span>current_tail(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::io::Result&lt;u64&gt; {
         <span class="self">self</span>.metadata_client
             .fetch_current_segment_length()
             .<span class="kw">await
             </span>.map(|i| i <span class="kw">as </span>u64)
-            .map_err(|e| Error::new(ErrorKind::Other, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)))
+            .map_err(|e| Error::new(ErrorKind::Other, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)))
     }
 
     <span class="doccomment">/// Return the current read offset.
@@ -589,7 +590,7 @@
                 <span class="kw">let </span>offset = offset.try_into().map_err(|e| {
                     Error::new(
                         ErrorKind::InvalidInput,
-                        <span class="macro">format!</span>(<span class="string">&quot;Overflowed when converting offset to i64: {:?}&quot;</span>, e),
+                        <span class="macro">format!</span>(<span class="string">"Overflowed when converting offset to i64: {:?}"</span>, e),
                     )
                 })<span class="question-mark">?</span>;
                 <span class="self">self</span>.recreate_reader_wrapper(offset);
@@ -600,7 +601,7 @@
                 <span class="kw">if </span>new_offset &lt; <span class="number">0 </span>{
                     <span class="prelude-val">Err</span>(Error::new(
                         ErrorKind::InvalidInput,
-                        <span class="string">&quot;Cannot seek to a negative offset&quot;</span>,
+                        <span class="string">"Cannot seek to a negative offset"</span>,
                     ))
                 } <span class="kw">else </span>{
                     <span class="self">self</span>.recreate_reader_wrapper(new_offset);
@@ -612,11 +613,11 @@
                     </span>.metadata_client
                     .fetch_current_segment_length()
                     .<span class="kw">await
-                    </span>.map_err(|e| Error::new(ErrorKind::Other, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)))<span class="question-mark">?</span>;
+                    </span>.map_err(|e| Error::new(ErrorKind::Other, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)))<span class="question-mark">?</span>;
                 <span class="kw">if </span>tail + offset &lt; <span class="number">0 </span>{
                     <span class="prelude-val">Err</span>(Error::new(
                         ErrorKind::InvalidInput,
-                        <span class="string">&quot;Cannot seek to a negative offset&quot;</span>,
+                        <span class="string">"Cannot seek to a negative offset"</span>,
                     ))
                 } <span class="kw">else </span>{
                     <span class="kw">let </span>new_offset = tail + offset;
@@ -656,44 +657,44 @@
         <span class="kw">let </span>rt = factory.runtime();
         <span class="comment">// write 200 bytes
         </span><span class="kw">let </span>payload = <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">200</span>];
-        rt.block_on(writer.write(<span class="kw-2">&amp;</span>payload)).expect(<span class="string">&quot;write&quot;</span>);
-        rt.block_on(writer.flush()).expect(<span class="string">&quot;flush&quot;</span>);
+        rt.block_on(writer.write(<span class="kw-2">&amp;</span>payload)).expect(<span class="string">"write"</span>);
+        rt.block_on(writer.flush()).expect(<span class="string">"flush"</span>);
 
         <span class="comment">// read 200 bytes from beginning
         </span><span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">200</span>];
         <span class="kw">let </span><span class="kw-2">mut </span>read = <span class="number">0</span>;
         <span class="kw">while </span>read != <span class="number">200 </span>{
-            <span class="kw">let </span>r = rt.block_on(reader.read(<span class="kw-2">&amp;mut </span>buf)).expect(<span class="string">&quot;read&quot;</span>);
+            <span class="kw">let </span>r = rt.block_on(reader.read(<span class="kw-2">&amp;mut </span>buf)).expect(<span class="string">"read"</span>);
             read += r;
         }
         <span class="macro">assert_eq!</span>(read, <span class="number">200</span>);
         <span class="macro">assert_eq!</span>(buf, <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">200</span>]);
         <span class="comment">// seek to head
         </span>rt.block_on(reader.seek(SeekFrom::Start(<span class="number">0</span>)))
-            .expect(<span class="string">&quot;seek to head&quot;</span>);
+            .expect(<span class="string">"seek to head"</span>);
         <span class="macro">assert_eq!</span>(reader.current_offset(), <span class="number">0</span>);
 
         <span class="comment">// seek to head with positive offset
         </span>rt.block_on(reader.seek(SeekFrom::Start(<span class="number">100</span>)))
-            .expect(<span class="string">&quot;seek to head&quot;</span>);
+            .expect(<span class="string">"seek to head"</span>);
         <span class="macro">assert_eq!</span>(reader.current_offset(), <span class="number">100</span>);
 
         <span class="comment">// seek to current with positive offset
         </span><span class="macro">assert_eq!</span>(reader.current_offset(), <span class="number">100</span>);
         rt.block_on(reader.seek(SeekFrom::Current(<span class="number">100</span>)))
-            .expect(<span class="string">&quot;seek to current&quot;</span>);
+            .expect(<span class="string">"seek to current"</span>);
         <span class="macro">assert_eq!</span>(reader.current_offset(), <span class="number">200</span>);
 
         <span class="comment">// seek to current with negative offset
         </span>rt.block_on(reader.seek(SeekFrom::Current(-<span class="number">100</span>)))
-            .expect(<span class="string">&quot;seek to current&quot;</span>);
+            .expect(<span class="string">"seek to current"</span>);
         <span class="macro">assert_eq!</span>(reader.current_offset(), <span class="number">100</span>);
 
         <span class="comment">// seek to current invalid negative offset
         </span><span class="macro">assert!</span>(rt.block_on(reader.seek(SeekFrom::Current(-<span class="number">200</span>))).is_err());
 
         <span class="comment">// seek to end
-        </span>rt.block_on(reader.seek(SeekFrom::End(<span class="number">0</span>))).expect(<span class="string">&quot;seek to end&quot;</span>);
+        </span>rt.block_on(reader.seek(SeekFrom::End(<span class="number">0</span>))).expect(<span class="string">"seek to end"</span>);
         <span class="macro">assert_eq!</span>(reader.current_offset(), <span class="number">200</span>);
 
         <span class="comment">// seek to end with positive offset
@@ -701,7 +702,7 @@
 
         <span class="comment">// seek to end with negative offset
         </span>rt.block_on(reader.seek(SeekFrom::End(-<span class="number">100</span>)))
-            .expect(<span class="string">&quot;seek to end&quot;</span>);
+            .expect(<span class="string">"seek to end"</span>);
         <span class="macro">assert_eq!</span>(reader.current_offset(), <span class="number">100</span>);
 
         <span class="comment">// seek to end with invalid negative offset
@@ -714,22 +715,22 @@
         <span class="kw">let </span>rt = factory.runtime();
         <span class="comment">// write 200 bytes
         </span><span class="kw">let </span>payload = <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">200</span>];
-        rt.block_on(writer.write(<span class="kw-2">&amp;</span>payload)).expect(<span class="string">&quot;write&quot;</span>);
-        rt.block_on(writer.flush()).expect(<span class="string">&quot;flush&quot;</span>);
+        rt.block_on(writer.write(<span class="kw-2">&amp;</span>payload)).expect(<span class="string">"write"</span>);
+        rt.block_on(writer.flush()).expect(<span class="string">"flush"</span>);
 
         <span class="comment">// truncate to offset 100
-        </span>rt.block_on(writer.truncate_data_before(<span class="number">100</span>)).expect(<span class="string">&quot;truncate&quot;</span>);
+        </span>rt.block_on(writer.truncate_data_before(<span class="number">100</span>)).expect(<span class="string">"truncate"</span>);
 
         <span class="comment">// read truncated offset
         </span>rt.block_on(reader.seek(SeekFrom::Start(<span class="number">0</span>)))
-            .expect(<span class="string">&quot;seek to head&quot;</span>);
+            .expect(<span class="string">"seek to head"</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">100</span>];
         <span class="macro">assert!</span>(rt.block_on(reader.read(<span class="kw-2">&amp;mut </span>buf)).is_err());
 
         <span class="comment">// read from current head
-        </span><span class="kw">let </span>offset = rt.block_on(reader.current_head()).expect(<span class="string">&quot;get current head&quot;</span>);
+        </span><span class="kw">let </span>offset = rt.block_on(reader.current_head()).expect(<span class="string">"get current head"</span>);
         rt.block_on(reader.seek(SeekFrom::Start(offset)))
-            .expect(<span class="string">&quot;seek to new head&quot;</span>);
+            .expect(<span class="string">"seek to new head"</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">100</span>];
         <span class="macro">assert!</span>(rt.block_on(reader.read(<span class="kw-2">&amp;mut </span>buf)).is_ok());
         <span class="macro">assert_eq!</span>(buf, <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">100</span>]);
@@ -744,15 +745,15 @@
 
         <span class="comment">// write 200 bytes
         </span><span class="kw">let </span>payload = <span class="macro">vec!</span>[<span class="number">1</span>; BYTE_SIZE];
-        rt.block_on(writer.write(<span class="kw-2">&amp;</span>payload)).expect(<span class="string">&quot;write&quot;</span>);
-        rt.block_on(writer.flush()).expect(<span class="string">&quot;flush&quot;</span>);
+        rt.block_on(writer.write(<span class="kw-2">&amp;</span>payload)).expect(<span class="string">"write"</span>);
+        rt.block_on(writer.flush()).expect(<span class="string">"flush"</span>);
 
         <span class="comment">// seal the segment
-        </span>rt.block_on(writer.seal()).expect(<span class="string">&quot;seal&quot;</span>);
+        </span>rt.block_on(writer.seal()).expect(<span class="string">"seal"</span>);
 
         <span class="comment">// read sealed stream
         </span>rt.block_on(reader.seek(SeekFrom::Start(<span class="number">0</span>)))
-            .expect(<span class="string">&quot;seek to new head&quot;</span>);
+            .expect(<span class="string">"seek to new head"</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0</span>; BYTE_SIZE];
         <span class="macro">assert!</span>(rt.block_on(reader.read(<span class="kw-2">&amp;mut </span>buf)).is_ok());
         <span class="macro">assert_eq!</span>(buf, <span class="macro">vec!</span>[<span class="number">1</span>; BYTE_SIZE]);
@@ -764,22 +765,22 @@
     }
 
     <span class="attr">#[test]
-    #[should_panic(expected = <span class="string">&quot;Byte stream is configured with more than one segment&quot;</span>)]
+    #[should_panic(expected = <span class="string">"Byte stream is configured with more than one segment"</span>)]
     </span><span class="kw">fn </span>test_invalid_stream_config() {
         <span class="kw">let </span>config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(MockType::Happy))
             .mock(<span class="bool-val">true</span>)
-            .controller_uri(PravegaNodeUri::from(<span class="string">&quot;127.0.0.2:9091&quot;</span>.to_string()))
+            .controller_uri(PravegaNodeUri::from(<span class="string">"127.0.0.2:9091"</span>.to_string()))
             .build()
             .unwrap();
         <span class="kw">let </span>factory = ClientFactory::new(config);
         factory.runtime().block_on(create_stream(
             <span class="kw-2">&amp;</span>factory,
-            <span class="string">&quot;testScopeInvalid&quot;</span>,
-            <span class="string">&quot;testStreamInvalid&quot;</span>,
+            <span class="string">"testScopeInvalid"</span>,
+            <span class="string">"testStreamInvalid"</span>,
             <span class="number">2</span>,
         ));
-        <span class="kw">let </span>stream = ScopedStream::from(<span class="string">&quot;testScopeInvalid/testStreamInvalid&quot;</span>);
+        <span class="kw">let </span>stream = ScopedStream::from(<span class="string">"testScopeInvalid/testStreamInvalid"</span>);
         factory.runtime().block_on(factory.create_byte_reader(stream));
     }
 
@@ -787,14 +788,14 @@
         <span class="kw">let </span>config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(MockType::Happy))
             .mock(<span class="bool-val">true</span>)
-            .controller_uri(PravegaNodeUri::from(<span class="string">&quot;127.0.0.2:9091&quot;</span>.to_string()))
+            .controller_uri(PravegaNodeUri::from(<span class="string">"127.0.0.2:9091"</span>.to_string()))
             .build()
             .unwrap();
         <span class="kw">let </span>factory = ClientFactory::new_with_runtime(config, runtime);
         factory
             .runtime()
-            .block_on(create_stream(<span class="kw-2">&amp;</span>factory, <span class="string">&quot;testScope&quot;</span>, <span class="string">&quot;testStream&quot;</span>, <span class="number">1</span>));
-        <span class="kw">let </span>stream = ScopedStream::from(<span class="string">&quot;testScope/testStream&quot;</span>);
+            .block_on(create_stream(<span class="kw-2">&amp;</span>factory, <span class="string">"testScope"</span>, <span class="string">"testStream"</span>, <span class="number">1</span>));
+        <span class="kw">let </span>stream = ScopedStream::from(<span class="string">"testScope/testStream"</span>);
         <span class="kw">let </span>writer = factory
             .runtime()
             .block_on(factory.create_byte_writer(stream.clone()));

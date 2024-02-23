@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/util/meta.rs`."><title>meta.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pravega_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/util/meta.rs`."><title>meta.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pravega_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -180,7 +181,7 @@
 </pre></div><pre class="rust"><code><span class="comment">//
 // Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
 //
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
@@ -206,27 +207,27 @@
 
 <span class="attr">#[derive(Debug, Snafu)]
 </span><span class="kw">pub enum </span>MetaClientError {
-    <span class="attr">#[snafu(display(<span class="string">&quot;Reader failed to perform reads {} due to {}&quot;</span>, operation, error_msg,))]
+    <span class="attr">#[snafu(display(<span class="string">"Reader failed to perform reads {} due to {}"</span>, operation, error_msg,))]
     </span>StreamSealed {
         stream: String,
         can_retry: bool,
         operation: String,
         error_msg: String,
     },
-    <span class="attr">#[snafu(display(<span class="string">&quot;Reader failed to perform reads {} due to {}&quot;</span>, operation, error_msg,))]
+    <span class="attr">#[snafu(display(<span class="string">"Reader failed to perform reads {} due to {}"</span>, operation, error_msg,))]
     </span>OperationError {
         segment: String,
         can_retry: bool,
         operation: String,
         error_msg: String,
     },
-    <span class="attr">#[snafu(display(<span class="string">&quot;Could not segment info after configured retries to {}&quot;</span>, error_msg))]
+    <span class="attr">#[snafu(display(<span class="string">"Could not segment info after configured retries to {}"</span>, error_msg))]
     </span>SegmentMetaError {
         segment: String,
         can_retry: bool,
         error_msg: String,
     },
-    <span class="attr">#[snafu(display(<span class="string">&quot;Could not connect due to {}&quot;</span>, error_msg))]
+    <span class="attr">#[snafu(display(<span class="string">"Could not connect due to {}"</span>, error_msg))]
     </span>ControllerConnectionError {
         source: ControllerError,
         stream: String,
@@ -266,7 +267,7 @@
             ControllerConnectionError {
                 stream: <span class="self">self</span>.scoped_stream.to_string(),
                 can_retry: <span class="bool-val">false</span>, <span class="comment">// the controller client has retried internally
-                </span>error_msg: <span class="string">&quot;Failed to fetch Stream&#39;s Head segments from controller&quot;</span>.to_string(),
+                </span>error_msg: <span class="string">"Failed to fetch Stream's Head segments from controller"</span>.to_string(),
             }
         })
     }
@@ -284,7 +285,7 @@
         <span class="kw">let </span>segments = res.context(ControllerConnectionError {
             stream: <span class="self">self</span>.scoped_stream.to_string(),
             can_retry: <span class="bool-val">false</span>, <span class="comment">// Controller client internally retries
-            </span>error_msg: <span class="string">&quot;Failed to fetch Stream&#39;s current segments from controller&quot;</span>.to_string(),
+            </span>error_msg: <span class="string">"Failed to fetch Stream's current segments from controller"</span>.to_string(),
         })<span class="question-mark">?</span>;
 
         <span class="kw">let </span>key_map = segments.key_segment_map;
@@ -292,8 +293,8 @@
             <span class="prelude-val">Err</span>(MetaClientError::StreamSealed {
                 stream: <span class="self">self</span>.scoped_stream.to_string(),
                 can_retry: <span class="bool-val">false</span>,
-                operation: <span class="string">&quot;Get current segments for a stream&quot;</span>.to_string(),
-                error_msg: <span class="string">&quot;Zero current segments for the stream&quot;</span>.to_string(),
+                operation: <span class="string">"Get current segments for a stream"</span>.to_string(),
+                error_msg: <span class="string">"Zero current segments for the stream"</span>.to_string(),
             })
         } <span class="kw">else </span>{
             <span class="kw">let </span><span class="kw-2">mut </span>segment_map = HashMap::new();
@@ -301,12 +302,12 @@
                 <span class="kw">let </span>info = <span class="self">self</span>.fetch_segment_info(<span class="kw-2">&amp;</span>segment_range.scoped_segment).<span class="kw">await</span>;
                 <span class="kw">match </span>info {
                     <span class="prelude-val">Ok</span>(segment_info) =&gt; {
-                        <span class="macro">debug!</span>(<span class="string">&quot;Received SegmentInfo {:?}&quot;</span>, segment_info);
+                        <span class="macro">debug!</span>(<span class="string">"Received SegmentInfo {:?}"</span>, segment_info);
                         segment_map.insert(segment_info.segment, segment_info.write_offset);
                     }
                     <span class="prelude-val">Err</span>(e) =&gt; {
                         <span class="macro">error!</span>(
-                            <span class="string">&quot;Error while fetching segment info for segment {:?} after retries. {:?}&quot;</span>,
+                            <span class="string">"Error while fetching segment info for segment {:?} after retries. {:?}"</span>,
                             segment_range.scoped_segment, e
                         );
                         <span class="kw">return </span><span class="prelude-val">Err</span>(e);
@@ -345,13 +346,13 @@
             .<span class="kw">await</span>;
         segment_meta_client.get_segment_info().<span class="kw">await</span>.map_err(|e| {
             <span class="macro">error!</span>(
-                <span class="string">&quot;Failed to fetch Segment info for segment {:?}. Error {:?}&quot;</span>,
+                <span class="string">"Failed to fetch Segment info for segment {:?}. Error {:?}"</span>,
                 scoped_segment, e
             );
             MetaClientError::SegmentMetaError {
                 segment: scoped_segment.to_string(),
                 can_retry: <span class="bool-val">false</span>,
-                error_msg: <span class="string">&quot;Failed to fetch segment info for segment&quot;</span>.to_string(),
+                error_msg: <span class="string">"Failed to fetch segment info for segment"</span>.to_string(),
             }
         })
     }

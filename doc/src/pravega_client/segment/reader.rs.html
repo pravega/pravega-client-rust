@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/segment/reader.rs`."><title>reader.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pravega_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/segment/reader.rs`."><title>reader.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pravega_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -752,7 +753,7 @@
 </pre></div><pre class="rust"><code><span class="comment">//
 // Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
 //
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
@@ -784,49 +785,49 @@
 
 <span class="attr">#[derive(Debug, Snafu)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>ReaderError {
-    <span class="attr">#[snafu(display(<span class="string">&quot;Reader failed to perform reads {} due to {}&quot;</span>, operation, error_msg,))]
+    <span class="attr">#[snafu(display(<span class="string">"Reader failed to perform reads {} due to {}"</span>, operation, error_msg,))]
     </span>SegmentIsTruncated {
         segment: String,
         can_retry: bool,
         operation: String,
         error_msg: String,
     },
-    <span class="attr">#[snafu(display(<span class="string">&quot;Reader failed to perform reads {} due to {}&quot;</span>, operation, error_msg,))]
+    <span class="attr">#[snafu(display(<span class="string">"Reader failed to perform reads {} due to {}"</span>, operation, error_msg,))]
     </span>SegmentSealed {
         segment: String,
         can_retry: bool,
         operation: String,
         error_msg: String,
     },
-    <span class="attr">#[snafu(display(<span class="string">&quot;Reader failed to perform reads {} due to {}&quot;</span>, operation, error_msg,))]
+    <span class="attr">#[snafu(display(<span class="string">"Reader failed to perform reads {} due to {}"</span>, operation, error_msg,))]
     </span>OperationError {
         segment: String,
         can_retry: bool,
         operation: String,
         error_msg: String,
     },
-    <span class="attr">#[snafu(display(<span class="string">&quot;Could not connect due to {}&quot;</span>, error_msg))]
+    <span class="attr">#[snafu(display(<span class="string">"Could not connect due to {}"</span>, error_msg))]
     </span>ConnectionError {
         segment: String,
         can_retry: bool,
         source: RawClientError,
         error_msg: String,
     },
-    <span class="attr">#[snafu(display(<span class="string">&quot;Reader failed to perform reads {} due to {}&quot;</span>, operation, error_msg,))]
+    <span class="attr">#[snafu(display(<span class="string">"Reader failed to perform reads {} due to {}"</span>, operation, error_msg,))]
     </span>AuthTokenCheckFailed {
         segment: String,
         can_retry: bool,
         operation: String,
         error_msg: String,
     },
-    <span class="attr">#[snafu(display(<span class="string">&quot;Could not connect due to {}&quot;</span>, error_msg))]
+    <span class="attr">#[snafu(display(<span class="string">"Could not connect due to {}"</span>, error_msg))]
     </span>AuthTokenExpired {
         segment: String,
         can_retry: bool,
         source: RawClientError,
         error_msg: String,
     },
-    <span class="attr">#[snafu(display(<span class="string">&quot;Could not connect due to {}&quot;</span>, error_msg))]
+    <span class="attr">#[snafu(display(<span class="string">"Could not connect due to {}"</span>, error_msg))]
     </span>WrongHost {
         segment: String,
         can_retry: bool,
@@ -945,7 +946,7 @@
 <span class="comment">// AsyncSegmentReader is used to read from a given segment given the connection pool and the Controller URI
 // The reads given the offset and the length are processed asynchronously.
 // e.g: usage pattern is
-// AsyncSegmentReaderImpl::new(&amp;segment_name, connection_pool, &quot;http://controller uri&quot;).await
+// AsyncSegmentReaderImpl::new(&amp;segment_name, connection_pool, "http://controller uri").await
 </span><span class="attr">#[async_trait]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>AsyncSegmentReader: Send + Sync {
     <span class="kw">async fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>, offset: i64, length: i32) -&gt; StdResult&lt;SegmentReadCommand, ReaderError&gt;;
@@ -973,13 +974,13 @@
                         <span class="kw">let </span>endpoint = controller
                             .get_endpoint_for_segment(<span class="kw-2">&amp;</span><span class="self">self</span>.segment)
                             .<span class="kw">await
-                            </span>.expect(<span class="string">&quot;get endpoint for async segment reader&quot;</span>);
+                            </span>.expect(<span class="string">"get endpoint for async segment reader"</span>);
                         <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.endpoint.lock().<span class="kw">await</span>;
                         <span class="kw-2">*</span>guard = endpoint;
                         <span class="kw">if </span>e.refresh_token() {
                             <span class="self">self</span>.delegation_token_provider.signal_token_expiry();
                         }
-                        <span class="macro">debug!</span>(<span class="string">&quot;retry due to {:?}&quot;</span>, e);
+                        <span class="macro">debug!</span>(<span class="string">"retry due to {:?}"</span>, e);
                         RetryResult::Retry(e)
                     } <span class="kw">else </span>{
                         RetryResult::Fail(e)
@@ -1002,7 +1003,7 @@
             .controller_client()
             .get_endpoint_for_segment(<span class="kw-2">&amp;</span>segment)
             .<span class="kw">await
-            </span>.expect(<span class="string">&quot;get endpoint for segment&quot;</span>);
+            </span>.expect(<span class="string">"get endpoint for segment"</span>);
 
         AsyncSegmentReaderImpl {
             segment,
@@ -1016,7 +1017,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         offset: i64,
         length: i32,
-        raw_client: <span class="kw-2">&amp;</span><span class="kw">dyn </span>RawClient&lt;<span class="lifetime">&#39;_</span>&gt;,
+        raw_client: <span class="kw-2">&amp;</span><span class="kw">dyn </span>RawClient&lt;<span class="lifetime">'_</span>&gt;,
     ) -&gt; StdResult&lt;SegmentReadCommand, ReaderError&gt; {
         <span class="kw">let </span>request = Requests::ReadSegment(ReadSegmentCommand {
             segment: <span class="self">self</span>.segment.to_string(),
@@ -1035,33 +1036,33 @@
                 Replies::SegmentRead(cmd) =&gt; {
                     <span class="macro">assert_eq!</span>(
                         cmd.offset, offset,
-                        <span class="string">&quot;Offset of SegmentRead response different from the request&quot;
+                        <span class="string">"Offset of SegmentRead response different from the request"
                     </span>);
                     <span class="prelude-val">Ok</span>(cmd)
                 }
                 Replies::AuthTokenCheckFailed(_cmd) =&gt; <span class="prelude-val">Err</span>(ReaderError::AuthTokenCheckFailed {
                     segment: <span class="self">self</span>.segment.to_string(),
                     can_retry: <span class="bool-val">false</span>,
-                    operation: <span class="string">&quot;Read segment&quot;</span>.to_string(),
-                    error_msg: <span class="string">&quot;Auth token expired&quot;</span>.to_string(),
+                    operation: <span class="string">"Read segment"</span>.to_string(),
+                    error_msg: <span class="string">"Auth token expired"</span>.to_string(),
                 }),
                 Replies::NoSuchSegment(_cmd) =&gt; <span class="prelude-val">Err</span>(ReaderError::SegmentIsTruncated {
                     segment: <span class="self">self</span>.segment.to_string(),
                     can_retry: <span class="bool-val">false</span>,
-                    operation: <span class="string">&quot;Read segment&quot;</span>.to_string(),
-                    error_msg: <span class="string">&quot;No Such Segment&quot;</span>.to_string(),
+                    operation: <span class="string">"Read segment"</span>.to_string(),
+                    error_msg: <span class="string">"No Such Segment"</span>.to_string(),
                 }),
                 Replies::SegmentIsTruncated(_cmd) =&gt; <span class="prelude-val">Err</span>(ReaderError::SegmentIsTruncated {
                     segment: <span class="self">self</span>.segment.to_string(),
                     can_retry: <span class="bool-val">false</span>,
-                    operation: <span class="string">&quot;Read segment&quot;</span>.to_string(),
-                    error_msg: <span class="string">&quot;Segment truncated&quot;</span>.into(),
+                    operation: <span class="string">"Read segment"</span>.to_string(),
+                    error_msg: <span class="string">"Segment truncated"</span>.into(),
                 }),
                 Replies::WrongHost(_cmd) =&gt; <span class="prelude-val">Err</span>(ReaderError::WrongHost {
                     segment: <span class="self">self</span>.segment.to_string(),
                     can_retry: <span class="bool-val">true</span>,
-                    operation: <span class="string">&quot;Read segment&quot;</span>.to_string(),
-                    error_msg: <span class="string">&quot;Wrong host&quot;</span>.to_string(),
+                    operation: <span class="string">"Read segment"</span>.to_string(),
+                    error_msg: <span class="string">"Wrong host"</span>.to_string(),
                 }),
                 Replies::SegmentIsSealed(cmd) =&gt; <span class="prelude-val">Ok</span>(SegmentReadCommand {
                     segment: <span class="self">self</span>.segment.to_string(),
@@ -1074,8 +1075,8 @@
                 <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(ReaderError::OperationError {
                     segment: <span class="self">self</span>.segment.to_string(),
                     can_retry: <span class="bool-val">false</span>,
-                    operation: <span class="string">&quot;Read segment&quot;</span>.to_string(),
-                    error_msg: <span class="string">&quot;&quot;</span>.to_string(),
+                    operation: <span class="string">"Read segment"</span>.to_string(),
+                    error_msg: <span class="string">""</span>.to_string(),
                 }),
             },
             <span class="prelude-val">Err</span>(error) =&gt; <span class="kw">match </span>error {
@@ -1083,13 +1084,13 @@
                     segment: <span class="self">self</span>.segment.to_string(),
                     can_retry: <span class="bool-val">true</span>,
                     source: error,
-                    error_msg: <span class="string">&quot;Auth token expired&quot;</span>.to_string(),
+                    error_msg: <span class="string">"Auth token expired"</span>.to_string(),
                 }),
                 <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(ReaderError::ConnectionError {
                     segment: <span class="self">self</span>.segment.to_string(),
                     can_retry: <span class="bool-val">true</span>,
                     source: error,
-                    error_msg: <span class="string">&quot;RawClient error&quot;</span>.to_string(),
+                    error_msg: <span class="string">"RawClient error"</span>.to_string(),
                 }),
             },
         }
@@ -1225,10 +1226,10 @@
             result = reader.read(offset, length) =&gt; {
                 <span class="kw">let _ </span>= sender
                 .send(result)
-                .map_err(|_e| <span class="macro">warn!</span>(<span class="string">&quot;failed to send reply back&quot;</span>));
+                .map_err(|_e| <span class="macro">warn!</span>(<span class="string">"failed to send reply back"</span>));
             }
             <span class="kw">_ </span>= shutdown =&gt; {
-                <span class="macro">debug!</span>(<span class="string">&quot;shut down background async read&quot;</span>);
+                <span class="macro">debug!</span>(<span class="string">"shut down background async read"</span>);
             }
         }
     }
@@ -1243,7 +1244,7 @@
                     <span class="self">self</span>.receiver = <span class="prelude-val">Some</span>(recv);
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                 }
-                <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">warn!</span>(<span class="string">&quot;failed to receive reply from background read: {}&quot;</span>, e),
+                <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">warn!</span>(<span class="string">"failed to receive reply from background read: {}"</span>, e),
                 <span class="prelude-val">Ok</span>(res) =&gt; <span class="kw">match </span>res {
                     <span class="prelude-val">Ok</span>(cmd) =&gt; {
                         <span class="kw">if </span>!cmd.end_of_segment &amp;&amp; cmd.data.is_empty() {
@@ -1268,7 +1269,7 @@
                     <span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(e),
                 },
                 <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="macro">warn!</span>(<span class="string">&quot;failed to receive reply from background read: {}&quot;</span>, e);
+                    <span class="macro">warn!</span>(<span class="string">"failed to receive reply from background read: {}"</span>, e);
                 }
             }
         }
@@ -1304,7 +1305,7 @@
     }
 
     <span class="attr">#[async_trait]
-    </span><span class="kw">impl </span>RawClient&lt;<span class="lifetime">&#39;static</span>&gt; <span class="kw">for </span>MockRawClientImpl {
+    </span><span class="kw">impl </span>RawClient&lt;<span class="lifetime">'static</span>&gt; <span class="kw">for </span>MockRawClientImpl {
         <span class="kw">async fn </span>send_request(<span class="kw-2">&amp;</span><span class="self">self</span>, request: <span class="kw-2">&amp;</span>Requests) -&gt; <span class="prelude-ty">Result</span>&lt;Replies, RawClientError&gt; {
             sleep(Duration::from_nanos(<span class="number">1</span>)).<span class="kw">await</span>;
             <span class="self">self</span>.send_request(request)
@@ -1313,7 +1314,7 @@
         <span class="kw">async fn </span>send_setup_request(
             <span class="kw-2">&amp;</span><span class="self">self</span>,
             _request: <span class="kw-2">&amp;</span>Requests,
-        ) -&gt; <span class="prelude-ty">Result</span>&lt;(Replies, Box&lt;<span class="kw">dyn </span>ClientConnection + <span class="lifetime">&#39;static</span>&gt;), RawClientError&gt; {
+        ) -&gt; <span class="prelude-ty">Result</span>&lt;(Replies, Box&lt;<span class="kw">dyn </span>ClientConnection + <span class="lifetime">'static</span>&gt;), RawClientError&gt; {
             <span class="macro">unimplemented!</span>() <span class="comment">// Not required for this test.
         </span>}
 
@@ -1333,12 +1334,12 @@
             .is_auth_enabled(<span class="bool-val">false</span>)
             .mock(<span class="bool-val">true</span>)
             .build()
-            .expect(<span class="string">&quot;creating config&quot;</span>);
+            .expect(<span class="string">"creating config"</span>);
         <span class="kw">let </span>factory = ClientFactory::new(config);
         <span class="kw">let </span>runtime = factory.runtime();
 
-        <span class="kw">let </span>scope_name = Scope::from(<span class="string">&quot;examples&quot;</span>.to_owned());
-        <span class="kw">let </span>stream_name = Stream::from(<span class="string">&quot;someStream&quot;</span>.to_owned());
+        <span class="kw">let </span>scope_name = Scope::from(<span class="string">"examples"</span>.to_owned());
+        <span class="kw">let </span>stream_name = Stream::from(<span class="string">"someStream"</span>.to_owned());
 
         <span class="kw">let </span>segment_name = ScopedSegment {
             scope: scope_name,
@@ -1370,7 +1371,7 @@
                         request_cnt += <span class="number">1</span>;
                         <span class="prelude-val">Ok</span>(Replies::NoSuchSegment(NoSuchSegmentCommand {
                             segment: segment_name_copy.to_string(),
-                            server_stack_trace: <span class="string">&quot;&quot;</span>.to_string(),
+                            server_stack_trace: <span class="string">""</span>.to_string(),
                             offset: <span class="number">0</span>,
                             request_id: <span class="number">2</span>,
                         }))
@@ -1380,21 +1381,21 @@
                             request_id: <span class="number">3</span>,
                             segment: segment_name_copy.to_string(),
                             start_offset: <span class="number">0</span>,
-                            server_stack_trace: <span class="string">&quot;&quot;</span>.to_string(),
+                            server_stack_trace: <span class="string">""</span>.to_string(),
                             offset: <span class="number">0</span>,
                         }))
                     } <span class="kw">else </span>{
                         <span class="prelude-val">Ok</span>(Replies::SegmentIsSealed(SegmentIsSealedCommand {
                             request_id: <span class="number">4</span>,
                             segment: segment_name_copy.to_string(),
-                            server_stack_trace: <span class="string">&quot;&quot;</span>.to_string(),
+                            server_stack_trace: <span class="string">""</span>.to_string(),
                             offset: <span class="number">0</span>,
                         }))
                     }
                 }
                 <span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(Replies::NoSuchSegment(NoSuchSegmentCommand {
                     segment: segment_name_copy.to_string(),
-                    server_stack_trace: <span class="string">&quot;&quot;</span>.to_string(),
+                    server_stack_trace: <span class="string">""</span>.to_string(),
                     offset: <span class="number">0</span>,
                     request_id: <span class="number">1</span>,
                 })),
@@ -1404,14 +1405,14 @@
         <span class="kw">let </span>segment_read_result: SegmentReadCommand = data.unwrap();
         <span class="macro">assert_eq!</span>(
             segment_read_result.segment,
-            <span class="string">&quot;examples/someStream/0.#epoch.0&quot;</span>.to_string()
+            <span class="string">"examples/someStream/0.#epoch.0"</span>.to_string()
         );
         <span class="macro">assert_eq!</span>(segment_read_result.offset, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(segment_read_result.at_tail, <span class="bool-val">false</span>);
         <span class="macro">assert_eq!</span>(segment_read_result.end_of_segment, <span class="bool-val">false</span>);
         <span class="kw">let </span>event_data = EventCommand::read_from(segment_read_result.data.as_slice()).unwrap();
         <span class="kw">let </span>data = std::str::from_utf8(event_data.data.as_slice()).unwrap();
-        <span class="macro">assert_eq!</span>(<span class="string">&quot;abc&quot;</span>, data);
+        <span class="macro">assert_eq!</span>(<span class="string">"abc"</span>, data);
 
         <span class="comment">// simulate NoSuchSegment
         </span><span class="kw">let </span>data = runtime.block_on(async_segment_reader.read_inner(<span class="number">11</span>, <span class="number">1024</span>, <span class="kw-2">&amp;</span>raw_client));
@@ -1423,7 +1424,7 @@
                 operation: <span class="kw">_</span>,
                 error_msg: <span class="kw">_</span>,
             } =&gt; <span class="macro">assert_eq!</span>(segment_read_result.can_retry(), <span class="bool-val">false</span>),
-            <span class="kw">_ </span>=&gt; <span class="macro">assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;Segment is truncated expected&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">assert!</span>(<span class="bool-val">false</span>, <span class="string">"Segment is truncated expected"</span>),
         }
 
         <span class="comment">// simulate SegmentTruncated
@@ -1436,7 +1437,7 @@
                 operation: <span class="kw">_</span>,
                 error_msg: <span class="kw">_</span>,
             } =&gt; <span class="macro">assert_eq!</span>(segment_read_result.can_retry(), <span class="bool-val">false</span>),
-            <span class="kw">_ </span>=&gt; <span class="macro">assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;Segment is truncated expected&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">assert!</span>(<span class="bool-val">false</span>, <span class="string">"Segment is truncated expected"</span>),
         }
 
         <span class="comment">// simulate SealedSegment
@@ -1444,7 +1445,7 @@
         <span class="kw">let </span>segment_read_result: SegmentReadCommand = data.unwrap();
         <span class="macro">assert_eq!</span>(
             segment_read_result.segment,
-            <span class="string">&quot;examples/someStream/0.#epoch.0&quot;</span>.to_string()
+            <span class="string">"examples/someStream/0.#epoch.0"</span>.to_string()
         );
         <span class="macro">assert_eq!</span>(segment_read_result.offset, <span class="number">13</span>);
         <span class="macro">assert_eq!</span>(segment_read_result.at_tail, <span class="bool-val">true</span>);
@@ -1458,7 +1459,7 @@
     </span><span class="kw">impl </span>AsyncSegmentReader <span class="kw">for </span>MockSegmentReader {
         <span class="kw">async fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>, offset: i64, length: i32) -&gt; <span class="prelude-ty">Result</span>&lt;SegmentReadCommand, ReaderError&gt; {
             <span class="prelude-val">Ok</span>(SegmentReadCommand {
-                segment: <span class="string">&quot;segment&quot;</span>.to_string(),
+                segment: <span class="string">"segment"</span>.to_string(),
                 offset,
                 at_tail: <span class="bool-val">false</span>,
                 end_of_segment: <span class="bool-val">false</span>,
@@ -1484,7 +1485,7 @@
         </span><span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">1024</span>];
         <span class="kw">let </span>read = runtime
             .block_on(prefetch_reader.read(<span class="kw-2">&amp;mut </span>buf))
-            .expect(<span class="string">&quot;read from wrapper&quot;</span>);
+            .expect(<span class="string">"read from wrapper"</span>);
         <span class="macro">assert_eq!</span>(read, <span class="number">1024</span>);
         <span class="macro">assert_eq!</span>(prefetch_reader.buffer.len(), <span class="number">1</span>);
         <span class="macro">assert_eq!</span>(prefetch_reader.buffer_offset, <span class="number">1024</span>);
@@ -1494,7 +1495,7 @@
         </span><span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">1024</span>];
         <span class="kw">let </span>read = runtime
             .block_on(prefetch_reader.read(<span class="kw-2">&amp;mut </span>buf))
-            .expect(<span class="string">&quot;read from wrapper&quot;</span>);
+            .expect(<span class="string">"read from wrapper"</span>);
         <span class="macro">assert_eq!</span>(read, <span class="number">1024</span>);
         <span class="macro">assert_eq!</span>(prefetch_reader.offset, <span class="number">1024 </span>* <span class="number">2</span>);
         <span class="macro">assert_eq!</span>(prefetch_reader.buffer_offset, <span class="number">0</span>);

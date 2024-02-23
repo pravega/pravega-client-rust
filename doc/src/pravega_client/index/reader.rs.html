@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/index/reader.rs`."><title>reader.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pravega_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/index/reader.rs`."><title>reader.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pravega_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -410,7 +411,7 @@
 </pre></div><pre class="rust"><code><span class="comment">//
 // Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
 //
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
@@ -436,15 +437,15 @@
 <span class="kw">use </span>tracing::info;
 
 <span class="attr">#[derive(Debug, Snafu)]
-#[snafu(visibility = <span class="string">&quot;pub&quot;</span>)]
+#[snafu(visibility = <span class="string">"pub"</span>)]
 </span><span class="kw">pub enum </span>IndexReaderError {
-    <span class="attr">#[snafu(display(<span class="string">&quot;Field {} does not exist&quot;</span>, msg))]
+    <span class="attr">#[snafu(display(<span class="string">"Field {} does not exist"</span>, msg))]
     </span>FieldNotFound { msg: String },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid offset: {}&quot;</span>, msg))]
+    <span class="attr">#[snafu(display(<span class="string">"Invalid offset: {}"</span>, msg))]
     </span>InvalidOffset { msg: String },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Internal error: {}&quot;</span>, msg))]
+    <span class="attr">#[snafu(display(<span class="string">"Internal error: {}"</span>, msg))]
     </span>Internal { msg: String },
 }
 
@@ -473,26 +474,26 @@
 /// async fn main() {
 ///     // assuming Pravega controller is running at endpoint `localhost:9090`
 ///     let config = ClientConfigBuilder::default()
-///         .controller_uri(&quot;localhost:9090&quot;)
+///         .controller_uri("localhost:9090")
 ///         .build()
-///         .expect(&quot;creating config&quot;);
+///         .expect("creating config");
 ///
 ///     let client_factory = ClientFactory::new(config);
 ///
 ///     // assuming scope:myscope, stream:mystream exist.
-///     let stream = ScopedStream::from(&quot;myscope/mystream&quot;);
+///     let stream = ScopedStream::from("myscope/mystream");
 ///
 ///     let mut index_reader = client_factory.create_index_reader(stream).await;
 ///
 ///     // search data
-///     let offset = index_reader.search_offset((&quot;id&quot;, 10)).await.expect(&quot;get offset&quot;);
+///     let offset = index_reader.search_offset(("id", 10)).await.expect("get offset");
 ///
 ///     // read data
-///     let s = index_reader.read(offset, u64::MAX).expect(&quot;get read slice&quot;);
+///     let s = index_reader.read(offset, u64::MAX).expect("get read slice");
 ///     pin_mut!(s);
 ///     while let Some(res) = s.next().await {
 ///         // do something with the read result
-///         res.expect(&quot;read next event&quot;);
+///         res.expect("read next event");
 ///     }
 /// }
 /// ```
@@ -510,11 +511,11 @@
             .controller_client()
             .get_head_segments(<span class="kw-2">&amp;</span>stream)
             .<span class="kw">await
-            </span>.expect(<span class="string">&quot;get head segments&quot;</span>);
+            </span>.expect(<span class="string">"get head segments"</span>);
         <span class="macro">assert_eq!</span>(
             segments.len(),
             <span class="number">1</span>,
-            <span class="string">&quot;Index stream is configured with more than one segment&quot;
+            <span class="string">"Index stream is configured with more than one segment"
         </span>);
         <span class="kw">let </span>segment = segments.iter().next().unwrap().<span class="number">0</span>.clone();
         <span class="kw">let </span>scoped_segment = ScopedSegment {
@@ -531,13 +532,13 @@
         <span class="kw">let </span>endpoint = controller_client
             .get_endpoint_for_segment(<span class="kw-2">&amp;</span>scoped_segment)
             .<span class="kw">await
-            </span>.expect(<span class="string">&quot;get endpoint for segment&quot;</span>);
+            </span>.expect(<span class="string">"get endpoint for segment"</span>);
         <span class="kw">let </span>raw_client = factory.create_raw_client_for_endpoint(endpoint);
         <span class="kw">let </span>segment_name = scoped_segment.to_string();
         <span class="kw">let </span>token = controller_client
             .get_or_refresh_delegation_token_for(stream.clone())
             .<span class="kw">await
-            </span>.expect(<span class="string">&quot;controller error when refreshing token&quot;</span>);
+            </span>.expect(<span class="string">"controller error when refreshing token"</span>);
         <span class="kw">let </span>request = Requests::GetSegmentAttribute(GetSegmentAttributeCommand {
             request_id: get_request_id(),
             segment_name: segment_name.clone(),
@@ -547,16 +548,16 @@
         <span class="kw">let </span>reply = raw_client
             .send_request(<span class="kw-2">&amp;</span>request)
             .<span class="kw">await
-            </span>.expect(<span class="string">&quot;get segment attribute&quot;</span>);
+            </span>.expect(<span class="string">"get segment attribute"</span>);
 
         <span class="kw">let </span>record_size = <span class="kw">match </span>reply {
             Replies::SegmentAttribute(cmd) =&gt; {
                 <span class="kw">if </span>cmd.value == i64::MIN {
-                    <span class="macro">info!</span>(<span class="string">&quot;record_size segment attribute for Segment = {} is not set.Falling back to default RECORD_SIZE = {:?}&quot;</span>, segment_name.clone() ,RECORD_SIZE);
+                    <span class="macro">info!</span>(<span class="string">"record_size segment attribute for Segment = {} is not set.Falling back to default RECORD_SIZE = {:?}"</span>, segment_name.clone() ,RECORD_SIZE);
                     RECORD_SIZE <span class="kw">as </span>usize
                 } <span class="kw">else </span>{
                     <span class="macro">info!</span>(
-                        <span class="string">&quot;record_size segment attribute for Segment = {} is already set to {:?}&quot;</span>,
+                        <span class="string">"record_size segment attribute for Segment = {} is already set to {:?}"</span>,
                         segment_name.clone(),
                         cmd.value
                     );
@@ -564,7 +565,7 @@
                 }
             }
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">panic!</span>(<span class="string">&quot;get segment attribute for record_size failed due to {:?}&quot;</span>, reply);
+                <span class="macro">panic!</span>(<span class="string">"get segment attribute for record_size failed due to {:?}"</span>, reply);
             }
         };
         IndexReader {
@@ -581,20 +582,20 @@
     ///
     /// Note that if there are multiple entries that have the same Field name and value, this method will find and return
     /// the first one.
-    /// If the value of searching field is smaller than the first readable Record&#39;s field in the
+    /// If the value of searching field is smaller than the first readable Record's field in the
     /// stream, the first record data will be returned.
     /// If the value of searching field is larger than the latest Record, a FieldNotFound error will be returned.
-    </span><span class="kw">pub async fn </span>search_offset(<span class="kw-2">&amp;</span><span class="self">self</span>, field: (<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, u64)) -&gt; <span class="prelude-ty">Result</span>&lt;u64, IndexReaderError&gt; {
+    </span><span class="kw">pub async fn </span>search_offset(<span class="kw-2">&amp;</span><span class="self">self</span>, field: (<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, u64)) -&gt; <span class="prelude-ty">Result</span>&lt;u64, IndexReaderError&gt; {
         <span class="kw">let </span>record_size_signed: i64 = <span class="self">self</span>.record_size <span class="kw">as </span>i64;
 
         <span class="kw">let </span>target_key = IndexRecord::hash_key_to_u128(field.<span class="number">0</span>);
         <span class="kw">let </span>target_value = field.<span class="number">1</span>;
 
         <span class="kw">let </span>head = <span class="self">self</span>.head_offset().<span class="kw">await</span>.map_err(|e| IndexReaderError::Internal {
-            msg: <span class="macro">format!</span>(<span class="string">&quot;error when fetching head offset: {:?}&quot;</span>, e),
+            msg: <span class="macro">format!</span>(<span class="string">"error when fetching head offset: {:?}"</span>, e),
         })<span class="question-mark">? </span><span class="kw">as </span>i64;
         <span class="kw">let </span>tail = <span class="self">self</span>.tail_offset().<span class="kw">await</span>.map_err(|e| IndexReaderError::Internal {
-            msg: <span class="macro">format!</span>(<span class="string">&quot;error when fetching tail offset: {:?}&quot;</span>, e),
+            msg: <span class="macro">format!</span>(<span class="string">"error when fetching tail offset: {:?}"</span>, e),
         })<span class="question-mark">? </span><span class="kw">as </span>i64;
         <span class="kw">let </span><span class="kw-2">mut </span>start = <span class="number">0</span>;
         <span class="kw">let </span>num_of_record = (tail - head) / record_size_signed;
@@ -624,7 +625,7 @@
 
         <span class="kw">if </span>start == num_of_record {
             <span class="prelude-val">Err</span>(IndexReaderError::FieldNotFound {
-                msg: <span class="macro">format!</span>(<span class="string">&quot;key/value: {}/{}&quot;</span>, field.<span class="number">0</span>, field.<span class="number">1</span>),
+                msg: <span class="macro">format!</span>(<span class="string">"key/value: {}/{}"</span>, field.<span class="number">0</span>, field.<span class="number">1</span>),
             })
         } <span class="kw">else </span>{
             <span class="prelude-val">Ok</span>((head + start * record_size_signed) <span class="kw">as </span>u64)
@@ -639,16 +640,16 @@
     ///
     /// If we want to do tail read instead of reading just a slice of the data, we can set end_offset
     /// to be u64::MAX.
-    </span><span class="kw">pub fn </span>read&lt;<span class="lifetime">&#39;stream</span>, <span class="lifetime">&#39;reader</span>: <span class="lifetime">&#39;stream</span>&gt;(
-        <span class="kw-2">&amp;</span><span class="lifetime">&#39;reader </span><span class="self">self</span>,
+    </span><span class="kw">pub fn </span>read&lt;<span class="lifetime">'stream</span>, <span class="lifetime">'reader</span>: <span class="lifetime">'stream</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">'reader </span><span class="self">self</span>,
         start_offset: u64,
         end_offset: u64,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Stream&lt;Item = <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, IndexReaderError&gt;&gt; + <span class="lifetime">&#39;stream</span>, IndexReaderError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Stream&lt;Item = <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, IndexReaderError&gt;&gt; + <span class="lifetime">'stream</span>, IndexReaderError&gt; {
         <span class="macro">ensure!</span>(
             start_offset % (<span class="self">self</span>.record_size <span class="kw">as </span>u64) == <span class="number">0</span>,
             InvalidOffset {
                 msg: <span class="macro">format!</span>(
-                    <span class="string">&quot;Start offset {} is invalid as it cannot be divided by the record size {}&quot;</span>,
+                    <span class="string">"Start offset {} is invalid as it cannot be divided by the record size {}"</span>,
                     start_offset, <span class="self">self</span>.record_size
                 )
             }
@@ -658,7 +659,7 @@
                 end_offset % (<span class="self">self</span>.record_size <span class="kw">as </span>u64) == <span class="number">0</span>,
                 InvalidOffset {
                     msg: <span class="macro">format!</span>(
-                        <span class="string">&quot;End offset {} is invalid as it cannot be divided by the record size {}&quot;</span>,
+                        <span class="string">"End offset {} is invalid as it cannot be divided by the record size {}"</span>,
                         end_offset, <span class="self">self</span>.record_size
                     )
                 }
@@ -676,7 +677,7 @@
             byte_reader.seek(SeekFrom::Start(start_offset))
                 .<span class="kw">await
                 </span>.map_err(|e| IndexReaderError::InvalidOffset {
-                    msg: <span class="macro">format!</span>(<span class="string">&quot;invalid seeking offset {:?}&quot;</span>, e)
+                    msg: <span class="macro">format!</span>(<span class="string">"invalid seeking offset {:?}"</span>, e)
             })<span class="question-mark">?</span>;
             <span class="kw">loop </span>{
                 <span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>{};
@@ -687,13 +688,13 @@
                         .read(<span class="kw-2">&amp;mut </span>tmp_buf)
                         .<span class="kw">await
                         </span>.map_err(|e| IndexReaderError::Internal {
-                            msg: <span class="macro">format!</span>(<span class="string">&quot;byte reader read error {:?}&quot;</span>, e),
+                            msg: <span class="macro">format!</span>(<span class="string">"byte reader read error {:?}"</span>, e),
                         })<span class="question-mark">?</span>;
                     buf.extend_from_slice(<span class="kw-2">&amp;</span>tmp_buf[..size]);
                     size_to_read -= size;
                 }
                 <span class="kw">let </span>record = IndexRecord::read_from(<span class="kw-2">&amp;</span>buf).map_err(|e| IndexReaderError::Internal {
-                    msg: <span class="macro">format!</span>(<span class="string">&quot;deserialize record {:?}&quot;</span>, e),
+                    msg: <span class="macro">format!</span>(<span class="string">"deserialize record {:?}"</span>, e),
                 })<span class="question-mark">?</span>;
                 <span class="kw">yield </span>record.data;
                 <span class="kw">if </span>num_of_records_to_read != u64::MAX {
@@ -728,7 +729,7 @@
             .<span class="kw">await
             </span>.map(|i| i <span class="kw">as </span>u64)
             .map_err(|e| IndexReaderError::Internal {
-                msg: <span class="macro">format!</span>(<span class="string">&quot;failed to get head offset: {:?}&quot;</span>, e),
+                msg: <span class="macro">format!</span>(<span class="string">"failed to get head offset: {:?}"</span>, e),
             })
     }
 
@@ -739,7 +740,7 @@
             .<span class="kw">await
             </span>.map(|i| i <span class="kw">as </span>u64)
             .map_err(|e| IndexReaderError::Internal {
-                msg: <span class="macro">format!</span>(<span class="string">&quot;failed to get tail offset: {:?}&quot;</span>, e),
+                msg: <span class="macro">format!</span>(<span class="string">"failed to get tail offset: {:?}"</span>, e),
             })
     }
 
@@ -753,11 +754,11 @@
             .read(offset <span class="kw">as </span>i64, <span class="self">self</span>.record_size <span class="kw">as </span>i32)
             .<span class="kw">await
             </span>.map_err(|e| IndexReaderError::Internal {
-                msg: <span class="macro">format!</span>(<span class="string">&quot;segment reader error: {:?}&quot;</span>, e),
+                msg: <span class="macro">format!</span>(<span class="string">"segment reader error: {:?}"</span>, e),
             })<span class="question-mark">?</span>;
         <span class="kw">let </span>record =
             IndexRecord::read_from(<span class="kw-2">&amp;</span>segment_read_cmd.data).map_err(|e| IndexReaderError::Internal {
-                msg: <span class="macro">format!</span>(<span class="string">&quot;record deserialization error: {:?}&quot;</span>, e),
+                msg: <span class="macro">format!</span>(<span class="string">"record deserialization error: {:?}"</span>, e),
             })<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(record)
     }
@@ -773,22 +774,22 @@
     <span class="kw">use </span>pravega_client_shared::PravegaNodeUri;
 
     <span class="attr">#[test]
-    #[should_panic(expected = <span class="string">&quot;get segment attribute for record_size failed due to WrongHost&quot;</span>)]
+    #[should_panic(expected = <span class="string">"get segment attribute for record_size failed due to WrongHost"</span>)]
     </span><span class="kw">fn </span>test_index_reader_wrong_host() {
         <span class="kw">let </span>config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(MockType::WrongHost))
             .mock(<span class="bool-val">true</span>)
-            .controller_uri(PravegaNodeUri::from(<span class="string">&quot;127.0.0.2:9091&quot;</span>.to_string()))
+            .controller_uri(PravegaNodeUri::from(<span class="string">"127.0.0.2:9091"</span>.to_string()))
             .build()
             .unwrap();
         <span class="kw">let </span>factory = ClientFactory::new(config);
         factory.runtime().block_on(create_stream(
             <span class="kw-2">&amp;</span>factory,
-            <span class="string">&quot;testScopeInvalid&quot;</span>,
-            <span class="string">&quot;testStreamInvalid&quot;</span>,
+            <span class="string">"testScopeInvalid"</span>,
+            <span class="string">"testStreamInvalid"</span>,
             <span class="number">1</span>,
         ));
-        <span class="kw">let </span>stream = ScopedStream::from(<span class="string">&quot;testScopeInvalid/testStreamInvalid&quot;</span>);
+        <span class="kw">let </span>stream = ScopedStream::from(<span class="string">"testScopeInvalid/testStreamInvalid"</span>);
         factory
             .runtime()
             .block_on(factory.create_index_reader(stream.clone()));
@@ -799,17 +800,17 @@
         <span class="kw">let </span>config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(MockType::Happy))
             .mock(<span class="bool-val">true</span>)
-            .controller_uri(PravegaNodeUri::from(<span class="string">&quot;127.0.0.2:9091&quot;</span>.to_string()))
+            .controller_uri(PravegaNodeUri::from(<span class="string">"127.0.0.2:9091"</span>.to_string()))
             .build()
             .unwrap();
         <span class="kw">let </span>factory = ClientFactory::new(config);
         factory.runtime().block_on(create_stream(
             <span class="kw-2">&amp;</span>factory,
-            <span class="string">&quot;testScopeInvalid&quot;</span>,
-            <span class="string">&quot;testStreamInvalid&quot;</span>,
+            <span class="string">"testScopeInvalid"</span>,
+            <span class="string">"testStreamInvalid"</span>,
             <span class="number">1</span>,
         ));
-        <span class="kw">let </span>stream = ScopedStream::from(<span class="string">&quot;testScopeInvalid/testStreamInvalid&quot;</span>);
+        <span class="kw">let </span>stream = ScopedStream::from(<span class="string">"testScopeInvalid/testStreamInvalid"</span>);
         <span class="kw">let </span>reply = factory
             .runtime()
             .block_on(factory.create_index_reader(stream.clone()));

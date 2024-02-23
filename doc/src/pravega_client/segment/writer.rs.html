@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/segment/writer.rs`."><title>writer.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pravega_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/segment/writer.rs`."><title>writer.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pravega_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -825,7 +826,7 @@
 </pre></div><pre class="rust"><code><span class="comment">//
 // Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
 //
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
@@ -898,7 +899,7 @@
     <span class="comment">// When ConditionalCheckFailure happens, there could be a race condition that the caller
     // sends out an append before it receives the ConditionalCheckFailure. This append will succeed
     // if it happens to have the correct offset, which breaks the ByteWriter contract.
-    // So it&#39;s necessary to let caller explicitly send a reset signal to the reactor indicating
+    // So it's necessary to let caller explicitly send a reset signal to the reactor indicating
     // that the caller is fully aware of the ConditionalCheckFailure so any subsequent appends can be processed.
     // Before receiving such reset signal, reactor will reject any append.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) need_reset: bool,
@@ -938,10 +939,10 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         factory: <span class="kw-2">&amp;</span>ClientFactoryAsync,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SegmentWriterError&gt; {
-        <span class="kw">let </span>span = <span class="macro">info_span!</span>(<span class="string">&quot;setup connection&quot;</span>, segment_writer_id= %<span class="self">self</span>.id, segment= %<span class="self">self</span>.segment, host = field::Empty);
-        <span class="comment">// span.enter doesn&#39;t work for async code https://docs.rs/tracing/0.1.17/tracing/span/struct.Span.html#in-asynchronous-code
+        <span class="kw">let </span>span = <span class="macro">info_span!</span>(<span class="string">"setup connection"</span>, segment_writer_id= %<span class="self">self</span>.id, segment= %<span class="self">self</span>.segment, host = field::Empty);
+        <span class="comment">// span.enter doesn't work for async code https://docs.rs/tracing/0.1.17/tracing/span/struct.Span.html#in-asynchronous-code
         </span><span class="kw">async </span>{
-            <span class="macro">info!</span>(<span class="string">&quot;setting up connection for segment writer&quot;</span>);
+            <span class="macro">info!</span>(<span class="string">"setting up connection for segment writer"</span>);
             <span class="comment">// close current listener task by dropping the sender, receiver will automatically closes
             </span><span class="kw">let </span>(oneshot_tx, oneshot_rx) = oneshot::channel();
             <span class="self">self</span>.connection_listener_handle = <span class="prelude-val">Some</span>(oneshot_tx);
@@ -955,7 +956,7 @@
                 <span class="prelude-val">Ok</span>(uri) =&gt; uri,
                 <span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(SegmentWriterError::RetryControllerWriting { err: e }),
             };
-            current_span().record(<span class="string">&quot;host&quot;</span>, <span class="kw-2">&amp;</span>field::debug(<span class="kw-2">&amp;</span>uri));
+            current_span().record(<span class="string">"host"</span>, <span class="kw-2">&amp;</span>field::debug(<span class="kw-2">&amp;</span>uri));
 
             <span class="kw">let </span>request = Requests::SetupAppend(SetupAppendCommand {
                 request_id: get_request_id(),
@@ -970,13 +971,13 @@
             <span class="kw">let </span>raw_client = factory.create_raw_client_for_endpoint(uri);
             <span class="kw">let </span>result = retry_async(<span class="self">self</span>.retry_policy, || <span class="kw">async </span>{
                 <span class="macro">debug!</span>(
-                    <span class="string">&quot;setting up append for writer:{:?}/segment:{:?}&quot;</span>,
+                    <span class="string">"setting up append for writer:{:?}/segment:{:?}"</span>,
                     <span class="self">self</span>.id, <span class="self">self</span>.segment
                 );
                 <span class="kw">match </span>raw_client.send_setup_request(<span class="kw-2">&amp;</span>request).<span class="kw">await </span>{
                     <span class="prelude-val">Ok</span>((reply, connection)) =&gt; RetryResult::Success((reply, connection)),
                     <span class="prelude-val">Err</span>(e) =&gt; {
-                        <span class="macro">info!</span>(<span class="string">&quot;failed to setup append using rawclient due to {:?}&quot;</span>, e);
+                        <span class="macro">info!</span>(<span class="string">"failed to setup append using rawclient due to {:?}"</span>, e);
                         RetryResult::Retry(e)
                     }
                 }
@@ -987,16 +988,16 @@
                 <span class="prelude-val">Ok</span>((reply, connection)) =&gt; <span class="kw">match </span>reply {
                     Replies::AppendSetup(cmd) =&gt; {
                         <span class="macro">debug!</span>(
-                            <span class="string">&quot;append setup completed for writer:{:?}/segment:{:?} with latest event number {}&quot;</span>,
+                            <span class="string">"append setup completed for writer:{:?}/segment:{:?} with latest event number {}"</span>,
                             <span class="self">self</span>.id, <span class="self">self</span>.segment, cmd.last_event_number
                         );
                         <span class="self">self</span>.ack(cmd.last_event_number);
                         connection
                     }
                     <span class="kw">_ </span>=&gt; {
-                        <span class="macro">info!</span>(<span class="string">&quot;append setup failed due to {:?}&quot;</span>, reply);
+                        <span class="macro">info!</span>(<span class="string">"append setup failed due to {:?}"</span>, reply);
                         <span class="kw">return </span><span class="prelude-val">Err</span>(SegmentWriterError::WrongReply {
-                            expected: String::from(<span class="string">&quot;AppendSetup&quot;</span>),
+                            expected: String::from(<span class="string">"AppendSetup"</span>),
                             actual: reply,
                         });
                     }
@@ -1008,7 +1009,7 @@
 
             <span class="comment">// spins up a connection listener that keeps listening on the connection
             </span><span class="self">self</span>.spawn_listener_task(r, oneshot_rx);
-            <span class="macro">info!</span>(<span class="string">&quot;finished setting up connection&quot;</span>);
+            <span class="macro">info!</span>(<span class="string">"finished setting up connection"</span>);
             <span class="prelude-val">Ok</span>(())
         }
         .instrument(span)
@@ -1025,14 +1026,14 @@
             <span class="kw">loop </span>{
                 <span class="macro">select! </span>{
                     <span class="kw">_ </span>= <span class="kw-2">&amp;mut </span>oneshot_rx =&gt; {
-                        <span class="macro">debug!</span>(<span class="string">&quot;shut down connection listener {:?}&quot;</span>, listener_id);
+                        <span class="macro">debug!</span>(<span class="string">"shut down connection listener {:?}"</span>, listener_id);
                         <span class="kw">break</span>;
                     }
                     result = r.read() =&gt; {
                         <span class="kw">let </span>reply = <span class="kw">match </span>result {
                             <span class="prelude-val">Ok</span>(reply) =&gt; reply,
                             <span class="prelude-val">Err</span>(e) =&gt; {
-                                <span class="macro">info!</span>(<span class="string">&quot;connection failed to read data back from segmentstore due to {:?}, closing listener task {:?}&quot;</span>, e, listener_id);
+                                <span class="macro">info!</span>(<span class="string">"connection failed to read data back from segmentstore due to {:?}, closing listener task {:?}"</span>, e, listener_id);
                                 <span class="kw">let </span>result = sender
                                     .send((Incoming::Reconnect(WriterInfo {
                                         segment: segment.clone(),
@@ -1040,7 +1041,7 @@
                                         writer_id,
                                     }), <span class="number">0</span>)).<span class="kw">await</span>;
                                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = result {
-                                    <span class="macro">error!</span>(<span class="string">&quot;failed to send connectionFailure signal to reactor {:?}&quot;</span>, e);
+                                    <span class="macro">error!</span>(<span class="string">"failed to send connectionFailure signal to reactor {:?}"</span>, e);
                                 }
                                 <span class="kw">break</span>;
                             }
@@ -1053,13 +1054,13 @@
                             .<span class="kw">await</span>;
 
                         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = res {
-                            <span class="macro">error!</span>(<span class="string">&quot;connection read data from segmentstore but failed to send reply back to reactor due to {:?}&quot;</span>,e);
+                            <span class="macro">error!</span>(<span class="string">"connection read data from segmentstore but failed to send reply back to reactor due to {:?}"</span>,e);
                             <span class="kw">break</span>;
                         }
                     }
                 }
             }
-            <span class="macro">info!</span>(<span class="string">&quot;listener task shut down {:?}&quot;</span>, listener_id);
+            <span class="macro">info!</span>(<span class="string">"listener task shut down {:?}"</span>, listener_id);
         });
     }
 
@@ -1101,7 +1102,7 @@
         <span class="kw">while let </span><span class="prelude-val">Some</span>(append) = <span class="self">self</span>.pending.pop_front() {
             <span class="macro">assert!</span>(
                 append.event.data.len() &lt;= SegmentWriter::MAX_WRITE_SIZE <span class="kw">as </span>usize,
-                <span class="string">&quot;event size {} must be under {}&quot;</span>,
+                <span class="string">"event size {} must be under {}"</span>,
                 append.event.data.len(),
                 SegmentWriter::MAX_WRITE_SIZE
             );
@@ -1134,19 +1135,19 @@
         }
 
         <span class="macro">debug!</span>(
-            <span class="string">&quot;flushing {} events of total size {} to segment {:?} based on offset {:?}; event segment writer id {:?}/connection id: {:?}&quot;</span>,
+            <span class="string">"flushing {} events of total size {} to segment {:?} based on offset {:?}; event segment writer id {:?}/connection id: {:?}"</span>,
             event_count,
             to_send.len(),
             <span class="self">self</span>.segment.to_string(),
             <span class="self">self</span>.inflight.front().as_ref().unwrap().event.conditional_offset,
             <span class="self">self</span>.id,
-            <span class="self">self</span>.connection.as_ref().expect(<span class="string">&quot;must have connection&quot;</span>).get_id(),
+            <span class="self">self</span>.connection.as_ref().expect(<span class="string">"must have connection"</span>).get_id(),
         );
 
         <span class="kw">let </span>request = <span class="kw">if let </span><span class="prelude-val">Some</span>(offset) = <span class="self">self</span>.inflight.front().unwrap().event.conditional_offset {
             Requests::ConditionalBlockEnd(ConditionalBlockEndCommand {
                 writer_id: <span class="self">self</span>.id.<span class="number">0</span>,
-                event_number: <span class="self">self</span>.inflight.back().expect(<span class="string">&quot;last event&quot;</span>).event_id,
+                event_number: <span class="self">self</span>.inflight.back().expect(<span class="string">"last event"</span>).event_id,
                 expected_offset: offset,
                 data: to_send,
                 request_id: get_request_id(),
@@ -1157,19 +1158,19 @@
                 size_of_whole_events: total_size <span class="kw">as </span>i32,
                 data: to_send,
                 num_event: <span class="self">self</span>.inflight.len() <span class="kw">as </span>i32,
-                last_event_number: <span class="self">self</span>.inflight.back().expect(<span class="string">&quot;last event&quot;</span>).event_id,
+                last_event_number: <span class="self">self</span>.inflight.back().expect(<span class="string">"last event"</span>).event_id,
                 request_id: get_request_id(),
             })
         };
 
-        <span class="kw">let </span>writer = <span class="self">self</span>.connection.as_mut().expect(<span class="string">&quot;must have connection&quot;</span>);
+        <span class="kw">let </span>writer = <span class="self">self</span>.connection.as_mut().expect(<span class="string">"must have connection"</span>);
         writer.write(<span class="kw-2">&amp;</span>request).<span class="kw">await</span>.context(SegmentWriting {})<span class="question-mark">?</span>;
 
-        <span class="macro">update!</span>(ClientMetrics::AppendBlockSize, total_size <span class="kw">as </span>u64, <span class="string">&quot;Segment Writer Id&quot; </span>=&gt; <span class="self">self</span>.id.to_string());
+        <span class="macro">update!</span>(ClientMetrics::AppendBlockSize, total_size <span class="kw">as </span>u64, <span class="string">"Segment Writer Id" </span>=&gt; <span class="self">self</span>.id.to_string());
         <span class="macro">update!</span>(
             ClientMetrics::OutstandingAppendCount,
             <span class="self">self</span>.pending.len() <span class="kw">as </span>u64,
-            <span class="string">&quot;Segment Writer Id&quot; </span>=&gt; <span class="self">self</span>.id.to_string()
+            <span class="string">"Segment Writer Id" </span>=&gt; <span class="self">self</span>.id.to_string()
         );
         <span class="prelude-val">Ok</span>(())
     }
@@ -1187,24 +1188,24 @@
         }
 
         <span class="kw">loop </span>{
-            <span class="kw">let </span>acked = <span class="self">self</span>.inflight.front().expect(<span class="string">&quot;must not be empty&quot;</span>);
+            <span class="kw">let </span>acked = <span class="self">self</span>.inflight.front().expect(<span class="string">"must not be empty"</span>);
 
             <span class="comment">// event has been acked before, it must be caused by reconnection
             </span><span class="kw">if </span>event_id &lt; acked.event_id {
                 <span class="kw">return</span>;
             }
 
-            <span class="kw">let </span>acked = <span class="self">self</span>.inflight.pop_front().expect(<span class="string">&quot;must have&quot;</span>);
+            <span class="kw">let </span>acked = <span class="self">self</span>.inflight.pop_front().expect(<span class="string">"must have"</span>);
             <span class="kw">if </span>acked.event.oneshot_sender.send(Result::Ok(())).is_err() {
                 <span class="macro">trace!</span>(
-                    <span class="string">&quot;failed to send ack back to caller using oneshot due to Receiver dropped: event id {:?}&quot;</span>,
+                    <span class="string">"failed to send ack back to caller using oneshot due to Receiver dropped: event id {:?}"</span>,
                     acked.event_id
                 );
             }
             <span class="kw">if let </span><span class="prelude-val">Some</span>(flush_sender) = acked.event.flush_oneshot_sender {
                 <span class="kw">if </span>flush_sender.send(Result::Ok(())).is_err() {
                     <span class="macro">info!</span>(
-                        <span class="string">&quot;failed to send ack back to caller using oneshot due to Receiver dropped: event id {:?}&quot;</span>,
+                        <span class="string">"failed to send ack back to caller using oneshot due to Receiver dropped: event id {:?}"</span>,
                         acked.event_id
                     );
                 }
@@ -1239,7 +1240,7 @@
     ///
     /// If error occurs during any one of the steps above, redo the reconnection from step 1.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>reconnect(<span class="kw-2">&amp;mut </span><span class="self">self</span>, factory: <span class="kw-2">&amp;</span>ClientFactoryAsync) {
-        <span class="macro">debug!</span>(<span class="string">&quot;Reconnecting segment writer {:?}&quot;</span>, <span class="self">self</span>.id);
+        <span class="macro">debug!</span>(<span class="string">"Reconnecting segment writer {:?}"</span>, <span class="self">self</span>.id);
         <span class="kw">let </span>connection_id = <span class="self">self</span>.connection.as_ref().map(|c| c.get_id());
 
         <span class="comment">// setup the connection
@@ -1255,13 +1256,13 @@
                     <span class="number">0</span>,
                 ))
                 .<span class="kw">await
-                </span>.expect(<span class="string">&quot;send reconnect signal to reactor&quot;</span>);
+                </span>.expect(<span class="string">"send reconnect signal to reactor"</span>);
             <span class="kw">return</span>;
         }
 
         <span class="kw">while </span><span class="self">self</span>.inflight.back().is_some() {
             <span class="self">self</span>.pending
-                .push_front(<span class="self">self</span>.inflight.pop_back().expect(<span class="string">&quot;must have event&quot;</span>));
+                .push_front(<span class="self">self</span>.inflight.pop_back().expect(<span class="string">"must have event"</span>));
         }
 
         <span class="comment">// flush any pending events
@@ -1277,7 +1278,7 @@
                     <span class="number">0</span>,
                 ))
                 .<span class="kw">await
-                </span>.expect(<span class="string">&quot;send reconnect signal to reactor&quot;</span>);
+                </span>.expect(<span class="string">"send reconnect signal to reactor"</span>);
         }
     }
 
@@ -1299,7 +1300,7 @@
                     .event
                     .oneshot_sender
                     .send(Result::Err(Error::ConditionalCheckFailure {
-                        msg: <span class="macro">format!</span>(<span class="string">&quot;Conditional check failed for event {}&quot;</span>, append.event_id),
+                        msg: <span class="macro">format!</span>(<span class="string">"Conditional check failed for event {}"</span>, append.event_id),
                     }));
             } <span class="kw">else </span>{
                 <span class="self">self</span>.inflight.push_back(append);
@@ -1314,7 +1315,7 @@
                 .oneshot_sender
                 .send(Result::Err(Error::ConditionalCheckFailure {
                     msg: <span class="macro">format!</span>(
-                        <span class="string">&quot;Conditional check failed in previous appends. Event id {}&quot;</span>,
+                        <span class="string">"Conditional check failed in previous appends. Event id {}"</span>,
                         append.event_id
                     ),
                 }));
@@ -1323,26 +1324,26 @@
 }
 
 <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>SegmentWriter {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
-        f.debug_struct(<span class="string">&quot;SegmentWriter&quot;</span>)
-            .field(<span class="string">&quot;segment writer id&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.id)
-            .field(<span class="string">&quot;segment&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.segment)
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
+        f.debug_struct(<span class="string">"SegmentWriter"</span>)
+            .field(<span class="string">"segment writer id"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.id)
+            .field(<span class="string">"segment"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.segment)
             .field(
-                <span class="string">&quot;connection&quot;</span>,
+                <span class="string">"connection"</span>,
                 <span class="kw-2">&amp;</span><span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.connection {
-                    <span class="prelude-val">Some</span>(w) =&gt; <span class="macro">format!</span>(<span class="string">&quot;WritingClientConnection is {:?}&quot;</span>, w),
-                    <span class="prelude-val">None </span>=&gt; <span class="string">&quot;doesn&#39;t have connection&quot;</span>.to_owned(),
+                    <span class="prelude-val">Some</span>(w) =&gt; <span class="macro">format!</span>(<span class="string">"WritingClientConnection is {:?}"</span>, w),
+                    <span class="prelude-val">None </span>=&gt; <span class="string">"doesn't have connection"</span>.to_owned(),
                 },
             )
             .field(
-                <span class="string">&quot;inflight&quot;</span>,
-                <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;number of inflight events is {}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inflight.len()),
+                <span class="string">"inflight"</span>,
+                <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"number of inflight events is {}"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inflight.len()),
             )
             .field(
-                <span class="string">&quot;pending&quot;</span>,
-                <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;number of pending events is {}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.pending.len()),
+                <span class="string">"pending"</span>,
+                <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"number of pending events is {}"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.pending.len()),
             )
-            .field(<span class="string">&quot;current event_number&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.event_num)
+            .field(<span class="string">"current event_number"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.event_num)
             .finish()
     }
 }
@@ -1355,28 +1356,28 @@
 
 <span class="attr">#[derive(Debug, Snafu)]
 </span><span class="kw">pub enum </span>SegmentWriterError {
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to send request to segmentstore due to: {:?}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">"Failed to send request to segmentstore due to: {:?}"</span>, source))]
     </span>SegmentWriting { source: ClientConnectionError },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Retry failed due to error: {:?}&quot;</span>, err))]
+    <span class="attr">#[snafu(display(<span class="string">"Retry failed due to error: {:?}"</span>, err))]
     </span>RetryControllerWriting { err: RetryError&lt;ControllerError&gt; },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Retry connection pool failed due to error {:?}&quot;</span>, err))]
+    <span class="attr">#[snafu(display(<span class="string">"Retry connection pool failed due to error {:?}"</span>, err))]
     </span>RetryConnectionPool { err: RetryError&lt;ConnectionPoolError&gt; },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Retry raw client failed due to error {:?}&quot;</span>, err))]
+    <span class="attr">#[snafu(display(<span class="string">"Retry raw client failed due to error {:?}"</span>, err))]
     </span>RetryRawClient { err: RetryError&lt;RawClientError&gt; },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Wrong reply, expected {:?} but get {:?}&quot;</span>, expected, actual))]
+    <span class="attr">#[snafu(display(<span class="string">"Wrong reply, expected {:?} but get {:?}"</span>, expected, actual))]
     </span>WrongReply { expected: String, actual: Replies },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Wrong host: {:?}&quot;</span>, error_msg))]
+    <span class="attr">#[snafu(display(<span class="string">"Wrong host: {:?}"</span>, error_msg))]
     </span>WrongHost { error_msg: String },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Reactor is closed due to: {:?}&quot;</span>, msg))]
+    <span class="attr">#[snafu(display(<span class="string">"Reactor is closed due to: {:?}"</span>, msg))]
     </span>ReactorClosed { msg: String },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Conditional check failed: {}&quot;</span>, msg))]
+    <span class="attr">#[snafu(display(<span class="string">"Conditional check failed: {}"</span>, msg))]
     </span>ConditionalCheckFailure { msg: String },
 }
 
@@ -1406,10 +1407,10 @@
         </span><span class="kw">let </span>(event, guard, event_handle1) = rt.block_on(create_event(<span class="number">512</span>, <span class="kw-2">&amp;mut </span>sender, <span class="kw-2">&amp;mut </span>receiver, <span class="prelude-val">None</span>));
         <span class="kw">let </span>(reply, cap_guard) = rt
             .block_on(<span class="kw">async </span>{
-                segment_writer.write(event, guard).<span class="kw">await</span>.expect(<span class="string">&quot;write data&quot;</span>);
+                segment_writer.write(event, guard).<span class="kw">await</span>.expect(<span class="string">"write data"</span>);
                 <span class="kw">return </span>receiver.recv().<span class="kw">await</span>;
             })
-            .expect(<span class="string">&quot;receive DataAppend from segment writer&quot;</span>);
+            .expect(<span class="string">"receive DataAppend from segment writer"</span>);
 
         <span class="macro">assert_eq!</span>(cap_guard.size, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(segment_writer.event_num, <span class="number">1</span>);
@@ -1418,26 +1419,26 @@
 
         <span class="kw">let </span>(event, guard, event_handle2) = rt.block_on(create_event(<span class="number">512</span>, <span class="kw-2">&amp;mut </span>sender, <span class="kw-2">&amp;mut </span>receiver, <span class="prelude-val">None</span>));
         rt.block_on(segment_writer.write(event, guard))
-            .expect(<span class="string">&quot;write data&quot;</span>);
+            .expect(<span class="string">"write data"</span>);
 
         <span class="macro">assert_eq!</span>(segment_writer.event_num, <span class="number">2</span>);
         <span class="macro">assert_eq!</span>(segment_writer.inflight.len(), <span class="number">1</span>);
         <span class="macro">assert_eq!</span>(segment_writer.pending.len(), <span class="number">1</span>);
         ack_server_reply(reply, <span class="kw-2">&amp;mut </span>segment_writer);
         rt.block_on(segment_writer.write_pending_events())
-            .expect(<span class="string">&quot;write data&quot;</span>);
+            .expect(<span class="string">"write data"</span>);
         <span class="kw">let </span>(reply, cap_guard) = rt
             .block_on(receiver.recv())
-            .expect(<span class="string">&quot;receive DataAppend from segment writer&quot;</span>);
+            .expect(<span class="string">"receive DataAppend from segment writer"</span>);
         ack_server_reply(reply, <span class="kw-2">&amp;mut </span>segment_writer);
 
         <span class="macro">assert_eq!</span>(cap_guard.size, <span class="number">0</span>);
         <span class="macro">assert!</span>(segment_writer.inflight.is_empty());
         <span class="macro">assert!</span>(segment_writer.pending.is_empty());
 
-        <span class="kw">let </span>caller_reply = rt.block_on(event_handle1).expect(<span class="string">&quot;caller receive reply&quot;</span>);
+        <span class="kw">let </span>caller_reply = rt.block_on(event_handle1).expect(<span class="string">"caller receive reply"</span>);
         <span class="macro">assert!</span>(caller_reply.is_ok());
-        <span class="kw">let </span>caller_reply = rt.block_on(event_handle2).expect(<span class="string">&quot;caller receive reply&quot;</span>);
+        <span class="kw">let </span>caller_reply = rt.block_on(event_handle2).expect(<span class="string">"caller receive reply"</span>);
         <span class="macro">assert!</span>(caller_reply.is_ok());
     }
 
@@ -1456,10 +1457,10 @@
         </span><span class="kw">let </span>(event, guard, _event_handle) = rt.block_on(create_event(<span class="number">512</span>, <span class="kw-2">&amp;mut </span>sender, <span class="kw-2">&amp;mut </span>receiver, <span class="prelude-val">None</span>));
         <span class="kw">let </span>(reply, cap_guard) = rt
             .block_on(<span class="kw">async </span>{
-                segment_writer.write(event, guard).<span class="kw">await</span>.expect(<span class="string">&quot;write data&quot;</span>);
+                segment_writer.write(event, guard).<span class="kw">await</span>.expect(<span class="string">"write data"</span>);
                 receiver.recv().<span class="kw">await
             </span>})
-            .expect(<span class="string">&quot;receive DataAppend from segment writer&quot;</span>);
+            .expect(<span class="string">"receive DataAppend from segment writer"</span>);
         <span class="macro">assert_eq!</span>(cap_guard.size, <span class="number">0</span>);
 
         <span class="kw">let </span>result = <span class="kw">if let </span>Incoming::ServerReply(server) = reply {
@@ -1491,7 +1492,7 @@
         segment_writer.add_pending(event0, guard0);
         segment_writer.add_pending(event1, guard1);
 
-        rt.block_on(segment_writer.write_pending_events()).expect(<span class="string">&quot;write&quot;</span>);
+        rt.block_on(segment_writer.write_pending_events()).expect(<span class="string">"write"</span>);
         <span class="macro">assert_eq!</span>(segment_writer.pending.len(), <span class="number">1</span>);
         <span class="macro">assert_eq!</span>(segment_writer.inflight.len(), <span class="number">1</span>);
 
@@ -1507,7 +1508,7 @@
         segment_writer.add_pending(event0, guard0);
         segment_writer.add_pending(event1, guard1);
 
-        rt.block_on(segment_writer.write_pending_events()).expect(<span class="string">&quot;write&quot;</span>);
+        rt.block_on(segment_writer.write_pending_events()).expect(<span class="string">"write"</span>);
         <span class="macro">assert_eq!</span>(segment_writer.pending.len(), <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(segment_writer.inflight.len(), <span class="number">2</span>);
 
@@ -1523,7 +1524,7 @@
         segment_writer.add_pending(event0, guard0);
         segment_writer.add_pending(event1, guard1);
 
-        rt.block_on(segment_writer.write_pending_events()).expect(<span class="string">&quot;write&quot;</span>);
+        rt.block_on(segment_writer.write_pending_events()).expect(<span class="string">"write"</span>);
         <span class="macro">assert_eq!</span>(segment_writer.pending.len(), <span class="number">1</span>);
         <span class="macro">assert_eq!</span>(segment_writer.inflight.len(), <span class="number">1</span>);
     }
@@ -1548,7 +1549,7 @@
         segment_writer.add_pending(event1, guard1);
         segment_writer.add_pending(event2, guard2);
 
-        rt.block_on(segment_writer.write_pending_events()).expect(<span class="string">&quot;write&quot;</span>);
+        rt.block_on(segment_writer.write_pending_events()).expect(<span class="string">"write"</span>);
         <span class="macro">assert_eq!</span>(segment_writer.pending.len(), <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(segment_writer.inflight.len(), <span class="number">3</span>);
 
@@ -1565,7 +1566,7 @@
 
         segment_writer.add_pending(event0, guard0);
         segment_writer.add_pending(event1, guard1);
-        rt.block_on(segment_writer.write_pending_events()).expect(<span class="string">&quot;write&quot;</span>);
+        rt.block_on(segment_writer.write_pending_events()).expect(<span class="string">"write"</span>);
         segment_writer.add_pending(event2, guard2);
 
         <span class="macro">assert_eq!</span>(segment_writer.pending.len(), <span class="number">1</span>);
@@ -1585,10 +1586,10 @@
         ChannelReceiver&lt;Incoming&gt;,
         ClientFactory,
     ) {
-        <span class="kw">let </span>segment = ScopedSegment::from(<span class="string">&quot;testScope/testStream/0&quot;</span>);
+        <span class="kw">let </span>segment = ScopedSegment::from(<span class="string">"testScope/testStream/0"</span>);
         <span class="kw">let </span>config = ClientConfigBuilder::default()
             .connection_type(ConnectionType::Mock(mock))
-            .controller_uri(PravegaNodeUri::from(<span class="string">&quot;127.0.0.1:9091&quot;</span>.to_string()))
+            .controller_uri(PravegaNodeUri::from(<span class="string">"127.0.0.1:9091"</span>.to_string()))
             .mock(<span class="bool-val">true</span>)
             .build()
             .unwrap();
@@ -1616,13 +1617,13 @@
     ) -&gt; (PendingEvent, CapacityGuard, EventHandle) {
         <span class="kw">let </span>(oneshot_sender, oneshot_receiver) = tokio::sync::oneshot::channel();
         <span class="kw">let </span>event = PendingEvent::new(
-            RoutingInfo::RoutingKey(<span class="prelude-val">Some</span>(<span class="string">&quot;routing_key&quot;</span>.into())),
+            RoutingInfo::RoutingKey(<span class="prelude-val">Some</span>(<span class="string">"routing_key"</span>.into())),
             <span class="macro">vec!</span>[<span class="number">1</span>; size],
             offset,
             oneshot_sender,
             <span class="prelude-val">None</span>,
         )
-        .expect(<span class="string">&quot;create pending event&quot;</span>);
+        .expect(<span class="string">"create pending event"</span>);
         sender.send((Incoming::AppendEvent(event), size)).<span class="kw">await</span>.unwrap();
         <span class="kw">loop </span>{
             <span class="kw">let </span>(event, guard) = receiver.recv().<span class="kw">await</span>.unwrap();
