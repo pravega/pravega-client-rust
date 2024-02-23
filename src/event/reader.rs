@@ -1477,7 +1477,6 @@ mod tests {
             .return_once(move |_| Ok(1 as isize));
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
         rg_mock.expect_check_online().return_const(true);
-
         // mock rg_state.assign_segment_to_reader
         let res: Result<Option<ScopedSegment>, ReaderGroupStateError> =
             Ok(Some(ScopedSegment::from("scope/test/1.#epoch.0")));
@@ -1581,6 +1580,7 @@ mod tests {
             .return_once(move |_| Ok(0 as isize));
         rg_mock.expect_check_online().return_const(true);
         rg_mock.expect_remove_reader().return_once(move |_, _| Ok(()));
+        rg_mock.expect_update_reader_positions().return_once(move |_, _| Ok(()));
         // create a new Event Reader with the segment slice data.
         let mut reader = EventReader::init_event_reader(
             Arc::new(Mutex::new(rg_mock)),

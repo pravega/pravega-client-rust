@@ -24,7 +24,7 @@ use snafu::Snafu;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::{error, info};
+use tracing::{error};
 
 cfg_if::cfg_if! {
     if #[cfg(test)] {
@@ -225,7 +225,7 @@ impl ReaderGroup {
             let segment_id = seg.segment.number;
 
             // Update the segment_offset_map for the corresponding scoped_stream
-            let entry = acc.entry(scoped_stream).or_insert(HashMap::new());
+            let entry: &mut HashMap<i64, i64> = acc.entry(scoped_stream).or_default();
             entry.insert(segment_id, offset.read);
             acc
         });
@@ -234,11 +234,10 @@ impl ReaderGroup {
             .collect();
 
         if let Some(first_streamcut) = streamcuts.first() {
-            let cloned_streamcut = first_streamcut.clone();
-            cloned_streamcut
+            first_streamcut.clone()
         } else {
             error!("Expected a StreamCut but none found");
-            let streamcut: Option<StreamCut> = streamcuts.first().map(|streamcut_ref| streamcut_ref.clone());
+            let streamcut: Option<StreamCut> = streamcuts.first().cloned();
             streamcut.expect("Expected a StreamCut but none found")
         }
     }
