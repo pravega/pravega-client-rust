@@ -62,6 +62,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: pravega-standalone-log
-          path: pravega.log
-          retention-days: 5
+              name: pravega-standalone-log-${{ matrix.node_version }}
+              path: pravega.log
+              retention-days: 5
