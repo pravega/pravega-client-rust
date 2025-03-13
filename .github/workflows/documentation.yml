@@ -9,9 +9,9 @@ jobs:
   generate_documentation:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v2
+      - uses: actions/setup-node@v4
         with:
           node-version: "16"
       # This copy the Nodejs README to the book source
