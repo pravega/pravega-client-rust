@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/pravega/pravega-client-rust/golang v0.0.1
-	github.com/sirupsen/logrus v1.8.1
+	github.com/sirupsen/logrus v1.8.3
 	golang.org/x/net v0.23.0
 	golang.org/x/sync v0.1.0
 )
